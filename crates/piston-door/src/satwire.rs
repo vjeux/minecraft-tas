@@ -124,20 +124,35 @@ pub enum Kind {
     RBlock,
     /// a closed top-half iron trapdoor: like `Trap`, and its top face holds dust and diodes.
     TrapTop,
+    /// a sculk sensor (radius 8, ACTIVE 30 gt then COOLDOWN 10 gt): activated by the first
+    /// vibration (piston motions, the lever, note blocks, trapdoors, droppers, update pistons)
+    /// it hears while inactive, after floor(distance) ticks of travel; weak power on every side,
+    /// strong into the block below. Not a conductor, not sturdy, not movable.
+    Sculk,
+    /// a calibrated sculk sensor (radius 16, ACTIVE 10 gt then COOLDOWN 10 gt), facing f: (0,0) =
+    /// facing north (its back, the frequency input, is out of the plane: it hears everything);
+    /// E/W: the back is the in-plane neighbor at -f (no output into it; nothing may power it).
+    CSculk(C2),
+    /// wool: a conductor full block that OCCLUDES vibrations (all 6 nudged lines through wool).
+    Wool,
 }
 
 impl Kind {
     pub fn cond(self) -> bool {
-        matches!(self, Kind::Block | Kind::Note | Kind::Lamp | Kind::Dropper | Kind::Obsid)
+        matches!(self, Kind::Block | Kind::Note | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Wool)
     }
     pub fn sturdy(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass | Kind::RBlock | Kind::TrapTop)
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Dropper | Kind::Obsid | Kind::Glass | Kind::RBlock | Kind::TrapTop | Kind::Wool)
     }
     pub fn movable(self) -> bool {
-        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass | Kind::UPiston(_))
+        matches!(self, Kind::Block | Kind::Obs(_) | Kind::Note | Kind::Bulb | Kind::Lamp | Kind::Trap | Kind::Glass | Kind::UPiston(_) | Kind::Wool)
     }
     pub fn has_out(self) -> bool {
-        matches!(self, Kind::Rep(..) | Kind::Obs(_) | Kind::Torch | Kind::WTorch(_) | Kind::Cmp(_) | Kind::Lamp | Kind::UPiston(_))
+        matches!(self, Kind::Rep(..) | Kind::Obs(_) | Kind::Torch | Kind::WTorch(_) | Kind::Cmp(_) | Kind::Lamp | Kind::UPiston(_) | Kind::Sculk | Kind::CSculk(_))
+    }
+    /// A sculk sensor (regular or calibrated).
+    pub fn sculk(self) -> bool {
+        matches!(self, Kind::Sculk | Kind::CSculk(_))
     }
     /// Relative cells the output (any signal) reaches.
     pub fn out_to(self) -> Vec<C2> {
@@ -145,6 +160,9 @@ impl Kind {
             Kind::Rep(_, f) | Kind::Obs(f) | Kind::Cmp(f) => vec![neg(f)],
             Kind::Torch => vec![E, W, U],
             Kind::WTorch(f) => DIRS.iter().copied().filter(|d| *d != neg(f)).collect(),
+            Kind::Sculk => DIRS.to_vec(),
+            // (a calibrated sensor gives nothing to its back, the cell at -f)
+            Kind::CSculk(f) => DIRS.iter().copied().filter(|d| f == (0, 0) || *d != neg(f)).collect(),
             _ => vec![],
         }
     }
@@ -153,6 +171,7 @@ impl Kind {
         match self {
             Kind::Rep(_, f) | Kind::Obs(f) | Kind::Cmp(f) => vec![neg(f)],
             Kind::Torch | Kind::WTorch(_) => vec![U],
+            Kind::Sculk | Kind::CSculk(_) => vec![DN],
             _ => vec![],
         }
     }
@@ -187,6 +206,9 @@ impl Kind {
             Kind::UPiston(f) => format!("minecraft:piston[extended=false,facing={}]", dname(f)),
             Kind::RBlock => "minecraft:redstone_block".into(),
             Kind::TrapTop => format!("minecraft:iron_trapdoor[facing=north,half=top,open={b},powered={b},waterlogged=false]"),
+            Kind::Sculk => "minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]".into(),
+            Kind::CSculk(f) => format!("minecraft:calibrated_sculk_sensor[facing={},power=0,sculk_sensor_phase=inactive,waterlogged=false]", if f == (0, 0) { "north" } else { dname(f) }),
+            Kind::Wool => "minecraft:white_wool".into(),
         }
     }
     /// The kind of a wiring block state (None: not wiring).
@@ -214,6 +236,13 @@ impl Kind {
             "glass" => Kind::Glass,
             n if n.ends_with("_leaves") => Kind::Leaves,
             "piston" => Kind::UPiston(f("facing")?),
+            "sculk_sensor" => Kind::Sculk,
+            "calibrated_sculk_sensor" => Kind::CSculk(match prop(s, "facing") {
+                Some("east") => E,
+                Some("west") => W,
+                _ => (0, 0),
+            }),
+            n if n.ends_with("_wool") => Kind::Wool,
             _ => return None,
         })
     }
@@ -252,7 +281,11 @@ pub fn palette(spec: &str) -> Result<Vec<Kind>> {
             "upiston" => v.extend(DIRS.iter().map(|d| Kind::UPiston(*d))),
             "rblock" => v.push(Kind::RBlock),
             "traptop" => v.push(Kind::TrapTop),
-            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass,leaves,upiston)"),
+            "sculk" => v.push(Kind::Sculk),
+            "csculk" => v.extend([Kind::CSculk((0, 0)), Kind::CSculk(E), Kind::CSculk(W)]),
+            "csculk0" => v.push(Kind::CSculk((0, 0))),
+            "wool" => v.push(Kind::Wool),
+            _ => bail!("unknown palette entry {t:?} (block,dust,rep,rep1..4,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,obsidian,glass,leaves,upiston,rblock,traptop,sculk,csculk,csculk0,wool)"),
         }
     }
     v.sort();
@@ -296,9 +329,9 @@ pub fn mk(s: &str) -> MK {
 
 /// Blocks with redstone behavior satwire does not model (they must not pass as plain conductors).
 pub fn unsupported(n: &str) -> bool {
-    n.contains("sculk") || n.contains("rail") || n.ends_with("_button") || n.ends_with("pressure_plate") || n.ends_with("glazed_terracotta")
+    (n.contains("sculk") && !matches!(n, "sculk_sensor" | "calibrated_sculk_sensor")) || n.contains("rail") || n.ends_with("_button") || n.ends_with("pressure_plate") || n.ends_with("glazed_terracotta")
         || (n.ends_with("trapdoor") && n != "iron_trapdoor") || (n.ends_with("_door") && n != "iron_door")
-        || matches!(n, "target" | "daylight_detector" | "tripwire" | "tripwire_hook" | "lectern" | "hopper" | "dispenser" | "calibrated_sculk_sensor" | "crafter" | "iron_door")
+        || matches!(n, "target" | "daylight_detector" | "tripwire" | "tripwire_hook" | "lectern" | "hopper" | "dispenser" | "crafter" | "iron_door")
 }
 
 fn is_wiring_state(s: &str) -> bool {
@@ -476,6 +509,21 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     let door_cells: HashSet<C2> = spec.door_cells().iter().map(|p| (p[0], p[1])).collect();
     let mut wiring = BTreeMap::new();
     let mut lever = None;
+    // a NORMAL piston that only ever pushes its own head into an empty cell (a wire-free relay an
+    // observer watches: c79's (3,-2), shrink's t7b-pw42) is wiring too: an update piston (its
+    // head cell leaves the mechanism)
+    let mut heads: HashSet<C2> = HashSet::new();
+    let upiston_relay = |c: C2, s: &str| -> Option<C2> {
+        if short(s) != "piston" || prop(s, "extended") != Some("false") {
+            return None;
+        }
+        let f = prop(s, "facing").and_then(dparse)?;
+        let hc = add(c, f);
+        let own = |t: &str| matches!(short(t), "piston_head" | "moving_piston") && prop(t, "facing").and_then(dparse) == Some(f);
+        let base_ok = |t: &str| (short(t) == "piston" && prop(t, "facing").and_then(dparse) == Some(f)) || (short(t) == "moving_piston" && prop(t, "facing").and_then(dparse) == Some(f));
+        let ok = full.iter().all(|ph| ph.iter().all(|fr| fr.get(&c).is_some_and(|t| base_ok(t)) && fr.get(&hc).is_none_or(|t| mk(t) == MK::Air || own(t))));
+        ok.then_some(hc)
+    };
     for (p, s) in rest_region.iter() {
         if p[2] != z || s.ends_with(":air") {
             if short(s) == "lever" {
@@ -486,6 +534,11 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
         let c = (p[0], p[1]);
         if short(s) == "lever" {
             lever = Some((p, s.to_string()));
+            continue;
+        }
+        if let Some(hc) = upiston_relay(c, s) {
+            wiring.insert(c, s.to_string());
+            heads.insert(hc);
             continue;
         }
         let stat = full.iter().all(|ph| ph.iter().all(|f| f.get(&c).map(String::as_str) == Some(s)));
@@ -500,7 +553,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     for ph in 0..2 {
         let frames: Vec<HashMap<C2, String>> = full[ph]
             .iter()
-            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
+            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && !heads.contains(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
             .collect();
         let idx = |c: C2| -> Option<usize> { probes.iter().position(|p| p[0] == c.0 && p[1] == c.1) };
         let pistons = |f: &HashMap<C2, String>| -> Vec<C2> { f.iter().filter(|(_, s)| matches!(mk(s), MK::Piston { .. })).map(|(c, _)| *c).collect() };
@@ -529,7 +582,15 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
 /// piston (direct or quasi-connected) per tick.
 pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> Result<Rec> {
-    let d = s.design().clone();
+    // the plan as it runs under its phase rule (`phase tile`, satwire's default since main
+    // de6ecbce: an off-plane input becomes a wall torch on a support, lit in the tile ticks of its
+    // tick like a wired observer's output; `--between-ticks` / `phase between`: the old rule)
+    let (d, open_ev, close_ev, notes) = s.realize(s.vars())?;
+    if std::env::var("SATWIRE_PHASE_NOTES").is_ok() {
+        for n in &notes {
+            println!("plan phase note: {n}");
+        }
+    }
     let door = *d.ports.get("door").context("design has no 'port door'")?;
     let spec = DoorSpec { door, lever: door, along_z: false };
     let z = spec.door[2];
@@ -539,19 +600,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         lo[i] -= 3;
         hi[i] += 3;
     }
-    // In-plane blocks, plus the redstone blocks one cell in front of / behind the plane (ideal
-    // plans put some inputs right behind the piston they fire: that power is recorded too; the
-    // wiring then has to give it from the plane). Fix from wire56 (6d1c760).
+    // In-plane blocks, plus the inputs one cell in front of / behind the plane (ideal plans put
+    // some inputs right behind the piston they fire: that power is recorded too; the wiring then
+    // has to give it from the plane; fix from wire56, 6d1c760): redstone blocks, or the lit wall
+    // torches of the tile phase.
     let snap = |w: &mut Worker| -> Result<(HashMap<C2, String>, HashSet<C2>)> {
         let r = w.get_region(sb, lo, hi)?;
         let plane = r.iter().filter(|(p, s)| p[2] == z && !s.ends_with(":air")).map(|(p, s)| ((p[0], p[1]), s.to_string())).collect();
-        let oop = r.iter().filter(|(p, s)| (p[2] - z).abs() == 1 && short(s) == "redstone_block").map(|(p, _)| (p[0], p[1])).collect();
+        let oop = r
+            .iter()
+            .filter(|(p, s)| (p[2] - z).abs() == 1 && (short(s) == "redstone_block" || (short(s) == "redstone_wall_torch" && prop(s, "lit") == Some("true"))))
+            .map(|(p, _)| (p[0], p[1]))
+            .collect();
         Ok((plane, oop))
     };
     let is_input = |s: &str| matches!(short(s), "redstone_block" | "lever");
     // What the schedule writes into a cell (redstone blocks, glass pokes, a stone put back) is
     // input, not mechanism, while it stays there: a mechanism block under it keeps its last state.
-    let inputs: Vec<Pos> = s.input_cells();
+    let mut inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.as_deref() != Some("@use")).map(|e| e.1).collect();
+    inputs.sort();
+    inputs.dedup();
     let mech = |f: &HashMap<C2, String>, prev: &HashMap<C2, String>, held: &mut HashMap<C2, String>| -> HashMap<C2, String> {
         let mut out = HashMap::new();
         held.retain(|c, st| f.get(c).map(String::as_str).unwrap_or("minecraft:air") == st.as_str());
@@ -607,11 +675,14 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             _ => matches!(mk(st), MK::Cond) && probes.iter().position(|p| p[0] == n.0 && p[1] == n.1).is_some_and(|i| sig[i].1 > 0),
         }
     };
-    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>)| -> Result<HashMap<C2, bool>> {
+    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>), pre: Option<&HashMap<C2, String>>| -> Result<HashMap<C2, bool>> {
         let (f, oop) = fr;
         let sig = w.signals(sb, &probes)?;
         let on = |c: C2| probes.iter().position(|p| p[0] == c.0 && p[1] == c.1).is_some_and(|i| sig[i].0 > 0);
-        Ok(f.iter()
+        // (the pistons of `pre`, the frame before the tick, when the power is read at its end)
+        Ok(pre
+            .unwrap_or(f)
+            .iter()
             .filter_map(|(c, st)| match mk(st) {
                 MK::Piston { f: fc, .. } => {
                     let front = add(*c, fc);
@@ -640,24 +711,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             })
             .collect()
     };
+    // tile phase: an input acts inside its tick (like a wired observer): the power a piston gets
+    // during tick j is read at the END of tick j, as `record_wired` reads a wired door; between
+    // ticks (the old rule): read after the events, before the tick runs
+    let tile = s.phase == crate::ideal::PlanPhase::Tile;
     let mut phases: [Phase; 2] = Default::default();
     for (ph, open) in [(0usize, true), (1usize, false)] {
-        let evs = s.events_of(open, s.vars())?;
+        let evs = if open { &open_ev } else { &close_ev };
         let before = snap(w)?;
         let mut held: HashMap<C2, String> = HashMap::new();
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
         let mut frames = Vec::new();
-        let mut power = vec![power_now(w, &before)?];
+        let mut power = vec![power_now(w, &before, None)?];
         let mut oops = vec![before.1.clone()];
         for t in 0..=ticks {
-            for (et, p, st) in &evs {
+            for (et, p, st) in evs {
                 if *et == t {
                     if st.as_deref() == Some("@use") {
                         w.use_block(sb, *p)?;
                         continue;
                     }
-
-
                     let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
                     if p[2] == z {
                         held.insert((p[0], p[1]), state.clone());
@@ -669,9 +742,16 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             let mf = mech(&f.0, &prev, &mut held);
             prev = mf.clone();
             frames.push(mf);
-            power.push(power_now(w, &f)?);
-            oops.push(f.1.clone());
+            if !tile {
+                power.push(power_now(w, &f, None)?);
+                oops.push(f.1.clone());
+            }
             w.step(sb, 1)?;
+            if tile {
+                let f2 = snap(w)?;
+                power.push(power_now(w, &f2, Some(&f.0))?);
+                oops.push(f2.1.clone());
+            }
         }
         power.truncate(frames.len());
         oops.truncate(frames.len());
@@ -696,7 +776,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             lever = Some((*p, st.clone()));
             continue;
         }
-        if p[2] != z || (short(st) == "redstone_block" && s.input_cells().contains(p)) {
+        if p[2] != z || (short(st) == "redstone_block" && inputs.contains(p)) {
             continue;
         }
         let c = (p[0], p[1]);
@@ -1295,6 +1375,14 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             }
         }
     }
+    // sculk sensors: no sensor right above a cell the mechanism ever fills with a conductor (its
+    // strong power at the vibration's distance level into a moving door block is not modeled)
+    for (c, ks) in kinds.iter_mut() {
+        let below = add(*c, DN);
+        if mech.contains(&below) && rec.all_phases().iter().any(|ph| ph.frames.iter().any(|f| f.get(&below).is_some_and(|s| mk(s) == MK::Cond))) {
+            ks.retain(|k| !k.sculk());
+        }
+    }
     // lever candidates
     if let Some((c, _)) = kinds.iter().find(|(_, ks)| ks.is_empty()) {
         bail!("cell {c:?} can hold nothing: a --full-frame block two ahead of a sticky piston (it would be pulled)");
@@ -1363,7 +1451,16 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         bail!("no lever candidate");
     }
     let kmax = rec.phases.iter().map(|p| p.k()).max().unwrap_or(0);
-    let h = kmax + o.dmax + o.settle;
+    // sculk sensors: a trace lasts until the last sensor cycle ends (an activation is followed by
+    // 30 + 10 gt, calibrated 10 + 10, of output and cooldown that observers see)
+    let tail = if o.palette.contains(&Kind::Sculk) {
+        41
+    } else if o.palette.iter().any(|k| matches!(k, Kind::CSculk(_))) {
+        21
+    } else {
+        0
+    };
+    let h = kmax + o.dmax + o.settle + tail;
     // independent-timing clusters: the cells moved together by one piston motion (its base and the
     // consecutive cells of its line that change within 3 gt), merged across motions
     let mut parent: HashMap<C2, C2> = HashMap::new();
@@ -1767,6 +1864,9 @@ const P_IND: u8 = 12;
 const P_DROP: u8 = 13;
 const P_LEAVES: u8 = 14;
 const P_UPISTON: u8 = 15;
+const P_STURDY_UP: u8 = 16;
+const P_SCULK: u8 = 17;
+const P_WOOL: u8 = 18;
 
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
@@ -1785,6 +1885,9 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_DROP => |k| k == Kind::Dropper,
         P_LEAVES => |k| k == Kind::Leaves,
         P_UPISTON => |k| matches!(k, Kind::UPiston(_)),
+        P_STURDY_UP => |k| k.sturdy() || k == Kind::UPiston(DN),
+        P_SCULK => |k| k.sculk(),
+        P_WOOL => |k| k == Kind::Wool,
         _ => |k| k.movable(),
     }
 }
@@ -1829,7 +1932,7 @@ pub struct Model<'a> {
     npow: HashMap<Key, Lit>,
     /// Leaves: distance >= j (j = 2..7) at the end of each tick.
     leaves: HashMap<(usize, i32, C2, u8), Lit>,
-    sigc: HashMap<(usize, i32, C2, C2, bool), Lit>,
+    sigc: HashMap<(usize, i32, C2, C2, bool, bool), Lit>,
     mc: HashMap<(usize, i32, C2, u8), Lit>,
     chgc: HashMap<(usize, i32, C2, u8), Lit>,
     causes: HashMap<Key, Vec<Lit>>,
@@ -1851,6 +1954,13 @@ pub struct Model<'a> {
     pub pairs: Vec<(usize, usize, i32, usize, i32, i32)>,
     /// `--retime`: "b starts less than the safe gap after a" literal per pair index.
     close_lits: HashMap<usize, Lit>,
+    /// Sculk sensors: the sensor at c activates at the end of tick r (block-entity phase).
+    sact: HashMap<Key, Lit>,
+    /// Sculk sensors: the power the sensor at c gives dust at tick k is >= j (from the tick after
+    /// its activation to the end of ACTIVE), for cells with a possible dust neighbor.
+    spow: HashMap<(usize, i32, C2, u8), Lit>,
+    /// Set while a piston reads its power (see `sig`).
+    pview: bool,
 }
 
 impl<'a> Model<'a> {
@@ -2012,7 +2122,9 @@ impl<'a> Model<'a> {
     /// A static block at c offers a sturdy face (`up`: its top face) at every tick.
     fn sturdy_static(&mut self, c: C2, up: bool) -> Lit {
         if self.p.is_free(c) {
-            self.pred(c, P_STURDY)
+            // (a top face: an update piston facing down keeps a full top face, its back, extended
+            // or not: dust and diodes may stand on it)
+            self.pred(c, if up { P_STURDY_UP } else { P_STURDY })
         } else {
             self.e.konst(self.p.static_sturdy.contains(&c) || (up && self.p.sturdy_up.contains(&c)))
         }
@@ -2238,9 +2350,12 @@ impl<'a> Model<'a> {
         }
         l
     }
-    /// The block at a gives a signal into b (`dust_rx`: as a wire computes it).
+    /// The block at a gives a signal into b (`dust_rx`: as a wire computes it). With `pview` set
+    /// (a piston reads its power), a sculk sensor's output counts from the tick after it
+    /// activated (it activates in the block-entity phase: pistons react in the next tick).
     fn sig(&mut self, tr: usize, k: i32, a: C2, b: C2, dust_rx: bool) -> Lit {
-        if let Some(l) = self.sigc.get(&(tr, k, a, b, dust_rx)) {
+        let pv = self.pview;
+        if let Some(l) = self.sigc.get(&(tr, k, a, b, dust_rx, pv)) {
             return *l;
         }
         let z = self.p.z;
@@ -2262,10 +2377,23 @@ impl<'a> Model<'a> {
             if ks.contains(&Kind::RBlock) {
                 terms.push(self.kl[&(a, Kind::RBlock)]);
             }
-            let lits: Vec<Lit> = ks.iter().filter(|kk| kk.out_to().iter().any(|o| add(a, *o) == b)).map(|kk| self.kl[&(a, *kk)]).collect();
+            let lits: Vec<Lit> = ks.iter().filter(|kk| !kk.sculk() && kk.out_to().iter().any(|o| add(a, *o) == b)).map(|kk| self.kl[&(a, *kk)]).collect();
             if !lits.is_empty() {
                 let s = self.e.or(&lits);
                 let o = self.out(tr, k, a);
+                terms.push(self.e.and(&[s, o]));
+            }
+            // a sculk sensor (dust never stands next to one: its level is not modeled)
+            let sl: Vec<Lit> = ks.iter().filter(|kk| kk.sculk() && kk.out_to().iter().any(|o| add(a, *o) == b)).map(|kk| self.kl[&(a, *kk)]).collect();
+            if !sl.is_empty() && !dust_rx {
+                let s = self.e.or(&sl);
+                let o = self.out(tr, k, a);
+                let o = if pv {
+                    let o0 = self.out(tr, k - 1, a);
+                    self.e.and(&[o, o0])
+                } else {
+                    o
+                };
                 terms.push(self.e.and(&[s, o]));
             }
         } else if self.is_mech(a) {
@@ -2278,7 +2406,7 @@ impl<'a> Model<'a> {
         }
         terms.push(self.lever_on_lits(tr, k, |l| l.pos == [a.0, a.1, z]));
         let l = self.e.or(&terms);
-        self.sigc.insert((tr, k, a, b, dust_rx), l);
+        self.sigc.insert((tr, k, a, b, dust_rx, pv), l);
         l
     }
     /// Any neighbor signal into c (pistons without their front, bulbs, note blocks).
@@ -2333,7 +2461,33 @@ impl<'a> Model<'a> {
                 } else {
                     f
                 };
-                self.e.or(&[m, lv, nb, up])
+                // ... and so does its HEAD cell (the head pops in on extension, is removed on
+                // retraction, both in the block-event phase): an observer watching the cell in front
+                // of an update piston sees it (a wire-free relay; the moving head's end 2 gt later
+                // finds that observer still on)
+                let mut hd = Vec::new();
+                if self.p.is_free(w) {
+                    for d in DIRS {
+                        let n = add(w, neg(d));
+                        if self.p.is_free(n) && self.p.can(n, |x| x == Kind::UPiston(d)) {
+                            let isu = self.kl[&(n, Kind::UPiston(d))];
+                            let o1 = self.out(tr, k, n);
+                            let o0 = self.out(tr, k - 1, n);
+                            let x = self.e.xor(o1, o0);
+                            hd.push(self.e.and(&[isu, x]));
+                        }
+                    }
+                }
+                let hd = self.e.or(&hd);
+                // a sculk sensor activates in the block-entity phase (after the block events)
+                let sk = if self.p.is_free(w) && self.p.can(w, |x| x.sculk()) && k >= 1 {
+                    let iss = self.pred(w, P_SCULK);
+                    let a = self.sact[&(tr, k, w)];
+                    self.e.and(&[iss, a])
+                } else {
+                    f
+                };
+                self.e.or(&[m, lv, nb, up, hd, sk])
             }
             _ if !self.p.is_free(w) || k == 0 && what == 0 => f,
             0 => {
@@ -2394,6 +2548,23 @@ impl<'a> Model<'a> {
                         t.push(self.e.xor(a, b));
                     }
                 }
+                // a sculk sensor's scheduled ticks: ACTIVE -> COOLDOWN 30 gt (calibrated 10) after
+                // its activation, COOLDOWN -> INACTIVE 10 gt later
+                if self.p.can(w, |x| x.sculk()) {
+                    let act = |m: &Model, r: i32| -> Lit { m.sact.get(&(tr, r, w)).copied().unwrap_or(f) };
+                    if let Some(&rl) = self.kl.get(&(w, Kind::Sculk)) {
+                        let (a, b) = (act(self, k - 30), act(self, k - 40));
+                        let x = self.e.or(&[a, b]);
+                        t.push(self.e.and(&[rl, x]));
+                    }
+                    let cl: Vec<Lit> = [(0, 0), E, W].iter().filter_map(|d| self.kl.get(&(w, Kind::CSculk(*d))).copied()).collect();
+                    if !cl.is_empty() {
+                        let isc = self.e.or(&cl);
+                        let (a, b) = (act(self, k - 10), act(self, k - 20));
+                        let x = self.e.or(&[a, b]);
+                        t.push(self.e.and(&[isc, x]));
+                    }
+                }
                 self.e.or(&t)
             }
         };
@@ -2450,6 +2621,9 @@ pub static HINT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
 /// breaks the mechanism is blocked for every wiring (the too-close pairs it uses).
 pub static RETIME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--free-order` (with `--retime`): touching events of different clusters may also swap order;
+/// the redsim replay of each candidate's retimed plan is the only timing check.
+pub static FREE_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Model<'_> {
     /// Cluster cl of trace tr plays recorded tick >= t at SAT tick k.
@@ -2490,6 +2664,401 @@ impl Model<'_> {
     }
 }
 
+/// The cells each of the 6 nudged lines of `VibrationSystem.Listener.isOccluded` crosses from the
+/// center of `src` to the center of `dst` (redsim's `wool_in_line` walk, read from the 26.3
+/// source): a vibration is occluded when every line crosses a wool block.
+fn vib_lines(src: Pos, dst: Pos) -> Vec<Vec<Pos>> {
+    let from = [src[0] as f64 + 0.5, src[1] as f64 + 0.5, src[2] as f64 + 0.5];
+    let to = [dst[0] as f64 + 0.5, dst[1] as f64 + 0.5, dst[2] as f64 + 0.5];
+    let eps = 1.0e-5f32 as f64;
+    let lerp = |a: f64, p0: f64, p1: f64| p0 + a * (p1 - p0);
+    let frac = |v: f64| v - (v.floor() as i64) as f64;
+    let sign = |v: f64| if v == 0.0 { 0 } else if v > 0.0 { 1 } else { -1 };
+    let steps: [[i32; 3]; 6] = [[0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]];
+    let mut out = Vec::new();
+    for s in steps {
+        let f0 = [from[0] + eps * s[0] as f64, from[1] + eps * s[1] as f64, from[2] + eps * s[2] as f64];
+        let mut cells = Vec::new();
+        if f0 == to {
+            out.push(cells);
+            continue;
+        }
+        let (tx_, ty_, tz_) = (lerp(-1.0e-7, to[0], f0[0]), lerp(-1.0e-7, to[1], f0[1]), lerp(-1.0e-7, to[2], f0[2]));
+        let (fx, fy, fz) = (lerp(-1.0e-7, f0[0], to[0]), lerp(-1.0e-7, f0[1], to[1]), lerp(-1.0e-7, f0[2], to[2]));
+        let (mut cx, mut cy, mut cz) = (fx.floor() as i32, fy.floor() as i32, fz.floor() as i32);
+        cells.push([cx, cy, cz]);
+        let (dx, dy, dz) = (tx_ - fx, ty_ - fy, tz_ - fz);
+        let (sx, sy, sz) = (sign(dx), sign(dy), sign(dz));
+        let tdx = if sx == 0 { f64::MAX } else { sx as f64 / dx };
+        let tdy = if sy == 0 { f64::MAX } else { sy as f64 / dy };
+        let tdz = if sz == 0 { f64::MAX } else { sz as f64 / dz };
+        let mut tx = tdx * if sx > 0 { 1.0 - frac(fx) } else { frac(fx) };
+        let mut ty = tdy * if sy > 0 { 1.0 - frac(fy) } else { frac(fy) };
+        let mut tz = tdz * if sz > 0 { 1.0 - frac(fz) } else { frac(fz) };
+        while tx <= 1.0 || ty <= 1.0 || tz <= 1.0 {
+            if tx < ty {
+                if tx < tz {
+                    cx += sx;
+                    tx += tdx;
+                } else {
+                    cz += sz;
+                    tz += tdz;
+                }
+            } else if ty < tz {
+                cy += sy;
+                ty += tdy;
+            } else {
+                cz += sz;
+                tz += tdz;
+            }
+            cells.push([cx, cy, cz]);
+        }
+        out.push(cells);
+    }
+    out
+}
+
+impl Model<'_> {
+    /// A comparator at c with its rear at c + fd: its input (compare mode, no side input in a
+    /// flat door): the rear signal, or an analog block's output (a copper bulb: lit; a sculk
+    /// sensor: ACTIVE) right behind it, or behind a conductor at the rear (read THROUGH the block,
+    /// replacing a signal below 15: a dust-powered block reads the analog block, a diode-powered
+    /// one stays at 15).
+    fn cmp_in(&mut self, tr: usize, k: i32, c: C2, fd: C2) -> Lit {
+        let f = self.e.f();
+        let r = add(c, fd);
+        let s0 = self.sig(tr, k, r, c, false);
+        let bb = self.pred(r, P_BULB);
+        let bl = Model::get(&self.blit, (tr, k, r), f);
+        let bl2 = self.e.and(&[bb, bl]);
+        let r2 = add(r, fd);
+        let analog2 = self.p.can(r2, |x| x == Kind::Bulb || x.sculk());
+        let cond_r = self.p.can(r, |x| x.cond()) || (self.is_mech(r) && !self.p.is_free(r));
+        if !(analog2 && cond_r) {
+            return self.e.or(&[s0, bl2]);
+        }
+        let isc = self.cond_at(tr, k, r);
+        let b2 = self.pred(r2, P_BULB);
+        let l2 = Model::get(&self.blit, (tr, k, r2), f);
+        let a_b = self.e.and(&[b2, l2]);
+        let s2 = self.pred(r2, P_SCULK);
+        let o2 = self.out(tr, k, r2);
+        let a_s = self.e.and(&[s2, o2]);
+        let an = self.e.or(&[a_b, a_s]);
+        let has_an = self.e.or(&[b2, s2]);
+        // through the block: the analog value, unless the block is strongly powered (15)
+        let st = if self.p.is_free(r) { Model::get(&self.st, (tr, k, r), f) } else { self.cpow(tr, k, r, true) };
+        let thr_v = self.e.or(&[an, st]);
+        let thr = self.e.and(&[isc, has_an]);
+        let direct = self.e.or(&[s0, bl2]);
+        let a = self.e.and(&[thr, thr_v]);
+        let b = self.e.and(&[!thr, direct]);
+        self.e.or(&[a, b])
+    }
+    /// The mechanism piston at q starts extending (block_activate) or retracting
+    /// (block_deactivate) during SAT tick t: a vibration at q.
+    fn pstart(&mut self, tr: usize, t: i32, q: C2) -> Lit {
+        let ws = self.warp_at_c(tr, t, self.p.cl(q));
+        let p = self.p;
+        let mut lits = Vec::new();
+        for (ga, ph) in p.frame_opts(tr % 2, q) {
+            for (tau, wl) in &ws {
+                if *tau < 1 {
+                    continue;
+                }
+                let b = ph.frame(*tau).get(&q);
+                let start = match ph.frame(*tau - 1).get(&q).map(|s| mk(s)) {
+                    Some(MK::Piston { ext: false, f, .. }) => b.is_some_and(|s| matches!(mk(s), MK::Piston { ext: true, f: g, .. } if g == f)),
+                    Some(MK::Piston { ext: true, .. }) => b.is_some_and(|s| short(s) == "moving_piston"),
+                    _ => false,
+                };
+                if start {
+                    match ga {
+                        None => lits.push(*wl),
+                        Some((g, a)) => {
+                            let s = self.alt_sel[g][a];
+                            lits.push(self.e.and(&[*wl, s]));
+                        }
+                    }
+                }
+            }
+        }
+        self.e.or(&lits)
+    }
+    /// The cell c is air during SAT tick t (a note block below it can play).
+    fn air_at(&mut self, tr: usize, t: i32, c: C2) -> Lit {
+        if self.p.is_free(c) {
+            return self.kl.get(&(c, Kind::Empty)).copied().unwrap_or(self.e.f());
+        }
+        if !self.is_mech(c) {
+            return self.e.t();
+        }
+        // (moving blocks and heads count as not air: no note)
+        let ws = self.warp_at_c(tr, t, self.p.cl(c));
+        let p = self.p;
+        let mut lits = Vec::new();
+        for (ga, ph) in p.frame_opts(tr % 2, c) {
+            for (tau, wl) in &ws {
+                if ph.frame(*tau - 1).get(&c).is_none() {
+                    match ga {
+                        None => lits.push(*wl),
+                        Some((g, a)) => {
+                            let s = self.alt_sel[g][a];
+                            lits.push(self.e.and(&[*wl, s]));
+                        }
+                    }
+                }
+            }
+        }
+        self.e.or(&lits)
+    }
+    /// Sculk sensors: for every cell that may hold one, the first vibration it hears while
+    /// inactive (the closest of its tick), its travel time floor(distance), the activation (end of
+    /// tick t + travel), the busy window (travel, ACTIVE, COOLDOWN), all within the horizon, and
+    /// the power level a dust neighbor gets (by the distance); no conductor below a sensor (its
+    /// strong power at that level is not modeled), nothing into a calibrated sensor's in-plane back
+    /// (no frequency filter modeled).
+    fn encode_sculk(&mut self) {
+        let p = self.p;
+        let h = p.h;
+        let z = p.z;
+        let lo = self.lo();
+        let cells: Vec<C2> = p.free.iter().copied().filter(|c| p.can(*c, |k| k.sculk())).collect();
+        if cells.is_empty() {
+            return;
+        }
+        let wool_cells: HashSet<C2> = p.free.iter().copied().filter(|c| p.can(*c, |k| k == Kind::Wool)).collect();
+        // static constraints
+        for &s in &cells {
+            let iss = self.pred(s, P_SCULK);
+            let b = add(s, DN);
+            if p.is_free(b) {
+                let bc = self.pred(b, P_COND);
+                self.e.add(&[!iss, !bc]);
+            }
+            for f in [E, W] {
+                if let Some(&l) = self.kl.get(&(s, Kind::CSculk(f))) {
+                    // its back (the frequency input): no dust and no sensor there (a level other
+                    // than 0 or 15 would select one frequency: not modeled); a full-strength
+                    // signal there makes it deaf to every vibration a door makes (9 and 10)
+                    let back = add(s, neg(f));
+                    if p.can(back, |k| matches!(k, Kind::Dust | Kind::Dot) || k.sculk()) {
+                        let bl: Vec<Lit> = p.kinds[&back].iter().filter(|k| matches!(k, Kind::Dust | Kind::Dot) || k.sculk()).map(|k| self.kl[&(back, *k)]).collect();
+                        for b in bl {
+                            self.e.add(&[!l, !b]);
+                        }
+                    }
+                }
+            }
+        }
+        // occlusion by wool: every one of the 6 lines crosses a wool block
+        let mut occ_cache: HashMap<(Pos, C2), Lit> = HashMap::new();
+        let mut occ = |m: &mut Model, src: Pos, s: C2| -> Lit {
+            if wool_cells.is_empty() {
+                return m.e.f();
+            }
+            if let Some(l) = occ_cache.get(&(src, s)) {
+                return *l;
+            }
+            let mut all = Vec::new();
+            for line in vib_lines(src, [s.0, s.1, z]) {
+                let ws: Vec<Lit> = line.iter().filter(|c| c[2] == z && wool_cells.contains(&(c[0], c[1]))).map(|c| m.kl[&((c[0], c[1]), Kind::Wool)]).collect();
+                all.push(m.e.or(&ws));
+            }
+            let l = m.e.and(&all);
+            occ_cache.insert((src, s), l);
+            l
+        };
+        for tr in 0..self.nt {
+            for &s in &cells {
+                let s3 = [s.0, s.1, z];
+                let reg = self.kl.get(&(s, Kind::Sculk)).copied();
+                let cal: Vec<Lit> = [(0, 0), E, W].iter().filter_map(|f| self.kl.get(&(s, Kind::CSculk(*f))).copied()).collect();
+                // (kind literal, radius, ACTIVE ticks, ACTIVE + COOLDOWN ticks)
+                let mut fams: Vec<(Lit, i64, i32, i32)> = Vec::new();
+                if let Some(l) = reg {
+                    fams.push((l, 8, 30, 40));
+                }
+                if !cal.is_empty() {
+                    let l = self.e.or(&cal);
+                    fams.push((l, 16, 10, 20));
+                }
+                let mut acts: Vec<Vec<Lit>> = vec![Vec::new(); (h + 1) as usize];
+                // (activation tick, active ticks, level, literal): the power windows for dust
+                let mut lvl_acts: Vec<(i32, i32, u8, Lit)> = Vec::new();
+                for (fam, rad, at, tot) in fams {
+                    let d2 = |a: Pos| -> i64 { let (dx, dy, dz) = ((a[0] - s3[0]) as i64, (a[1] - s3[1]) as i64, (a[2] - s3[2]) as i64); dx * dx + dy * dy + dz * dz };
+                    // events per tick: (literal, squared distance)
+                    let mut evs: Vec<Vec<(Lit, i64)>> = vec![Vec::new(); (h + 1) as usize];
+                    for (i, lc) in p.levers.clone().iter().enumerate() {
+                        let dd = d2(lc.pos);
+                        if dd == 0 || dd > rad * rad {
+                            continue;
+                        }
+                        let o = occ(self, lc.pos, s);
+                        let l = self.e.and(&[self.lever[i], !o]);
+                        evs[0].push((l, dd));
+                    }
+                    let near = |q: C2| -> Option<i64> { let dd = d2([q.0, q.1, z]); (dd > 0 && dd <= rad * rad).then_some(dd) };
+                    let mech: Vec<C2> = p.mech.iter().copied().collect();
+                    for q in mech {
+                        let Some(dd) = near(q) else { continue };
+                        // a mechanism cell that ever holds a piston
+                        if !p.rec.all_phases().iter().any(|ph| ph.frames.iter().any(|f| f.get(&q).is_some_and(|x| matches!(mk(x), MK::Piston { .. })))) {
+                            continue;
+                        }
+                        let o = occ(self, [q.0, q.1, z], s);
+                        for t in 1..=h {
+                            let ps = self.pstart(tr, t, q);
+                            if ps == self.e.f() {
+                                continue;
+                            }
+                            let l = self.e.and(&[ps, !o]);
+                            evs[t as usize].push((l, dd));
+                        }
+                    }
+                    let free: Vec<C2> = p.free.clone();
+                    for q in free {
+                        let Some(dd) = near(q) else { continue };
+                        let ks = p.kinds[&q].clone();
+                        let note = ks.contains(&Kind::Note);
+                        let trap = ks.iter().any(|k| matches!(k, Kind::Trap | Kind::TrapTop));
+                        let drop = ks.contains(&Kind::Dropper);
+                        let ups: Vec<Kind> = ks.iter().copied().filter(|k| matches!(k, Kind::UPiston(_))).collect();
+                        if !note && !trap && !drop && ups.is_empty() {
+                            continue;
+                        }
+                        let o = occ(self, [q.0, q.1, z], s);
+                        for t in 1..=h {
+                            let mut ev = Vec::new();
+                            let f0 = self.e.f();
+                            let np = |m: &Model, k: i32| Model::get(&m.npow, (tr, k, q), f0);
+                            if note {
+                                let isn = self.kl[&(q, Kind::Note)];
+                                let (a, b) = (np(self, t), np(self, t - 1));
+                                let air = self.air_at(tr, t, add(q, U));
+                                ev.push(self.e.and(&[isn, a, !b, air]));
+                            }
+                            if trap {
+                                let tl: Vec<Lit> = ks.iter().filter(|k| matches!(k, Kind::Trap | Kind::TrapTop)).map(|k| self.kl[&(q, *k)]).collect();
+                                let ist = self.e.or(&tl);
+                                let (a, b) = (np(self, t), np(self, t - 1));
+                                let x = self.e.xor(a, b);
+                                ev.push(self.e.and(&[ist, x]));
+                            }
+                            if drop && t >= 4 {
+                                let isd = self.kl[&(q, Kind::Dropper)];
+                                let (a, b) = (np(self, t - 4), np(self, t - 5));
+                                ev.push(self.e.and(&[isd, a, !b]));
+                            }
+                            if !ups.is_empty() {
+                                let ul: Vec<Lit> = ups.iter().map(|k| self.kl[&(q, *k)]).collect();
+                                let isu = self.e.or(&ul);
+                                let (a, b) = (self.out(tr, t, q), self.out(tr, t - 1, q));
+                                let x = self.e.xor(a, b);
+                                ev.push(self.e.and(&[isu, x]));
+                            }
+                            let any = self.e.or(&ev);
+                            if any == self.e.f() {
+                                continue;
+                            }
+                            let l = self.e.and(&[any, !o]);
+                            evs[t as usize].push((l, dd));
+                        }
+                    }
+                    // the distance classes heard here, nearest first: travel floor(d), level
+                    // max(1, 15 - floor(15 / radius * d))
+                    let mut d2s: Vec<i64> = evs.iter().flat_map(|v| v.iter().map(|e| e.1)).collect();
+                    d2s.sort();
+                    d2s.dedup();
+                    let nc = d2s.len();
+                    if nc == 0 {
+                        continue;
+                    }
+                    let trav: Vec<i32> = d2s.iter().map(|d| ((*d as f64).sqrt() as f32 as f64).floor() as i32).collect();
+                    let level: Vec<u8> = d2s.iter().map(|d| { let dist = (*d as f64).sqrt() as f32 as f64; (15 - ((15.0f64 / rad as f64) * dist).floor() as i32).max(1) as u8 }).collect();
+                    // sel[t][i] = listening at t and the nearest event of tick t is in class i;
+                    // selge[t][i] = some class >= i selected at t (travel is monotone in i)
+                    let mut sel: Vec<Vec<Lit>> = vec![vec![self.e.f(); nc + 1]; (h + 1) as usize];
+                    let mut selge: Vec<Vec<Lit>> = vec![vec![self.e.f(); nc + 1]; (h + 1) as usize];
+                    let tmax = *trav.last().unwrap();
+                    // a calibrated sensor facing E/W hears nothing while its back gets a signal
+                    let deaf: Vec<Lit> = (0..=h)
+                        .map(|t| {
+                            let mut v = Vec::new();
+                            for f in [E, W] {
+                                if let Some(&l) = self.kl.get(&(s, Kind::CSculk(f))) {
+                                    if rad == 16 {
+                                        let sg = self.sig(tr, t, add(s, neg(f)), s, false);
+                                        v.push(self.e.and(&[l, sg]));
+                                    }
+                                }
+                            }
+                            self.e.or(&v)
+                        })
+                        .collect();
+                    for t in 0..=h {
+                        // busy: a cycle selected at t' < t still running at t (t <= t' + T + tot - 1)
+                        let mut busy = Vec::new();
+                        for t2 in (t - tmax - tot + 1).max(0)..t {
+                            let mn = (t - t2 - tot + 1).max(1);
+                            if let Some(i0) = trav.iter().position(|tt| *tt >= mn) {
+                                busy.push(selge[t2 as usize][i0]);
+                            }
+                        }
+                        let busy = self.e.or(&busy);
+                        let mut le = self.e.f();
+                        for i in 0..nc {
+                            let ex: Vec<Lit> = evs[t as usize].iter().filter(|e| e.1 == d2s[i]).map(|e| e.0).collect();
+                            let exact = self.e.or(&ex);
+                            let le2 = self.e.or(&[le, exact]);
+                            // the nearest event: in class i, none nearer
+                            let sv = if exact == self.e.f() { self.e.f() } else { self.e.and(&[fam, !busy, exact, !le, !deaf[t as usize]]) };
+                            sel[t as usize][i] = sv;
+                            le = le2;
+                            // the cycle must end within the horizon
+                            if t + trav[i] + tot - 1 > h && sv != self.e.f() {
+                                self.e.add(&[!sv]);
+                            }
+                        }
+                        for i in (0..nc).rev() {
+                            let a = sel[t as usize][i];
+                            let b = selge[t as usize][i + 1];
+                            selge[t as usize][i] = self.e.or(&[a, b]);
+                        }
+                        for i in 0..nc {
+                            let r = t + trav[i];
+                            let sv = sel[t as usize][i];
+                            if r <= h && sv != self.e.f() {
+                                acts[r as usize].push(sv);
+                                lvl_acts.push((r, at, level[i], sv));
+                            }
+                        }
+                    }
+                }
+                for r in 1..=h {
+                    let v = self.sact[&(tr, r, s)];
+                    let a = self.e.or(&acts[r as usize]);
+                    self.e.eq(v, a);
+                }
+                // the level a dust neighbor reads: from the tick after the activation through the
+                // last ACTIVE tick (the dust update of the block-entity phase reaches pistons and
+                // dust-fed blocks in the next tick)
+                if self.spow.keys().any(|key| key.0 == tr && key.2 == s) {
+                    for k in -1..=h {
+                        for j in lo..=15u8 {
+                            let ls: Vec<Lit> = lvl_acts.iter().filter(|(r, at, lv, _)| *lv >= j && *r + 1 <= k && k <= *r + *at - 1).map(|x| x.3).collect();
+                            let a = self.e.or(&ls);
+                            let v = self.spow[&(tr, k, s, j)];
+                            self.e.eq(v, a);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// `--retime`: the ideal plan with each input event moved with the cluster of the piston it drives
 /// (an input set at plan tick t powers its piston at recorded tick t+1: it moves to the SAT tick
 /// before the one at which that piston's cluster plays t+1).
@@ -2519,7 +3088,10 @@ fn retimed_plan(m: &Model, plan: &crate::ideal::Schedule) -> Result<crate::ideal
             evs.push((open, nt, pos, st.clone()));
         }
     }
-    Ok(crate::ideal::Schedule::from_events(plan.design().clone(), &evs))
+    // (the retimed plan runs under the plan's own phase rule, like the recording)
+    let mut s2 = crate::ideal::Schedule::from_events(plan.design().clone(), &evs);
+    s2.phase = plan.phase;
+    Ok(s2)
 }
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
@@ -2651,6 +3223,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // replaying the retimed ideal plan (a timing nogood when it breaks)
                         let d = if RETIME.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { dmin };
                         pairs.push((tr0, x, a, y, b, dmin));
+                        // --free-order (with --retime): touching events of different clusters may
+                        // even swap; every candidate's timing is replayed with the plan's ideal
+                        // inputs (redsim) and a timing that breaks the mechanism is blocked
+                        if FREE_ORDER.load(std::sync::atomic::Ordering::Relaxed) && RETIME.load(std::sync::atomic::Ordering::Relaxed) {
+                            continue;
+                        }
                         for k in 1..=p.h {
                             let gy = ge(&mut e, &warp, tr0, y, k, b);
                             let gx = ge(&mut e, &warp, tr0, x, k - d, a);
@@ -2694,6 +3272,9 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
         uo_sels: Vec::new(),
         pairs,
         close_lits: HashMap::new(),
+        sact: HashMap::new(),
+        spow: HashMap::new(),
+        pview: false,
         gsels: Vec::new(),
     };
     let h = p.h;
@@ -2706,7 +3287,9 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     for c in p.free.clone() {
         for k in p.kinds[&c].clone() {
             let l = m.kl[&(c, k)];
-            if let Some(sd) = k.support() {
+            // (a kept cell keeps its own support: a working partial may float dust over a cell a
+            // piston empties without a shape update; the judge decides)
+            if let Some(sd) = k.support().filter(|_| p.fixed.get(&c) != Some(&k)) {
                 let s = m.sturdy_static(add(c, sd), sd == DN);
                 m.e.add(&[!l, s]);
             }
@@ -2814,6 +3397,26 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                 }
             }
         }
+        // sculk sensors: activation at the end of tick r (defined by `encode_sculk`)
+        for r in 1..=h {
+            for c in p.free.clone() {
+                if p.can(c, |kk| kk.sculk()) {
+                    let v = m.e.var();
+                    m.sact.insert((tr, r, c), v);
+                }
+            }
+        }
+        // ... and the power level they give a dust neighbor
+        for c in p.free.clone() {
+            if p.can(c, |kk| kk.sculk()) && [E, W, U].iter().any(|d| p.can(add(c, *d), |kk| matches!(kk, Kind::Dust))) {
+                for k in -1..=h {
+                    for j in lo..=15 {
+                        let v = m.e.var();
+                        m.spow.insert((tr, k, c, j), v);
+                    }
+                }
+            }
+        }
     }
     // ---- per trace, per tick
     for tr in 0..nt {
@@ -2848,8 +3451,24 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     src.push(m.oop(tr, k, c));
                     let src = m.e.or(&src);
                     let up_c = m.cond_at(tr, k, add(c, U));
+                    // a sculk sensor beside or above the dust gives it its power level (by the
+                    // activating vibration's distance), from the tick after it activated
+                    let sens: Vec<(Lit, C2)> = [E, W, U]
+                        .iter()
+                        .filter_map(|d| {
+                            let n = add(c, *d);
+                            let ks2 = p.kinds.get(&n)?;
+                            let ls: Vec<Lit> = ks2.iter().filter(|kk| kk.sculk() && kk.out_to().iter().any(|o| add(n, *o) == c)).map(|kk| m.kl[&(n, *kk)]).collect();
+                            (!ls.is_empty()).then(|| (m.e.or(&ls), n))
+                        })
+                        .collect();
                     for j in lo..=15 {
                         let mut sup = vec![src];
+                        for (isn, n) in &sens {
+                            if let Some(sp) = m.spow.get(&(tr, k, *n, j)).copied() {
+                                sup.push(m.e.and(&[*isn, sp]));
+                            }
+                        }
                         for s in [E, W] {
                             let n = add(c, s);
                             sup.push(m.lvl(tr, k, n, j + 1));
@@ -3109,17 +3728,28 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         }
                         Kind::UPiston(fd) => {
                             if k != 0 {
+                                // (a piston: a sculk sensor's output reaches it a tick late)
+                                m.pview = true;
                                 let direct = m.any_in(tr, k, c, Some(fd));
                                 let q = add(c, U);
                                 let mut qt = Vec::new();
                                 for dd in [E, W, U] {
                                     qt.push(m.sig(tr, k, add(q, dd), q, false));
                                 }
+                                m.pview = false;
                                 qt.push(m.oop(tr, k, q));
                                 let qc = m.e.or(&qt);
                                 let pw = m.e.or(&[direct, qc]);
                                 m.e.eq_if(g, o_k, pw);
                             }
+                        }
+                        Kind::Sculk | Kind::CSculk(_) => {
+                            // powered while ACTIVE: from the activation (end of tick r) through
+                            // r + 29 (calibrated r + 9); the scheduled tick at r + 30 (r + 10) ends it
+                            let at = if kind == Kind::Sculk { 30 } else { 10 };
+                            let acts: Vec<Lit> = (k - at + 1..=k).filter(|r| *r >= 1).filter_map(|r| m.sact.get(&(tr, r, c)).copied()).collect();
+                            let on = m.e.or(&acts);
+                            m.e.eq_if(g, o_k, on);
                         }
                         Kind::Lamp => {
                             let i_k = m.any_in(tr, k, c, None);
@@ -3153,21 +3783,13 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             m.cause(tr, k + 4, c, cs);
                         }
                         Kind::Cmp(fd) => {
-                            let r = add(c, fd);
-                            let s0 = m.sig(tr, k, r, c, false);
-                            let bb = m.pred(r, P_BULB);
-                            let bl = Model::get(&m.blit, (tr, k, r), f);
-                            let bl2 = m.e.and(&[bb, bl]);
-                            let i_k = m.e.or(&[s0, bl2]);
+                            let i_k = m.cmp_in(tr, k, c, fd);
                             if k == -1 {
                                 m.e.eq_if(g, o_k, i_k);
                                 continue;
                             }
                             if k >= 1 {
-                                let s0p = m.sig(tr, k - 1, r, c, false);
-                                let blp = Model::get(&m.blit, (tr, k - 1, r), f);
-                                let blp2 = m.e.and(&[bb, blp]);
-                                let i_p = m.e.or(&[s0p, blp2]);
+                                let i_p = m.cmp_in(tr, k - 1, c, fd);
                                 let g1 = m.e.and(&[g, s_k]);
                                 // an input change in the same tick as its tick: it reads either value
                                 // (--exact-order: its NORMAL-priority tick runs after the observer and
@@ -3223,6 +3845,8 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                     };
                     let d = tau;
                     let front = if fc == (0, 0) { None } else { Some(fc) };
+                    // (a piston reads its power: a sculk sensor's output reaches it a tick late)
+                    m.pview = true;
                     let direct0 = m.any_in(tr, k, c, front);
                     let cl = p.cl(c);
                     let gd = m.given(tr, k, c, cl);
@@ -3251,6 +3875,13 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         }
                     };
                     if check_mode {
+                        // a QC hold the game never updated (the recording powered, the motion off):
+                        // only direct power is wrong there
+                        if qc_only {
+                            let f0 = m.e.f();
+                            m.checks.push(PCheck { tr, k, c, d, req: false, direct, qc, bud: Some(f0) });
+                            continue;
+                        }
                         // --sound: a QC hold of a piston that stays retracted is fine while no update
                         // reaches it
                         let stays_ret_c = matches!(ph.frame(tau - 1).get(&c).map(|s| mk(s)), Some(MK::Piston { ext: false, .. })) && ph.frame(tau - 1).get(&c) == ph.frame(tau).get(&c);
@@ -3372,6 +4003,7 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                             m.e.add(&cl);
                         }
                     }
+                    m.pview = false;
                     // a retracted piston that stays retracted while powered (blocked, or QC-armed
                     // without an update) does not care about its power at that tick
                     let blocked = !p.motion && req && p.blocked_dc && k >= 1 && {
@@ -3421,6 +4053,8 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
             }
         }
     }
+    m.pview = false;
+    m.encode_sculk();
     m.e.guard.clear();
     if diag {
         let g = m.gsel("scheduled ticks / nothing pending at the end");
@@ -3640,6 +4274,9 @@ pub fn render(p: &Prob, s: &Sol) -> String {
                     Kind::UPiston(f) => match *f { E => '1', W => '2', U => '3', _ => '4' },
                     Kind::RBlock => 'R',
                     Kind::TrapTop => 'T',
+                    Kind::Sculk => 'S',
+                    Kind::CSculk(f) => match *f { E => 'K', W => 'k', _ => 'Z' },
+                    Kind::Wool => 'W',
                     Kind::Empty => '.',
                 }
             } else if let Some(st) = p.rec.phases[0].frames[0].get(&c) {
@@ -3802,7 +4439,8 @@ fn ideal_judge(w: &mut Worker, p: &Prob, d: &Design) -> std::result::Result<(u32
             }
         }
     }
-    let s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    let mut s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    s.phase = plan.phase;
     let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(0), trace: None };
     crate::ideal::run(w, &s, &BTreeMap::new(), &opts).map_err(|e| e.to_string())
 }
@@ -4263,6 +4901,7 @@ pub fn check(p: &Prob) -> Result<()> {
         }
     }
     let mut bad = 0;
+    let mut per: BTreeMap<(usize, C2), (usize, i32)> = BTreeMap::new();
     for c in &m.checks {
         let dir = m.e.val(c.direct);
         let qc = m.e.val(c.qc);
@@ -4270,10 +4909,17 @@ pub fn check(p: &Prob) -> Result<()> {
         let ok = if c.req { dir || (p.qc && qc) } else { !dir && (!qc || held) };
         if !ok {
             bad += 1;
+            let e = per.entry((c.tr, c.c)).or_insert((0, c.k));
+            e.0 += 1;
+            e.1 = e.1.min(c.k);
             if bad <= 40 {
                 println!("  {} t{:<3} piston {:?}: required {} model direct {} qc {}", ["open", "close"][c.tr], c.k, c.c, c.req, dir, qc);
             }
         }
+    }
+    if !per.is_empty() {
+        let s: Vec<String> = per.iter().map(|((tr, c), (n, k))| format!("{} {c:?}: {n} from t{k}", ["open", "close"][*tr])).collect();
+        println!("check: mismatches by piston: {}", s.join("; "));
     }
     println!("check: {} piston-tick mismatches out of {}", bad, m.checks.len());
     Ok(())
@@ -4306,7 +4952,7 @@ pub fn fix_wiring(p: &mut Prob) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("check: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }
@@ -4415,7 +5061,7 @@ pub fn out_of_scope(d: &Design) -> Option<String> {
         if mk(s) == MK::Cond && !matches!(n, "stone" | "smooth_stone" | "note_block" | "redstone_lamp" | "target") && !n.ends_with("_concrete") && !n.contains("terracotta") && !n.contains("planks") && !n.contains("wool") {
             // other full blocks are fine as door blocks/conductors
         }
-        if (n.contains("trapdoor") && n != "iron_trapdoor") || n.contains("rail") || n.contains("sculk") || n.contains("hopper") || n == "scaffolding" || n == "target" {
+        if (n.contains("trapdoor") && n != "iron_trapdoor") || n.contains("rail") || (n.contains("sculk") && !matches!(n, "sculk_sensor" | "calibrated_sculk_sensor")) || n.contains("hopper") || n == "scaffolding" || n == "target" {
             bad.insert(n.to_string());
         }
     }
@@ -4538,7 +5184,7 @@ pub fn fix_partial(p: &mut Prob, d: &Design) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("--fixed: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }

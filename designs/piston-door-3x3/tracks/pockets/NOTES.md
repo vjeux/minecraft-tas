@@ -7,8 +7,11 @@ mechanism we have (7x8 = 56, 7x9 = 63, 8x8 = 64) and keep every working door; fi
 **Result (pockets2, 2026-10-19 09:24Z-12:30Z): BEST.txt = `finds/t7b-rwfast-43.txt`, 63b (7x9x1), 43 blocks,
 solid, FULL seamless, rotation-safe, open 39 / close 27, verify at 32 positions** (e88's 43-block record t7b,
 43/31, with its right wall re-wired: same size, 8 ticks faster, so it ranks first by the tie-break), and
-**`finds/s27-bl52.txt`, solid 8x8 = 64b, 52 blocks, FULL, rotation-safe, verify at 32 positions** (c88b's s27
-+ a 6-block bottom-left found by pockets; also `finds/s26-bl53.txt`, 53); 40 sculk 7x9 doors at 51 (c79 + a
+**`finds/s27-bls49.txt`, SCULK 8x8 = 64b, 49 blocks** (archived on main; not the sculk 8x8 leader: c77's
+c074-64b-42 is) and
+**`finds/s27-trbl51.txt`, solid 8x8 = 64b, 51 blocks, FULL, rotation-safe, verify at 32 positions** (c88b's s27
++ a 6-block bottom-left and a piston-popping top-right found by pockets; shrink took it to solid 50; also
+`finds/s27-bl52.txt` 52, `finds/s26-bl53.txt` 53); 40 sculk 7x9 doors at 51 (c79 + a
 3-block sculk TL/ML), 64 t7b wall variants at 43, 3 s26 bottom-lefts at 53. Section 8.
 Earlier (pockets): `finds/c79-49-bl5-br3.txt`,
 63b (7x9x1), 49 blocks, solid, slime-free, FULL seamless,
@@ -245,6 +248,18 @@ Results:
   (2,4) at t22 (dust (4,4) + stone (4,5) gone): a piston as a 1-block "something moved" source for an
   observer. B line + support (7 cells) k=6 x 16 states on s27-bl52: `runs/b52-tlb-k6`; shrink takes the
   top-left A part with `door fill`.
+* After shrink's **s27-tlp50** (solid 50: a sticky piston (-3,3) up replaces observer (-3,3) + stone
+  (-3,4), on my s27-trbl51): bottom-left k=5 x 24 states incl. sticky/normal pistons + sculk (`runs/
+  b50-bl-k5`, 168M): **`finds/s27-bls49.txt`, SCULK 8x8 = 64b, 49 blocks, FULL, rotation-safe, open 39 /
+  close 45, verify --extra-offsets 28 WORKS** (12:40Z; a plain sculk sensor (-3,-1) + a dropper (-3,-2) up
+  replace the observer (-3,-1), the lamp (-3,-2) and the dust dot (-3,0); 7 such 49s, all sculk). No solid
+  5-block bottom-left. Minimal on s27-trbl51 / tlp50 with pistons + sculk in the palette: BR driver 3
+  (k=2 x 61: none), B's bulb line 4 (k=3 x 61: none), top-right 6 (k=5 x 24 solid incl. pistons, k=4 x 30
+  incl. sculk: none). Careful with `--region-pistons` + plan-from: plan-from lists the erased wiring piston
+  as an input and its plan blocks at z=1 power fillings (fake covers): drop those events.
+* Tile phase (main de6ecbce, vjeux/boxproof 13:20Z): `door cosearch` search/pockets assists now act in the
+  TILE-TICK phase by default (f7e7023b: a wall torch on a support turned to stone at t-2, as
+  `Schedule::realize`); `--between-ticks` = the old rule (old hand plans may need it or a +1 gt shift).
 * q78's e78s (7x8, only the bottom ideal: A' x3, K, B' x2; `runs/e78s-k3`, `runs/e78s-k5`, --gaps):
   right pocket (x=2..4): B' all four pulses with 3 blocks (observer (3,-2) up on K -> lamp (3,-3) ->
   observer (2,-3) east), K with 2, never both within 5; left pocket: A' o8, (1,-1)o24, B' o30 alone;

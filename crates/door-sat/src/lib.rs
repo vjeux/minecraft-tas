@@ -181,6 +181,15 @@ pub enum DoorCmd {
         /// close, instead of the recorded pulse from rest (the solver picks per piston).
         #[arg(long)]
         hold: Option<String>,
+        /// Ideal plans: the old phase rule (inputs act between ticks) for every plan; default: the
+        /// TILE-TICK phase like `door ideal` (an off-plane input acts inside its tick, where a
+        /// wired observer's output arrives), unless the plan says `phase between`.
+        #[arg(long)]
+        between_ticks: bool,
+        /// With --retime: touching events of different clusters may also SWAP (the plan's event
+        /// order is free); each candidate's retimed plan replay in redsim is the timing check.
+        #[arg(long)]
+        free_order: bool,
         #[arg(long, default_value_t = 28)]
         extra_offsets: u32,
         #[arg(long)]
@@ -266,8 +275,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Boxproof { args } => {
             return crate::boxproof::cli(&args);
         }
-        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, keep_broken, hold, extra_offsets, out } => {
+        DoorCmd::Satwire { mechanism, jobs, fixed, explain, update_order, retime, period2, exact_order, hint, diag, sound, log_doors, one_warp, full_frame, lever_on, keep_ideal, local_nogood, keep_wiring, exact, recorded_power, from_wired, bx, forbid_ring, hall_ring, lever, lever_oop, palette, max_blocks, dmax, skip, settle, rec_ticks, no_qc, levels, check, core_tries, iters, families, gap, oc, first, keep_broken, hold, between_ticks, free_order, extra_offsets, out } => {
             use crate::satwire as sw;
+            sw::FREE_ORDER.store(free_order, std::sync::atomic::Ordering::Relaxed);
+            // plans run in the tile-tick phase by default (main de6ecbce), like `door ideal`
+            crate::ideal::cli_phase(between_ticks);
             // --hold: None = off; Some(None) = every pulse puller; Some(Some(cells)) = those
             let hold_cells: Option<Option<Vec<(i32, i32)>>> = match hold.as_deref() {
                 None => None,

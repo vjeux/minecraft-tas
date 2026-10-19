@@ -19,6 +19,7 @@ mctas door satwire e89b.txt --from-wired --forbid-ring          # re-wire a desi
 mctas door satwire tracks/families/CATALOG.tsv --families 8x8-119 # a catalog entry (sym train)
 mctas door satwire plan.ideal --fixed partly-wired.txt          # keep those cells, solve the rest
 mctas door satwire plan.ideal --hold auto --lever-on ...        # each pulse puller: pulse OR held on a level
+mctas door satwire plan.ideal --palette ...,csculk,wool ...     # sculk sensors (calibrated) + wool occluders
 mctas door satwire --check archive/*.txt --jobs 8               # replay check of the model
 ```
 UNSAT prints a core: the pistons whose recorded power cannot be produced together; `--diag` also
@@ -41,8 +42,9 @@ Components (placement palette, `--palette`):
   behind it; rear dust not allowed), redstone lamp (conductor, on at once, off after a 4 gt tick),
   iron trapdoor (closed, bottom: non-conductor, `powered/open` follow its power, observers see it),
   dropper (conductor, `triggered` follows direct or quasi-connected power).
-* NOT represented: targets, rails, dispensers WITH items, hoppers, sculk, slime/honey as wiring,
-  redstone blocks as wiring, buttons, comparators reading through a block or containers,
+* NOT represented: targets, rails, dispensers WITH items, hoppers, sculk frequency filters at levels
+  9/10 (a calibrated sensor's back is 0 or full), slime/honey as wiring, buttons, comparators
+  reading through a block or containers (sculk sensors and wool: see the third shift below),
   comparator SUBTRACT (no side input in a flat plane anyway), top-half trapdoors, levers anywhere
   but the chosen candidate.
 
@@ -280,3 +282,31 @@ lever/observer chains; not diagnosed yet).
   is also the only way to pull at the lever flip). c79 with `--hold auto` (5 pulse pullers offered a
   hold): its own wiring accepted (pulse chosen), judged OK at 32.
 * Batch mode skips a BROKEN plan (its own ideal-input replay fails in redsim); `--keep-broken`.
+* Update pistons as relays (4ee290d2): a NORMAL piston that only pops its head into an empty cell
+  (c79's (3,-2), shrink's t7b-pw42 (2,-4)) is wiring in `--from-wired` recordings; an observer
+  watching its HEAD cell sees the head arrive/leave; an update piston facing down offers a sturdy top.
+* Tile phase (166a0359, coordinator's request after main de6ecbce): ideal plans run in the TILE-TICK
+  phase by default (`Schedule::realize`: off-plane inputs are wall torches on supports, lit in their
+  tick's tile ticks; power read at the END of the tick, like `record_wired`); `--between-ticks`.
+* `--free-order` (69b8fd46, with `--retime`): touching events of different clusters may also swap;
+  the redsim replay of each candidate's retimed plan is the only timing check.
+* **Sculk sensors and wool in the SAT** (palette `sculk`, `csculk` (calibrated, facing north/E/W),
+  `csculk0` (facing north only), `wool`): per candidate cell, the first vibration heard while
+  inactive (the nearest of its tick: exact distance classes; mechanism piston starts from the
+  recording through the warp and the hold alternatives, the lever flip, note blocks (air above),
+  trapdoors, droppers (4 gt after triggered), update pistons), travel floor(d), activation at the end
+  of tick t + travel (block-entity phase), ACTIVE 30 gt / calibrated 10, COOLDOWN 10, every cycle
+  within the horizon (+41 / +21 ticks when sensors are in the palette); output: weak power on every
+  side (calibrated: not into its back), strong into the block below; pistons (and dust) see it from
+  the tick after the activation (block events of the BE phase run in the next tick), repeaters,
+  comparators and observers at once; observers see the 3 phase changes (activation in the late
+  phase, ACTIVE->COOLDOWN and COOLDOWN->INACTIVE as scheduled ticks); dust beside or under it gets
+  the distance level max(1, 15 - floor(15 / r * d)); wool occludes (the 6 nudged lines of
+  `isOccluded`, the same walk as redsim); a calibrated sensor facing E/W is deaf while its back
+  gets a signal (no dust or sensor there: a level of 9 or 10 would select one frequency, not
+  modeled); no conductor below a sensor (its strong power at a level is not modeled).
+  Known answers (`--check`, palette incl. sculk,csculk,wool): **m79s-sculk-63b-50 0 / 1846 and
+  m79s-sculk-8x8-64b-50 0 / 1809 piston-tick mismatches**, bridge-e88-sculk-52b 2 / 2069,
+  bridge-p2-sculk-49b and -r 4 / 2135 (a dropper re-read the model misses); the selftest's checks
+  are unchanged. `--check` also reports mismatches per piston, and a QC hold the recording shows
+  (motion off, recorded on) is checked as "no direct power" instead of a false mismatch.
