@@ -1,0 +1,22 @@
+design designs/piston-door-3x3/tracks/c77/e78s/e78st41-s4.txt
+# 2-sensor stone door with S4 removed: K (3,-1) by the plan; open o1..o3, close c1..c3 (200 = off)
+let o1 = 10
+let o2 = 200
+let o3 = 200
+let c1 = 10
+let c2 = 20
+let c3 = 30
+open 0 use 1 5 0
+close 0 use 1 5 0
+open o1 set 3 -1 1 minecraft:redstone_block
+open o1+2 clear 3 -1 1
+open o2 set 3 -1 1 minecraft:redstone_block
+open o2+2 clear 3 -1 1
+open o3 set 3 -1 1 minecraft:redstone_block
+open o3+2 clear 3 -1 1
+close c1 set 3 -1 1 minecraft:redstone_block
+close c1+2 clear 3 -1 1
+close c2 set 3 -1 1 minecraft:redstone_block
+close c2+2 clear 3 -1 1
+close c3 set 3 -1 1 minecraft:redstone_block
+close c3+2 clear 3 -1 1
