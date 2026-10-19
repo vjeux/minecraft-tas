@@ -251,6 +251,7 @@ dependencies = [
  "clap",
  "clock",
  "clock-item",
+ "clock-misc",
  "clock-obs",
  "clock-rt",
  "clock-sculk",
@@ -267,6 +268,16 @@ dependencies = [
  "clock",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "clock-misc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clock",
+ "mctas",
 ]
 
 [[package]]
