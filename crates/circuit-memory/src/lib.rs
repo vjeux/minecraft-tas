@@ -19,6 +19,9 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Run a design under this track's census spec for its kind (`circuit:` header) and print the
+    /// output's rest state, change frames, samples and the spec's verdict (debugging the census).
+    Check { design: PathBuf, #[arg(long, default_value_t = 40)] gap: u32 },
     /// Census: every filling of k cells of a box (x 0..A, y 0..B, z 0..C) with palette states,
     /// the named inputs redstone blocks in air cells (`--inputs 'r=-1,0,0;s=3,0,0'`), judged on
     /// redsim with the kind's stimulus (`rs-latch`, `d-latch`, `counter N`); designs + summary.tsv.
@@ -55,6 +58,45 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
+        Cmd::Check { design, gap } => {
+            let c = circuit_tff::model::Circuit::load(&design)?;
+            let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
+            let words: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+            let spec: Box<dyn circuit_tff::census::Spec> = match words.as_slice() {
+                ["rs-latch"] => Box::new(specs::RsSpec { gap }),
+                ["d-latch"] => Box::new(specs::DSpec { gap }),
+                ["counter", n] => Box::new(specs::CounterSpec { n: n.parse().context("counter N")?, gap }),
+                _ => bail!("kind {words:?}: rs-latch | d-latch | counter N"),
+            };
+            let mut inputs = c.inputs.clone();
+            inputs.sort_by(|a, b| a.name.cmp(&b.name));
+            let census = circuit_tff::census::Census {
+                inputs: inputs.iter().map(|i| redsim::BlockPos::new(i.pos[0], i.pos[1], i.pos[2])).collect(),
+                fixed: Vec::new(),
+                fixed_be: Vec::new(),
+                free: Vec::new(),
+                palette: Vec::new(),
+                palette_be: Vec::new(),
+                k_min: 0,
+                k_max: 0,
+                outputs: Some(c.outputs.iter().map(|(_, p)| redsim::BlockPos::new(p[0], p[1], p[2])).collect()),
+                jobs: 1,
+                margin: 3,
+            };
+            let mut blocks = Vec::new();
+            for (p, s) in &c.design.blocks {
+                blocks.push((redsim::BlockPos::new(p[0], p[1], p[2]), redsim::Block::parse(s).map_err(|e| anyhow!(e))?));
+            }
+            let be: Vec<(redsim::BlockPos, String)> = c.design.block_entities.iter().map(|(p, s)| (redsim::BlockPos::new(p[0], p[1], p[2]), s.clone())).collect();
+            match census.simulate_debug(&blocks, &be, spec.as_ref()) {
+                Ok(lines) => {
+                    for l in lines {
+                        println!("{l}");
+                    }
+                }
+                Err(e) => println!("rejected: {e}"),
+            }
+        }
         Cmd::Census { kind, dims, inputs, k, palette, gap, jobs, out } => {
             let d: Vec<i32> = dims.split('x').map(|t| t.parse::<i32>()).collect::<Result<_, _>>().context("--box AxBxC")?;
             if d.len() != 3 {
