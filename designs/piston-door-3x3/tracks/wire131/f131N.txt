@@ -1,0 +1,50 @@
+name: f131N
+# wire131: 8x8-131 in 7 x 9 (x -2..4, y -2..6 = 63b). Pull-type L0/L1/L2/P3, D1 + DE (window), level D2+/R1+/R0+/UM+.
+# Real: bottom (BR T flip-flop, BL observer chain), right (redstone block K_R (4,4) shuttled by S_R (4,6) through the
+# gap (4,5): dot dust (4,3) on (4,2) holds R1+/R0+, repeater (3,4) holds D2+), top-left observers (-2,3) (L2/L1),
+# (-1,4) + (0,4) (D1), (-1,5) (P3), note block N (-2,4). Ideal: N's train, P3's pulse, DE's window, S_R's pulse.
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  D minecraft:stone
+  G minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=down]
+  Z minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=true,facing=down]
+  t minecraft:piston_head[facing=down,short=false,type=sticky]
+  Q minecraft:sticky_piston[extended=true,facing=west]
+  q minecraft:piston_head[facing=west,short=false,type=sticky]
+  A minecraft:sticky_piston[extended=true,facing=up]
+  a minecraft:piston_head[facing=up,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+  p minecraft:sticky_piston[extended=false,facing=east]
+  X minecraft:sticky_piston[extended=false,facing=west]
+  R minecraft:redstone_block
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  n minecraft:note_block
+  U minecraft:observer[facing=up,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=up,powered=false]
+  W minecraft:observer[facing=west,powered=false]
+  E minecraft:observer[facing=east,powered=false]
+  v minecraft:observer[facing=down,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  w minecraft:redstone_wire[east=none,north=none,south=none,west=none,power=15]
+layer -2:
+  nGEAR.X
+layer -1:
+  v..a..O
+layer 0:
+  s.DDDqQ
+layer 1:
+  s.DDDqQ
+layer 2:
+  s.DDD.G
+layer 3:
+  up..tGw
+layer 4:
+  NWWSTrR
+layer 5:
+  GU.S
+layer 6:
+  ......Z
