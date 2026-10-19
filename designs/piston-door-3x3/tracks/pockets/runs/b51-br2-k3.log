@@ -1,0 +1,28 @@
+assist designs/piston-door-3x3/tracks/pockets/s26/b51-br2.ideal: 1 input cells off the plane ([(2, -2)]), 6 / 6 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/finds/s27-trbl51.txt: 51 blocks in the box, screen 41/79
+seed screen 79/79 with 1 inputs assisted
+windows (6 groups, 0.1 s):
+  input (2,-2) open  t24 pulse 2 gt: window [-24, +0]
+  input (2,-2) open  t28 pulse 2 gt: window [+0, +0]
+  input (2,-2) open  t32 pulse 2 gt: window [+0, +24]
+  input (2,-2) close t24 pulse 2 gt: window [-23, +0]
+  input (2,-2) close t28 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t32 pulse 2 gt: window [+0, +24]
+7 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 58 swept cells
+  pocket 0: 1 cells [(-2, -1)]
+  pocket 1: 1 cells [(-2, 3)]
+  pocket 2: 4 cells [(3, -2), (4, -2), (4, -1), (4, 0)]
+  pocket 3: 1 cells [(3, 3)]
+pocket 0: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 0: 61 screened, 56 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 61 screened, 33 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 4 cells, 252 subset/lever items, 926712 fillings to screen
+  pocket 2: 976678 screened (252 of 252 items started), 383122 keep the door working, 30 s
+pocket 2: 1007047 screened, 401985 keep the door working, 34.5 s; driven input sets: {(2,-2)o24 (2,-2)o28 (2,-2)o32 (2,-2)c24 (2,-2)c28 (2,-2)c32} x1 (best 3 blocks), {(2,-2)o24 (2,-2)o32 (2,-2)c24 (2,-2)c32} x13 (best 3 blocks), {(2,-2)o32 (2,-2)c32} x1 (best 3 blocks)
+pocket 3: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 3: 61 screened, 36 keep the door working, 0.3 s; driven input sets: none
+combination 1: true partial, 1 inputs still assisted [2,-2] (51 blocks)
+combination 14: perfect screen; redsim judge: combo: WORKS open 34 close 34 | FULL | hallway ok | frame 12/12 | 64b (8x8x1), 51 blocks | 0.0 ms
+FIND designs/piston-door-3x3/tracks/pockets/runs/b51-br2-k3/pockets-64b-51-0.txt
+15 combinations verified, 1 finds, 35 s total

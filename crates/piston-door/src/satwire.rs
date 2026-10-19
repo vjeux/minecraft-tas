@@ -476,6 +476,21 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     let door_cells: HashSet<C2> = spec.door_cells().iter().map(|p| (p[0], p[1])).collect();
     let mut wiring = BTreeMap::new();
     let mut lever = None;
+    // a NORMAL piston that only ever pushes its own head into an empty cell (a wire-free relay an
+    // observer watches: c79's (3,-2), shrink's t7b-pw42) is wiring too: an update piston (its
+    // head cell leaves the mechanism)
+    let mut heads: HashSet<C2> = HashSet::new();
+    let upiston_relay = |c: C2, s: &str| -> Option<C2> {
+        if short(s) != "piston" || prop(s, "extended") != Some("false") {
+            return None;
+        }
+        let f = prop(s, "facing").and_then(dparse)?;
+        let hc = add(c, f);
+        let own = |t: &str| matches!(short(t), "piston_head" | "moving_piston") && prop(t, "facing").and_then(dparse) == Some(f);
+        let base_ok = |t: &str| (short(t) == "piston" && prop(t, "facing").and_then(dparse) == Some(f)) || (short(t) == "moving_piston" && prop(t, "facing").and_then(dparse) == Some(f));
+        let ok = full.iter().all(|ph| ph.iter().all(|fr| fr.get(&c).is_some_and(|t| base_ok(t)) && fr.get(&hc).is_none_or(|t| mk(t) == MK::Air || own(t))));
+        ok.then_some(hc)
+    };
     for (p, s) in rest_region.iter() {
         if p[2] != z || s.ends_with(":air") {
             if short(s) == "lever" {
@@ -486,6 +501,11 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
         let c = (p[0], p[1]);
         if short(s) == "lever" {
             lever = Some((p, s.to_string()));
+            continue;
+        }
+        if let Some(hc) = upiston_relay(c, s) {
+            wiring.insert(c, s.to_string());
+            heads.insert(hc);
             continue;
         }
         let stat = full.iter().all(|ph| ph.iter().all(|f| f.get(&c).map(String::as_str) == Some(s)));
@@ -500,7 +520,7 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
     for ph in 0..2 {
         let frames: Vec<HashMap<C2, String>> = full[ph]
             .iter()
-            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
+            .map(|f| f.iter().filter(|(c, s)| !wiring.contains_key(c) && !heads.contains(c) && short(s) != "lever" && Some((c.0, c.1, z)) != lever_c).map(|(c, s)| (*c, s.clone())).collect())
             .collect();
         let idx = |c: C2| -> Option<usize> { probes.iter().position(|p| p[0] == c.0 && p[1] == c.1) };
         let pistons = |f: &HashMap<C2, String>| -> Vec<C2> { f.iter().filter(|(_, s)| matches!(mk(s), MK::Piston { .. })).map(|(c, _)| *c).collect() };
@@ -529,7 +549,15 @@ pub fn record_wired(w: &mut Worker, d: &Design, ticks: u32) -> Result<Rec> {
 /// Replay an ideal schedule: the mechanism frames, and the power the redstone blocks give each
 /// piston (direct or quasi-connected) per tick.
 pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> Result<Rec> {
-    let d = s.design().clone();
+    // the plan as it runs under its phase rule (`phase tile`, satwire's default since main
+    // de6ecbce: an off-plane input becomes a wall torch on a support, lit in the tile ticks of its
+    // tick like a wired observer's output; `--between-ticks` / `phase between`: the old rule)
+    let (d, open_ev, close_ev, notes) = s.realize(s.vars())?;
+    if std::env::var("SATWIRE_PHASE_NOTES").is_ok() {
+        for n in &notes {
+            println!("plan phase note: {n}");
+        }
+    }
     let door = *d.ports.get("door").context("design has no 'port door'")?;
     let spec = DoorSpec { door, lever: door, along_z: false };
     let z = spec.door[2];
@@ -539,19 +567,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         lo[i] -= 3;
         hi[i] += 3;
     }
-    // In-plane blocks, plus the redstone blocks one cell in front of / behind the plane (ideal
-    // plans put some inputs right behind the piston they fire: that power is recorded too; the
-    // wiring then has to give it from the plane). Fix from wire56 (6d1c760).
+    // In-plane blocks, plus the inputs one cell in front of / behind the plane (ideal plans put
+    // some inputs right behind the piston they fire: that power is recorded too; the wiring then
+    // has to give it from the plane; fix from wire56, 6d1c760): redstone blocks, or the lit wall
+    // torches of the tile phase.
     let snap = |w: &mut Worker| -> Result<(HashMap<C2, String>, HashSet<C2>)> {
         let r = w.get_region(sb, lo, hi)?;
         let plane = r.iter().filter(|(p, s)| p[2] == z && !s.ends_with(":air")).map(|(p, s)| ((p[0], p[1]), s.to_string())).collect();
-        let oop = r.iter().filter(|(p, s)| (p[2] - z).abs() == 1 && short(s) == "redstone_block").map(|(p, _)| (p[0], p[1])).collect();
+        let oop = r
+            .iter()
+            .filter(|(p, s)| (p[2] - z).abs() == 1 && (short(s) == "redstone_block" || (short(s) == "redstone_wall_torch" && prop(s, "lit") == Some("true"))))
+            .map(|(p, _)| (p[0], p[1]))
+            .collect();
         Ok((plane, oop))
     };
     let is_input = |s: &str| matches!(short(s), "redstone_block" | "lever");
     // What the schedule writes into a cell (redstone blocks, glass pokes, a stone put back) is
     // input, not mechanism, while it stays there: a mechanism block under it keeps its last state.
-    let inputs: Vec<Pos> = s.input_cells();
+    let mut inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.as_deref() != Some("@use")).map(|e| e.1).collect();
+    inputs.sort();
+    inputs.dedup();
     let mech = |f: &HashMap<C2, String>, prev: &HashMap<C2, String>, held: &mut HashMap<C2, String>| -> HashMap<C2, String> {
         let mut out = HashMap::new();
         held.retain(|c, st| f.get(c).map(String::as_str).unwrap_or("minecraft:air") == st.as_str());
@@ -607,11 +642,14 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             _ => matches!(mk(st), MK::Cond) && probes.iter().position(|p| p[0] == n.0 && p[1] == n.1).is_some_and(|i| sig[i].1 > 0),
         }
     };
-    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>)| -> Result<HashMap<C2, bool>> {
+    let power_now = |w: &mut Worker, fr: &(HashMap<C2, String>, HashSet<C2>), pre: Option<&HashMap<C2, String>>| -> Result<HashMap<C2, bool>> {
         let (f, oop) = fr;
         let sig = w.signals(sb, &probes)?;
         let on = |c: C2| probes.iter().position(|p| p[0] == c.0 && p[1] == c.1).is_some_and(|i| sig[i].0 > 0);
-        Ok(f.iter()
+        // (the pistons of `pre`, the frame before the tick, when the power is read at its end)
+        Ok(pre
+            .unwrap_or(f)
+            .iter()
             .filter_map(|(c, st)| match mk(st) {
                 MK::Piston { f: fc, .. } => {
                     let front = add(*c, fc);
@@ -640,24 +678,26 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             })
             .collect()
     };
+    // tile phase: an input acts inside its tick (like a wired observer): the power a piston gets
+    // during tick j is read at the END of tick j, as `record_wired` reads a wired door; between
+    // ticks (the old rule): read after the events, before the tick runs
+    let tile = s.phase == crate::ideal::PlanPhase::Tile;
     let mut phases: [Phase; 2] = Default::default();
     for (ph, open) in [(0usize, true), (1usize, false)] {
-        let evs = s.events_of(open, s.vars())?;
+        let evs = if open { &open_ev } else { &close_ev };
         let before = snap(w)?;
         let mut held: HashMap<C2, String> = HashMap::new();
         let mut prev = mech(&before.0, &HashMap::new(), &mut held);
         let mut frames = Vec::new();
-        let mut power = vec![power_now(w, &before)?];
+        let mut power = vec![power_now(w, &before, None)?];
         let mut oops = vec![before.1.clone()];
         for t in 0..=ticks {
-            for (et, p, st) in &evs {
+            for (et, p, st) in evs {
                 if *et == t {
                     if st.as_deref() == Some("@use") {
                         w.use_block(sb, *p)?;
                         continue;
                     }
-
-
                     let state = st.clone().unwrap_or_else(|| "minecraft:air".to_string());
                     if p[2] == z {
                         held.insert((p[0], p[1]), state.clone());
@@ -669,9 +709,16 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             let mf = mech(&f.0, &prev, &mut held);
             prev = mf.clone();
             frames.push(mf);
-            power.push(power_now(w, &f)?);
-            oops.push(f.1.clone());
+            if !tile {
+                power.push(power_now(w, &f, None)?);
+                oops.push(f.1.clone());
+            }
             w.step(sb, 1)?;
+            if tile {
+                let f2 = snap(w)?;
+                power.push(power_now(w, &f2, Some(&f.0))?);
+                oops.push(f2.1.clone());
+            }
         }
         power.truncate(frames.len());
         oops.truncate(frames.len());
@@ -696,7 +743,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
             lever = Some((*p, st.clone()));
             continue;
         }
-        if p[2] != z || (short(st) == "redstone_block" && s.input_cells().contains(p)) {
+        if p[2] != z || (short(st) == "redstone_block" && inputs.contains(p)) {
             continue;
         }
         let c = (p[0], p[1]);
@@ -1767,6 +1814,7 @@ const P_IND: u8 = 12;
 const P_DROP: u8 = 13;
 const P_LEAVES: u8 = 14;
 const P_UPISTON: u8 = 15;
+const P_STURDY_UP: u8 = 16;
 
 fn pred_fn(t: u8) -> fn(Kind) -> bool {
     match t {
@@ -1785,6 +1833,7 @@ fn pred_fn(t: u8) -> fn(Kind) -> bool {
         P_DROP => |k| k == Kind::Dropper,
         P_LEAVES => |k| k == Kind::Leaves,
         P_UPISTON => |k| matches!(k, Kind::UPiston(_)),
+        P_STURDY_UP => |k| k.sturdy() || k == Kind::UPiston(DN),
         _ => |k| k.movable(),
     }
 }
@@ -2012,7 +2061,9 @@ impl<'a> Model<'a> {
     /// A static block at c offers a sturdy face (`up`: its top face) at every tick.
     fn sturdy_static(&mut self, c: C2, up: bool) -> Lit {
         if self.p.is_free(c) {
-            self.pred(c, P_STURDY)
+            // (a top face: an update piston facing down keeps a full top face, its back, extended
+            // or not: dust and diodes may stand on it)
+            self.pred(c, if up { P_STURDY_UP } else { P_STURDY })
         } else {
             self.e.konst(self.p.static_sturdy.contains(&c) || (up && self.p.sturdy_up.contains(&c)))
         }
@@ -2333,7 +2384,25 @@ impl<'a> Model<'a> {
                 } else {
                     f
                 };
-                self.e.or(&[m, lv, nb, up])
+                // ... and so does its HEAD cell (the head pops in on extension, is removed on
+                // retraction, both in the block-event phase): an observer watching the cell in front
+                // of an update piston sees it (a wire-free relay; the moving head's end 2 gt later
+                // finds that observer still on)
+                let mut hd = Vec::new();
+                if self.p.is_free(w) {
+                    for d in DIRS {
+                        let n = add(w, neg(d));
+                        if self.p.is_free(n) && self.p.can(n, |x| x == Kind::UPiston(d)) {
+                            let isu = self.kl[&(n, Kind::UPiston(d))];
+                            let o1 = self.out(tr, k, n);
+                            let o0 = self.out(tr, k - 1, n);
+                            let x = self.e.xor(o1, o0);
+                            hd.push(self.e.and(&[isu, x]));
+                        }
+                    }
+                }
+                let hd = self.e.or(&hd);
+                self.e.or(&[m, lv, nb, up, hd])
             }
             _ if !self.p.is_free(w) || k == 0 && what == 0 => f,
             0 => {
@@ -2450,6 +2519,9 @@ pub static HINT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 /// with every input moved with its piston's cluster (redsim, 4 positions, 2 cycles): a timing that
 /// breaks the mechanism is blocked for every wiring (the too-close pairs it uses).
 pub static RETIME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--free-order` (with `--retime`): touching events of different clusters may also swap order;
+/// the redsim replay of each candidate's retimed plan is the only timing check.
+pub static FREE_ORDER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Model<'_> {
     /// Cluster cl of trace tr plays recorded tick >= t at SAT tick k.
@@ -2519,7 +2591,10 @@ fn retimed_plan(m: &Model, plan: &crate::ideal::Schedule) -> Result<crate::ideal
             evs.push((open, nt, pos, st.clone()));
         }
     }
-    Ok(crate::ideal::Schedule::from_events(plan.design().clone(), &evs))
+    // (the retimed plan runs under the plan's own phase rule, like the recording)
+    let mut s2 = crate::ideal::Schedule::from_events(plan.design().clone(), &evs);
+    s2.phase = plan.phase;
+    Ok(s2)
 }
 
 pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
@@ -2651,6 +2726,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
                         // replaying the retimed ideal plan (a timing nogood when it breaks)
                         let d = if RETIME.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { dmin };
                         pairs.push((tr0, x, a, y, b, dmin));
+                        // --free-order (with --retime): touching events of different clusters may
+                        // even swap; every candidate's timing is replayed with the plan's ideal
+                        // inputs (redsim) and a timing that breaks the mechanism is blocked
+                        if FREE_ORDER.load(std::sync::atomic::Ordering::Relaxed) && RETIME.load(std::sync::atomic::Ordering::Relaxed) {
+                            continue;
+                        }
                         for k in 1..=p.h {
                             let gy = ge(&mut e, &warp, tr0, y, k, b);
                             let gx = ge(&mut e, &warp, tr0, x, k - d, a);
@@ -3802,7 +3883,8 @@ fn ideal_judge(w: &mut Worker, p: &Prob, d: &Design) -> std::result::Result<(u32
             }
         }
     }
-    let s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    let mut s = crate::ideal::Schedule::from_events(d.clone(), &evs);
+    s.phase = plan.phase;
     let opts = crate::ideal::IdealOptions { cycles: 2, offsets: crate::ideal::offsets(0), trace: None };
     crate::ideal::run(w, &s, &BTreeMap::new(), &opts).map_err(|e| e.to_string())
 }
@@ -4306,7 +4388,7 @@ pub fn fix_wiring(p: &mut Prob) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("check: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }
@@ -4538,7 +4620,7 @@ pub fn fix_partial(p: &mut Prob, d: &Design) -> Result<()> {
     for (c, k) in p.fixed.clone() {
         if let Some(sd) = k.support() {
             let s = add(c, sd);
-            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy()) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
+            let ok = p.fixed.get(&s).is_some_and(|ks| ks.sturdy() || (sd == DN && *ks == Kind::UPiston(DN))) || p.static_sturdy.contains(&s) || (sd == DN && p.sturdy_up.contains(&s));
             if !ok {
                 println!("--fixed: {k:?} at {c:?} has no static sturdy support at {s:?} ({:?})", p.rec.phases[0].frames[0].get(&s));
             }
