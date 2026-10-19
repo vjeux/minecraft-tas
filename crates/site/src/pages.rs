@@ -32,10 +32,12 @@ pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: 
     s.push_str("</head>\n<body>\n");
     s.push_str(&format!(
         "<header class=\"top\"><a class=\"logo\" href=\"{prefix}index.html\"><span class=\"logo-dot\"></span>{SITE_NAME}</a><nav>\
-         <a href=\"{prefix}index.html#kind=door\">Doors</a>\
+         <a href=\"{prefix}index.html#kind=door&amp;sort=volume\">Doors</a>\
+         <a href=\"{prefix}boards.html\">Door boards</a>\
          <a href=\"{prefix}index.html#kind=clock\">Clocks</a>\
          <a href=\"{prefix}index.html#kind=clock&amp;time=\">Clock by time</a>\
          <a href=\"{prefix}families/index.html\">Extendable families</a>\
+         <a href=\"{prefix}index.html#kind=circuit\">Circuits</a>\
          <a href=\"{prefix}all.html\">Everything</a>\
          <a href=\"{prefix}about.html\">About</a></nav></header>\n"
     ));
@@ -465,6 +467,105 @@ pub fn all_page(site: &Site, scripts: Scripts) -> String {
         body.push_str("</ul></section>\n");
     }
     shell("Everything", "Every redstone build of minecraft-tas in plain tables", "", &body, Scripts { viewer: false, ..scripts }, site)
+}
+
+/// boards.html: the door boards as LEADERBOARD.md ranks them (the size boards by volume, then
+/// blocks placed; the community regulation's seamless and record-eligible boards; the speed
+/// boards), each with its leader's card and its top 10.
+pub fn boards_page(site: &Site, scripts: Scripts) -> String {
+    let doors: Vec<&Build> = site.builds.iter().filter(|b| b.kind == "door").collect();
+    let has = |b: &Build, f: &str| b.flags.iter().any(|x| x == f);
+    let vol = |b: &Build| b.volume.unwrap_or(u32::MAX);
+    let ticks = |b: &Build| b.door.as_ref().map(|d| (d.open.unwrap_or(999), d.close.unwrap_or(999))).unwrap_or((999, 999));
+    let tier = |b: &Build| site_tier(b.door.as_ref().map(|d| d.seamless.as_str()).unwrap_or(""));
+    let mut boards: Vec<(String, String, Vec<&Build>)> = Vec::new();
+    // the size boards of LEADERBOARD.md (leaderboard.rs `render`): rotation-safe, full frame
+    // when open, ranked by volume, then blocks placed, then open + close
+    let solid = |b: &Build| b.group == "solid";
+    let size_boards: [(&str, &str, Box<dyn Fn(&Build) -> bool>); 8] = [
+        ("Solid (main ranking)", "9 identical plain door blocks, no sculk sensors", Box::new(solid)),
+        ("Solid, no slime or honey", "same, and not a single slime or honey block anywhere", Box::new(move |b: &Build| solid(b) && has(b, "slime-free"))),
+        ("Solid, flat (one z layer), no slime or honey", "slime-free, and every block in the door's plane: the whole machine is one block thick", Box::new(move |b: &Build| solid(b) && has(b, "slime-free") && has(b, "flat"))),
+        ("Solid, in a 3-thick wall", "every block within one layer of the door's plane, at rest and while it moves", Box::new(move |b: &Build| solid(b) && has(b, "wall"))),
+        ("Solid, on the ground (nothing below the door)", "no block below the door's bottom row, at rest or while it moves; works standing on a stone floor", Box::new(move |b: &Build| solid(b) && has(b, "ground"))),
+        ("Sculk", "uses sculk sensors (footsteps or mobs nearby can trigger them)", Box::new(|b: &Build| b.group == "sculk")),
+        ("Gravity", "the 9 door blocks are sand, gravel or concrete powder", Box::new(|b: &Build| b.group == "gravity")),
+        ("Entities allowed", "solid doors that may also use entities (counted apart: ranked by size, then entities, then blocks placed)", Box::new(|b: &Build| b.group == "solid" || b.group == "entity")),
+    ];
+    let entities = |b: &Build| b.door.as_ref().map(|d| d.entities).unwrap_or(0);
+    for (title, rule, keep) in &size_boards {
+        let mut list: Vec<&Build> = doors.iter().copied().filter(|b| has(b, "rotation-safe") && has(b, "frame-full") && keep(b)).collect();
+        let ent = title.starts_with("Entities");
+        list.sort_by_key(|b| (vol(b), if ent { entities(b) } else { 0 }, b.blocks, ticks(b).0 + ticks(b).1, b.name.clone()));
+        boards.push((title.to_string(), format!("{rule}; rotation-safe; full frame when open; ranked by size (the volume), then blocks placed"), list));
+    }
+    let mut seam: Vec<&Build> = doors.iter().copied().filter(|b| b.group == "solid" && has(b, "rotation-safe") && tier(b) > 0).collect();
+    seam.sort_by_key(|b| (std::cmp::Reverse(tier(b)), !has(b, "hallway"), vol(b), b.blocks, b.name.clone()));
+    boards.push(("Seamless".into(), "solid doors with a seamless tier of the community regulation, ranked by tier, then hallway-compatible first, then size".into(), seam.clone()));
+    let seam_flat: Vec<&Build> = seam.iter().copied().filter(|b| has(b, "slime-free") && has(b, "flat")).collect();
+    boards.push(("Seamless, flat, no slime or honey".into(), "the same ranking for flat, slime-free doors".into(), seam_flat));
+    let mut elig: Vec<&Build> = doors.iter().copied().filter(|b| b.group != "entity" && has(b, "rotation-safe") && has(b, "eligible")).collect();
+    elig.sort_by_key(|b| (vol(b), b.blocks, b.name.clone()));
+    boards.push(("Record-eligible (community regulation)".into(), "a seamless tier, hallway-compatible, lever on the surface with steady support, works with repeater input, unlimited uses, footsteps harmless; ranked by size".into(), elig));
+    let mut unrot: Vec<&Build> = doors.iter().copied().filter(|b| !has(b, "rotation-safe")).collect();
+    unrot.sort_by_key(|b| (vol(b), b.blocks, ticks(b).0 + ticks(b).1, b.name.clone()));
+    boards.push(("Not rotation-safe".into(), "working designs (they pass the judge as built) that break when turned 90, 180 or 270 degrees, by size".into(), unrot));
+    let mut frame: Vec<&Build> = doors.iter().copied().filter(|b| has(b, "rotation-safe") && !has(b, "frame-full")).collect();
+    frame.sort_by_key(|b| (vol(b), b.blocks, ticks(b).0 + ticks(b).1, b.name.clone()));
+    boards.push(("Frame not full when open".into(), "working, rotation-safe designs the size boards leave out: some of the 12 frame cells around the opening do not hold the door block when open".into(), frame));
+    for (title, solid_only, key) in [("Fastest open", false, 0u8), ("Fastest open (solid only)", true, 0), ("Fastest close", false, 1), ("Fastest close (solid only)", true, 1), ("Fastest open + close", false, 2), ("Fastest open + close (solid only)", true, 2)] {
+        let mut list: Vec<&Build> = doors
+            .iter()
+            .copied()
+            .filter(|b| b.group != "entity" && has(b, "rotation-safe") && (!solid_only || b.group == "solid") && b.door.as_ref().is_some_and(|d| d.open.is_some() && d.close.is_some()))
+            .collect();
+        let t = |b: &Build| {
+            let (o, c) = ticks(b);
+            match key {
+                0 => o,
+                1 => c,
+                _ => o + c,
+            }
+        };
+        list.sort_by_key(|b| (t(b), vol(b), b.blocks, b.name.clone()));
+        boards.push((title.to_string(), "fewest game ticks after the lever flip (worst of 3 cycles), ties by size, then blocks placed; rotation-safe".into(), list));
+    }
+    let mut body = format!(
+        "<h1>Door boards</h1>\n<p class=\"lede\">The 3x3 piston door boards, ranked like <a href=\"{REPO_URL}/blob/main/designs/piston-door-3x3/LEADERBOARD.md\">LEADERBOARD.md</a>: size is the community's volume (the bounding box over a whole cycle, the lever excluded), then blocks placed. {} working doors.</p>\n<ul class=\"toc\">",
+        doors.len()
+    );
+    for (i, (title, _, list)) in boards.iter().enumerate() {
+        body.push_str(&format!("<li><a href=\"#b{i}\">{}</a> ({})</li>", esc(title), list.len()));
+    }
+    body.push_str("</ul>\n");
+    for (i, (title, rule, list)) in boards.iter().enumerate() {
+        body.push_str(&format!("<section id=\"b{i}\"><h2>{}</h2><p class=\"hint\">{}.</p>\n", esc(title), esc(rule)));
+        let Some(first) = list.first() else {
+            body.push_str("<p>No entry yet.</p></section>\n");
+            continue;
+        };
+        body.push_str(&format!("<div class=\"board\"><div class=\"leader\">{}</div><table class=\"list\"><thead><tr><th>#</th><th>size</th><th>blocks</th><th>open / close</th><th>seamless</th><th>design</th></tr></thead><tbody>\n", build_card(first, "")));
+        for (k, b) in list.iter().take(10).enumerate() {
+            let (o, c) = ticks(b);
+            body.push_str(&format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><a href=\"{}\">{}</a></td></tr>\n",
+                k + 1,
+                esc(&b.volume.map(|v| format!("{v}b ({})", b.dims.clone().unwrap_or_default())).unwrap_or_else(|| "-".into())),
+                b.blocks,
+                if o < 999 { format!("{o} / {c}") } else { "-".into() },
+                esc(b.door.as_ref().map(|d| d.seamless.as_str()).filter(|s| !s.is_empty()).unwrap_or("-")),
+                esc(&b.page),
+                esc(&b.name)
+            ));
+        }
+        body.push_str("</tbody></table></div></section>\n");
+    }
+    shell("Door boards", "Every 3x3 piston door board: smallest, slime-free, flat, seamless, record-eligible, fastest", "", &body, scripts, site)
+}
+
+/// Seamless tier rank: SUPER 4, FULL 3, SEMI 2, QUART 1, none 0 (leaderboard::tier_rank).
+fn site_tier(t: &str) -> u8 {
+    piston_door::leaderboard::tier_rank(t)
 }
 
 /// about.html.

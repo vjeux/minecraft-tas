@@ -158,6 +158,7 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     write(&out.join(".nojekyll"), "")?;
     write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
     write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
+    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
     for b in &site.builds {

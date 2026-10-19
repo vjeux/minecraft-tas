@@ -102,7 +102,8 @@ fn draw_panel() -> Result<(), JsValue> {
         )
     };
     let html = format!(
-        "<h3>Kind</h3><div id=\"f-kinds\" class=\"tabs\"></div>\
+        "<button id=\"f-toggle\" class=\"ftoggle\" type=\"button\" aria-expanded=\"false\">Filters</button>\
+         <h3>Kind</h3><div id=\"f-kinds\" class=\"tabs\"></div>\
          <h3>Find a clock by time</h3><div class=\"time\"><input id=\"f-time\" type=\"search\" placeholder=\"48 gt, 2.5 s, 1 min, 40-60 gt, 2-3 s\" aria-label=\"clock period\"><p id=\"f-time-msg\" class=\"hint\">A period in game ticks (20 gt = 1 s) or a time, or a range: every clock of that period, and every extendable family's member that hits it.</p></div>\
          <h3>Search</h3><input id=\"f-text\" type=\"search\" placeholder=\"name, how it works, block…\" aria-label=\"search\">\
          <h3 id=\"f-groups-title\">Category</h3><div id=\"f-groups\" class=\"chips\"></div>\
@@ -118,6 +119,18 @@ fn draw_panel() -> Result<(), JsValue> {
         range("close", "Door closes in (gt)")
     );
     filters.set_inner_html(&html);
+    // narrow screens: the panel starts folded under its "Filters" button
+    let _ = filters.class_list().add_1("collapsed");
+    if let Some(t) = by_id("f-toggle") {
+        listen(&t, "click", |_| {
+            if let Some(f) = by_id("filters") {
+                let folded = f.class_list().toggle("collapsed").unwrap_or(false);
+                if let Some(t) = by_id("f-toggle") {
+                    let _ = t.set_attribute("aria-expanded", if folded { "false" } else { "true" });
+                }
+            }
+        })?;
+    }
     let sorts: String = Sort::ALL.iter().map(|(_, k, label)| format!("<option value=\"{k}\">{label}</option>")).collect();
     if let Some(s) = by_id("summary") {
         s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label>"));
@@ -132,6 +145,12 @@ fn draw_panel() -> Result<(), JsValue> {
             let q = &mut a.q;
             match act.as_str() {
                 "kind" => {
+                    // doors rank by size (the volume) first, as every door board does
+                    if val == "door" && q.sort == Sort::Blocks {
+                        q.sort = Sort::Volume;
+                    } else if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
+                        q.sort = Sort::Blocks;
+                    }
                     q.kind = val;
                     q.groups.clear();
                 }
@@ -141,6 +160,12 @@ fn draw_panel() -> Result<(), JsValue> {
                 _ => {}
             }
         });
+        // a tab click changed the sort: show it
+        if let Some(s) = by_id("f-sort").and_then(|e| e.dyn_into::<HtmlSelectElement>().ok()) {
+            if let Some(k) = with_app(|a| a.q.sort.key()) {
+                s.set_value(k);
+            }
+        }
         refresh(true);
     })?;
     for id in ["f-text", "f-time", "f-kind-filter"] {
