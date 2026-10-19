@@ -1,0 +1,28 @@
+# archived 2026-10-19T18:24Z from designs/clocks/tracks/clk-obs/families/p58-note-obs-10b-60394b.txt by mctas clock archive
+# CLOCK: clk-obs-p58-note-obs-10b-60394b period 58 gt (2.9 s), on 24/58, edges 12, warmup 32, family note_block+observer, 10 blocks, 1x3x4, robust
+name: clk-obs-p58-note-obs-10b-60394b
+# A ring of 9 observers and one note relay (10 cells): the observer before the relay powers it, the next one watches it. P=58 (redsim), family note_block+observer.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+  A
+  C
+layer 1:
+  D
+  C
+  E
+  E
+layer 2:
+  D
+  E
+  .
+  .

@@ -63,10 +63,20 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   each element with two distinct movers per cycle, every piston 0-ticking every 3 gt. (A counting
   bound beyond that is not proved: a piston can push the element that quasi-powers it when the
   element is second in its upward line.)
+  Moves must complete inside their block-event phase: a block left moving lands in the
+  block-entity phase 2 ticks later and cannot move before the next cycle (block events of tick
+  t+3), so it would move once per 3-tick cycle and never come back. So every move of a P3 clock is
+  placed at once by a finalTick (the first block of a sticky 0-tick, or any block moving through
+  the cell in front of a retracting piston, or two ahead of a retracting sticky piston in its
+  direction): no plain slime drags, no blocks pushed by a normal piston, no 2-block lines unless
+  another retraction places the rest in the same phase.
   Exhaustive targeted searches (`census --max-period 3 --min-pistons --min-rblocks`): no clock
   with P <= 3 among every <= 5-block polycube (the full palette, and piston/sticky/redstone
-  block/slime/stone), and every 6-block polycube with exactly 4 pistons + 2 redstone blocks
-  (1.94 G sims, 42 min); box mode (`--box WxHxD`, non-connected placements) next.
+  block/slime/stone), every 6-block polycube with exactly 4 pistons + 2 redstone blocks
+  (1.94 G sims, 42 min), and every 6-subset (connected or not) of a 3x2x2 box (982 M sims) or a
+  2x3x2 box (496 M sims) with 4 pistons + 2 redstone blocks. Running: every 6-block polycube of
+  piston/sticky/redstone block/slime/stone with >= 2 pistons and a powered piston as placed
+  (`--need-powered-piston`: lossless without observers, nothing else can start a move).
 * Pure observer clocks: each observer watches one cell, so the watch graph is functional (one
   cycle per component) and lattice cycles have even length n. One pulse runs 2 gt per observer:
   P = 2n for n >= 4. The pair (n = 2) has two stable modes chosen by the order of the two

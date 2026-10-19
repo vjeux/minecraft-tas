@@ -7,6 +7,11 @@ results: [NOTES.md](NOTES.md); verified clocks: [VERIFIED.md](VERIFIED.md) (+ `l
 [captions.tsv](captions.tsv); live board: Space memory `minecraft-tas/clocks/families/obs.md`.
 
 ## Headline results
+- EXTENDABLE families (`mctas clock obs family list`; instance for any n: `mctas clock obs family
+  <name> --n N --out FILE`; `--check K` confirms n = 0..K in redsim; `members <paths>` lists the
+  designs that are instances): obs-ring P = 8 + 4n (4 + 2n blocks), note-ring P = 10 + 4n
+  (6 + 2n), trap-ring P = 10 + 4n (6 + 2n), bulb-ring P = 20 + 8n (6 + 2n), odd-a P = 11 + 4n
+  (8 + 2n), odd-b P = 13 + 4n (10 + 2n), divider P = 12 x 2^n (3 + 3n).
 - EVERY period P >= 4 has a block-update clock: the census gives P4 (4 blocks), P5 (6), P6 (2),
   P7 (5), P9 (5); `mctas clock obs every` builds every P >= 8: observer rings (P = 0 mod 4),
   rings with one note block (P = 2 mod 4), and the ODD PISTON STAGE + observer tower (odd

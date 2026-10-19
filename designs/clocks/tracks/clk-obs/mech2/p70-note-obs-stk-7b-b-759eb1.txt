@@ -1,0 +1,20 @@
+name: clk-obs-p70-note-obs-stk-7b-b-759eb1
+# P70: 1 note block, 3 observers, 3 sticky pistons; changing in place: note_block, observer, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: -1 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+layer 0:
+  .A
+  .B
+  AC
+layer 1:
+  .D
+  .E
+  .F
