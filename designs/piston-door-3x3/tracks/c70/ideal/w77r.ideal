@@ -1,0 +1,28 @@
+# c70 w77r: ceil's c077w + c070x's right side (TR watcher (3,3) W, repeater (4,3), observer (4,2) up); S by a test observer X (-1,3,1) facing south (plan toggles (-1,3,2) at gs);
+# E1/E2 by the observer (-2,3) up (plan toggles (-2,4)); M gate observer (-1,-1) down (plan toggles (-1,-2)); BL-left and BM ideal redstone blocks.
+design designs/piston-door-3x3/tracks/c70/wip/w77r.txt
+let bl = 2
+let e1 = 4
+let gs = 8
+let gm = 12
+let e2 = 30
+let e2c = 30
+let bm = 20
+open 0 use 1 5 0
+open bl set -2 0 1 minecraft:redstone_block
+open bl+2 clear -2 0 1
+open e1 set -2 4 0 minecraft:glass
+open gs set -1 3 2 minecraft:glass
+open gm set -1 -2 0 minecraft:glass
+open e2 clear -2 4 0
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+close 0 use 1 5 0
+close bl set -2 0 1 minecraft:redstone_block
+close bl+2 clear -2 0 1
+close e1 set -2 4 0 minecraft:glass
+close gs clear -1 3 2
+close gm clear -1 -2 0
+close e2c clear -2 4 0
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1
