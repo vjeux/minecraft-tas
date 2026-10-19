@@ -93,3 +93,17 @@ repeater change; A may fire on close). door ideal WORKS (4 positions x 2, frame 
 only feeds are the static (0,3) and QC through (1,4), both through the B-watcher dust ((0,4) on (0,3)), which
 also fires L1/L2 (a second pulse there makes their count even). The free top cells ((-1,3), (3,3), (-2,5)) see
 no early lever signal except (3,3) on the dust (4,3), whose output cell (2,3) holds TRp's head.
+
+## 9. m88a: the 8x8 (64) version, whole bottom real (06:25Z)
+tracks/c2e/m10/m88a.txt + .ideal: m10b-uk widened by a left column x=-3: L0 is fed from the left (note block
+(-2,-2) under K's dust -> observer (-3,-2) -> observer (-3,-1) -> stone (-3,0) next to L0; three L0 pulses per
+edge). door ideal WORKS (4 positions x 2) with only the top ideal; top windows (logs/m88a-windows.log): A's hold
+start 7..8 length 3..4, A's last pull >= 17 on open, L1/L2 any.
+- m88b = m88a + m10top's B-watcher top: BREAKS on close. The watcher fires 2 gt after B pushes A back to (1,3),
+  exactly when A lands, so A (QC-armed through (1,4)) fires on close and pushes the column down (U's second
+  pulse is long gone). In m88a an ideal close A pulse at 16..30 looked harmless only because the ideal block at
+  (1,4,-1) arms A without updating it. Any source that powers A at (1,4) also QC-arms A at (1,3); only the
+  update differs. So A's last pull must avoid A's close landing tick (A lands at B + 2): e.g. a stone (0,4)
+  strongly powered from the side (no update reaches A at (1,3)), with its pulse shifted off B + 2.
+- A's hold (8..12) remains: the early lever signals sit on the right (dust (4,3) t0, TRp t8), and the only free
+  cell next to them, (3,3), outputs into TRp's head (2,3).
