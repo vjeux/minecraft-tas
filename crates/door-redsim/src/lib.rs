@@ -83,6 +83,11 @@ pub enum DoorCmd {
         /// Only run the redsim rotation check on these designs and exit (calibration).
         #[arg(long)]
         rotation_only: bool,
+        /// KEEP mode: region cells keep their blocks unless a filling changes them; --k counts the
+        /// CHANGED cells (another palette state, or air where a block was): `ideal-rs --vary` with a
+        /// `keep` alternative and at most k cells off it, on the real door.
+        #[arg(long)]
+        keep: bool,
     },
     /// Flip a design's lever N times in redsim at the judge's 4 positions and check it alternates
     /// between an open state (opening clear, frame 12/12) and a closed one (cycle.rs). Accepts a
@@ -305,7 +310,7 @@ pub enum DoorCmd {
 }
 
 pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
-    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, require_any, report, any_seamless, allow_pistons, any_rotation, rotation_only } = cmd {
+    if let DoorCmd::Fill { design, cells, fix, cell_palette, k, kmin, palette, gaps, threads, screen_cycles, extra, out_dir, max_finds, max_blocks, max_volume, count, require_any, report, any_seamless, allow_pistons, any_rotation, rotation_only, keep } = cmd {
         if rotation_only {
             let (_, door) = crate::cosearch::load_door(&design)?;
             let opts = crate::cosearch::JudgeOpts::with_extra(extra);
@@ -337,6 +342,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             allow_pistons,
             any_rotation,
             require_any: require_any.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+            keep,
         };
         let _ = version;
         return crate::fill::run(&o);

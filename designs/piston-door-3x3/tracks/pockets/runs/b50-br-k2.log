@@ -1,0 +1,25 @@
+assist designs/piston-door-3x3/tracks/pockets/s26/b50-br2.ideal: 1 input cells off the plane ([(2, -2)]), 6 / 6 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/shrink-s27-tlp50.txt: 50 blocks in the box, screen 41/79
+seed screen 79/79 with 1 inputs assisted
+windows (6 groups, 0.0 s):
+  input (2,-2) open  t29 pulse 2 gt: window [-24, +0]
+  input (2,-2) open  t33 pulse 2 gt: window [+0, +0]
+  input (2,-2) open  t37 pulse 2 gt: window [+0, +24]
+  input (2,-2) close t35 pulse 2 gt: window [-24, +0]
+  input (2,-2) close t39 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t43 pulse 2 gt: window [+0, +24]
+7 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [true]; 58 swept cells
+  pocket 0: 1 cells [(-2, -1)]
+  pocket 1: 1 cells [(-2, 3)]
+  pocket 2: 4 cells [(3, -2), (4, -2), (4, -1), (4, 0)]
+  pocket 3: 1 cells [(3, 3)]
+pocket 0: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 0: 61 screened, 56 keep the door working, 0.3 s; driven input sets: none
+pocket 1: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 1: 61 screened, 33 keep the door working, 0.3 s; driven input sets: none
+pocket 2: 4 cells, 8 subset/lever items, 18788 fillings to screen
+pocket 2: 19816 screened, 10416 keep the door working, 1.8 s; driven input sets: none
+pocket 3: 1 cells, 1 subset/lever items, 61 fillings to screen
+pocket 3: 61 screened, 36 keep the door working, 0.3 s; driven input sets: none
+plan groups no filling drives: (2,-2)o29 (2,-2)o33 (2,-2)o37 (2,-2)c35 (2,-2)c39 (2,-2)c43
+0 combinations verified, 0 finds, 3 s total
