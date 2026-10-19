@@ -1,0 +1,19 @@
+# A torch burnout clock (from track clk-rt's burnout-tr1, measured P=220 in the game by door drive).
+# Torch T (on A) -> 3 dust -> delay-1 repeater R -> A: an inner loop of period 8 gt, so the torch
+# burns out at its 8th turn-off (8 toggles in 60 gt); R keeps T's input powered past that turn-off,
+# and the burnout re-check relights T 160 gt later: 7 x 8 + 4 + 160 = 220.
+name: cal-burnout-torch
+origin: -2 0 0
+port output: 0 1 1
+palette:
+  S minecraft:stone
+  A minecraft:stone
+  R minecraft:repeater[facing=west,delay=1,locked=false,powered=false]
+  T minecraft:redstone_wall_torch[facing=south,lit=true]
+  w minecraft:redstone_wire
+layer 0:
+  SS.
+  SS.
+layer 1:
+  wRA
+  wwT
