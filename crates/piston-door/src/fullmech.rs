@@ -124,6 +124,10 @@ pub enum A {
     /// next-tick interactions (one block pushed by two pistons in one tick, a spit while
     /// another piston moves, killer-piston orders).
     S { a: u8, b: u8, ka: u8, kb: u8, d: u8 },
+    /// One shared input for a group of pistons (bitmask of ids): a level toggle / a k-tick
+    /// pulse switching every member together (input merging: fewer independent signals).
+    GL(u16),
+    GP(u16, u8),
 }
 
 pub struct Ctx {
@@ -269,6 +273,35 @@ impl Ctx {
                     swept |= self.ring_mask(&w);
                 }
             }
+            A::GL(mask) => {
+                let ids: Vec<usize> = (0..16).filter(|i| mask >> i & 1 == 1).collect();
+                let on = key.inp >> ids[0] & 1 == 0;
+                if ids.iter().any(|&i| (key.inp >> i & 1 == 0) != on) {
+                    return None;
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, on);
+                }
+            }
+            A::GP(mask, k) => {
+                let ids: Vec<usize> = (0..16).filter(|i| mask >> i & 1 == 1).collect();
+                if ids.iter().any(|&i| key.inp >> i & 1 == 1) {
+                    return None;
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, true);
+                }
+                for _ in 0..k {
+                    w.tick();
+                    if !self.ok(&w) {
+                        return None;
+                    }
+                    swept |= self.ring_mask(&w);
+                }
+                for &i in &ids {
+                    redsim::piston::set_input(&mut w, i, false);
+                }
+            }
         }
         if !self.ok(&w) {
             return None;
@@ -338,10 +371,13 @@ impl Ctx {
             let p = self.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i as usize).unwrap();
             p.code()
         };
+        let gid = |m: u16| (0..16u8).filter(|i| m >> i & 1 == 1).map(&pid).collect::<Vec<_>>().join("+");
         match a {
             A::L(i) => format!("L{}", pid(i)),
             A::P(i, k) => format!("P{k}{}", pid(i)),
             A::S { a, b, ka, kb, d } => format!("[P{ka}{} & P{kb}{} +{d}]", pid(a), pid(b)),
+            A::GL(m) => format!("L{{{}}}", gid(m)),
+            A::GP(m, k) => format!("P{k}{{{}}}", gid(m)),
         }
     }
 
@@ -632,6 +668,13 @@ pub fn solve(ctx: &Ctx, rest: &Key, cap: usize) -> Result<Option<Found>, ()> {
                             used[a as usize] = true;
                             used[b as usize] = true;
                         }
+                        A::GL(m) | A::GP(m, _) => {
+                            for (i, u) in used.iter_mut().enumerate() {
+                                if m >> i & 1 == 1 {
+                                    *u = true;
+                                }
+                            }
+                        }
                     }
                 }
                 return Ok(Some(Found { open: open_path, close: close_path, states, used }));
@@ -702,6 +745,24 @@ fn action_ticks(ctx: &Ctx, key: &Key, a: A) -> Option<(Key, u32, Vec<(u32, u8, b
                 }
                 w.tick();
                 t += 1;
+            }
+        }
+        A::GL(m) => {
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                let on = key.inp >> i & 1 == 0;
+                switch(&mut w, &mut sw, 0, i, on);
+            }
+        }
+        A::GP(m, k) => {
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                switch(&mut w, &mut sw, 0, i, true);
+            }
+            for _ in 0..k {
+                w.tick();
+                t += 1;
+            }
+            for i in (0..16u8).filter(|i| m >> i & 1 == 1) {
+                switch(&mut w, &mut sw, t, i, false);
             }
         }
     }
@@ -842,6 +903,58 @@ pub fn reduce_greedy(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize, threads: usiz
     let mut v = out.into_inner().unwrap();
     v.sort_by_key(|(h, d, _)| (*d, *h));
     (base, v)
+}
+
+/// Replace a context's actions by shared-input group actions (bitmasks of piston ids).
+pub fn with_groups(ctx: &mut Ctx, rest: &Key, groups: &[u16], o: &Opts) {
+    let mut acts = Vec::new();
+    for &m in groups {
+        let all_ext = (0..16).filter(|i| m >> i & 1 == 1).all(|i| rest.inp >> i & 1 == 1);
+        if o.levels || all_ext {
+            acts.push(A::GL(m));
+        }
+        for &k in &o.pulses {
+            acts.push(A::GP(m, k));
+        }
+    }
+    ctx.actions = acts;
+}
+
+/// Input merging: after [`min_inputs`], merge driven pistons into groups that share one input
+/// (switched together) while the mechanism still opens and closes exactly. The number of groups
+/// is the number of independent signals the wiring must produce.
+pub fn min_groups(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> Option<(Vec<FPc>, Vec<Vec<FPc>>, Found, Ctx, Key)> {
+    let (und, _) = min_inputs(bx, pieces, o, cap)?;
+    let (mut ctx, rest) = build_driven(bx, pieces, o, &und)?;
+    let mut pistons: Vec<FPc> = pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).copied().collect();
+    pistons.sort();
+    let mut groups: Vec<u16> = (0..pistons.len()).filter(|i| !und.contains(&pistons[*i])).map(|i| 1u16 << i).collect();
+    with_groups(&mut ctx, &rest, &groups, o);
+    let mut best = solve(&ctx, &rest, cap).ok()??;
+    loop {
+        let mut merged = false;
+        'outer: for a in 0..groups.len() {
+            for b in a + 1..groups.len() {
+                let mut g2 = groups.clone();
+                let m = g2[a] | g2[b];
+                g2.remove(b);
+                g2[a] = m;
+                with_groups(&mut ctx, &rest, &g2, o);
+                if let Ok(Some(f)) = solve(&ctx, &rest, cap) {
+                    groups = g2;
+                    best = f;
+                    merged = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !merged {
+            break;
+        }
+    }
+    with_groups(&mut ctx, &rest, &groups, o);
+    let gv: Vec<Vec<FPc>> = groups.iter().map(|m| (0..pistons.len()).filter(|i| m >> i & 1 == 1).map(|i| pistons[i]).collect()).collect();
+    Some((und, gv, best, ctx, rest))
 }
 
 // ---- input reduction: helpers that replace a piston's wiring ----
@@ -1001,6 +1114,13 @@ fn score(bx: Bx, pieces: &[FPc], o: &Opts, cap: usize) -> (f64, Option<Found>) {
                     A::S { a, b, .. } => {
                         used[a as usize] = true;
                         used[b as usize] = true;
+                    }
+                    A::GL(m) | A::GP(m, _) => {
+                        for (i, u) in used.iter_mut().enumerate() {
+                            if m >> i & 1 == 1 {
+                                *u = true;
+                            }
+                        }
                     }
                 }
             }
@@ -1173,6 +1293,8 @@ pub struct CliOpts {
     pub export: Option<std::path::PathBuf>,
     /// Replay these `door ideal` plans in the real simulator.
     pub verify_ideal: Vec<std::path::PathBuf>,
+    /// Input merging (min_groups) for every solved mechanism.
+    pub groups: bool,
 }
 
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
@@ -1302,6 +1424,20 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             Ok(Some(f)) => println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64()),
             Ok(None) => println!("  no FULL seamless open + close (exhausted) [{:.1}s]", t0.elapsed().as_secs_f64()),
             Err(()) => println!("  cap hit [{:.1}s]", t0.elapsed().as_secs_f64()),
+        }
+        if o.groups {
+            let t1 = std::time::Instant::now();
+            match min_groups(bx, &pieces, &so, o.cap) {
+                Some((und, gv, f, gctx, _)) => println!(
+                    "  input merging: {} independent signals (undriven: {}; groups: {}) [{:.1}s]\n  {}",
+                    gv.len(),
+                    und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                    gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                    t1.elapsed().as_secs_f64(),
+                    describe(&gctx, &f)
+                ),
+                None => println!("  input merging: no exact solution"),
+            }
         }
         if o.reduce {
             let t1 = std::time::Instant::now();
@@ -1437,6 +1573,62 @@ pub fn cli(o: &CliOpts) -> Result<()> {
                 }
             }
             std::fs::write(sub.join("INDEX.tsv"), index)?;
+        }
+        if o.groups {
+            // input merging per mechanism, mechanisms in parallel
+            let next = AtomicUsize::new(0);
+            let res: Mutex<Vec<(usize, String, Option<(String, String)>)>> = Mutex::new(Vec::new());
+            std::thread::scope(|s| {
+                for _ in 0..o.threads.max(1).min(found.len().max(1)) {
+                    s.spawn(|| loop {
+                        let n = next.fetch_add(1, Ordering::Relaxed);
+                        if n >= found.len() {
+                            break;
+                        }
+                        let (bx, v, _, _) = &found[n];
+                        let fp: Vec<FPc> = v.iter().map(FPc::from_pc).collect();
+                        let id = format!("fm-{w}x{h}-{n:03}");
+                        let line;
+                        let mut files = None;
+                        match min_groups(*bx, &fp, &so, o.reduce_cap) {
+                            Some((und, gv, f, ctx, rest)) => {
+                                line = format!(
+                                    "{id}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                                    gv.len(),
+                                    und.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "),
+                                    gv.iter().map(|g| g.iter().map(|p| p.code()).collect::<Vec<_>>().join("+")).collect::<Vec<_>>().join(" | "),
+                                    f.open.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                                    f.close.iter().map(|a| ctx.fmt_action(*a)).collect::<Vec<_>>().join(" "),
+                                    fp.iter().map(|p| p.code()).collect::<Vec<_>>().join(" ")
+                                );
+                                if let Some(dir) = &o.export {
+                                    let dpath = dir.join(format!("{w}x{h}")).join(format!("{id}.txt"));
+                                    files = export(&ctx, &rest, &f, &format!("{id}-groups"), &dpath.display().to_string(), 2);
+                                }
+                            }
+                            None => line = format!("{id}\t-\t\t(no exact solution with the group search)\t\t\t\n"),
+                        }
+                        res.lock().unwrap().push((n, line, files));
+                    });
+                }
+            });
+            let mut res = res.into_inner().unwrap();
+            res.sort_by_key(|r| r.0);
+            let mut tsv = String::from("id\tsignals\tundriven\tgroups\topen\tclose\tpieces\n");
+            let mut hist: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+            for (n, line, files) in &res {
+                tsv.push_str(line);
+                *hist.entry(line.split('\t').nth(1).unwrap_or("-").to_string()).or_default() += 1;
+                if let (Some(dir), Some((_, plan))) = (&o.export, files) {
+                    std::fs::write(dir.join(format!("{w}x{h}")).join(format!("fm-{w}x{h}-{n:03}-groups.ideal")), plan)?;
+                }
+            }
+            let line = format!("{w}x{h}: independent input signals after merging (mechanisms per count): {hist:?}\n");
+            print!("{line}");
+            report.push_str(&line);
+            if let Some(dir) = &o.export {
+                std::fs::write(dir.join(format!("{w}x{h}")).join("GROUPS.tsv"), tsv)?;
+            }
         }
         if o.reduce {
             for (bx, v, _, _) in found.iter() {

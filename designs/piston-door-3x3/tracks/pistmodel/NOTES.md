@@ -66,8 +66,17 @@ Families' candidates re-solved exactly (<= 10 pistons, pulses 1/3, cap 30k state
   (`door fullmech --verify-ideal`).
 * With physical inputs, stacked pistons share a source: e89b's mechanism solves with 8 of its 10
   inputs.
-* `--reduce` (one helper per undriven piston) on e89b: nothing; greedy input minimization with one
-  helper per mechanism on the 32 7x8 mechanisms: running.
+* Input reduction on the 32 7x8 mechanisms ([fullmech/reduce-7x8.txt](fullmech/reduce-7x8.txt)):
+  greedy undriving leaves 8 (24 mechanisms) or 9 (8) of 10 pistons with an input; no single helper
+  (a redstone block, or an observer of each in-plane facing, in any free cell) lowers it.
+* **Input merging** (`--groups`: pistons switched together by one shared signal): every one of the
+  32 7x8 mechanisms needs only **3 independent signals**: one group of 6-7 pullers fired together
+  (1-tick and 3-tick pulses) plus the two pistons of the center's elevator (or one of them and an
+  extended-at-rest piston). Plans: [fullmech/7x8/GROUPS.tsv](fullmech/7x8/GROUPS.tsv) and
+  `fm-7x8-NNN-groups.ideal`; 32/32 replay in the real simulator. e89b's mechanism: the same 3
+  (6 pullers | SU(1,-3) | SU(1,-2)). A wiring therefore needs 3 timed signals, but the big
+  group's pullers sit on both sides of the door (row y=1 is full at rest), so one network cannot
+  reach them all in the plane: the signal has to cross through moving blocks or be duplicated.
 * `--anneal` (simulated annealing over mechanisms not tied to exit plans, 15k evaluations in 90 s on
   7x8): nothing from scratch; it needs seeding.
 
