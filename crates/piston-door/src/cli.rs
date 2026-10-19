@@ -927,6 +927,9 @@ pub enum DoorCmd {
         /// Lean second stage (visited sets only, reduced then plain) up to this many states.
         #[arg(long, default_value_t = 0)]
         cap_lean: usize,
+        /// The wirable sub-model: no piston body may enter the 3x3 (heads may).
+        #[arg(long)]
+        no_door_bodies: bool,
         /// export: ticks between macro steps of the ideal plans.
         #[arg(long, default_value_t = 6)]
         gap: u32,
@@ -3045,8 +3048,12 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
             let o = sw::RunOpts { iters, core_tries, minimize: !first, max_blocks, extra: extra_offsets, out, name, version: version.to_string() };
             sw::run(&p, &o)?;
         }
-        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean } => {
+        DoorCmd::Mechspace { cmd, boxes, input, pistons, cap, fcap, threads, cap_local, max_group, out_dir, tag, limit, two, carry, vmid, catalog, n, walk, astar, gap, workers, extra_offsets, cap_lean, no_door_bodies } => {
             use crate::mechspace as ms;
+            if no_door_bodies {
+                ms::NO_DOOR_BODIES.store(true, std::sync::atomic::Ordering::Relaxed);
+                eprintln!("[mechspace] sub-model: no piston body inside the 3x3");
+            }
             let vm: Vec<Vec<(i8, i8)>> = match vmid.as_deref() {
                 None => Vec::new(),
                 Some("ml") => vec![vec![(0, 1)]],
@@ -3090,12 +3097,18 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let found = ms::run_list(&items, &o, cmd == "validate-list")?;
                     ms::handle_found(&found, &o, &cat)?;
                 }
-                "diag" | "diag2" => {
+                "diag" | "diag2" | "diag3" => {
                     let f = input.ok_or_else(|| anyhow::anyhow!("diag needs --input"))?;
                     let items = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
                     let (bx, v) = &items[limit.min(items.len() - 1)];
                     if cmd == "diag" {
                         ms::diag(*bx, v, cap, cap_local, max_group)?;
+                    } else if cmd == "diag3" {
+                        let (m, rest) = crate::families::Mech::new(*bx, v).ok_or_else(|| anyhow::anyhow!("invalid"))?;
+                        let cx = ms::Cx::new(&m, &rest);
+                        let t0 = std::time::Instant::now();
+                        let (g, c, nst) = ms::search_lean(&cx, std::slice::from_ref(&rest), &ms::Goal::Open, &Default::default(), cap, true, false);
+                        println!("plain lean open search: {nst} states, complete {c}, {} open, {:.1}s ({:.0} states/s)", g.len(), t0.elapsed().as_secs_f64(), nst as f64 / t0.elapsed().as_secs_f64());
                     } else {
                         ms::diag2(*bx, v, cap)?;
                     }
@@ -3131,6 +3144,21 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
                     let items = ms::read_ided(&f, bxs[0].0, bxs[0].1)?;
                     let t = tag.clone().unwrap_or_else(|| format!("list-{}x{}", bxs[0].0, bxs[0].1));
                     ms::export(version, &items, &out_dir, &t, cap, gap, workers, extra_offsets)?;
+                }
+                "helpers" => {
+                    let cat = ms::catalog_set(&catalog)?;
+                    let f = input.ok_or_else(|| anyhow::anyhow!("helpers needs --input"))?;
+                    anyhow::ensure!(bxs.len() == 1, "helpers needs one --boxes WxH");
+                    let base = ms::read_list(&f, bxs[0].0, bxs[0].1)?;
+                    let mut items = ms::helper_variants(&base, two.max(1));
+                    eprintln!("[mechspace] {} base candidates -> {} helper variants", base.len(), items.len());
+                    if limit > 0 && items.len() > limit {
+                        items.truncate(limit);
+                    }
+                    let t = tag.clone().unwrap_or_else(|| format!("helpers-{}x{}", bxs[0].0, bxs[0].1));
+                    let o = mk(t);
+                    let found = ms::run_list(&items, &o, false)?;
+                    ms::handle_found(&found, &o, &cat)?;
                 }
                 c => anyhow::bail!("mechspace: unknown command {c}"),
             }
