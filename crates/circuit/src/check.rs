@@ -19,7 +19,7 @@ pub struct Outcome {
 }
 
 impl Outcome {
-    fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
+    pub(crate) fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
         Outcome { pass: false, why: why.into(), metrics: Vec::new(), table }
     }
 
@@ -69,6 +69,9 @@ fn start(c: &Circuit) -> u32 {
 
 /// The stimulus `kind` is judged with.
 pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    if *kind == Kind::Bud {
+        return crate::bud::stimulus(c, z);
+    }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
     let gap = z.gap.max(20);
@@ -188,6 +191,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
         }
+        Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
     }
     s.ticks = t;
     s
@@ -215,6 +219,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
+        Kind::Bud => crate::bud::check(c, s, t),
     }
 }
 

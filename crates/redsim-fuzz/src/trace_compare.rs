@@ -276,6 +276,14 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 Action::Clear { pos } => {
                     w.set_block(bp(pos), Block::Air, flags::ALL);
                 }
+                Action::ShapeSet { pos, state } => {
+                    let b = Block::parse(&state).map_err(|e| anyhow::anyhow!(e))?;
+                    w.set_block(bp(pos), b, flags::CLIENTS);
+                }
+                Action::Update { pos } => {
+                    let src = w.get(bp(pos)).kind();
+                    w.update_neighbors_at(bp(pos), src);
+                }
             }
         }
         if t > 0 {

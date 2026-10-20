@@ -26,6 +26,8 @@ pub enum PlaceMode {
     Raw,
     /// Like a player placing it: neighbor and shape updates, `onPlace` runs.
     Update,
+    /// Shape updates only (flags 2: no block update to the neighbors), like a crop growing.
+    Shape,
 }
 
 impl PlaceMode {
@@ -33,6 +35,7 @@ impl PlaceMode {
         match self {
             PlaceMode::Raw => "raw",
             PlaceMode::Update => "update",
+            PlaceMode::Shape => "shape",
         }
     }
 }

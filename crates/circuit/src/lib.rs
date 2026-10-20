@@ -15,6 +15,7 @@
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
 pub mod archive;
+pub mod bud;
 pub mod check;
 pub mod fly;
 pub mod run;
@@ -96,6 +97,9 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
+    /// at its `port target:` cells (place, remove, state, shape, update).
+    Bud,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -159,8 +163,9 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "bud" => Kind::Bud,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, bud)"
             ),
         })
     }
@@ -186,6 +191,7 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::Bud => "bud".into(),
         }
     }
 
@@ -199,6 +205,7 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
+            Kind::Bud => "bud",
         }
     }
 
@@ -250,6 +257,11 @@ pub struct Circuit {
     pub distance: Option<u32>,
     /// The explicit `stimulus:` header.
     pub stimulus: Option<String>,
+    /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a [state-b]]`), where the
+    /// judge performs its block updates.
+    pub targets: Vec<bud::Target>,
+    /// The update classes a BUD switch claims to detect (`bud: place remove ...`).
+    pub bud_claims: Vec<String>,
 }
 
 impl Circuit {
@@ -263,6 +275,7 @@ impl Circuit {
         let mut outputs = Vec::new();
         let mut payloads = Vec::new();
         let mut stations = Vec::new();
+        let mut targets = Vec::new();
         for (name, pos) in &design.ports {
             let args = design.meta.get(&format!("port {name}")).cloned().unwrap_or_default();
             let (base, sub) = match name.split_once('.') {
@@ -283,10 +296,12 @@ impl Circuit {
                     }
                     stations.push(*pos);
                 }
+                "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start)"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], target[.name], start)"),
             }
         }
+        targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
         inputs.sort_by(|a, b| a.name.cmp(&b.name));
         outputs.sort_by(|a, b| a.name.cmp(&b.name));
         payloads.sort_by(|a, b| a.name.cmp(&b.name));
@@ -308,8 +323,9 @@ impl Circuit {
         };
         let distance = design.meta.get("distance").map(|d| d.trim().parse::<u32>().with_context(|| format!("distance: {d:?}"))).transpose()?;
         let stimulus = design.meta.get("stimulus").cloned();
+        let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -319,6 +335,12 @@ impl Circuit {
         let Some(k) = &self.kind else {
             return Ok(());
         };
+        if *k == Kind::Bud {
+            return bud::check_ports(self);
+        }
+        if !self.targets.is_empty() {
+            bail!("{}: target ports are for the bud kind", k.name());
+        }
         let names: Vec<&str> = self.inputs.iter().map(|i| i.name.as_str()).collect();
         match k.inputs_needed() {
             Some(need) => {
@@ -550,6 +572,17 @@ impl Circuit {
                 };
                 v.push((t, a));
             }
+        }
+        for (t, i, op) in &s.events {
+            let Some(tg) = self.targets.get(*i) else { continue };
+            let pos = tg.pos;
+            let a = match op {
+                stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
+                stimulus::TargetOp::Clear => Action::Clear { pos },
+                stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
+                stimulus::TargetOp::Update => Action::Update { pos },
+            };
+            v.push((*t, a));
         }
         v.sort_by_key(|(t, _)| *t);
         v
