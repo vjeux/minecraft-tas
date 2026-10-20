@@ -51,7 +51,8 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     }
     let aspect = o.width as f32 / o.height as f32;
     let look = scene::default_look(&s);
-    let mut cam = scene::default_camera(&s, &look, aspect);
+    // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
+    let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
     if o.yaw.is_some() || o.pitch.is_some() {
         if let Some(y) = o.yaw {
             cam.yaw = y.to_radians();

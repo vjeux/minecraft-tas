@@ -5,6 +5,8 @@ use anyhow::{Context, Result, bail};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
+mod cdp;
+
 #[derive(Subcommand)]
 pub enum WebCmd {
     /// Render designs to PNG offscreen with the browser viewer's renderer (wgpu, Vulkan headless:
@@ -104,6 +106,25 @@ pub enum WebCmd {
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
+    /// Click test of a page's live viewers in headless Chromium (real input events through the
+    /// DevTools protocol): for every viewer with a lever or button, clicks it (or taps it with
+    /// `--touch`) while paused and requires the input to flip, the simulation to start and the
+    /// build to react (a door's opening changes, or another block turns on) within `--wait`
+    /// seconds.
+    Click {
+        url: String,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// Tap (touch events, a phone) instead of a mouse click.
+        #[arg(long)]
+        touch: bool,
+        #[arg(long, default_value_t = 8)]
+        wait: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// Texture contact sheet: PNGs scaled up (nearest) in a grid, in the given order (row by row),
     /// to pick textures by eye.
     Sheet {
@@ -197,6 +218,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Click { url, window, scale, touch, wait, browser } => crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser),
         WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {

@@ -480,6 +480,21 @@ impl Session {
         ok
     }
 
+    /// Is a component "on" now (a lever's or button's `powered`, a lamp's `lit`...)?
+    pub fn is_on(&self, p: Pos) -> bool {
+        if let Some(r) = &self.replay {
+            return r.state_at(p).is_some_and(active_state);
+        }
+        self.simulated() && active(&self.world.get(bp(p)))
+    }
+
+    /// A door's opening: how many of its 9 cells hold a block (0 = open, 9 = closed); None for
+    /// other designs.
+    pub fn door_blocks(&self) -> Option<usize> {
+        let Mode::Door { door, along_z, .. } = self.mode else { return None };
+        Some(door_cells(door, along_z).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
+    }
+
     /// Nothing pending (no scheduled ticks, events, moving blocks, pending inputs).
     pub fn idle(&self) -> bool {
         self.actions.is_empty() && self.world.idle()

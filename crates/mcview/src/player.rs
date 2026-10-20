@@ -62,14 +62,14 @@ impl Player {
         self.session.step();
         self.acc = 0.0;
         self.partial = 0.0;
-        self.dirty = true;
+        self.invalidate();
     }
 
     pub fn reset(&mut self) {
         self.session.reset();
         self.acc = 0.0;
         self.partial = 0.0;
-        self.dirty = true;
+        self.invalidate();
     }
 
     /// The block under a point of the view (x, y in -1..1, y up).
@@ -79,15 +79,30 @@ impl Player {
         crate::pick::pick(atlas, &blocks, o, d, self.camera.dist * 4.0 + 50.0)
     }
 
-    /// A click: flips the lever / presses the button under the pointer. Returns the cell.
+    /// A click: flips the lever / presses the button under the pointer, paused or playing (the
+    /// frame is rebuilt at once: the cached mesh is keyed by tick, which a click does not move).
+    /// Returns the cell.
     pub fn click(&mut self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<Pos> {
         let c = self.pick(atlas, x, y, aspect)?;
         if self.session.toggle(c) {
-            self.dirty = true;
+            self.invalidate();
             Some(c)
         } else {
             None
         }
+    }
+
+    /// Where on the view (x, y in -1..1, y up) a click picks `cell` (tests click there).
+    pub fn screen_point(&self, atlas: &Atlas, cell: Pos, aspect: f32) -> Option<(f32, f32)> {
+        scene::click_point(atlas, &self.session, &self.camera, cell, aspect)
+    }
+
+    /// Turn the camera (and its home) to a side every lever and button can be seen and clicked
+    /// from, if the pictures' side hides one.
+    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32) {
+        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect);
+        self.home = self.camera;
+        self.dirty = true;
     }
 
     /// Flip a door's lever (or the first input).
@@ -97,7 +112,9 @@ impl Player {
             _ => self.session.inputs.first().copied(),
         };
         let ok = target.is_some_and(|p| self.session.toggle(p));
-        self.dirty |= ok;
+        if ok {
+            self.invalidate();
+        }
         ok
     }
 
@@ -163,5 +180,21 @@ mod tests {
         assert_eq!(seconds(123), "6.15 s");
         assert_eq!(seconds(20), "1.00 s");
         assert_eq!(seconds(1250), "1 min 02.50 s");
+    }
+
+    #[test]
+    fn a_paused_click_shows_at_once() {
+        // the lever flips while paused: the next frame shows it (no stale mesh of the same tick)
+        let gadget = "name: g\norigin: 0 0 0\npalette:\n  S minecraft:stone\n  L minecraft:lever[face=floor,facing=east,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\nlayer 0:\n  SB\nlayer 1:\n  L\n";
+        let atlas = Atlas::build();
+        let mut p = Player::new(gadget, 1.5).unwrap();
+        assert_eq!(p.session.inputs, vec![[0, 1, 0]]);
+        let before = p.triangles(&atlas).0;
+        let (x, y) = p.screen_point(&atlas, [0, 1, 0], 1.5).expect("the lever is visible");
+        assert_eq!(p.click(&atlas, x, y, 1.5), Some([0, 1, 0]));
+        assert!(p.update(0.0), "a paused click asks for a frame");
+        let after = p.triangles(&atlas).0;
+        assert!(before.len() != after.len() || before.iter().zip(&after).any(|(a, b)| a.pos != b.pos), "the frame changed");
+        assert!(p.session.is_on([0, 1, 0]));
     }
 }

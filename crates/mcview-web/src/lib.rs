@@ -561,7 +561,7 @@ impl App {
             }
             let look = scene::default_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::default_camera(&s, &look, aspect);
+            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();

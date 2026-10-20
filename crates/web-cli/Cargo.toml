@@ -14,3 +14,5 @@ clock = { path = "../clock" }
 mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
 zip.workspace = true
+serde_json.workspace = true
+libc = "0.2"

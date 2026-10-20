@@ -1874,9 +1874,11 @@ dependencies = [
  "anyhow",
  "clap",
  "clock",
+ "libc",
  "mctas",
  "mcview",
  "redsim",
+ "serde_json",
  "zip",
 ]
 
