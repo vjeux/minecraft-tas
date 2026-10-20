@@ -67,7 +67,30 @@ track's tracker as `crates/circuit/src/fly.rs`).
   robust (fly-down-7b-10gt-aca731 = fly-d1 tilted down); 7 more 6-block down types, all
   rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
   east-west-only machines in every 6-block case found.
-- No other speed than 10 gt/block horizontally at 6-7 blocks (k <= 7 in 4x2x1, k <= 6 in 14
+## Fast (9 gt/block horizontal)
+- fly-horizontal-7b-9gt-e75c5f (tracks/fly/fast, archived, robust): e2cf52 without its rear
+  observer; a redstone block rides on the front part (on a second slime) beside the cell the rear
+  piston lands in. The piston fires as it lands (onPlace sees the power: 1 gt) instead of waiting
+  for the rear observer (2 gt after landing): push t1, front lands t3, front observer t5, the
+  sticky puller reach-pulls t5..t7, rear lands t9, pusher fires t10: 9 gt. The redstone block must
+  not quasi-connect the pusher once the front has moved (above the pusher it does: the pusher
+  stays extended and the pull breaks the machine), so it sits beside it. In e2cf52 the redstone
+  block needs a slime of its own (the front slime is the block the pusher pushes, a neighbour of
+  the landing cell); a 6-block version needs a host whose front slime sits diagonally ahead of the
+  landing cell (the k = 6 census with redstone blocks decides).
+- The up-flyer's 9 gt is the same 1 gt, by quasi-connectivity: the front observer watches the cell
+  the rear piston lands in and powers the slime two above it.
+- `grow --add 2 --faster` (+ redstone block, glazed terracotta) on both 9 gt machines: nothing
+  faster. What 9 gt is made of: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1. The
+  pusher retracts only after the front lands (it misses the redstone block leaving: its state turns
+  extended after its own push's neighbour updates), so the pull cannot start before t7.
+
+## Vertical two-way: none
+- Every orientation of the 7 reversible horizontal engines (`orient --all`, then `two-way
+  --reversible-only` trying every kick cell): vertically only DOWN flies, both ways never; the up
+  flyers with two sticky pistons (6 census types) break when kicked from the other end.
+
+- No other speed than 10 gt/block horizontally at 6 blocks (k <= 7 in 4x2x1, k <= 6 in 14
   boxes, grow +1).
 
 ## Speed ladder (grow) — dominated, NOT archived
