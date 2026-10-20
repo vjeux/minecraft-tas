@@ -234,10 +234,13 @@ kick) before the first input.
   * an unloader delivers 3 empty boxes, and every item reaches `items`;
   * nothing else reaches an output, no item or box is left in the machine, no entity is alive at
     the end, and the design stands still for 400 gt (it gets up to 5 windows to settle).
-  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `items/s` is the steady
-  flow: the items moved (what left a loader's source chests, what reached an unloader's items
-  chests, from per-gt block-entity frames) between 10% and 90% of the total, over the gt between
-  those two moments; `boxes/min` is that flow over the items per box; `cycle` is the first to the
+  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `items/s` is, for a loader,
+  the items in its delivered boxes over the gt from the start to the last box (hoppers and
+  droppers buffer what leaves the source, so the source's outflow would overstate it; a serial
+  loader's first box takes about one cycle, so this is its cycle rate, and boxes filled in
+  parallel count together); for an unloader, the steady flow into its items chests (per-gt
+  block-entity frames) between 10% and 90% of the total, over the gt between those two moments;
+  `boxes/min` is that rate over the items per box; `cycle` is the first to the
   last box over the boxes between; `first box` is the gt from the start. A piston drops the box at
   a random offset with a random drift, which can shift a pickup by a gt. Builds within 4 gt (and
   3% of the flow) of the base build are the same circuit (`robust`), and the reported metrics are
@@ -259,6 +262,10 @@ kick) before the first input.
     box, every box but the last with 27 occupied slots, the last within 6000 gt of the source
     running dry. The rare item's slot stays partial for good, so a design that waits for a box to
     read full jams;
+  * `filter` (loaders with a `port reject:` chest): one box's worth of the item in full stacks,
+    8 dirt or 2 sticks after each: the box must leave full of the item alone, and every other
+    item must reach the reject chest. What the design's own containers hold at the start (a
+    sorter's filter hopper) is theirs: it is left out of the end inventory;
   * `box-starved`: 2 boxes at the start (empty or full); the judge adds the rest 3000 gt after the
     2nd box arrives;
   * `drop-free`: entities polled every gt: every item entity is picked up within 8 gt and never
@@ -266,7 +273,20 @@ kick) before the first input.
   * `tileable(N)` (a `tile: dx dy dz [copies]` header, the step between copies, N its length):
     the judge builds the copies (3 by default) side by side, each copy's ports renamed
     `<port>.t<k>`, and each copy must deliver its own 3 boxes from its own chests (no block or
-    port may land on another copy).
+    port may land on another copy);
+  * `combo` (a `port input.mode: x y z lever`): the other job on the same chests with the mode
+    lever turned on at the start (a loader judged as an unloader: its `boxes` chest gets full
+    boxes, `items` becomes the sink, `output` gets the empties; or the other way). The base run
+    leaves the mode lever off.
+  After the builds pass, the DROP STRESS: 64 more runs at the rotations in turn, each with other
+  drop draws (unstackables, or the design's own item when it sorts; every other run a burst:
+  boxes that already hold all but one stack, so they break right after they are placed and the
+  drops follow each other within the collection hopper's cooldown). Two failing runs fail the
+  design (`fragile`): a drop drifts about half a block before a hopper takes it, longer when that
+  hopper is busy, so a missing wall loses one every few runs; one failure alone is tolerated (a
+  drop pushed into a block gets out with the entity's own, unseeded, random: a sound design can
+  lose one in a few hundred bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
+  (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -282,7 +302,9 @@ kick) before the first input.
   `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
   greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
-  design another one dominates out of the archive.
+  design another one dominates out of the archive. `mctas circuit shulker trace <designs>
+  [--exact] [--stack N]` records real-game traces for the viewer
+  (designs/circuits/shulker/traces/README.md).
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
   [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states

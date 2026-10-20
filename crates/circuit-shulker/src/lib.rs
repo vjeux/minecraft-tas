@@ -5,6 +5,7 @@
 //! does not model shulker boxes yet).
 
 pub mod shrink;
+pub mod trace;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -39,6 +40,27 @@ enum Cmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// Real-game traces for the in-browser viewer (the clock traces' JSON Lines format), one file
+    /// per design in designs/circuits/shulker/traces (or traces/exact with --exact): the judge's
+    /// first build running 3 boxes of a short scenario (unstackables by default), from the filled
+    /// chests to the last box.
+    Trace {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+        /// The scenario item's max stack (1: iron shovels, a short replay; 16; 64).
+        #[arg(long, default_value_t = 1)]
+        stack: u32,
+        /// The game's own doubles and floats, each entity's motion and network id.
+        #[arg(long)]
+        exact: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value = "26.3")]
+        version: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -52,5 +74,6 @@ pub fn run(args: Vec<String>) -> Result<()> {
             });
             shrink::shrink(&design, &out, &keep, workers, &version, margin)
         }
+        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
     }
 }
