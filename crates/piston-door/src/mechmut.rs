@@ -429,6 +429,11 @@ pub fn neighbours(bx: Bx, pieces: &[Pc], keep: &[Pc], reserve: &[(i8, i8)]) -> V
                 if fam::in_r(x, y) {
                     adds.push(Pc { x, y, k: K::Stone });
                 }
+                // a redstone block (moved by pistons, it powers the pistons it touches: w86's
+                // shuttle feeding the middle frame piston from below)
+                if REDSTONE.load(std::sync::atomic::Ordering::Relaxed) {
+                    adds.push(Pc { x, y, k: K::Redstone });
+                }
                 for q in adds {
                     let mut v = pieces.to_vec();
                     v.push(q);
@@ -445,6 +450,8 @@ pub fn neighbours(bx: Bx, pieces: &[Pc], keep: &[Pc], reserve: &[(i8, i8)]) -> V
 
 /// `--add`: neighbours also add one piece (see [`neighbours`]).
 pub static ADD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--add-redstone`: `--add` may also add a redstone block.
+pub static REDSTONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Lines `W H x0 y0 piece piece ...` (`#` comments).
 pub fn parse_lines(text: &str) -> Result<Vec<(Bx, Vec<Pc>)>> {

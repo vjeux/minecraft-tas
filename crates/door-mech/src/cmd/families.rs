@@ -69,6 +69,10 @@ pub struct MechmutArgs {
     /// --keep for the fixed part).
     #[arg(long)]
     add: bool,
+    /// With --add: a redstone block may be added too (moved by pistons, it powers the pistons it
+    /// touches).
+    #[arg(long)]
+    add_redstone: bool,
     /// With --max-actions: at most this many actions per edge beyond one per piston.
     #[arg(long)]
     extra_actions: Option<usize>,
@@ -78,8 +82,9 @@ pub struct MechmutArgs {
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, extra_actions, max_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, max_unfed } = args;
     crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
+    crate::mechmut::REDSTONE.store(add_redstone, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);

@@ -123,3 +123,12 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   0 of 263,924 (224,373 proven none, 39,551 undecided at the 300k cap), 5.5 min. K=2 on the
   same space: 2,529 of the first 3,000 undecided at 300k (the action vectors multiply the states):
   not enumerable.
+- Structure (w86, 2026-10-20): every 7x7 mechanism needs a piston IN a middle frame cell during
+  the cycle (the center reaches a middle frame cell through an edge cell; a pull puts the puller's
+  base in that frame cell, a push from the far side shifts the far edge block into the center), and
+  that piston needs >= 2 escape moves; so 7x7 = the w1 class. The lever-held top trio of the 7x8
+  doors does not fit a 7x7 (with TL TM TR in the ceiling C must take the floor middle, and BM's way
+  out costs three ring-resting pistons for two bottom corners); w86's `--add` completion runs from
+  trio seeds never got below 2-3 filled cells.
+- `door mechmut --add` (completion search): neighbours also add one piece; with `--repair`,
+  unsolved variants steer the beam by growth (3x3 cells still filled at best), never kept.
