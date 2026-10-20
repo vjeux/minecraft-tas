@@ -316,12 +316,12 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
     let real = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
     let w = fam::wiring(&m, &rest, &sol);
-    let (unfed_list, lever_ok) = fam::unfed_cells(&m, &rest, &sol);
-    let unfed = unfed_list.len() - usize::from(lever_ok);
+    let (unfed_list, lever_held) = fam::unfed_cells(&m, &rest, &sol);
+    let unfed = unfed_list.len() - lever_held;
     if unfed > MAX_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
         return None;
     }
-    let unfed_at = unfed_list.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" ") + if lever_ok { " [one may be the lever's]" } else { "" };
+    let unfed_at = unfed_list.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" ") + &if lever_held > 0 { format!(" [{lever_held} held by a lever outside the box]") } else { String::new() };
     // `door connect` (connect.rs): free-cell regions after the run's footprint, each piston fed
     // from a region next to it (or its quasi cell, a plain ring stone, a door block), a region
     // wakes only when it can watch a change, every event order from the lever's region: the

@@ -211,7 +211,7 @@ pub fn fed_ok(m: &Mech, rest: &St, sol: &Sol) -> bool {
         return true;
     }
     let (list, lever) = unfed_cells(m, rest, sol);
-    list.len() <= usize::from(lever)
+    list.len() <= lever
 }
 
 /// `--feedable` (c77's filter for the 7x7 wiggle doors): every piston of `v` has a FEED cell at
@@ -2200,10 +2200,9 @@ pub struct Wire {
 
 /// The receivers no free cell can feed (the wiring analysis below), minus those next to (or
 /// under, by quasi-connectivity) a STATIC ring stone that a free off-ring cell can strongly power
-/// (c77). Returns their firing cells and whether one of them may be the lever's (the lever stands
-/// outside the volume: a box-edge piston with a free outward side that is not its head, as w86's
-/// m69g lever on top of (1,4)).
-pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, bool) {
+/// (c77). Returns their firing cells and how many of them the best lever placement holds (the
+/// lever stands outside the volume, on the back face of a never-moved piston; see below).
+pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, usize) {
     let bx = m.bx;
     let mut states = vec![rest.clone()];
     let mut c = rest.clone();
@@ -2236,16 +2235,20 @@ pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, bool) {
         .collect();
     // (the lever hangs on the BACK face of a piston that is never moved, outside the box: d67
     // game-checked that side-face attachments pop when the piston extends or retracts, and that
-    // anything attached to a moved piston pops; and a lever-held piston does exactly one level
-    // toggle per edge, at the flip: the schedule must still work with it moved to the front)
-    let front_ok = |id: usize| -> bool {
-        let one_l = |edge: &[E]| edge.iter().filter(|e| e.id as usize == id).count() == 1 && edge.iter().any(|e| e.id as usize == id && e.act == Act::L);
-        if !one_l(&sol.open) || !one_l(&sol.close) {
-            return false;
+    // anything attached to a moved piston pops. It holds that piston, the pistons beside the lever
+    // cell, and by quasi-connectivity the pistons whose above cell touches it (e88's lever on the
+    // top trio's middle back face holds all three). Every lever-held piston does exactly one level
+    // toggle per edge, at the flip: the schedule must still work with them moved to the front)
+    let front_ok = |ids: &[usize]| -> bool {
+        for &id in ids {
+            let one_l = |edge: &[E]| edge.iter().filter(|e| e.id as usize == id).count() == 1 && edge.iter().any(|e| e.id as usize == id && e.act == Act::L);
+            if !one_l(&sol.open) || !one_l(&sol.close) {
+                return false;
+            }
         }
         let front = |edge: &[E]| -> Vec<E> {
-            let mut v: Vec<E> = edge.iter().copied().filter(|e| e.id as usize == id).collect();
-            v.extend(edge.iter().copied().filter(|e| e.id as usize != id));
+            let mut v: Vec<E> = edge.iter().copied().filter(|e| ids.contains(&(e.id as usize))).collect();
+            v.extend(edge.iter().copied().filter(|e| !ids.contains(&(e.id as usize))));
             v
         };
         let mut c = rest.clone();
@@ -2262,15 +2265,37 @@ pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, bool) {
         }
         true
     };
-    let lever_ok = list.iter().any(|&(x, y)| {
-        let Some(id) = (0..m.info.len()).find(|&id| bx.xy(rest.pp[id] as usize) == (x, y)) else { return false };
-        if states.iter().any(|s| s.pp[id] != rest.pp[id]) {
-            return false;
+    let id_at = |x: i8, y: i8| (0..m.info.len()).find(|&id| bx.xy(rest.pp[id] as usize) == (x, y));
+    let still = |id: usize| states.iter().all(|s| s.pp[id] == rest.pp[id]);
+    let mut covered = 0usize;
+    for (id, p) in m.pid.iter().map(|&pi| m.pieces[pi]).enumerate() {
+        let K::Piston { f, .. } = p.k else { continue };
+        let head = F[f as usize];
+        let lever = (p.x - head.0, p.y - head.1);
+        if bx.has(lever.0, lever.1) || !still(id) {
+            continue;
         }
-        let Some(head) = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(F[f as usize]) } else { None }) else { return false };
-        !bx.has(x - head.0, y - head.1) && front_ok(id)
-    });
-    (list, lever_ok)
+        // the unfed receivers this lever holds
+        let near = |a: (i8, i8), b: (i8, i8)| (a.0 - b.0).abs() + (a.1 - b.1).abs() == 1;
+        let held: Vec<usize> = list
+            .iter()
+            .filter_map(|&(x, y)| {
+                let j = id_at(x, y)?;
+                (j == id || near((x, y), lever) || near((x, y + 1), lever)).then_some(j)
+            })
+            .filter(|&j| still(j))
+            .collect();
+        if held.len() > covered {
+            let mut ids = held.clone();
+            if !ids.contains(&id) {
+                ids.push(id);
+            }
+            if front_ok(&ids) {
+                covered = held.len();
+            }
+        }
+    }
+    (list, covered)
 }
 
 pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
