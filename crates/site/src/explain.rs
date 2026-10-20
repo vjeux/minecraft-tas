@@ -100,7 +100,7 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
-        "bud" => "Block change detector (BUD switch)".into(),
+        "bud" => "Block change detector (BUD switch: block update detector)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
         "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
         "burst" => "Several pulses per press (burst)".into(),
@@ -177,7 +177,7 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
         "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
         "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
-        "gate" => "the output is a fixed logic function of the inputs (NOT, AND, OR, XOR...)".into(),
+        "gate" => "the output follows a fixed rule of its inputs: NOT, AND, OR, XOR...; the two-input gates call their inputs A and B".into(),
         "rs-latch" => "a pulse on S turns the output on and it stays on; a pulse on R turns it off".into(),
         "d-latch" => "while the enable input E is active the output follows the data input D; otherwise it holds the last value".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
@@ -190,7 +190,7 @@ pub fn kind_summary(kind: &str) -> String {
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
-        "bud" => "fires its output when a block is placed, removed or changed at its target cell, although nothing there powers it".into(),
+        "bud" => "fires its output when the block at its target cell is placed, removed or changed, without any redstone signal reaching it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
         "tnt-duper-triggered" => "lights TNT on every press without using up its TNT block".into(),
         "burst" => "turns one press into an exact number of pulses".into(),
@@ -1081,29 +1081,39 @@ pub fn scrub_attribution(caption: &str) -> String {
 /// The design's caption without its bookkeeping prefix (`Counter 2, dropper ring, 8 blocks
 /// (track memory, ...): ` -> the explanation after it).
 pub fn how_sentence(caption: &str) -> String {
+    site_model::html::esc(&how_text(caption))
+}
+
+/// [`how_sentence`] without the escaping (a schematic's description).
+pub fn how_text(caption: &str) -> String {
     // the bookkeeping head first (`Counter 2, dropper ring, 8 blocks (track memory, ...): `), then
     // the source paths and tool commands left in the rest
     let c = caption.trim();
     if let Some(i) = c.find("): ") {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
-            return site_model::html::esc(&first_cap(&drop_source_paths(&c[i + 3..])));
+            return first_cap(&drop_source_paths(&c[i + 3..]));
         }
     }
-    site_model::html::esc(&drop_source_paths(c))
+    drop_source_paths(c)
 }
 
-/// A caption a visitor can read (escaped HTML), or nothing: agent logs ("Agents c77 + pockets3:
-/// ...", "From track c77.") and tool logs ("Found by `mctas clock census` ...") are dropped
-/// (critique C9 / C30); source paths are dropped from the rest.
-pub fn caption_plain(caption: &str) -> String {
+/// [`caption_plain`] without the escaping: a caption a visitor can read, or nothing.
+pub fn caption_text(caption: &str) -> String {
     let c = caption.trim();
     let lc = c.to_lowercase();
     let log = lc.starts_with("agents ") || lc.starts_with("agent ") || lc.starts_with("from track") || lc.starts_with("track ") || lc.starts_with("found by") || lc.starts_with("clock:") || lc.starts_with("circuit:") || lc.contains("`mctas ") || lc.contains("mctas clock") || lc.contains("mctas door") || lc.contains("census-k");
     if c.is_empty() || log {
         return String::new();
     }
-    how_sentence(c)
+    how_text(c)
+}
+
+/// A caption a visitor can read (escaped HTML), or nothing: agent logs ("Agents c77 + pockets3:
+/// ...", "From track c77.") and tool logs ("Found by `mctas clock census` ...") are dropped
+/// (critique C9 / C30); source paths are dropped from the rest.
+pub fn caption_plain(caption: &str) -> String {
+    site_model::html::esc(&caption_text(caption))
 }
 
 /// A door's community-regulation check in words, or None for the internal ones (critique C9:
