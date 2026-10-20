@@ -95,3 +95,31 @@ SEALED cells (a free cell on its own with nothing beside or below it that stays 
 so they feed the cell opposite the change they watched and read no powered block. For 6x7-in2/mm01, never
 fed goes from 1 piston to 4-6, which agrees with satwire. `door connect` also reads mechmut TSVs now (a
 `mechanism` column: each variant in its own box) to re-screen c70b's catalogs.
+
+## w86's 7x7 impossibility argument (explore/w86 162a73b32 "7x7 (49)" 1-4): the hole
+w86: every 7x7 has a piston P in a middle frame cell M when the center takes its first step; P's edge block
+later fills M through the outer puller behind M; P escapes along the frame (a sticky helper Q on one side,
+its lane on the other); so at P's firing time its 4 neighbours are all taken, and P is unfeedable. Argued
+for M = F1 (the floor middle), "same by rotation for C1/L1/R1".
+The rotation does not hold, because quasi-connectivity always looks UP and plain blocks conduct:
+- F1: P faces up, its front is BM (ignored), its quasi cell IS that front cell, whose neighbours are door
+  cells: no feed (w86 is right there).
+- L1 / R1: P faces east / west. The frame cell above it (L2 / R2) is both a side neighbour and its quasi
+  cell, and its outer neighbour is a MARGIN cell ((-2,2) / (4,2)). If L2 holds a plain block (taken!), a
+  component in (-2,2) strongly powers it and P is directly powered; if L2 is empty (P's lane), the
+  component outputs into L2, P is quasi-powered and the output update reaches it (L2's neighbour).
+  A "taken" neighbour is not a blocked feed when it is a plain block with a free neighbour.
+- C1: P faces down, its quasi cell is the margin cell above (1,4) (w86's outer puller: quasi through it
+  couples with that puller); its side neighbours C0 / C2 can carry power from (0,4) / (2,4) when they hold
+  plain blocks.
+Witness in a 7x7 box: `in2/mm01-oc-q7b` (q7 = c70b's 6x7-in2 + the column x = -3): g fires at L1 (-1,1) at
+open t43 with its 4 neighbours taken (f (-2,1), e (-1,0), a stone in L2 (-1,2), its front), and its own
+plan input is gone. It is fed only by the observer at (-2,2) watching (-3,2) (a block appears there at
+a = 36..43; at t69 it changes again for g at (0,1)). WORKS: redsim 32 positions x 2 cycles, the game 4 x 2.
+(q7 as a whole still needs the row y = -3 for the bottom row: pockets3's core b at (0,-2); the witness
+is about the feed, not a wired 7x7.)
+Other gaps: (2) assumes BM fills F1; F1 can be filled by a block slid along the floor from F0 / F2, which
+frees (1,-2) right under P (a direct feed cell). The flat rule lets a lever hang on any block's front /
+back face (rules.md), so any static is a lever-powered hub (levels at t0).
+So a 7x7 search should put the middle-frame piston in L1 / R1, keeping the margin cell beside L2 / R2 free
+(mechmut `--reserve`), e.g. w1's class turned in-plane (P pushing the middle row) and repaired.
