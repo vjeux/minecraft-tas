@@ -90,6 +90,9 @@ pub struct SimReport {
     /// Every cell non-air at any tick of the run (warmup and one period) and the design's box.
     pub swept: (Pos, Pos),
     pub start: String,
+    /// A clock holding a sculk sensor: whether ambient game events leave its output alone
+    /// ([`crate::vibration::sim_property`]; a property, never a failure).
+    pub vibration: Option<crate::vibration::Property>,
 }
 
 impl SimReport {
@@ -107,6 +110,7 @@ impl SimReport {
             blocks: c.blocks(),
             swept: c.bounds(),
             start: c.start_label(),
+            vibration: None,
         }
     }
 
@@ -286,6 +290,9 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
                 let src = s.world.get(bp(pos)).kind();
                 s.world.update_neighbors_at(bp(pos), src);
             }
+            Action::GameEvent { pos, event } => {
+                s.world.game_event(event, bp(pos));
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -351,6 +358,31 @@ pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
     let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
     blocks.sort_by_key(|(p, _)| *p);
     start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
+}
+
+/// [`drive`]'s loop for a world set up another way: placed like the judge places it in the box
+/// `from`..=`to`, then `config` (e.g. `redsim::explosion::explode_on`), then for t in 0..=ticks:
+/// the inputs due at t, `frame(t, world)`, one tick. Runs every tick even after a problem between
+/// ticks (a drop, an error: the first one is returned with its tick, like [`drive`]'s `stopped`);
+/// `Err` when redsim does not model the design.
+pub fn drive_custom(c: &Clock, from: Pos, to: Pos, ticks: u32, config: impl FnOnce(&mut World), mut frame: impl FnMut(u32, &World)) -> Result<Option<(u32, String)>, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    let mut s = start_box(c, &blocks, from, to).map_err(|(_, why)| why)?;
+    config(&mut s.world);
+    let mut first: Option<(u32, String)> = None;
+    for t in 0..=ticks {
+        if let Err((_, why)) = between_ticks(&mut s, t)
+            && first.is_none()
+        {
+            first = Some((t, why));
+        }
+        frame(t, &s.world);
+        if t < ticks {
+            s.world.tick();
+        }
+    }
+    Ok(first)
 }
 
 /// The design's blocks that cannot stand where they are once placed like the judge places them:
@@ -888,6 +920,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         blocks: c.blocks(),
         swept: (slo, shi),
         start: c.start_label(),
+        vibration: None,
     };
     if rep.analysis.cells.is_empty() {
         rep.verdict = Verdict::Stops;
@@ -932,6 +965,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         rep.why = format!(
             "composite: the output {pos:?} repeats every {out_period} gt but the whole structure every {full_p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side: the period would be their lcm); keep one sub-clock, or declare the combining cell as `port output` (a beat clock, marked `# composite`)"
         );
+    }
+    // a sculk clock: does it run the same with footsteps and blocks around it? (a property, never
+    // a failure: crate::vibration)
+    if rep.verdict == Verdict::Clock {
+        rep.vibration = crate::vibration::sim_property(c, o.margin, rep.warmup, rep.period, rep.swept, rep.output.as_ref().map(|o| o.pos));
     }
     rep
 }

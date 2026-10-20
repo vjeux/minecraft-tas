@@ -252,12 +252,15 @@ fn details(c: &Design) -> Details {
             let p = match at {
                 circuit::stimulus::EventAt::Target(i) => c.targets.get(*i)?.pos,
                 circuit::stimulus::EventAt::Probe(k) => *probes.get(*k)?,
+                // the vibration test's game events change no block: nothing to show
+                circuit::stimulus::EventAt::Input(_) | circuit::stimulus::EventAt::Cell(_) => return None,
             };
             let what = match op {
                 circuit::stimulus::TargetOp::Place(s) => format!("place {} {} {} {s}", p[0], p[1], p[2]),
                 circuit::stimulus::TargetOp::Clear => format!("clear {} {} {}", p[0], p[1], p[2]),
                 circuit::stimulus::TargetOp::Shape(s) => format!("shape {} {} {} {s}", p[0], p[1], p[2]),
                 circuit::stimulus::TargetOp::Update => format!("update {} {} {}", p[0], p[1], p[2]),
+                circuit::stimulus::TargetOp::GameEvent(_) => return None,
             };
             Some(format!("{frame} {what}"))
         })
@@ -289,6 +292,7 @@ fn details(c: &Design) -> Details {
                     circuit::stimulus::TargetOp::Clear => "clear",
                     circuit::stimulus::TargetOp::Shape(_) => "shape",
                     circuit::stimulus::TargetOp::Update => "update",
+                    circuit::stimulus::TargetOp::GameEvent(e) => e,
                 };
                 (*f, what.to_string())
             })

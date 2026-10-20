@@ -382,6 +382,19 @@ pub fn entity_triangles(g: &GameAssets, kind: &str, pos: [f32; 3], yaw: f32, pit
     None
 }
 
+/// `TntRenderer`: a primed TNT's swell over the last 10 ticks of its fuse (`fuse` = the fuse left
+/// as drawn: `getFuse() - partialTicks + 1`), and whether it flashes white (every 5 ticks).
+pub fn tnt_look(fuse: f32) -> (f32, bool) {
+    let swell = if fuse < 10.0 {
+        let g = (1.0 - fuse / 10.0).clamp(0.0, 1.0);
+        let g = g * g;
+        g * g * 0.3
+    } else {
+        0.0
+    };
+    (1.0 + swell, fuse >= 0.0 && (fuse / 5.0) as i32 % 2 == 0)
+}
+
 /// A minecart's display block transform (`AbstractMinecartRenderer`: 0.75 scale, offset by the
 /// display offset, a quarter turn), before the model's flip: the block model's unit cube goes
 /// through it.
