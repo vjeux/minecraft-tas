@@ -2709,17 +2709,22 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], gr
             let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|q| started[*q])).collect();
             let mut grew = false;
             for q in 0..pockets.len() {
-                if started[q] || forced[q].is_empty() {
+                if started[q] {
                     continue;
                 }
-                let ok = (0..2).all(|ph| match first[q][ph] {
-                    None => true,
-                    Some(tf) => changes.iter().any(|(ci, cph, t, deps)| {
+                let trigger = |ph: usize, tf: u32| {
+                    changes.iter().any(|(ci, cph, t, deps)| {
                         // (a change no single plan input explains comes from the seed's own wiring or
                         // lever; a pushed power source can act on its own tick, so no observer delay)
                         *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k))
-                    }),
-                });
+                    })
+                };
+                // a pocket with no forced load starts on any trigger (it may still feed shared inputs)
+                let ok = if forced[q].is_empty() {
+                    (0..2).any(|ph| trigger(ph, u32::MAX))
+                } else {
+                    (0..2).all(|ph| first[q][ph].is_none_or(|tf| trigger(ph, tf)))
+                };
                 if ok {
                     for (r, s) in started.iter_mut().enumerate() {
                         if roots[r] == roots[q] {
