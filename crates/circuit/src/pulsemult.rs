@@ -205,10 +205,14 @@ fn burst(c: &Circuit, n: usize, s: &Schedule, t: &Trace) -> Outcome {
         return fail(format!("latches: after a {l} gt input the output is still on at the end of its gap"), table);
     }
     let lens: Vec<u32> = rows.iter().map(|r| r.0).collect();
-    let ok: Vec<bool> = rows.iter().map(|r| r.1.len() == n).collect();
+    // the burst must not depend on the input's length: every handled input gives the longest
+    // one's N pulses at the same delays and lengths (a dual-edge detector, whose second pulse
+    // follows the falling edge, is not a burst)
+    let refr0 = rows.last().map(|r| r.1.clone()).unwrap_or_default();
+    let ok: Vec<bool> = rows.iter().map(|r| r.1.len() == n && r.1 == refr0).collect();
     let Some(mp) = min_pulse(&lens, &ok, 3) else {
         let last = rows.last().map(|r| r.1.len()).unwrap_or(0);
-        return fail(format!("the longest input gives {last} output pulse(s), want {n} from the 3 longest inputs at least"), table);
+        return fail(format!("the longest input gives {last} output pulse(s): want {n}, the same for the 3 longest inputs at least (a burst does not depend on the input's length)"), table);
     };
     let handled: Vec<&(u32, Vec<(i64, usize)>, bool)> = rows.iter().filter(|r| r.0 >= mp).collect();
     let refr = &handled.last().unwrap().1;
@@ -216,9 +220,12 @@ fn burst(c: &Circuit, n: usize, s: &Schedule, t: &Trace) -> Outcome {
     let periods: Vec<i64> = handled.iter().flat_map(|r| r.1.windows(2).map(|w| w[1].0 - w[0].0)).collect();
     let latencies: Vec<i64> = handled.iter().map(|r| r.1[0].0).collect();
     let span = refr.last().map(|p| p.0 + p.1 as i64).unwrap_or(0);
+    // the pairs and the trains are made of 4 gt inputs (clockinfra): with a min-pulse over 4 gt
+    // they would measure the short inputs, not re-triggering, so both read n/a
+    let short_ok = mp <= 4;
     // re-trigger: a second input inside the burst
     let mut classes: Vec<&str> = Vec::new();
-    for (from, to, d) in phases(s, "pair ") {
+    for (from, to, d) in phases(s, "pair ").filter(|_| short_ok) {
         let to = to.min(out.len());
         let cnt = runs_in(&orun, from, to).len();
         if out[to - 1] {
@@ -239,22 +246,24 @@ fn burst(c: &Circuit, n: usize, s: &Schedule, t: &Trace) -> Outcome {
         }
     }
     classes.dedup();
+    let na = format!("n/a (min-pulse {mp} gt > 4)");
     let retrigger = match classes.as_slice() {
+        _ if !short_ok => na.clone(),
         [] => "n/a".to_string(),
         [one] => one.to_string(),
         _ => "mixed".to_string(),
     };
     // repeat rate: trains of 6 inputs
     let mut train_ok: Vec<(u32, bool)> = Vec::new();
-    for (from, to, r) in phases(s, "train ") {
+    for (from, to, r) in phases(s, "train ").filter(|_| short_ok) {
         let to = to.min(out.len());
         let cnt = runs_in(&orun, from, to).len();
         let good = cnt == 6 * n && !out[to - 1];
         table.push(format!("6 inputs every {r} gt: {cnt} pulses{}", if good { "" } else { "  <- not 6N" }));
         train_ok.push((r, good));
     }
-    let repeat = train_ok.iter().take_while(|(_, g)| *g).last().map(|(r, _)| gt(*r as i64)).unwrap_or_else(|| "> 40 gt".into());
-    let even = pulse_lens.iter().all(|&l| l == pulse_lens[0]) && periods.iter().all(|&p| p == periods.first().copied().unwrap_or(0));
+    let repeat = if short_ok { train_ok.iter().take_while(|(_, g)| *g).last().map(|(r, _)| gt(*r as i64)).unwrap_or_else(|| "> 40 gt".into()) } else { na };
+    let _ = (&pulse_lens, &periods);
     let metrics = vec![
         ("N".to_string(), n.to_string()),
         ("pulse".to_string(), range(&pulse_lens)),
@@ -265,7 +274,7 @@ fn burst(c: &Circuit, n: usize, s: &Schedule, t: &Trace) -> Outcome {
         ("retrigger".to_string(), retrigger),
         ("repeat".to_string(), repeat),
     ];
-    Outcome { pass: true, why: if even && n > 1 { "even".into() } else { String::new() }, metrics, table }
+    Outcome { pass: true, why: String::new(), metrics, table }
 }
 
 /// `monostable [retriggerable | non-retriggerable]`.
@@ -290,6 +299,9 @@ fn monostable(c: &Circuit, claim: Option<&str>, s: &Schedule, t: &Trace) -> Outc
     let lens: Vec<u32> = rows.iter().map(|r| r.0).collect();
     let ok: Vec<bool> = rows.iter().map(|x| x.1 == Some(r)).collect();
     let Some(mp) = min_pulse(&lens, &ok, 3) else { return fail("fewer than the 3 longest inputs give the same pulse", table) };
+    if mp > 4 {
+        return fail(format!("min-pulse {mp} gt: the second-edge test's 4 gt inputs are not handled"), table);
+    }
     let (delay, l) = (r.0, r.1 as i64);
     // pairs: the second rising edge d gt after the first
     let mut class: Option<&str> = None;
@@ -373,6 +385,9 @@ fn off_delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let lens: Vec<u32> = rows.iter().map(|r| r.0).collect();
     let ok: Vec<bool> = rows.iter().map(|x| x.1 == Some(r)).collect();
     let Some(mp) = min_pulse(&lens, &ok, 3) else { return fail("fewer than the 3 longest inputs give input + L", table) };
+    if mp > 4 {
+        return fail(format!("min-pulse {mp} gt: the restart test's 4 gt inputs are not handled"), table);
+    }
     // trains: gaps shorter than L are bridged
     for (from, to, g) in phases(s, "train ") {
         let to = to.min(out.len());
@@ -382,7 +397,7 @@ fn off_delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         let fall = (last.0 + last.1) as i64 - first.0 as i64;
         let want: Vec<(i64, i64)> = if (g as i64) < l {
             vec![(lat, fall + l)]
-        } else if (g as i64) > l && mp <= 4 {
+        } else if (g as i64) > l {
             ins.iter().map(|(st, len)| (*st as i64 - first.0 as i64 + lat, *len as i64 + l)).collect()
         } else {
             continue;

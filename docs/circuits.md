@@ -365,13 +365,16 @@ kick) before the first input.
   off at rest (dividers excepted: they hold a state). Every input is followed by the gap; the output
   must be back off at the end of every gap.
   * `burst N` (N >= 2): input pulses of 1, 2, 3, 4, 6, 10, 20, 40 gt: every input from the min-pulse
-    up (the 3 longest at least) gives exactly N output pulses. Then pairs of 4 gt inputs 5..160 gt
+    up (the 3 longest at least) gives exactly N output pulses, at the same delays and lengths as
+    the longest input's (a burst does not depend on the input's length: a dual-edge detector's
+    second pulse follows the falling edge and fails). Then pairs of 4 gt inputs 5..160 gt
     apart: a second input inside the burst's span is `ignores` (N pulses in all), `adds` (2N),
     `restarts` (between), `breaks` (other) or `mixed` over the delays; then trains of 6 inputs every
     40..4 gt: `repeat` is the fastest period from which every slower train gives exactly 6N (the
-    xN frequency multiplier). Metrics: N (axis), pulse and period (output lengths and rising-edge
-    spacing, min-max over the handled inputs), latency, span, min-pulse, retrigger, repeat; the flag
-    `even` when every pulse and every spacing is the same.
+    xN frequency multiplier). With a min-pulse over 4 gt both read `n/a` (the pairs and trains are
+    4 gt inputs). Metrics: N (axis), pulse and period (output lengths and rising-edge
+    spacing, min-max within the burst: one value each when the burst is evenly spaced), latency,
+    span, min-pulse, retrigger, repeat.
   * `divider N` (N >= 3; /2 is `tff`): square clocks of periods 40, 30, 20, 16, 12, 10, 8, 6, 5, 4,
     3, 2 gt, each N warm-up periods + 4N, then the gap: the output must repeat with period exactly
     N x P with 4 rises in the 4N periods. Metrics at 40 gt: duty, `square` (on half the time, to
@@ -381,11 +384,13 @@ kick) before the first input.
     L at one delay from the min-pulse up (as `rising-edge`); then pairs of 4 gt inputs whose second
     rising edge comes d = 5..160 gt after the first: while d < L a `non-retriggerable` one gives one
     pulse of exactly L, a `retriggerable` one a pulse ending L after the second edge; any other
-    shape, or a class that changes with d, fails (L >= 6 to be tested). `re-arm`: the smallest d
+    shape, or a class that changes with d, fails (L >= 6 and a min-pulse of 4 gt or less to be
+    tested). `re-arm`: the smallest d
     from which every pair gives two full pulses. Axis `L = <L> <class>`.
   * `off-delay`: isolated pulses of 1..80 gt: one output pulse at a fixed latency, the input's
     length + L (L >= 1); 3-pulse trains of 4 gt inputs with gaps of 1..32 gt: gaps shorter than L
-    give one pulse ending L after the last fall, longer ones three pulses. A repeater ORed with the
+    give one pulse ending L after the last fall, longer ones three pulses (a min-pulse of 4 gt or
+    less, to run them). A repeater ORed with the
     input fails: it holds one pending tick, so it ends L after the second input of a close train.
   * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
     be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
