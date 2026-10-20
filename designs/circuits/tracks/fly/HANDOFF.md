@@ -1,6 +1,12 @@
 # fly HANDOFF (study 7, flying machines) — track fly, branch explore/fly
 
 ## State
+* WORLD-RECORD CONSOLIDATION (2026-10-20, vjeux "quality over quantity" + the site critique):
+  the archive keeps ONE machine per (class, speed, blocks, glue): 13 cards, each caption naming
+  its glue (slime / honey / slime + honey), the payload ones what they carry, and how many other
+  layouts were folded into designs/circuits/tracks/fly/layouts/ (73 files, `mctas circuit fly
+  consolidate`); fly-d1 left as below bar (7 blocks at the 6-block speed). Record targets and
+  bounds: designs/circuits/fly/WR.md. The list below is the history of what was found.
 * Archive (`designs/circuits/fly/archive/`, `mctas circuit archive`, real game 4 positions x 4
   rotations). The Pareto front (blocks vs speed) per direction/class, no dominated variants
   (coordinator: "we don't need 20 variations of the same design"):

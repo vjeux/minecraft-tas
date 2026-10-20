@@ -243,7 +243,10 @@ kick) before the first input.
   piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
   claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
   (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
-  next). `explode: off` is for analysis only (the measuring calibrations): the archive
+  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
+  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
+  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
+  check). `explode: off` is for analysis only (the measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
