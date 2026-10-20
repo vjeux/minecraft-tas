@@ -187,12 +187,14 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             )
         };
         s.push_str(&format!(
-            "<section><h2>The judge's test</h2><p>{intro} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{notes}{}</section>\n",
+            "<section><h2>Our test in the real game</h2><p>{intro} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div><p class=\"hint phone-only\">Swipe the diagram sideways: the whole test lasts {} ticks ({}).</p>{notes}{}</section>\n",
             crate::explain::wave_svg(w),
+            w.ticks,
+            site_model::real_time(w.ticks),
             if c.table.is_empty() {
                 String::new()
             } else {
-                format!("<details><summary>The judge's report, step by step ({} lines)</summary><pre class=\"design\">{}</pre></details>", c.table.len(), esc(&c.table.join("\n")))
+                format!("<details><summary>Our test's report, step by step ({} lines)</summary><pre class=\"design\">{}</pre></details>", c.table.len(), esc(&c.table.join("\n")))
             }
         ));
     }
@@ -223,6 +225,10 @@ fn viewer(prefix: &str, b: &Build) -> String {
             let mut a = String::new();
             if !c.stimulus.is_empty() {
                 a.push_str(&format!(" data-stimulus=\"{}\"", esc(&c.stimulus)));
+            }
+            // a strength input's values (the hex kinds: webrender 2e541dc02)
+            if !c.levels.is_empty() {
+                a.push_str(&format!(" data-levels=\"{}\"", esc(&c.levels)));
             }
             // the BUD's judge acts at its target cells, not at inputs: `data-events`
             if !c.events.is_empty() {
@@ -521,7 +527,10 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same period)", link_build(site, h, prefix))));
         }
         if !c.variants.is_empty() {
-            s.push_str(&row("Variants", &c.variants.iter().map(|v| link_build(site, v, prefix)).collect::<Vec<_>>().join(", ")));
+            // a wall of variants folds to a count (critique C10: 31 links in a row)
+            let links: Vec<String> = c.variants.iter().map(|v| link_build(site, v, prefix)).collect();
+            let cell = if links.len() <= 6 { links.join(", ") } else { format!("<details><summary>{} variants</summary>{}</details>", links.len(), links.join(", ")) };
+            s.push_str(&row("Variants (bigger, the same period)", &cell));
         }
         if !c.aliases.is_empty() {
             s.push_str(&row("Also found as", &esc(&c.aliases.join(", "))));
@@ -1189,7 +1198,7 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
         }
     }
     format!(
-        "<section><h2>Variations</h2><p>What builds need from these machines, each measured by the judge as its own scenario, and the best design for each (the smallest that has it). Every variation, how the judge measures it, and the ones still open: <a href=\"{}\">VARIATIONS.md</a>.</p><table class=\"list variations\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></section>\n",
+        "<section><h2>Variations</h2><p>What builds need from these machines, each tested as its own scenario in the real game, and the best design for each (the smallest that has it). <a href=\"{}\">The full list of variations</a>, with the ones nobody has built yet.</p><div class=\"scroll-x\"><table class=\"list variations\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></div><p class=\"hint phone-only\">Swipe the table sideways to see every column.</p></section>\n",
         esc(&link)
     )
 }

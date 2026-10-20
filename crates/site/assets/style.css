@@ -77,6 +77,9 @@ header.top {
   .grid > .card > .meta { flex: 1; min-width: 0; padding: 7px 10px; }
 }
 .nowrap { white-space: nowrap; }
+.scroll-x { overflow-x: auto; max-width: 100%; }
+.phone-only { display: none; }
+@media (max-width: 640px) { .phone-only { display: block; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .intro { margin: 2px 0 14px; font-size: 14px; }
 footer nav.foot { margin-bottom: 6px; }

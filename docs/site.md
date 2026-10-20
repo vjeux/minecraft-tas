@@ -122,7 +122,8 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`; circuits: `data-stimulus`, `data-events` (the judge's block changes at a BUD's target:
+`data-pitch`; circuits: `data-stimulus`, `data-levels` (a strength input's values over the judge's
+test, `<frame> <input> <value 0..15>; ...`, the hex kinds), `data-events` (the judge's block changes at a BUD's target:
 `<frame> place|clear|shape|update <x> <y> <z> [<state>]; ...`, design coordinates), `data-phases`,
 `data-input-mode`, `data-circuit`) is
 rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the
