@@ -568,8 +568,16 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
     }
     // the machines' studies: TNT and dead coral fans, BUD switches, and the shulker machines that
-    // run live with the judge's chests (a loader, an unloader, the combo with its mode lever)
+    // run live with the judge's chests (a loader, an unloader, the combo with its mode lever, and
+    // the fastest of each: dropper choices, hoppers choosing among minecarts)
     let combo = |c: &site_model::Circuit| c.metrics.iter().any(|(k, v)| k == "badges" && v.split('+').any(|x| x == "combo"));
+    let items_s = |b: &site_model::Build| -> i64 { b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "items/s")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()).map(|v| (v * 1000.0) as i64).unwrap_or(0) };
+    let fastest = |loader: bool| -> Option<&site_model::Build> {
+        site.builds
+            .iter()
+            .filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && c.kind.starts_with(if loader { "shulker-loader" } else { "shulker-unloader" })))
+            .max_by_key(|b| (items_s(b), std::cmp::Reverse(b.blocks)))
+    };
     let machines: [(&str, Box<dyn Fn(&site_model::Circuit) -> bool>); 5] = [
         ("tnt", Box::new(|c: &site_model::Circuit| c.study == "tnt")),
         ("bud", Box::new(|c: &site_model::Circuit| c.study == "bud")),
@@ -580,6 +588,13 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
     for (what, pick) in &machines {
         if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && pick(c))) {
             pages.push((format!("{what} {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
+        }
+    }
+    for (what, loader) in [("fastest shulker loader", true), ("fastest shulker unloader", false)] {
+        if let Some(b) = fastest(loader) {
+            if !pages.iter().any(|p| p.1 == b.page) {
+                pages.push((format!("{what} {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
+            }
         }
     }
     if entity == 0 {
