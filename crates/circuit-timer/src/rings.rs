@@ -38,6 +38,12 @@ pub enum Front {
     Input,
     /// The copper-bulb two-observer edge front east of I (a retriggerable monostable).
     Retrig,
+    /// A copper-bulb edge front north of I through a gate (a non-retriggerable monostable): bulb,
+    /// comparator K, observer O1, a delay-3 repeater R (6 gt), a subtract comparator Cg into I whose
+    /// side a repeater Rb feeds from a dust beside the ring's stone A: while the ring is on, Cg
+    /// passes nothing, and R's pulse outlasts the time the ring takes to raise Cg's side, so Cg's
+    /// charge always ends when the ring blocks it (an edge merged into R changes nothing).
+    NonRetrig,
 }
 
 impl Front {
@@ -45,26 +51,29 @@ impl Front {
         Ok(match s {
             "input" => Front::Input,
             "retrig" => Front::Retrig,
-            _ => bail!("--front {s:?}: input or retrig"),
+            "nonretrig" => Front::NonRetrig,
+            _ => bail!("--front {s:?}: input, retrig or nonretrig"),
         })
     }
 
-    fn kind(self) -> &'static str {
+    pub fn kind(self) -> &'static str {
         match self {
             Front::Input => "off-delay",
             Front::Retrig => "monostable retriggerable",
+            Front::NonRetrig => "monostable non-retriggerable",
         }
     }
 
-    fn prefix(self) -> &'static str {
+    pub fn prefix(self) -> &'static str {
         match self {
             Front::Input => "off-delay",
             Front::Retrig => "mono-retrig",
+            Front::NonRetrig => "mono-nonretrig",
         }
     }
 
     /// The front's own blocks (x, y, z) -> palette char; the ring's plane is y = 1.
-    fn blocks(self) -> Vec<(P3, char)> {
+    pub fn blocks(self) -> Vec<(P3, char)> {
         match self {
             Front::Input => Vec::new(),
             Front::Retrig => vec![
@@ -77,6 +86,29 @@ impl Front {
                 ((4, 3, 0), 'E'), // K, reads the bulb
                 ((5, 3, 0), 'B'),
             ],
+            Front::NonRetrig => vec![
+                ((2, 1, -5), 'B'),
+                ((2, 1, -4), 'N'), // K, reads the bulb
+                ((2, 0, -4), 'S'),
+                ((2, 1, -3), 'o'), // O1, watches K, fires into R
+                ((2, 1, -2), 'R'), // delay 3: 6 gt
+                ((2, 0, -2), 'S'),
+                ((2, 1, -1), 'G'), // Cg, subtract, into I
+                ((2, 0, -1), 'S'),
+                ((1, 1, -1), 'r'), // Rb, into Cg's side
+                ((1, 0, -1), 'S'),
+                ((0, 1, -1), 'd'), // beside A: the ring's level into Rb
+                ((0, 0, -1), 'S'),
+            ],
+        }
+    }
+
+    /// The front's input cell.
+    pub fn input(self) -> Option<P3> {
+        match self {
+            Front::Input => None,
+            Front::Retrig => Some((6, 3, 0)),
+            Front::NonRetrig => Some((2, 1, -6)),
         }
     }
 
@@ -86,6 +118,7 @@ impl Front {
         match self {
             Front::Input => HashSet::new(),
             Front::Retrig => [(3, 0), (4, 0), (3, 1), (3, -1), (4, 1), (4, -1), (5, 0)].into_iter().collect(),
+            Front::NonRetrig => [(0, -1), (1, -1), (2, -1), (2, -2), (-1, -1), (0, -2), (1, -2), (3, -1), (3, -2)].into_iter().collect(),
         }
     }
 }
@@ -120,10 +153,7 @@ impl Ring {
     }
 
     fn input3(&self) -> P3 {
-        match self.front {
-            Front::Input => (self.input.0, 1, self.input.1),
-            Front::Retrig => (6, 3, 0),
-        }
+        self.front.input().unwrap_or((self.input.0, 1, self.input.1))
     }
 
     pub fn design(&self, name: &str) -> String {
@@ -162,20 +192,26 @@ impl Ring {
                 layers.push('\n');
             }
         }
+        let used: HashSet<char> = cells.values().copied().collect();
+        let palette: String = PALETTE.iter().filter(|(c, _)| used.contains(c)).map(|(c, s)| format!("  {c} {s}\n")).collect();
         let dust = self.line.len() + self.t_dust as usize;
+        let ring = format!("{dust} dust carry C2's output back to C1, losing {} per round of 4 gt", dust - 1);
         let how = match self.front {
-            Front::Input => format!("{dust} dust carry C2's output back to C1, losing {} per round of 4 gt; the input holds the ring up", dust - 1),
+            Front::Input => format!("{ring}; the input holds the ring up"),
             Front::Retrig => format!(
-                "{dust} dust carry C2's output back to C1, losing {} per round of 4 gt; each rising edge charges it with 4 gt of 15 (copper bulb, comparator K, observer O1 down into a stone and a cross dust, observer O2 watching O1 into the dust on top of I)",
-                dust - 1
+                "{ring}; each rising edge charges it with 4 gt of 15 (copper bulb, comparator K, observer O1 down into a stone and a cross dust, observer O2 watching O1 into the dust on top of I)"
+            ),
+            Front::NonRetrig => format!(
+                "{ring}; a rising edge charges it through a gate (copper bulb, comparator K, observer O1, a delay-3 repeater R, a subtract comparator Cg into I); a dust beside A and a repeater Rb feed Cg's side, so while the ring is on Cg passes nothing and every edge is ignored; R's 6 gt outlast the ring's 4 gt to raise Cg's side, so each charge ends when the ring blocks it"
             ),
         };
         let group = match self.front {
             Front::Input => "group: off-delay-ring\ngroup title: comparator-ring off-delay\ngroup note: two comparators in a ring with a dust return line; L set by the line's length and the cell the output reads\n",
             Front::Retrig => "group: mono-retrig-ring\ngroup title: comparator-ring retriggerable monostable\ngroup note: a copper-bulb two-observer edge front charging a two-comparator ring; L set by the return line's length and the cell the output reads\n",
+            Front::NonRetrig => "group: mono-nonretrig-ring\ngroup title: comparator-ring non-retriggerable monostable\ngroup note: a copper-bulb edge front gated by the ring's own level charging a two-comparator ring; L set by the return line's length and the cell the output reads\n",
         };
         format!(
-            "name: {name}\ncircuit: {}\n{group}# a comparator ring (crates/circuit-timer/src/rings.rs): {how}\norigin: {x0} 0 {z0}\nport input: {} {} {}\nport output: {} {} {}\npalette:\n  S minecraft:stone\n  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  E minecraft:comparator[facing=east,mode=compare,powered=false]\n  n minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=east,powered=false]\n  U minecraft:observer[facing=up,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n{layers}",
+            "name: {name}\ncircuit: {}\n{group}# a comparator ring (crates/circuit-timer/src/rings.rs): {how}\norigin: {x0} 0 {z0}\nport input: {} {} {}\nport output: {} {} {}\npalette:\n{palette}{layers}",
             self.front.kind(),
             inp.0,
             inp.1,
@@ -186,6 +222,22 @@ impl Ring {
         )
     }
 }
+
+/// Every palette char the ring designs use.
+const PALETTE: [(char, &str); 12] = [
+    ('S', "minecraft:stone"),
+    ('d', "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]"),
+    ('E', "minecraft:comparator[facing=east,mode=compare,powered=false]"),
+    ('n', "minecraft:comparator[facing=north,mode=compare,powered=false]"),
+    ('N', "minecraft:comparator[facing=north,mode=compare,powered=false]"),
+    ('G', "minecraft:comparator[facing=north,mode=subtract,powered=false]"),
+    ('O', "minecraft:observer[facing=east,powered=false]"),
+    ('U', "minecraft:observer[facing=up,powered=false]"),
+    ('o', "minecraft:observer[facing=north,powered=false]"),
+    ('R', "minecraft:repeater[delay=3,facing=north,locked=false,powered=false]"),
+    ('r', "minecraft:repeater[delay=1,facing=west,locked=false,powered=false]"),
+    ('B', "minecraft:waxed_copper_bulb[lit=false,powered=false]"),
+];
 
 /// Every return line of `min..=max` dust inside the box: a simple path whose first cell is beside
 /// T, whose last cell is beside I and points into it (in line with its predecessor, or alone in
