@@ -4,7 +4,7 @@
 
 ## Tunable groups
 
-Each card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.
+Each card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.
 
 ### N = 2..32 (step 2: 5 of 16 values)
 

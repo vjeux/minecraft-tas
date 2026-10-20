@@ -335,8 +335,8 @@ kick) before the first input.
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
   the probe cells where any of them gives a pulse (`>=` when a probe jams it). The box leaves out
   the target cells and the probe block in the probe cells.
-  Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ), jams,
-  footprint.
+  Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
+  `latency 2 gt place / 6 gt remove`), jams, footprint.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 
