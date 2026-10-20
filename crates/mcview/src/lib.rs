@@ -13,11 +13,13 @@
 pub mod atlas;
 pub mod camera;
 pub mod design;
+pub mod json;
 pub mod mesh;
 pub mod models;
 pub mod pick;
 pub mod player;
 pub mod render;
+pub mod replay;
 pub mod scene;
 pub mod session;
 #[cfg(not(target_arch = "wasm32"))]

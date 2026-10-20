@@ -1,0 +1,46 @@
+# archived 2026-10-20T01:04Z from designs/circuits/pext/work/n4-cascade30.txt by mctas circuit archive
+# CIRCUIT: pext-n4-cascade30 piston-extender 4 N 4, extend 47 gt, retract 59 gt, 30 blocks, 12x4x4, robust
+# N=4 CASCADE extender, minimized (mctas circuit pext minimize) from the generated one
+# (mctas circuit pext cascade --n 4, 39 blocks): units [slime + sticky piston + carried observer]
+# fire themselves after each move; the lever's spine starts the four rounds.
+name: pext-n4-cascade30
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 10 3 3 lever
+port payload: 8 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:observer[facing=up]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[facing=east]
+  F minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  r minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .O.O.O
+  .
+  .
+  .
+layer 1:
+  ESESESEG
+  .
+  .
+  .
+layer 2:
+  B
+  ..A.A.A..A
+  ..B.B....C
+  .........F
+layer 3:
+  r
+  A
+  .DRoRosoo
+  .........L

@@ -22,11 +22,21 @@ pub struct Scripts {
 
 /// A whole page around `body`. `prefix` is the path from the page to the site root.
 pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site) -> String {
+    shell_with(title, description, prefix, body, scripts, site, None)
+}
+
+/// [`shell`] with a preview image for link unfurls (Open Graph).
+pub fn shell_with(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site, image: Option<&str>) -> String {
     let mut s = String::with_capacity(body.len() + 4096);
     s.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
     s.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
-    s.push_str(&format!("<title>{}</title>\n", esc(&if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") })));
+    let full_title = if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") };
+    s.push_str(&format!("<title>{}</title>\n", esc(&full_title)));
     s.push_str(&format!("<meta name=\"description\" content=\"{}\">\n", esc(description)));
+    s.push_str(&format!("<meta property=\"og:title\" content=\"{}\">\n<meta property=\"og:description\" content=\"{}\">\n<meta property=\"og:site_name\" content=\"{SITE_NAME}\">\n", esc(&full_title), esc(description)));
+    if let Some(img) = image {
+        s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
+    }
     s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css\">\n"));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
@@ -38,6 +48,7 @@ pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: 
          <a href=\"{prefix}index.html#kind=clock&amp;time=\">Clock by time</a>\
          <a href=\"{prefix}families/index.html\">Extendable families</a>\
          <a href=\"{prefix}index.html#kind=circuit\">Circuits</a>\
+         <a href=\"{prefix}index.html#sort=newest\">Newest</a>\
          <a href=\"{prefix}all.html\">Everything</a>\
          <a href=\"{prefix}about.html\">About</a></nav></header>\n"
     ));
@@ -83,15 +94,16 @@ fn grid(cards: &[String]) -> String {
 }
 
 /// The viewer of a build page (a live view when the viewer bundle is there; the interim picture
-/// or the fallback text until then).
+/// or the fallback text until then). Clocks run by themselves: their viewer starts playing.
 fn viewer(prefix: &str, b: &Build) -> String {
     let trace = b.trace.as_ref().map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    let autoplay = if b.kind == "clock" { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&b.name)), " has-pic"),
         None => (String::new(), ""),
     };
     format!(
-        "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
+        "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
         esc(&format!("{prefix}{}", b.design)),
         esc(&b.kind),
@@ -149,7 +161,8 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         }
     }
     body.push_str(&format!(
-        "<section><h2>Design</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download the design file</a> <a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p>\n<p>Blocks used: {}</p>\n<details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        "<section><h2>Design</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design file</a> <a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block, block entity and entity of the design in one region.</p>\n<p>Blocks used: {}</p>\n<details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        esc(&crate::generate::litematic_path(&b.design)),
         esc(&b.design),
         esc(repo_path),
         chips(&b.kinds, prefix, "with"),
@@ -164,7 +177,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
     }
     let desc = format!("{}: {}. {}", b.name, lede(b), b.caption.chars().take(160).collect::<String>());
-    shell(&b.name, &desc, prefix, &body, scripts, site)
+    shell_with(&b.name, &desc, prefix, &body, scripts, site, b.picture.as_deref())
 }
 
 /// One line under a build's title.
@@ -398,21 +411,24 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         body.push_str("</tbody></table></section>\n");
     }
     body.push_str("<section><h2>Every member</h2><p>Each member's design was generated with the family's own generator when this site was built. <span class=\"badge st-judged\">judged in the game</span> = verified by the clock judge in the real game; <span class=\"badge st-redsim\">simulated</span> = its generated design runs at exactly the formula's period in redsim (the exact simulator), not judged in the game; <span class=\"badge st-formula\">formula</span> = not individually checked.</p>\n");
-    body.push_str("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>period</th><th>blocks</th><th>box</th><th>status</th><th>design</th></tr></thead><tbody>\n");
+    body.push_str("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>period</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n");
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
+        let download = if m.design.is_empty() {
+            "-".to_string()
+        } else {
+            format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&m.design)), esc(&m.design))
+        };
         body.push_str(&format!(
-            "<tr id=\"n{}{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td><a href=\"{prefix}{}\" download>.txt</a></td></tr>\n",
-            m.n,
-            if card.families.len() > 1 && card.families.first().is_some_and(|f| f.id != m.family) { format!("-{}", esc(&m.family)) } else { String::new() },
+            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
+            esc(&site_model::html::member_anchor(m, site)),
             m.n,
             esc(&gt_time(m.period)),
             m.blocks,
             esc(m.dims.as_deref().unwrap_or("")),
             esc(&m.status),
             esc(status_label(&m.status)),
-            esc(&m.design)
         ));
     }
     body.push_str("</tbody></table></section>\n");
@@ -610,6 +626,7 @@ pub fn about_page(site: &Site, scripts: Scripts) -> String {
          <h2>Where the numbers come from</h2>\n<ul>\n\
          <li><strong>Doors</strong>: <code>mctas door verify --extra-offsets 28</code> (3 open/close cycles at 32 positions); size is the piston door community's volume (the bounding box of the build over a whole cycle, the lever excluded); seamless tiers, hallway and record eligibility follow the community regulation (<a href=\"{REPO_URL}/blob/main/docs/rules.md\">docs/rules.md</a>).</li>\n\
          <li><strong>Clocks</strong>: <code>mctas clock verify</code> (4 positions x 4 rotations in the real game); the period is the exact repeat of the whole state; the family is the set of block kinds that change state (<a href=\"{REPO_URL}/blob/main/docs/clocks.md\">docs/clocks.md</a>). A variant is a clock of a period that only adds block kinds to a smaller one. Extendable families give a formula for every n; their members are generated by the family's own generator, and each is marked as judged in the game, simulated in redsim, or given by the formula only.</li>\n\
+         <li><strong>Circuits</strong>: <code>mctas circuit verify</code> (4 positions x 4 rotations in the real game) against each kind's spec: pulse circuits by their output pulse length, delay lines by their shift, gates by their truth table, T flip-flops, latches and counters, piston extenders by their reach, flying machines by their speed (<a href=\"{REPO_URL}/blob/main/docs/circuits.md\">docs/circuits.md</a>).</li>\n\
          </ul>\n\
          <h2>Data</h2><p>Everything on this site is in <a href=\"data/site.json\">data/site.json</a> ({} builds, {} family members), regenerated by <code>mctas site build</code> from the repository.</p>\n",
         site.builds.len(),
@@ -679,7 +696,7 @@ mod tests {
         let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false });
         assert!(p.starts_with("<!DOCTYPE html>"));
         assert!(p.contains("<title>obs2 · REDSTONEPEDIA</title>"));
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("<a class=\"card\" href=\"../clocks/obs3.html\""), "similar builds link to the other clock of the period");
         assert!(p.contains("import init from \"../viewer/mcview.js\""));

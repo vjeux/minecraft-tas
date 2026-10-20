@@ -51,6 +51,7 @@ pub fn rotated(w: &mut Worker, m: &Machine, turns: u8) -> Result<Machine> {
         distance: m.distance,
         payload: m.payload.iter().map(|p| clock::rotate_pos(*p, turns)).collect(),
         stops: m.stops.iter().zip(turned).map(|((p, _), s)| (clock::rotate_pos(*p, turns), s)).collect(),
+        stations: m.stations.iter().map(|p| clock::rotate_pos(*p, turns)).collect(),
     })
 }
 

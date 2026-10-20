@@ -1,0 +1,23 @@
+# Crafter RS latch, 6 blocks (track memory): crafter A (nine iron ingots, next to s) faces a hopper that feeds crafter B (next to r), which faces a hopper that feeds A. s makes A craft an iron block, carried into B; r makes B craft nine ingots, carried back into A (one per 8 gt, spread over its nine slots). Firing an empty crafter does nothing, so repeated s or r change nothing. A comparator reads B: 1 with the block, 0 without.
+name: rs-crafter
+circuit: rs-latch
+port input.s: -1 0 0
+port input.r: 2 0 1
+port output: 1 0 3
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:iron_ingot",count:1},{Slot:1b,id:"minecraft:iron_ingot",count:1},{Slot:2b,id:"minecraft:iron_ingot",count:1},{Slot:3b,id:"minecraft:iron_ingot",count:1},{Slot:4b,id:"minecraft:iron_ingot",count:1},{Slot:5b,id:"minecraft:iron_ingot",count:1},{Slot:6b,id:"minecraft:iron_ingot",count:1},{Slot:7b,id:"minecraft:iron_ingot",count:1},{Slot:8b,id:"minecraft:iron_ingot",count:1}]}
+origin: 0 -1 0
+palette:
+  S minecraft:stone
+  A minecraft:crafter[crafting=false,orientation=east_up,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  B minecraft:crafter[crafting=false,orientation=west_up,triggered=false]
+  g minecraft:hopper[enabled=true,facing=north]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+layer 0:
+  ..
+  ..
+  .S
+layer 1:
+  Ah
+  gB
+  .C

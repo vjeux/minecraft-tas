@@ -1,0 +1,15 @@
+# archived 2026-10-20T00:39Z from designs/circuits/tracks/pulse/bulb/pulse-fall-pistons-observer-L2-mp2.txt by mctas circuit archive
+# CIRCUIT: pulse-fall-pistons-observer-L2-mp2 falling-edge L 2 gt, delay 5 gt, min-pulse 2 gt, 3 blocks, 2x2x3, rotation-dependent
+name: pulse-fall-pistons-observer-L2-mp2
+# An observer between two sticky pistons, one armed by the input, found by the pulse census (3 blocks + input): it answers only the falling edge (2 gt, 5 gt after the edge), for inputs of 2 gt or more (the other 3-block layout needs 4).
+circuit: falling-edge
+origin: 0 0 0
+port output: -1 0 0
+port input: 1 0 1
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  AC
+  B.

@@ -1,0 +1,29 @@
+# archived 2026-10-20T00:11Z from designs/circuits/tracks/pulse/oneshot/pulse-oneshot-rising-edge-L8.txt by mctas circuit archive
+# CIRCUIT: pulse-oneshot-rising-edge-L8 rising-edge L 8 gt, delay 7 gt, min-pulse 4 gt, 17 blocks, 5x2x4, robust
+name: pulse-oneshot-rising-edge-L8
+# One-shot (rising-edge, L = 8 gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range 8..8 --kind rising-edge).
+circuit: rising-edge
+origin: -1 0 0
+port input: -1 1 0
+port output: 3 1 1
+palette:
+  a minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  m minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=north,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire
+layer 0:
+  ......
+  ....SS
+  ...S.S
+  ...SSS
+layer 1:
+  .PO...
+  ...BCW
+  ...m.a
+  ...WWW

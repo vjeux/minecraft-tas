@@ -1,0 +1,26 @@
+# N=2, slime-free, FLAT (1 wide), 8 blocks: sf7 folded into one plane. The lever hangs above B's
+# final cell; the observer beside it pulses A through the stone on A's top (both edges) and,
+# through A's cell, the sticky piston under A that carries the observer under B.
+name: pext-n2-sf8-flat
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 3 2 0 lever
+port payload: 3 1 0
+palette:
+  A minecraft:sticky_piston[facing=east]
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  P minecraft:stone
+  K minecraft:stone
+  o minecraft:observer[facing=east]
+  S minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  L minecraft:lever[face=ceiling,facing=north]
+layer 0:
+  .SO.
+layer 1:
+  .ABG
+layer 2:
+  .PoL
+layer 3:
+  ...K

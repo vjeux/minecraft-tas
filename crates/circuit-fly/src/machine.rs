@@ -22,8 +22,10 @@ pub struct Machine {
     pub travel: Option<Pos>,
     pub distance: Option<i32>,
     pub payload: Vec<Pos>,
-    /// Environment blocks (`stop:` lines), in file order.
+    /// Environment blocks (`stop:` and `station:` lines), in file order.
     pub stops: Vec<(Pos, String)>,
+    /// The cells of `stops` written as `station:` (return stations: real blocks that count).
+    pub stations: std::collections::BTreeSet<Pos>,
 }
 
 fn parse_vec(s: &str) -> Result<Pos> {
@@ -77,27 +79,44 @@ impl Machine {
 
     pub fn parse(text: &str) -> Result<Machine> {
         let mut design = Design::parse(text)?;
-        // every `stop:` line (the design parser keeps only the last header of a name)
+        // every `stop:` / `station:` line (the design parser keeps only the last header of a name)
         let mut stops = Vec::new();
+        let mut stations = std::collections::BTreeSet::new();
         for raw in text.lines() {
             if raw.starts_with(' ') {
                 continue;
             }
             let line = raw.split('#').next().unwrap_or("").trim();
-            if let Some(rest) = line.strip_prefix("stop:") {
-                let words: Vec<&str> = rest.split_whitespace().collect();
-                if words.len() != 4 {
-                    bail!("stop: x y z <state>, got {raw:?}");
-                }
-                let p = parse_vec(&words[..3].join(" "))?;
-                let state = mctas::blockstate::BlockState::parse(words[3])?.to_string();
-                if design.blocks.contains_key(&p) {
-                    bail!("stop block at {p:?} overlaps a machine block");
-                }
-                stops.push((p, state));
+            let (rest, station) = match (line.strip_prefix("stop:"), line.strip_prefix("station:")) {
+                (Some(r), _) => (r, false),
+                (_, Some(r)) => (r, true),
+                _ => continue,
+            };
+            let words: Vec<&str> = rest.split_whitespace().collect();
+            if words.len() != 4 {
+                bail!("stop: / station: x y z <state>, got {raw:?}");
+            }
+            let p = parse_vec(&words[..3].join(" "))?;
+            let state = mctas::blockstate::BlockState::parse(words[3])?.to_string();
+            if design.blocks.contains_key(&p) || stops.iter().any(|(q, _)| *q == p) {
+                bail!("stop/station block at {p:?} overlaps another block");
+            }
+            stops.push((p, state));
+            if station {
+                stations.insert(p);
             }
         }
         design.meta.remove("stop");
+        design.meta.remove("station");
+        // `port station[.<name>]: x y z` (the shared judge's spelling): the design block there is
+        // a return-station block
+        let station_ports: Vec<(String, Pos)> = design.ports.iter().filter(|(k, _)| *k == "station" || k.starts_with("station.")).map(|(k, p)| (k.clone(), *p)).collect();
+        for (k, p) in station_ports {
+            let state = design.blocks.remove(&p).ok_or_else(|| anyhow!("port {k}: no design block at {p:?}"))?;
+            design.ports.remove(&k);
+            stops.push((p, state));
+            stations.insert(p);
+        }
         let kind = design.meta.get("circuit").cloned().unwrap_or_else(|| "flying-machine".into());
         let travel = design.meta.get("travel").map(|s| parse_travel(s)).transpose()?;
         let distance = design.meta.get("distance").map(|s| s.trim().parse::<i32>().map_err(|e| anyhow!("distance: {e}"))).transpose()?;
@@ -108,7 +127,7 @@ impl Machine {
             }
         }
         let clock = Clock::from_design(design)?;
-        Ok(Machine { clock, kind, travel, distance, payload, stops })
+        Ok(Machine { clock, kind, travel, distance, payload, stops, stations })
     }
 
     pub fn name(&self) -> &str {
@@ -119,23 +138,32 @@ impl Machine {
         &self.clock.design
     }
 
-    /// Blocks placed (piston heads are part of their piston; stop blocks and a temporary kick block
-    /// are not counted).
+    /// Blocks placed: the machine's (piston heads are part of their piston) plus its `station:`
+    /// blocks; `stop:` blocks and a temporary kick block are not counted.
     pub fn blocks(&self) -> usize {
-        self.clock.blocks()
+        self.clock.blocks() + self.stations.len()
     }
 
     pub fn trail_allowed(&self) -> bool {
         self.kind.split_whitespace().any(|w| w == "trail")
     }
 
-    /// The design as text, every `stop:` line included.
+    /// The design as text: `stop:` lines for the environment, the station blocks as design blocks
+    /// marked `port station.<i>` (the shared judge's spelling).
     pub fn to_text(&self) -> String {
-        let mut t = self.clock.to_text();
-        if !self.stops.is_empty() {
+        let mut c = self.clock.clone();
+        for (i, p) in self.stations.iter().enumerate() {
+            if let Some((_, s)) = self.stops.iter().find(|(q, _)| q == p) {
+                c.design.blocks.insert(*p, s.clone());
+                c.design.ports.insert(format!("station.{i}"), *p);
+            }
+        }
+        let mut t = c.to_text();
+        let stops: Vec<&(Pos, String)> = self.stops.iter().filter(|(p, _)| !self.stations.contains(p)).collect();
+        if !stops.is_empty() {
             let mut lines: Vec<String> = t.lines().map(String::from).collect();
             let at = lines.iter().position(|l| l.starts_with("palette:")).unwrap_or(lines.len());
-            for (i, (p, s)) in self.stops.iter().enumerate() {
+            for (i, (p, s)) in stops.iter().enumerate() {
                 lines.insert(at + i, format!("stop: {} {} {} {s}", p[0], p[1], p[2]));
             }
             t = lines.join("\n") + "\n";
@@ -143,7 +171,7 @@ impl Machine {
         t
     }
 
-    /// The same machine moved by `d` (stops and payload too).
+    /// The same machine moved by `d` (stops, stations and payload too).
     pub fn translated(&self, d: Pos) -> Machine {
         let mv = |p: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
         Machine {
@@ -153,6 +181,7 @@ impl Machine {
             distance: self.distance,
             payload: self.payload.iter().map(|p| mv(*p)).collect(),
             stops: self.stops.iter().map(|(p, s)| (mv(*p), s.clone())).collect(),
+            stations: self.stations.iter().map(|p| mv(*p)).collect(),
         }
     }
 
