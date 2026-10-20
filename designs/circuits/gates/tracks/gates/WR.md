@@ -23,8 +23,34 @@ The headline variation is the SIGNAL-input gate: both inputs are redstone signal
 3. A glitch-free IMPLY at 3-4 blocks (the archived 3b torch version reports `glitches 2`).
 4. Tileable rows once a function is at its bar: measure the pitch with `tile:` rather than claiming it.
 
+## R7 (real input devices, on main 2026-10-20): EIGHT archived gates are now invalid
+
+Re-judged every gate under R7, where the judge drives an input with a repeater pointing into the cell instead of placing a redstone block in it. These FAIL and must be replaced before any of them counts as a record:
+
+| design | what the judge now measures |
+|---|---|
+| gate-xor-ring-14b | behaves as OR |
+| gate-xnor-ring-16b | behaves as NOR |
+| gate-and-5b | the output is false (truth table 0000) |
+| gate-nimply-cmp-2b | the output is a (0011) |
+| gate-nimply-ba-cmp-2b | the output is b (0101) |
+| gate-nor-bump-4b | the output is true (1111) |
+| gate-nor-torch-3b | the output is not steady at rest |
+| gate-imply-torch-3b | the output is not steady at rest |
+
+Survive R7, with their tile pitches measured: gate-or-2b (2), gate-not-torch-3b (3), gate-nand-torch-6b (4). Both delay cards survive too (pitch 1).
+
+The cause, read from the game's source and confirmed in the game. A comparator's or repeater's SIDE input is `DiodeBlock.getAlternateSignal` -> `SignalGetter.getControlInputSignal`, which returns a value only for a redstone block, redstone dust, or a signal source (a diode). A plain block, however strongly powered, gives 0. A redstone block placed IN the input cell satisfied that; the R7 repeater driving the judge's smooth stone there does not. The same rule breaks the dust-ring XOR/XNOR, whose ends read power that a placed block supplied.
+
+So every gate whose input feeds a comparator side, or a dust ring, needs the input cell to hold DUST that the design owns (counted, with its support stone). My first attempt at that for NIMPLY (comparator + dust at the side cell, 4 blocks) still measures `the output is a`, so the side still reads 0: the next step is to dump what the judge actually places at that cell (`MCTAS_INPUT_DEVICE=block` reproduces the old pass, so the difference is isolated) before rebuilding the family. That is the first task of the next round, ahead of XOR/XNOR, since a record that only exists with a block input is not a record.
+
+- `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
+- A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
+- The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+
 ## Settled facts
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
+- A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
