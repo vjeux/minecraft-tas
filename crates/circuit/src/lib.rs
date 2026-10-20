@@ -19,6 +19,7 @@ pub mod bud;
 pub mod check;
 pub mod fly;
 pub mod pulsemult;
+pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;

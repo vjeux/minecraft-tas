@@ -323,8 +323,8 @@ pub mod rail {
         }
         if let Block::Rail { shape, .. } = s {
             if should_be_removed(w, pos, shape) {
-                // dropResources -> popResource (three level-random draws)
-                w.draw_pop_resource();
+                // dropResources: its loot's stacks pop (level-random draws, seeded items)
+                w.drop_resources(pos, s);
                 w.drops.push((pos, s));
                 w.remove_block(pos, moved);
             } else {

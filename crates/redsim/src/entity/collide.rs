@@ -107,7 +107,7 @@ fn has_large_collision_shape(s: &Block) -> bool {
 
 /// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
 /// `piston::shape`; a moving block under `NOCLIP` keeps only a retracting base's box).
-fn boxes_at(w: &World, s: &Block, p: BlockPos) -> Vec<Aabb> {
+pub fn boxes_at(w: &World, s: &Block, p: BlockPos) -> Vec<Aabb> {
     let f = |v: i32| v as f64 / 16.0;
     let (x, y, z) = (p.x as f64, p.y as f64, p.z as f64);
     let raw: Vec<[i32; 6]> = match s {

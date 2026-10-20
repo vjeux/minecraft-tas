@@ -94,6 +94,16 @@ enum Cmd {
         #[arg(long)]
         follow: Option<f64>,
     },
+    /// The all-randoms rule (circuit::robust): judge the design on redsim with its explosions at
+    /// every kick angle (a sweep of --samples values of the kick's nextDouble(), every change
+    /// bisected to 1e-12, every piece and boundary judged, rays at their largest roll).
+    Robust {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 4096)]
+        samples: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+    },
     /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
     /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
     /// the mean motion, the direction class.
@@ -265,6 +275,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     let p = out.join(format!("{}.txt", d.name));
                     std::fs::write(&p, d.to_text())?;
                     println!("{}: {n0} -> {} blocks, still PRECISE on redsim: {}", design.display(), d.blocks.len(), p.display());
+                }
+            }
+        }
+        Cmd::Robust { designs, samples, workers } => {
+            for d in &designs {
+                let c = circuit::Circuit::load(d)?;
+                match circuit::robust::tnt_robust(&c, samples, workers) {
+                    Ok(r) => println!("ROBUST: {}: {r}", c.name()),
+                    Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
         }
