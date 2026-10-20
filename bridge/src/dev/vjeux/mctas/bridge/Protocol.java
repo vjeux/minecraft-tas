@@ -164,6 +164,7 @@ public final class Protocol {
             case "exec" -> exec(r);
             case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
+            case "random_state" -> randomState(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "viewer_mode" -> viewerMode(r);
@@ -230,6 +231,8 @@ public final class Protocol {
         return switch (mode.getAsString()) {
             case "raw" -> Sandbox.RAW_FLAGS;
             case "update" -> Block.UPDATE_ALL;
+            // shape updates only, no block update to the neighbors (how crops grow): the BUD judge
+            case "shape" -> Block.UPDATE_CLIENTS;
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         };
     }
@@ -310,6 +313,14 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         o.add("positions", out);
         o.add("random", random);
+        return o;
+    }
+
+    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}). */
+    private JsonObject randomState(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonObject o = new JsonObject();
+        o.addProperty("seed", sb.randomState());
         return o;
     }
 
@@ -558,9 +569,10 @@ public final class Protocol {
         a.add(p.z);
         j.add("pos", a);
         j.addProperty("uuid", e.getStringUUID());
-        // the network id (Entity.getId(): a server-wide counter), which some ticks read
-        // (ItemEntity's 1-in-4 rest moves)
-        j.addProperty("net_id", e.getId());
+        // the network id within the sandbox: Entity.getId() - Sandbox#entityIdBase (the bridge
+        // numbers each sandbox's entities from 0 in the order they enter; some ticks read it:
+        // ItemEntity's 1-in-4 rest moves)
+        j.addProperty("net_id", e.getId() - sb.entityIdBase());
         Vec3 m = e.getDeltaMovement();
         JsonArray mv = new JsonArray();
         mv.add(m.x);

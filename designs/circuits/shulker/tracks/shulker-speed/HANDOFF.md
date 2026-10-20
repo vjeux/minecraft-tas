@@ -1,0 +1,30 @@
+# HANDOFF: track shulker-speed (study 8, clk-item, branch explore/tff)
+
+Split with clk-rt (owner of study 8, branch explore/shulker): clk-rt keeps the judge (crates/circuit/src/shulker.rs), redsim and the loader badges. This track covers unloaders, speed and tileable for both sides, the combo, mixed, and flush with restart. Mechanics, failed tries and pitfalls are in NOTES.md next to this file.
+
+## Archived (designs/circuits/shulker/archive/, all robust incl. the drop stress, 2026-10-20)
+
+| design | kind | rate | blocks | badges | track file |
+|---|---|---|---|---|---|
+| shulker-speed-unloader-rail2 | unloader | 11.62 items/s | 116 (shrunk in the game from 122) | always-on, 16-stack, unstackable, colours, box-starved, drop-free, tileable(12) | unloader-rail2.txt |
+| shulker-speed-unloader-rail | unloader | 7.50 items/s (3x) | 57 | the same + tileable(6) | unloader-rail.txt |
+| shulker-small-unloader | unloader | 2.50 | 41 | the same, tileable(5) | unloader-small.txt |
+| shulker-speed-loader-dropper75 | loader | 7.39 items/s (3x; the ceiling of hoppers under 3 item chests) | 96 (shrunk in the game from 108) | always-on, 16-stack, unstackable, colours, restart, top-up, box-starved, drop-free, tileable(9) | loader-dropper75.txt |
+| shulker-mixed-loader | loader | 2.50 | 57 | always-on, 16-stack, unstackable, colours, top-up, flush, MIXED, box-starved, drop-free | loader-mixed.txt |
+| shulker-restart-flush-loader | loader | 2.50 | 65 (shrunk in the game from 75) | always-on, 16-stack, unstackable, colours, RESTART + FLUSH, top-up, box-starved, drop-free | loader-rs.txt |
+| shulker-combo | loader + unloader (`port input.mode` lever) | 2.50 | 79 (shrunk in the game from 85) | the loader badges + combo | combo.txt |
+
+Removed: shulker-speed-unloader-2cart (15/s but fragile: off-rail carts swallow unstackable drops), shulker-speed-loader-dropper (dominated; its 5.74 was the old source-outflow metric), clk-rt's 49b auto-unloader (dominated by the 41b one, at clk-rt's request).
+
+## Key mechanisms
+
+- rail2: two rail stations share one boxes chest (the judge puts every box in the first boxes chest). The splitter is a hopper minecart under that chest: two hoppers under the cart pull at the same time, so boxes 1 and 2 go to different stations. A plain hopper puller under the chest's hopper grabs every box, because it pulls before the other hopper's push.
+- mixed: the jam detector reads the feeding hopper's comparator through a 4-dust chain (on at level >= 4). A subtract comparator turns its rising edge into a 4 gt piston pulse. Jam => 27 occupied slots, since a box refuses an item only with no empty slot.
+- restart + flush: an hourglass (a chest of 420 stone over a hopper, draining at 2.5/s). It runs only while the items chest is empty AND the dispenser holds boxes: 3360 gt, longer than the 3000 gt pause and within the 6000 gt deadline. Its expiry lights a dust that fires the piston.
+
+## What is open
+
+- Mixed AND restart together: the plain-hopper backlog jam detector is noisy with shovels. N holds 2-4 shovels around swaps and 0 in the pause, and one shovel is worth 3 comparator levels, so a crossing after a placement breaks the new empty box (loader-mixed-rs.txt, WIP). It needs a feeder that drains faster than it is fed: a dropper firing every 4 gt, fed by one hopper.
+- Fast loader with flush + restart: the hourglass works, but on dropper75 its two lock signals (feed active, dispenser empty) and its output are far apart. The output must go into K2's output line (the fake-full also closes the gate). Injecting into the piston line lets the dropper fire into the pushed stone.
+- Loader past 7.5/s: a box takes items only from hoppers (2.5/s) and droppers (one dispense per 4 gt = 5/s). Its 6 faces carry the dispenser, the pushed stone, the drop cell, C's read stone and two feeders, so the ceiling is two droppers = 10/s on one box. Parallel loader stations are out: the base scenario's 81 stacks must make exactly 3 FULL boxes, and parallel boxes would split the items. Supply past 7.5/s needs a hopper minecart under one item chest (2 hoppers under it). Firing two droppers is the hard part: each needs two observers in opposite phases of the 8 gt gate clock (measured: one observer gives 4.11 items/s on dropper75), with no stray power into either dropper. Most promising layout (NOTES.md, "Loader past 7.5/s"): keep dropper75's top dispenser and put the second dropper on the south face (replacing N), fed by 3 hoppers (7.5/s). Y's south hopper then pulls 2.5/s out of it into Y, which also gets the west line, so 10/s total. Fire the south dropper through its free east cell (a solid block pulsed by two observers in the two phases), and route the observers' clock taps from the existing gate clock.
+- Smallest loader: clk-rt's 31b auto-loader looks minimal for its layout. A comparator reading the box directly reads the feed hopper through the pushed stone (loader-small-directread-FAILS.txt).

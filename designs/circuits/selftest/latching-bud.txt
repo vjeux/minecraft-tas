@@ -1,0 +1,20 @@
+name: cal-latching-bud
+circuit: bud
+# Refusal: a sticky piston armed by quasi-connectivity (the redstone block on the right powers the
+# cell above it) fires at the first block update and pushes the redstone block on top of it up beside
+# the output, where it powers the piston too: it stays out and never re-arms (the output stays on).
+origin: 0 0 0
+port target: 0 0 1
+port output: 0 2 1
+palette:
+  P minecraft:sticky_piston[extended=false,facing=up]
+  R minecraft:redstone_block
+layer 0:
+  P.
+  ..
+layer 1:
+  RR
+  ..
+layer 2:
+  ..
+  ..

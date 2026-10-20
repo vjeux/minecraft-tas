@@ -1,7 +1,22 @@
-//! `door sheet`, `door ideal-rs`: ideal schedules on redsim.
+//! `door sheet`, `door ideal-rs`, `door feeds`: ideal schedules on redsim.
 
 use anyhow::Result;
 use std::path::PathBuf;
+
+#[derive(clap::Args)]
+pub struct FeedsArgs {
+    /// The ideal schedule (its design is replayed on redsim, one open and one close).
+    schedule: PathBuf,
+    /// The build box in the door plane, `X0..X1,Y0..Y1` (design coordinates; default: the
+    /// design's blocks): only cells inside it that stay free all cycle can feed.
+    #[arg(long, value_name = "X0..X1,Y0..Y1")]
+    r#box: Option<String>,
+}
+
+pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
+    let bx = args.r#box.as_deref().map(crate::feeds::parse_box).transpose()?;
+    crate::feeds::cli(&args.schedule, bx)
+}
 
 #[derive(clap::Args)]
 pub struct SheetArgs {
@@ -61,6 +76,11 @@ pub struct IdealRsArgs {
     /// volume will be once the inputs are real wiring inside that box.
     #[arg(long)]
     extent: bool,
+    /// Draw the door plane after every tick in `LO..HI` (open and close, ticks after each
+    /// flip) of the first cycle at the first position: where carried pistons sit and what
+    /// touches them when they fire.
+    #[arg(long, value_name = "LO..HI")]
+    planes: Option<String>,
     #[arg(long, default_value_t = 16)]
     threads: usize,
     /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
@@ -100,7 +120,7 @@ pub struct IdealRsArgs {
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
     if extent {
         crate::ideal::cli_phase(between_ticks);
         for path in &schedule {
@@ -116,6 +136,14 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         return Ok(());
     }
+    let planes = match planes {
+        Some(r) => {
+            let (lo, hi) = r.split_once("..").ok_or_else(|| anyhow::anyhow!("--planes LO..HI"))?;
+            Some((lo.parse::<u32>()?, hi.parse::<u32>()?))
+        }
+        None => None,
+    };
+    let trace = crate::ideal_rs::Trace { changes: trace, planes };
     match { crate::ideal::cli_phase(between_ticks); (compact_dir, holds_rank) } {
         _ if offplane_dir.is_some() => crate::ideal_rs::offplane_dir(&schedule, offplane_dir.as_deref().unwrap(), offplane_below)?,
         (_, Some(max_tick)) => crate::ideal_rs::holds_rank(&schedule, extra_offsets, cycles, threads, max_tick)?,

@@ -75,8 +75,47 @@ each build's page.
   menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
   `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
-  (the left badge shows `demo · <phase>`), looped until the person's first input (any button,
-  tap, play/pause/step/reset); then the inputs are theirs.
+  (the left badge shows `demo · <phase>`, as wide as its widest phase from the start so it never
+  resizes), looped until the person's first input (any button, tap, play/pause/step/reset); then
+  the inputs are theirs.
+* `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
+  `data-stimulus`: after placement): the judge's actions at cells besides the inputs
+  (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed
+  in the auto-demo (with `data-autoplay`, with or without inputs): `place` (setBlock with
+  updates, flags 3, like a player), `clear` (removed with updates), `shape` (changed with shape
+  updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
+  replays the BUD switches' events through this parser frame by frame against `circuit sim`.
+  Cyan tags name a BUD switch's TARGET cells.
+* TNT dupers run live (redsim primes TNT); the primed TNT is drawn like the game's
+  `TntRenderer` (swelling over the last 10 ticks of its fuse, flashing 75% white every 5) and
+  moved by the viewer (`mcview::tnt`, redsim records only when and where TNT primes): the game's
+  `PrimedTnt.tick` (gravity, the game's collision, air drag, ground friction, slime bounce) and
+  `PistonMovingBlockEntity.moveCollidedEntities` (moving blocks push it, a moving slime block
+  launches it at one block per tick); its sideways direction (random in the game) comes from a
+  hash of the cell and time; it vanishes at fuse 0 without exploding (the judge removes it).
+* Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
+  judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
+  tick for tick against the real game): the judge's chest on each `items`, `boxes`, `output` and
+  `reject` port (tags ITEMS, BOXES, OUT) placed after the design, the settle (40 gt), then the
+  box chests and a loader's sources kept full and the outputs emptied before every tick
+  (endless), with unstackables (27 per box: a box every ~11 s) unless the design sorts (a
+  `reject` port: its kind's own item). The world is the judge's sandbox for the design (since
+  2026-10-20, clk-misc): its level random mirrored (`World::mirror_level_random`) and its drops
+  seeded from the seed the judge builds it with (`redstone::shulker::judge_sandbox`: the watch
+  box, the design's blocks and ports plus 3, gives the seed and the forced chunks), so a dropper
+  choosing among stacks (dropper75) and a hopper choosing among minecarts (the rail unloaders)
+  draw what the game draws, and every archived shulker design runs live. A start lever is
+  the visitor's to flip (the judge flips it at its start); always-on designs start by
+  themselves. A design whose run redsim cannot follow (it runs 1000 gt ahead on load) is shown
+  as built, with a still shulker box in the box cell (in front of the dispenser): none of the
+  archive today. Chests and shulker boxes are drawn
+  with the game's `ChestModel` / `ShulkerModel` and entity textures. `web check` runs every
+  shulker design against a reference run built from the repo's tools (the clock judge's
+  placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
+  which must equal the viewer's box), as placed and after its start lever: the same frames,
+  native and wasm. A design shown as built never offers inputs or input outlines.
+* A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
+  pictures' framing, which may cut a tall build).
 * Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
   above each one, item icons with counts, live every tick; a bar button (grid icon) hides them.
 
@@ -184,6 +223,7 @@ each build's page.
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |
+| `mctas web entities <design> [--trace designs/clocks/traces/exact/<stem>.trace] [--from T --to T]` | the viewer's simulated entities (redsim: end-of-tick positions and yaw) tick by tick next to a real-game trace's, with the largest distance: all 55 exact traces 0.0000 over their whole length (a minecart on a rail is DRAWN at the rail's line, like `AbstractMinecartRenderer.oldRender`; that drawn pose is not what is compared) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
 --enable-unsafe-swiftshader --virtual-time-budget=60000 --screenshot=x.png <url>` (EPEL package

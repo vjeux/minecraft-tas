@@ -185,9 +185,18 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool, prefix: &str) -> 
             " <span class=\"tag-pos\">Blue</span>: how far the machine has moved along its path, in blocks.".to_string()
         };
         let notes: String = w.rows.iter().filter(|r| !r.note.is_empty()).map(|r| format!("<p class=\"wave-note\"><span class=\"tag-pos\">{}</span>: {}.</p>", esc(&r.name.to_uppercase()), esc(&r.note))).collect();
+        let has_marks = w.rows.iter().any(|r| !r.marks.is_empty());
+        let intro = if has_marks {
+            // a BUD switch: the judge changes its target cell, it has no inputs
+            "The judge changes the target cell with this schedule (the TARGET row: <span class=\"mk-place-t\">green</span> = a block placed or changed, <span class=\"mk-clear-t\">red</span> = removed, <span class=\"mk-shape-t\">purple</span> = a shape-only change, <span class=\"mk-update-t\">blue</span> = a pure update with nothing changing; each phase's name says which test it is) and checks the output after every change; here it is simulated. <span class=\"tag-out\">Orange</span>: the output is on.".to_string()
+        } else {
+            format!(
+                "The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text}",
+                if c.inputs.len() == 1 { "" } else { "s" }
+            )
+        };
         s.push_str(&format!(
-            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{notes}{}</section>\n",
-            if c.inputs.len() == 1 { "" } else { "s" },
+            "<section><h2>The judge's test</h2><p>{intro} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{notes}{}</section>\n",
             crate::explain::wave_svg(w),
             if c.table.is_empty() {
                 String::new()
@@ -202,7 +211,7 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool, prefix: &str) -> 
             .iter()
             .map(|(k, v)| {
                 let def = crate::explain::metric_definition(&c.kind, k);
-                format!("<tr><th scope=\"row\">{}</th><td>{}</td><td class=\"def\">{}</td></tr>\n", esc(k), esc(&crate::explain::metric_value(v)), esc(def))
+                format!("<tr><th scope=\"row\">{}</th><td>{}</td><td class=\"def\">{}</td></tr>\n", esc(k), esc(&crate::explain::metric_value(&if k == "badges" { v.replace('+', ", ") } else { v.clone() })), esc(def))
             })
             .collect();
         s.push_str(&format!(
@@ -219,17 +228,27 @@ fn viewer(prefix: &str, b: &Build) -> String {
     // circuits: the judge's test as the viewer's demo (webrender's contract: data-stimulus,
     // data-phases, data-input-mode), playing from the start
     let circuit = match &b.circuit {
-        Some(c) if !c.stimulus.is_empty() => format!(
-            " data-stimulus=\"{}\" data-phases=\"{}\" data-input-mode=\"{}\" data-circuit=\"{}\"",
-            esc(&c.stimulus),
-            esc(&c.phases),
-            crate::explain::input_mode(&c.kind),
-            esc(&c.kind)
-        ),
-        Some(c) => format!(" data-input-mode=\"{}\" data-circuit=\"{}\"", crate::explain::input_mode(&c.kind), esc(&c.kind)),
+        Some(c) => {
+            let mut a = String::new();
+            if !c.stimulus.is_empty() {
+                a.push_str(&format!(" data-stimulus=\"{}\"", esc(&c.stimulus)));
+            }
+            // the BUD's judge acts at its target cells, not at inputs: `data-events`
+            if !c.events.is_empty() {
+                a.push_str(&format!(" data-events=\"{}\"", esc(&c.events)));
+            }
+            if !c.stimulus.is_empty() || !c.events.is_empty() {
+                a.push_str(&format!(" data-phases=\"{}\"", esc(&c.phases)));
+            }
+            a.push_str(&format!(" data-input-mode=\"{}\" data-circuit=\"{}\"", crate::explain::input_mode(&c.kind), esc(&c.kind)));
+            a
+        }
         None => String::new(),
     };
-    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || c.kind == "flying-machine") { " data-autoplay" } else { "" };
+    // what runs by itself plays at once: clocks, flying machines, self-running TNT dupers, shulker
+    // machines (always-on ones start by themselves; a start lever is the visitor's), the judge's
+    // demo
+    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-")) { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&b.name)), " has-pic"),
         None => (String::new(), ""),
@@ -484,13 +503,15 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         if !c.robustness.is_empty() {
             s.push_str(&row("Robustness", &format!("{} (same behavior at 4 positions x 4 rotations in the real game)", esc(&c.robustness)).replace("robust (same", "robust (the same")));
         }
-        if !c.inputs.is_empty() || !c.outputs.is_empty() {
+        if !c.inputs.is_empty() || !c.outputs.is_empty() || c.kind == "tnt-duper" {
             let ins: Vec<String> = c.inputs.iter().enumerate().map(|(i, n)| format!("{} ({})", n.to_uppercase(), c.devices.get(i).map(String::as_str).unwrap_or("redstone block"))).collect();
             let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
             let text = match (ins.is_empty(), outs.is_empty()) {
                 (false, false) => format!("{} / {}", ins.join(", "), outs.join(", ")),
                 (false, true) => format!("{} (no output: it moves blocks)", ins.join(", ")),
-                (true, _) => format!("no input / {}", outs.join(", ")),
+                (true, false) if !c.events.is_empty() => format!("the judge's changes at its target / {}", outs.join(", ")),
+                (true, false) => format!("no input / {}", outs.join(", ")),
+                (true, true) => "none: it runs by itself".to_string(),
             };
             s.push_str(&row("Inputs / outputs", &esc(&text)));
         }
@@ -1063,6 +1084,111 @@ fn study_builds<'a>(site: &'a Site, folder: &str) -> Vec<&'a Build> {
     v
 }
 
+/// A circuit's metric (`items/s`, `badges`...), empty when absent.
+fn cmetric<'a>(b: &'a Build, k: &str) -> &'a str {
+    b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(n, _)| n == k)).map(|(_, v)| v.as_str()).unwrap_or("")
+}
+
+/// The leading number of a metric (`2.50` of `2.50`, `200` of `200 TNT/min`).
+fn cnum(b: &Build, k: &str) -> Option<f64> {
+    cmetric(b, k).split_whitespace().next().and_then(|v| v.parse().ok())
+}
+
+/// The design of `v` with the smallest key (ties: by name).
+fn pick_min<'a>(v: Vec<&'a Build>, key: &dyn Fn(&Build) -> (i64, i64)) -> Option<&'a Build> {
+    v.into_iter().min_by(|a, b| (key(a), &a.name).cmp(&(key(b), &b.name)))
+}
+
+/// A variations table's cell: the best design (link, blocks, its key number) or `none yet`.
+fn best_cell(b: Option<&Build>, prefix: &str, key: &str, unit: &str) -> String {
+    match b {
+        Some(b) => {
+            let n = cmetric(b, key);
+            format!(
+                "<a href=\"{prefix}{}\">{}</a><br><span class=\"hint\">{}{}</span>",
+                esc(&b.page),
+                esc(&b.name),
+                esc(&site_model::html::blocks_word(b.blocks)),
+                if n.is_empty() { String::new() } else { format!(" · {}{unit}", esc(n)) }
+            )
+        }
+        None => "<span class=\"hint\">none yet</span>".to_string(),
+    }
+}
+
+/// The studies of machines (shulker loaders, TNT dupers, BUD switches): for each variation of
+/// the study's VARIATIONS.md that the judge measures, what it means and the best design that has
+/// it, computed from the designs' metrics.
+fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String {
+    let all: Vec<&'a Build> = site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder && c.layout_of.is_none())).collect();
+    if all.is_empty() || !matches!(folder, "shulker" | "tnt" | "bud") {
+        return String::new();
+    }
+    let has_badge = |b: &Build, badge: &str| cmetric(b, "badges").split('+').any(|x| x == badge);
+    let mut rows = String::new();
+    let link = format!("{REPO_URL}/blob/main/designs/circuits/{folder}/VARIATIONS.md");
+    let head;
+    match folder {
+        "shulker" => {
+            head = "<tr><th>variation</th><th>what it means</th><th>best loader</th><th>best unloader</th></tr>";
+            // the base scenario is 64-stack items: the designs judged on 16-stack or unstackable
+            // items as their base (`shulker-loader 16`) have their own value of the study's axis
+            let loaders: Vec<&Build> = all.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind == "shulker-loader")).collect();
+            let unloaders: Vec<&Build> = all.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind == "shulker-unloader")).collect();
+            let speed = |b: &Build| (cnum(b, "items/s").unwrap_or(0.0) * 1000.0) as i64;
+            let mut row = |label: &str, meaning: &str, l: Option<&Build>, u: Option<&Build>, l_na: bool, u_na: bool| {
+                let na = "<span class=\"hint\">(not for this kind)</span>".to_string();
+                rows.push_str(&format!(
+                    "<tr><th scope=\"row\">{}</th><td class=\"def\">{}</td><td>{}</td><td>{}</td></tr>\n",
+                    esc(label),
+                    esc(meaning),
+                    if l_na { na.clone() } else { best_cell(l, prefix, "items/s", " items/s") },
+                    if u_na { na } else { best_cell(u, prefix, "items/s", " items/s") }
+                ));
+            };
+            row("smallest", "fewest blocks placed (the judge's chests not counted)", pick_min(loaders.clone(), &|b| (b.blocks as i64, -speed(b))), pick_min(unloaders.clone(), &|b| (b.blocks as i64, -speed(b))), false, false);
+            row("fastest", "most items per second at the steady rate", pick_min(loaders.clone(), &|b| (-speed(b), b.blocks as i64)), pick_min(unloaders.clone(), &|b| (-speed(b), b.blocks as i64)), false, false);
+            for badge in ["16-stack", "unstackable", "mixed", "filter", "tileable", "always-on", "restart", "box-starved", "colours", "flush", "top-up", "drop-free", "combo", "any-box"] {
+                let with = |v: &[&'a Build]| -> Option<&'a Build> { pick_min(v.iter().copied().filter(|b| has_badge(b, badge)).collect(), &|b| (b.blocks as i64, -speed(b))) };
+                let loader_only = matches!(badge, "mixed" | "filter" | "flush" | "top-up");
+                let unloader_only = badge == "any-box";
+                row(badge, crate::explain::badge_meaning(badge), with(&loaders), with(&unloaders), unloader_only, loader_only);
+            }
+        }
+        "tnt" => {
+            head = "<tr><th>variation</th><th>what it means</th><th>best design</th></tr>";
+            let running: Vec<&Build> = all.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind == "tnt-duper")).collect();
+            let pulsed: Vec<&Build> = all.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind == "tnt-duper-triggered")).collect();
+            let rate = |b: &Build| cnum(b, "rate").unwrap_or(0.0) as i64;
+            let mut row = |label: &str, meaning: &str, b: Option<&Build>, key: &str, unit: &str| {
+                rows.push_str(&format!("<tr><th scope=\"row\">{}</th><td class=\"def\">{}</td><td>{}</td></tr>\n", esc(label), esc(meaning), best_cell(b, prefix, key, unit)));
+            };
+            row("smallest, self-running", "fewest blocks of the dupers that run by themselves", pick_min(running.clone(), &|b| (b.blocks as i64, -rate(b))), "rate", "");
+            row("fastest", "most lit TNT per minute", pick_min(running.clone(), &|b| (-rate(b), b.blocks as i64)), "rate", "");
+            row("smallest, one shot per pulse", "fewest blocks of the dupers that light TNT on an input pulse", pick_min(pulsed.clone(), &|b| (b.blocks as i64, 0)), "per pulse", " TNT per pulse");
+        }
+        _ => {
+            head = "<tr><th>variation</th><th>what it means</th><th>best design</th></tr>";
+            let detects = |b: &Build, k: &str| cmetric(b, "detects").split_whitespace().any(|x| x == k);
+            let latency = |b: &Build| cnum(b, "latency").unwrap_or(999.0) as i64;
+            let footprint = |b: &Build| cnum(b, "footprint").unwrap_or(999.0) as i64;
+            let mut row = |label: &str, meaning: &str, b: Option<&Build>, key: &str, unit: &str| {
+                rows.push_str(&format!("<tr><th scope=\"row\">{}</th><td class=\"def\">{}</td><td>{}</td></tr>\n", esc(label), esc(meaning), best_cell(b, prefix, key, unit)));
+            };
+            for class in ["place", "remove", "state", "shape", "update"] {
+                row(&format!("detects {class}"), crate::explain::badge_meaning(class), pick_min(all.iter().copied().filter(|b| detects(b, class)).collect(), &|b| (b.blocks as i64, latency(b))), "latency", " latency");
+            }
+            row("detects all five", "every kind of change at the target", pick_min(all.iter().copied().filter(|b| ["place", "remove", "state", "shape", "update"].iter().all(|k| detects(b, k))).collect(), &|b| (b.blocks as i64, latency(b))), "latency", " latency");
+            row("fastest", "the shortest latency", pick_min(all.clone(), &|b| (latency(b), b.blocks as i64)), "latency", " latency");
+            row("smallest footprint", "the fewest cells around it that must be left alone", pick_min(all.clone(), &|b| (footprint(b), b.blocks as i64)), "footprint", " footprint");
+        }
+    }
+    format!(
+        "<section><h2>Variations</h2><p>What builds need from these machines, each measured by the judge as its own scenario, and the best design for each (the smallest that has it). Every variation, how the judge measures it, and the ones still open: <a href=\"{}\">VARIATIONS.md</a>.</p><table class=\"list variations\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></section>\n",
+        esc(&link)
+    )
+}
+
 /// circuits/<study>/index.html: what the study collects, how designs are ranked, then each kind
 /// with its plain explanation and its designs (variants folded under a count).
 pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
@@ -1079,6 +1205,8 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         esc(&intro),
         site_model::encode(folder)
     );
+    // the studies of machines: the best design for each variation (VARIATIONS.md)
+    body.push_str(&variations_section(site, folder, prefix));
     // the study's extendable families: one line per card, its formula
     let cards: Vec<&Card> = site.cards.iter().filter(|c| c.kind == "circuit" && c.study == folder).collect();
     if !cards.is_empty() {
@@ -1129,6 +1257,11 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             "counter" => "Counters".to_string(),
             "gate" => "Logic gates".to_string(),
             "piston-extender" => "Piston extenders".to_string(),
+            "shulker-loader" => "Shulker box loaders".to_string(),
+            "shulker-unloader" => "Shulker box unloaders".to_string(),
+            "bud" => "BUD switches".to_string(),
+            "tnt-duper" => "TNT dupers (self-running)".to_string(),
+            "tnt-duper-triggered" => "TNT dupers (one shot per pulse)".to_string(),
             _ => crate::explain::kind_title(k),
         };
         let cards: Vec<String> = reps.iter().map(|b| build_card(b, prefix)).collect();

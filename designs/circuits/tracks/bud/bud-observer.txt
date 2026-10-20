@@ -1,0 +1,15 @@
+name: bud-observer
+circuit: bud
+# An observer facing the target cell: any real change of that block (placed, removed, a property
+# changed, even by shape updates alone, as crops grow) fires it 2 gt later for 2 gt. A pure block
+# update changes nothing there, so it is not seen; a change while its tick is pending or while it
+# is on is missed (re-arm 4 gt). Silent.
+origin: 0 0 0
+port target: 0 1 0
+port output: 2 1 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  ...
+layer 1:
+  .O.

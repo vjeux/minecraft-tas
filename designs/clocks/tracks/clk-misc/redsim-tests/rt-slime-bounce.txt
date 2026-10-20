@@ -1,0 +1,14 @@
+name: rt-slime-bounce
+# redsim test scene (not a clock): a piston facing east pushes a slime block (air under it, so it
+# drags nothing) into an armor stand: pushed, and its motion along x set to 1 (the slime bounce of
+# moveCollidedEntities).
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:armor_stand 3.6 1.0 0.5
+palette:
+  S minecraft:stone
+  P minecraft:piston[facing=east,extended=false]
+  L minecraft:slime_block
+layer 0:
+  SS.SSSSSSSSSSSSS
+layer 1:
+  .PL.............

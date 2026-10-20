@@ -15,11 +15,14 @@
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
 pub mod archive;
+pub mod bud;
 pub mod check;
 pub mod fly;
 pub mod run;
 pub mod seq;
+pub mod shulker;
 pub mod stimulus;
+pub mod tnt;
 pub mod trace;
 pub mod verify;
 
@@ -96,6 +99,20 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
+    /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
+    ShulkerLoader(u32),
+    /// Empties full shulker boxes: the items to one place, the empty boxes to another ([`shulker`]).
+    ShulkerUnloader(u32),
+    /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
+    /// at its `port target:` cells (place, remove, state, shape, update).
+    Bud,
+    /// A self-running TNT duper (study 9): spawns primed TNT every period while every TNT block
+    /// of the design survives (`tnt.rs`).
+    TntDuper,
+    /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
+    /// without one, every TNT block surviving (`tnt.rs`).
+    TntDuperTriggered,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -159,8 +176,18 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "shulker-loader" | "shulker-unloader" => {
+                let stack = if w.len() > 1 { num(1)? } else { 64 };
+                if !matches!(stack, 64 | 16 | 1) {
+                    bail!("circuit: {s:?}: the item's max stack is 64 (cobblestone), 16 (snowballs) or 1 (iron shovels)");
+                }
+                if w[0] == "shulker-loader" { Kind::ShulkerLoader(stack) } else { Kind::ShulkerUnloader(stack) }
+            }
+            "bud" => Kind::Bud,
+            "tnt-duper" => Kind::TntDuper,
+            "tnt-duper-triggered" => Kind::TntDuperTriggered,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
             ),
         })
     }
@@ -186,6 +213,13 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::ShulkerLoader(64) => "shulker-loader".into(),
+            Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
+            Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
+            Kind::ShulkerUnloader(s) => format!("shulker-unloader {s}"),
+            Kind::Bud => "bud".into(),
+            Kind::TntDuper => "tnt-duper".into(),
+            Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
         }
     }
 
@@ -199,7 +233,16 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
+            Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
+            Kind::Bud => "bud",
+            Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
         }
+    }
+
+    /// A shulker loader or unloader: judged by [`shulker`]'s own runner (judge chests, items and
+    /// boxes counted), not by the waveform trace.
+    pub fn is_shulker(&self) -> bool {
+        matches!(self, Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_))
     }
 
     /// The input names the kind needs (`None`: any one input).
@@ -250,6 +293,35 @@ pub struct Circuit {
     pub distance: Option<u32>,
     /// The explicit `stimulus:` header.
     pub stimulus: Option<String>,
+    /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
+    /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
+    pub stores: Vec<Store>,
+    /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
+    pub tile: Option<Tile>,
+    /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
+    /// judge performs its block updates.
+    pub targets: Vec<bud::Target>,
+    /// The update classes a BUD switch claims to detect (`bud: place remove ...`).
+    pub bud_claims: Vec<String>,
+}
+
+/// A shulker design's `tile:` header: the judge builds `copies` (default 3) side by side along
+/// `step`, each copy with its own judge chests, and judges each copy (badge `tileable`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tile {
+    pub step: Pos,
+    pub copies: u32,
+}
+
+/// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
+/// of the design (not counted), its contents filled or emptied between ticks.
+#[derive(Clone, Debug)]
+pub struct Store {
+    /// `items`, `boxes` or `reject`.
+    pub role: String,
+    /// The port's full name (`items`, `items.a`).
+    pub name: String,
+    pub pos: Pos,
 }
 
 impl Circuit {
@@ -263,6 +335,8 @@ impl Circuit {
         let mut outputs = Vec::new();
         let mut payloads = Vec::new();
         let mut stations = Vec::new();
+        let mut stores = Vec::new();
+        let mut targets = Vec::new();
         for (name, pos) in &design.ports {
             let args = design.meta.get(&format!("port {name}")).cloned().unwrap_or_default();
             let (base, sub) = match name.split_once('.') {
@@ -283,13 +357,22 @@ impl Circuit {
                     }
                     stations.push(*pos);
                 }
+                "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start)"),
+                "items" | "boxes" | "reject" => {
+                    if design.blocks.contains_key(pos) {
+                        bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
+                    }
+                    stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
+                }
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, target[.name])"),
             }
         }
+        targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
         inputs.sort_by(|a, b| a.name.cmp(&b.name));
         outputs.sort_by(|a, b| a.name.cmp(&b.name));
         payloads.sort_by(|a, b| a.name.cmp(&b.name));
+        stores.sort_by(|a: &Store, b: &Store| a.name.cmp(&b.name));
         for w in inputs.windows(2) {
             if w[0].name == w[1].name {
                 bail!("two inputs named {:?}", w[0].name);
@@ -308,8 +391,19 @@ impl Circuit {
         };
         let distance = design.meta.get("distance").map(|d| d.trim().parse::<u32>().with_context(|| format!("distance: {d:?}"))).transpose()?;
         let stimulus = design.meta.get("stimulus").cloned();
+        let tile = match design.meta.get("tile") {
+            Some(t) => {
+                let v: Vec<i32> = t.split_whitespace().map(|x| x.parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("tile: {t:?}"))?;
+                if !(v.len() == 3 || v.len() == 4) || v[..3] == [0, 0, 0] || v.get(3).is_some_and(|n| *n < 2) {
+                    bail!("tile: {t:?}: want dx dy dz [copies >= 2] (the step between copies)");
+                }
+                Some(Tile { step: [v[0], v[1], v[2]], copies: v.get(3).copied().unwrap_or(3) as u32 })
+            }
+            None => None,
+        };
+        let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -319,6 +413,12 @@ impl Circuit {
         let Some(k) = &self.kind else {
             return Ok(());
         };
+        if *k == Kind::Bud {
+            return bud::check_ports(self);
+        }
+        if !self.targets.is_empty() {
+            bail!("{}: target ports are for the bud kind", k.name());
+        }
         let names: Vec<&str> = self.inputs.iter().map(|i| i.name.as_str()).collect();
         match k.inputs_needed() {
             Some(need) => {
@@ -329,7 +429,17 @@ impl Circuit {
                 }
             }
             None => match k {
-                Kind::FlyingMachine => {}
+                Kind::FlyingMachine | Kind::TntDuper => {}
+                Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
+                    // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
+                    // combo's mode lever (badge `combo`)
+                    let most = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()).unwrap_or(1);
+                    let starts = names.iter().filter(|n| !(**n == "mode" || n.starts_with("mode."))).count();
+                    let modes = names.len() - starts;
+                    if starts > most || modes > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
+                        bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
+                    }
+                }
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
@@ -350,11 +460,27 @@ impl Circuit {
                     bail!("flying-machine: needs `travel: dx dy dz`");
                 }
             }
+            Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("boxes") || self.outputs.is_empty() {
+                    bail!("{}: needs judge chests `port items:` (the items), `port boxes:` (the box supply) and `port output:` (where the boxes go)", k.name());
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+            }
+            // read through the primed TNT they spawn (no output cell)
+            Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
                 if self.outputs.is_empty() {
                     bail!("{}: needs `port output: x y z`", k.name());
                 }
             }
+        }
+        if self.tile.is_some() && !k.is_shulker() {
+            bail!("tile: only shulker loaders and unloaders are tiled");
         }
         Ok(())
     }
@@ -370,7 +496,7 @@ impl Circuit {
     /// unbroken row of blocks in front of a piston (up to 12); with slime or honey in the design,
     /// any cell within 13 in front of a piston.
     pub fn consumer_cells(&self) -> Vec<Pos> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return Vec::new();
         }
         let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
@@ -437,6 +563,12 @@ impl Circuit {
         v
     }
 
+    /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
+    /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    pub fn explodes(&self) -> bool {
+        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
+    }
+
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
     /// block...): its "level" would be read by query alone, so a change without a block update would
     /// go unseen. An output cell is air (the judge's lamp goes there) or holds a redstone component
@@ -444,7 +576,7 @@ impl Circuit {
     /// block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell, hopper).
     /// Piston extenders and flying machines are read through payloads.
     pub fn passive_output(&self) -> Option<(String, Pos, String)> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return None;
         }
         const ACTIVE: [&str; 20] = [
@@ -526,6 +658,10 @@ impl Circuit {
             let r = clock::rotate_pos(t, turns);
             d.meta.insert("travel".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
+        if let Some(t) = self.tile {
+            let r = clock::rotate_pos(t.step, turns);
+            d.meta.insert("tile".into(), format!("{} {} {} {}", r[0], r[1], r[2], t.copies));
+        }
         Circuit::from_design(d)
     }
 
@@ -551,8 +687,45 @@ impl Circuit {
                 v.push((t, a));
             }
         }
+        let probes = if s.events.iter().any(|e| matches!(e.1, stimulus::EventAt::Probe(_))) { self.probe_cells() } else { Vec::new() };
+        for (t, at, op) in &s.events {
+            let pos = match at {
+                stimulus::EventAt::Target(i) => match self.targets.get(*i) {
+                    Some(tg) => tg.pos,
+                    None => continue,
+                },
+                stimulus::EventAt::Probe(k) => match probes.get(*k) {
+                    Some(p) => *p,
+                    None => continue,
+                },
+            };
+            let a = match op {
+                stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
+                stimulus::TargetOp::Clear => Action::Clear { pos },
+                stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
+                stimulus::TargetOp::Update => Action::Update { pos },
+            };
+            v.push((*t, a));
+        }
         v.sort_by_key(|(t, _)| *t);
         v
+    }
+
+    /// The air cells next to the design (face neighbors of its blocks) that are no port of it, in
+    /// position order: where the BUD judge probes the footprint.
+    pub fn probe_cells(&self) -> Vec<Pos> {
+        let d = &self.clock.design;
+        let ports: BTreeSet<Pos> = d.ports.values().copied().collect();
+        let mut out: BTreeSet<Pos> = BTreeSet::new();
+        for p in d.blocks.keys() {
+            for (dx, dy, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let q = [p[0] + dx, p[1] + dy, p[2] + dz];
+                if !d.blocks.contains_key(&q) && !ports.contains(&q) {
+                    out.insert(q);
+                }
+            }
+        }
+        out.into_iter().collect()
     }
 }
 

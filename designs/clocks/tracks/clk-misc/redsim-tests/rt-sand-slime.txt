@@ -1,0 +1,16 @@
+name: rt-sand-slime
+# redsim test scene (not a clock): falling sands (summoned) land on slime from 4 blocks up (26.3's
+# restituteMovementAfterCollisions bounce, slime 1.0F x 0.8F with the gravity and air-drag
+# compensation: the landing still places the block that tick), on stone, and on slime from 0.03
+# above (falls at 0.04: no bounce). (On honey a falling block ends inside the honey's cell and
+# breaks into an item with random motion: not traceable bit for bit.)
+entity: minecraft:falling_block 2.5 6.0 0.5 {BlockState:"minecraft:sand",Time:1}
+entity: minecraft:falling_block 4.5 6.0 0.5 {BlockState:"minecraft:sand",Time:1}
+entity: minecraft:falling_block 6.5 2.03 0.5 {BlockState:"minecraft:sand",Time:1}
+palette:
+  S minecraft:stone
+  L minecraft:slime_block
+layer 0:
+  SSSSSSSS
+layer 1:
+  ..L.S.L.

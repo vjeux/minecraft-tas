@@ -1,0 +1,40 @@
+# archived 2026-10-20T09:43Z from designs/circuits/tracks/bud/bud-latched-qc-fast.txt by mctas circuit archive
+# CIRCUIT: bud-latched-qc-fast bud detects place remove state update, latency 1 gt, reset manual, off 3 gt after it, re-arm 2 gt, footprint 5 cells, 7 blocks, 3x3x3, robust
+name: bud-latched-qc-fast
+circuit: bud
+# A latched BUD (manual reset) with a 1 gt latency: the sticky piston, armed by quasi-connectivity
+# from the redstone block above the stone in front of it, pushes that stone off the step between
+# two dusts in the tick after the update; the low dust joins the high one (powered by its redstone
+# block) and lights the output, and the piston stays out, so the output holds. The reset input is
+# the arming redstone block: taking it away updates the piston through its head, it pulls the stone
+# back onto the step (the output goes off 3 gt after the reset starts); putting it back arms the
+# piston without updating it.
+origin: -1 -2 -1
+port target: -1 0 0
+port output: 1 -1 -1
+port input.reset: 1 1 0 minecraft:air minecraft:redstone_block
+palette:
+  P minecraft:sticky_piston[extended=false,facing=east]
+  X minecraft:stone
+  R minecraft:redstone_block
+  D minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  ....
+  ..X.
+  ....
+  ....
+layer 1:
+  ....
+  ..D.
+  ..X.
+  ....
+layer 2:
+  ....
+  .PX.
+  ..D.
+  ..R.
+layer 3:
+  ....
+  ..R.
+  ....
+  ....

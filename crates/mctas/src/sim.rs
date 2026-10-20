@@ -26,6 +26,8 @@ pub enum PlaceMode {
     Raw,
     /// Like a player placing it: neighbor and shape updates, `onPlace` runs.
     Update,
+    /// Shape updates only (flags 2: no block update to the neighbors), like a crop growing.
+    Shape,
 }
 
 impl PlaceMode {
@@ -33,6 +35,7 @@ impl PlaceMode {
         match self {
             PlaceMode::Raw => "raw",
             PlaceMode::Update => "update",
+            PlaceMode::Shape => "shape",
         }
     }
 }
@@ -447,6 +450,14 @@ impl Worker {
     pub fn drop_sandbox(&mut self, sandbox: u32) -> Result<()> {
         self.call(json!({"op": "drop", "sandbox": sandbox}))?;
         Ok(())
+    }
+
+    /// The sandbox's level random state (`LegacyRandomSource.seed`, the 48-bit LCG state), read
+    /// without advancing it: redsim's level-random mirror is checked against it (trace-export's
+    /// "rng").
+    pub fn random_state(&mut self, sandbox: u32) -> Result<i64> {
+        let v = self.call(json!({"op": "random_state", "sandbox": sandbox}))?;
+        v["seed"].as_i64().context("random_state: no seed")
     }
 
     /// Write blocks. Returns how many positions changed.

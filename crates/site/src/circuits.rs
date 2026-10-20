@@ -34,16 +34,32 @@ fn comment_caption(text: &str) -> String {
         .join(" ")
 }
 
-/// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)].
+/// Metric names of more than one word.
+const MULTI_WORD_METRICS: [&str; 4] = ["first box", "per pulse", "per period", "hoppers awake"];
+
+/// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
+/// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
+/// gt, 1 cell(s)`); `first box 13847 gt`, `per period 1`... are one name.
 pub fn parse_metrics(s: &str) -> Vec<(String, String)> {
-    s.split(", ")
-        .map(str::trim)
-        .filter(|p| !p.is_empty())
-        .map(|p| match p.split_once(' ') {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for p in s.split(", ").map(str::trim).filter(|p| !p.is_empty()) {
+        if p.starts_with(|c: char| c.is_ascii_digit()) {
+            if let Some(last) = out.last_mut() {
+                last.1.push_str(", ");
+                last.1.push_str(p);
+                continue;
+            }
+        }
+        if let Some(m) = MULTI_WORD_METRICS.iter().find(|m| p.strip_prefix(**m).is_some_and(|r| r.starts_with(' '))) {
+            out.push((m.to_string(), p[m.len() + 1..].to_string()));
+            continue;
+        }
+        out.push(match p.split_once(' ') {
             Some((k, v)) => (k.to_string(), v.to_string()),
             None => (p.to_string(), String::new()),
-        })
-        .collect()
+        });
+    }
+    out
 }
 
 /// The metrics of a `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, <verdict>` line:
@@ -133,6 +149,60 @@ struct Details {
     fails: Option<String>,
     /// Every output cell gets the judge's lamp in the 3D view.
     output_lamp: bool,
+    /// The judge's actions at the target / probe cells (`data-events`).
+    events: String,
+    /// Why redsim cannot run the design (empty: it can).
+    unmodeled: String,
+    /// A shulker machine run like its 3D view runs it.
+    view_run: Option<site_model::ViewRun>,
+}
+
+/// Game ticks a shulker machine is run at most the way its 3D view runs it, until it has sent out
+/// four boxes (a 64-stack filter loader takes ~13800 gt a box).
+const VIEW_RUN: u32 = 60_000;
+/// Boxes the view's run waits for.
+const VIEW_BOXES: usize = 4;
+
+/// Run a shulker machine the way the 3D view does (the viewer's own session: the judge's chests
+/// kept full / emptied, its start lever turned on like the visitor and the judge do) and count
+/// the boxes that reach the OUT chests: the page's numbers, and proof the view's machine runs.
+fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun {
+    use redsim::redstone::{container, shulker};
+    let levers: Vec<usize> = s
+        .circuit_inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, ci)| ci.how == mcview::circuit::InputHow::Lever && !(ci.name == "mode" || ci.name.starts_with("mode.")))
+        .map(|(i, _)| i)
+        .collect();
+    for i in levers {
+        s.set_input(i, true);
+    }
+    let outs = s.shulker.as_ref().map(|c| c.outputs.clone()).unwrap_or_default();
+    let rejects = s.shulker.as_ref().map(|c| c.rejects.clone()).unwrap_or_default();
+    let item = s.shulker.as_ref().map(|c| container::item_name(c.item).to_string()).unwrap_or_default();
+    let mut arrivals: Vec<u32> = Vec::new();
+    let mut rejected = 0u32;
+    let mut run = ticks;
+    for k in 0..ticks {
+        // an OUT chest holds what the last tick delivered until the next visit empties it
+        let n: u32 = outs
+            .iter()
+            .map(|p| shulker::chest_stacks(&s.world, *p).iter().filter(|st| container::item_name(st.item).ends_with("shulker_box")).map(|st| st.count as u32).sum::<u32>())
+            .sum();
+        arrivals.extend(std::iter::repeat_n(k, n as usize));
+        rejected += rejects.iter().map(|p| shulker::chest_stacks(&s.world, *p).iter().map(|st| st.count as u32).sum::<u32>()).sum::<u32>();
+        if arrivals.len() >= VIEW_BOXES {
+            run = k;
+            break;
+        }
+        s.step();
+    }
+    let cycle = match (arrivals.first(), arrivals.last()) {
+        (Some(a), Some(b)) if arrivals.len() >= 2 => Some((b - a) as f64 / (arrivals.len() - 1) as f64),
+        _ => None,
+    };
+    site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected }
 }
 
 fn details(c: &Design) -> Details {
@@ -151,7 +221,7 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp };
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -164,6 +234,27 @@ fn details(c: &Design) -> Details {
         d.stimulus = r.schedule.text(&names);
     }
     d.phases = r.schedule.phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
+    // the judge's actions at the BUD's target and probe cells, in the design's coordinates
+    let probes = c.probe_cells();
+    d.events = r
+        .schedule
+        .events
+        .iter()
+        .filter_map(|(frame, at, op)| {
+            let p = match at {
+                circuit::stimulus::EventAt::Target(i) => c.targets.get(*i)?.pos,
+                circuit::stimulus::EventAt::Probe(k) => *probes.get(*k)?,
+            };
+            let what = match op {
+                circuit::stimulus::TargetOp::Place(s) => format!("place {} {} {} {s}", p[0], p[1], p[2]),
+                circuit::stimulus::TargetOp::Clear => format!("clear {} {} {}", p[0], p[1], p[2]),
+                circuit::stimulus::TargetOp::Shape(s) => format!("shape {} {} {} {s}", p[0], p[1], p[2]),
+                circuit::stimulus::TargetOp::Update => format!("update {} {} {}", p[0], p[1], p[2]),
+            };
+            Some(format!("{frame} {what}"))
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
     if let Some(o) = &r.outcome {
         d.table = o.table.clone();
         if o.pass {
@@ -177,6 +268,25 @@ fn details(c: &Design) -> Details {
         for (k, i) in c.inputs.iter().enumerate() {
             let lv: Vec<u8> = t.inputs[k].iter().map(|on| if *on { 15 } else { 0 }).collect();
             rows.push(site_model::WaveRow::from_levels(&i.name, true, &lv));
+        }
+        // a BUD's judge acts at its target cells: one row of marks (the footprint probes left out)
+        let marks: Vec<(u32, String)> = r
+            .schedule
+            .events
+            .iter()
+            .filter(|(_, at, _)| matches!(at, circuit::stimulus::EventAt::Target(_)))
+            .map(|(f, _, op)| {
+                let what = match op {
+                    circuit::stimulus::TargetOp::Place(_) => "place",
+                    circuit::stimulus::TargetOp::Clear => "clear",
+                    circuit::stimulus::TargetOp::Shape(_) => "shape",
+                    circuit::stimulus::TargetOp::Update => "update",
+                };
+                (*f, what.to_string())
+            })
+            .collect();
+        if !marks.is_empty() {
+            rows.push(site_model::WaveRow { name: "target".into(), input: true, marks, ..Default::default() });
         }
         for (k, o) in c.outputs.iter().enumerate() {
             rows.push(site_model::WaveRow::from_levels(&o.name, false, &t.levels[k]));
@@ -266,6 +376,28 @@ fn flight_track(c: &Design, t: &circuit::trace::Trace) -> Option<site_model::Wav
     Some(row)
 }
 
+/// `f` over `items` on every core, results in order.
+fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 64).min(items.len().max(1));
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots: Vec<std::sync::Mutex<Option<R>>> = items.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if i >= items.len() {
+                    break;
+                }
+                let r = f(&items[i]);
+                if let Ok(mut slot) = slots[i].lock() {
+                    *slot = Some(r);
+                }
+            });
+        }
+    });
+    slots.into_iter().map(|m| m.into_inner().ok().flatten().expect("every item mapped")).collect()
+}
+
 /// The archived circuits of every study.
 fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
     let mut out = Vec::new();
@@ -297,11 +429,45 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             }
         }
         let id_of = |r: &circuit::archive::Row| format!("circuits/{study}/{}", r.file.trim_end_matches(".txt"));
-        for (i, r) in rows.iter().enumerate() {
+        // the judge's test of every design, simulated in parallel (big counters take seconds),
+        // and whether the 3D view runs it (the viewer's own session decides: shown as built when
+        // the browser's simulator cannot follow it)
+        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
+            let loaded = parse(&dir.join(&r.file));
+            let t_sim = std::time::Instant::now();
+            let mut det = loaded.as_ref().map(|(c, _)| details(c));
+            let mut raw = None;
+            if let Some(d) = det.as_mut() {
+                let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
+                raw = match mcview::session::Session::new(&text, &Default::default()) {
+                    Ok(mut s) => {
+                        if s.unsimulated.is_none() && s.shulker.is_some() {
+                            d.view_run = Some(view_run(&mut s, VIEW_RUN));
+                        }
+                        s.unsimulated
+                    }
+                    Err(e) => Some(format!("the viewer cannot load it: {e}")),
+                };
+                d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+            }
+            (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
+        });
+        for (i, (r, (loaded, det, took, raw))) in rows.iter().zip(loaded_all).enumerate() {
             let path = dir.join(&r.file);
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            let loaded = parse(&path);
-            let det = loaded.as_ref().map(|(c, _)| details(c));
+            if let Some(raw) = raw {
+                notes.push(format!("{study}/{}: the 3D view shows it as built: {raw}", r.file));
+            }
+            if let Some(v) = det.as_ref().and_then(|d| d.view_run.as_ref()) {
+                notes.push(match (v.first, v.cycle) {
+                    (Some(f), Some(c)) => format!("{study}/{}: the 3D view's run sends out {} boxes in {} gt (the first at {f} gt, then one every {c:.0} gt)", r.file, v.boxes, v.ticks),
+                    (Some(f), None) => format!("{study}/{}: the 3D view's run sends out 1 box in {} gt (at {f} gt)", r.file, v.ticks),
+                    _ => format!("{study}/{}: WARNING the 3D view's run sends out NO box in {} gt (its chests supply {}; {} items reached the reject chests)", r.file, v.ticks, v.item, v.rejected),
+                });
+            }
+            if took > 10.0 {
+                notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
+            }
             let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
             let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
@@ -344,6 +510,9 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
                     output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
+                    events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
+                    unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
+                    view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -792,6 +961,12 @@ mod tests {
         let m = parse_verdict_metrics("CIRCUIT: sub-rising-4 rising-edge L 2 gt, delay 1 gt, min-pulse 1 gt, 5 blocks, 3x2x1, robust", "rising-edge");
         assert_eq!(m, vec![("L".into(), "2 gt".into()), ("delay".into(), "1 gt".into()), ("min-pulse".into(), "1 gt".into())]);
         assert_eq!(parse_metrics("L 2 gt, delay 1 gt"), m[..2].to_vec());
+        let s = parse_metrics("boxes/min 0.087, first box 13847 gt, hoppers awake 3, badges 16-stack+drop-free, bill 16 iron, 3 quartz, 1 slime");
+        assert_eq!(s[1], ("first box".to_string(), "13847 gt".to_string()));
+        assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));
+        assert_eq!(s[4], ("bill".to_string(), "16 iron, 3 quartz, 1 slime".to_string()));
+        assert_eq!(parse_metrics("rate 200 TNT/min, period 6 gt, per period 1")[2], ("per period".to_string(), "1".to_string()));
+        assert_eq!(parse_metrics("speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt")[1], ("period".to_string(), "10 gt, 1 cell(s)".to_string()));
         let g = parse_verdict_metrics("CIRCUIT: cal-torch-not gate not fn not, latency 2 gt, glitches 0, 3 blocks, 4x2x1, robust", "gate not");
         assert_eq!(g[0], ("fn".into(), "not".into()));
         assert_eq!(g.len(), 3);

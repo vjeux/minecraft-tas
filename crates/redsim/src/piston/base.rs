@@ -73,6 +73,11 @@ pub fn trigger_event(w: &mut World, state: Block, p: BlockPos, b0: i32, b1: i32)
             return false;
         }
         w.set_block(p, extended_state, 67);
+        // playSound(PISTON_EXTEND, pitch random.nextFloat() * 0.25F + 0.6F): one draw of the level
+        // random (only after a successful move: the early returns above draw nothing)
+        if let Some(r) = w.rng() {
+            r.next_float();
+        }
         w.game_event("block_activate", p);
     } else if b0 == 1 || b0 == 2 {
         let front = p.rel(facing);
@@ -111,15 +116,25 @@ pub fn trigger_event(w: &mut World, state: Block, p: BlockPos, b0: i32, b1: i32)
         } else {
             w.remove_block(front, false);
         }
+        // playSound(PISTON_CONTRACT, pitch random.nextFloat() * 0.15F + 0.6F)
+        if let Some(r) = w.rng() {
+            r.next_float();
+        }
         w.game_event("block_deactivate", p);
     }
     true
 }
 
 /// `Block.dropResources` of a block a piston destroys: an item entity unless the block has no
-/// loot table (heads, moving pistons, water).
+/// loot table (heads, moving pistons, water). A shulker box with a drop seed becomes the item
+/// entity the bridge spawns (`redstone::shulker::drop_box`); every drop is also recorded.
 fn drop_resources(w: &mut World, state: Block, p: BlockPos) {
     if crate::behavior::drops_item(&state) {
+        // popResource: its three level-random draws (when mirrored) come before the item exists
+        w.draw_pop_resource();
+        if matches!(state, Block::ShulkerBox { .. }) {
+            crate::redstone::shulker::drop_box(w, p, &state);
+        }
         w.drops.push((p, state));
     }
 }

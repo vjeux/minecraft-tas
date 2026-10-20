@@ -1,0 +1,86 @@
+# Track macrosat: an independent bounded check of small flat doors (clockinfra, 2026-10-20)
+
+Coordinator's brief (00:45Z): an exhaustive check of w86's claim that a 7x7 (49) flush 3x3 door
+cannot be wired, built WITHOUT c70b's generator assumptions; output a counterexample mechanism
+with feedable firings (for pockets3 / pext to wire) or a bounded proof with its exact
+assumptions; then 6x8 (48).
+
+Tool: `mctas door macrosat` (crates/piston-door/src/macrosat.rs). Bounded model checking with
+CaDiCaL: the box is a grid of one-hot cells at every macro step, the layout is FREE (or fixed
+with `--fix design`), the solver picks the layout and the actions together. No providers, no
+families, no catalog: anything the bounds allow is in the search. `macrosat sweep --boxes
+"x0,y0,x1,y1;..." --hs 6,8 --jobs N --out DIR` runs a grid in threads; `--export PREFIX` writes a
+SAT model as an ideal-input design + plan (`door ideal-rs` replays it).
+
+## The model
+
+* Cells (per step): air, door stone (movable conductor), obsidian (immovable conductor), redstone
+  block (movable power source), a WIRING cell (a static component: nothing may push into it or
+  move it; never changes), normal / sticky pistons in the 4 in-plane facings, retracted or
+  extended, and their heads. Everything is in the door's plane (1 wide); nothing in front of or
+  behind it by construction.
+* A step fires a set of INDEPENDENT pistons: no two write one cell and none reads a cell another
+  one writes, so every order gives the same result (a step = a sequential run in any order;
+  `--seq` = one action per step). Actions that change nothing are left out. Actions:
+  * retracted piston: a PUSH of the straight line in front (movable: stone, redstone blocks,
+    retracted pistons; <= 12; must end on an air cell inside the box; obsidian, wiring,
+    extended pistons and heads stop it) as EXTEND (stays out, head in front), PULSE (back at once:
+    the line stays pushed, a sticky piston spits) or PULSE-PULL (sticky out and back: the head
+    pulls the first block back; into air it pulls the block 2 ahead: one firing, a 4 gt pulse);
+  * extended piston: RETRACT (head gone; sticky pulls the movable block in front of its head).
+* Door: the 3x3 at (0..2, 0..2) is stone at rest; after `--h` steps it is air and the 12 frame
+  cells are stone (FULL frame); after `--h` more the whole box equals the rest state.
+* Mirror symmetry breaking (lex-leader on the rest layout) for boxes symmetric about x = 1.
+* Feed (`--feed`), checked for every action in the state it fires from (the cells it uses not
+  written by another action of the step):
+  * a wiring cell (a controllable source) next to the piston on a non-front face, or next to the
+    cell above it (QC); a conductor (stone, obsidian) in such a cell with a wiring cell or the
+    lever next to it (strongly powered; a redstone block does not power blocks);
+  * the single lever (`--lever`) next to the piston or to the cell above it: hung on a block that
+    never moves, on its front/back face (rules.md: still 1 wide) or at the box edge on its outer
+    face; above the box it also QC-feeds the top-row pistons beside it (e78k's lever on (1,4)
+    holds (0,4) and (2,4));
+  * a redstone block is a CONSTANT source: it fires a piston only by arriving in a feed cell (an
+    extend) or leaving it (a retract), never at the first step of an edge (each edge starts
+    settled); while one sits in a feed cell the piston cannot retract;
+  * ISLAND START (coordinator 01:57Z, from clk-misc / pockets3 / d67's `door feeds`
+    cannot_start): wiring regions (4-connected wiring cells, joined through one conductor
+    between two of them) act only once started: next to the lever's block, or next to a cell
+    that changed in an EARLIER step of this edge (an observer's delay). On with `--feed`,
+    `--no-start` off;
+  * `--private` (a candidate filter, not a proof rule): a wiring cell feeds one piston cell only.
+* Still optimistic (an UNSAT is a proof within the model): no update / BUD requirement, no
+  timing inside a step, misfires and holds ignored (QC coupling of stacked pistons!), rest
+  stability, wiring cells can output anything. Not encoded yet: "a region that sees the same
+  changes on both edges acts the same on both".
+
+What the model does NOT cover (the assumptions of any UNSAT): actions interacting within one
+tick (two block events of one round meeting, a pull aimed at a block still moving, a retract
+while the line is moving: the "macro vs redsim" gaps c70b lists), moving observers (a moving
+redstone block is the stronger stand-in), slime / honey, gravity blocks, entities (the rules ban
+them for this board), pistons facing out of the plane.
+
+## Calibration
+
+| case | result |
+|---|---|
+| c77 w1 (7x7) with its plan forced (`--plan`, 13+13 firings) | SAT at once; with `--feed`: UNSAT at once (P (1,-1) unfed, as w86 / c70b say) |
+| w1's layout, free plan | SAT (40 s, 8 parallel steps per edge; 666 s for 16 sequential steps); with `--feed --lever`: UNSAT (55 s, h 8) |
+| e78k-h5-41b (the 56b record, a real WIRED 7x8 door), layout fixed | SAT with `--feed --lever` (h 10), also with `--private` and island start: the feed rules accept a real wired door. It caught two bugs (the lever above the box QC-feeding top-row pistons; feed cells over-restricted by the independence rule) |
+| c70b's mm01-7x7 (works in redsim; 30 pulses on the open edge) | UNSAT at h 10, SAT at h 20 (502 s): long mechanisms need long horizons |
+| w86 s1 (6x8) | SAT without and with the (pre-start) feed (h 10): w86's argument (one shared feed cell for two pistons acting at different times) is about timing, which the feed rules do not model |
+
+## Results (devvm53196, ~/macrosat)
+
+| run | result |
+|---|---|
+| 6x6 (both placements), no feed, h 8 | UNSAT in 66 s each: no 6x6 macro mechanism within 8 parallel steps per edge |
+| 7x7 (all 6 placements: x0 -2 / -3 (the mirror of -1), y0 -3 / -2 / -1), no feed, h 8 | SAT in all 6 (23-54 min) |
+| 7x7, literal feed (any free cell / QC path; before the redstone-block and start rules) | SAT within 6 steps in (-2,-2), (-2,-3), (-3,-2), (-2,-1); UNSAT (-3,-3) and (-3,-1) at h 6 |
+| 7x7, + `--private` | SAT (-2,-2) h 6 (355 s): carries a piston into the square at (0,0), fed through the stone frame cell below it (a wiring cell at (0,-2) powers it); UNSAT (-3,-3) h 6 / h 8, (-3,-1) h 6 |
+| 7x7, + island start | running |
+
+Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
+short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
+(retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /
+(-2,2)): such a replay can misfire where the model fires one piston alone.

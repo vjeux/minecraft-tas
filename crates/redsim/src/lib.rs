@@ -16,12 +16,15 @@ pub mod links;
 pub mod piston;
 pub mod pos;
 pub mod daylight;
+pub mod fence;
 pub mod rails;
 pub mod react;
 pub mod redstone;
+pub mod rng;
 pub mod sculk;
 pub mod snapshot;
 pub mod ticks;
+pub mod tnt;
 pub mod world;
 
 pub use block::{Block, Kind};

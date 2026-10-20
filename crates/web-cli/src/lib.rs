@@ -9,6 +9,18 @@ mod cdp;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
+    /// The viewer's entities (redsim, what the browser draws) tick by tick, next to a real-game
+    /// trace's (`designs/clocks/traces/<stem>.trace`, `mctas clock misc trace-export`) with the
+    /// distance between them; ends with the largest distance over the ticks shown.
+    Entities {
+        design: PathBuf,
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        from: u32,
+        #[arg(long, default_value_t = 40)]
+        to: u32,
+    },
     /// Write the game texture the viewer samples (the game's block atlas, with the entity and
     /// item textures packed below it) to a PNG, and list where the entity textures went.
     GameTexture {
@@ -340,6 +352,56 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 mcview::render::headless::write_png(&out.join(format!("{name}.png")), 16, 16, px).map_err(anyhow::Error::msg)?;
             }
             println!("{} tiles in {}", names.len(), out.display());
+            Ok(())
+        }
+        WebCmd::Entities { design, trace, from, to } => {
+            let text = std::fs::read_to_string(&design)?;
+            let mut s = mcview::Session::new(&text, &mcview::Options::default()).map_err(anyhow::Error::msg)?;
+            let replay = match &trace {
+                Some(p) => Some(mcview::replay::Replay::parse(&std::fs::read_to_string(p)?).map_err(anyhow::Error::msg)?),
+                None => None,
+            };
+            while s.tick < from {
+                s.step();
+            }
+            let mut worst = 0f32;
+            while s.tick <= to {
+                // the simulated positions at the end of the tick (the trace's convention; the
+                // renderer draws a minecart on a rail at the rail's line instead, like
+                // AbstractMinecartRenderer.oldRender, so the drawn pose is not compared)
+                let mine: Vec<(String, [f32; 3], f32)> = s
+                    .world
+                    .entities
+                    .list
+                    .iter()
+                    .filter(|e| !e.removed)
+                    .zip(s.entities(1.0))
+                    .map(|(e, d)| (d.kind, [e.pos.x as f32, e.pos.y as f32, e.pos.z as f32], e.y_rot))
+                    .collect();
+                let line: Vec<String> = mine.iter().map(|(k, p, yaw)| format!("{k} ({:.4}, {:.4}, {:.4}) yaw {yaw:.1}", p[0], p[1], p[2])).collect();
+                println!("t {}: {}", s.tick, line.join("; "));
+                // what the viewer draws besides redsim's entities: falling blocks, primed TNT
+                let extra: Vec<String> = s.entities(1.0).iter().filter(|e| e.kind.starts_with("primed:") || e.kind.starts_with("falling:")).map(|e| format!("{} ({:.3}, {:.3}, {:.3}){}", e.kind.split('[').next().unwrap_or(""), e.pos[0], e.pos[1], e.pos[2], if e.fuse > 0.0 { format!(" fuse {:.0}", e.fuse) } else { String::new() })).collect();
+                if !extra.is_empty() {
+                    println!("  drawn: {}", extra.join("; "));
+                }
+                if let Some(r) = &replay {
+                    let theirs = r.entities_at(s.tick);
+                    let mut parts = Vec::new();
+                    for (k, e) in theirs.iter().enumerate() {
+                        let d = mine.get(k).map(|(_, m, _)| ((m[0] - e.pos[0]).powi(2) + (m[1] - e.pos[1]).powi(2) + (m[2] - e.pos[2]).powi(2)).sqrt());
+                        if let Some(d) = d {
+                            worst = worst.max(d);
+                        }
+                        parts.push(format!("{} ({:.4}, {:.4}, {:.4}) yaw {:.1}{}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw, d.map(|d| format!(" [{d:.4}]")).unwrap_or_default()));
+                    }
+                    println!("  game: {}", parts.join("; "));
+                }
+                s.step();
+            }
+            if replay.is_some() {
+                println!("largest distance to the game: {worst:.4} blocks over ticks {from}..={to}");
+            }
             Ok(())
         }
         WebCmd::GameTexture { out } => {
@@ -683,14 +745,71 @@ fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32,
 fn circuit_attrs(d: &Path) -> String {
     let Ok(c) = circuit::Circuit::load(d) else { return String::new() };
     let Some(kind) = c.kind.clone() else { return String::new() };
-    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+    if matches!(kind, circuit::Kind::FlyingMachine) || kind.is_shulker() {
         return String::new();
     }
     let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
     let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    if c.inputs.is_empty() && s.events.is_empty() {
+        return String::new();
+    }
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     let phases: Vec<String> = s.phases.iter().map(|(a, b, l)| format!("{a}-{b} {l}")).collect();
-    format!(" data-stimulus=\"{}\" data-phases=\"{}\"", html_escape(&s.text(&names)), html_escape(&phases.join("; ")))
+    let mut out = String::new();
+    if !c.inputs.is_empty() {
+        out.push_str(&format!(" data-stimulus=\"{}\"", html_escape(&s.text(&names))));
+    }
+    let events = events_text(&c, &s);
+    if !events.is_empty() {
+        out.push_str(&format!(" data-events=\"{}\"", html_escape(&events)));
+    }
+    out.push_str(&format!(" data-phases=\"{}\"", html_escape(&phases.join("; "))));
+    out
+}
+
+/// A schedule's judge actions at cells (`Schedule::events`: a BUD switch's target and footprint
+/// probes) in design coordinates: (frame, cell, op, state).
+fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u32, [i32; 3], &'static str, Option<String>)> {
+    use circuit::stimulus::{EventAt, TargetOp};
+    let probes = if s.events.iter().any(|e| matches!(e.1, EventAt::Probe(_))) { c.probe_cells() } else { Vec::new() };
+    let mut v = Vec::new();
+    for (t, at, op) in &s.events {
+        let pos = match at {
+            EventAt::Target(i) => match c.targets.get(*i) {
+                Some(tg) => tg.pos,
+                None => continue,
+            },
+            EventAt::Probe(k) => match probes.get(*k) {
+                Some(p) => *p,
+                None => continue,
+            },
+        };
+        let (name, state) = match op {
+            TargetOp::Place(st) => ("place", Some(st.clone())),
+            TargetOp::Clear => ("clear", None),
+            TargetOp::Shape(st) => ("shape", Some(st.clone())),
+            TargetOp::Update => ("update", None),
+        };
+        v.push((*t, pos, name, state));
+    }
+    v
+}
+
+/// `data-events`: `<frame> <op> <x> <y> <z> [<state>]; ...` (the site's format).
+fn events_text(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> String {
+    cell_events(c, s)
+        .iter()
+        .map(|(t, p, op, st)| match st {
+            Some(st) => format!("{t} {op} {} {} {} {st}", p[0], p[1], p[2]),
+            None => format!("{t} {op} {} {} {}", p[0], p[1], p[2]),
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// The same events as the viewer replays them (through its `data-events` parser).
+fn viewer_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u32, [i32; 3], mcview::circuit::EventOp)> {
+    mcview::circuit::parse_events(&events_text(c, s)).unwrap_or_default()
 }
 
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
@@ -842,9 +961,14 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             continue;
         }
         let fly = is_flying_machine(&text);
-        let circ = !fly && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input"));
+        // circuits judged under a stimulus: inputs, BUD targets (data-events); shulker designs run
+        // with the judge's chests (`shulker_pair`)
+        let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
+        let circ = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
+        } else if shulker {
+            shulker_pair(&text, probe.as_mut())
         } else if circ {
             circuit_pair(&text)
         } else {
@@ -867,7 +991,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         };
         if fly {
             flyers += 1;
-        } else if circ {
+        } else if circ || shulker {
             circuits += 1;
         } else {
             ok += 1;
@@ -878,7 +1002,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
     }
     println!(
         "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim) and {circuits} circuits (same frames as circuit sim under the judge's stimulus) agree{}, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " (clocks and flying machines in the native and the wasm viewer)" } else { "" }
+        if probe.is_some() { " (clocks, flying machines and shulker designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -938,14 +1062,23 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     }
     let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
     let Some(kind) = c.kind.clone() else { return Ok(None) };
-    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+    if matches!(kind, circuit::Kind::FlyingMachine) || c.kind.as_ref().is_some_and(|k| k.is_shulker()) {
         return Ok(None);
     }
     let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
     let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    if c.inputs.is_empty() && s.events.is_empty() {
+        return Ok(None);
+    }
     let trace = match circuit::run::sim_trace(&c, &s, 3) {
         Ok(t) => t,
-        Err(why) => return Err(format!("circuit sim: {why}")),
+        Err(why) => {
+            // redsim cannot run it (a block it does not model): the viewer must say so too
+            return match mcview::Session::new(text, &mcview::Options::default()) {
+                Ok(v) if !v.simulated() => Ok(None),
+                _ => Err(format!("circuit sim: {why}")),
+            };
+        }
     };
     let (from, to) = circuit::run::watch_box(&c, 3);
     let inside = |p: &[i32; 3]| (0..3).all(|k| p[k] >= from[k] && p[k] <= to[k]);
@@ -953,7 +1086,7 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     if !session.simulated() {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
-    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks });
+    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s) });
     let frames = trace.cells.len();
     for (f, cells) in trace.cells.iter().enumerate() {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();
@@ -966,6 +1099,123 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         session.step();
     }
     Ok(Some(format!("{} {frames} frames agree", kind.name())))
+}
+
+/// Ticks a shulker design runs in `web check` (3 boxes and more of unstackables).
+const SHULKER_TICKS: u32 = 1000;
+
+/// A shulker loader or unloader in the viewer (redsim's driver of the judge's chests: endless,
+/// unstackables unless it sorts) and in a reference run built from the repo's tools: the design
+/// placed by the clock judge's placement (`clock::sim::world_for`) in the viewer's box, the
+/// chests on `circuit::Circuit`'s ports, the settle, the supply, then the judge's visit before
+/// every tick: the same frames for SHULKER_TICKS ticks as placed (the start lever off, as the
+/// viewer starts; in the wasm viewer too when given) and, with a start lever, after the visitor
+/// turns it on at once (the judge's run). None when the design is no shulker design, or when
+/// redsim cannot follow its run (the viewer must then show it as built).
+fn shulker_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    use redsim::redstone::shulker::{Chests, SETTLE};
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let Some(kind) = c.kind.clone() else { return Ok(None) };
+    let (loader, stack) = match kind {
+        circuit::Kind::ShulkerLoader(s) => (true, s),
+        circuit::Kind::ShulkerUnloader(s) => (false, s),
+        _ => return Ok(None),
+    };
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let role = |r: &str| -> Vec<redsim::BlockPos> {
+        let mut v: Vec<[i32; 3]> = c.stores.iter().filter(|s| s.role == r).map(|s| s.pos).collect();
+        v.sort();
+        v.into_iter().map(bp).collect()
+    };
+    let mut outs: Vec<[i32; 3]> = c.outputs.iter().map(|o| o.pos).collect();
+    outs.sort();
+    let rejects = role("reject");
+    let item = match (rejects.is_empty(), stack) {
+        (true, _) | (false, 1) => "iron_shovel",
+        (false, 16) => "snowball",
+        _ => "cobblestone",
+    };
+    let item = redsim::redstone::container::item_id(item).ok_or("no such item")?;
+    let levers: Vec<[i32; 3]> = c.inputs.iter().filter(|i| i.how == circuit::InputHow::Lever && !(i.name == "mode" || i.name.starts_with("mode."))).map(|i| i.pos).collect();
+    // the judge's sandbox (its watch box: seed and forced chunks), from the circuit crate; the
+    // viewer computes it from its own design (`mcview::circuit::judge_box`): the same box, or the
+    // viewer would draw another level random than the judge's
+    let judge = circuit::run::watch_box(&c, redsim::redstone::shulker::JUDGE_MARGIN);
+    let viewer_box = mcview::design::Design::parse(text).ok().and_then(|d| mcview::circuit::judge_box(&d));
+    if viewer_box != Some(judge) {
+        return Err(format!("the viewer's judge box {viewer_box:?} is not the judge's watch box {judge:?}"));
+    }
+    // the reference run, its start lever on (`lever`) or off: its frames' hash, None when redsim
+    // meets something it does not model
+    let reference = |lever: bool| -> Result<Option<u64>, String> {
+        let mut w = clock::sim::world_for(&c.clock, from, to)?;
+        redsim::redstone::shulker::judge_sandbox(&mut w, judge.0, judge.1);
+        let mut ch = Chests::endless(loader, item, role("items"), role("boxes"), outs.iter().map(|p| bp(*p)).collect(), rejects.clone());
+        ch.place(&mut w);
+        for _ in 0..SETTLE {
+            w.tick();
+        }
+        ch.start(&mut w);
+        if lever {
+            for p in &levers {
+                w.use_block(bp(*p));
+            }
+        }
+        let mut h: u64 = 0xcbf29ce484222325;
+        for t in 0..=SHULKER_TICKS {
+            if t > 0 {
+                ch.visit(&mut w);
+                w.tick();
+            }
+            if !w.errors.is_empty() {
+                return Ok(None);
+            }
+            h = mcview::session::frame_hash(h, &w.blocks());
+        }
+        Ok(Some(h))
+    };
+    let (placed, started) = (reference(false)?, if levers.is_empty() { None } else { reference(true)? });
+    if placed.is_none() || (!levers.is_empty() && started.is_none()) {
+        return if s.simulated() { Err("the reference run meets something redsim does not model but the viewer simulates it".into()) } else { Ok(None) };
+    }
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
+    }
+    let placed = placed.unwrap();
+    if s.frames_digest(SHULKER_TICKS) != placed {
+        return Err(format!("frames 0..={SHULKER_TICKS} as placed differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, SHULKER_TICKS)? != placed
+    {
+        return Err(format!("the wasm viewer's frames 0..={SHULKER_TICKS} differ from the reference run's"));
+    }
+    let mut lever_note = String::new();
+    if let Some(theirs) = started {
+        // the visitor turns the start lever on before the first tick
+        let mut v = mcview::Session::new(text, &mcview::Options::default())?;
+        for i in 0..v.circuit_inputs.len() {
+            if levers.contains(&v.circuit_inputs[i].pos) {
+                v.set_input(i, true);
+            }
+        }
+        let mut h: u64 = 0xcbf29ce484222325;
+        for t in 0..=SHULKER_TICKS {
+            if t > 0 {
+                v.step();
+            }
+            h = mcview::session::frame_hash(h, &v.world.blocks());
+        }
+        if h != theirs {
+            return Err(format!("frames 0..={SHULKER_TICKS} after its start lever differ from the reference run's"));
+        }
+        lever_note = ", and after its start lever".to_string();
+    }
+    Ok(Some(format!("{} {SHULKER_TICKS} ticks agree (the judge's chests, endless){lever_note}", kind.name())))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they

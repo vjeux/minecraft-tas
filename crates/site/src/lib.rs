@@ -64,6 +64,20 @@ pub enum SiteCmd {
         /// and a family page must draw a real picture).
         #[arg(long, default_value = "chrome")]
         engine: String,
+        /// `--engine webkit` only: instead of the checks, film these pages (paths in the site,
+        /// repeatable): `--frames` screenshots of each page's first 3D view, `--interval` ms apart,
+        /// desktop and phone, into $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots).
+        #[arg(long)]
+        page: Vec<String>,
+        #[arg(long, default_value_t = 6)]
+        frames: u32,
+        #[arg(long, default_value_t = 700)]
+        interval: u64,
+        /// With --page: press the buttons with these labels, in order, once the view is ready (a
+        /// viewer's input button: `INP` flips a shulker machine's start lever; `1×` then `2×` then
+        /// `5×` sets the speed to 20×).
+        #[arg(long)]
+        click: Vec<String>,
     },
 }
 
@@ -161,7 +175,13 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url, engine } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click } => {
+            if !page.is_empty() {
+                if engine != "webkit" {
+                    bail!("--page films pages in WebKit: add --engine webkit");
+                }
+                return webkit::film(&dir, url.as_deref(), &page, frames, interval, &click);
+            }
             let fails = match engine.as_str() {
                 "webkit" => webkit::smoke(&dir, url.as_deref())?,
                 "chrome" => serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?,

@@ -1,0 +1,16 @@
+name: rt-slime-launch
+# redsim test scene (not a clock): a piston facing up pushes a slime block up into a falling sand
+# (summoned at y 6) at tick 12: the slime bounce sets its motion y to 1 and launches it; it flies up
+# (the column model with a large upward speed), falls back and lands on the slime.
+port start: 1 1 0 minecraft:redstone_block 6 at 12
+entity: minecraft:falling_block 2.5 6.0 0.5 {BlockState:"minecraft:sand",Time:1}
+palette:
+  S minecraft:stone
+  P minecraft:piston[facing=up,extended=false]
+  L minecraft:slime_block
+layer 0:
+  SSSSS
+layer 1:
+  ..P..
+layer 2:
+  ..L..

@@ -393,10 +393,16 @@ fn wait_for(path: &Path, secs: u64) -> bool {
     true
 }
 
-/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
-/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
-/// failed checks.
-pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+/// What both the smoke and the film need: the site's data, its base URL (served locally with
+/// the console recorder, or the deployed site), and an X display of our own.
+struct Rig {
+    site: site_model::Site,
+    base: String,
+    display: String,
+    _xvfb: Xvfb,
+}
+
+fn rig(dir: &Path, remote: Option<&str>) -> Result<Rig> {
     if !Path::new(MINIBROWSER).is_file() {
         bail!("no {MINIBROWSER}: dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb");
     }
@@ -422,10 +428,127 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
     // a display of our own
     let n = free_display().context("no free X display in :90..:99")?;
     let display = format!(":{n}");
-    let _xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
+    let xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
     if !wait_for(Path::new(&format!("/tmp/.X11-unix/X{n}")), 10) {
         bail!("Xvfb {display} did not start");
     }
+    Ok(Rig { site, base, display, _xvfb: xvfb })
+}
+
+/// The fraction of pixels of the region (`x, y, w, h` in screenshot pixels) that differ between
+/// two screenshots of the same size (any channel by more than 24).
+fn changed(a: &(u32, u32, Vec<[u8; 3]>), b: &(u32, u32, Vec<[u8; 3]>), r: (f64, f64, f64, f64)) -> f64 {
+    if a.0 != b.0 || a.1 != b.1 {
+        return 1.0;
+    }
+    let (x0, y0) = (r.0.max(0.0) as u32, r.1.max(0.0) as u32);
+    let (x1, y1) = (((r.0 + r.2) as u32).min(a.0), ((r.1 + r.3) as u32).min(a.1));
+    let (mut n, mut d) = (0usize, 0usize);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let i = (y * a.0 + x) as usize;
+            let (p, q) = (a.2[i], b.2[i]);
+            n += 1;
+            if (0..3).any(|c| (p[c] as i32 - q[c] as i32).abs() > 24) {
+                d += 1;
+            }
+        }
+    }
+    if n == 0 { 0.0 } else { d as f64 / n as f64 }
+}
+
+/// Click the button labelled `label` (a viewer's bar button: `INP`, `MOD`, `IN`...): a real
+/// WebDriver click, else a scripted one.
+fn click_button(s: &Session, label: &str) -> Result<()> {
+    let xpath = format!("//button[normalize-space(.)='{label}']");
+    let v = s.post("element", serde_json::json!({"using": "xpath", "value": xpath}))?;
+    let id = v["value"].as_object().and_then(|o| o.values().next()).and_then(|x| x.as_str()).map(String::from);
+    if let Some(id) = id {
+        if s.post(&format!("element/{id}/click"), serde_json::json!({})).is_ok() {
+            return Ok(());
+        }
+    }
+    let ok = s.script(&format!(
+        "const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '{label}'); if (!b) return false; for (const t of ['pointerdown', 'pointerup']) b.dispatchEvent(new PointerEvent(t, {{bubbles: true}})); b.click(); return true;"
+    ))?;
+    if ok.as_bool() != Some(true) {
+        bail!("no button labelled {label}");
+    }
+    Ok(())
+}
+
+/// Film pages in WebKit (`site smoke --engine webkit --page <path>`): `frames` screenshots of
+/// each page's first 3D view, `interval` ms apart, desktop and phone, saved as
+/// `<page>-<desktop|phone>-<k>.png` in $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots),
+/// with each frame's colors and brightness in the view, how much of the view changed since the
+/// previous frame and since the first, and the page's console. `click`: press the buttons with
+/// these labels first, in order (a viewer's input button: `INP` turns a shulker machine's start
+/// lever on; `1×`, `2×`, `5×` step the speed to 20×).
+pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64, click: &[String]) -> Result<()> {
+    let r = rig(dir, remote)?;
+    let out = std::env::var_os("MCTAS_WEBKIT_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/mctas-webkit-shots"));
+    std::fs::create_dir_all(&out)?;
+    for phone in [false, true] {
+        let tag = if phone { "phone" } else { "desktop" };
+        let s = Session::start(&r.display, phone)?;
+        for page in pages {
+            let sel = if page.starts_with("index.html") { ".thumb[data-mcview]" } else { "[data-mcview=\"full\"]" };
+            match check_page(&s, &r.base, page, sel) {
+                Ok(d) => println!("{tag} {page}: ready, {d}"),
+                Err(e) => println!("{tag} {page}: {e:#}"),
+            }
+            for label in click {
+                match click_button(&s, label) {
+                    Ok(()) => println!("  pressed the {label} button"),
+                    Err(e) => println!("  could not press {label}: {e:#}"),
+                }
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            // the view's rectangle in screenshot pixels
+            s.script(&format!("document.querySelector('{sel}').scrollIntoView({{block: 'center', inline: 'nearest'}}); return true;"))?;
+            std::thread::sleep(Duration::from_millis(300));
+            let rv = s.script(&format!("const v = document.querySelector('{sel}'); const r = v.getBoundingClientRect(); return [r.x, r.y, r.width, r.height, window.devicePixelRatio, window.innerWidth];"))?;
+            let f = |i: usize| rv[i].as_f64().unwrap_or(0.0);
+            let stem = page.trim_end_matches(".html").replace(['/', '#', '?', '&', '='], "_");
+            let (mut first, mut prev): (Option<(u32, u32, Vec<[u8; 3]>)>, Option<(u32, u32, Vec<[u8; 3]>)>) = (None, None);
+            for k in 1..=frames {
+                std::thread::sleep(Duration::from_millis(interval));
+                let v = http(s.port, "GET", &format!("/session/{}/screenshot", s.id), None)?;
+                let png = out.join(format!("{stem}-{tag}-{k}.png"));
+                if let Some(b64) = v["value"].as_str() {
+                    use base64::Engine as _;
+                    std::fs::write(&png, base64::engine::general_purpose::STANDARD.decode(b64)?)?;
+                }
+                let shot = s.decode_shot(&v)?;
+                let scale = if shot.0 as f64 > f(5) * 1.5 { f(4).max(1.0) } else { 1.0 };
+                let rect = (f(0) * scale, f(1) * scale, f(2) * scale, f(3) * scale);
+                let (colors, luma, black) = picture_stats(&shot, rect.0, rect.1, rect.2, rect.3);
+                let moved = match (&prev, &first) {
+                    (Some(p), Some(f0)) => format!(", {:.1}% of the view changed since the previous frame, {:.1}% since the first", changed(p, &shot, rect) * 100.0, changed(f0, &shot, rect) * 100.0),
+                    _ => String::new(),
+                };
+                println!("  frame {k}: {} ({colors} colors, mean luma {luma:.0}, {:.0}% black{moved})", png.display(), black * 100.0);
+                if first.is_none() {
+                    first = Some(shot.clone());
+                }
+                prev = Some(shot);
+            }
+            if let Some(lines) = console_lines(&s) {
+                for l in lines.iter().take(30) {
+                    println!("  console: {}", l.chars().take(200).collect::<String>());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
+/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
+/// failed checks.
+pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+    let r = rig(dir, remote)?;
+    let (site, base, display) = (&r.site, r.base.clone(), r.display.clone());
     let pick = |kind: &str| site.builds.iter().find(|b| b.kind == kind && b.trace.is_none()).map(|b| b.page.clone());
     let mut pages: Vec<(String, String, &str)> = vec![("index".into(), "index.html#kind=clock".into(), ".thumb[data-mcview]")];
     for kind in ["door", "clock", "circuit"] {
@@ -442,6 +565,21 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         if let Some(b) = site.builds.iter().find(|b| b.name == name) {
             pages.push((format!("entity clock {name}"), b.page.clone(), "[data-mcview=\"full\"]"));
             entity += 1;
+        }
+    }
+    // the machines' studies: TNT and dead coral fans, BUD switches, and the shulker machines that
+    // run live with the judge's chests (a loader, an unloader, the combo with its mode lever)
+    let combo = |c: &site_model::Circuit| c.metrics.iter().any(|(k, v)| k == "badges" && v.split('+').any(|x| x == "combo"));
+    let machines: [(&str, Box<dyn Fn(&site_model::Circuit) -> bool>); 5] = [
+        ("tnt", Box::new(|c: &site_model::Circuit| c.study == "tnt")),
+        ("bud", Box::new(|c: &site_model::Circuit| c.study == "bud")),
+        ("shulker loader", Box::new(move |c: &site_model::Circuit| c.kind.starts_with("shulker-loader") && !combo(c))),
+        ("shulker unloader", Box::new(|c: &site_model::Circuit| c.kind.starts_with("shulker-unloader"))),
+        ("shulker combo", Box::new(move |c: &site_model::Circuit| combo(c))),
+    ];
+    for (what, pick) in &machines {
+        if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && pick(c))) {
+            pages.push((format!("{what} {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
         }
     }
     if entity == 0 {
