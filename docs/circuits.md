@@ -213,7 +213,8 @@ kick) before the first input.
   the box is the design's own.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
-  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
+  (8 periods of up to 110 gt fit in its second half)
   the frames must repeat with a period P through the run's second half for at least 8 periods,
   every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
