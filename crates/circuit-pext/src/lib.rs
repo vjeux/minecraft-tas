@@ -260,6 +260,10 @@ enum Cmd {
         /// (each best saved as `best-<blocks>b-pass<n>.txt` in --out-dir).
         #[arg(long)]
         repeat: bool,
+        /// Grow back only within this Manhattan distance of the removed cells (classic large-
+        /// neighborhood search: much faster on long designs).
+        #[arg(long)]
+        local: Option<i32>,
         /// Region where blocks grow back (default: the design's box grown by 2).
         #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
         lo: Option<Pos>,
@@ -295,12 +299,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
             cmd_verify(&designs, &o, verbose)
         }
         Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
-            let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
+            let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near, focus: None };
             cmd_grow(&base, &o, show)
         }
         Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
-        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, lo, hi, out_dir } => {
-            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, region: (lo, hi), out_dir };
+        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, local, lo, hi, out_dir } => {
+            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, local, region: (lo, hi), out_dir };
             cmd_lns(&design, &o)
         }
         Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
@@ -513,6 +517,7 @@ struct LnsOptions {
     keep_y: Vec<i32>,
     free_lever: bool,
     repeat: bool,
+    local: Option<i32>,
     region: (Option<Pos>, Option<Pos>),
     out_dir: Option<PathBuf>,
 }
@@ -590,9 +595,26 @@ fn lns_pass(p: &Pext, o: &LnsOptions, pass: usize) -> Result<Option<mctas::desig
                 d.name = format!("{}-lns{si}", p.name());
                 if let Ok(base) = Pext::base(d) {
                     let palette = if lever_out { pal_lever.clone() } else { pal.clone() };
-                    let go = search::GrowOptions { lo, hi, palette, k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near) };
+                    // --local: grow back only near the removed cells (the lever's old cell included)
+                    let focus = o.local.map(|ld| (subsets[si].iter().map(|&i| removable[i]).collect::<Vec<Pos>>(), ld));
+                    let go = search::GrowOptions { lo, hi, palette, k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near), focus };
                     match search::grow(&base, &go, &|_, _, _| {}) {
-                        Ok(finds) => found.lock().unwrap().extend(finds.into_iter().map(|f| (si, f, Pext::base(base.design.clone()).expect("reparse")))),
+                        Ok(finds) => {
+                            // each find on disk at once: a long pass that is cut short keeps them
+                            if let Some(dir) = out_dir {
+                                for (j, f) in finds.iter().enumerate() {
+                                    let name = format!("{}-{}b-p{pass}-s{si}-{}", p.name(), f.blocks, j + 1);
+                                    let saved = std::fs::create_dir_all(dir).map_err(anyhow::Error::from).and_then(|_| search::find_design(&base, f, &name).save(&dir.join(format!("{name}.txt"))));
+                                    if let Err(e) = saved {
+                                        *failed.lock().unwrap() = Some(e);
+                                    }
+                                }
+                            }
+                            if let Some(f) = finds.first() {
+                                eprintln!("  find: subset {si}, {} blocks, extend {} retract {}", f.blocks, f.report.first().extend, f.report.first().retract);
+                            }
+                            found.lock().unwrap().extend(finds.into_iter().map(|f| (si, f, Pext::base(base.design.clone()).expect("reparse"))))
+                        }
                         Err(e) => *failed.lock().unwrap() = Some(e),
                     }
                 }
@@ -609,17 +631,12 @@ fn lns_pass(p: &Pext, o: &LnsOptions, pass: usize) -> Result<Option<mctas::desig
     let mut found = found.into_inner().unwrap();
     found.sort_by_key(|(si, f, _)| (f.blocks, f.report.first().extend + f.report.first().retract, *si));
     let mut best = p.blocks();
-    for (i, (si, f, base)) in found.iter().enumerate() {
+    for (si, f, _) in found.iter() {
         let c = f.report.first();
         let removed: Vec<String> = subsets[*si].iter().map(|&j| format!("{},{},{}", removable[j][0], removable[j][1], removable[j][2])).collect();
         let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
         println!("  subset {si} (-{}): {} blocks, extend {} retract {}: +{}", removed.join(" "), f.blocks, c.extend, c.retract, added.join("; "));
         best = best.min(f.blocks);
-        if let Some(dir) = out_dir {
-            std::fs::create_dir_all(dir)?;
-            let name = format!("{}-{}b-p{pass}-s{si}-{}", p.name(), f.blocks, i + 1);
-            search::find_design(base, f, &name).save(&dir.join(format!("{name}.txt")))?;
-        }
     }
     println!("best: {best} blocks ({:.0} s)", t0.elapsed().as_secs_f64());
     Ok(found.first().filter(|(_, f, _)| f.blocks < p.blocks()).map(|(_, f, base)| {
@@ -665,7 +682,7 @@ fn cmd_topo(k: usize, kmin: usize, bx: &str, by: &str, palette: &str, threads: u
             let p = Pext::base(d)?;
             let lo = [-1, y.min(1) - 2, 0];
             let hi = [x + 4, y.max(1) + 2, 0];
-            let o = search::GrowOptions { lo, hi, palette: pal.clone(), k, kmin, threads, out_dir: None, plane_z: Some(0), all: false, near: Some(near) };
+            let o = search::GrowOptions { lo, hi, palette: pal.clone(), k, kmin, threads, out_dir: None, plane_z: Some(0), all: false, near: Some(near), focus: None };
             let finds = search::grow(&p, &o, &|_, _, _| {})?;
             println!("B at ({x},{y}): {} minimal finds ({:.0} s)", finds.len(), t0.elapsed().as_secs_f64());
             for (i, f) in finds.iter().enumerate() {
