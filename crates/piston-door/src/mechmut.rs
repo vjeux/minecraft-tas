@@ -1018,8 +1018,8 @@ pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>)
             None => "-",
         };
         tsv.push_str(&format!(
-            "{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}x{}\t{}\n",
-            v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.2, v.feeds.3, v.start, v.feeds.1, v.extent.0, v.extent.1, v.origin
+            "{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}x{}\t{}\t{}\n",
+            v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.2, v.feeds.3, v.start, v.feeds.1, v.extent.0, v.extent.1, v.origin, v.strict
         ));
     }
     match out {
