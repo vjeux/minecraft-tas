@@ -566,11 +566,6 @@ pub const STUDIES: [(&str, &str, &str); 10] = [
         "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, two-way machines) and speed in game ticks per block; ranked by blocks placed.",
     ),
     (
-        "shulker",
-        "Shulker loaders and unloaders",
-        "Machines that pack items into shulker boxes (loaders) or unpack them (unloaders). The judge, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and 4 rotations. Extra scenarios give badges: 16-stack and unstackable items, mixed items, always on, a box supply that runs out, colours kept, a part-full box flushed when the input stops... Designs are ranked by speed (items per second), then blocks placed.",
-    ),
-    (
         "tnt",
         "TNT dupers",
         "Machines that keep making lit TNT without using up their TNT block. A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every input pulse. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in the variations table below.",
@@ -579,6 +574,11 @@ pub const STUDIES: [(&str, &str, &str); 10] = [
         "bud",
         "BUD switches",
         "Block update detectors: a block placed, removed or changed at the target cell fires the output, although nothing there powers it. The judge tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design detects, its latency, its pulse, how soon it can fire again (re-arm) and its footprint. Designs are ranked by what they detect, then blocks placed.",
+    ),
+    (
+        "shulker",
+        "Shulker loaders and unloaders",
+        "A loader fills empty shulker boxes from an item stream and hands them out full; an unloader empties full boxes. Only a dispenser can place a box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. The judge puts its own chests on the design's ports (items, empty or full boxes, the output) and runs 3 boxes of cobblestone in the real game, counting every item and box; the axis is load or unload and the item's stack size. Badges say which variations a design also handles (no start lever, other stack sizes, box colours and names, a paused or starved supply, a partial box at the end, mixed items, a filter, no item left on the floor, tileable side by side); the full list and why builds want each is in designs/circuits/shulker/VARIATIONS.md.",
     ),
 ];
 
