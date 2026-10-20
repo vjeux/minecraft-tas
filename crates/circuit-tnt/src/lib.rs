@@ -3,6 +3,7 @@
 //! dispatches here.
 
 pub mod game;
+pub mod improve;
 pub mod search;
 pub mod sim;
 
@@ -80,6 +81,26 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long, default_value_t = 120)]
         ticks: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Local search from working dupers on redsim (delete / move / replace / swap / add moves,
+    /// accepted when no bigger and no slower); writes the Pareto front (blocks vs TNT per minute)
+    /// to DIR/front/ and DIR/front.tsv.
+    Improve {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "slime,stone,obsidian,fan,wallfan,dust,rblock,observer,sticky,piston,honey")]
+        palette: String,
+        #[arg(long, default_value_t = 2_000_000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 120)]
+        ticks: u32,
+        #[arg(long, default_value_t = 2)]
+        reach: i32,
         #[arg(long)]
         out: PathBuf,
     },
@@ -162,6 +183,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Improve { designs, palette, iterations, workers, rng, ticks, reach, out } => {
+            let o = improve::ImproveOptions {
+                designs,
+                palette: palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                iterations,
+                workers,
+                rng,
+                ticks,
+                out: out.clone(),
+                reach,
+            };
+            let n = improve::improve(&o)?;
+            println!("{n} designs on the front: {}", out.join("front.tsv").display());
         }
     }
     Ok(())
