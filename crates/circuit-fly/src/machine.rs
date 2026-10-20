@@ -108,6 +108,15 @@ impl Machine {
         }
         design.meta.remove("stop");
         design.meta.remove("station");
+        // `port station[.<name>]: x y z` (the shared judge's spelling): the design block there is
+        // a return-station block
+        let station_ports: Vec<(String, Pos)> = design.ports.iter().filter(|(k, _)| *k == "station" || k.starts_with("station.")).map(|(k, p)| (k.clone(), *p)).collect();
+        for (k, p) in station_ports {
+            let state = design.blocks.remove(&p).ok_or_else(|| anyhow!("port {k}: no design block at {p:?}"))?;
+            design.ports.remove(&k);
+            stops.push((p, state));
+            stations.insert(p);
+        }
         let kind = design.meta.get("circuit").cloned().unwrap_or_else(|| "flying-machine".into());
         let travel = design.meta.get("travel").map(|s| parse_travel(s)).transpose()?;
         let distance = design.meta.get("distance").map(|s| s.trim().parse::<i32>().map_err(|e| anyhow!("distance: {e}"))).transpose()?;
@@ -139,15 +148,23 @@ impl Machine {
         self.kind.split_whitespace().any(|w| w == "trail")
     }
 
-    /// The design as text, every `stop:` / `station:` line included.
+    /// The design as text: `stop:` lines for the environment, the station blocks as design blocks
+    /// marked `port station.<i>` (the shared judge's spelling).
     pub fn to_text(&self) -> String {
-        let mut t = self.clock.to_text();
-        if !self.stops.is_empty() {
+        let mut c = self.clock.clone();
+        for (i, p) in self.stations.iter().enumerate() {
+            if let Some((_, s)) = self.stops.iter().find(|(q, _)| q == p) {
+                c.design.blocks.insert(*p, s.clone());
+                c.design.ports.insert(format!("station.{i}"), *p);
+            }
+        }
+        let mut t = c.to_text();
+        let stops: Vec<&(Pos, String)> = self.stops.iter().filter(|(p, _)| !self.stations.contains(p)).collect();
+        if !stops.is_empty() {
             let mut lines: Vec<String> = t.lines().map(String::from).collect();
             let at = lines.iter().position(|l| l.starts_with("palette:")).unwrap_or(lines.len());
-            for (i, (p, s)) in self.stops.iter().enumerate() {
-                let word = if self.stations.contains(p) { "station" } else { "stop" };
-                lines.insert(at + i, format!("{word}: {} {} {} {s}", p[0], p[1], p[2]));
+            for (i, (p, s)) in stops.iter().enumerate() {
+                lines.insert(at + i, format!("stop: {} {} {} {s}", p[0], p[1], p[2]));
             }
             t = lines.join("\n") + "\n";
         }

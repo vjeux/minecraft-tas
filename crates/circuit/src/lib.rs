@@ -206,6 +206,9 @@ pub struct Circuit {
     /// In name order (a bare `port output:` is named `out`).
     pub outputs: Vec<Probe>,
     pub payloads: Vec<Probe>,
+    /// Return-station cells of a two-way flying machine (`port station[.<name>]: x y z`, each on a
+    /// design block): real blocks that count, left out of the machine's tracked shape.
+    pub stations: Vec<Pos>,
     /// The push or travel direction (a unit vector).
     pub travel: Option<Pos>,
     /// How far a flying machine must travel.
@@ -224,6 +227,7 @@ impl Circuit {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         let mut payloads = Vec::new();
+        let mut stations = Vec::new();
         for (name, pos) in &design.ports {
             let args = design.meta.get(&format!("port {name}")).cloned().unwrap_or_default();
             let (base, sub) = match name.split_once('.') {
@@ -238,8 +242,14 @@ impl Circuit {
                 }
                 "output" => outputs.push(Probe { name: sub.unwrap_or("out").to_string(), pos: *pos }),
                 "payload" => payloads.push(Probe { name: sub.unwrap_or("payload").to_string(), pos: *pos }),
+                "station" => {
+                    if !design.blocks.contains_key(pos) {
+                        bail!("port {name}: a return-station port marks a design block, none at {pos:?}");
+                    }
+                    stations.push(*pos);
+                }
                 "start" => {}
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], start)"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start)"),
             }
         }
         inputs.sort_by(|a, b| a.name.cmp(&b.name));
@@ -264,7 +274,7 @@ impl Circuit {
         let distance = design.meta.get("distance").map(|d| d.trim().parse::<u32>().with_context(|| format!("distance: {d:?}"))).transpose()?;
         let stimulus = design.meta.get("stimulus").cloned();
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, travel, distance, stimulus };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus };
         c.check_ports()?;
         Ok(c)
     }
