@@ -139,6 +139,12 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track arith's commands (crates/circuit-arith, study 12: adders, subtractors, incrementers,
+    /// comparators).
+    Arith {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Track fly's commands (crates/circuit-fly).
     Fly {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -307,6 +313,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
+        CircuitCmd::Arith { args } => circuit_arith::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,

@@ -19,6 +19,7 @@ circuit-memory = { path = "../circuit-memory" }
 circuit-delay = { path = "../circuit-delay" }
 circuit-gates = { path = "../circuit-gates" }
 circuit-pext = { path = "../circuit-pext" }
+circuit-arith = { path = "../circuit-arith" }
 circuit-fly = { path = "../circuit-fly" }
 circuit-shulker = { path = "../circuit-shulker" }
 circuit-tnt = { path = "../circuit-tnt" }

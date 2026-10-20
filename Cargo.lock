@@ -255,6 +255,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-arith"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mctas",
+ "redsim",
+ "rustsat",
+ "rustsat-cadical",
+]
+
+[[package]]
 name = "circuit-bud"
 version = "0.1.0"
 dependencies = [
@@ -271,6 +283,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "circuit-arith",
  "circuit-bud",
  "circuit-delay",
  "circuit-fly",
