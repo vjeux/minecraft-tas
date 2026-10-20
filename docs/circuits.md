@@ -218,16 +218,32 @@ kick) before the first input.
   real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
+  With the header `explode: on` (the SURVIVABLE variation) the game run lets every primed TNT
+  explode instead of removing it, and the same check (periodic frames, every TNT block standing
+  again, no item entity at the end) must still pass with at least one explosion; the line ends
+  with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
+  explosions); the archive keeps it apart from the same blocks judged without explosions. The
+  catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
+  spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
+  horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same
+  position bit for bit for 10+ gt); `dropped: every TNT falls straight down, N+ blocks by fuse 1`
+  (3+ blocks below its first sighting, horizontal motion under 0.01 at fuse 1); `slime-free` (no
+  slime block in the design; `: a honey frame` with honey). The axis takes the first of
+  switchable, survivable, precise, dropped, launched, slime-free; each keeps its own catalog card.
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
-* **tnt-duper with `port input:`** (the lever on/off variation): windows of 300 gt with the input
-  off, on, off, on; it must dupe periodically (the same period in both run windows, TNT intact) in
-  exactly one input state and spawn nothing in the other from 40 gt after the switch. `runs input
-  on|off`, `stop` (the switch to the last TNT), `start` (the switch to the first); the axis reads
-  `<rate> switchable`. In the game run, a burning TNT touching a pressure plate, tripwire or
-  detector rail fails the run (it would react in the game, not on redsim), and a TNT whose fuse is
-  missing from its saved data is a judge error.
+* **tnt-duper with `port input:`** (the lever on/off variation): windows of 400 gt with the input
+  off, on, off, on; it must dupe in exactly one input state and spawn nothing in the other from 40
+  gt after the switch. A run window is judged from 40 gt after its switch (a start-up may differ):
+  the smallest P with the same spawn count at every tick and P ticks later, 8+ periods (so P <= 45
+  gt), n >= 1 TNT per period (several per period, same tick or offset, are fine), every TNT block
+  standing again over the last period; both run windows give the same (P, n). `rate`, `period`,
+  `per period`, `runs input on|off`, `stop` (the switch to the last TNT), `start` (the switch to
+  the first); the axis reads `<rate> switchable`. In the game run, a burning TNT touching a
+  pressure plate, tripwire or detector rail fails the run (it would react in the game, not on
+  redsim), and a TNT whose fuse is missing from its saved data is a judge error.
 * **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
   crates/circuit/src/shulker.rs; the variations and how each is measured:
   designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:
@@ -294,8 +310,8 @@ kick) before the first input.
   drops follow each other within the collection hopper's cooldown). Two failing runs fail the
   design (`fragile`): a drop drifts about half a block before a hopper takes it, longer when that
   hopper is busy, so a missing wall loses one every few runs; one failure alone is tolerated (a
-  drop pushed into a block gets out with the entity's own, unseeded, random: a sound design can
-  lose one in a few hundred bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
+  drop pushed into a block takes a random way out: a sound design can lose one in a few hundred
+  bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
   (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
@@ -306,17 +322,31 @@ kick) before the first input.
   `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
   snapshots of a..b) add what changed to `--table`: a design aid. `MCTAS_SHULKER_BADGE=<badge>`
   judges that badge's scenario in place of the base (with its tables), the way to see why a badge
-  fails. Each build seeds the level's random from where it stands, so the 16 builds and the badge
-  runs sample different drops (a drop's offset and drift are random): a design that loses a drop
-  now and then shows up as a failing build or a missing badge.
+  fails. Each build seeds the level's random from where it stands (the stress runs mix in their
+  number), and the bridge seeds each drop's own random from the sandbox's seed (docs/mechanics.md,
+  "Drops and the bridge's seeds"), so a run is reproducible and the 16 builds, the badge runs and
+  the stress runs sample different drops (a drop's offset and drift are random): a design that
+  loses a drop now and then shows up as a failing build, a missing badge or `fragile`.
   `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
   greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
   design another one dominates out of the archive. `mctas circuit shulker trace <designs>
   [--exact] [--stack N]` records real-game traces for the viewer
-  (designs/circuits/shulker/traces/README.md).
+  (designs/circuits/shulker/traces/README.md); `mctas circuit shulker compare <exact traces>`
+  replays them in redsim (the judge's run: the chests, the settle, the supply, the lever, then
+  each gt a tick, the frame and the judge's visit; drops from the trace's seed), every cell and
+  entity compared every tick. redsim models shulker boxes (27-slot block entities, comparators,
+  hoppers in and out, never a box into a box), single chests, a dispenser placing a box (the
+  clicked face: its facing over air, else up) and a piston destroying one into the item entity
+  the bridge spawns (`redsim::rng::Drop`, docs/mechanics.md "Drops and the bridge's seeds"), the
+  box's contents carried as the stack's payload; a dispenser whose filled slots all hold the
+  same stack picks the first (every pick gives the same world). 10 of the 12 archived designs'
+  traces are tick-identical; a dropper choosing among different stacks (the level random) and a
+  minecart pushing entities are not modeled. The judge itself stays in the game. The in-browser
+  viewer runs the designs live with the same driver of the judge's chests (endless, docs/webrender.md).
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
-  [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
+  [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input (a latched
+  design: one reset input, below); one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states
   `oak_log[axis=y]` / `[axis=x]`), and one output; optional claims `bud: place remove state shape
   update`. The judge performs five classes of block update at every target, 3 times each with a
@@ -328,15 +358,27 @@ kick) before the first input.
   length (some but not all: `unreliable`; changing: `unsteady`), not detected when none does; at
   least one class must be detected, every claimed class too; idle gives nothing (`false trigger`)
   and the output is off at the end of every gap (`latches`). Then pairs of events 30, 20, 15, 10,
-  8, 6, 4, 2 gt apart (per family: update, state, shape, place/remove) give the `re-arm` time (the
-  shortest gap down to which both events give their own pulse); a pair that leaves the output on
-  JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
+  8, 6, 4, 2 gt apart (per family: update, state, shape; place, remove, place for the presence
+  family, so a place-only or remove-only design is measured too) give the `re-arm` time (the
+  shortest gap down to which every detected event gives its own pulse); a pair that leaves the
+  output on JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is
+  measured).
+  LATCHED designs (manual reset): one input, `port input.reset: x y z [<on-state> <off-state>]`
+  (any states: `minecraft:air minecraft:redstone_block` makes the reset take a redstone block away).
+  The judge pulses it (4 gt) once right after placement and half a gap after every event, probe and
+  re-arm event; the output must hold from detection until that reset and go off after it (`not
+  latched` otherwise), and hold through a removal while it is on (`not a latch`: a toggle lets
+  go). `reset` replaces `pulse`: how long after the reset starts the output goes off; `re-arm`:
+  how soon after the reset ends the next event is seen. The axis says `latched (manual reset)`.
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
-  the probe cells where any of them gives a pulse (`>=` when a probe jams it). The box leaves out
-  the target cells and the probe block in the probe cells.
+  the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
+  leave the design as it found it (every cell as just before the probe once its block is gone):
+  one that does not (the design carried the probe block away, or broke) makes it `fragile`, and the
+  later probes and the re-arm pairs are not measured. The box leaves out the target cells and the
+  probe block in the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
-  `latency 2 gt place / 6 gt remove`), jams, footprint.
+  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 
@@ -355,7 +397,9 @@ their facing), output and payload cells marked, after the swaps that keep the ru
 the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
 stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
-without stone"); the catalog shows them as "also found as". A name taken by another structure
+without stone"); the catalog shows them as "also found as". It also tidies what a union merge of
+the TSVs leaves: one verdict row and one caption per file, and no row whose design file is gone
+(`circuit catalog` refuses such a row). A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches and registers the kind, `counter N`,
 `shift N`, extenders `N = <N>`,
@@ -407,7 +451,9 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
-| `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
+| `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
+| `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest |
+| `mctas circuit bud trace <design> [--from F \| --phase <label>] [--frames 40] [--full]` | a BUD design's redsim run, frame by frame: the phase, the output level, the blocks that changed (`--full`: the footprint probes and re-arm pairs too) |
 
 Tracks: put your designs in `designs/circuits/<study>/tracks/<track>/`; the coordinator archives
 the verified ones.

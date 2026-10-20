@@ -1,4 +1,4 @@
-# archived 2026-10-20T05:59Z from designs/circuits/shulker/tracks/shulker/flush-loader.txt by mctas circuit archive
+# archived 2026-10-20T07:53Z from designs/circuits/shulker/tracks/shulker/flush-loader.txt by mctas circuit archive
 # CIRCUIT: shulker-flush-loader shulker-loader boxes/min 0.087, items/s 2.50, first box 13847 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+top-up+flush+box-starved+drop-free, bill 16 iron, 6 quartz, 36 redstone, 1 slime, 37 blocks, 5x5x6, robust
 # Flushing shulker loader (track shulker, hand-built): the always-on loader plus a partial-box
 # flush. A comparator reads the feeding hopper; an observer watching that comparator pulses when

@@ -104,6 +104,12 @@ pub struct Session {
     pub primed: Vec<crate::tnt::PrimedTnt>,
     /// How many of `world.primed` have their entity.
     primed_seen: usize,
+    /// A shulker loader's or unloader's judge chests (redsim's driver: kept full, emptied), and
+    /// their state as placed (for [`Session::reset`]).
+    pub shulker: Option<redsim::redstone::shulker::Chests>,
+    shulker_initial: Option<redsim::redstone::shulker::Chests>,
+    /// The judge's visit is due before the next tick (it follows each tick's frame).
+    visit_due: bool,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -144,6 +150,10 @@ pub fn travel_box(d: &Design, mode: &Mode) -> Option<((Pos, Pos), i32)> {
     }
     Some(((lo, hi), margin))
 }
+
+/// Ticks a shulker design is run ahead on load: a run that meets something redsim does not
+/// model by then is shown as built.
+pub const SHULKER_PROBE: u32 = 1000;
 
 pub fn bp(p: Pos) -> BlockPos {
     BlockPos::new(p[0], p[1], p[2])
@@ -269,19 +279,16 @@ impl Session {
         for p in &consumers {
             design.blocks.insert(*p, crate::circuit::CONSUMER.to_string());
         }
-        // a shulker loader or unloader: the judge's chests on its ports and a box in its box cell
-        // (shown as built: redsim models no shulker boxes and chests)
+        // a shulker loader or unloader: the judge's chests on its ports, run by redsim's driver
+        // once the design stands (`redstone::shulker::Chests`, below); their cells are in the box
         let shulker = crate::circuit::is_shulker(&design);
-        if shulker {
-            for p in crate::circuit::chest_cells(&design) {
-                design.blocks.insert(p, crate::circuit::CHEST.to_string());
-            }
-            for p in crate::circuit::box_cells(&design) {
-                design.blocks.insert(p, "minecraft:shulker_box[facing=up]".to_string());
-            }
-        }
+        let chest_cells = crate::circuit::chest_cells(&design);
+        let box_cells = crate::circuit::box_cells(&design);
         let mode = Mode::of(&design)?;
         let (mut lo, mut hi) = design.bounds().ok_or("empty design")?;
+        for c in &chest_cells {
+            grow(&mut lo, &mut hi, *c);
+        }
         let mut outputs = Vec::new();
         let mut inputs = Vec::new();
         for (name, (p, _)) in &design.ports {
@@ -338,9 +345,6 @@ impl Session {
         let mut world = World::new(min, size);
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
-        if shulker {
-            unsimulated.push("redsim does not model shulker boxes and chests yet: the judge runs it in the game".to_string());
-        }
         let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
         for (p, s) in &design.blocks {
             match convert(s) {
@@ -351,12 +355,23 @@ impl Session {
                     blocks.push((bp(*p), b));
                 }
                 Err(e) => {
-                    if !unsimulated.contains(&e) && !shulker {
+                    if !unsimulated.contains(&e) {
                         unsimulated.push(e);
                     }
                 }
             }
         }
+        // shown as built (below): a shulker design's chests and a still box under its dispenser
+        // keep it readable
+        let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
+            let mut v = blocks.to_vec();
+            if shulker {
+                let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+                v.extend(chest_cells.iter().map(|p| (bp(*p), chest)));
+                v.extend(box_cells.iter().map(|p| (bp(*p), Block::ShulkerBox { colour: 0, facing: Dir::Up })));
+            }
+            v
+        };
         let mut s = Session {
             design,
             mode,
@@ -381,11 +396,14 @@ impl Session {
             consumers,
             primed: Vec::new(),
             primed_seen: 0,
+            shulker: None,
+            shulker_initial: None,
+            visit_due: false,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
             // to drive: no inputs).
-            world.place_raw(&blocks);
+            world.place_raw(&as_built(&blocks));
             s.world = world;
             s.unsimulated = Some(unsimulated.join("; "));
             s.circuit_inputs.clear();
@@ -395,12 +413,49 @@ impl Session {
         if let Err(e) = s.place(&mut world, &blocks, o) {
             // e.g. container contents redsim does not model: shown as built, not simulated
             let mut w = World::new(min, size);
-            w.place_raw(&blocks);
+            w.place_raw(&as_built(&blocks));
             s.world = w;
             s.unsimulated = Some(e);
             s.circuit_inputs.clear();
             s.input_on.clear();
             return Ok(s);
+        }
+        // a shulker loader or unloader runs like its judge: the chests placed raw after the
+        // design, the settle, the boxes and the items (the start lever left to the visitor; the
+        // probe below runs with it on); then the judge's visit before every tick (`step`)
+        if let Some(mut ch) = crate::circuit::shulker_chests(&s.design) {
+            world.drop_seed = Some(0);
+            ch.place(&mut world);
+            for _ in 0..redsim::redstone::shulker::SETTLE {
+                world.tick();
+            }
+            ch.start(&mut world);
+            // (the start lever stays off: the visitor turns it on, as the judge does at its start)
+            // a run redsim cannot follow (a dropper choosing among different stacks, a minecart
+            // pushing entities): shown as built, chests and all
+            let (mut pw, mut pc) = (world.clone(), ch.clone());
+            for ci in &s.circuit_inputs {
+                if ci.how == crate::circuit::InputHow::Lever && !(ci.name == "mode" || ci.name.starts_with("mode.")) {
+                    pw.use_block(bp(ci.pos));
+                }
+            }
+            for t in 0..SHULKER_PROBE {
+                if t > 0 {
+                    pc.visit(&mut pw);
+                }
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    s.circuit_inputs.clear();
+                    s.input_on.clear();
+                    return Ok(s);
+                }
+            }
+            s.tick += redsim::redstone::shulker::SETTLE;
+            s.rest_tick = s.tick;
+            s.shulker_initial = Some(ch.clone());
+            s.shulker = Some(ch);
         }
         s.world = world;
         s.primed_seen = s.world.primed.len();
@@ -506,6 +561,8 @@ impl Session {
             self.releases.clear();
             self.primed.clear();
             self.primed_seen = self.world.primed.len();
+            self.shulker = self.shulker_initial.clone();
+            self.visit_due = false;
             self.apply_due();
             self.inputs_due();
         }
@@ -587,7 +644,14 @@ impl Session {
             return;
         }
         self.apply_due();
+        // a shulker design: the judge's visit after the previous tick's frame
+        if self.visit_due
+            && let Some(ch) = self.shulker.as_mut()
+        {
+            ch.visit(&mut self.world);
+        }
         self.world.tick();
+        self.visit_due = self.shulker.is_some();
         self.tick += 1;
         self.tick_primed();
         self.apply_due();
@@ -1193,6 +1257,9 @@ impl Session {
             consumers: Vec::new(),
             primed: Vec::new(),
             primed_seen: self.primed_seen,
+            shulker: self.shulker_initial.clone(),
+            shulker_initial: None,
+            visit_due: false,
         };
         s.apply_due();
         s
@@ -1496,6 +1563,36 @@ mod tests {
 
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
 
+    /// A shulker loader and an unloader run live (redsim's driver of the judge's chests): their
+    /// dispensers place box after box, the pistons break them, the drops are picked up, and a
+    /// reset replays the same run.
+    #[test]
+    fn shulker_designs_run_live() {
+        for (file, boxes) in [("shulker-ref-loader-1", 5), ("shulker-ref-unloader-1", 5), ("shulker-filter-loader", 1)] {
+            let text = std::fs::read_to_string(format!("{}/../../designs/circuits/shulker/archive/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let mut s = Session::new(&text, &Options::default()).unwrap();
+            assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
+            // the visitor turns the start lever on (the judge does at its start)
+            for i in 0..s.circuit_inputs.len() {
+                s.set_input(i, true);
+            }
+            let cell = crate::circuit::box_cells(&s.design)[0];
+            let ticks = if file.contains("filter") { 16000 } else { 1300 };
+            let (mut placed, mut was) = (0, false);
+            for _ in 0..ticks {
+                s.step();
+                let now = matches!(s.world.get(bp(cell)), Block::ShulkerBox { .. });
+                placed += (now && !was) as u32;
+                was = now;
+            }
+            assert!(s.world.errors.is_empty(), "{file}: {:?}", s.world.errors);
+            assert!(placed >= boxes, "{file}: {placed} boxes in {ticks} gt");
+            let d = s.frames_digest(400);
+            s.reset();
+            assert_eq!(d, s.frames_digest(400), "{file}: a reset replays the run");
+        }
+    }
+
     #[test]
     fn entity_clocks_run_their_entities() {
         let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-boat-ring-3x3.txt")).unwrap();
@@ -1518,7 +1615,7 @@ mod tests {
     fn falling_blocks_are_drawn() {
         let mut s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
         let sand = redsim::Block::parse("minecraft:sand").unwrap();
-        s.world.gravity.entities.push(redsim::gravity::FallingBlock { block: sand, x: 4.5, y: 3.0, z: 0.5, vy: -0.5, time: 3, removed: false, id: 0 });
+        s.world.gravity.entities.push(redsim::gravity::FallingBlock::new(sand, 4.5, 3.0, 0.5, -0.5, 3, 0));
         let e = s.entities(0.5);
         let f = e.iter().find(|e| e.kind.starts_with("falling:")).expect("the falling block");
         assert!(f.kind.contains("sand"), "{}", f.kind);

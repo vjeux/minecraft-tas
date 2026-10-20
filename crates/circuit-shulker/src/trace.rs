@@ -1,7 +1,8 @@
 //! `mctas circuit shulker trace`: real-game traces of shulker designs for the in-browser viewer,
 //! in the clock traces' format (crates/clock-misc/src/trace_export.rs): line 1 a header
-//! (`{"trace":1,"name","design","scenario","period":0,"warmup":0,"ticks":N,"box":[from,to],
-//! "loop":[0,N]}`), then one line per gt t = 0..=N: `{"t":t,"blocks":[[x,y,z,"state"],..],
+//! (`{"trace":1,"name","design","scenario","seed","period":0,"warmup":0,"ticks":N,
+//! "box":[from,to],"loop":[0,N]}`; `seed` is the sandbox's, which the bridge's drops draw from),
+//! then one line per gt t = 0..=N: `{"t":t,"blocks":[[x,y,z,"state"],..],
 //! "entities":[{"id","type","pos","yaw","pitch"}]}`: at t = 0 every non-air cell of the watched
 //! box, later the cells that changed; every entity every tick. The run is the judge's first build
 //! (rotation 0, position 0, its seeded drops) on a scenario that fits a replay: 3 boxes of
@@ -59,7 +60,13 @@ impl Recorder for Lines {
                 json!({"id": id, "type": e.kind, "pos": [round(e.pos[0], 4), round(e.pos[1], 4), round(e.pos[2], 4)], "yaw": round(e.yaw as f64, 2), "pitch": round(e.pitch as f64, 2)})
             });
         }
-        self.lines.push(json!({"t": t, "blocks": blocks, "entities": ents}).to_string());
+        // exact traces: the level random's state after the frame (clk-misc: redsim's mirror is
+        // checked against it every frame)
+        let mut frame = json!({"t": t, "blocks": blocks, "entities": ents});
+        if self.exact {
+            frame["rng"] = json!(w.random_state(sb)?);
+        }
+        self.lines.push(frame.to_string());
         Ok(())
     }
 }
@@ -82,6 +89,8 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bo
         "name": c.name(),
         "design": path.display().to_string(),
         "scenario": format!("{} 3 boxes of {}", if sc.loader { "load" } else { "unload" }, sc.item.trim_start_matches("minecraft:")),
+        "seed": circuit::shulker::build_seed(rec.from, rec.to, 0),
+        "chunks": [rec.from[0].div_euclid(16), rec.from[2].div_euclid(16), rec.to[0].div_euclid(16), rec.to[2].div_euclid(16)],
         "period": 0,
         "warmup": 0,
         "ticks": ticks,

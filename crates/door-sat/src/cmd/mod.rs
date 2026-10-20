@@ -2,4 +2,5 @@
 //! its `DoorCmd` variant holds them) and its body (`cmd_<name>`, which `crate::run` calls).
 
 pub mod boxproof;
+pub mod macrosat;
 pub mod satwire;

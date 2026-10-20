@@ -1,4 +1,4 @@
-# archived 2026-10-20T06:59Z from designs/circuits/shulker/tracks/shulker/filter-loader.txt by mctas circuit archive
+# archived 2026-10-20T07:55Z from designs/circuits/shulker/tracks/shulker/filter-loader.txt by mctas circuit archive
 # CIRCUIT: shulker-filter-loader shulker-loader boxes/min 0.087, items/s 2.50, first box 13847 gt, cycle 13833 gt, hoppers awake 5, badges always-on+colours+restart+top-up+filter+box-starved+drop-free, bill 31 iron, 6 quartz, 40 redstone, 1 slime, 46 blocks, 5x5x7, robust
 # Filtering shulker loader (track shulker, hand-built): the always-on loader fed through a hopper
 # item sorter, so only the filter item (cobblestone) goes into boxes and everything else goes on to

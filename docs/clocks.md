@@ -134,7 +134,9 @@ layer 0:
   port, 2026-10-19) as far as their blocks and kinds are modeled (else UNMODELED with what is
   missing); an entity's exact doubles never repeat, so for designs with entities the period comes
   from the blocks by the real-game judge's own rule (every cell's state repeating for 3 periods
-  within 4000 gt, the smallest warmup then period): every traced entity clock (the 50 exact traces
+  within 4000 gt, the smallest warmup then period, and the period holding over at least the
+  second half of the horizon: a drifting entity can show a short block pattern near the end of
+  any window, 2026-10-20): every traced entity clock (the exact traces
   in `designs/clocks/traces/exact`, all tick-identical under `redsim-fuzz trace-compare`) gives
   the same CLOCK line as the game. Example: a minecart on a 3x3
   rail loop with two powered rails on redstone blocks over a detector rail is a robust P476 clock
@@ -205,8 +207,8 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | `mctas clock group --id <id> [--title T] [--period P] [--note N] <designs>... \| --clear` | set (or clear) the `extend group` headers of family base designs (after their `extend family:` line): the catalog renders one card per group |
 | `mctas clock census --box AxBxC --k N [--kmin 1] [--palette core] [--max-period 500] [--margin 2] [--no-kick] [--workers W] --out DIR` | the exhaustive census on redsim: every filling of the box with kmin..=k blocks of the palette (every facing of every component: shorthands `core` = stone, glass, rblock, dust, torch (standing + 4 wall), repeater (4 facings x 4 delays), comparator (4 x 2 modes), observer (6), piston (6), sticky (6), lamp, bulb, note, target, slime; also sculk, csculk, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, honey, wool, obsidian, amethyst, or block states), one per class up to translation (it touches the box's low faces) and the 4 rotations (smallest encoding among the rotations that fit), only fillings with a delay element (torch, repeater, comparator, observer, piston, lamp, sculk, hopper, dropper...); judged self-starting, then with each block placed last; a found clock gets the full `clock sim` analysis and a MINIMAL flag (no single block can go with its period kept). Writes `DIR/clocks.tsv` (every clock: period, whole-state period, warmup, family, blocks, box, duty, edges, pulses, start, type key, canonical encoding, minimal), `minimal.tsv`, `designs/` (the smallest clock of each (period, family)), `summary.md`. Resumable: `DIR/parts/` holds one file per finished chunk (a cell set and its first cell's state); a rerun skips them |
 | `mctas clock kit <shuttle\|bouncer\|dripleaf> [--max-len 7] [--screen 1000] [--workers W] --out DIR` | structured census of ENTITY clocks on redsim ([kits](#entity-clock-kits-redsim-clock-kit)): one mechanism's design space in its own coordinates, one candidate per mirror class, screened (`sim::entity_screen`: comes to rest, or no block change late in the run) then judged by `clock sim` (the real-game judge's rule for designs with entities); one representative per type (blocks + entity kinds; an entity at rest first, then the shortest warmup); per period and entity kind the smallest clock is shrunk to minimal (blocks removed while period and family stay). Writes `DIR/clocks.tsv` (every type), `summary.md`, `designs/` (`kit-<kit>-<entity>-p<P>-<n>b.txt`, with a caption) |
-| `mctas clock misc trace-export <archived design>... [--exact] [--ticks N] [--out-dir D] [--margin 3]` | real-game traces (JSON Lines, one file per clock: a header, then every tick's changed block states and every entity) for the in-browser viewer (`designs/clocks/traces/`, rounded) or, with `--exact`, for redsim's gate (`designs/clocks/traces/exact/`: the game's own doubles and floats, each entity's motion and network id); `--ticks N` records any design for N ticks (a redsim test scene) |
-| `redsim-fuzz trace-compare <trace>... [--max 6]` | redsim against the real game, tick by tick: builds the trace's design like `clock sim`, applies its inputs, and compares every cell of the watched box and every entity (position, motion, yaw, pitch, bit for bit) after every tick. One line per trace: `OK` (N ticks identical), `DIVERGES` at the first differing tick (up to `--max` differences), or `UNMODELED` (what redsim lacks) |
+| `mctas clock misc trace-export <archived design>... [--exact] [--ticks N] [--out-dir D] [--margin 3]` | real-game traces (JSON Lines, one file per clock: a header, then every tick's changed block states and every entity) for the in-browser viewer (`designs/clocks/traces/`, rounded) or, with `--exact`, for redsim's gate (`designs/clocks/traces/exact/`: the game's own doubles and floats, each entity's motion and network id, the level random's state after every frame (`rng`), the sandbox's `seed` and forced `chunks` in the header); `--ticks N` records any design for N ticks (a redsim test scene) |
+| `redsim-fuzz trace-compare <trace>... [--max 6]` | redsim against the real game, tick by tick: builds the trace's design like `clock sim`, applies its inputs, and compares every cell of the watched box and every entity (position, motion, yaw, pitch, bit for bit) after every tick, and the level random's state when the trace records it (redsim mirrors it from the header's `seed` and `chunks`; a drift names its draw distance). One line per trace: `OK` (N ticks identical), `DIVERGES` at the first differing tick (up to `--max` differences), or `UNMODELED` (what redsim lacks) |
 | `redsim-fuzz archive-check <archived designs>... [--problems]` | every archived clock / circuit run on redsim (`clock sim` / `circuit sim`) and its line compared with the real-game judge's line in its header (the last field aside): `OK`, `DIFF` with both lines, or redsim's verdict and why; then the totals and the problems grouped by reason |
 | `redsim-fuzz recipes-gen [--data DIR]` | regenerates `crates/redsim/src/redstone/recipes_gen.rs` (crafters): every `crafting_shaped` / `crafting_shapeless` recipe of the game's data whose ingredients redsim's items can fill; fails when a code-defined recipe kind names one of redsim's items. Run it after adding items to `container::MORE_ITEMS` |
 
@@ -245,7 +247,8 @@ item or entity: the `core` palette plus honey, obsidian, oak and iron trapdoors,
 activator rails, fence gates, droppers, leaves; ~100 states; self-start or one block placed last;
 a candidate whose whole state does not repeat within 12 gt is dropped early) finds NO clock of
 period 2 or 3 in: 2x1x1 (k 2), 3x1x1 (k 3), 2x2x1, 2x1x2, 3x2x1, 3x1x2, 2x2x2, 3x3x1, 3x2x2, 3x1x3
-(k 4), 3x3x2 (k 3). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
+(k 4), 3x3x2 (k 3), nor in 2x2x2 at k 5 (every filling of the cube with 5 blocks of the ~100
+states: 4984 chunks, 5.6 h on 96 threads, 0 clocks). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
 observer + piston types in 3x2x1), so the pruning keeps real clocks. The game-source arguments for
 the families that cannot reach P2/P3 at any size are in `designs/clocks/impossible.tsv` (clk-rt,
 clk-obs).
@@ -270,7 +273,7 @@ type; `summary.md`; `designs/`), archived as `kit-<kit>-<entity>-p<P>-<n>b`.
 | kit | space | candidates, run | clock types | archived (the smallest per period and entity) |
 |---|---|---|---|---|
 | K1 `shuttle` | straight track of 2-7 rails (plain, powered, detector) on stone or (powered rails) redstone blocks, stone bumper or nothing at each end, a minecart on a rail at rest or at 0.4 b/t either way | 27.4 M, 70 s on 28 threads | 1289 | 28 periods from 25 to 197 gt: 11 pieces (P25, P30: `S P P D P S`), 13 (P28, 29, 33, 40, 66), 15, 17 |
-| K2 `bouncer` | an oak boat (2x2 pool), item or armor stand on a 1-2 deep bubble column over soul sand or magma, walled; a tripwire across at height 1-4 (either axis, either row), an optional cap (stone, slabs, trapdoor, lantern) 1-2 above it | 5 k, 60 s | 343 | 13: boats P72, 73, 74, 77, 81 (19 pieces), P82 (18, one less than clk-misc-boat-bouncer), P134; items P26, P133, P621 (11 pieces), P12, P887, P991 |
+| K2 `bouncer` | an oak boat (2x2 pool), item or armor stand on a 1-2 deep bubble column over soul sand or magma, walled; a tripwire across at height 1-4 (either axis, either row), an optional cap (stone, slabs, trapdoor, lantern) 1-2 above it | 5 k, 60 s | 343 | 12: boats P72, 73, 74, 77, 81 (19 pieces), P82 (18, one less than clk-misc-boat-bouncer), P134; items P26, P133, P621 (11 pieces), P887, P991 (the item "P12", archived 03:57Z, was a horizon artifact: its item never repeats exactly, so a short block pattern near the end of the window looked periodic; un-archived 2026-10-20 when the entity rule began requiring the period over the second half of the horizon, clk-misc's find; its exact trace stays as a redsim test, tick-identical over 4101 gt) |
 | K3 `dripleaf` | a big dripleaf on dirt with an entity on its leaf (armor stand, item, oak boat), an observer watching the leaf, and up to 3 dust / stone / repeater or 4 dust / stone in a 5x4x4 box | 15 M, 23 min | 6 | 3: P4, 8 pieces, with each entity (the leaf tilts under any of them) |
 
 The items of the kits carry `Age:-32768s` (else an item despawns after 6000 gt and the clock stops
@@ -278,9 +281,9 @@ after 5 minutes) and `PickupDelay:32767s`.
 
 The fluid census (P1, 2026-10-19: `clock census --palette 'core,minecraft:water[level=0],minecraft:soul_sand,minecraft:magma_block'`,
 59 states) finds NO clock with water or a bubble column in its family in 3x2x1, 3x1x2, 2x2x2,
-3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks: the core clocks again, some
-with soul sand or magma as an inert support): a water clock needs more room than 4 blocks (the
-smallest archived, clk-misc-bubble-flip, has 12).
+3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks) nor in 2x2x2 at k 5
+(3578429 clocks): the core clocks again, some with soul sand or magma as an inert support. A water
+clock needs more room (the smallest archived, clk-misc-bubble-flip, has 12 blocks).
 
 ## What redsim models exactly
 
@@ -301,13 +304,29 @@ the game's code in its operation order (`Entity.move` / collide / step-up, `chec
 `AbstractBoat`, `AbstractMinecart` + `OldMinecartBehavior`, `LivingEntity.travel`), and the blocks
 they touch: pressure plates, tripwire and hooks, plain and detector rails (`RailState` for every
 rail kind), big dripleaf, wall banners, lanterns, stone slabs, chiseled bookshelves, and
-container entities as hopper sources and targets. Entities pushed by moving blocks too (2026-10-20,
+container entities as hopper sources and targets. Fences too (2026-10-20, clk-misc, `fence.rs`: the
+12 wooden fences and nether brick, `connectsTo` on every shape update, the 1.5-block collision post
+and arms, CENTER-sturdy tops; traces `rt-fence-connect`, `rt-fence-bud`, `rt-fence-entity`), and all
+16 wool colours. Entities pushed by moving blocks too (2026-10-20,
 clk-misc: `PistonMovingBlockEntity.moveCollidedEntities` with the slime bounce, `moveStuckEntities`
 for honey, `moveEntityByPiston` with `NOCLIP` and `Entity.limitPistonMovement`, and the collision
 shapes of pistons, heads and moving blocks for entities; gated by the `rt-push-*`, `rt-slime-bounce`
 and `rt-honey-drag` traces in designs/clocks/tracks/clk-misc/redsim-tests/). Each is gated tick by tick against real-game
-traces (`redsim-fuzz trace-compare`, below). Anything else (unwaxed copper, other items' dispenser
-behaviors, multi-stack droppers, other mobs, a crafter result or a record redsim does not know...)
+traces (`redsim-fuzz trace-compare`, below). The LEVEL RANDOM too (2026-10-20, clk-misc, opt-in:
+`World::mirror_level_random(seed, chunks)`): each bridge sandbox is its own level whose
+`LegacyRandomSource` the bridge reseeds to the sandbox seed at create and reset; with no player it
+draws `randomTickSpeed` (3) x `nextInt(48)` per forced chunk every tick (`ServerLevel.tickChunk`,
+between fluid ticks and block events), and redsim draws at every game spot it models: piston
+sounds (extend after a successful move, retract), note blocks (`nextLong`), door, trapdoor and
+fence gate sounds, sculk clicks (activate, cooldown end), dripleaf tilt sounds, the tripwire hook's
+detach sound, dispenser/dropper slots (`getRandomSlot`: multi-stack droppers pick exactly), the
+hopper's pick among container entities, `popResource` (3 per drop), the primed TNT kick, bubble
+column particles above a column (8 per entity per tick) and jukebox notes (every 20 gt). Exact
+traces record the state after every frame (`rng`, read by the bridge's read-only `random_state`
+op; the header carries `seed` and `chunks`), and `trace-compare` / `circuit shulker compare`
+check it every frame, naming the tick and the draw distance of any drift. Without the mirror
+(clock sim, the census, archive-check) nothing changes. Anything else (unwaxed copper, other items' dispenser
+behaviors, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and
 circuit archives runs on redsim to a line (2026-10-20, `redsim-fuzz archive-check`: 3485 of 3491 print
 the judge's own line; the 6 others are listed in

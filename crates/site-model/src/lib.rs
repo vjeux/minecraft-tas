@@ -292,6 +292,32 @@ pub struct Circuit {
     /// update around the cell), positions in the design's coordinates. Pages only.
     #[serde(skip)]
     pub events: String,
+    /// Why the browser's simulator cannot run this design (`block "oak_fence" is not modeled`),
+    /// empty when it can: the 3D view then shows it as built (the viewer's own session decides,
+    /// `mcview::session::Session::unsimulated`). Pages only.
+    #[serde(skip)]
+    pub unmodeled: String,
+    /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
+    /// the boxes it sends out. Pages only.
+    #[serde(skip)]
+    pub view_run: Option<ViewRun>,
+}
+
+/// A machine run like its 3D view runs it ([`Circuit::view_run`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ViewRun {
+    /// Game ticks run (from the end of the judge's setup).
+    pub ticks: u32,
+    /// Boxes sent out to the OUT chests.
+    pub boxes: u32,
+    /// The tick the first box arrived.
+    pub first: Option<u32>,
+    /// Game ticks per box after the first.
+    pub cycle: Option<f64>,
+    /// The item the view's endless chests supply (`iron_shovel`...).
+    pub item: String,
+    /// Items that reached a filter's reject chests.
+    pub rejected: u32,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.

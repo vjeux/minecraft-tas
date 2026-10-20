@@ -155,13 +155,17 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
     // where the host does (study 10)
     if b.kind == "bud" && a.kind == "bud" {
+        if get(b, "fragile ").is_some() {
+            return false;
+        }
         let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
-    // TNT dupers (study 9): a PRECISE duper (every TNT at one point at fuse 1) keeps its own
-    // card over a smaller one that is not
+    // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
+    // under its own explosions) keeps its own card over a smaller one that is not
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
-        return b.summary.contains("(precise") && !a.summary.contains("(precise");
+        let has = |r: &Row, k: &str| r.summary.contains(k);
+        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
@@ -176,6 +180,37 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         return true;
     }
     matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
+/// newest, as [`read_rows`] reads them; `rows` without the `stale` ones) and one caption per file
+/// (the last; none for a stale file), written back when anything changes.
+fn tidy(dir: &Path, rows: &[Row], stale: &[String]) -> Result<()> {
+    let text = std::fs::read_to_string(dir.join(VERDICTS)).unwrap_or_default();
+    if text.lines().skip(1).filter(|l| !l.trim().is_empty()).count() != rows.len() {
+        write_rows(dir, rows)?;
+    }
+    let caps = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_default();
+    let mut order: Vec<String> = Vec::new();
+    let mut last: BTreeMap<String, String> = BTreeMap::new();
+    for l in caps.lines().skip(1) {
+        if let Some((f, c)) = l.split_once('\t') {
+            if !last.contains_key(f) {
+                order.push(f.to_string());
+            }
+            last.insert(f.to_string(), c.to_string());
+        }
+    }
+    let n = order.len();
+    order.retain(|f| !stale.contains(f));
+    if order.len() != n || n != caps.lines().skip(1).filter(|l| l.contains('\t')).count() {
+        let mut out = String::from("file\tcaption\n");
+        for f in &order {
+            out.push_str(&format!("{f}\t{}\n", last[f]));
+        }
+        std::fs::write(dir.join(CAPTIONS), out)?;
+    }
+    Ok(())
 }
 
 /// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
@@ -258,6 +293,10 @@ pub fn tunable_key(c: &Circuit) -> String {
     for t in &c.targets {
         d.blocks.insert(t.pos, "circuit:target".to_string());
     }
+    // a TNT duper judged with explosions on (SURVIVABLE) is not a setting of the same mechanism
+    if c.explodes() {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -299,6 +338,10 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
+    // a TNT duper judged with explosions on (the SURVIVABLE variation) is its own type
+    if c.explodes() {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
     // a BUD's target cells (where the judge acts) are part of its structure
     for t in &c.targets {
         d.blocks.insert(t.pos, "circuit:target".to_string());
@@ -322,11 +365,16 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
-        Kind::Bud => format!("detects {}", m("detects")),
+        Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper if out.why.contains("survives its own") => format!("{} survivable", m("rate")),
+        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
+        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
+        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
+        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
         Kind::TntDuper => m("rate"),
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }
@@ -346,8 +394,9 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
     let kind = c.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", path.display()))?;
     let dir = archive_dir(root, kind.study());
     let text = std::fs::read_to_string(path)?;
-    // the same blocks and ports under another kind (a claim) are another entry
-    let hash = format!("{}-{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"));
+    // the same blocks and ports under another kind (a claim) are another entry; so is a TNT duper
+    // judged with explosions on (the SURVIVABLE variation)
+    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if c.explodes() { "-explode" } else { "" });
     let rows = read_rows(&dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
@@ -658,6 +707,14 @@ pub fn dedupe(root: &Path) -> Result<Vec<String>> {
         if rows.is_empty() {
             continue;
         }
+        // a row whose design file is gone (removed on one side of a merge, brought back by a
+        // union of the TSVs): out, with its caption
+        let stale: Vec<String> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.clone()).collect();
+        for f in &stale {
+            lines.push(format!("REMOVED {study}/{f}: a verdict row without its design file (stale)"));
+        }
+        rows.retain(|r| !stale.contains(&r.file));
+        tidy(&dir, &rows, &stale)?;
         rows.sort_by(|a, b| (&a.archived, &a.file).cmp(&(&b.archived, &b.file)));
         let mut kept: BTreeMap<(String, String), String> = BTreeMap::new();
         let mut gone: Vec<(String, String, String)> = Vec::new();
@@ -900,6 +957,10 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
+        let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();
+        if !stale.is_empty() {
+            bail!("{study}: verdict rows without their design file: {} (a removal undone by a merge of the TSVs? `mctas circuit archive --dedupe` drops them)", stale.join(", "));
+        }
         let caps = read_captions(&dir);
         let aliases = read_aliases(&dir);
         // extendable families (bases with `extend` headers) and their judged members: one card

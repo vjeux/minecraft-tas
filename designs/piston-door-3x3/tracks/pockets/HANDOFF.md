@@ -30,6 +30,13 @@
   --full-frame --forbid-ring --update-order --exact-order --dmax 8 --skip 8 --hold auto --free-order --retime
   --palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston,wool --first`.
 - Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
+- Pockets prints a POCKET LOAD line per pocket (10be184f): forced inputs + distinct pulse ticks; quick report with
+  `--k 1 --only-pockets 99`. The lever port cell is a wiring cell again without --keep-lever (56fb440b). ISLAND START
+  (ad9c171c): per lever pocket, the pockets that can never fire (run it first on any designer plan).
+- Screens since the box move (all satwire UNSAT, one-piston cores, reported to the senders): c70b 6x7-in2
+  (core (0,-2)), d67 q7 (0,-2), c70b t1-r22 7x7 ((-1,4): its lever at (0,5) QC-powers SD (-1,4)/(1,4)), pext's
+  one-trains (w1k2 (1,-2); m69T-mm02 x8: top-left / bottom-left / top-middle), w86 6x8 s1 ((3,3) solid; with
+  sculk in (-1,4) + the bottom-left trio: (0,4) close).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
