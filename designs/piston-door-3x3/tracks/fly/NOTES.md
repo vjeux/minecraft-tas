@@ -274,6 +274,15 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - General: every sub-56 box (6x9, 9x6, 7x7, 6x8) splits into two groups (top/bottom, or
     left/right). The door's 3 rows plus the static/stack columns wall them off, so links must be
     moving elements, and the schedule must let one group wait.
+  - RIDING OBSERVER (a link that gets round the end-cell catch): a frame cell may hold anything at
+    closed rest (only the 3 extras must be in place). Park an observer in the END frame cell of a
+    door column, or on top of the extras column at (-1,3), and it rides when the other group
+    pushes that column. It fires on arrival (the s69o rule, verified) and outputs SIDEWAYS along
+    its facing axis into a free cell of the far region. Example: extras pushed UP by a bottom
+    piston at (-1,-1); an observer at (-1,3) facing west lands at (-1,4) and powers s0 (0,4). A top
+    piston at (-1,5) pushes the column back down.
+    Cost: in m69T those cells hold W / U / the (1,3) and (0,-1) pistons. An observer at (1,-1)
+    breaks bot6 in every facing (redsim), so it needs a mechanism redesign.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
