@@ -347,6 +347,10 @@ pub struct Options {
     pub cost: Vec<(Pos, usize)>,
     /// Pockets: input cells one small pocket feeds and how many ticks it can make in the train.
     pub pockets: Vec<(Vec<Pos>, usize)>,
+    /// Blocks added to the design (e.g. observers in a pocket), raw in both rest states.
+    pub fix: Vec<(Pos, String)>,
+    /// Inputs the train may not use (their pistons must be fed by the `fix` blocks).
+    pub drop: Vec<Pos>,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -419,6 +423,53 @@ pub fn sat_loop(path: &Path, o: &Options, iters: usize, sat_args: &str, dir: &Pa
     Ok(())
 }
 
+/// `--observe cells`: every filling of these (pocket) cells with air or an observer facing any way
+/// in the door's plane is added to the design (`fix`), the inputs in `o.drop` are taken away, and
+/// a train is searched for the rest: the pocket's pistons then fire from the mechanism's own
+/// moves (each observer 2 gt after the cell it watches changes), on both edges alike. One line
+/// per filling with a train; `out_dir` gets its plan + design.
+pub fn observe(path: &Path, o: &Options, pocket: &[Pos], threads: usize, out_dir: Option<&Path>) -> Result<()> {
+    let facings = ["east", "west", "up", "down"];
+    let mut fills: Vec<Vec<(Pos, String)>> = vec![Vec::new()];
+    for c in pocket {
+        let mut next = Vec::new();
+        for f in &fills {
+            next.push(f.clone());
+            for fc in facings {
+                let mut g = f.clone();
+                g.push((*c, format!("minecraft:observer[facing={fc}]")));
+                next.push(g);
+            }
+        }
+        fills = next;
+    }
+    fills.retain(|f| !f.is_empty());
+    if let Some(dir) = out_dir {
+        std::fs::create_dir_all(dir)?;
+    }
+    println!("{} fillings of {:?}, inputs {:?} dropped", fills.len(), pocket, o.drop);
+    let res = cs::par_map(&fills, threads, |f| {
+        let mut o2 = o.clone();
+        o2.quiet = true;
+        o2.fix.extend(f.iter().cloned());
+        let tag: Vec<String> = f.iter().map(|(p, s)| format!("{},{}{}", p[0], p[1], s.split("facing=").nth(1).map(|x| &x[..1]).unwrap_or(""))).collect();
+        let out = out_dir.map(|d| d.join(format!("obs-{}.ideal", tag.join("_"))));
+        (tag.join(" "), run(path, &o2, out.as_deref()))
+    });
+    let mut found = 0;
+    for (tag, r) in res {
+        match r {
+            Ok(s) if s.starts_with("ONE TRAIN") => {
+                found += 1;
+                println!("{tag}: {s}");
+            }
+            Ok(_) | Err(_) => {}
+        }
+    }
+    println!("{found} fillings give a train");
+    Ok(())
+}
+
 pub fn batch(paths: &[std::path::PathBuf], o: &Options, out_dir: Option<&Path>, threads: usize) -> Result<()> {
     if let Some(dir) = out_dir {
         std::fs::create_dir_all(dir)?;
@@ -442,11 +493,17 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     Ok(())
 }
 
-/// Write a plan file: a header comment, the source plan's `design` line, its phase, the events.
-fn write_plan(out: &Path, header: &str, text: &str, phase: crate::ideal::PlanPhase, all: &mut [(bool, u32, Pos, Option<String>)]) -> Result<()> {
+/// Write a plan file: a header comment, the source plan's `design` line (or `design`), its phase,
+/// the events.
+fn write_plan(out: &Path, header: &str, text: &str, phase: crate::ideal::PlanPhase, all: &mut [(bool, u32, Pos, Option<String>)], design: Option<&Path>) -> Result<()> {
     let mut lines = vec![format!("# {header}")];
-    if let Some(l) = text.lines().find(|l| l.trim_start().starts_with("design ")) {
-        lines.push(l.to_string());
+    match design {
+        Some(p) => lines.push(format!("design {}", p.display())),
+        None => {
+            if let Some(l) = text.lines().find(|l| l.trim_start().starts_with("design ")) {
+                lines.push(l.to_string());
+            }
+        }
     }
     lines.push(format!("phase {}", if phase == crate::ideal::PlanPhase::Between { "between" } else { "tile" }));
     all.sort_by_key(|e| (!e.0, e.1));
@@ -508,7 +565,17 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
         }
         if let Some(out) = out {
             let header = format!("door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len());
-            write_plan(out, &header, text, crate::ideal::PlanPhase::Between, &mut all)?;
+            // with `--fix` blocks the plan needs its own design (the source's plus those blocks)
+            let design = if o.fix.is_empty() {
+                None
+            } else {
+                let mut dd = d.clone();
+                dd.name = format!("{}-fix", dd.name);
+                let p = out.with_extension("txt");
+                dd.save(&p)?;
+                Some(p)
+            };
+            write_plan(out, &header, text, crate::ideal::PlanPhase::Between, &mut all, design.as_deref())?;
         }
         return Ok(summary);
     }
@@ -518,7 +585,7 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
 fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
-    let (d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
+    let (mut d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
     if open_ev.iter().chain(close_ev.iter()).any(|e| e.2.as_deref() == Some("@use")) {
         bail!("plans with lever uses are not handled");
     }
@@ -531,6 +598,11 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let (w0, (lo, hi), idle) = cs::place_and_settle(&blocks, &spec, 400);
     if !idle {
         bail!("never settles");
+    }
+    // `--fix`: blocks added to the design (observers in a pocket): placed raw into both rest
+    // states, so the plan's own replay (which knows nothing of them) still gives the targets
+    for (p, st) in &o.fix {
+        d.blocks.insert(*p, st.clone());
     }
     let sim = Sim { lo, hi };
     let os = steps(&open_ev, o.split);
@@ -547,10 +619,23 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     for st in &os {
         wopen = sim.apply(&wopen, st).map_err(|e| anyhow::anyhow!("open plan step by step: {e}"))?;
     }
+    let (w0, wopen) = if o.fix.is_empty() {
+        (w0, wopen)
+    } else {
+        let with_fix = |w: &World| -> Result<World> {
+            let mut w = w.clone();
+            for (p, st) in &o.fix {
+                w.set_block(cs::bp(*p), cs::convert_state(st).map_err(|e| anyhow::anyhow!("{st}: {e}"))?, redsim::world::flags::RAW);
+            }
+            Ok(w)
+        };
+        (with_fix(&w0)?, with_fix(&wopen)?)
+    };
     if let Some(cap) = o.search {
         let mut cells: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.is_some()).map(|e| e.1).collect();
         cells.sort();
         cells.dedup();
+        cells.retain(|c| !o.drop.contains(c));
         // lever-held inputs: cells whose block differs between the open and the closed rest
         // (levels the plan leaves on): the lever itself sets them at t0 of each edge, the train
         // never touches them
@@ -750,7 +835,7 @@ fn merge(sim: &Sim, d: &mctas::design::Design, phase: crate::ideal::PlanPhase, t
     };
     if let Some(out) = out {
         let header = format!("door interleave {}: one train for both edges: {}", path.display(), labels.join(" "));
-        write_plan(out, &header, text, phase, &mut all)?;
+        write_plan(out, &header, text, phase, &mut all, None)?;
     }
     Ok(summary)
 }

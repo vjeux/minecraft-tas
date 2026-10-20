@@ -118,10 +118,20 @@ pub struct InterleaveArgs {
     /// The satwire arguments for --sat-loop (one string, split on spaces; no --out).
     #[arg(long, default_value = "")]
     sat_args: String,
+    /// Blocks added to the design, `x,y,z=state` (repeatable): raw in both rest states.
+    #[arg(long)]
+    fix: Vec<String>,
+    /// Inputs the train may not use, `x,y,z` (repeatable).
+    #[arg(long)]
+    drop: Vec<String>,
+    /// Every filling of these pocket cells (`x,y,z;x,y,z`) with air or an in-plane observer is
+    /// tried as `--fix` with the `--drop` inputs taken away (one search each, in parallel).
+    #[arg(long)]
+    observe: Option<String>,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -139,6 +149,13 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         let set: Vec<[i32; 3]> = cells.split('+').map(parse_pos).collect::<Result<_>>()?;
         pockets.push((set, k.trim().parse::<usize>()?));
     }
+    let mut fixes = Vec::new();
+    for f in &fix {
+        let (p, st) = f.split_once('=').ok_or_else(|| anyhow::anyhow!("--fix x,y,z=state"))?;
+        let st = if st.contains(':') { st.to_string() } else { format!("minecraft:{st}") };
+        fixes.push((parse_pos(p)?, st));
+    }
+    let drops: Vec<[i32; 3]> = drop.iter().map(|d| parse_pos(d)).collect::<Result<_>>()?;
     let mut sets = Vec::new();
     for m in &merge {
         let mut set = Vec::new();
@@ -150,7 +167,12 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops };
+    if let Some(cells) = observe {
+        let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
+        anyhow::ensure!(search.is_some(), "--observe needs --search");
+        return crate::interleave::observe(&schedule[0], &o, &pocket, threads, out_dir.as_deref());
+    }
     if let Some(n) = sat_loop {
         let dir = out_dir.ok_or_else(|| anyhow::anyhow!("--sat-loop needs --out-dir"))?;
         anyhow::ensure!(search.is_some(), "--sat-loop needs --search");
