@@ -23,6 +23,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -36,6 +37,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
+import net.minecraft.world.level.entity.LevelCallback;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.storage.PrimaryLevelData;
@@ -119,8 +123,124 @@ final class Sandbox {
             LockSupport.parkNanos(20_000L);
         }
         level.getRandom().setSeed(seed);
-        return new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
+        Sandbox sb = new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
+        sb.installDropSeeder(entityManager);
+        return sb;
     }
+
+    // ---- shulker study (clk-rt): reproducible drops ---------------------------------------------
+
+    private static final Field ENTITY_CALLBACKS = field(PersistentEntitySectionManager.class, "callbacks");
+
+    /** True while {@link #tick} runs the level: an entity that enters now was spawned by the game. */
+    private boolean ticking;
+    /** Item entities the game dropped through {@code Block.popResource} in this sandbox so far. */
+    private long dropIndex;
+
+    @SuppressWarnings("unchecked")
+    private void installDropSeeder(PersistentEntitySectionManager<?> manager) {
+        LevelCallback<Entity> vanilla = (LevelCallback<Entity>) get(ENTITY_CALLBACKS, manager);
+        try {
+            ENTITY_CALLBACKS.set(manager, new DropSeeder(vanilla));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Determinism for drops (the shulker study's loaders break boxes with pistons). Vanilla's
+     * {@code new ItemEntity(level, x, y, z, stack)} draws its yaw and its drift from the entity's
+     * own random, which {@code RandomSource.create()} seeds from {@code System.nanoTime()}: the
+     * same build in the same seeded sandbox drifts differently on every run. An item entity the
+     * game spawns during a tick through {@code Block.popResource(Level, BlockPos, ItemStack)} (a
+     * block broken with drops) gets its random reseeded to {@code seed ^ (0x6d63746173 + n)} (n:
+     * the n-th such drop of this sandbox, from 0, reset with the sandbox) and ALL its draws redone
+     * from it in vanilla's order: the position's offsets in its cell (popResource's three; the
+     * level random still made its own three draws, so its sequence is vanilla's), the yaw, the x
+     * and z drift (the constructor's). The same distribution, reproducible, and a function of the
+     * seed, the drop's number and its cell only (redsim mirrors it without the level random,
+     * whose draws depend on the sandbox's chunk count). {@code popResourceFromFace} and
+     * dispensers set the motion from the level random afterwards and are left alone, as are
+     * summoned design entities (their own path) and every other entity.
+     */
+    private final class DropSeeder implements LevelCallback<Entity> {
+        private final LevelCallback<Entity> vanilla;
+
+        DropSeeder(LevelCallback<Entity> vanilla) {
+            this.vanilla = vanilla;
+        }
+
+        @Override
+        public void onCreated(Entity e) {
+            if (ticking && e instanceof ItemEntity item && fromPopResource()) {
+                // popResource put it at the cell's center + [-0.25, 0.25) on each axis (y minus
+                // half the item's height); recover the cell, then draw everything from the
+                // drop's own random: offsets x, y, z (popResource's order), yaw, drift x and z
+                // (the constructor's)
+                double half = item.getBbHeight() / 2.0;
+                BlockPos cell = BlockPos.containing(item.getX(), item.getY() + half, item.getZ());
+                RandomSource r = item.getRandom();
+                r.setSeed(seed ^ (0x6d63746173L + dropIndex++));
+                double x = cell.getX() + 0.5 + Mth.nextDouble(r, -0.25, 0.25);
+                double y = cell.getY() + 0.5 + Mth.nextDouble(r, -0.25, 0.25) - half;
+                double z = cell.getZ() + 0.5 + Mth.nextDouble(r, -0.25, 0.25);
+                item.setPos(x, y, z);
+                item.setYRot(r.nextFloat() * 360.0F);
+                item.setDeltaMovement(r.nextDouble() * 0.2 - 0.1, 0.2, r.nextDouble() * 0.2 - 0.1);
+            }
+            this.vanilla.onCreated(e);
+        }
+
+        @Override
+        public void onDestroyed(Entity e) {
+            this.vanilla.onDestroyed(e);
+        }
+
+        @Override
+        public void onTickingStart(Entity e) {
+            this.vanilla.onTickingStart(e);
+        }
+
+        @Override
+        public void onTickingEnd(Entity e) {
+            this.vanilla.onTickingEnd(e);
+        }
+
+        @Override
+        public void onTrackingStart(Entity e) {
+            this.vanilla.onTrackingStart(e);
+        }
+
+        @Override
+        public void onTrackingEnd(Entity e) {
+            this.vanilla.onTrackingEnd(e);
+        }
+
+        @Override
+        public void onSectionChange(Entity e) {
+            this.vanilla.onSectionChange(e);
+        }
+    }
+
+    /** The entity being added comes from {@code Block.popResource}, not {@code popResourceFromFace}. */
+    private static boolean fromPopResource() {
+        return StackWalker.getInstance().walk(frames -> {
+            boolean pop = false;
+            for (StackWalker.StackFrame f : (Iterable<StackWalker.StackFrame>) frames::iterator) {
+                if (f.getClassName().equals("net.minecraft.world.level.block.Block")) {
+                    if (f.getMethodName().equals("popResourceFromFace")) {
+                        return false;
+                    }
+                    if (f.getMethodName().equals("popResource")) {
+                        pop = true;
+                    }
+                }
+            }
+            return pop;
+        });
+    }
+
+    // ---- end shulker study ----------------------------------------------------------------------
 
     private static boolean entitiesLoaded(ServerLevel level, int minChunkX, int minChunkZ, int maxChunkX, int maxChunkZ) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
@@ -164,7 +284,12 @@ final class Sandbox {
         for (Entity e : designEntities()) {
             this.prevEntityPos.put(e.getUUID(), e.position());
         }
-        this.level.tick(() -> true);
+        this.ticking = true;
+        try {
+            this.level.tick(() -> true);
+        } finally {
+            this.ticking = false;
+        }
         // A level sends its block changes to players at the START of its next tick, while block
         // events (piston moves) go out at once. A real client never notices (the next tick is
         // 50 ms away), but a client watching a sandbox stepped slowly (tick-by-tick videos) gets a
@@ -486,6 +611,7 @@ final class Sandbox {
         }
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
+        this.dropIndex = 0;
     }
 
     void drop(SimServer server) {

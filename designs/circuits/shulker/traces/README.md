@@ -10,4 +10,6 @@ Each trace is the judge's first build (rotation 0, position 0, its seeded drop d
 boxes of iron shovels (27 per box: a short replay; `--stack 16` for designs made for stackable
 items, like the speed unloaders). Tick 0 is when the judge's chests are filled and the lever is
 on; the trace ends when the judge's run does (the last box delivered). The judge's chests are
-blocks of the trace; their contents are not recorded.
+blocks of the trace; their contents are not recorded. Since the bridge seeds each drop's own
+random (docs/mechanics.md, "Drops and the bridge's seeds"), a re-recording is identical (but for
+the entities' `net_id`, numbered by the JVM).

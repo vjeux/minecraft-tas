@@ -19,6 +19,7 @@ pub mod daylight;
 pub mod rails;
 pub mod react;
 pub mod redstone;
+pub mod rng;
 pub mod sculk;
 pub mod snapshot;
 pub mod ticks;

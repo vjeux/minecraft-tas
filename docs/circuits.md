@@ -284,8 +284,8 @@ kick) before the first input.
   drops follow each other within the collection hopper's cooldown). Two failing runs fail the
   design (`fragile`): a drop drifts about half a block before a hopper takes it, longer when that
   hopper is busy, so a missing wall loses one every few runs; one failure alone is tolerated (a
-  drop pushed into a block gets out with the entity's own, unseeded, random: a sound design can
-  lose one in a few hundred bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
+  drop pushed into a block takes a random way out: a sound design can lose one in a few hundred
+  bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
   (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
@@ -296,9 +296,11 @@ kick) before the first input.
   `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
   snapshots of a..b) add what changed to `--table`: a design aid. `MCTAS_SHULKER_BADGE=<badge>`
   judges that badge's scenario in place of the base (with its tables), the way to see why a badge
-  fails. Each build seeds the level's random from where it stands, so the 16 builds and the badge
-  runs sample different drops (a drop's offset and drift are random): a design that loses a drop
-  now and then shows up as a failing build or a missing badge.
+  fails. Each build seeds the level's random from where it stands (the stress runs mix in their
+  number), and the bridge seeds each drop's own random from the sandbox's seed (docs/mechanics.md,
+  "Drops and the bridge's seeds"), so a run is reproducible and the 16 builds, the badge runs and
+  the stress runs sample different drops (a drop's offset and drift are random): a design that
+  loses a drop now and then shows up as a failing build, a missing badge or `fragile`.
   `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
   greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a

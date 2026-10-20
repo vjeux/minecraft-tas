@@ -542,13 +542,19 @@ pub trait Recorder {
 pub fn game_run_recorded(w: &mut Worker, c: &Circuit, sc: &Scenario, margin: i32, rec: Option<&mut dyn Recorder>) -> Result<std::result::Result<RunLog, String>> {
     let (from, to) = crate::run::watch_box(c, margin);
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    // the level's random (the drop's offset and drift) seeded from where the build stands, so the
-    // builds of a verdict sample different drops instead of replaying one
-    let seed = (from[0] as i64).wrapping_mul(73_856_093) ^ (from[1] as i64).wrapping_mul(19_349_663) ^ (from[2] as i64).wrapping_mul(83_492_791) ^ (to[0] as i64 - to[2] as i64).wrapping_mul(2_654_435_761) ^ sc.seed_salt.wrapping_mul(0x9E37_79B9_7F4A_7C15u64 as i64);
+    let seed = build_seed(from, to, sc.seed_salt);
     let sb = w.create(&SandboxOptions { chunks, seed })?;
     let r = run_in(w, sb, c, sc, from, to, rec);
     let _ = w.drop_sandbox(sb);
     r
+}
+
+/// The sandbox seed of a build: from where it stands (its watch box), so the builds of a verdict
+/// sample different drops instead of replaying one, and the stress run's number. The bridge seeds
+/// each piston-broken drop's own random from it (docs/mechanics.md, "Drops and the bridge's
+/// seeds"); redsim's replay of a trace takes it from the trace's header.
+pub fn build_seed(from: Pos, to: Pos, salt: i64) -> i64 {
+    (from[0] as i64).wrapping_mul(73_856_093) ^ (from[1] as i64).wrapping_mul(19_349_663) ^ (from[2] as i64).wrapping_mul(83_492_791) ^ (to[0] as i64 - to[2] as i64).wrapping_mul(2_654_435_761) ^ salt.wrapping_mul(0x9E37_79B9_7F4A_7C15u64 as i64)
 }
 
 fn design_dims(c: &Circuit) -> [i32; 3] {
@@ -1265,9 +1271,8 @@ pub fn drop_stress(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Re
             Err(e) => bad.push(format!("run {k}: {e:#}")),
         }
     }
-    // one failure is not enough: a drop pushed into a block takes the entity's own (unseeded)
-    // random to get out, so a sound design can lose one in a few hundred bursts; a missing wall
-    // loses one every few runs
+    // one failure is not enough: a drop pushed into a block takes a random way out, so a sound
+    // design can lose one in a few hundred bursts; a missing wall loses one every few runs
     Ok((bad.len() >= 2).then(|| format!("{} of {n} drop stress runs fail ({})", bad.len(), bad[0])))
 }
 
