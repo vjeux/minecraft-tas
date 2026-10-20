@@ -180,6 +180,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
         Block::ChiseledBookshelf { .. } => true,
+        Block::DaylightDetector { .. } => face == Dir::Down,
         _ => false,
     }
 }
@@ -199,7 +200,7 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Target { .. }
         | Block::Sculk { .. } => true,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } => true,
+        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } | Block::DaylightDetector { .. } => true,
         _ => false,
     }
 }
@@ -223,6 +224,8 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Plate { .. } => crate::react::plate::signal(s),
         Block::TripwireHook { .. } => crate::react::hook::signal(s),
         Block::DetectorRail { .. } => crate::rails::detector::signal(s),
+        // ownSignal: its power, every side
+        Block::DaylightDetector { power, .. } => power as i32,
         _ => 0,
     }
 }
@@ -240,6 +243,8 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Plate { .. } => crate::react::plate::direct_signal(s, d),
         Block::TripwireHook { .. } => crate::react::hook::direct_signal(s, d),
         Block::DetectorRail { .. } => crate::rails::detector::direct_signal(s, d),
+        // the daylight detector's power is weak only (getDirectSignal: 0)
+        Block::DaylightDetector { .. } => 0,
         _ => 0,
     }
 }
@@ -287,7 +292,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::Composter { level } => level as i32,
         Block::Sculk { .. } => crate::sculk::analog_output(w, s, p),
         Block::RespawnAnchor { charges } => (charges as f32 / 4.0 * 15.0).floor() as i32,
-        Block::Dispenser { .. } | Block::Hopper { .. } => crate::redstone::container::analog_output(w, p),
+        Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::ChiseledBookshelf { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
@@ -307,7 +312,7 @@ pub fn instrument(s: &Block) -> Instrument {
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } => Instrument::Bass,
+        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
@@ -358,7 +363,7 @@ pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
-    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. }) // ---- entity-reacting blocks (clk-misc) ----
+    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -468,6 +473,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => vec![],
         Block::PlainRail { .. } | Block::DetectorRail { .. } => vec![],
         Block::BigDripleaf { .. } => crate::react::dripleaf::collision_boxes(s),
+        // DaylightDetectorBlock.SHAPE = column(16, 0, 6)
+        Block::DaylightDetector { .. } => vec![[0, 16, 0, 6, 0, 16]],
         // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
         Block::Lantern { hanging } => {
             let h = hanging as i32;
@@ -665,10 +672,10 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
         Block::Sculk { .. } => crate::sculk::tick(w, s, p),
         // Droppers push one item into a facing container; dispensers with items spawn entities
-        // (noted); crafters: crafting from an empty grid changes no block.
+        // (noted); crafters craft their grid's recipe (container.rs).
         Block::Dispenser { dropper: true, .. } => crate::redstone::container::dropper_dispense(w, p),
         Block::Dispenser { dropper: false, .. } => crate::redstone::container::dispenser_dispense(w, p),
-        Block::Crafter { .. } => {}
+        Block::Crafter { .. } => crate::redstone::container::crafter_dispense(w, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::tick(w, s, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::tick(w, s, p),

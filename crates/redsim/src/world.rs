@@ -118,6 +118,10 @@ pub struct World {
     pub game_events: Vec<(&'static str, BlockPos)>,
     /// Sculk sensor block entities and their tickers (agent sculk's side).
     pub sculk: crate::sculk::State,
+    /// Daylight detectors exist (`daylight.rs`): block changes are logged in `light_changes`
+    /// (tick, where) for the light engine's timing, and the state key holds the time mod 20.
+    pub watch_light: bool,
+    pub light_changes: Vec<(i64, BlockPos)>,
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
@@ -150,6 +154,8 @@ impl World {
             drops: Vec::new(),
             game_events: Vec::new(),
             sculk: Default::default(),
+            watch_light: false,
+            light_changes: Vec::new(),
             errors: Vec::new(),
         }
     }
@@ -178,7 +184,15 @@ impl World {
     /// Write a state with no side effect at all (the chunk section write).
     pub fn put(&mut self, p: BlockPos, s: Block) {
         match self.index(p) {
-            Some(i) => self.cells[i] = s,
+            Some(i) => {
+                if self.watch_light && self.cells[i] != s && crate::daylight::light_differs(&self.cells[i], &s) {
+                    // (daylight detectors) the light engine's timing: recent changes only
+                    let now = self.time;
+                    self.light_changes.retain(|&(t, _)| t >= now - 1);
+                    self.light_changes.push((now, p));
+                }
+                self.cells[i] = s
+            }
             None => {
                 if !s.is_air() {
                     self.errors.push(format!("write outside the box at {p}: {s}"));
@@ -273,7 +287,8 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::remove(self, pos),
+            Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
         }
@@ -284,7 +299,8 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
+            Kind::DaylightDetector => crate::daylight::create(self, pos),
             Kind::Sculk(_) => crate::sculk::create(self, pos),
             _ => {}
         }
