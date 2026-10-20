@@ -90,6 +90,14 @@ dropper75 plus an east-side hourglass: Tc (500 stone) over Hd, which drains into
   - Its own clock then goes up top, and the bottom dropper keeps O1/O2.
   - The dispenser's always-on firing (the stone-cell observer O, the A-level observer) and the one-shot have to be re-routed to the south.
 
+- DECISIVE for (a): the box cannot fire a second dropper. The one-shot works because the dot dust gives X a neighbour signal and the dropper BELOW X reads that by quasi-connectivity. A dropper BESIDE X is not QC-coupled to X, and a weakly powered block never powers an adjacent mechanism, so only the bottom dropper can be driven through the box. Every extra dropper needs its own two observers adjacent to it.
+- Feasible 10/s layout (not built yet; ~120 blocks):
+  - Y2 at (0,1,1) facing north (replacing the feed hopper N), fed 5/s by a hopper above (0,2,1) and one behind (0,1,2). No puller under Y2.
+  - Y2's two observers at (-1,1,1) facing west and (1,1,1) facing east, their backs into Y2, watching two dust columns that carry the gate clock's two phases (comparator C's output and its delay-2 copy) up from y=-2.
+  - Y1 keeps its own two observers and is fed 5/s by its west hopper line alone, supplied by a hopper minecart under item chest c: the cart sits at a cell edge so two hoppers below it each pull 2.5/s.
+  - Supply: chests a and b feed Y2 (2.5 + 2.5), chest c feeds Y1 through the cart (5). Box intake 5 + 5 = 10/s.
+  - The 81-stack base budget fills a, b and c in name order, so all three are supplied.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
