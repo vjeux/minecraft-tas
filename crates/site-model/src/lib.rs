@@ -570,6 +570,9 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("button", "its own button as the input", "circuit"),
     ("lever", "its own lever as the input", "circuit"),
     ("faster", "faster than the smallest of its value", "circuit"),
+    ("mirrored", "its mirror image (A and B swapped) is folded under it", "circuit"),
+    ("cargo", "carries extra blocks along (a flying machine with cargo)", "circuit"),
+    ("there-and-back", "flies there and back between stations", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 

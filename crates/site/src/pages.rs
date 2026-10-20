@@ -574,7 +574,9 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
         s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
-        s.push_str(&row("Blocks placed", &b.blocks.to_string()));
+        // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
+        // picture of five)
+        s.push_str(&row("Blocks placed", &format!("{} (not counting the input levers or buttons and the test lamp the view adds)", b.blocks)));
         if let (Some(v), Some(dm)) = (b.volume, &b.dims) {
             s.push_str(&row("Box", &format!("{} ({v} blocks of space)", esc(&dm.replace('x', "×")))));
         }
@@ -1171,7 +1173,9 @@ fn study_builds<'a>(site: &'a Site, folder: &str) -> Vec<&'a Build> {
     v.sort_by(|a, b| {
         let key = |x: &Build| {
             let c = x.circuit.as_ref();
-            (c.map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default(), c.and_then(|c| c.value).unwrap_or(i64::MAX), x.blocks, x.volume.unwrap_or(0), x.name.clone())
+            // (gates: the most common function first, critique)
+            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            (c.map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default(), value, x.blocks, x.volume.unwrap_or(0), x.name.clone())
         };
         key(a).cmp(&key(b))
     });
@@ -1413,7 +1417,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     // what you would use them for first; the designs right after (critique C6 / P5); how we test
     // and rank them folds at the end
     let mut body = format!(
-        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n",
+        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n",
         esc(&title),
         esc(&title),
         esc(if uses.is_empty() { &intro } else { uses }),
@@ -1503,7 +1507,13 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let most = if shared.is_empty() {
             String::new()
         } else {
-            format!(" <span class=\"hint\">{}: {}.</span>", if shared.iter().all(|c| all_share.contains(c)) { "All of them" } else { "Most of them" }, esc(&shared.join(", ")))
+            // in words: "Most have their own lever and are 1 block wide." (critique)
+            let parts: Vec<String> = shared.iter().map(|c| site_model::html::chip_plural(c)).collect();
+            let list = match parts.len() {
+                1 => parts[0].clone(),
+                n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+            };
+            format!(" <span class=\"hint\">{} {}.</span>", if shared.iter().all(|c| all_share.contains(c)) { "All" } else { "Most" }, esc(&list))
         };
         // a section whose kind is the study itself (the piston extenders): no second heading and
         // intro under the page's own (critique: the heading and intro repeated the page's)
@@ -1645,7 +1655,7 @@ mod tests {
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
         let d = build_page(&s, &s.builds[2], "name: fc2\n", "designs/piston-door-3x3/archive/fc2-40b.txt", Scripts::default());
-        assert!(d.contains("<h1>8×9×2 · 40 blocks</h1>"), "{d}");
+        assert!(d.contains("<h1>40 blocks in a 8×9×2 space</h1>"), "{d}");
         assert!(d.contains("14 / 16 gt"));
         assert!(!d.contains("mcview.js"), "no viewer script without the bundle");
     }

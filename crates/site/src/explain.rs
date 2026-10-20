@@ -553,7 +553,14 @@ fn what_timer_does(c: &Circuit) -> String {
                     "{}{}{}",
                     if delay.is_empty() { String::new() } else { format!("The output turns on {delay} after the input. ") },
                     if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer. ") },
-                    if rearm.is_empty() { String::new() } else { format!("Two input pulses at least {rearm} apart give two full output pulses.") }
+                    if rearm.is_empty() {
+                        String::new()
+                    } else if c.kind.contains("retriggerable") && !c.kind.contains("non-retriggerable") {
+                        // (critique C49: "re-arm" next to "retriggerable" read as a contradiction)
+                        format!("Two presses at least {rearm} apart give two separate output pulses; closer together, the output just stays on longer.")
+                    } else {
+                        format!("Two input pulses at least {rearm} apart give two full output pulses.")
+                    }
                 ))
             )
         }
@@ -792,7 +799,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
         ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
         ("monostable", "retrigger") => "retriggerable: a pulse while the output is on restarts L; non-retriggerable: it is ignored",
-        ("monostable", "re-arm") => "the shortest time between two input pulses that still gives two full output pulses",
+        ("monostable", "re-arm") => "the shortest time between two presses that still gives two separate output pulses (closer presses restart the timer, or are ignored by a non-restarting one)",
         ("burst", "N") => "output pulses per input pulse",
         ("burst", "pulse") => "the length of each output pulse",
         ("burst", "period") => "game ticks from one output pulse's start to the next one's",
