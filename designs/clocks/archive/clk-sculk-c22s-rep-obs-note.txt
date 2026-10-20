@@ -1,10 +1,11 @@
 # archived 2026-10-19T15:48Z from /tmp/clk-in/clk-sculk--c22s-rep-obs-note.txt by mctas clock archive
-# CLOCK: clk-sculk-c22s-rep-obs-note period 22 gt, on 10/22, edges 1, warmup 10, family calibrated_sculk_sensor+note_block+observer+repeater, 5 blocks, 2x2x3, robust
+# CLOCK: clk-sculk-c22s-rep-obs-note period 22 gt (1.1 s), on 10/22, edges 1, warmup 10, family calibrated_sculk_sensor+note_block+observer+repeater, 5 blocks, 2x2x3, robust
 name: clk-sculk-c22s-rep-obs-note
 # Self-starting: R is placed powered with no input; its turn-off is the first observer pulse.
 # Calibrated sensor C -> repeater R (delay 4) -> observer O watching R -> note block N (dist sqrt5).
 origin: 0 0 0
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
   S minecraft:stone

@@ -1,0 +1,15 @@
+name: bud-observer
+circuit: bud
+# The smallest BUD, 1 block, and copies stand side by side every block: an observer facing the
+# target sends a 2-tick pulse whenever that block changes in any way (placed, removed, a door
+# opening, a crop growing, a fence reshaping beside a new neighbor). It does not see a pure block
+# update that changes nothing, and a second change within 4 ticks is missed. Silent. Detail: the
+# output is the observer's own pulse, so neighbors' outputs never mix.
+tile: 0 1 0
+port output: 1 1 0
+port target: 0 1 0
+origin: 1 0 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 1:
+  O

@@ -1,5 +1,5 @@
 # archived 2026-10-19T22:38Z from designs/clocks/tracks/clk-misc/cart/cart-pingpong.txt by mctas clock archive
-# CLOCK: clk-misc-cart-pingpong-n0 period 37 gt (1.85 s), on 20/37, edges 1, warmup 24, family detector_rail+minecart, 17 blocks, 8x2x2, robust
+# CLOCK: clk-misc-cart-pingpong-n0 period 37 gt (1.85 s), on 20/37, edges 1, warmup 28, family detector_rail+minecart, 17 blocks, 8x2x2, robust
 name: clk-misc-cart-pingpong-n0
 # Extendable family clk-misc-cart-pingpong (n = 0): P = 37 + 5n gt, 17 + 2n = 17 pieces (blocks, 2 levers and the cart). An empty minecart bounces between two stone bumpers on a
 # straight track: the powered rail at each end launches the resting cart away from the bumper behind it and speeds it up; it
@@ -14,7 +14,8 @@ extend generator: mctas clock misc cart-pingpong --n {n} --out {out}
 extend n: 0..14
 extend period: 37 + 5n
 extend rule: one more powered rail (on a stone support) in the east stretch
-port output: 2 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 2 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 2 -2 0
 entity: minecraft:minecart 1.5 0.0625 0.5
 origin: 0 0 -1
 palette:

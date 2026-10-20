@@ -3,7 +3,8 @@
 name: clk-obs-p6-lamp-obs-pis-rb-stk-8b-c093fe
 # clk-obs grow: P=6 (redsim), family observer+piston+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 12.
 origin: 0 0 0
-port output: 0 3 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 3 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 4 1
 port start: 0 0 0 last
 palette:
   A minecraft:note_block[instrument=harp,note=0,powered=false]

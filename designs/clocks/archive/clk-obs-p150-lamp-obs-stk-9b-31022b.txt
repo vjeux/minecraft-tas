@@ -1,9 +1,10 @@
 # archived 2026-10-19T23:26Z from designs/clocks/tracks/clk-obs/families9/p150-lamp-obs-stk-9b-31022b.txt by mctas clock archive
-# CLOCK: clk-obs-p150-lamp-obs-stk-9b-31022b period 150 gt (7.5 s), on 68/150, edges 34, warmup 12, family observer+redstone_lamp+sticky_piston, 9 blocks, 1x5x4, robust
+# CLOCK: clk-obs-p150-lamp-obs-stk-9b-31022b period 150 gt (7.5 s), on 50/150, edges 25, warmup 12, family observer+redstone_lamp+sticky_piston, 9 blocks, 1x5x4, robust
 name: clk-obs-p150-lamp-obs-stk-9b-31022b
 # clk-obs grow: P=150 (redsim), family observer+redstone_lamp+sticky_piston, kick last 0 0 2, swept volume 20.
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 5 0
 port start: 0 0 2 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]

@@ -43,3 +43,14 @@ Expected size, constant for every N: about 20 blocks with the torch latch, about
 ## Fold done 2026-10-20
 
 Nine same-N counters that were strictly bigger than another entry with the same metrics line are out of the archive (`circuit archive --remove`): counter12-ring3-ring4 18b, counter16-ring4-ring4 20b, counter18-ring9-bulb1 28b, counter20-ring5-ring4 22b, counter2-ring 8b, counter4-ring9 9b, counter4-ring 10b, counter5-star 12b, counter9-ring9 25b. counter3-ring and counter3-corner are both 8 blocks, so they stay as equivalent layouts. counter 38 at 57 blocks beside counter 48 at 20 is not a mislabel: a composite N chains into small rings while a prime factor forces one long ring, so size tracks the factorisation of N, not N.
+
+## R7 (real input devices): six designs removed, two kinds now empty
+
+Re-judged both studies under R7 and removed what fails the judge: rs-loop (12b), dff-window (10b), dffe-window (13b), shift2-window (20b), tff-window (17b), tff-masterslave (24b). All six are window or master-slave designs that time their copy against the input's own edges; R7 drives the input with a repeater, whose shortest pulse is 2 gt and whose edge lands inside a tick rather than between ticks, so the window never opens where the design expects. Widening the window repeater (delay 2, 3, 4) does not fix dff-window: the clock edge itself is in the wrong phase, not merely too short.
+
+Consequences, stated plainly rather than hidden:
+- `dff`, `dff-enable` and `shift 2` now have NO archived design at all. They need a rebuild whose clock edge is taken from a component inside the design (a torch on the clock's input block, or an observer) rather than from the input's own timing.
+- `tff` keeps tff-bulb (3 blocks) and the rest of the family, which all survived; the two removed TFFs were the fat ones (17 and 24 blocks) that WR.md already listed as first implementations.
+- `rs-latch` keeps rs-dropper (4b) and rs-crafter (6b); `d-latch` keeps both; every counter except the refused dropper rings survives.
+
+The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out of the build) are a different matter: they are not wrong, the judge simply cannot drive them. The item counter (39 blocks, any N) already replaces every large-N one, so the gap they leave is only at small composite N, where the bulb chain and the corner ring cover it.

@@ -1,9 +1,10 @@
 # archived 2026-10-19T19:19Z from designs/clocks/tracks/clk-obs/families/p64-bulb-obs-rb-stk-7b-fb0a42.txt by mctas clock archive
-# CLOCK: clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42 period 64 gt (3.2 s), on 28/64, edges 14, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 7 blocks, 1x6x2, robust
+# CLOCK: clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42 period 64 gt (3.2 s), on 36/64, edges 4, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 7 blocks, 1x6x2, robust
 name: clk-obs-p64-bulb-obs-rb-stk-7b-fb0a42
 # P64: 1 copper bulb, 2 observers, 1 redstone block, 3 sticky pistons; changing in place: copper_bulb, observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 4 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 4 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 1 1
 palette:
   A minecraft:sticky_piston[extended=false,facing=south]
   B minecraft:sticky_piston[extended=false,facing=up]

@@ -1,5 +1,5 @@
 # archived 2026-10-19T18:15Z from designs/clocks/tracks/clk-rt/odd/rect/odd-rect-p59.txt by mctas clock archive
-# CLOCK: clk-rt-odd-rect-p59-35b period 59 gt, on 8/59, edges 1, warmup 59, family repeater, 35 blocks, 3x2x9, robust
+# CLOCK: clk-rt-odd-rect-p59-35b period 59 gt (2.95 s), on 8/59, edges 1, warmup 59, family repeater, 35 blocks, 3x2x9, robust
 # ODD period 59: Rectangle ring (clk-rt): the 3x9 perimeter clockwise from the north-west corner =
 # [b, 4*, b, 4, 4, 4, b, 4, 4, 4, b, 4, b, 4, 4, 4, 4, 4, 4, 3] (number = repeater delay, * =
 # powered at placement, b = block, d = dust, T = wall torch on the block before it, c = comparator);
@@ -7,7 +7,8 @@
 # other started by a redstone_wall_torch[facing=north,lit=true] at [0, 0, 0] for 1 gt at tick 51 (an
 # odd tick: a second parity class; every redstone-tick delay is even)
 name: clk-rt-odd-rect-p59-35b
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 8
 port start: 0 0 0 minecraft:redstone_wall_torch[facing=north,lit=true] 1 at 51
 origin: 0 0 0
 palette:

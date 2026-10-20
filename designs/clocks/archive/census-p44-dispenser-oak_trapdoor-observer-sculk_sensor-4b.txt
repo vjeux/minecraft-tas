@@ -1,9 +1,11 @@
 # archived 2026-10-19T20:30Z from /tmp/gen/arch2/s3x1x2-k5-census-p44-dispenser-oak_trapdoor-observer-sculk_sensor-4b.txt by mctas clock archive
-# CLOCK: census-p44-dispenser-oak_trapdoor-observer-sculk_sensor-4b period 44 gt (2.2 s), on 6/44, edges 3, warmup 0, family dispenser+oak_trapdoor+observer+sculk_sensor, 4 blocks, 3x1x2, robust
+# CLOCK: census-p44-dispenser-oak_trapdoor-observer-sculk_sensor-4b period 44 gt (2.2 s), on 30/44, edges 1, warmup 0, family dispenser+oak_trapdoor+observer+sculk_sensor, 4 blocks, 3x1x2, robust
 # Found by `mctas clock census` (box 3x1x2 k<=5) with a sculk palette: s3x1x2-k5-census-p44-dispenser-oak_trapdoor-observer-sculk_sensor-4b
 name: census-p44-dispenser-oak_trapdoor-observer-sculk_sensor-4b
 census: box 3x1x2 k<=5 (0,0,0=dispenser[facing=down,triggered=false];0,0,1=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false];1,0,0=observer[facing=east,powered=false];2,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false])
 port start: 2 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 2 -1 0
 origin: 0 0 0
 palette:
   D minecraft:dispenser[facing=down,triggered=false]

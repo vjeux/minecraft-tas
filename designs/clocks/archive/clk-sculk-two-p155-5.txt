@@ -1,9 +1,10 @@
 # archived 2026-10-19T21:12Z from /tmp/gen/arch2/two-p155-5.txt by mctas clock archive
-# CLOCK: clk-sculk-two-p155-5 period 155 gt (7.75 s), on 60/155, edges 6, warmup 2, family calibrated_sculk_sensor+oak_trapdoor+observer, 7 blocks, 2x6x1, robust
+# CLOCK: clk-sculk-two-p155-5 period 155 gt (7.75 s), on 50/155, edges 5, warmup 2, family calibrated_sculk_sensor+oak_trapdoor+observer, 7 blocks, 2x6x1, robust
 # A calibrated sculk sensor watched by a chain of 3 observer(s) (each watching the previous); the last observer powers a stone and an oak trapdoor (placed open+powered: it closes on placement, the self-start) beside the stone, 5 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a calibrated sculk sensor beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-two-p155-5
 # how: obs cal k=3 path 0,1,0 0,2,0 0,3,0 stone at the output, emitter trapdoor beside it (travel 5) + calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false] at -1,3,0
-port output: -1 3 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -1 3 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 origin: -1 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]

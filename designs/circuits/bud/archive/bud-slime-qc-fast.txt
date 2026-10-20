@@ -1,41 +1,37 @@
-# archived 2026-10-20T11:05Z from designs/circuits/tracks/bud/bud-slime-qc-fast.txt by mctas circuit archive
-# CIRCUIT: bud-slime-qc-fast bud detects place remove state update, latency 1 gt, pulse 5 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 4 cells, tileable every 4 (0 0 4), 9 blocks, 2x5x3, robust
+# archived 2026-10-20T17:28Z from designs/circuits/tracks/bud/wr/bud-slime-qc-fast.txt by mctas circuit archive
+# CIRCUIT: bud-slime-qc-fast bud detects place remove state update, latency 1 gt, pulse 5 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 4 cells, tileable every 3 (3 0 0), 9 blocks, 2x5x3, robust
 name: bud-slime-qc-fast
 circuit: bud
-tile: 0 0 4
-# The slime-block QC BUD with a 1 gt latency: a stone block stuck to the slime block sits on the
-# step between two dusts and cuts it. A block update reaching the piston (armed by the redstone
-# block on the slime block, through quasi-connectivity) starts the push in the very next tick: the
-# stone leaves the step at once (a moving block is no conductor), the low dust joins the high dust
-# (powered by its redstone block) and lights the output 1 gt after the update, until the stone comes
-# back down with the retracting slime block. The high dust points away from the stone, so the stone
-# is no power source of its own. A shape-only change sends no block update: not detected.
-origin: -1 -1 -1
+# The classic BUD (it sees pure block updates, which no observer can) reacting in 1 tick: 9
+# blocks, copies every 3 blocks. A stone stuck to the slime block cuts the step between two dusts;
+# an update makes the piston push in the very next tick, the stone leaves the step and the low dust
+# joins the powered high one, lighting the output until the stone comes back. Detail: the piston is
+# armed by quasi-connectivity (power through the block above it that it has not noticed); a moving
+# block conducts nothing, which is why the step opens at once. A change by shape alone sends no
+# block update: not detected. The output is the low dust's own level.
+tile: 3 0 0
+port output: 0 0 1
 port target: -1 0 0
-port output: -1 0 1
+origin: 0 0 0
 palette:
-  P minecraft:sticky_piston[extended=false,facing=up]
-  S minecraft:slime_block
+  A minecraft:stone
   R minecraft:redstone_block
-  C minecraft:stone
-  D minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:slime_block
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -1:
+  .
+  A
+  .
 layer 0:
-  ....
-  ....
-  .C..
-  ....
+  s
+  rA
+  .
 layer 1:
-  ....
-  .P..
-  .DC.
-  ....
+  S
+  Ar
+  .R
 layer 2:
-  ....
-  .S..
-  .CD.
-  ..R.
-layer 3:
-  ....
-  .R..
-  ....
-  ....
+  R
+  .
+  .

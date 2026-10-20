@@ -1,9 +1,11 @@
 # archived 2026-10-19T20:52Z from /tmp/gen/arch2/s4x1x2-k5-census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b.txt by mctas clock archive
-# CLOCK: census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b period 175 gt (8.75 s), on 120/175, edges 4, warmup 1, family calibrated_sculk_sensor+oak_trapdoor+observer+sculk_sensor, 5 blocks, 4x1x2, robust
+# CLOCK: census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b period 175 gt (8.75 s), on 70/175, edges 7, warmup 1, family calibrated_sculk_sensor+oak_trapdoor+observer+sculk_sensor, 5 blocks, 4x1x2, robust
 # Found by `mctas clock census` (box 4x1x2 k<=5) with a sculk palette: s4x1x2-k5-census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b
 name: census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b
 census: box 4x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,0=observer[facing=west,powered=false];1,0,1=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];2,0,0=stone;3,0,0=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false])
 port start: 0 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 0 -1 0
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

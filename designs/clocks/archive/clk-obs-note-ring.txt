@@ -12,7 +12,8 @@ extend n: 0..47
 extend base: 0
 extend generator: mctas clock obs family note-ring --n {n} --out {out}
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 2 -1 0
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=south,powered=false]

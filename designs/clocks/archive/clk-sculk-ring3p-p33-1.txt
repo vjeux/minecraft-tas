@@ -1,9 +1,10 @@
 # archived 2026-10-19T22:31Z from /tmp/gen/arch3/ring3p-p33-1.txt by mctas clock archive
 # CLOCK: clk-sculk-ring3p-p33-1 period 33 gt (1.65 s), on 10/33, edges 1, warmup 11, family calibrated_sculk_sensor, 9 blocks, 14x1x9, robust
-# CLOCK: cand period 33 gt (1.65 s), on 10/33, edges 1, warmup 11, family calibrated_sculk_sensor, 9 blocks, 14x1x9, kick: use 0,0,-1
+# CLOCK: clk-sculk-ring3p-p33-1 period 33 gt (1.65 s), on 10/33, edges 1, warmup 11, family calibrated_sculk_sensor, 9 blocks, 14x1x9, robust
 # built by `mctas clock sculk`: ring of 3 calibrated sensors, hops [14,8,13], kick: a note block behind the first sensor, 2 wool shielding the kick
 name: clk-sculk-ring3p-p33-1
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 0 0 -1 use
 origin: 0 0 -7
 palette:

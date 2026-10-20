@@ -1,21 +1,20 @@
-# archived 2026-10-20T11:02Z from designs/circuits/tracks/bud/bud-fence-observer.txt by mctas circuit archive
-# CIRCUIT: bud-fence-observer bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 3 cells, tileable every 2 (0 2 0), 2 blocks, 1x1x2, robust
+# archived 2026-10-20T17:25Z from designs/circuits/tracks/bud/wr/bud-fence-observer.txt by mctas circuit archive
+# CIRCUIT: bud-fence-observer bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 3 cells, tileable every 1 (0 1 0), 2 blocks, 1x1x2, robust
 name: bud-fence-observer
 circuit: bud
-tile: 0 2 0
-# A presence detector: a fence beside the target connects to a solid block there (its shape follows
-# its neighbors) and an observer watches the fence. Placing or removing a block at the target
-# changes the connection and fires the observer; turning the block in place, a shape-only change
-# or a pure update leaves the connection as it was. The fence's other two free sides sense too.
-origin: 0 0 0
+# Tells when a block appears or disappears at the target, and ignores the target's own changes (a
+# crop growing, a door opening, a block turned): the smallest presence detector, 2 blocks, and
+# copies stack every block up a column. A fence beside the target bends toward any solid block
+# placed there and straightens when it goes; the observer watching the fence sends a 2-tick pulse
+# each time. Detail: the fence's two other free sides sense too (footprint 3 cells); the output is
+# the observer's own pulse, and fences only connect sideways, so stacked copies never mix.
+tile: 0 1 0
+port output: 1 1 1
 port target: 0 1 0
-port output: 1 1 2
+origin: 1 0 0
 palette:
-  F minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
-  O minecraft:observer[facing=north,powered=false]
-layer 0:
-  ..
-  ..
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  o minecraft:observer[facing=north,powered=false]
 layer 1:
-  .F
-  .O
+  O
+  o

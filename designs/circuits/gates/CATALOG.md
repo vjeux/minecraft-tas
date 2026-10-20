@@ -6,7 +6,7 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-and-torch-7b](archive/gate-and-torch-7b.txt) | gate and | function and, latency 4 gt | 7 | 3x2x2 | robust | Two input torches and one output torch: the classic AND. The judge's repeater powers each input block from outside, so the torch standing on it goes out; the dust between the two torches is therefore lit unless BOTH inputs are on (that is NAND), and the dust strongly powers the block under it, so the wall torch on that block is lit exactly when both inputs are on. Real signal inputs (R7), 4 gt, 7 blocks. |
+| [gate-and-5b-r7](archive/gate-and-5b-r7.txt) | gate and | function and, latency 4 gt | 5 | 3x2x2 | robust | AND with real signal inputs: a torch stands on each input block, so each goes out when its input turns on; the dust between them is then off exactly when both inputs are on, and the wall torch hanging under that dust turns it back into AND. 4 gt, 5 blocks. |
 
 ## imply
 
@@ -24,7 +24,7 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nand-torch-6b](archive/gate-nand-torch-6b.txt) | gate nand | function nand, latency 2 gt, tileable every 4 (0 0 4) | 6 | 5x2x1 | robust | NAND gate, 2 gt (track gates): two NOTs into one output cell. Each input powers a dust on top of a stone (the dust powers the stone under it); a wall torch on the side of that stone is lit unless its input is on. Both torches touch the output cell: it is on unless both inputs are. 2 gt. |
+| [gate-nand-4b](archive/gate-nand-4b.txt) | gate nand | function nand, latency 2 gt | 4 | 3x2x1 | robust | NAND with real signal inputs: a torch stands on each input block, so each goes out when its input turns on; the dust between them, on its own support stone, is therefore lit unless BOTH inputs are on. 2 gt, 4 blocks. |
 
 ## nimply
 

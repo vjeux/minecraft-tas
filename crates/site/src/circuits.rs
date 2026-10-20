@@ -525,6 +525,18 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             continue;
         }
         let caps = captions(&dir);
+        // the extendable families' archived members (`extend.tsv`: family, n, axis, blocks, type
+        // key): a flying machine of the payload family carries n extra blocks, of the train family
+        // pulls n trailers
+        let members_of: BTreeMap<String, (String, i64)> = std::fs::read_to_string(dir.join("extend.tsv"))
+            .unwrap_or_default()
+            .lines()
+            .skip(1)
+            .filter_map(|l| {
+                let f: Vec<&str> = l.split('\t').collect();
+                (f.len() >= 5).then(|| (f[4].to_string(), (f[0].to_string(), f[1].parse().unwrap_or(0))))
+            })
+            .collect();
         // the catalog's fold: within one kind and axis value
         let mut groups: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
         for (i, r) in rows.iter().enumerate() {
@@ -661,6 +673,11 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     // (designs that hold items: the same blocks with other contents; shulker
                     // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
                     layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else if study == "shulker" { r.type_key.clone() } else { String::new() },
+                    feature: match members_of.get(&r.type_key) {
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-payload") => format!("carries {n} extra block{}", if *n == 1 { "" } else { "s" }),
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-train") => format!("pulls {n} trailer{}", if *n == 1 { "" } else { "s" }),
+                        _ => String::new(),
+                    },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -761,8 +778,14 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
                 }
                 None
             };
+            // the metric it wins comes before shared badges (critique: the 96-block speed loader
+            // led with the 31-block auto loader's badges; what it adds is 3× the speed)
+            let max_smaller = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name)).map(|j| rate(&builds[j])).fold(0.0f64, f64::max);
+            let speedup = if max_smaller > 0.0 { rate(&builds[i]) / max_smaller } else { 0.0 };
             let lead = if Some(i) == fastest {
                 Some("fastest".to_string())
+            } else if speedup >= 1.5 {
+                Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
             } else if !new.is_empty() {
                 Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
             } else if let Some(p) = pair() {
@@ -1126,8 +1149,13 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.variant_label = labels[k].clone();
             }
         }
+        // the group's sizes (critique: "every 2nd to 32nd pulse · 3 blocks" while the 32nd needs
+        // 15 blocks): its card says the range of blocks when they differ
+        let lo_b = members.iter().map(|&i| builds[i].blocks).min().unwrap_or(0);
+        let hi_b = members.iter().map(|&i| builds[i].blocks).max().unwrap_or(0);
         if let Some(c) = builds[rep].circuit.as_mut() {
             c.span = span;
+            c.span_blocks = if hi_b > lo_b { format!("{lo_b} to {hi_b} blocks") } else { String::new() };
         }
         builds[rep].flags.push("tunable".into());
     }
