@@ -1,0 +1,38 @@
+# archived 2026-10-20T00:35Z from designs/circuits/pext/work/n4-cascade-v1.txt by mctas circuit archive
+# CIRCUIT: pext-n4-cascade-v1 piston-extender 4 N 4, extend 56 gt, retract 62 gt, 40 blocks, 13x4x4, robust
+# N=4 CASCADE extender (wired, first version): units [slime + sticky piston + observer under the
+# slime] in a line (A, B, C, D, payload); a moved unit fires its own piston 2 gt after landing, so
+# the train D C D B C D A B C D needs only the round starts: D (on-edge at x7 through a LAMP-delayed
+# observer: t4 on / t8 off, which also delivers round C's off-edge pulse at x7; off-edge at x10 from
+# the lever's observer at t4), C (x5 at t14), B (x3 at t22, x4 at t24), A (t40).
+name: pext-n4-cascade-v1
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 9 2 2 lever
+port payload: 8 1 0
+palette:
+  L minecraft:lever[face=wall,facing=north]
+  K minecraft:stone
+  M minecraft:redstone_lamp
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  P minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  G minecraft:gold_block
+  U minecraft:observer[facing=up]
+  E minecraft:observer[facing=east]
+  W minecraft:observer[facing=west]
+  s minecraft:observer[facing=south]
+layer 0:
+  ..O.O.O
+layer 1:
+  .ASPSPSPG
+layer 2:
+  .U
+  ...sss.s..s
+  ..UWWU.EMLW
+  .........K
+layer 3:
+  sW
+  EEEEO
+  ..EEEEEEEO
