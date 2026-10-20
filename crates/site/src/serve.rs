@@ -360,6 +360,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Why build it</h2>")).is_some_and(|(v, w)| v < w);
         check("circuit page: the live 3D view before the explanation", first, b.page.clone());
     }
+    let c = site.builds.iter().find(|b| b.kind == "clock" && b.page.ends_with("clk-obs-p4-obs-4b.html")).or_else(|| site.builds.iter().find(|b| b.kind == "clock"));
+    if let Some(b) = c {
+        let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        check("clock page: its output over time (start-up shaded, every period marked)", html.contains("<h2>Its output over time</h2>") && html.contains("class=\"wave fit\"") && html.contains("class=\"warm\""), b.page.clone());
+    }
     // the Doors tab opens on solid doors (sculk doors can be set off by footsteps: coordinator
     // 13:54Z)
     let dq = site_model::Query::from_fragment("kind=door");

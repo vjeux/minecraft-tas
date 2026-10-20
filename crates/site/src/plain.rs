@@ -325,6 +325,13 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kind == "door" && b.group == "sculk" {
         return Some("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
+    // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
+    if let Some(c) = &b.circuit {
+        let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
+        if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+            return Some("Uses a sculk sensor tuned so footsteps and other noises don't trigger it.".to_string());
+        }
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),

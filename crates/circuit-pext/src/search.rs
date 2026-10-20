@@ -119,7 +119,7 @@ fn screen_ok(prep: &Option<Prepared>) -> bool {
     prep.as_ref().is_some_and(|p| rs::judge(p, &Params::screen(), false).0.works())
 }
 
-fn combos(n: usize, k: usize) -> Vec<Vec<usize>> {
+pub fn combos(n: usize, k: usize) -> Vec<Vec<usize>> {
     fn rec(n: usize, k: usize, start: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
         if cur.len() == k {
             out.push(cur.clone());

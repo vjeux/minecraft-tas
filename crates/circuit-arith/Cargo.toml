@@ -1,0 +1,16 @@
+[package]
+name = "circuit-arith"
+description = "Study 12 (computational redstone), track arith (mctas circuit arith ...): adders, subtractors, incrementers and comparators: a redsim truth-table checker (the judge's stimulus: Gray order, n-cube tour, complement jumps) and a SAT synthesizer for small flat designs; see designs/circuits/compute/"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
+circuit = { path = "../circuit" }
+rustsat = "0.7"
+rustsat-cadical = "0.7"

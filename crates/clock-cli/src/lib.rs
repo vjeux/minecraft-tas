@@ -30,6 +30,10 @@ pub enum ClockCmd {
         workers: usize,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Print each design's first N ambient events (tick, cell, event) instead of the table: for
+        /// comparing one build's run on redsim and in the game.
+        #[arg(long, default_value_t = 0)]
+        events: usize,
     },
     /// Exact period on redsim (milliseconds): place like the judge, kick, run until the whole
     /// state repeats; prints the period, warmup, waveform per changing cell and at the output,
@@ -386,7 +390,21 @@ pub enum ClockCmd {
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
-    if let ClockCmd::Vibration { designs, archive, game, threads, workers, out } = cmd {
+    if let ClockCmd::Vibration { designs, archive, game, threads, workers, out, events } = cmd {
+        if events > 0 {
+            for path in &designs {
+                let c = Clock::load(path)?;
+                let r = simulate(&c, &SimOptions::default());
+                let ticks = clock::vibration::horizon(r.warmup, r.period);
+                println!("{}: warmup {} period {} output {:?}, swept {:?}", c.name(), r.warmup, r.period, r.output.as_ref().map(|o| o.pos), r.swept);
+                for (t, a) in clock::vibration::ambient_actions(&c, r.swept, ticks).into_iter().take(events) {
+                    if let clock::Action::GameEvent { pos, event } = a {
+                        println!("  tick {t}: {event} at {pos:?}");
+                    }
+                }
+            }
+            return Ok(());
+        }
         return vibration_cmd(version, designs, archive, game, threads, workers, out);
     }
     match cmd {

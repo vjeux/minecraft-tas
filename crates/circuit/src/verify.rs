@@ -156,12 +156,23 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
         (out, _, _) => out,
     };
+    // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
+    let outcome = match (outcome, &kind, c.slice) {
+        (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
+            let margin = o.margin;
+            let gap0 = crate::compute::gap_of(&schedule);
+            Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+        }
+        (out, _, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
 /// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
 fn tiles(c: &Circuit, k: &Kind) -> bool {
-    c.tile.is_some() && k.study() == "pulsemult"
+    // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
+    // checker: study 1's pulse circuits tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
@@ -414,6 +425,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(tl) = c.tile
         {
             out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
+        if out.pass
+            && o.stimulus.is_none()
+            && let (Some(Kind::Compute(spec)), Some(_)) = (&kind, rc.slice)
+        {
+            let gap0 = crate::compute::gap_of(&schedule);
+            out = crate::compute::slice_check(&rc, *spec, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
         }
         // a tiled study-11 design: its copies side by side, each judged on its own (the metric
         // names the design's own step, the same in every build)

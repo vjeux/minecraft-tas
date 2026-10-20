@@ -249,8 +249,13 @@ pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Tra
         let inputs: Option<Vec<Vec<bool>>> = c.inputs.iter().map(|i| tc.inputs.iter().position(|x| copy_of(&x.name, "in") == (i.name.clone(), k)).and_then(|j| t.inputs.get(j).cloned())).collect();
         let levels: Option<Vec<Vec<u8>>> = c.outputs.iter().map(|o| tc.outputs.iter().position(|x| copy_of(&x.name, "out") == (o.name.clone(), k)).and_then(|j| t.levels.get(j).cloned())).collect();
         let (Some(inputs), Some(levels)) = (inputs, levels) else { return fail(format!("tile: copy {k}'s ports are not in the tiled run"), Vec::new()) };
-        let tk = Trace { inputs, levels, names: t.names.clone(), cells: t.cells.clone(), ..Default::default() };
-        let out = check(c, kind, &shifted(s, shift * k), &tk);
+        // copy k's cells seen from copy 0's place (a translation keeps them sorted): the checks
+        // that read a cell by the design's position (the judge's lamp, `check::update_less`) see
+        // copy k's own
+        let off = [tile.step[0] * k as i32, tile.step[1] * k as i32, tile.step[2] * k as i32];
+        let cells: Vec<Vec<(crate::Pos, u32)>> = t.cells.iter().map(|f| f.iter().map(|(p, s)| ([p[0] - off[0], p[1] - off[1], p[2] - off[2]], *s)).collect()).collect();
+        let tk = Trace { inputs, levels, names: t.names.clone(), cells, ..Default::default() };
+        let out = crate::check::check(c, kind, &shifted(s, shift * k), &tk);
         if !out.pass {
             return fail(format!("tile {} {} {} (copies driven {phase}): copy {k} of {}: {}", tile.step[0], tile.step[1], tile.step[2], tile.copies, out.why), out.table);
         }

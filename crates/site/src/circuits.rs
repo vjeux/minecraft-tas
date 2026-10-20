@@ -216,6 +216,7 @@ fn details(c: &Design) -> Details {
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
+            circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
         })
@@ -472,7 +473,19 @@ pub fn glob(pattern: &str, s: &str) -> bool {
 
 /// Why the site does not publish `study/file` (crates/site/hidden.tsv), if it does not.
 pub fn hidden(study: &str, file: &str) -> Option<String> {
-    let matches = |s: &str, p: &str| s == study && (glob(p, file) || glob(&format!("{p}.txt"), file));
+    hidden_design(study, file, "")
+}
+
+/// [`hidden`] with the design's class (its verdict's axis, e.g. `L = 10 gt,
+/// vibration-sensitive`): a rule `<study or *>/@<class>` hides every design of that class.
+pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
+    let matches = |s: &str, p: &str| {
+        (s == study || s == "*")
+            && match p.strip_prefix('@') {
+                Some(c) => !class.is_empty() && class.split(", ").any(|x| x.trim() == c),
+                None => glob(p, file) || glob(&format!("{p}.txt"), file),
+            }
+    };
     if hidden_exceptions().iter().any(|(s, p, _)| matches(s, p)) {
         return None;
     }
@@ -493,7 +506,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         };
         // the designs the site does not publish (crates/site/hidden.tsv)
         let before = rows.len();
-        let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden(study, &r.file).is_none()).collect();
+        let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).collect();
         if rows.len() < before {
             notes.push(format!("{study}: {} designs not published (crates/site/hidden.tsv)", before - rows.len()));
         }
@@ -872,6 +885,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
+            circuit::InputHow::Strength { .. } => "strength".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
         })
         .collect::<Vec<_>>()
@@ -1171,6 +1185,10 @@ mod tests {
         assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
         assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
+        // a class rule: every vibration-sensitive sculk design, in any study
+        assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());
+        assert!(hidden_design("pulse", "pulse-rise-sculk-filter-L10.txt", "L = 10 gt").is_none());
+        assert!(hidden("pulse", "pulse-rise-sculk-L30.txt").is_none(), "a class rule needs the class");
     }
 
     #[test]
