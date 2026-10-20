@@ -46,28 +46,8 @@ pulse/pulse-oneshot-pulse-extender-L16	dominated: 17 blocks vs pulse-extender-ho
 pulse/pulse-oneshot-pulse-extender-L24	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L24's 13, the same speed, only avoids torches
 pulse/pulse-oneshot-pulse-extender-L32	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L32's 13, the same speed, only avoids torches
 pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-hopper-oneshot-L40's 13, the same speed, only avoids torches
-# 2026-10-20 15:45Z, the coordinator: TEMPORARY, until clk-rt's in-game R7 re-judge lands: the circuits R7's preview
-# (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
-# (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
-# clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
-memory/counter5-ring11	temporary (R7): refused with a real input
-memory/counter10-ring5-bulb	temporary (R7): refused with a real input
-memory/counter20-ring5-bulb2	temporary (R7): refused with a real input
-memory/counter7-ring7	temporary (R7): refused with a real input
-memory/counter11-ring11	temporary (R7): refused with a real input
-memory/counter13-ring13	temporary (R7): refused with a real input
-memory/counter14-ring7-bulb1	temporary (R7): refused with a real input
-memory/counter15-ring5-ring3	temporary (R7): refused with a real input
-memory/counter21-ring7-ring3	temporary (R7): refused with a real input
-memory/counter22-ring11-bulb1	temporary (R7): refused with a real input
-memory/counter26-ring13-bulb1	temporary (R7): refused with a real input
-memory/counter28-ring7-ring4	temporary (R7): refused with a real input
-memory/counter5-ring5-bulb1-div	temporary (R7): refused with a real input
-memory/counter7-ring7-bulb1-div	temporary (R7): refused with a real input
-memory/counter30-ring5-ring3-bulb1	temporary (R7): refused with a real input
-memory/counter33-ring11-ring3	temporary (R7): refused with a real input
-memory/counter40-ring5-bulb3	temporary (R7): refused with a real input
-memory/counter45-ring5-ring3-ring3	temporary (R7): refused with a real input
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
+# 2026-10-20 19:04Z, vjeux ("A tnt duper that explodes in water is useless"): until the TNT judge's water rule removes it
+tnt/tnt-precise-slow-43b	its TNT explode in its water channel, so they destroy nothing (vjeux 19:04Z)
