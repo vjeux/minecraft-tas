@@ -8,7 +8,7 @@ use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
 use crate::{Circuit, Kind, Pos};
 use anyhow::{Context, Result, anyhow};
-use mctas::sim::{Pool, WorkerConfig};
+use mctas::sim::{Pool, Worker, WorkerConfig};
 
 /// Knobs of [`sim`] and [`verify`].
 #[derive(Clone, Debug)]
@@ -91,7 +91,7 @@ pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
-fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
+pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     if let Some(st) = o.stimulus.as_ref().or(if c.kind.is_none() { c.stimulus.as_ref() } else { None }) {
         return Ok((crate::stimulus::parse(st, &names, 100)?, None));
@@ -115,7 +115,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
-            (Err(e), _, Some(k)) if e.contains("no support") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
+            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -136,10 +136,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     let outcome = match (&trace, &kind) {
         (Ok(t), Some(k)) => {
             let out = check::check(c, k, &schedule, t);
-            match lamp_part(c, &schedule, o.margin, t) {
-                Some(why) if out.pass => Some(Outcome::fail(why, out.table)),
-                _ => Some(out),
-            }
+            let out = match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            Some(if out.pass && tiles(c, k) { tiled_sim(c, k, &schedule, o.margin, &out) } else { out })
         }
         _ => None,
     };
@@ -156,6 +157,53 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (out, _, _) => out,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
+}
+
+/// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
+fn tiles(c: &Circuit, k: &Kind) -> bool {
+    c.tile.is_some() && k.study() == "pulsemult"
+}
+
+/// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
+/// driven 7 gt apart, then in phase ([`crate::pulsemult::TILE_SHIFTS`]); the first failure fails.
+fn tiled_sim(c: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) -> Outcome {
+    let tc = match crate::tiled(c) {
+        Ok(tc) => tc,
+        Err(e) => return Outcome::fail(format!("{e}"), alone.table.clone()),
+    };
+    let label = c.tile.map(|t| crate::bud::tile_label(t.step)).unwrap_or_default();
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(c, &tc, s, shift);
+        out = match run::sim_trace(&tc, &ts, margin) {
+            Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone, shift, &label),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
+    }
+    out
+}
+
+/// The tiled runs of a study-11 design in one build of the game (`rc`: the build's circuit).
+fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome, label: &str) -> Result<Outcome> {
+    let tc = match crate::tiled(rc) {
+        Ok(tc) => tc,
+        Err(e) => return Ok(Outcome::fail(format!("{e}"), alone.table.clone())),
+    };
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(rc, &tc, s, shift);
+        out = match run::game_trace(w, &tc, &ts, margin)? {
+            Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone, shift, label),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 /// The judge's consumer lamps observe the outputs, never take part in the circuit (clockinfra
@@ -367,6 +415,15 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
         }
+        // a tiled study-11 design: its copies side by side, each judged on its own (the metric
+        // names the design's own step, the same in every build)
+        if out.pass
+            && let Some(k) = &kind
+            && tiles(&rc, k)
+            && let Some(tl) = c.tile
+        {
+            out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
         // a sculk design: the device and ambient runs in this build (crate::vibration)
         if out.pass
             && rc.has_sculk()
@@ -391,6 +448,15 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     {
         rep.pass = false;
         rep.verdict = why;
+    }
+    // TNT dupers (explosions on): every kick angle on redsim (crate::robust; vjeux: "pass every
+    // possible random number")
+    if rep.pass && c.explodes() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        if let Err(why) = crate::robust::tnt_robust(c, crate::robust::SAMPLES, workers) {
+            rep.pass = false;
+            rep.verdict = format!("not robust over every kick (redsim): {why}");
+        }
     }
     Ok(rep)
 }

@@ -1,0 +1,21 @@
+name: rt-tnt-water
+# redsim test scene (not a clock): a TNT in a pool (stone basin, water sources around it), primed
+# at tick 2 by a redstone block above it for 6 gt: water fills its cell, so its explosion (~82)
+# loses 100 resistance in its own cell on every ray and destroys nothing.
+port start: 2 2 2 minecraft:redstone_block 6 at 2
+palette:
+  S minecraft:stone
+  W minecraft:water[level=0]
+  T minecraft:tnt[unstable=false]
+layer 0:
+  SSSSS
+  SSSSS
+  SSSSS
+  SSSSS
+  SSSSS
+layer 1:
+  SSSSS
+  SWWWS
+  SWTWS
+  SWWWS
+  SSSSS

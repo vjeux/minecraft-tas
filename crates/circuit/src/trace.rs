@@ -63,6 +63,9 @@ impl Trace {
             for (k, inp) in c.inputs.iter().enumerate() {
                 let s = get(inp.pos);
                 let on = match &inp.how {
+                    // an active-low input (on-state air: the pulse removes the rest block) reads on
+                    // while its cell is empty
+                    InputHow::Block { on, .. } if mctas::blockstate::is_air(on) => s.is_none_or(|s| state_matches(s, on)),
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
                 };

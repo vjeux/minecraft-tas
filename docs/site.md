@@ -21,6 +21,7 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, five shulker machines (a loader, an unloader, the combo, the fastest loader and the fastest unloader) and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
 | `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
+| `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
@@ -127,7 +128,20 @@ header's active tab with live counts and makes the header's box the live search:
 Clocks tab (or with a unit) the clock time search (`48`, `2.5 s`, `1 min 30 s`, `40-60 gt`,
 `2-3 s`, `< 1 min`: `site_model::parse_time_query`); from any other page the box is a plain form
 to `index.html?kind=<page kind>&q=<text>`, which the UI turns into the same query. The side panel
-holds the main facet (door category / clock family / circuit kind),
-block kinds and properties as tri-state chips (must / must not / either), numeric ranges, sort,
-and 60 cards per page (more on scroll). The query is the URL fragment (`#kind=clock&time=2-3%20s`),
+holds the main facet (door category / clock family / circuit kind: the base kind in words,
+`Piston extender`, never one entry per N: the number is a property),
+block kinds and properties as tri-state chips (must / must not / either), numeric ranges, sort
+(by default the main number, then blocks: doors by size, clocks by period, circuits by kind, then
+N / L / P...), and 60 cards per page (more on scroll). The query is the URL fragment (`#kind=clock&time=2-3%20s`),
 so every search is a link; facet counts are computed with every other filter applied.
+
+Every card (grids, study pages, related lists, family members, search results:
+`site_model::html::props`) leads with the build's properties, not its generated name (vjeux:
+"the focus is on the randomly generated name which is useless for the viewer"): the kind in small
+capitals, the headline (a piston extender's `N = 3 · 19 blocks`, a clock's period and blocks, a
+door's size and blocks, a divider's `÷3 · square`), a line of secondary metrics (extend / retract,
+latency, re-arm, items/s...), chips (its own button or lever, 1 wide / 1 high, slime-free,
+tunable span, badges) and the design's name last, small (and in the tooltip). A build page's
+title is the same property line, the name under it. Circuits listed in `crates/site/hidden.tsv`
+(study / file pattern, why) are not published at all (the slime-free piston extenders, vjeux:
+"Why would anyone use this monstrosity?"); `mctas site smoke` checks none is.

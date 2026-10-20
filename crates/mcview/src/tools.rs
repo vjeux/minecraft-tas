@@ -57,6 +57,7 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     let mut look = scene::default_look(&s);
     if o.picture {
         look.outlines.clear();
+        look.port_outlines.clear();
     }
     look.floor_margin = o.floor_margin;
     // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)

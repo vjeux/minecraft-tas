@@ -91,13 +91,27 @@ designs archived before, in the real game at 16 builds:
 | tnt-launch-15b | survives: all 96 TNT leave out of range | archived: the SMALLEST survivable duper |
 | tnt-drop-16b | survives: all TNT fall straight down out of range | archived |
 
-PRECISE under explosions: open, and maybe impossible at 200 TNT/min: when TNT k goes off at the
-point, TNT k+1 (6 gt younger) is already near that point and the blast pushes it; only a path
-shielded from the blast (exposure 0) or a pinned TNT could stay exact.
+PRECISE under explosions: DONE by slowing it down (coordinator): archive/tnt-precise-slow-43b — the
+precise water-channel aligner on a slow engine (a 7-block crafter-loop clock, period 91 gt, holds
+the sticky piston and releases it for 6 gt: one push a period), so one TNT is alive at a time
+(91 gt > its 80 gt fuse): no blast knocks the next one, each goes off in the water (no block
+damage). Game, 16 builds: 20 exploded, design intact, "precise: 19 TNT at one point at fuse 1",
+at rest 33+ gt. 13.2 TNT/min. The judge's self-running run is now 1800 gt (8 periods of up to
+110 gt in its second half).
 
-Next (coordinator 12:02Z, vjeux "pass every possible random number"): the redsim judge sweeps
-every critical kick angle and evaluates every explosion at the maximum ray factor (clk-misc builds
-the exact explosion), then spot-checks in the game.
+TRIGGERED survivable: DONE: archive/tnt-triggered-launch-19b — the lever engine plus the launcher,
+held by a redstone torch that each input pulse turns off (dust + stone) for one push; every TNT
+flung out of range. The 13b's own TNT was pushed back onto its frame and chain-primed it.
+
+SLIME-FREE survivable: open (honey cannot fling; a dropped TNT spawns level with the frame top and
+the kick drifts it over a neighbour frame block within 2 ticks).
+
+Next (coordinator 12:02Z, vjeux "pass every possible random number"): DONE for the kick:
+`circuit verify` judges every TNT duper on redsim at every kick angle (4096-point sweep, every
+change bisected to 1e-12, rays at their largest roll); all five archived designs are robust over
+every kick (one piece each: the outcome never changes with the kick), and the old triggered 13b
+fails for kicks in [0.1667, 0.6250) (blown up), which is what the game showed. Per-spawn kicks
+(different TNT, different kicks) are the next step.
 
 ## Results so far (2026-10-20, explore/tnt; explosions OFF, kept for the record)
 

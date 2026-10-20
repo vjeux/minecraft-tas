@@ -444,6 +444,136 @@ pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos]
     Ok(out)
 }
 
+/// TNT dupers with explosions on (track tnt, all-randoms judge): how [`drive_tnt`] runs them.
+#[derive(Clone, Debug)]
+pub struct TntOptions {
+    /// The kick of every primed TNT (`World::tnt_kick`: the angle's `nextDouble()`), unless
+    /// `kicks` gives the k-th spawn's own.
+    pub kick: f64,
+    pub kicks: Vec<f64>,
+    /// Every explosion ray at its largest roll (`explosion::Rolls::Max`): surviving it is surviving
+    /// every roll.
+    pub max_rolls: bool,
+    /// A burning TNT this far from `design_box` is removed as out of range (the real-game judge's
+    /// rule, `circuit::run::OUT_OF_RANGE`).
+    pub out_of_range: f64,
+    pub design_box: (Pos, Pos),
+}
+
+/// One primed TNT followed by [`drive_tnt`] (the fields the real-game runner records).
+#[derive(Clone, Debug, Default)]
+pub struct TntRecord {
+    pub frame: u32,
+    pub first_pos: [f64; 3],
+    pub first_motion: [f64; 3],
+    pub launch: Option<[f64; 3]>,
+    pub end: Option<([f64; 3], [f64; 3])>,
+    pub end_frame: u32,
+    pub moved: u32,
+    pub last_pos: [f64; 3],
+    pub gone: Option<([f64; 3], [f64; 3])>,
+}
+
+/// The result of [`drive_tnt`].
+pub struct TntDriven {
+    pub driven: Driven,
+    pub tnt: Vec<TntRecord>,
+    /// The frame of every explosion.
+    pub explosions: Vec<u32>,
+    pub out_of_range: u32,
+}
+
+/// [`drive_with`] for TNT dupers with their explosions (redsim's exact port): every primed TNT is
+/// an entity with the given kick, explodes at fuse 0 (rays at their largest roll with
+/// `max_rolls`), and is removed out of range like the real-game judge does. A block of the design
+/// destroyed by an explosion stops the run with `blown up: ...`.
+pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, o: &TntOptions) -> Result<TntDriven, (Verdict, String)> {
+    let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
+    for (_, a) in extra {
+        if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
+            Block::parse(state).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
+        }
+    }
+    blocks.sort_by_key(|(p, _)| *p);
+    let mut s = start_box(c, &blocks, from, to)?;
+    s.world.remove_primed = false;
+    s.world.tnt_kick = Some(o.kick);
+    s.world.tnt_kicks = o.kicks.clone();
+    if o.max_rolls {
+        s.world.explosion_rolls = redsim::explosion::Rolls::Max;
+    }
+    s.actions.extend(extra.iter().cloned());
+    s.actions.sort_by_key(|(t, _)| *t);
+    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0 };
+    let mut index: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+    let mut blasts_seen = 0usize;
+    let (mut primed_seen, mut chain_seen) = (0usize, 0usize);
+    let (lo, hi) = o.design_box;
+    for t in 0..=ticks {
+        // explosions of the last tick: a design block they destroyed blows the machine up
+        for b in &s.world.explosions[blasts_seen..] {
+            out.explosions.push(t);
+            if let Some((p, blk)) = b.destroyed.first() {
+                out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t}", p)));
+            }
+        }
+        blasts_seen = s.world.explosions.len();
+        if out.driven.stopped.is_some() {
+            break;
+        }
+        if let Err((_, why)) = between_ticks(&mut s, t) {
+            out.driven.stopped = Some((t, why));
+            break;
+        }
+        for e in s.world.entities.list.iter_mut() {
+            let redsim::entity::EntityKind::PrimedTnt(st) = e.kind else { continue };
+            let pos = [e.pos.x, e.pos.y, e.pos.z];
+            let mot = [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z];
+            let k = *index.entry(e.id).or_insert_with(|| {
+                out.tnt.push(TntRecord { frame: t, first_pos: pos, first_motion: mot, moved: t, last_pos: pos, ..Default::default() });
+                out.tnt.len() - 1
+            });
+            let r = &mut out.tnt[k];
+            let h = |m: &[f64; 3]| (m[0] * m[0] + m[2] * m[2]).sqrt();
+            if h(&mot) >= 0.4 && r.launch.is_none_or(|l| h(&mot) > h(&l)) {
+                r.launch = Some(mot);
+            }
+            if pos.iter().zip(&r.last_pos).any(|(a, b)| a.to_bits() != b.to_bits()) {
+                r.moved = t;
+                r.last_pos = pos;
+            }
+            if st.fuse <= 1 && r.end.is_none() {
+                r.end = Some((pos, mot));
+                r.end_frame = t;
+            }
+            let dist = (0..3).map(|i| (lo[i] as f64 - pos[i]).max(pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, f64::max);
+            if dist > o.out_of_range && !e.removed {
+                e.removed = true;
+                r.gone = Some((pos, mot));
+                out.out_of_range += 1;
+            }
+        }
+        s.world.entities.list.retain(|e| !e.removed);
+        for &(_, p) in &s.world.primed[primed_seen..] {
+            out.driven.primed.push((t, p.arr()));
+        }
+        primed_seen = s.world.primed.len();
+        // an explosion-primed TNT is a new TNT too (the real-game runner sees every new entity)
+        for &(_, p) in &s.world.chain_primed[chain_seen..] {
+            out.driven.primed.push((t, p.arr()));
+        }
+        chain_seen = s.world.chain_primed.len();
+        let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
+        v.sort_by_key(|(p, _)| *p);
+        out.driven.cells.push(v);
+        out.driven.signals.push(probes.iter().map(|q| s.world.best_neighbor_signal(bp(*q)).clamp(0, 15) as u8).collect());
+        if t < ticks {
+            s.world.tick();
+        }
+    }
+    Ok(out)
+}
+
 /// Every block of the world (with comparator strengths and container contents) after each tick
 /// 0..=ticks, sorted by position: for comparing two runs (`ident`). `None` when redsim does not
 /// model the design or the run meets something it does not model.

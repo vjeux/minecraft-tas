@@ -300,6 +300,13 @@ fn come_off_track(w: &mut World, i: usize) {
 
 /// `AbstractMinecart.tick` of entity `i`.
 pub fn tick(w: &mut World, i: usize) {
+    // AbstractMinecart.tick: the damage an explosion left decays first
+    {
+        let e = &mut w.entities.list[i];
+        if e.vehicle_damage > 0.0 {
+            e.vehicle_damage -= 1.0;
+        }
+    }
     if w.entities.list[i].pos.y < (crate::gravity::MIN_Y - 64) as f64 {
         w.entities.list[i].removed = true;
         return;
