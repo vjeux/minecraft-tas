@@ -80,9 +80,9 @@ pub struct FeedReport {
 }
 
 /// `door feeds`: print [`analyze`]'s table for one schedule file.
-pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<()> {
+pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>, sculk: bool) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let r = analyze(&text, &path.display().to_string(), bx)?;
+    let r = analyze_opts(&text, &path.display().to_string(), bx, sculk)?;
     for l in &r.text {
         println!("{l}");
     }
@@ -91,6 +91,11 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
 
 /// The feed table of an ideal schedule (its text; `label` names it in the header).
 pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
+    analyze_opts(text, label, bx, false)
+}
+
+/// [`analyze`], plus (`sculk`) what a sculk sensor in each free cell would hear.
+pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool) -> Result<FeedReport> {
     let mut out: Vec<String> = Vec::new();
     let s = Schedule::parse_with(text, &BTreeMap::new())?;
     let vars = s.vars().clone();
@@ -134,11 +139,21 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
     let mut all: Vec<BTreeMap<P2, Block>> = vec![snap(&w, &held)];
     // per edge, the plane after t ticks (index t), for the observer timing
     let mut edge_snaps: [Vec<BTreeMap<P2, Block>>; 2] = [Vec::new(), Vec::new()];
+    // per edge, the vibrations (game events sculk sensors hear) with their tick: inputs applied
+    // between ticks t and t+1 and events of tick t both stamp t
+    let mut vib: [Vec<(u32, &'static str, Pos)>; 2] = [Vec::new(), Vec::new()];
+    let mut seen_ev = w.game_events.len();
     let mut firings: Vec<Firing> = Vec::new();
     for (open, evs) in [(true, &open_ev), (false, &close_ev)] {
         let es = if open { 0 } else { 1 };
         edge_snaps[es].push(snap(&w, &held));
         let (mut t, mut i) = (0u32, 0usize);
+        let take = |w: &World, seen: &mut usize, t: u32, out: &mut Vec<(u32, &'static str, Pos)>| {
+            for (name, p) in &w.game_events[*seen..] {
+                out.push((t, *name, [p.x, p.y, p.z]));
+            }
+            *seen = w.game_events.len();
+        };
         while i < evs.len() {
             while i < evs.len() && evs[i].0 == t {
                 let (_, q, st) = &evs[i];
@@ -163,17 +178,23 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
                 }
                 i += 1;
             }
+            take(&w, &mut seen_ev, t, &mut vib[es]);
             if i >= evs.len() {
                 break;
             }
             w.tick();
             t += 1;
+            take(&w, &mut seen_ev, t, &mut vib[es]);
             let s = snap(&w, &held);
             all.push(s.clone());
             edge_snaps[es].push(s);
         }
         let es_v = &mut edge_snaps[es];
+        let vib_v = &mut vib[es];
+        let mut tt = t;
         let (_, idle) = cs::step_until_idle(&mut w, 300, |w| {
+            tt += 1;
+            take(w, &mut seen_ev, tt, vib_v);
             let s = snap(w, &held);
             all.push(s.clone());
             es_v.push(s);
@@ -447,6 +468,45 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
         }
     }
     out.push(format!("# regions that cannot start (only feeder of a firing, nothing seen 2 gt before): {}", if cannot_start.is_empty() { "none".to_string() } else { cannot_start.join(", ") }));
+    // what a sculk sensor in each free cell would hear (on this plan's motion, the sensor itself
+    // changing nothing): `VibrationSystem` as `redsim::sculk` ports it. Idle (INACTIVE, nothing in
+    // flight), the first tick T with an event within the radius (8; calibrated 16) commits it to
+    // that tick's closest event (ties: higher frequency); it activates at T + max(1, floor(d)) in
+    // the block-entity phase (adjacent pistons move from the next tick), stays ACTIVE 30 gt
+    // (calibrated 10), COOLDOWN 10 gt, and hears nothing from T on until INACTIVE again.
+    if sculk {
+        out.push("# sculk: per free cell, the activations of a sensor there (S normal: radius 8, active 30; C calibrated, no back signal: radius 16, active 10): tA<(x,y) = active from tick A, woken by the event at (x,y)".to_string());
+        for c in &free {
+            let mut parts: Vec<String> = Vec::new();
+            for (name, r, active) in [("S", 8i32, 30u32), ("C", 16, 10)] {
+                for (e, edge) in [(0usize, "open"), (1, "close")] {
+                    let mut evs: Vec<(u32, f64, u8, Pos)> = vib[e]
+                        .iter()
+                        .filter_map(|(t, ev, p)| {
+                            let f = redsim::sculk::frequency(ev);
+                            let (dx, dy, dz) = (p[0] - c.0, p[1] - c.1, p[2] - z);
+                            let d2 = dx * dx + dy * dy + dz * dz;
+                            (f > 0 && d2 <= r * r && d2 > 0).then(|| (*t, (d2 as f64).sqrt(), f, *p))
+                        })
+                        .collect();
+                    evs.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.partial_cmp(&b.1).unwrap()).then(b.2.cmp(&a.2)));
+                    let mut inactive_from = 0u32;
+                    let mut acts: Vec<String> = Vec::new();
+                    for (t, d, _, p) in &evs {
+                        if *t < inactive_from {
+                            continue;
+                        }
+                        // the first event of this tick in sorted order is its closest one
+                        let a = t + (d.floor() as u32).max(1);
+                        acts.push(format!("t{a}<({},{}{})", p[0], p[1], if p[2] != z { format!(",{}", p[2]) } else { String::new() }));
+                        inactive_from = a + active + 10;
+                    }
+                    parts.push(format!("{name} {edge} {}", if acts.is_empty() { "-".to_string() } else { acts.join(" ") }));
+                }
+            }
+            out.push(format!("# sculk {}: {}", cell(*c), parts.join("; ")));
+        }
+    }
     out.push(format!("# one cell, several targets (its one component cannot feed them all): {}", if conflicts.is_empty() { "none".to_string() } else { conflicts.join("; ") }));
     Ok(FeedReport { firings: firings.len(), none, weak, conflicts, cannot_start, text: out })
 }

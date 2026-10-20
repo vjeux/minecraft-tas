@@ -11,11 +11,15 @@ pub struct FeedsArgs {
     /// design's blocks): only cells inside it that stay free all cycle can feed.
     #[arg(long, value_name = "X0..X1,Y0..Y1")]
     r#box: Option<String>,
+    /// Also print, per free cell, when a sculk sensor (normal / calibrated) there would activate on
+    /// each edge, from the plan's own vibrations (piston moves, lever flips).
+    #[arg(long)]
+    sculk: bool,
 }
 
 pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
     let bx = args.r#box.as_deref().map(crate::feeds::parse_box).transpose()?;
-    crate::feeds::cli(&args.schedule, bx)
+    crate::feeds::cli(&args.schedule, bx, args.sculk)
 }
 
 #[derive(clap::Args)]

@@ -164,3 +164,34 @@ firings needing different targets. Library: `piston_door::feeds::analyze` -> Fee
   u0-l5's windows: SU(2,-2) #1 open t1..10 (before SW(4,1)), #2 open >= 25, extra close pulse harmless
   only at t25..26 (u0-l6); SW(3,-1) open t23..28, close t35..41 (disjoint). Needs a symmetric train
   (pext's interleave) or a mechanism variant (c70b) with those constraints.
+
+## Sculk on u0 (u0/u0-s0 .. u0-s2; `door feeds --sculk`)
+Timing (26.3 `VibrationSystem`, as redsim's sculk.rs ports it; game-checked gadgets sculk-hold /
+sculk-delay-line): a lever flip and every piston extend / retract are vibrations (BLOCK_ACTIVATE 10 /
+BLOCK_DEACTIVATE 9; observers, dust, repeaters and ideal inputs make none). An idle sensor (INACTIVE,
+nothing in flight) commits to the first tick T with an event within its radius (8, calibrated 16;
+that tick's closest event), activates at T + max(1, floor(d)) in the block-entity phase (adjacent
+pistons move from T+floor(d)+1), stays ACTIVE 30 gt (calibrated 10), COOLDOWN 10, and hears nothing
+from T until INACTIVE again. Power is weak on every side (calibrated: not its back), strong only
+into the block below. An observer watching a sensor pulses 3 times per activation (wake, cooldown,
+inactive: +0, +10/30, +20/40, each +2).
+- In a 7x7 box every cell is within 8 of the lever (0,5) or of the t1 moves of SD(0,4) / SD(1,4):
+  every sensor wakes at t1..t8 on BOTH edges (`--sculk` on u0-s0: bottom right t6..t8), then re-arms
+  at +20 (calibrated) / +40 and takes the next vibration. Sensor actions are early and the same on
+  both edges, unless the mechanism's state differs or a calibrated sensor's back gets a 9 / 10 signal
+  (u0's lever turns OFF at open: deactivate 9; ON at close: activate 10).
+- A sensor gives a HOLD of 10 / 30 gt: a sticky piston pushes and pulls back (no spit); a reach-pull
+  (front empty) still happens, at the hold's end. A NON-sticky piston pushes and leaves the block on
+  any hold: u0's SW(3,-1) only push-spits, and as a normal piston (u0-s2) the door works with its
+  pushes held 2..30 gt, but only starting open t23..28 / close t35..40: no sensor offers that (first
+  wake t7, re-armed t27 / t47 + the next event).
+- The bottom-right island's only observer spot that watches inside the box and outputs into a
+  piston is (3,-2) facing east (into SU(2,-2), watching (4,-2)): a sensor at (4,-2) gives SU(2,-2)
+  3 pulses per activation on both edges; u0 needs 2 at open, none at close (harmless only t25..26).
+- (0,-2): a sensor there holds SU(-1,-2) and SU(1,-2) together; SU(1,-2) push-spits at close.
+- Brute force (redsim, `ideal-rs --vary`, u0-s1: the real lever, the bottom-right inputs removed):
+  0 of 1296 fillings of (3,-2) (4,-2) (4,-1) (4,0) with air / sensor / calibrated x4; 0 of 2058 with
+  observers and dust added for SU(2,-2) alone (u0-s1a); 0 of 2058 for SW(3,-1) alone (u0-s1b).
+So sculk cannot rescue u0 / u2's islands: they need late, edge-specific spits. A sculk 7x7 needs a
+mechanism whose sculk-fed pistons act early (or at +20 / +40), do holds or non-sticky pushes, and
+differ between edges only through the door's state.

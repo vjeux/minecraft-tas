@@ -1,0 +1,56 @@
+phase between
+# u0-s1: u0-l4's plan with the real lever (use 0 5 0: a vibration) and WITHOUT the bottom-right
+# island's inputs (SU(2,-2) open t6/t54, SW(3,-1) open t24 / close t36): sculk sensors in
+# (3,-2) (4,-2) (4,-1) (4,0) must do their work.
+# u0-s1b: u0-s1 with SU(2,-2)'s ideal inputs back (only SW(3,-1) left to sculk).
+design designs/piston-door-3x3/tracks/d67/u0/u0-s1.txt
+open 0 use 0 5 0
+open 6 set 2 -3 0 minecraft:redstone_block
+open 8 clear 2 -3 0
+open 54 set 2 -3 0 minecraft:redstone_block
+open 56 clear 2 -3 0
+open 12 set -3 0 0 minecraft:redstone_block
+open 12 set -3 1 0 minecraft:redstone_block
+open 14 clear -3 0 0
+open 14 clear -3 1 0
+open 18 set -3 0 0 minecraft:redstone_block
+open 18 set 1 -3 0 minecraft:redstone_block
+open 20 clear -3 0 0
+open 20 clear 1 -3 0
+open 30 set -1 -3 0 minecraft:redstone_block
+open 32 clear -1 -3 0
+open 36 set -3 0 0 minecraft:redstone_block
+open 36 set -1 1 1 minecraft:redstone_block
+open 38 clear -3 0 0
+open 38 clear -1 1 1
+open 42 set -1 3 1 minecraft:redstone_block
+open 44 clear -1 3 1
+open 48 set -1 -3 0 minecraft:redstone_block
+open 48 set -1 3 1 minecraft:redstone_block
+open 50 clear -1 -3 0
+open 50 clear -1 3 1
+open 54 set -3 1 0 minecraft:redstone_block
+open 54 set -3 0 0 minecraft:redstone_block
+open 56 clear -3 1 0
+open 56 clear -3 0 0
+close 0 use 0 5 0
+close 6 set -3 0 0 minecraft:redstone_block
+close 6 set 1 -3 0 minecraft:redstone_block
+close 8 clear -3 0 0
+close 8 clear 1 -3 0
+close 12 set -1 -1 1 minecraft:redstone_block
+close 14 clear -1 -1 1
+close 18 set 1 -3 0 minecraft:redstone_block
+close 18 set -1 3 1 minecraft:redstone_block
+close 20 clear 1 -3 0
+close 20 clear -1 3 1
+close 24 set -3 1 0 minecraft:redstone_block
+close 24 set -3 0 0 minecraft:redstone_block
+close 26 clear -3 1 0
+close 26 clear -3 0 0
+close 30 set -1 -3 0 minecraft:redstone_block
+close 30 set 1 -3 0 minecraft:redstone_block
+close 32 clear -1 -3 0
+close 32 clear 1 -3 0
+close 42 set 1 -3 0 minecraft:redstone_block
+close 44 clear 1 -3 0
