@@ -128,6 +128,25 @@ struct Sim {
 impl Sim {
     /// Apply one step to a world and run until idle.
     fn apply(&self, w: &World, s: &Step) -> std::result::Result<World, String> {
+        self.apply_with(w, s, |_| {})
+    }
+    /// `apply`, also returning the islands that saw a change: every watched cell whose block
+    /// changed at some tick (pistons that extend and come back still count).
+    fn apply_tracked(&self, w: &World, s: &Step, watch: &[(Pos, u64)]) -> std::result::Result<(World, u64), String> {
+        let mut prev: Vec<Block> = watch.iter().map(|(p, _)| w.get(cs::bp(*p))).collect();
+        let mut woken = 0u64;
+        let w2 = self.apply_with(w, s, |w| {
+            for (k, (p, m)) in watch.iter().enumerate() {
+                let now = w.get(cs::bp(*p));
+                if now != prev[k] {
+                    woken |= m;
+                    prev[k] = now;
+                }
+            }
+        })?;
+        Ok((w2, woken))
+    }
+    fn apply_with(&self, w: &World, s: &Step, mut on_tick: impl FnMut(&World)) -> std::result::Result<World, String> {
         let mut w = w.clone();
         let mut evs = s.evs.clone();
         evs.sort_by_key(|e| e.0);
@@ -152,12 +171,14 @@ impl Sim {
                 w.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
                 i += 1;
             }
+            on_tick(&w);
             if i < evs.len() {
                 w.tick();
                 t += 1;
+                on_tick(&w);
             }
         }
-        let (_, idle) = cs::step_until_idle(&mut w, 300, |_| {});
+        let (_, idle) = cs::step_until_idle(&mut w, 300, |w| on_tick(w));
         if !idle {
             return Err("never idle".into());
         }
@@ -176,6 +197,15 @@ impl Sim {
 type Sparse = Vec<(u32, Block)>;
 
 impl Sim {
+    /// The snapshot index of a cell (None outside the box).
+    fn index(&self, p: Pos) -> Option<u32> {
+        let size = [self.hi[0] - self.lo[0] + 1, self.hi[1] - self.lo[1] + 1, self.hi[2] - self.lo[2] + 1];
+        let (x, y, z) = (p[0] - self.lo[0], p[1] - self.lo[1], p[2] - self.lo[2]);
+        if x < 0 || y < 0 || z < 0 || x >= size[0] || y >= size[1] || z >= size[2] {
+            return None;
+        }
+        Some(((y * size[2] + z) * size[0] + x) as u32)
+    }
     fn sparse(&self, w: &World) -> Sparse {
         self.snap(w).cells.iter().enumerate().filter(|(_, b)| **b != Block::Air).map(|(i, b)| (i as u32, *b)).collect()
     }
@@ -218,15 +248,20 @@ fn train_plan(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: 
 
 /// Pull every step of a working train as early as it goes, on BOTH edges together (unlike
 /// `ideal-rs --compact`, which moves each edge's groups on their own), two passes.
-fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Step], times: &mut [u32], fixed: &[(bool, u32, Pos, Option<String>)], cycles: u32) {
+/// `floors[k]`: the earliest tick step `k` may move to; `frozen[k]`: step `k` keeps its tick.
+fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Step], times: &mut [u32], fixed: &[(bool, u32, Pos, Option<String>)], cycles: u32, floors: &[u32], frozen: &[bool]) {
     let screen = crate::ideal::offsets(0);
     let works = |t: &[u32]| ideal_rs::run_edited(&train_plan(d, phase, train, t, fixed).0, &BTreeMap::new(), &[], &screen, cycles, false).is_ok();
     for _ in 0..2 {
         for k in 0..times.len() {
+            if frozen.get(k).copied().unwrap_or(false) {
+                continue;
+            }
+            let floor = floors.get(k).copied().unwrap_or(0);
             let orig = times[k];
             let mut best = orig;
             let mut t = orig;
-            while t > 0 {
+            while t > floor {
                 t -= 1;
                 times[k] = t;
                 if works(times) {
@@ -298,6 +333,17 @@ struct Limits {
     budgets: Vec<usize>,
     /// Threads simulating a batch of expansions.
     threads: usize,
+    /// `--islands`: sealed free-cell islands must start before they feed anything.
+    islands: Option<Islands>,
+}
+
+/// The door's free cells split into islands with no electrical path between them: an island can
+/// only fire after it sees a change next to it (or holds the lever). Per move, the islands that can
+/// feed its pistons; per watched cell (next to an island), the islands that see it change.
+struct Islands {
+    feeders: Vec<u64>,
+    watch: Vec<(Pos, u64)>,
+    start: [u64; 2],
 }
 
 /// `--search`: weighted A* over pairs of idle worlds (the closed door opening, the open door
@@ -326,9 +372,21 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
         h.finish()
     };
     let mut seen: HashSet<u64> = HashSet::new();
-    // (open-edge world, close-edge world, parent, move, steps, moves fired per pocket)
+    // (open-edge world, close-edge world, parent, move, steps, moves fired per pocket [+ the two
+    // edges' started-island masks with `--islands`, 8 bytes each])
     let (sa0, sb0) = (sim.sparse(starts.0), sim.sparse(starts.1));
-    let used0 = vec![0u8; limits.budgets.len()];
+    let nb = limits.budgets.len();
+    let mut used0 = vec![0u8; nb];
+    if let Some(isl) = &limits.islands {
+        used0.extend_from_slice(&isl.start[0].to_le_bytes());
+        used0.extend_from_slice(&isl.start[1].to_le_bytes());
+    }
+    let masks = |u: &[u8]| -> (u64, u64) {
+        if u.len() < nb + 16 {
+            return (0, 0);
+        }
+        (u64::from_le_bytes(u[nb..nb + 8].try_into().unwrap()), u64::from_le_bytes(u[nb + 8..nb + 16].try_into().unwrap()))
+    };
     let mut nodes: Vec<(Sparse, Sparse, Option<usize>, usize, usize, Vec<u8>)> = vec![(sa0.clone(), sb0.clone(), None, 0, 0, used0.clone())];
     let h0 = diff(&sa0, &target_open) + diff(&sb0, &target_rest);
     let mut heap = BinaryHeap::new();
@@ -368,25 +426,45 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
                     }
                     used2[*p] += 1;
                 }
+                // a move's pistons must be fed by an island already started on each edge it acts on
+                if let Some(isl) = &limits.islands {
+                    let f = isl.feeders.get(mi).copied().unwrap_or(0);
+                    if f != 0 {
+                        let (ma, mb) = masks(&used2);
+                        let m = &moves[mi];
+                        if (m.edge != 2 && ma & f == 0) || (m.edge != 1 && mb & f == 0) {
+                            continue;
+                        }
+                    }
+                }
                 jobs.push((id, mi, used2));
             }
         }
         let res = cs::par_map(&jobs, limits.threads.max(1), |(id, mi, _)| {
             let m = &moves[*mi];
-            // an edge-specific move leaves the other edge's world as it is
-            let side = |s: &Sparse, on: bool| -> Option<Sparse> {
+            // an edge-specific move leaves the other edge's world as it is; with `--islands` each
+            // side also reports the islands that saw a change during the step
+            let side = |s: &Sparse, on: bool| -> Option<(Sparse, u64)> {
                 if !on {
-                    return Some(s.clone());
+                    return Some((s.clone(), 0));
                 }
-                sim.apply(&sim.rebuild(s), m).ok().map(|w| sim.sparse(&w))
+                match &limits.islands {
+                    Some(isl) => sim.apply_tracked(&sim.rebuild(s), m, &isl.watch).ok().map(|(w, woke)| (sim.sparse(&w), woke)),
+                    None => sim.apply(&sim.rebuild(s), m).ok().map(|w| (sim.sparse(&w), 0)),
+                }
             };
             match (side(&nodes[*id].0, m.edge != 2), side(&nodes[*id].1, m.edge != 1)) {
                 (Some(a2), Some(b2)) => Some((a2, b2)),
                 _ => None,
             }
         });
-        for ((id, mi, used2), r) in jobs.into_iter().zip(res) {
-            let Some((sa, sb)) = r else { continue };
+        for ((id, mi, mut used2), r) in jobs.into_iter().zip(res) {
+            let Some(((sa, wa), (sb, wb))) = r else { continue };
+            if limits.islands.is_some() {
+                let (ma, mb) = masks(&used2);
+                used2[nb..nb + 8].copy_from_slice(&(ma | wa).to_le_bytes());
+                used2[nb + 8..nb + 16].copy_from_slice(&(mb | wb).to_le_bytes());
+            }
             let k = key(&sa, &sb, &used2);
             if !seen.insert(k) {
                 continue;
@@ -477,6 +555,13 @@ pub struct Options {
     pub edge_cost: usize,
     /// Offer the plan's idle-to-idle segments (with their own timing) as moves.
     pub segments: bool,
+    /// Pulses forced at the start of the train, in order (both edges): the cells pulsed together,
+    /// and the tick it must keep (else free).
+    pub prefix: Vec<(Vec<Pos>, Option<u32>)>,
+    /// Earliest tick of any pulse on these cells (`--after cell=t`).
+    pub after: Vec<(Pos, u32)>,
+    /// Sealed islands must start (see a change next to them, or hold the lever) before they feed.
+    pub islands: bool,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -654,16 +739,43 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
     say!(o, "TRAIN of {} steps for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
     let offsets = crate::ideal::offsets(o.extra_offsets);
     for spacing in [4u32, 6, 8, 10, 12, 16, 20, 30] {
-        // with lever-held inputs the train starts one spacing after the lever's own change
+        // with lever-held inputs the train starts one spacing after the lever's own change; a
+        // `--prefix` step with a tick keeps it, the rest of the train follows it
         let lead = if fixed.is_empty() { 0 } else { 1 };
+        let p = o.prefix.len().min(train.len());
         let mut times: Vec<u32> = (0..train.len() as u32).map(|k| (k + lead) * spacing).collect();
+        let mut frozen = vec![false; train.len()];
+        let mut base = 0u32;
+        for k in 0..p {
+            if let Some(t) = o.prefix[k].1 {
+                times[k] = t;
+                frozen[k] = true;
+            } else {
+                times[k] = base + if k == 0 { lead * spacing } else { spacing };
+            }
+            base = times[k];
+        }
+        for k in p..train.len() {
+            times[k] = base + (k - p + 1) as u32 * spacing;
+        }
+        // floors: a prefix step after the one before it; `--after cell=t` for the rest
+        let floors: Vec<u32> = (0..train.len())
+            .map(|k| {
+                if k < p {
+                    if k == 0 { 0 } else { times[k - 1] + 2 }
+                } else {
+                    train[k].evs.iter().filter_map(|e| o.after.iter().find(|(c, _)| *c == e.1).map(|(_, t)| *t)).max().unwrap_or(0)
+                }
+            })
+            .collect();
         let (plan, _) = train_plan(d, phase, train, &times, fixed);
         if let Err(e) = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
             say!(o, "timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>());
             continue;
         }
         say!(o, "WORKS timed every {spacing} gt ({} positions x {} cycles)", offsets.len(), o.cycles);
-        compact_train(d, phase, train, &mut times, fixed, o.cycles);
+        let start_times = times.clone();
+        compact_train(d, phase, train, &mut times, fixed, o.cycles, &floors, &frozen);
         let (plan, mut all) = train_plan(d, phase, train, &times, fixed);
         let shown: Vec<String> = train.iter().zip(&times).map(|(st, t)| format!("t{t}:{}", st.label())).collect();
         say!(o, "compacted (both edges together): {}", shown.join(" "));
@@ -676,7 +788,7 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
             }
             Err(e) => {
                 say!(o, "compacted train fails at the full positions ({e}); keeping every {spacing} gt");
-                times = (0..train.len() as u32).map(|k| (k + lead) * spacing).collect();
+                times = start_times.clone();
                 all = train_plan(d, phase, train, &times, fixed).1;
                 format!("ONE TRAIN: {} steps every {spacing} gt (compaction failed)", train.len())
             }
@@ -706,6 +818,145 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
         return Ok(summary);
     }
     Ok(format!("train of {} pulses found step by step but no timing works", train.len()))
+}
+
+/// `--islands`: the free cells of the door's plane (inside the design's box, never holding a block
+/// in either edge's run) split into 4-connected islands; per move, the islands that can feed its
+/// pistons (a free cell next to the piston, or next to the cell above it for quasi-connectivity);
+/// per cell, the islands that see it; the islands started at t0 (the lever's, and those that see
+/// the lever flip's changes). Returns a description and the islands.
+fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos>, lever_cells: &[Pos], inputs: &[Pos], moves: &[Step], sim: &Sim, flips: (&std::collections::BTreeSet<u32>, &std::collections::BTreeSet<u32>)) -> (String, Islands) {
+    let door = d.ports.get("door").copied().unwrap_or([0, 0, 0]);
+    let along_z = d.meta.get("door-axis").is_some_and(|v| v == "z");
+    let (a, b, k) = if along_z { (2usize, 1usize, 0usize) } else { (0usize, 1usize, 2usize) };
+    // the door's box: its blocks in the plane, the plan's input cells left out
+    let plane: Vec<&Pos> = d.blocks.keys().filter(|p| p[k] == door[k] && !inputs.contains(p)).collect();
+    let (lo_a, hi_a) = (plane.iter().map(|p| p[a]).min().unwrap_or(0), plane.iter().map(|p| p[a]).max().unwrap_or(0));
+    let (lo_b, hi_b) = (plane.iter().map(|p| p[b]).min().unwrap_or(0), plane.iter().map(|p| p[b]).max().unwrap_or(0));
+    let mut free: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
+    for i in lo_a..=hi_a {
+        for j in lo_b..=hi_b {
+            let mut p = door;
+            p[a] = i;
+            p[b] = j;
+            if !occ.contains(&p) && !d.blocks.contains_key(&p) {
+                free.insert(p);
+            }
+        }
+    }
+    let nbrs = |p: Pos| -> Vec<Pos> { DIRS6.iter().map(|dd| add3(p, *dd)).collect() };
+    let in_plane = |p: Pos| -> Vec<Pos> { nbrs(p).into_iter().filter(|q| q[k] == door[k]).collect() };
+    // 4-connected islands
+    let mut island_of: HashMap<Pos, usize> = HashMap::new();
+    let mut islands: Vec<Vec<Pos>> = Vec::new();
+    for &c in &free {
+        if island_of.contains_key(&c) {
+            continue;
+        }
+        let id = islands.len();
+        let mut cells = vec![c];
+        island_of.insert(c, id);
+        let mut q = vec![c];
+        while let Some(x) = q.pop() {
+            for y in in_plane(x) {
+                if free.contains(&y) && !island_of.contains_key(&y) {
+                    island_of.insert(y, id);
+                    cells.push(y);
+                    q.push(y);
+                }
+            }
+        }
+        islands.push(cells);
+    }
+    let bit = |id: usize| if id < 64 { 1u64 << id } else { 0 };
+    // islands next to a cell
+    let touching = |p: Pos| -> u64 { nbrs(p).into_iter().filter_map(|q| island_of.get(&q)).fold(0u64, |m, id| m | bit(*id)) };
+    // pistons at rest an input cell powers (next to it, or whose cell above touches it)
+    let pistons: Vec<Pos> = d.blocks.iter().filter(|(_, s)| (s.contains("minecraft:piston") || s.contains("minecraft:sticky_piston")) && !s.contains("piston_head")).map(|(p, _)| *p).collect();
+    let feeders: Vec<u64> = moves
+        .iter()
+        .map(|m| {
+            let mut f = 0u64;
+            for (_, c, st) in &m.evs {
+                if st.is_none() {
+                    continue;
+                }
+                for p in &pistons {
+                    let above = add3(*p, [0, 1, 0]);
+                    let near = |x: Pos| (x[0] - c[0]).abs() + (x[1] - c[1]).abs() + (x[2] - c[2]).abs() == 1;
+                    if near(*p) || near(above) {
+                        f |= touching(*p) | touching(above);
+                    }
+                }
+            }
+            f
+        })
+        .collect();
+    let mut seen_by: HashMap<Pos, u64> = HashMap::new();
+    for (id, cells) in islands.iter().enumerate() {
+        for c in cells {
+            for x in nbrs(*c) {
+                *seen_by.entry(x).or_default() |= bit(id);
+            }
+        }
+    }
+    let watch: Vec<(Pos, u64)> = seen_by.into_iter().collect();
+    let woken_by = |changed: &std::collections::BTreeSet<u32>| -> u64 { watch.iter().filter(|(p, _)| sim.index(*p).is_some_and(|i| changed.contains(&i))).fold(0u64, |m, (_, b)| m | b) };
+    let lever_islands = lever_cells.iter().fold(0u64, |m, c| m | touching(*c));
+    let start = [lever_islands | woken_by(flips.0), lever_islands | woken_by(flips.1)];
+    let isl = Islands { feeders, watch, start };
+    let desc = islands.iter().enumerate().map(|(i, c)| format!("#{i} {:?}", c.iter().map(|p| (p[a], p[b])).collect::<Vec<_>>())).collect::<Vec<_>>().join(" ");
+    (desc, isl)
+}
+
+const DIRS6: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
+fn add3(a: Pos, b: Pos) -> Pos {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+/// Run one edge of a plan with its own timing from `start` (the real lever used first): the
+/// settled world and every cell that held a block at some tick (the snapshot box).
+fn run_timed(start: &World, uses: &[Pos], evs: &[(u32, Pos, Option<String>)], sim: &Sim) -> Result<(World, std::collections::BTreeSet<Pos>)> {
+    let mut w = start.clone();
+    let mut occ: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
+    let note = |w: &World, occ: &mut std::collections::BTreeSet<Pos>| {
+        for (p, b) in sim.snap(w).iter() {
+            if b != Block::Air {
+                occ.insert(p);
+            }
+        }
+    };
+    note(&w, &mut occ);
+    let mut evs = evs.to_vec();
+    evs.sort_by_key(|e| e.0);
+    for c in uses {
+        w.use_block(cs::bp(*c));
+    }
+    let mut t = 0u32;
+    let mut i = 0;
+    while i < evs.len() {
+        while i < evs.len() && evs[i].0 == t {
+            let (_, q, st) = &evs[i];
+            let b = match st {
+                Some(x) => cs::convert_state(x).map_err(|e| anyhow::anyhow!("{x}: {e}"))?,
+                None => Block::Air,
+            };
+            w.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
+            i += 1;
+        }
+        if i < evs.len() {
+            w.tick();
+            t += 1;
+            note(&w, &mut occ);
+        }
+    }
+    let mut occ2 = occ.clone();
+    let (_, idle) = cs::step_until_idle(&mut w, 300, |w| note(w, &mut occ2));
+    if !idle {
+        bail!("the plan never settles");
+    }
+    Ok((w, occ2))
 }
 
 fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
@@ -751,35 +1002,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     }
     // the open rest state: the lever used, then the open plan run with its own timing (a plan's
     // holds may overlap other inputs, which a step-by-step replay would serialize)
-    let mut wopen = w0.clone();
-    {
-        let mut evs = open_ev.clone();
-        evs.sort_by_key(|e| e.0);
-        for c in &uses {
-            wopen.use_block(cs::bp(*c));
-        }
-        let mut t = 0u32;
-        let mut i = 0;
-        while i < evs.len() {
-            while i < evs.len() && evs[i].0 == t {
-                let (_, q, st) = &evs[i];
-                let b = match st {
-                    Some(x) => cs::convert_state(x).map_err(|e| anyhow::anyhow!("{x}: {e}"))?,
-                    None => Block::Air,
-                };
-                wopen.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
-                i += 1;
-            }
-            if i < evs.len() {
-                wopen.tick();
-                t += 1;
-            }
-        }
-        let (_, idle) = cs::step_until_idle(&mut wopen, 300, |_| {});
-        if !idle {
-            bail!("the open plan never settles");
-        }
-    }
+    let (wopen, occ_open) = run_timed(&w0, &uses, &open_ev, &sim)?;
     let (w0, wopen) = if o.fix.is_empty() && o.clear.is_empty() {
         (w0, wopen)
     } else {
@@ -817,21 +1040,36 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         if !o.cells.is_empty() {
             cells = o.cells.clone();
         }
-        let flip = |w: &World, to_open: bool| -> Result<World> {
+        // the lever's flip at t0 of each edge, run until idle; also every snapshot cell it changes
+        // on the way (islands that see those start with it)
+        let flip = |w: &World, to_open: bool| -> Result<(World, std::collections::BTreeSet<u32>)> {
             let mut w = w.clone();
+            let mut prev = sim.snap(&w);
+            let mut changed: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
+            let mut note = |w: &World, changed: &mut std::collections::BTreeSet<u32>| {
+                let now = sim.snap(w);
+                for (i, (a, b)) in prev.cells.iter().zip(now.cells.iter()).enumerate() {
+                    if a != b {
+                        changed.insert(i as u32);
+                    }
+                }
+                prev = now;
+            };
             for (c, closed, open) in &lever {
                 w.set_block(cs::bp(*c), if to_open { *open } else { *closed }, redsim::world::flags::ALL);
             }
             for c in &uses {
                 w.use_block(cs::bp(*c));
             }
-            let (_, idle) = cs::step_until_idle(&mut w, 300, |_| {});
+            note(&w, &mut changed);
+            let (_, idle) = cs::step_until_idle(&mut w, 300, |w| note(w, &mut changed));
             if !idle {
                 bail!("never idle after the lever-held inputs flip");
             }
-            Ok(w)
+            Ok((w, changed))
         };
-        let (a0, b0) = if lever.is_empty() && uses.is_empty() { (w0.clone(), wopen.clone()) } else { (flip(&w0, true)?, flip(&wopen, false)?) };
+        let none = std::collections::BTreeSet::new();
+        let ((a0, ch_open), (b0, ch_close)) = if lever.is_empty() && uses.is_empty() { ((w0.clone(), none.clone()), (wopen.clone(), none)) } else { (flip(&w0, true)?, flip(&wopen, false)?) };
         let mut fixed: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
         for (c, closed, open) in &lever {
             let st = |b: &Block| if *b == Block::Air { None } else { Some(b.to_string()) };
@@ -943,11 +1181,41 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 if m.edge != 0 { base.max(o.edge_cost) } else { base }
             })
             .collect();
-        let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect(), threads: o.search_threads };
+        let islands = if o.islands {
+            let (_, occ_close) = run_timed(&wopen, &uses, &close_ev, &sim)?;
+            let mut occ = occ_open.clone();
+            occ.extend(occ_close);
+            let lever_cells: Vec<Pos> = lever.iter().map(|l| l.0).chain(uses.iter().copied()).collect();
+            // cells the plan drives (its inputs) are not part of the door's box
+            let inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).map(|e| e.1).chain(lever_cells.iter().copied()).collect();
+            let isl = build_islands(&d, &occ, &lever_cells, &inputs, &moves, &sim, (&ch_open, &ch_close));
+            say!(o, "islands: {} (start masks open {:#x} / close {:#x})", isl.0, isl.1.start[0], isl.1.start[1]);
+            Some(isl.1)
+        } else {
+            None
+        };
+        let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect(), threads: o.search_threads, islands };
+        // `--prefix`: pulses forced at the start of the train (both edges), e.g. a piston that must
+        // move first so a sealed island can see it
+        let mut a0 = a0;
+        let mut b0 = b0;
+        let mut prefix: Vec<Step> = Vec::new();
+        for (set, _) in &o.prefix {
+            let mut evs: Vec<(u32, Pos, Option<String>)> = set.iter().map(|c| (0, *c, rbs())).collect();
+            evs.extend(set.iter().map(|c| (2, *c, None)));
+            let st = Step::new(evs);
+            a0 = sim.apply(&a0, &st).map_err(|e| anyhow::anyhow!("--prefix {set:?} on the opening: {e}"))?;
+            b0 = sim.apply(&b0, &st).map_err(|e| anyhow::anyhow!("--prefix {set:?} on the closing: {e}"))?;
+            prefix.push(st);
+        }
         let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, &limits, cap, o.weight);
         return match found {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
-            Some(train) => timed_train(&d, s.phase, &text, path, &train, &fixed, n, o, out),
+            Some(train) => {
+                let mut full = prefix;
+                full.extend(train);
+                timed_train(&d, s.phase, &text, path, &full, &fixed, n, o, out)
+            }
         };
     }
     if !uses.is_empty() {

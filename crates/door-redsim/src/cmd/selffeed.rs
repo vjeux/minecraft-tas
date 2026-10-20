@@ -146,10 +146,23 @@ pub struct InterleaveArgs {
     /// overlapping pulses kept) as moves.
     #[arg(long)]
     segments: bool,
+    /// Pulses forced at the start of the train, in order, `step;step` where a step is
+    /// `x,y,z[+x,y,z...][@tick]` (cells pulsed together; with `@tick` the timed train keeps that
+    /// tick): e.g. the piston a sealed island must see move first, at its gadget's tick.
+    #[arg(long)]
+    prefix: Option<String>,
+    /// The earliest tick of any pulse on this cell, `x,y,z=t` (repeatable).
+    #[arg(long)]
+    after: Vec<String>,
+    /// Island starts: the door's free cells split into islands with no electrical path; a pulse
+    /// is only allowed once an island that can feed its piston has seen a change next to it (or
+    /// holds the lever), on each edge it acts on.
+    #[arg(long)]
+    islands: bool,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments, prefix, after, islands } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -179,6 +192,25 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         Some(c) => c.split(';').map(parse_pos).collect::<Result<_>>()?,
         None => Vec::new(),
     };
+    let prefix: Vec<(Vec<[i32; 3]>, Option<u32>)> = match &prefix {
+        Some(c) => {
+            let mut v = Vec::new();
+            for step in c.split(';') {
+                let (cells, tick) = match step.split_once('@') {
+                    Some((a, t)) => (a, Some(t.trim().parse::<u32>()?)),
+                    None => (step, None),
+                };
+                v.push((cells.split('+').map(parse_pos).collect::<Result<Vec<_>>>()?, tick));
+            }
+            v
+        }
+        None => Vec::new(),
+    };
+    let mut afters = Vec::new();
+    for a in &after {
+        let (p, t) = a.split_once('=').ok_or_else(|| anyhow::anyhow!("--after x,y,z=t"))?;
+        afters.push((parse_pos(p)?, t.trim().parse::<u32>()?));
+    }
     let mut sets = Vec::new();
     for m in &merge {
         let mut set = Vec::new();
@@ -190,7 +222,7 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost, segments };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands };
     if let Some(cells) = observe {
         let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
         anyhow::ensure!(search.is_some(), "--observe needs --search");
