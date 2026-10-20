@@ -1,0 +1,24 @@
+# archived 2026-10-20T01:30Z from designs/circuits/tracks/fly/speed/fly-horizontal-8b-11gt-04e5ce.txt by mctas circuit archive
+# CIRCUIT: fly-horizontal-8b-11gt-04e5ce flying-machine speed 11 gt/block, period 11 gt, 1 cell(s), latency 2 gt, 8 blocks, 4x2x2, robust
+# flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + sideways + sideways; 3 slime
+
+# grow of fly-horizontal-6b-10gt-67f769: 8 blocks, 11 gt per 1 cell(s), first move t2, flies turned 4/4
+name: fly-horizontal-8b-11gt-04e5ce
+circuit: flying-machine
+distance: 24
+travel: 0 0 -1
+port start: -1 0 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=south,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  ASB
+  .sSO
+layer 1:
+  .S
+  .o

@@ -1,0 +1,24 @@
+# archived 2026-10-20T01:33Z from designs/circuits/tracks/fly/speed/fly-horizontal-8b-16gt-b42f7c.txt by mctas circuit archive
+# CIRCUIT: fly-horizontal-8b-16gt-b42f7c flying-machine speed 16 gt/block, period 16 gt, 1 cell(s), latency 2 gt, 8 blocks, 4x3x1, robust
+# flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching forward + forward + up + up; honey + slime
+
+# grow of fly-horizontal-6b-10gt-3c7ccd: 8 blocks, 16 gt per 1 cell(s), first move t2, flies turned 4/4
+name: fly-horizontal-8b-16gt-b42f7c
+circuit: flying-machine
+distance: 24
+travel: 1 0 0
+port start: 0 3 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:honey_block
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  sH
+layer 1:
+  SAOO
+layer 2:
+  oo

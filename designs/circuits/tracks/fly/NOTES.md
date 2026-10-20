@@ -67,7 +67,20 @@ track's tracker as `crates/circuit/src/fly.rs`).
   robust (fly-down-7b-10gt-aca731 = fly-d1 tilted down); 7 more 6-block down types, all
   rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
   east-west-only machines in every 6-block case found.
-- No other speed than 10 gt/block horizontally (k <= 7 in 4x2x1, k <= 6 in 14 boxes, grow +1).
+- No other speed than 10 gt/block horizontally at 6-7 blocks (k <= 7 in 4x2x1, k <= 6 in 14
+  boxes, grow +1).
+
+## Speed ladder (grow)
+- `grow --add 2` on every archived 6-block machine (8 blocks): 11, 12, 16, 17 gt/block
+  horizontal and 16 gt/block up (162 candidates, 145 types, one per caption archived: 84, all
+  pass in the real game: 11 gt 13 (2 rotation-dependent), 12 gt 16, 16 gt 32, 17 gt 21 (12
+  rotation-dependent), up 16 gt 2). The two extra blocks are observers (and a slime) that watch
+  the other part or the first observer: the puller stays powered longer (a pulse stretched to 4 gt
+  = +2 gt), or both sticky pistons fight and the machine ratchets (11 gt: it steps back and forth,
+  net one cell per 11 gt).
+- `grow --add 1` on the 8-block ones (9 blocks): 18, 19, 24, 25 gt/block (12 archived, 24 gt
+  robust, the others rotation-dependent).
+- So far: 9 (up, 7 blocks), 10 (6), 11, 12, 16, 17 (8), 18, 19, 24, 25 (9) gt/block.
 
 ## Payload
 - fly-payload-e2cf52 family (base tracks/fly/payload/fly-payload-n1.txt, generator `mctas circuit

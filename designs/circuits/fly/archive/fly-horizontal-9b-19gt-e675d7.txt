@@ -1,0 +1,26 @@
+# archived 2026-10-20T01:36Z from designs/circuits/tracks/fly/speed9/fly-horizontal-9b-19gt-e675d7.txt by mctas circuit archive
+# CIRCUIT: fly-horizontal-9b-19gt-e675d7 flying-machine speed 19 gt/block, period 19 gt, 1 cell(s), latency 2 gt, 9 blocks, 4x4x1, rotation-dependent
+# flies horizontally: piston facing forward + sticky piston facing back; observers watching back + back + down + forward; 3 slime
+
+# grow of grow-8b-12gt-horizontal-7: 9 blocks, 19 gt per 1 cell(s), first move t2, flies turned 4/4
+name: fly-horizontal-9b-19gt-e675d7
+circuit: flying-machine
+distance: 24
+travel: -1 0 0
+port start: 4 2 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .O
+layer 1:
+  .SP
+layer 2:
+  .sSo
+layer 3:
+  SoA
