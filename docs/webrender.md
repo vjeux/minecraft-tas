@@ -184,6 +184,7 @@ each build's page.
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |
+| `mctas web entities <design> [--trace designs/clocks/traces/exact/<stem>.trace] [--from T --to T]` | the viewer's simulated entities (redsim: end-of-tick positions and yaw) tick by tick next to a real-game trace's, with the largest distance: all 55 exact traces 0.0000 over their whole length (a minecart on a rail is DRAWN at the rail's line, like `AbstractMinecartRenderer.oldRender`; that drawn pose is not what is compared) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
 --enable-unsafe-swiftshader --virtual-time-budget=60000 --screenshot=x.png <url>` (EPEL package
