@@ -3,6 +3,7 @@
 # output cell is under the torch.
 name: gate-nor-torch-3b
 circuit: gate nor
+tile: 0 0 2
 port input.a: 0 1 0
 port input.b: 2 1 0
 port output: 2 -1 0

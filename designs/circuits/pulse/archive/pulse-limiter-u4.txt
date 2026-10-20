@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:22Z from designs/circuits/tracks/pulse/cards/limiter-u4.txt by mctas circuit archive
-# CIRCUIT: pulse-limiter-u4 pulse-limiter L 16 gt, delay 2 gt, min-pulse 2 gt, 10 blocks, 2x2x3, robust
+# CIRCUIT: pulse-limiter-u4 pulse-limiter L 16 gt, delay 2 gt, min-pulse 3 gt, 10 blocks, 2x2x3, robust
 name: pulse-limiter-u4
 # Extendable family limiter-u4 (n = 0): pulse-limiter with L = 16 + 16n gt, 10 + 4n blocks. the limiter-u with delay-4 repeaters: 16 gt per row. Extension: lengthen the U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family limiter-u4 --n N --out FILE.
 circuit: pulse-limiter
@@ -12,6 +12,7 @@ extend blocks: 10 + 4n
 extend rule: lengthen the U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long pulse limiter: a comparator and a loop of repeaters
+extend group note: Lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the 7-block hopper item timer, smaller from 23 ticks on; this loop of repeaters gives 16, 32, 48... ticks exactly, which the hopper timer can't.
 extend base: 0
 extend generator: mctas circuit pulse family limiter-u4 --n {n} --out {out}
 origin: 0 0 -1

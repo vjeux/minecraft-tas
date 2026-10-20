@@ -78,8 +78,23 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   Captions that are agent or tool logs are dropped (`explain::caption_plain`); the first sentence
   of a designer's caption shows as "How this design does it". Clock pages show "Its output over
   time" (vjeux 13:46Z): the output over the start-up (shaded) and three periods, simulated from
-  the design at build time the way the 3D view runs it (`pages::clock_timeline`; none for the
-  clocks the browser's simulator cannot run). Pages vjeux deleted (13:35Z): the
+  the design at build time the way the 3D view runs it (`pages::clock_timeline`; a clock whose
+  design names no output shows its block that turns on most often, the census rule; a clock the
+  browser's simulator cannot run says "Not simulated: <why>"). One card per mechanism
+  (`generate::fold_twins`): doors with the same category, box, open/close times, seamless tier
+  and properties fold under the smallest (listed on its page as its versions), clocks with the
+  same period, blocks, parts and output carry the `twin` flag, and census clocks the `census`
+  flag unless one is the record of its period; both are hidden from the default lists like the
+  variants. A bigger design strictly faster than every smaller one of its kind and value gets
+  the `faster` flag ("faster than the smallest", `audit::mark_faster`). Circuits sort by
+  `Circuit::rank` first (the first design of every kind, then the second...), then their study's
+  place (`Circuit::order`; the gates with their own levers and the sand elevators are each
+  study's basics, last). Search (`site_model::Site::run`): every build carries the community's
+  words for its kind (`html::search_aliases`), builds whose kind the words name rank first, the
+  players' names for extender reaches map to a value search (`with_synonyms`), and an empty
+  search offers the nearest kinds (`html::nearest_searches`). Family pages lead with the kind
+  and a title in words, how much each size adds, and keep the formula in a closed details.
+  Pages vjeux deleted (13:35Z): the
   door boards, the families index, the list of everything and the about page
   (`generate::DELETED_PAGES`: never written, removed from an old output folder, and a smoke check
   fails if one exists or is linked). The catalog's folds (`catalog.tsv`):
@@ -107,7 +122,8 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`; circuits: `data-stimulus`, `data-events` (the judge's block changes at a BUD's target:
+`data-pitch`; circuits: `data-stimulus`, `data-levels` (a strength input's values over the judge's
+test, `<frame> <input> <value 0..15>; ...`, the hex kinds), `data-events` (the judge's block changes at a BUD's target:
 `<frame> place|clear|shape|update <x> <y> <z> [<state>]; ...`, design coordinates), `data-phases`,
 `data-input-mode`, `data-circuit`) is
 rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the

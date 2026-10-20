@@ -118,6 +118,34 @@ pub struct Probe {
     pub pos: Pos,
 }
 
+/// The ground a TNT duper is judged on ([`Circuit::ground_blocks`]): a superflat floor (grass over
+/// two dirt over bedrock: explosions leave craters, as in a real world), and an obsidian floor (no
+/// craters: a TNT lands where it first touches down). A duper must survive on both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ground {
+    Grass,
+    Obsidian,
+}
+
+impl Ground {
+    pub const ALL: [Ground; 2] = [Ground::Grass, Ground::Obsidian];
+
+    /// Its layers, top first.
+    pub fn layers(self) -> &'static [&'static str] {
+        match self {
+            Ground::Grass => &["minecraft:grass_block", "minecraft:dirt", "minecraft:dirt", "minecraft:bedrock"],
+            Ground::Obsidian => &["minecraft:obsidian"],
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ground::Grass => "grass ground",
+            Ground::Obsidian => "obsidian ground",
+        }
+    }
+}
+
 /// What a circuit claims to be: the axis of its study and the checker it is judged by.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -411,6 +439,10 @@ pub struct Circuit {
     /// its repeater); the judge refuses the design with it, the tools that only read it still load
     /// it (the input stays a written block).
     pub input_refused: Option<String>,
+    /// A TNT duper's drop: how many air blocks the judge leaves between its lowest block and the
+    /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
+    /// stands on the ground).
+    pub drop: i32,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -575,7 +607,7 @@ impl Circuit {
             None => None,
         };
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -758,7 +790,8 @@ impl Circuit {
         // check runs on copy 0's names (`<name>` and `<name>.t<k>`, `copies` of each)
         let copies = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok());
         let base: Vec<&str> = match copies {
-            Some(_) => names.iter().filter(|n| !n.contains(".t")).copied().collect(),
+            // copy k's port is `<name>.t<k>`, so the default-named input becomes `t<k>`
+            Some(_) => names.iter().filter(|n| crate::shulker::group_of(n) == 0).copied().collect(),
             None => names.clone(),
         };
         match k.inputs_needed() {
@@ -782,11 +815,16 @@ impl Circuit {
                         bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
                     }
                 }
-                Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
+                Kind::Gate(_) if base.len() == 1 || base.len() == 2 => {
+                    // a tiled run ([`tiled`]): `copies` copies of the gate's 1 or 2 inputs
+                    if copies.is_some_and(|c| names.len() != base.len() * c) {
+                        bail!("gate: a tiled run needs each input on every copy, has {names:?}");
+                    }
+                }
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
                 // a tiled run ([`tiled`]) of a tileable design: one input per copy
-                _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -823,8 +861,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory") {
-            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential kinds (tff, memory) are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
@@ -938,6 +976,29 @@ impl Circuit {
     pub fn explodes(&self) -> bool {
         let tnt = matches!(self.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
         tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
+    }
+
+    /// The ground a TNT duper with explosions stands on (coordinator 2026-10-20, after vjeux 13:13Z
+    /// "There's no way this tnt duper doesn't explode after a few seconds": in the void sandbox a
+    /// dropped TNT fell away forever): `reach` blocks around the design box, its top `drop` air
+    /// blocks under the design's lowest layer (0: right under it); the blocks, top layer first.
+    pub fn ground_blocks(&self, ground: Ground, reach: i32, drop: i32) -> Vec<(Pos, String)> {
+        let Some((lo, hi)) = self.clock.design.bounds() else { return Vec::new() };
+        let mut v = Vec::new();
+        for (k, st) in ground.layers().iter().enumerate() {
+            for x in lo[0] - reach..=hi[0] + reach {
+                for z in lo[2] - reach..=hi[2] + reach {
+                    v.push(([x, lo[1] - 1 - drop - k as i32, z], st.to_string()));
+                }
+            }
+        }
+        v
+    }
+
+    /// The lowest layer of the design: a TNT duper's frames leave out the ground below it (its
+    /// craters are not the machine).
+    pub fn lowest_y(&self) -> i32 {
+        self.clock.design.bounds().map(|(lo, _)| lo[1]).unwrap_or(0)
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone

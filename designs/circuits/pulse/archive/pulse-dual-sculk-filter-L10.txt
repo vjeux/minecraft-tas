@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:06Z from designs/circuits/tracks/pulse/wr/pulse-dual-sculk-filter-L10.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-sculk-filter-L10 dual-edge L 10 gt, delay 1 gt rising / 5 gt falling, min-pulse 20 gt, vibration-proof yes, 7 blocks, 3x4x4, robust
+# CIRCUIT: pulse-dual-sculk-filter-L10 dual-edge L 10 gt, delay 1 gt rising / 5 gt falling, min-pulse 20 gt, vibration-proof yes, 8 blocks, 3x4x4, robust
 name: pulse-dual-sculk-filter-L10
 circuit: dual-edge
 # One 10-tick pulse every time the input turns on AND every time it turns off, and nothing else: the

@@ -1,0 +1,17 @@
+# rejudged (2026-10-20T16:43Z, mctas circuit archive --rejudge): FAIL: pulse-falling-edge-pistons-observer-L2 falling-edge: the longest input pulse (40 gt) gives 0 output pulse(s): want 1 on its falling edge
+name: pulse-falling-edge-pistons-observer-L2
+circuit: falling-edge
+tile: 1 0 0
+port input: 0 1 0
+port output: 0 1 2
+origin: 0 0 1
+palette:
+  O minecraft:observer[facing=north,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  s
+  .
+layer 1:
+  O
+  S

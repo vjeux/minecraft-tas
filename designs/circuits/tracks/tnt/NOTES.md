@@ -1,5 +1,10 @@
 # Track tnt (study 9, TNT dupers): notes
 
+> **Build note (devvm56985, 2026-10-20):** the crates.io source of jpeg-decoder 0.3.2 ships a
+> `rust-toolchain` file pinning Rust 1.61; rustup obeys it when cargo compiles that crate, so a full
+> rebuild fails with "the `-Z unstable-options` flag must also be passed to enable the flag
+> `check-cfg`". Build with `RUSTUP_TOOLCHAIN=stable ~/bin/cargo build --release`.
+
 Brief: vjeux 2026-10-20 "Can you do a study on tnt dupers" + "We want variations" (no internet:
 everything from the decompiled 26.3 source). Variations and their judge measures:
 [designs/circuits/tnt/VARIATIONS.md](../../tnt/VARIATIONS.md). Judge: `circuit: tnt-duper` /

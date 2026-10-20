@@ -29,10 +29,10 @@ pext/pext-n5-cascade-v1	dominated at N = 5 (pext's WR bar)
 pext/pext-n6-cascade47	dominated at N = 6 (pext's WR bar)
 pext/pext-n7-cascade58	dominated at N = 7 (pext's WR bar)
 pext/pext-n8-cascade66	dominated at N = 8 (pext's WR bar)
-pext/pext-n3-flat-cascade19	dominated at N = 3 by the new flat-cascade18 record (its own-button version stays)
 pext/pext-cascade-r2-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r0-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
+pulse/pulse-limiter-psub-L7	dominated (the coordinator 15:35Z): 17 blocks vs pulse-limiter-hopper-timer-L7's 7, delay 5 vs 4 gt, min-pulse 10 vs 2 gt; its only advantage is a material (no hoppers)
 # 2026-10-20 12:46Z, the coordinator from `mctas site dominated`: bigger than a copper-bulb counter of the same N, no better, only copper-free
 memory/counter2-ring	5 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
 memory/counter4-ring	4 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
@@ -44,6 +44,43 @@ memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same co
 tnt/tnt-launch-14b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-drop-16b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-lever-launch-15b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+# 2026-10-20 15:45Z, the coordinator: TEMPORARY, until clk-rt's in-game R7 re-judge lands: the circuits R7's preview
+# (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
+# (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
+# clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
+pulse/pulse-dual-lock-L*	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-dual-edge-reset	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-fall-note-qc-L1	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-*-psub-*	temporary (R7): passes only by the judge's old block placement, or refused, with a real input
+pulse/pulse-rise-odd2-L*	temporary (R7): refused with a real input
+pulse/pulse-limiter-odd2-L*	temporary (R7): refused with a real input
+tff/tff-masterslave	temporary (R7): passes only by the judge's old block placement, not with a real input
+tff/tff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/dff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/dffe-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/shift2-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/counter5-ring11	temporary (R7): refused with a real input
+memory/counter10-ring5-bulb	temporary (R7): refused with a real input
+memory/counter20-ring5-bulb2	temporary (R7): refused with a real input
+memory/counter7-ring7	temporary (R7): refused with a real input
+memory/counter11-ring11	temporary (R7): refused with a real input
+memory/counter13-ring13	temporary (R7): refused with a real input
+memory/counter14-ring7-bulb1	temporary (R7): refused with a real input
+memory/counter15-ring5-ring3	temporary (R7): refused with a real input
+memory/counter21-ring7-ring3	temporary (R7): refused with a real input
+memory/counter22-ring11-bulb1	temporary (R7): refused with a real input
+memory/counter26-ring13-bulb1	temporary (R7): refused with a real input
+memory/counter28-ring7-ring4	temporary (R7): refused with a real input
+memory/counter5-ring5-bulb1-div	temporary (R7): refused with a real input
+memory/counter7-ring7-bulb1-div	temporary (R7): refused with a real input
+memory/counter30-ring5-ring3-bulb1	temporary (R7): refused with a real input
+memory/counter33-ring11-ring3	temporary (R7): refused with a real input
+memory/counter40-ring5-bulb3	temporary (R7): refused with a real input
+memory/counter45-ring5-ring3-ring3	temporary (R7): refused with a real input
+pulsemult/pm-div3-square	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulsemult/pm-div5-square	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulsemult/pm-div7-square	temporary (R7): passes only by the judge's old block placement, not with a real input
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)

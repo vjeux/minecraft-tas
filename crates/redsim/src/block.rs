@@ -223,6 +223,9 @@ pub enum Simple {
     CryingObsidian,
     // ---- entity-reacting blocks (clk-misc) ----
     Dirt,
+    // ---- the TNT judge's ground (fly): a superflat floor, grass over dirt over bedrock ----
+    GrassBlock,
+    Bedrock,
     // ---- fluids (clockinfra): what turns water above into a bubble column ----
     MagmaBlock,
     // ---- the other wool colours (clk-misc, coverage: community-7x8-48b's cyan) ----
@@ -242,7 +245,7 @@ pub enum Simple {
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 75] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 77] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -311,6 +314,10 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 75] = [
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
     // ---- entity-reacting blocks (clk-misc) ----
     (Simple::Dirt, "dirt", true, true, Instrument::Harp, PushReaction::PushPull),
+    // grass_block (its `snowy` property is not modeled: the bare name, snowy=false) and bedrock
+    // (BLOCK: immovable): the TNT judge's ground
+    (Simple::GrassBlock, "grass_block", true, true, Instrument::Harp, PushReaction::PushPull),
+    (Simple::Bedrock, "bedrock", true, true, Instrument::Basedrum, PushReaction::Immoveable),
     // ---- fluids (clockinfra) ----
     (Simple::MagmaBlock, "magma_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
     // ---- the other wool colours (clk-misc): every wool is a plain conductor, GUITAR ----

@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:24Z from designs/circuits/tracks/pulse/cards/oneshot-fall.txt by mctas circuit archive
-# CIRCUIT: pulse-oneshot-fall falling-edge L 18 gt, delay 7 gt, min-pulse 6 gt, 17 blocks, 4x2x4, robust
+# CIRCUIT: pulse-oneshot-fall falling-edge L 18 gt, delay 6 gt, min-pulse 6 gt, 17 blocks, 4x2x4, robust
 name: pulse-oneshot-fall
 # Extendable family oneshot-fall (n = 0): falling-edge with L = 18 + 16n gt, 17 + 4n blocks. a sticky piston pushes an observer away on the rising edge and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of delay-4 repeaters that comes back into the bulb and turns it off one loop later (a bulb toggles only on rising edges of its power). Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family oneshot-fall --n N --out FILE.
 circuit: falling-edge
@@ -12,6 +12,7 @@ extend blocks: 17 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters
+extend group note: Lengths of the form 8n (8, 16, 24, 32... ticks) come from the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open), the same size for any length; this chain gives the lengths it can't (18, 34, 50... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-fall --n {n} --out {out}
 origin: -1 0 0

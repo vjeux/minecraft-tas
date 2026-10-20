@@ -1,0 +1,74 @@
+macrosat: box 6x8 at (-1,-2), h 6 per edge, feed true, lever true, parallel steps, fix false: 277766 vars, 2117998 clauses, built in 1.6 s
+SAT in 1321.8 s: a mechanism with every firing fed within 6 steps per edge
+rest:
+  5 %  D* #  %  %  O  
+  4 O  v  D  D  D  %  
+  3 E  .  D  .  D  %  
+  2 #  #  #  #  .  %  
+  1 #  #  #  #  .  W  
+  0 #  #  #  #  {  W* 
+ -1 e  ^  .  .  W  %  
+ -2 %  U* %  .  U  W  
+wiring: (-1,-2) (1,-2) (4,-1) (4,2) (4,3) (4,4) (-1,5) (2,5) (3,5)
+lever on the block at (4, 5) (its front/back face, or its outer face at the box edge)
+open  step  0: RETRACT (4, 0) west (pulls)  [fed from (4, 2)]
+open  step  0: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step  0: EXTEND (1, 3) down line 3  [fed from (1, 5)]
+open  step  0: RETRACT (0, 5) down  [fed from (1, 5)]
+open  step  1: RETRACT (0, -2) up (pulls)  [fed from (1, -1)]
+open  step  1: PULSE (3, -2) up line 3  [fed from (4, -1)]
+open  step  1: RETRACT (1, 3) down (pulls)  [fed from (1, 5)]
+open  step  1: EXTEND (0, 5) down line 0  [fed from (-1, 5)]
+open  step  2: EXTEND (4, -2) west line 1  [fed from (4, -1)]
+open  step  2: PULSE-PULL (3, 0) west line 0 (pulls)  [fed from (3, 2)]
+open  step  2: PULSE-PULL (-1, 3) east line 0 (pulls)  [fed from (-1, 5)]
+open  step  3: EXTEND (-1, -1) east line 2  [fed from (-1, -2)]
+open  step  3: PULSE-PULL (0, 3) down line 2  [fed from (-1, 4)]
+open  step  3: EXTEND (3, 3) down line 3  [fed from (3, 5)]
+open  step  3: PULSE-PULL (1, 4) down line 0 (pulls)  [fed from (2, 5)]
+open  step  4: PULSE (2, -2) up line 2  [fed from (1, -2)]
+open  step  4: RETRACT (-1, -1) east  [fed from (-1, -2)]
+open  step  4: RETRACT (3, 3) down (pulls)  [fed from (3, 5)]
+open  step  4: RETRACT (0, 5) down (pulls)  [fed from (-1, 5)]
+open  step  5: PULSE-PULL (0, -2) up line 0 (pulls)  [fed from (1, -1)]
+open  step  5: PULSE-PULL (2, -2) up line 0 (pulls)  [fed from (1, -1)]
+open  step  5: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step  5: PULSE-PULL (0, 4) down line 0 (pulls)  [fed from (-1, 5)]
+open  step  5: PULSE-PULL (2, 4) down line 0 (pulls)  [fed from (3, 5)]
+close step  6: EXTEND (4, 0) west line 1  [fed from (4, 2)]
+close step  6: PULSE (4, 1) west line 1  [fed from (3, 2)]
+close step  6: PULSE (2, 4) down line 1  [fed from (1, 5)]
+close step  6: EXTEND (0, 5) down line 2  [fed from (1, 5)]
+close step  7: RETRACT (4, -2) west (pulls)  [fed from (4, -1)]
+close step  7: RETRACT (4, 0) west (pulls)  [fed from (4, -1)]
+close step  7: PULSE (1, 4) down line 1  [fed from (2, 5)]
+close step  7: PULSE-PULL (2, 4) down line 0 (pulls)  [fed from (1, 5)]
+close step  7: PULSE (3, 4) down line 2  [fed from (2, 5)]
+close step  8: PULSE (0, -2) up line 1  [fed from (1, -1)]
+close step  8: EXTEND (4, -2) west line 1  [fed from (4, -1)]
+close step  8: PULSE (4, 1) west line 2  [fed from (4, 3)]
+close step  8: EXTEND (-1, 3) east line 1  [fed from (-1, 5)]
+close step  9: PULSE-PULL (3, -1) west line 2  [fed from (4, -1)]
+close step  9: PULSE-PULL (3, 2) down line 0 (pulls)  [fed from (4, 3)]
+close step  9: PULSE-PULL (1, 3) down line 2  [fed from (1, 5)]
+close step  9: PULSE (2, 4) down line 1  [fed from (1, 5)]
+close step 10: PULSE-PULL (0, -2) up line 2  [fed from (1, -2)]
+close step 10: PULSE (2, -2) up line 1  [fed from (1, -2)]
+close step 10: EXTEND (4, 0) west line 0  [fed from (4, -1)]
+close step 10: PULSE-PULL (4, 1) west line 2  [fed from (4, 3)]
+close step 10: RETRACT (-1, 3) east (pulls)  [fed from (-1, 5)]
+close step 10: PULSE-PULL (3, 4) down line 0 (pulls)  [fed from (4, 5)]
+close step 11: EXTEND (0, -2) up line 1  [fed from (1, -2)]
+close step 11: RETRACT (4, -2) west (pulls)  [fed from (4, -1)]
+close step 11: PULSE (4, 1) west line 1  [fed from (4, 3)]
+close step 11: PULSE (-1, 3) east line 1  [fed from (-1, 5)]
+open:
+  5 %  D  #  %  %  O  
+  4 O  D  D  D  D  %  
+  3 E  #  #  #  D  %  
+  2 #  .  .  .  #  %  
+  1 #  .  .  .  #  W  
+  0 #  .  .  .  #  W  
+ -1 e  #  #  #  W  %  
+ -2 %  U  %  U  {  W* 
+exported /home/vjeux/macrosat/v8/export/c--1_-2_4_5-h6.txt + /home/vjeux/macrosat/v8/export/c--1_-2_4_5-h6.ideal

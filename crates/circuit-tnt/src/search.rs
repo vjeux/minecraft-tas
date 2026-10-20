@@ -418,11 +418,6 @@ pub fn survives(c: &Clock, extra: &[(Pos, String)], kicks: usize) -> bool {
     }
     d.meta.remove("explode");
     let Ok(cc) = circuit::Circuit::from_design(d) else { return false };
-    let o = circuit::verify::Options { margin: 3, ..Default::default() };
-    let Ok(rep) = circuit::verify::sim(&cc, &o) else { return false };
-    if !rep.outcome.is_some_and(|x| x.pass) {
-        return false;
-    }
-    let s = rep.schedule;
-    (1..kicks).all(|k| circuit::robust::judge_kick(&cc, &s, k as f64 / kicks as f64, 3).is_ok_and(|x| x.pass))
+    // single-threaded (the search runs many workers): standing on both grounds, `kicks` kicks
+    circuit::robust::passes_on_ground(&cc, kicks)
 }

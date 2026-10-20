@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:41Z from designs/circuits/tracks/pulse/cards/oneshot-bulb-rise.txt by mctas circuit archive
-# CIRCUIT: pulse-oneshot-bulb-rise rising-edge L 18 gt, delay 6 gt, min-pulse 1 gt, 19 blocks, 6x2x3, robust
+# CIRCUIT: pulse-oneshot-bulb-rise rising-edge L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes), 19 blocks, 6x2x3, robust
 name: pulse-oneshot-bulb-rise
 # Extendable family oneshot-bulb-rise (n = 0): rising-edge with L = 18 + 16n gt, 19 + 4n blocks. the input toggles a copper bulb on every rising edge (even 1 gt), a comparator reads it and an observer watching that comparator fires once per rising edge into a second bulb; a comparator reads the second bulb into a U of delay-4 repeaters back into it, which turns it off one loop later. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family oneshot-bulb-rise --n N --out FILE.
 circuit: rising-edge
@@ -9,6 +9,7 @@ extend blocks: 19 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters
+extend group note: This chain sees the shortest inputs (2 ticks); the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open, the same size for any length of the form 8n) needs inputs of 4 ticks or more, and this chain also gives the lengths it can't (18, 34, 50... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-bulb-rise --n {n} --out {out}
 origin: -1 0 0

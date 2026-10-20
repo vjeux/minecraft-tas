@@ -1,9 +1,10 @@
 # Study 9, TNT dupers: world-record targets (2026-10-20)
 
 vjeux 12:45Z: "world record kind of implementations for every single one of these... quality over
-quantity". Every record is judged with explosions on and must be robust over every kick angle
-(`circuit verify` = 16 real-game builds + the redsim all-kicks sweep). The targets below come from
-the 26.3 mechanism (VARIATIONS.md, "The mechanism"), not from outside designs.
+quantity". Every record is judged with explosions on, standing on the ground (grass that craters
+and obsidian that does not, both), with no TNT removed anywhere and at every kick angle; its SAFE
+DROP HEIGHT (vjeux 13:31Z) is the fewest air blocks under it at which it never damages itself, and
+a lower safe height beats a smaller machine (docs/circuits.md, VARIATIONS.md "On the ground").
 
 ## What every duper needs (the lower bound's parts)
 
@@ -13,22 +14,27 @@ moves (slime or honey: the TNT and the update source must ride it); 4. the silen
 (the only power source that can reach a TNT inside a push, VARIATIONS "MOVABLE") on an immovable
 block (obsidian: the dust must not ride); 5. the power whose connection changes mid-push: a
 redstone block riding the frame; 6. the update: a dead coral fan riding the frame that pops when
-its support's cell turns moving_piston. That is 7 distinct parts; the frame must join the TNT,
-the fan and the redstone block to the piston face. The 40M-iteration local search from 12 blocks
-(`circuit tnt improve`, explosions off) found nothing smaller than 12 and nothing faster than
-200 TNT/min: 12 is the bound for the bare core in the searched space.
+its support's cell turns moving_piston. The 40M-iteration local search from 12 blocks found
+nothing smaller than 12 and nothing faster than 200 TNT/min: 12 is the bound for the bare core.
+
+## Why the ground is hard (measured, `mctas circuit tnt blasts`)
+
+A TNT blast breaks nothing beyond about 7 blocks (a ray starts at <= 5.2 and loses 0.225 per
+0.3-block step in air) and pushes entities up to 8 blocks; a TNT exploding inside water (or a
+bubble column) breaks nothing at all. A machine making a TNT every 6 ticks has 13 burning at once:
+flung 1 block per tick they pile up 10 to 20 blocks away on the ground, and every blast throws
+some of the pile back within reach. One TNT at a time (a period longer than the 80-tick fuse) or
+landing far away (a drop under the machine) is safe.
 
 ## Records and targets
 
-| variation | current | target (why) | status |
+| variation | record now | target (why) | status |
 |---|---|---|---|
-| smallest survivable, self-running | **14 (tnt-launch-14b)** | 12-14: the core is 12. RECORD 14: the search seeded with the 11-block core (+1..4 blocks of slime, stone, obsidian in a 5x5x7 box, 3M samples, every duper screened with its explosions at 16 kicks) finds none with 12 or 13 blocks and 7 layouts with 14, all robust over every kick and in the game: two static stones above the fan and the dust pin each TNT's x so it falls clear | RECORD (12-13: none in the searched box) |
-| fastest | 200 TNT/min (period 6) | 300 (period 4): a sticky piston's push takes 2 gt and its pull 2 gt; 6 gt is the 12b's self-clock (extend 2 + the dust/obsidian power path + retract 2 + reset). A faster external clock (observers, 4 gt) on the same core could reach 4 gt if the priming still happens | search |
-| tileable | 4 copies, pitch 4 (explosions off) | pitch 3 (the core is 3 wide) with explosions on: a launched TNT flies over the neighbours, so copies can touch side by side | build + judge |
-| PRECISE + survivable | 43 (tnt-precise-slow-43b) | about 30: the aligner (wall stone, water source, channel floor and walls) on the core plus the smallest slow driver that gives one push per 81+ gt. The 7-block crafter loop releases 10 gt (2 pushes); a clock whose release is 6 gt by itself saves the 6-block hold extension | shrink (precise-shrink + the all-kicks rule) |
-| TRIGGERED + survivable | **15 (tnt-triggered-launch-15b)** | 15: the lever engine + launcher with an ACTIVE-LOW input (at rest a redstone block in the input cell holds the piston; the pulse removes it): no torch inverter (the torch version was 19). The 14-block record's engine cannot be held: stopped with its frame out, the last TNT lands on the frame | RECORD |
-| lever + survivable | 15 (tnt-lever-launch-15b) | 15: the 14b engine blows up when held (its last TNT lands on the pushed-out frame), so the launcher stays | RECORD for now |
-| slime-free + survivable | none | a honey frame cannot fling; the TNT must drop clear (no honey within 1 cell below its spawn) or explode in water | search |
-
-Below-bar designs (bigger with nothing better on any variation) leave the archive when a record
-replaces them.
+| self-running, safe on the ground | 30 blocks, 13.2/min (tnt-slow-launch-30b: the launcher on a 91-tick clock, one TNT at a time, each lands 14 to 18 blocks away) | smaller: the clock is 7 blocks + a 6-block hold extension; a clock whose release is one push by itself saves the extension | record (archiving) |
+| FAST (200/min) self-running | tnt-launch-15b, 15 blocks, safe drop 8 | **safe drop 0** at 200/min: the pile must form where its blasts cannot throw a TNT back within 7 blocks. Tried: (a) a water channel exit (the precise aligner) at full rate: knocked TNT leave the channel; (b) a roofed channel: they leave by its open end; (c) a magma bubble-column shaft 4 and 8 deep under the stop wall: the first 8-14 TNT explode harmlessly in it, then blasts at the bottom throw the next ones up and out of the top (explodes at y 6, 3.5 blocks from the machine). Next: a bent shaft (no line of sight from the bottom to the entry), or a steeper launch (a vertical slime push) landing 30+ blocks away | open |
+| TRIGGERED, safe on the ground | 16 blocks (tnt-triggered-launch-16b: active-low input, obsidian foot) | 15: without the foot the slime frame drags the grass; a design whose moving slimes never rest on the ground could save it | record |
+| lever (switchable) | tnt-lever-launch-15b, safe drop 6 | safe drop 0: same as the fast one | open |
+| PRECISE | 43 blocks, safe on the ground (tnt-precise-slow-43b) | about 30: the aligner on the slow launcher | open |
+| dropped | tnt-drop-16b, safe drop 31 (works over a deep pit only) | lower drop | open |
+| tileable | 4 copies, pitch 4 (explosions off) | judged on the ground | open |
+| slime-free | none | a honey frame cannot fling; the TNT must drop clear | open |

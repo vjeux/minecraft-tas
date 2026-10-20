@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:28Z from designs/circuits/tracks/pulse/repeater/pulse-fall-repeater-L6.txt by mctas circuit archive
-# CIRCUIT: pulse-fall-repeater-L6 falling-edge L 6 gt, delay 11 gt, min-pulse 6 gt, 4 blocks, 3x2x2, robust
+# CIRCUIT: pulse-fall-repeater-L6 falling-edge L 6 gt, delay 10 gt, min-pulse 6 gt, 4 blocks, 3x2x2, robust
 name: pulse-fall-repeater-L6
 circuit: falling-edge
 group: pulse-fall-repeater

@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:29Z from designs/circuits/tracks/pulse/repeater/pulse-rise-repeater-L6.txt by mctas circuit archive
-# CIRCUIT: pulse-rise-repeater-L6 rising-edge L 6 gt, delay 11 gt, min-pulse 4 gt, 4 blocks, 3x2x2, robust
+# CIRCUIT: pulse-rise-repeater-L6 rising-edge L 6 gt, delay 10 gt, min-pulse 4 gt, 4 blocks, 3x2x2, robust
 name: pulse-rise-repeater-L6
 circuit: rising-edge
 group: pulse-rise-repeater

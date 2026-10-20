@@ -48,9 +48,14 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   smoke-checked); no page links in the footer.
 - "Works in any direction, anywhere" replaces "robust" (directional / locational when it fails).
 - hidden.tsv: the slime-free extenders, pext's world-record bar (only each N's holder; `!`
-  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, and the
-  coordinator's TEMPORARY hides (3 TNT launchers being re-judged on a floor, the 2-block sculk
-  pulse circuits until the vibration test).
+  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, the
+  dominated pulse-limiter-psub-L7, the coordinator's TEMPORARY hides (3 TNT launchers being
+  re-judged on a floor), and the class rule `*/@vibration-sensitive` (clk-obs's vibration test:
+  only vibration-proof sculk designs are published).
+- One card per mechanism (doors by category, box, times, seamless tier and properties; clock
+  twins; census clocks unless the record of their period); the Circuits tab opens on the first
+  design of every kind; search knows the players' words; family pages in words; every clock has
+  its output timeline; "faster than the smallest" on bigger but faster designs.
 
 - Cards and build pages lead with the properties (kind in small capitals, the main property and
   blocks as the headline, secondary metrics, chips, the name small); circuit kinds are base kinds
