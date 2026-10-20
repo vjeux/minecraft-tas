@@ -47,12 +47,13 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
 * **A circuit must drive something** (vjeux/coordinator 2026-10-19): the judge puts a redstone
   lamp in every AIR output cell (not a design block: not counted, not part of the type; none for
-  kinds read through payloads, piston extenders and flying machines, nor in a cell on a piston's
-  line, where a moved block may land) and the lamp must follow the output: lit whenever the output
-  is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the update that tells
-  it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick, like two inputs
-  placed in the same tick, is a glitch, not a failure), from the first frame the circuit may be
-  driven. The metrics still come from the level above, so they do not change. An
+  kinds read through payloads, piston extenders and flying machines, nor where a piston can move a
+  block in: its head cell or the cell after the row of blocks it pushes, any cell within 13 in
+  front of it when the design has slime or honey) and the lamp must follow the output: lit
+  whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
+  update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
+  like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
+  circuit may be driven. The metrics still come from the level above, so they do not change. An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
