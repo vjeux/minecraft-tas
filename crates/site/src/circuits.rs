@@ -503,6 +503,8 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
 /// The archived circuits of every study.
 fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
     let mut out = Vec::new();
+    // every archived (study, file, class), to report hidden.tsv lines that match nothing
+    let mut all_rows: Vec<(String, String, String)> = Vec::new();
     for (study, _title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = match read_rows(&dir) {
@@ -512,6 +514,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 continue;
             }
         };
+        all_rows.extend(rows.iter().map(|r| (study.to_string(), r.file.clone(), r.axis.clone())));
         // the designs the site does not publish (crates/site/hidden.tsv)
         let before = rows.len();
         let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).collect();
@@ -663,6 +666,26 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
+        }
+    }
+    // a hidden.tsv line that matches no archived design is stale: its designs left or were
+    // renamed, and its pattern would hide a future design by the same name (take it out)
+    if !keep_hidden {
+        let stale: Vec<String> = hidden_lines()
+            .into_iter()
+            .filter(|(_, s, p, _)| {
+                !all_rows.iter().any(|(study, file, class)| {
+                    (s == study || s == "*")
+                        && match p.strip_prefix('@') {
+                            Some(c) => class.split(", ").any(|x| x.trim() == c),
+                            None => glob(p, file) || glob(&format!("{p}.txt"), file),
+                        }
+                })
+            })
+            .map(|(ex, s, p, _)| format!("{}{s}/{p}", if ex { "!" } else { "" }))
+            .collect();
+        if !stale.is_empty() {
+            notes.push(format!("hidden.tsv: {} lines match no archived design (take them out; a stale pattern hides a future design): {}", stale.len(), stale.join(", ")));
         }
     }
     out
