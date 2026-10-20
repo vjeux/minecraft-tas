@@ -129,6 +129,9 @@ enum Cmd {
         /// Skip designs whose prepared name (its type) is already in this archive directory.
         #[arg(long)]
         skip_archived: Option<PathBuf>,
+        /// Keep only the first design of each (class, blocks, speed, caption).
+        #[arg(long)]
+        one_per_caption: bool,
     },
     /// Every one of the 24 orientations of each design on redsim (tilted to fly up or down,
     /// rolled about the travel axis): one line per orientation that flies; `--out-dir` writes the
@@ -155,6 +158,9 @@ enum Cmd {
         workers: usize,
         #[arg(long)]
         out_dir: PathBuf,
+        /// Designs written per (speed, class, blocks).
+        #[arg(long, default_value_t = 1000)]
+        keep: usize,
     },
     /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
     /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
@@ -312,12 +318,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             census::run_census(&o, &boxes, &argv)?;
         }
         Cmd::Types { designs, workers, copy_hosts } => types(&designs, workers, copy_hosts.as_deref())?,
-        Cmd::Prep { designs, out_dir, skip_archived } => {
+        Cmd::Prep { designs, out_dir, skip_archived, one_per_caption } => {
             std::fs::create_dir_all(&out_dir)?;
             let archived: Vec<String> = match &skip_archived {
                 Some(d) => std::fs::read_dir(d)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().trim_end_matches(".txt").to_string()).collect(),
                 None => Vec::new(),
             };
+            let mut seen: std::collections::BTreeSet<(String, String)> = std::collections::BTreeSet::new();
             for p in &designs {
                 let text = std::fs::read_to_string(p)?;
                 let m = machine::Machine::parse(&text)?;
@@ -325,6 +332,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 if archived.iter().any(|a| a == &name || a.starts_with(&format!("{name}-"))) {
                     println!("{} -> {name} (archived already)", p.display());
                     continue;
+                }
+                if one_per_caption {
+                    let prefix = name.rsplit_once('-').map(|(a, _)| a.to_string()).unwrap_or_default();
+                    let cap = out.lines().next().unwrap_or("").to_string();
+                    if !seen.insert((prefix, cap)) {
+                        continue;
+                    }
                 }
                 std::fs::write(out_dir.join(format!("{name}.txt")), out)?;
                 println!("{} -> {name}", p.display());
@@ -364,7 +378,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir } => {
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep } => {
             let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
             let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers };
             let found = grow::grow(&ms, &o)?;
@@ -373,7 +387,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             for g in &found {
                 let key = (g.speed(), g.class().to_string(), g.cells.len());
                 let k = seen.entry(key.clone()).or_insert(0);
-                if *k < 3 {
+                if *k < keep {
                     let name = format!("grow-{}b-{}gt-{}-{}", g.cells.len(), g.speed().replace('/', "_"), g.class(), *k);
                     std::fs::write(out_dir.join(format!("{name}.txt")), grow::design_text(g, &name))?;
                 }

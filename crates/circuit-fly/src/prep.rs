@@ -94,7 +94,7 @@ pub fn prep(m: &Machine, text: &str) -> (String, String) {
     };
     let name = format!("fly-{}-{}b-{}gt-{key:06x}", class, m.blocks(), speed);
     let cap = caption(m, &r);
-    let facts = text.lines().find(|l| l.starts_with("# census:")).map(|l| l.trim_start_matches('#').trim().to_string()).unwrap_or_default();
+    let facts = text.lines().find(|l| l.starts_with("# census:") || l.starts_with("# grow of ")).map(|l| l.trim_start_matches('#').trim().to_string()).unwrap_or_default();
     let mut mm = m.clone();
     mm.clock.design.name = name.clone();
     let body = mm.to_text();

@@ -67,7 +67,22 @@ track's tracker as `crates/circuit/src/fly.rs`).
   robust (fly-down-7b-10gt-aca731 = fly-d1 tilted down); 7 more 6-block down types, all
   rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
   east-west-only machines in every 6-block case found.
-- No other speed than 10 gt/block horizontally (k <= 7 in 4x2x1, k <= 6 in 14 boxes, grow +1).
+- No other speed than 10 gt/block horizontally at 6-7 blocks (k <= 7 in 4x2x1, k <= 6 in 14
+  boxes, grow +1).
+
+## Speed ladder (grow) — dominated, NOT archived
+- `grow --add 2` on every archived 6-block machine (8 blocks): 11, 12, 16, 17 gt/block
+  horizontal and 16 gt/block up (162 candidates, 145 types); `grow --add 1` on those (9 blocks):
+  18, 19, 24, 25 gt/block. One per caption (96) all passed in the real game, but every one is
+  bigger AND slower than the 6-block 10 gt/block machines of its direction: dominated, so taken
+  back out of the archive (coordinator, vjeux: "we don't need 20 variations of the same design");
+  kept as a record in tracks/fly/speed (8 blocks) and tracks/fly/speed9 (9 blocks). The two extra
+  blocks are observers (and a slime) that watch the other part or the first observer: the puller
+  stays powered longer (a pulse stretched to 4 gt = +2 gt), or both sticky pistons fight and the
+  machine ratchets (11 gt: it steps back and forth, net one cell per 11 gt).
+- The Pareto front (blocks vs speed) per direction: horizontal 6 blocks 10 gt/block; up 6 blocks
+  10 gt/block and 7 blocks 9 gt/block; down 6 blocks 10 gt/block (east-west only) and 7 blocks 10
+  gt/block robust. Faster than 9 gt/block: not found yet.
 
 ## Payload
 - fly-payload-e2cf52 family (base tracks/fly/payload/fly-payload-n1.txt, generator `mctas circuit
