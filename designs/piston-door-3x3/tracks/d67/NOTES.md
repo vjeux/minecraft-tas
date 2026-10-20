@@ -72,3 +72,26 @@ exact order, --rec-ticks 200, wide palette): UNSAT at once, core = b fired at (0
 which the plan feeds from (0,-3). In 7x7 its only feeds are its quasi cell (0,-1)'s neighbours: (-1,-1)
 (empty then, e's rest cell), (1,-1) and (0,0) (door blocks with no powered neighbour). So the family needs
 the row y = -3 for b (and c, unless c is lever-held) AND the column x = -3 for g / f / h / i: 7x8 = 56.
+
+## m69g-12 (9x6 = 54, c70b v9x6/mm01-oc): W' (3,-1) is timing-sealed
+W' = SU(3,-1) (the elevator under SW(3,0)) pulses at open t25 / t43 / t67, never on close; the plan feeds
+it from (3,-2), below the box. Its in-box feeds: the static (2,-1) (no component can power it: its other
+neighbours are the static (1,-1), BR (2,0) and outside) and the pocket {(4,-1), (5,-1), (4,0)}, whose only
+neighbours are W' itself and the pistons SW(3,0), SW(4,1), SW(5,0). None of them moves before t25, and the
+floor statics (0..2,-1) block any signal from the left (strong power never hops stone to stone; a torch
+would need a free cell beside a static). So nothing in the pocket can know t25: satwire's UNSAT core is
+physical. The right side needs a free cell that watches something moving before t25, or W''s first lift
+moved after a right-side event.
+
+## `door connect` fixed (explore/d67 320d8a1a4; c70b merged it, 200863dc8)
+connect is c70b's mechmut ranking filter (a necessary condition: NOT wirable = no order of events can be
+wired). It had false negatives on REAL doors: in their own boxes (`door audit --sections mech`) it said NOT
+wirable for e78s-56b-43 (the solid 7x8 record), e78-56b-40, e78st-56b-37, t7b-nb2, pockets-63b-43 and -44.
+All six hold the top trio with e88's lever OUTSIDE the box on SD+(1,4)'s back face (QC holds SD+(0,4) and
+SD+(2,4)), and connect only put the lever in a free-cell region inside the box. Now it also tries the lever
+on the back face of every never-moved piston and on the outer face of every static, outside the box: all
+16 real flat doors tested (`real-flat16.tsv`) are WIRABLE in their own boxes. Second change, stricter:
+SEALED cells (a free cell on its own with nothing beside or below it that stays put) hold an observer only,
+so they feed the cell opposite the change they watched and read no powered block. For 6x7-in2/mm01, never
+fed goes from 1 piston to 4-6, which agrees with satwire. `door connect` also reads mechmut TSVs now (a
+`mechanism` column: each variant in its own box) to re-screen c70b's catalogs.
