@@ -54,7 +54,20 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`) and the page's
   timing diagram (inputs and outputs per gt) with the checker's report; the page's plain-language
   texts (what each kind does, how to try it, what each metric means, the studies' introductions,
-  the glossary) live in `crates/site/src/explain.rs`.
+  the glossary) live in `crates/site/src/explain.rs`. The catalog's folds (`catalog.tsv`):
+  equivalent layouts (`variant_of` naming a design of the same kind, value, block count and block
+  kinds) hide under their shown design ("Also N other layouts"), dominance variants as before, and
+  a tunable group (`group`: one mechanism, other repeater delays) shows as one card (its smallest
+  design, badge with the value span) whose every member page carries the group's value picker.
+  The extendable circuit families (`extend` headers, `designs/circuits/families.tsv`) are cards
+  like the clocks' (`families/<card>.html`, one per `extend group`; a card with several families
+  shows its first base design in the grids): every n of the verified range generated with the
+  family's own generator at build time (`designs/circuits/members/<family>-n<k>.txt` + its
+  .litematic) and screened in redsim (`judged` from `extend.tsv`, `simulated` when the screen
+  gives exactly the formula's value, else `formula`). The Circuits tab's search box takes a value
+  (`L 12`, `N 26`, `12`, `10-20 gt`, `latency 0`: `site_model::parse_value_query`) and expands the
+  groups and the families to the exact member. A build page starts with its live 3D view (vjeux:
+  "Put the redstone before the explanation"), a group's picker under it, then the explanations.
 - Interim pictures (the fallback under every 3D view): clock `img/<stem>.jpg` and family members'
   `img/<base>.n<k>.jpg`, linked from raw.githubusercontent.com (not copied), door board GIFs.
 - Members of extendable families: every n of the verified range, generated at build time; status

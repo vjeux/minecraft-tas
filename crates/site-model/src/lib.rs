@@ -244,6 +244,13 @@ pub struct Circuit {
     pub group_title: String,
     #[serde(skip)]
     pub group_note: String,
+    /// The extendable family card it is a base design of (`families/<card>.html`); a card with
+    /// several families shows its first base only (`card_member` on the others: hidden like a
+    /// tunable group's members).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub card: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub card_member: bool,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -347,6 +354,12 @@ pub struct Card {
     pub note: String,
     /// The card's families, the pictured (simplest) one first.
     pub families: Vec<Family>,
+    /// `circuit` for an extendable circuit family's card (its formula is the study's axis value,
+    /// its members carry their `axis`), empty for a clock card; the circuit's study.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub study: String,
 }
 
 /// One extendable family (a base design with `extend` headers).
@@ -398,6 +411,10 @@ pub struct Member {
     /// An interim picture (absolute URL), for the members the catalog pictured.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// A circuit family's member: its axis value as the study writes it (`N = 26 gt`, `L = 50 gt`,
+    /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub axis: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -408,7 +425,7 @@ pub const STATUS_FORMULA: &str = "formula";
 pub fn status_label(s: &str) -> &'static str {
     match s {
         STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated (redsim), not judged in the game",
+        STATUS_REDSIM => "simulated, not judged in the game",
         _ => "formula, not individually judged",
     }
 }
@@ -434,7 +451,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("self-starting", "self-starting", "clock"),
     ("kicked", "needs a start kick", "clock"),
     ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock"),
+    ("extendable", "extendable family", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
@@ -781,7 +798,7 @@ impl Site {
             }
         }
         for m in &self.members {
-            if m.build.is_none() {
+            if m.build.is_none() && m.axis.is_empty() {
                 *count.entry(m.period).or_default() += 1;
             }
         }
@@ -817,7 +834,7 @@ impl Site {
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group, &b.page],
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
-                    member: b.circuit.as_ref().is_some_and(|c| !c.tunable.is_empty() && c.span.is_empty()),
+                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").map(|(l, _)| l.trim()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
@@ -825,15 +842,19 @@ impl Site {
             Hit::Member(i) => {
                 let m = self.members.get(i)?;
                 let b = self.base_of(m, index)?;
+                let circuit = !m.axis.is_empty();
+                // a family whose value never changes (a flying machine growing its payload at one
+                // speed) is no answer to a value search: its members differ by size only
+                let constant = circuit && self.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family)).is_some_and(|f| matches!(f.period, Formula::Linear { b: 0, .. }));
                 Some(View {
-                    kind: "clock",
+                    kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     name: &m.family,
                     archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
-                    period: Some(m.period as i64),
-                    main: Some(m.period as i64),
+                    period: (!circuit).then_some(m.period as i64),
+                    main: (!constant).then_some(m.period as i64),
                     open: None,
                     close: None,
                     kinds: &b.kinds,
@@ -842,7 +863,7 @@ impl Site {
                     variant: false,
                     member: false,
                     latency: None,
-                    axis_letter: "",
+                    axis_letter: m.axis.split_once(" = ").map(|(l, _)| l.trim()).unwrap_or(""),
                 })
             }
         }
@@ -857,7 +878,7 @@ impl Site {
         let value = if q.value.trim().is_empty() { None } else { Some(parse_value_query(&q.value)?) };
         let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
         let mut cands: Vec<Hit> = (0..self.builds.len()).map(Hit::Build).collect();
-        if time.is_some() {
+        if time.is_some() || value.is_some() {
             // members replace the archived designs they are (same family and n)
             let covered: BTreeSet<&str> = self.members.iter().filter_map(|m| m.build.as_deref()).collect();
             cands.retain(|h| match h {
@@ -1169,12 +1190,13 @@ mod tests {
         let mut layout = circuit("obs-L2-b", "rising-edge", 2, 1, "", "", Some("2 gt"));
         layout.circuit.as_mut().unwrap().layout_of = Some("circuits/pulse/obs-L2".into());
         s.builds.push(layout);
-        let names = |q: &Query| -> Vec<String> {
+        fn names_of(s: &Site, q: &Query) -> Vec<String> {
             s.run(q).unwrap().0.iter().map(|h| match h {
                 Hit::Build(i) => s.builds[*i].name.clone(),
                 Hit::Member(_) => String::new(),
             }).collect()
-        };
+        }
+        let names = |q: &Query| names_of(&s, q);
         // default: the group's shown design only, no layout
         assert_eq!(names(&Query { kind: "circuit".into(), ..Default::default() }), vec!["obs-L2", "rise-L6"]);
         // a value search expands the group to the member that hits it
@@ -1191,6 +1213,46 @@ mod tests {
         assert!(parse_value_query("lever").is_err());
         let q = Query { kind: "circuit".into(), value: "L 12".into(), ..Default::default() };
         assert_eq!(Query::from_fragment(&q.to_fragment()), q);
+        // an extendable circuit family's generated members answer the value search; a family
+        // card's second base design stays out of the default grid
+        s.cards.push(Card { id: "rep-line".into(), kind: "circuit".into(), families: vec![Family {
+            id: "rep2".into(),
+            build: "circuits/pulse/obs-L2".into(),
+            period: Formula::Linear { a: 2, b: 8 },
+            period_text: "2 + 8n".into(),
+            blocks: Formula::Linear { a: 1, b: 2 },
+            blocks_text: "1 + 2n".into(),
+            rule: String::new(),
+            n_lo: 0,
+            n_hi: 4,
+            base: 0,
+            judged: vec![0],
+            extra: vec![],
+        }], ..Default::default() });
+        for n in 0..=4i64 {
+            s.members.push(Member {
+                card: "rep-line".into(),
+                family: "rep2".into(),
+                n,
+                period: (2 + 8 * n) as u32,
+                blocks: (1 + 2 * n) as u32,
+                design: String::new(),
+                dims: None,
+                volume: None,
+                status: STATUS_REDSIM.into(),
+                build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
+                picture: None,
+                axis: format!("N = {} gt", 2 + 8 * n),
+            });
+        }
+        let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
+        assert_eq!(hits, vec![Hit::Member(3)]);
+        // a clock time search never returns a circuit member
+        assert!(s.run(&Query { time: "26".into(), ..Default::default() }).unwrap().0.is_empty());
+        let mut second = circuit("obs-L4", "rising-edge", 4, 1, "", "", None);
+        second.circuit.as_mut().unwrap().card_member = true;
+        s.builds.push(second);
+        assert!(!names_of(&s, &Query { kind: "circuit".into(), ..Default::default() }).contains(&"obs-L4".to_string()));
     }
 
     fn site() -> Site {
@@ -1223,6 +1285,7 @@ mod tests {
                 status: if n < 3 { STATUS_JUDGED.into() } else { STATUS_FORMULA.into() },
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
+                axis: String::new(),
             })
             .collect();
         Site {

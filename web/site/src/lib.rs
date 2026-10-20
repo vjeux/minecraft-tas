@@ -508,8 +508,8 @@ fn draw_dynamic() {
                         site_model::ValueField::N => "N",
                         site_model::ValueField::Axis => "L / N",
                     };
-                    let range = if lo == hi { format!("of {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
-                    (format!("with {what} {range} (tunable groups expanded to that member)"), false)
+                    let range = if lo == hi { format!("= {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
+                    (format!("with {what} {range}"), false)
                 }
                 Err(e) => (e, true),
             })
@@ -530,7 +530,7 @@ fn draw_dynamic() {
                 s.push_str(&format!(" {}", esc(m)));
             }
             if members > 0 {
-                s.push_str(&format!(" ({members} of them extendable family members)"));
+                s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
             }
             s
         } else {

@@ -387,7 +387,7 @@ pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
 
 /// The about page's glossary.
 pub fn glossary() -> String {
-    let items: [(&str, &str); 16] = [
+    let items: [(&str, &str); 15] = [
         ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
         ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
         ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime, the output is orange glass that glows while the output is on."),
@@ -403,7 +403,6 @@ pub fn glossary() -> String {
         ("period", "a clock's (or an engine's) cycle length in gt: its whole state repeats every period."),
         ("blocks", "blocks placed (a piston head is part of its piston; the input device is not counted); entities count one each."),
         ("robust", "it works the same at 4 positions and 4 rotations in the real game; otherwise position- or rotation-dependent."),
-        ("redsim", "the project's exact Rust model of the game's redstone, checked against the real game; it runs the 3D views and the timing diagrams."),
     ];
     let mut s = String::from("<dl class=\"glossary\">\n");
     for (k, v) in items {
@@ -411,6 +410,21 @@ pub fn glossary() -> String {
     }
     s.push_str("</dl>\n");
     s
+}
+
+/// A caption without its simulator attribution (vjeux: "we don't need the attribution"): every
+/// sentence naming redsim goes.
+pub fn scrub_attribution(caption: &str) -> String {
+    if !caption.to_lowercase().contains("redsim") {
+        return caption.to_string();
+    }
+    let mut out: Vec<&str> = Vec::new();
+    for s in caption.split_inclusive(". ") {
+        if !s.to_lowercase().contains("redsim") {
+            out.push(s);
+        }
+    }
+    out.concat().trim().trim_end_matches(|c: char| c == ',' || c == ';').to_string()
 }
 
 /// The design's caption without its bookkeeping prefix (`Counter 2, dropper ring, 8 blocks
@@ -554,6 +568,8 @@ mod tests {
             "The input cell fires 2 droppers."
         );
         assert_eq!(how_sentence("An observer watching the input."), "An observer watching the input.");
+        assert_eq!(scrub_attribution("Two hoppers trade a sword. redsim: P=8 gt, warmup 2"), "Two hoppers trade a sword.");
+        assert_eq!(scrub_attribution("No mention."), "No mention.");
     }
 
     #[test]

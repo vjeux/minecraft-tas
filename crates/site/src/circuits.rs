@@ -136,7 +136,7 @@ fn details(c: &Design) -> Details {
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
-            d.summary = format!("redsim screen failed: {e:#}");
+            d.summary = format!("simulation failed: {e:#}");
             return d;
         }
     };
@@ -280,7 +280,7 @@ fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             notes.push(format!("{}: redsim screen fails: {why}", path.display()));
         }
         let metrics = det.metrics.clone().unwrap_or_default();
-        let verdict = format!("{} (redsim screen at site build time)", det.summary);
+        let verdict = format!("{} (simulated at site build time)", det.summary.trim_end().trim_end_matches("redsim").trim_end_matches([',', ' ']));
         // the axis as the archive writes it (`L = 2 gt`, `N = 4 gt`, the gate's function)
         let outcome = det.metrics.clone().map(|m| circuit::check::Outcome { pass: true, metrics: m, ..Default::default() });
         let axis = match &outcome {
@@ -452,6 +452,182 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
 /// A circuit build's design path relative to designs/circuits.
 fn repo_path_rel(b: &Build) -> String {
     repo_path(b).trim_start_matches(&format!("{ROOT}/")).to_string()
+}
+
+/// How the extendable circuit families are expanded at build time.
+#[derive(Clone, Debug)]
+pub struct FamilyOptions {
+    /// Where the generated members go (`<site>/designs/circuits/members`); `None`: the formula only.
+    pub members_dir: Option<PathBuf>,
+    pub threads: usize,
+}
+
+/// The extendable circuit families (`extend` headers on archived designs, docs/circuits.md): one
+/// card per family group (`extend group:`), every member of the verified n range generated with
+/// the family's own generator and screened in redsim (`judged` when `extend.tsv` has it, `redsim`
+/// when the screen passes with the formula's axis value, else `formula`), for the family pages and
+/// the circuit value search.
+pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card], o: &FamilyOptions) -> (Vec<site_model::Card>, Vec<site_model::Member>, Vec<String>) {
+    let root = repo.join(ROOT);
+    let mut notes = Vec::new();
+    struct Fam {
+        build: usize,
+        path: PathBuf,
+        f: clock::extend::Family,
+        letter: String,
+        unit: &'static str,
+        judged: Vec<i64>,
+    }
+    let mut fams: Vec<Fam> = Vec::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(c) = &b.circuit else { continue };
+        if c.study.is_empty() || b.page.starts_with("circuits/calibration/") {
+            continue;
+        }
+        let path = repo.join(repo_path(b));
+        let Ok(design) = Design::load(&path) else { continue };
+        let f = match circuit::archive::family_of(&design) {
+            Ok(Some(f)) => f,
+            Ok(None) => continue,
+            Err(e) => {
+                notes.push(format!("{}: extend headers: {e:#}", b.name));
+                continue;
+            }
+        };
+        let (letter, unit) = match c.axis.split_once(" = ") {
+            Some((l, v)) => (l.trim().to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
+            None if c.kind.starts_with("counter") || c.kind.starts_with("piston-extender") => ("N".to_string(), ""),
+            None => (String::new(), if c.axis.contains("gt") { " gt" } else { "" }),
+        };
+        let judged: Vec<i64> = std::fs::read_to_string(root.join(&c.study).join("archive").join(circuit::archive::EXTEND_TSV))
+            .unwrap_or_default()
+            .lines()
+            .skip(1)
+            .filter_map(|l| {
+                let x: Vec<&str> = l.split('\t').collect();
+                (x.first() == Some(&f.id.as_str())).then(|| x.get(1).and_then(|n| n.parse().ok())).flatten()
+            })
+            .collect();
+        fams.push(Fam { build: i, path, f, letter, unit, judged });
+    }
+    // the cards: one per group (else per family), ids clear of the clock cards'
+    let mut cards: Vec<site_model::Card> = Vec::new();
+    let mut card_of: Vec<usize> = Vec::new();
+    for fam in &fams {
+        let key = fam.f.group.clone().unwrap_or_else(|| fam.f.id.clone());
+        let id = if clock_cards.iter().any(|c| c.id == key) { format!("circuit-{key}") } else { key.clone() };
+        let ci = match cards.iter().position(|c| c.id == id) {
+            Some(ci) => ci,
+            None => {
+                let b = &builds[fam.build];
+                let heading = match &fam.f.group_period {
+                    Some(p) if p.contains('=') => p.clone(),
+                    Some(p) => format!("{} = {p}{}", fam.letter, fam.unit),
+                    None => format!("{} = {}{}", fam.letter, fam.f.period.text(), fam.unit),
+                };
+                cards.push(site_model::Card {
+                    id: id.clone(),
+                    title: fam.f.group_title.clone().unwrap_or_else(|| format!("{} ({})", key, crate::explain::kind_title(&b.group).to_lowercase())),
+                    heading: heading.trim_start_matches(" = ").to_string(),
+                    page: format!("families/{id}.html"),
+                    note: fam.f.group_note.clone().unwrap_or_default(),
+                    kind: "circuit".into(),
+                    study: b.circuit.as_ref().map(|c| c.study.clone()).unwrap_or_default(),
+                    ..Default::default()
+                });
+                cards.len() - 1
+            }
+        };
+        let b = &builds[fam.build];
+        cards[ci].families.push(site_model::Family {
+            id: fam.f.id.clone(),
+            build: b.id.clone(),
+            period: crate::clocks::formula(&fam.f.period),
+            period_text: fam.f.period.text(),
+            blocks: crate::clocks::formula(&fam.f.blocks),
+            blocks_text: fam.f.blocks.text(),
+            rule: fam.f.rule.clone(),
+            n_lo: fam.f.n_lo,
+            n_hi: fam.f.n_hi,
+            base: fam.f.base,
+            judged: fam.judged.clone(),
+            extra: Vec::new(),
+        });
+        card_of.push(ci);
+    }
+    // the members: every n of each family, generated in parallel
+    let jobs: Vec<(usize, i64)> = fams.iter().enumerate().flat_map(|(k, fam)| (fam.f.n_lo..=fam.f.n_hi).map(move |n| (k, n))).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots: Vec<std::sync::Mutex<Option<site_model::Member>>> = jobs.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    let job_notes: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let threads = o.threads.max(1).min(jobs.len().max(1));
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if i >= jobs.len() {
+                    break;
+                }
+                let (k, n) = jobs[i];
+                let fam = &fams[k];
+                let b = &builds[fam.build];
+                let value = fam.f.period.eval(n);
+                let mut m = site_model::Member {
+                    card: cards[card_of[k]].id.clone(),
+                    family: fam.f.id.clone(),
+                    n,
+                    period: value.max(0) as u32,
+                    blocks: fam.f.blocks.eval(n).max(0) as u32,
+                    design: String::new(),
+                    dims: None,
+                    volume: None,
+                    status: if fam.judged.contains(&n) { site_model::STATUS_JUDGED.into() } else { site_model::STATUS_FORMULA.into() },
+                    build: None,
+                    picture: None,
+                    axis: format!("{} = {value}{}", fam.letter, fam.unit).trim_start_matches(" = ").to_string(),
+                };
+                if n == fam.f.base {
+                    m.design = b.design.clone();
+                    m.dims = b.dims.clone();
+                    m.volume = b.volume;
+                    m.build = Some(b.id.clone());
+                    m.status = site_model::STATUS_JUDGED.into();
+                } else if let Some(dir) = &o.members_dir {
+                    let tmp = std::env::temp_dir().join(format!("mctas-site-cf-{}-{k}", std::process::id()));
+                    match fam.f.build(&fam.path, n, &tmp) {
+                        Ok(p) => {
+                            let name = format!("{}-n{n}.txt", fam.f.id);
+                            if std::fs::create_dir_all(dir).and_then(|_| std::fs::copy(&p, dir.join(&name)).map(|_| ())).is_ok() {
+                                m.design = format!("designs/circuits/members/{name}");
+                                if let Some((c, parsed)) = parse(&p) {
+                                    if let Some((d, v)) = parsed.dims {
+                                        m.dims = Some(d);
+                                        m.volume = Some(v);
+                                    }
+                                    // the redsim screen: the formula's axis value, exactly
+                                    let ok = sim(&c, &Options::default()).ok().and_then(|r| r.outcome).filter(|o| o.pass).is_some_and(|o| {
+                                        let kind = c.kind.clone();
+                                        kind.is_some_and(|k| number(&circuit::archive::axis(&k, &o, &parsed.kinds.join("+"))) == Some(value))
+                                    });
+                                    if ok && m.status != site_model::STATUS_JUDGED {
+                                        m.status = site_model::STATUS_REDSIM.into();
+                                    } else if !ok {
+                                        job_notes.lock().unwrap().push(format!("{} n = {n}: the redsim screen does not give {} (kept as formula)", fam.f.id, m.axis));
+                                    }
+                                }
+                            }
+                            let _ = std::fs::remove_file(&p);
+                        }
+                        Err(e) => job_notes.lock().unwrap().push(format!("{} n = {n}: {e:#}", fam.f.id)),
+                    }
+                }
+                *slots[i].lock().unwrap() = Some(m);
+            });
+        }
+    });
+    notes.extend(job_notes.into_inner().unwrap_or_default());
+    let members: Vec<site_model::Member> = slots.into_iter().filter_map(|s| s.into_inner().ok().flatten()).collect();
+    (cards, members, notes)
 }
 
 /// The repository path of a circuit build's design (for the GitHub link and the page's text).
