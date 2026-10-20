@@ -71,9 +71,20 @@ pub fn subline(b: &Build) -> String {
             format!("{p} · {} · {}", blocks_word(b.blocks), b.group.replace('+', " + "))
         }
         _ => match &b.circuit {
-            // `rising-edge · L = 2 gt · 3 blocks`
-            Some(c) if c.axis.contains('=') => format!("{} · {} · {}", b.group, c.axis, blocks_word(b.blocks)),
-            _ => format!("{} · {}", b.group, blocks_word(b.blocks)),
+            // `rising-edge · L = 2 gt · 3 blocks`, `flying-machine · up · 10 gt/block · 6 blocks`:
+            // the axis value whenever the kind does not already say it
+            Some(c) => {
+                let mut parts = vec![b.group.clone()];
+                if !c.direction.is_empty() {
+                    parts.push(c.direction.clone());
+                }
+                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(c.axis.as_str()) {
+                    parts.push(c.axis.clone());
+                }
+                parts.push(blocks_word(b.blocks));
+                parts.join(" · ")
+            }
+            None => format!("{} · {}", b.group, blocks_word(b.blocks)),
         },
     }
 }

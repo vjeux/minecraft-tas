@@ -48,8 +48,9 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   default), cards from `card_groups`, judged members from `extend.tsv`, real-game traces
   (`designs/clocks/traces/<stem>.trace`) passed to the viewer as `data-trace`.
 - Circuits: each study's `designs/circuits/<study>/archive/verdicts.tsv` rows and `captions.tsv`,
-  variants folded like `circuit catalog` (same kind and axis value), plus the judge's calibration
-  designs (`designs/circuits/calibration/`, metrics from the redsim screen at build time). Every
+  variants folded like `circuit catalog` (same kind and axis value); the judge's calibration and
+  selftest designs (`designs/circuits/calibration/`, `selftest/`) are not published (vjeux: "not
+  useful to people"; smoke checks it). Every
   circuit is also run through `circuit::verify::sim` at build time: the judge's own stimulus
   becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`) and the page's
   timing diagram (inputs and outputs per gt) with the checker's report; the page's plain-language
@@ -79,11 +80,29 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`) is rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`,
-copied from the checkout's `web/viewer/`, loaded with `import init from "./viewer/mcview.js";
-init();`): lazily when visible, one shared WebGL context, thumbnails cached by (src, size), new
-elements picked up by a MutationObserver. It adds `mcview-ready` (the site's CSS then hides the
-element's fallback: the interim picture or a text card) or `mcview-error`.
+`data-pitch`; circuits: `data-stimulus`, `data-phases`, `data-input-mode`, `data-circuit`) is
+rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the
+checkout's `web/viewer/`): lazily when visible, one shared WebGL context for the thumbnails,
+thumbnails cached by (src, size), new elements picked up by a MutationObserver. It adds
+`mcview-ready` (the site's CSS then hides the element's fallback: the interim picture or a text
+card) or `mcview-error`.
+
+Cache-busting (GitHub Pages serves everything with max-age=600, and phones kept a broken viewer
+after a hotfix): every page loads the bundles by content hash, `import init from
+"./viewer/mcview.js?v=<hash>"; init({module_or_path: "./viewer/mcview_bg.wasm?v=<hash>"})` (the
+wasm by its own URL: its default URL would drop the query, and a cached wasm must never meet a
+new glue), the same for `pkg/redstonepedia*`, `style.css?v=` and `data/site.json?v=` (the index's
+`#filters` carries it in `data-src`). The hashes are FNV-1a of the files, computed at build time
+(`pages::set_versions`).
+
+In-place swaps (vjeux: "Don't reload the page when clicking on variants, update inline and keep
+the current camera"): a viewer that reloads its design when `data-src` changes marks itself with
+the class `mcview-live-src` (webrender). On such a ready viewer, a build page's tunable-group
+picker fetches the member's page and swaps everything around the viewer (`web/site/src/swap.rs`):
+the viewer element stays in place, its `data-*` attributes are updated, then `data-keep-camera`,
+then `data-src` last; `history.pushState` keeps the member's URL (popstate swaps back). A family
+page has one full viewer (`#member-view`) whose design each member row (`a.view[data-src]`) swaps
+the same way. Without `mcview-live-src` the links simply navigate.
 
 ## The UI
 

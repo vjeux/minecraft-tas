@@ -4,7 +4,7 @@
 //! GitHub project page under /minecraft-tas/); viewers are `data-mcview` elements that
 //! webrender's bundle (viewer/mcview.js) renders when present.
 
-use site_model::html::{build_card, esc, kind_title, member_card, member_href, size_line};
+use site_model::html::{build_card, esc, kind_title, member_href, size_line};
 use site_model::{Build, Card, Member, Site, flag_label, gt_time, real_time, status_label};
 use std::collections::BTreeMap;
 
@@ -16,8 +16,10 @@ pub const SITE_NAME: &str = "REDSTONEPEDIA";
 pub struct Scripts {
     /// webrender's viewer bundle (viewer/mcview.js): only when the site has one.
     pub viewer: bool,
-    /// The filtering UI (pkg/redstonepedia.js).
+    /// The filtering UI (pkg/redstonepedia.js) on this page.
     pub app: bool,
+    /// Whether the site has the UI at all (pages with in-place swaps load it too).
+    pub ui: bool,
 }
 
 /// A whole page around `body`. `prefix` is the path from the page to the site root.
@@ -63,7 +65,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     if let Some(img) = image {
         s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
     }
-    s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css\">\n"));
+    s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", { let c = versions().css; if c.is_empty() { String::new() } else { format!("?v={c}") } }));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
     s.push_str(&header(prefix, kind));
@@ -78,14 +80,64 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     ));
     // module specifiers must start with ./ or ../ to be relative
     let module = if prefix.is_empty() { "./" } else { prefix };
+    // cache-busting (GitHub Pages serves max-age=600): every bundle by a content hash, the wasm
+    // passed to init explicitly (its default URL would drop the query)
+    let v = versions();
     if scripts.app {
-        s.push_str(&format!("<script type=\"module\">import init from \"{module}pkg/redstonepedia.js\"; init();</script>\n"));
+        s.push_str(&format!(
+            "<script type=\"module\">import init from \"{module}pkg/redstonepedia.js?v={}\"; init({{module_or_path: \"{module}pkg/redstonepedia_bg.wasm?v={}\"}});</script>\n",
+            v.ui_js, v.ui_wasm
+        ));
     }
     if scripts.viewer {
-        s.push_str(&format!("<script type=\"module\">import init from \"{module}viewer/mcview.js\"; init();</script>\n"));
+        s.push_str(&format!(
+            "<script type=\"module\">import init from \"{module}viewer/mcview.js?v={}\"; init({{module_or_path: \"{module}viewer/mcview_bg.wasm?v={}\"}});</script>\n",
+            v.viewer_js, v.viewer_wasm
+        ));
     }
     s.push_str("</body>\n</html>\n");
     s
+}
+
+/// Content hashes of the files pages load by a fixed URL (`?v=<hash>`), set by `site build`
+/// once the files are written (empty: no query).
+#[derive(Clone, Debug, Default)]
+pub struct Versions {
+    pub css: String,
+    pub viewer_js: String,
+    pub viewer_wasm: String,
+    pub ui_js: String,
+    pub ui_wasm: String,
+    pub data: String,
+}
+
+static VERSIONS: std::sync::RwLock<Option<Versions>> = std::sync::RwLock::new(None);
+
+pub fn set_versions(v: Versions) {
+    if let Ok(mut g) = VERSIONS.write() {
+        *g = Some(v);
+    }
+}
+
+fn versions() -> Versions {
+    VERSIONS.read().ok().and_then(|g| g.clone()).unwrap_or_default()
+}
+
+/// The first 8 hex digits of a file's FNV-1a hash ("" when the file is missing).
+pub fn file_hash(path: &std::path::Path) -> String {
+    match std::fs::read(path) {
+        Ok(bytes) => bytes_hash(&bytes),
+        Err(_) => String::new(),
+    }
+}
+
+pub fn bytes_hash(bytes: &[u8]) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in bytes {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{:08x}", h >> 32)
 }
 
 fn row(k: &str, v: &str) -> String {
@@ -124,8 +176,16 @@ fn circuit_intro(b: &Build, c: &site_model::Circuit) -> String {
 fn circuit_sections(c: &site_model::Circuit, has_viewer: bool, prefix: &str) -> String {
     let mut s = format!("<section><h2>How to try it</h2>{}</section>\n", crate::explain::how_to_try(c, has_viewer));
     if let Some(w) = &c.wave {
+        let has_pos = w.rows.iter().any(|r| r.scale > 0);
+        let pos_text = if !has_pos {
+            String::new()
+        } else if c.kind.starts_with("piston-extender") {
+            " <span class=\"tag-pos\">Blue</span>: where the pushed block is, 0 = home, up to N = fully out (the dashed line); it must reach N while the input is on and come all the way back.".to_string()
+        } else {
+            " <span class=\"tag-pos\">Blue</span>: how far the machine has moved along its path, in blocks.".to_string()
+        };
         s.push_str(&format!(
-            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15). Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{}</section>\n",
+            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{}</section>\n",
             if c.inputs.len() == 1 { "" } else { "s" },
             crate::explain::wave_svg(w),
             if c.table.is_empty() {
@@ -223,8 +283,11 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     // the redstone first (vjeux: "Put the redstone before the explanation"): the live view and
     // its controls, a tunable group's picker under it, then what it does and the rest
     body.push_str(&viewer(prefix, b));
+    let picker = group_picker(site, b, prefix);
+    // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera
+    let scripts = Scripts { app: scripts.ui && scripts.viewer && !picker.is_empty(), ..scripts };
     if let Some(c) = &b.circuit {
-        body.push_str(&group_picker(site, b, prefix));
+        body.push_str(&picker);
         body.push_str(&circuit_intro(b, c));
         body.push_str(&circuit_sections(c, scripts.viewer, prefix));
     }
@@ -455,32 +518,118 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
     let mut out = Vec::new();
     let others = || site.builds.iter().filter(move |o| o.id != b.id && o.kind == b.kind);
     if let Some(c) = &b.clock {
-        let mut same: Vec<&Build> = others().filter(|o| o.clock.as_ref().is_some_and(|oc| oc.period == c.period)).collect();
+        // walk the axis first (vjeux on circuits: "show [them] of different sizes, not others of
+        // size 1"): the smallest clock of each nearby period, then the same period's other
+        // clocks, then the family's own other periods
+        let shown = |o: &&Build| o.clock.as_ref().is_some_and(|oc| oc.host.is_none() && !oc.instance);
+        let smallest_per_period = |pool: Vec<&'a Build>| -> Vec<&'a Build> {
+            let mut best: BTreeMap<u32, &Build> = BTreeMap::new();
+            for o in pool {
+                let p = o.clock.as_ref().map(|x| x.period).unwrap_or(0);
+                if p == c.period {
+                    continue;
+                }
+                let better = |cur: &&Build| (o.blocks, o.volume, &o.name) < (cur.blocks, cur.volume, &cur.name);
+                if best.get(&p).is_none_or(better) {
+                    best.insert(p, o);
+                }
+            }
+            let mut v: Vec<&Build> = best.into_values().collect();
+            v.sort_by_key(|o| {
+                let p = o.clock.as_ref().map(|x| x.period).unwrap_or(0);
+                ((p as i64 - c.period as i64).abs(), p)
+            });
+            v.truncate(8);
+            v
+        };
+        out.push(("Nearby periods (the smallest clock of each)".to_string(), smallest_per_period(others().filter(shown).collect())));
+        let mut same: Vec<&Build> = others().filter(shown).filter(|o| o.clock.as_ref().is_some_and(|oc| oc.period == c.period)).collect();
         same.sort_by_key(|o| (o.blocks, o.volume, o.name.clone()));
-        same.truncate(12);
+        same.truncate(8);
         out.push((format!("Other clocks of {}", gt_time(c.period)), same));
-        let mut fam: Vec<&Build> = others().filter(|o| o.group == b.group && o.clock.as_ref().is_some_and(|oc| oc.period != c.period)).collect();
-        fam.sort_by_key(|o| (o.clock.as_ref().map(|oc| (oc.period as i64 - c.period as i64).abs()).unwrap_or(i64::MAX), o.blocks, o.name.clone()));
-        fam.truncate(12);
-        out.push((format!("Same family ({}), nearest periods", b.group.replace('+', " + ")), fam));
+        out.push((format!("Same family ({}), other periods", b.group.replace('+', " + ")), smallest_per_period(others().filter(shown).filter(|o| o.group == b.group).collect())));
     } else if b.kind == "door" {
         let v = b.volume.unwrap_or(u32::MAX) as i64;
         let mut near: Vec<&Build> = others().filter(|o| o.group == b.group).collect();
         near.sort_by_key(|o| ((o.volume.unwrap_or(u32::MAX) as i64 - v).abs(), o.blocks, o.name.clone()));
         near.truncate(12);
         out.push((format!("Other {} doors of similar size", b.group), near));
-    } else {
-        // circuits: the other shown designs of the kind (not this one's group, layouts, variants)
-        let mine = b.circuit.as_ref().map(|c| c.tunable.clone()).unwrap_or_default();
-        let mut near: Vec<&Build> = others()
-            .filter(|o| o.group == b.group)
-            .filter(|o| o.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()) && (mine.is_empty() || c.tunable != mine)))
-            .collect();
-        near.sort_by_key(|o| (o.blocks, o.name.clone()));
-        near.truncate(12);
-        out.push((format!("Other {} circuits", crate::explain::kind_title(&b.group).to_lowercase()), near));
+    } else if let Some(c) = &b.circuit {
+        out.push(circuit_axis_walk(site, b, c));
     }
     out
+}
+
+/// A circuit kind's family word: `counter 4` -> `counter`, `gate xor` -> `gate`.
+fn base_kind(kind: &str) -> &str {
+    kind.split_whitespace().next().unwrap_or(kind)
+}
+
+/// The circuits along this one's study axis (vjeux on pext-n1-sticky: "show extenders of
+/// different sizes, not others of size 1"): the smallest design of each OTHER value of the axis
+/// (an extender's reach, a counter's or a delay line's N, a pulse circuit's L, a gate's function, a
+/// T flip-flop's mechanism, a flying machine's direction and speed; latches: the other kinds of
+/// their study), nearest value first. Same-value designs are on the page already (other layouts,
+/// variants), and so are this design's own tunable group (the picker).
+fn circuit_axis_walk<'a>(site: &'a Site, b: &Build, c: &site_model::Circuit) -> (String, Vec<&'a Build>) {
+    let base = base_kind(&c.kind);
+    let by_kind = matches!(base, "counter" | "piston-extender" | "delay" | "gate" | "flying-machine" | "tff" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender");
+    let key = |xc: &site_model::Circuit| -> String {
+        if base_kind(&xc.kind) == "flying-machine" {
+            format!("{} {}", xc.direction, xc.axis)
+        } else if by_kind {
+            xc.axis.clone()
+        } else {
+            format!("{} {}", xc.kind, xc.axis)
+        }
+    };
+    let mine = key(c);
+    let mut best: BTreeMap<String, &Build> = BTreeMap::new();
+    for o in &site.builds {
+        let Some(oc) = &o.circuit else { continue };
+        if o.id == b.id || oc.host.is_some() || oc.layout_of.is_some() {
+            continue;
+        }
+        if !c.tunable.is_empty() && oc.tunable == c.tunable {
+            continue;
+        }
+        let in_scope = if by_kind { base_kind(&oc.kind) == base } else { oc.study == c.study };
+        if !in_scope {
+            continue;
+        }
+        let k = key(oc);
+        if k == mine {
+            continue;
+        }
+        let better = |cur: &&Build| (o.blocks, o.volume.unwrap_or(u32::MAX), &o.name) < (cur.blocks, cur.volume.unwrap_or(u32::MAX), &cur.name);
+        if best.get(&k).is_none_or(better) {
+            best.insert(k, o);
+        }
+    }
+    let mut list: Vec<&Build> = best.into_values().collect();
+    list.sort_by_key(|o| {
+        let oc = o.circuit.as_ref();
+        let ov = oc.and_then(|x| x.value);
+        let dist = match (c.value, ov) {
+            (Some(a), Some(v)) => (a - v).abs(),
+            (None, None) => 0,
+            _ => i64::MAX,
+        };
+        let other_direction = oc.is_some_and(|x| x.direction != c.direction);
+        (dist, other_direction, ov.unwrap_or(i64::MAX), o.blocks, o.name.clone())
+    });
+    list.truncate(12);
+    let title = match base {
+        "piston-extender" => "Piston extenders of other reaches (the smallest of each N)".to_string(),
+        "counter" => "Counters of other N (the smallest of each)".to_string(),
+        "delay" => "Delay lines of other delays (the smallest of each N)".to_string(),
+        "gate" => "Other logic gates (the smallest of each function)".to_string(),
+        "tff" => "Other T flip-flop mechanisms (the smallest of each)".to_string(),
+        "flying-machine" => "Flying machines of other directions and speeds (the smallest of each)".to_string(),
+        "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" => format!("{}s of other pulse lengths (the smallest of each L)", crate::explain::kind_title(base)),
+        _ => format!("Other {} circuits (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.to_lowercase()).unwrap_or_else(|| c.study.clone())),
+    };
+    (title, list)
 }
 
 /// A tunable group's picker (every member page and the shown design's): one link per member,
@@ -509,34 +658,42 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
             None => String::new(),
         }
     };
-    let label = |o: &Build| -> String {
+    let same_axis = members.iter().all(|m| m.circuit.as_ref().map(|x| &x.axis) == Some(&c.axis));
+    // a chip: the member's value when the values differ (L 12), else what sets it apart (stone
+    // button); its second line the other: what differs (delays 4+4), or the block count
+    let chip_text = |o: &Build| -> (String, String) {
         let oc = o.circuit.as_ref();
         let axis = oc.map(|oc| oc.axis.replace(" = ", " ")).unwrap_or_default();
-        if members.iter().all(|m| m.circuit.as_ref().map(|x| &x.axis) == oc.map(|x| &x.axis)) {
-            // one value, several versions (input device, layout): name them
-            o.name.clone()
+        let what = oc.map(|oc| oc.variant_label.clone()).unwrap_or_default();
+        if same_axis {
+            (if what.is_empty() { o.name.clone() } else { what }, site_model::html::blocks_word(o.blocks))
         } else {
-            axis
+            (axis, site_model::html::blocks_word(o.blocks))
         }
     };
     let chips: String = members
         .iter()
         .map(|o| {
             let cur = o.id == b.id;
+            let (big, small) = chip_text(o);
             format!(
                 "<a class=\"pick{}\" href=\"{prefix}{}\"{}><b>{}</b><span>{}</span></a>",
                 if cur { " on" } else { "" },
                 esc(&o.page),
                 if cur { " aria-current=\"page\"" } else { "" },
-                esc(&label(o)),
-                esc(&site_model::html::blocks_word(o.blocks))
+                esc(&big),
+                esc(&small)
             )
         })
         .collect();
+    let differs = if c.group_differs.is_empty() { "their layout".to_string() } else { c.group_differs.clone() };
+    let pick = if same_axis { "Pick one" } else { "Pick a value" };
     format!(
-        "<section class=\"group\"><h2>{} <span class=\"count\">tunable group: {}</span></h2><p class=\"hint\">One mechanism with other repeater delays, comparator modes or a longer line. Pick a value: the 3D view, the numbers and the downloads follow.{}</p><nav class=\"picker\" aria-label=\"members\">{chips}</nav></section>\n",
+        "<section class=\"group\"><h2>{} <span class=\"count\">{}</span></h2><p class=\"hint\">One mechanism; its versions differ only in {}{}. {pick}: the 3D view (same camera), the numbers and the downloads follow.{}</p><nav class=\"picker\" aria-label=\"versions\">{chips}</nav></section>\n",
         esc(&title),
-        esc(&span),
+        esc(&if same_axis { format!("{} versions · {}", members.len(), c.axis) } else { span.clone() }),
+        esc(&differs),
+        if same_axis { String::new() } else { format!(", which sets {}", c.axis.split(" = ").next().filter(|l| l.len() <= 2).unwrap_or("its value")) },
         if c.group_note.is_empty() { String::new() } else { format!(" ({})", esc(&c.group_note)) }
     )
 }
@@ -596,12 +753,20 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         }
     }
     if let Some(f) = card.families.first() {
-        body.push_str(&format!("<p>Extend: {}.</p>\n", esc(&f.rule)));
-        let two: Vec<&&Member> = members.iter().filter(|m| m.family == f.id).take(2).collect();
-        if !two.is_empty() {
-            let cards: Vec<String> = two.iter().map(|m| member_card(m, site, prefix)).collect();
-            body.push_str(&format!("<div class=\"grid two\">{}</div>\n", cards.concat()));
+        // one live view of the members (a row below swaps its design in place, same camera)
+        if let Some(m) = members.iter().find(|m| m.family == f.id && !m.design.is_empty()).or_else(|| members.iter().find(|m| !m.design.is_empty())) {
+            let kind = if circuit { "circuit" } else { "clock" };
+            body.push_str(&format!(
+                "<div class=\"viewer k-{kind}\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"{kind}\"{}><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{} n = {}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">{}</p>\n",
+                esc(&m.design),
+                if circuit { "" } else { " data-autoplay" },
+                esc(&member_value(m)),
+                esc(&m.family),
+                m.n,
+                esc(&member_caption(m))
+            ));
         }
+        body.push_str(&format!("<p>Extend: {}. Pick a member in the table to see it in the 3D view.</p>\n", esc(&f.rule)));
     }
     if !card.works_with.is_empty() {
         body.push_str(&format!("<p>Works with any one of these {} blocks in place of the {}: {}.</p>\n", card.works_with.len(), esc(&card.works_with[0]), esc(&card.works_with.join(", "))));
@@ -631,16 +796,21 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
+        let anchor = site_model::html::member_anchor(m, site);
+        let n_cell = if m.design.is_empty() {
+            m.n.to_string()
+        } else {
+            format!("<a class=\"view\" href=\"#{}\" data-src=\"{prefix}{}\" data-caption=\"{}\">{}</a>", esc(&anchor), esc(&m.design), esc(&member_caption(m)), m.n)
+        };
         let download = if m.design.is_empty() {
             "-".to_string()
         } else {
             format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&m.design)), esc(&m.design))
         };
         body.push_str(&format!(
-            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
-            esc(&site_model::html::member_anchor(m, site)),
-            m.n,
-            esc(&if m.axis.is_empty() { gt_time(m.period) } else { m.axis.clone() }),
+            "<tr id=\"{}\"><td>{name}</td><td>{n_cell}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
+            esc(&anchor),
+            esc(&member_value(m)),
             m.blocks,
             esc(m.dims.as_deref().unwrap_or("")),
             esc(&m.status),
@@ -649,7 +819,19 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     }
     body.push_str("</tbody></table></section>\n");
     let desc = if circuit { format!("Extendable redstone circuit family {}: {}", card.title, card.heading) } else { format!("Extendable redstone clock family {}: {}", card.title, card.heading) };
+    // the member rows swap the view in place (pkg/redstonepedia.js)
+    let scripts = Scripts { app: scripts.ui && scripts.viewer, ..scripts };
     shell_full(&card.title, &desc, prefix, &body, scripts, site, None, Some(if circuit { "circuit" } else { "clock" }))
+}
+
+/// A family member's value: a clock's period, a circuit's axis value.
+fn member_value(m: &Member) -> String {
+    if m.axis.is_empty() { gt_time(m.period) } else { m.axis.clone() }
+}
+
+/// The caption under a family page's view: which member it shows.
+fn member_caption(m: &Member) -> String {
+    format!("Showing {} n = {}: {} · {} · {}", m.family, m.n, member_value(m), site_model::html::blocks_word(m.blocks), status_label(&m.status))
 }
 
 /// families/index.html: every card, by its smallest period.
@@ -691,9 +873,11 @@ pub fn families_index(site: &Site, members: &BTreeMap<String, Vec<&Member>>, scr
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let n = |k: &str| site.builds.iter().filter(|b| b.kind == k).count();
+    let data_v = versions().data;
+    let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
         "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Every redstone build of <a href=\"{REPO_URL}\">minecraft-tas</a>, verified tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
-         <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\"><p class=\"loading\">Loading the filters…</p></aside>\
+         <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"all.html\">the list of everything</a>.</p></noscript>\n",
         n("door"),
@@ -859,7 +1043,7 @@ pub fn about_page(site: &Site, scripts: Scripts) -> String {
     shell("About", "What REDSTONEPEDIA is and where its numbers come from", "", &body, Scripts { viewer: false, ..scripts }, site)
 }
 
-/// The circuits of one study folder (`pulse`, ..., `calibration`), representatives first.
+/// The circuits of one study folder (`pulse`, `tff`, ...), representatives first.
 fn study_builds<'a>(site: &'a Site, folder: &str) -> Vec<&'a Build> {
     let mut v: Vec<&Build> = site.builds.iter().filter(|b| b.page.starts_with(&format!("circuits/{folder}/"))).collect();
     v.sort_by(|a, b| {
@@ -878,10 +1062,6 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     let prefix = "../../";
     let (title, intro) = match crate::explain::study(folder) {
         Some((t, i)) => (t.to_string(), i.to_string()),
-        None if folder == "calibration" => (
-            "Calibration circuits".to_string(),
-            "The judge's own reference circuits, built and checked in the real game when the circuit judge was written (one per kind); their numbers come from a simulation at site build time.".to_string(),
-        ),
         None => (format!("Circuits: {folder}"), String::new()),
     };
     let list = study_builds(site, folder);
@@ -977,17 +1157,13 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
     let mut body = format!(
         "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › Circuits</p>\n<h1>Circuits</h1>\n<p class=\"lede\">The classic redstone contraptions, one study each. Every design was checked by the circuit judge in the real game against its kind's spec, at 4 positions and 4 rotations; each page explains what the circuit does, lets you try it in 3D, and shows the judge's test.</p>\n"
     );
-    let mut folders: Vec<&str> = crate::explain::STUDIES.iter().map(|s| s.0).collect();
-    folders.push("calibration");
+    let folders: Vec<&str> = crate::explain::STUDIES.iter().map(|s| s.0).collect();
     for folder in folders {
         let list = study_builds(site, folder);
         if list.is_empty() {
             continue;
         }
-        let (title, intro) = match crate::explain::study(folder) {
-            Some((t, i)) => (t, i),
-            None => ("Calibration circuits", "The judge's own reference circuits, one per kind."),
-        };
+        let Some((title, intro)) = crate::explain::study(folder) else { continue };
         // the smallest representative of each kind
         let mut seen: Vec<String> = Vec::new();
         let mut cards: Vec<String> = Vec::new();
@@ -1071,13 +1247,14 @@ mod tests {
     #[test]
     fn build_page_has_the_parts() {
         let s = tiny_site();
-        let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false });
+        let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false, ui: false });
         assert!(p.starts_with("<!DOCTYPE html>"));
         assert!(p.contains("<title>obs2 · REDSTONEPEDIA</title>"));
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("<a class=\"card\" href=\"../clocks/obs3.html\""), "similar builds link to the other clock of the period");
-        assert!(p.contains("import init from \"../viewer/mcview.js\""));
+        assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");
+        assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
         let d = build_page(&s, &s.builds[2], "name: fc2\n", "designs/piston-door-3x3/archive/fc2-40b.txt", Scripts::default());
         assert!(d.contains("144b (8x9x2)"));
@@ -1088,8 +1265,8 @@ mod tests {
     #[test]
     fn index_loads_the_app() {
         let s = tiny_site();
-        let p = index_page(&s, Scripts { viewer: true, app: false });
-        assert!(p.contains("import init from \"./pkg/redstonepedia.js\""));
+        let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
+        assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
         assert!(p.contains("1 piston doors, 2 clocks"));
     }

@@ -341,13 +341,22 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             }
         }
     };
-    let scripts = Scripts { viewer, app: false };
+    let scripts = Scripts { viewer, app: false, ui: app };
     // pages
     write(&out.join("style.css"), STYLE)?;
     write(&out.join("favicon.svg"), FAVICON)?;
+    // cache-busting: the pages load every bundle, the CSS and the data by a content hash
+    pages::set_versions(pages::Versions {
+        css: pages::bytes_hash(STYLE.as_bytes()),
+        viewer_js: pages::file_hash(&out.join("viewer/mcview.js")),
+        viewer_wasm: pages::file_hash(&out.join("viewer/mcview_bg.wasm")),
+        ui_js: pages::file_hash(&out.join(format!("pkg/{}.js", web::UI_NAME))),
+        ui_wasm: pages::file_hash(&out.join(format!("pkg/{}_bg.wasm", web::UI_NAME))),
+        data: pages::file_hash(&out.join("data/site.json")),
+    });
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
-    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
+    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
     write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
     write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;

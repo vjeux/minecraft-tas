@@ -454,11 +454,12 @@ fn first_cap(s: &str) -> String {
 pub fn wave_svg(w: &Wave) -> String {
     let ticks = w.ticks.max(1) as f64;
     let px = (960.0 / ticks).clamp(0.6, 12.0);
-    let label_w = 56.0;
-    let row_h = 34.0;
+    let label_w = 64.0;
     let top = 22.0;
+    // a position track is taller (its values 0..N each get a step)
+    let height_of = |r: &site_model::WaveRow| if r.scale > 0 { 70.0 } else { 34.0 };
     let width = label_w + ticks * px + 8.0;
-    let height = top + row_h * w.rows.len() as f64 + 22.0;
+    let height = top + w.rows.iter().map(height_of).sum::<f64>() + 22.0;
     let x = |t: f64| label_w + t * px;
     let mut s = format!(
         "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
@@ -471,18 +472,48 @@ pub fn wave_svg(w: &Wave) -> String {
             s.push_str(&format!("<text class=\"phl\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", a + 3.0, top - 8.0, esc(label)));
         }
     }
-    for (i, r) in w.rows.iter().enumerate() {
-        let y0 = top + row_h * i as f64 + row_h - 8.0; // baseline
+    let mut row_top = top;
+    for r in &w.rows {
+        let row_h = height_of(r);
+        let y0 = row_top + row_h - 8.0; // baseline
         let hmax = row_h - 14.0;
-        s.push_str(&format!("<text class=\"wl\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - 2.0, esc(&if r.input { r.name.to_uppercase() } else if r.name == "out" { "OUT".into() } else { r.name.to_uppercase() })));
+        row_top += row_h;
+        let name = if r.name == "out" { "OUT".to_string() } else { r.name.to_uppercase() };
+        s.push_str(&format!("<text class=\"wl\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - 2.0, esc(&name)));
         s.push_str(&format!("<line class=\"base\" x1=\"{:.1}\" y1=\"{y0:.1}\" x2=\"{:.1}\" y2=\"{y0:.1}\"/>", x(0.0), x(ticks)));
+        let level_y = |l: u8| -> f64 {
+            if r.scale > 0 {
+                y0 - hmax * (l as f64 / r.scale as f64).min(1.0)
+            } else {
+                // any signal shows: a weak comparator output (strength 1) still stands 40% tall
+                let frac = if l == 0 { 0.0 } else { 0.4 + 0.6 * (l as f64 / 15.0) };
+                y0 - hmax * frac
+            }
+        };
+        if r.scale > 0 {
+            // a position track: its scale on the left, the target as a dashed line, a step line
+            s.push_str(&format!("<text class=\"ax\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - hmax + 4.0, r.scale));
+            if let Some(n) = r.target {
+                let yt = level_y(n.min(255) as u8);
+                s.push_str(&format!("<line class=\"tgt\" x1=\"{:.1}\" y1=\"{yt:.1}\" x2=\"{:.1}\" y2=\"{yt:.1}\"/><text class=\"tgtl\" x=\"{:.1}\" y=\"{:.1}\">N = {n}</text>", x(0.0), x(ticks), x(ticks) - 34.0, yt - 3.0));
+            }
+            let mut d = String::new();
+            for (k, (t, l)) in r.steps.iter().enumerate() {
+                let end = r.steps.get(k + 1).map(|n| n.0 as f64).unwrap_or(ticks);
+                let y = level_y(*l);
+                d.push_str(&format!("{}{:.1},{y:.1} L{:.1},{y:.1} ", if k == 0 { "M" } else { "L" }, x(*t as f64), x(end)));
+            }
+            s.push_str(&format!("<path class=\"wpos\" d=\"{}\"/>", d.trim_end()));
+            if !r.note.is_empty() {
+                s.push_str(&format!("<text class=\"note\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", x(0.0) + 4.0, y0 - hmax + 4.0, esc(&r.note)));
+            }
+            continue;
+        }
         // the step outline as a filled polygon
         let mut pts: Vec<String> = vec![format!("{:.1},{y0:.1}", x(0.0))];
         for (k, (t, l)) in r.steps.iter().enumerate() {
             let end = r.steps.get(k + 1).map(|n| n.0 as f64).unwrap_or(ticks);
-            // any signal shows: a weak comparator output (strength 1) still stands 40% tall
-            let frac = if *l == 0 { 0.0 } else { 0.4 + 0.6 * (*l as f64 / 15.0) };
-            let y = y0 - hmax * frac;
+            let y = level_y(*l);
             pts.push(format!("{:.1},{y:.1}", x(*t as f64)));
             pts.push(format!("{:.1},{y:.1}", x(end)));
         }

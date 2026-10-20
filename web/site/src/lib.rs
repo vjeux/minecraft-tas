@@ -16,6 +16,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Document, Element, HtmlElement, HtmlInputElement, HtmlSelectElement};
 
+mod swap;
+
 /// Cards drawn per page (more on scroll).
 const PAGE: usize = 60;
 
@@ -52,8 +54,11 @@ fn log(msg: &str) {
 
 #[wasm_bindgen(start)]
 pub fn start() {
-    // only the index page has a filter panel
+    // the build and family pages: in-place swaps (tunable-group pickers, family member rows)
     if by_id("filters").is_none() {
+        if let Err(e) = swap::install() {
+            log(&format!("redstonepedia: {e:?}"));
+        }
         return;
     }
     wasm_bindgen_futures::spawn_local(async {
@@ -68,7 +73,9 @@ pub fn start() {
 
 async fn load() -> Result<(), JsValue> {
     let window = web_sys::window().ok_or("no window")?;
-    let resp: web_sys::Response = JsFuture::from(window.fetch_with_str("data/site.json")).await?.dyn_into()?;
+    // the data's URL carries its content hash (cache-busting): #filters' data-src
+    let src = by_id("filters").and_then(|f| f.get_attribute("data-src")).unwrap_or_else(|| "data/site.json".to_string());
+    let resp: web_sys::Response = JsFuture::from(window.fetch_with_str(&src)).await?.dyn_into()?;
     if !resp.ok() {
         return Err(JsValue::from_str(&format!("data/site.json: HTTP {}", resp.status())));
     }
