@@ -480,7 +480,7 @@ impl Circuit {
             }
         }
         if self.tile.is_some() && !k.is_shulker() {
-            bail!("tile: only shulker loaders and unloaders are tiled");
+            bail!("tile: only shulker loaders and unloaders and BUD switches are tiled");
         }
         Ok(())
     }

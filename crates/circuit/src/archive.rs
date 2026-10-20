@@ -146,7 +146,8 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
 /// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
 /// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
 /// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
-/// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. Other kinds
+/// (lag, fewer). BUD switches: a denser `tileable` pitch (or tileable where the host is not),
+/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. Other kinds
 /// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
 /// carry adds that metric here.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
@@ -159,6 +160,11 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
             return false;
         }
         let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        // tiles denser (or at all, where the host does not)
+        let tile = |r: &Row| num(r, "tileable every ");
+        if tile(b).is_some_and(|tb| tile(a).is_none_or(|ta| tb < ta)) {
+            return true;
+        }
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
     // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact

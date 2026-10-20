@@ -1,5 +1,6 @@
 name: bud-slime-qc
 circuit: bud
+tile: 0 0 2
 # The observer-free BUD, armed by quasi-connectivity: a sticky piston facing up under a slime block
 # and a redstone block. The redstone block powers the piston only through the cell above it, and
 # nothing updates the piston when that power is there, so it sits armed until a block update

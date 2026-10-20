@@ -1,7 +1,8 @@
-# archived 2026-10-20T09:43Z from designs/circuits/tracks/bud/bud-latched-qc-fast.txt by mctas circuit archive
-# CIRCUIT: bud-latched-qc-fast bud detects place remove state update, latency 1 gt, reset manual, off 3 gt after it, re-arm 2 gt, footprint 5 cells, 7 blocks, 3x3x3, robust
+# archived 2026-10-20T11:03Z from designs/circuits/tracks/bud/bud-latched-qc-fast.txt by mctas circuit archive
+# CIRCUIT: bud-latched-qc-fast bud detects place remove state update, latency 1 gt, reset manual, off 3 gt after it, re-arm 2 gt, footprint 5 cells, tileable every 4 (0 0 4), 7 blocks, 3x3x3, robust
 name: bud-latched-qc-fast
 circuit: bud
+tile: 0 0 4
 # A latched BUD (manual reset) with a 1 gt latency: the sticky piston, armed by quasi-connectivity
 # from the redstone block above the stone in front of it, pushes that stone off the step between
 # two dusts in the tick after the update; the low dust joins the high one (powered by its redstone

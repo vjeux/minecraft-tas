@@ -1051,7 +1051,9 @@ pub fn tiled(c: &Circuit) -> Result<Circuit> {
         }
         for (name, p) in &base.ports {
             let q = sh(p);
-            if d.blocks.contains_key(&q) || d.ports.values().any(|x| *x == q) {
+            // a port on the design's own block (a BUD's reset input) sits on its copy's block
+            let own = base.blocks.contains_key(p);
+            if (d.blocks.contains_key(&q) && !own) || d.ports.values().any(|x| *x == q) {
                 bail!("tile: copy {k}'s port {name} at {q:?} lands on the other copies");
             }
             let renamed = format!("{name}.t{k}");

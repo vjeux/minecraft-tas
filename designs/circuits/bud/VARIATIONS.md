@@ -81,8 +81,17 @@ failed.
   BUDs); observer-based otherwise. From the block list.
 * **Silent**: no block that plays a sound when the BUD fires: pistons (extend / retract sounds),
   dispensers and droppers (dispense or fail click), note blocks, bells. From the block list.
-* **Size, box, flat** (height of the box), **tileable** (two copies side by side along each axis:
-  triggering one must not trigger the other; measured on request).
+* **Size, box, flat** (height of the box).
+* **Tileable** (a `tile: dx dy dz` claim): 3 copies side by side along the step, every class at
+  every copy's target; each copy's output answers its own target only (`tileable every N`: targets
+  every N blocks). Two things in the source decide how dense a BUD can tile:
+  * a lamp strongly powered by an observer or a repeater (`getDirectSignal`) makes its neighbors
+    see 15 through it (`Level.getSignal` of a conductor is the strong power into it), so two
+    judge lamps side by side cross-talk; a lamp lit through a solid block is not strongly powered
+    and does not: an observer that must tile every block powers a stone, the lamp beyond it;
+  * a piston's own move sets its base block with `UPDATE_NEIGHBORS`, so an armed (quasi-powered)
+    piston next to another copy's piston fires when that one moves: QC piston BUDs cannot tile
+    every block.
 
 ## 5. Variation families to build
 

@@ -1,7 +1,8 @@
-# archived 2026-10-20T05:45Z from designs/circuits/tracks/bud/bud-fence-observer.txt by mctas circuit archive
-# CIRCUIT: bud-fence-observer bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 3 cells, 2 blocks, 1x1x2, robust
+# archived 2026-10-20T11:02Z from designs/circuits/tracks/bud/bud-fence-observer.txt by mctas circuit archive
+# CIRCUIT: bud-fence-observer bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 3 cells, tileable every 2 (0 2 0), 2 blocks, 1x1x2, robust
 name: bud-fence-observer
 circuit: bud
+tile: 0 2 0
 # A presence detector: a fence beside the target connects to a solid block there (its shape follows
 # its neighbors) and an observer watches the fence. Placing or removing a block at the target
 # changes the connection and fires the observer; turning the block in place, a shape-only change
