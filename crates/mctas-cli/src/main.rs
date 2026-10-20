@@ -25,6 +25,9 @@ enum Cmd {
     Setup,
     /// Read the game's source code (decompiled with Vineflower).
     Src {
+        /// The client jar's source (models, renderers) instead of the server's.
+        #[arg(long, global = true)]
+        client: bool,
         #[command(subcommand)]
         command: SrcCmd,
     },
@@ -136,7 +139,7 @@ fn main() -> Result<()> {
             let mut w = Worker::spawn(&WorkerConfig { version: cli.version.clone(), ..Default::default() })?;
             println!("worker    ok ({})", w.info()?["version"]);
         }
-        Cmd::Src { command } => src(&cli.version, command)?,
+        Cmd::Src { client, command } => src(&cli.version, client, command)?,
         Cmd::Sim { command } => sim(&cli.version, command)?,
         Cmd::Bench(args) => bench::run(&cli.version, args)?,
         Cmd::Door { command } => door::run(&cli.version, command)?,
@@ -149,15 +152,16 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn src(version: &str, command: SrcCmd) -> Result<()> {
+fn src(version: &str, client: bool, command: SrcCmd) -> Result<()> {
+    let decompile = |force: bool| if client { source::decompile_client(version, force) } else { source::decompile(version, force) };
     match command {
         SrcCmd::Decompile { force } => {
-            let root = source::decompile(version, force)?;
+            let root = decompile(force)?;
             println!("{}", root.display());
         }
-        SrcCmd::Path => println!("{}", source::decompile(version, false)?.display()),
+        SrcCmd::Path => println!("{}", decompile(false)?.display()),
         SrcCmd::Grep { pattern, path, ignore_case, max } => {
-            let root = source::decompile(version, false)?;
+            let root = decompile(false)?;
             let re = regex::RegexBuilder::new(&pattern).case_insensitive(ignore_case).build()?;
             for hit in source::grep(&root, &re, path.as_deref(), max)? {
                 let rel = hit.path.strip_prefix(&root).unwrap_or(&hit.path);
@@ -165,13 +169,13 @@ fn src(version: &str, command: SrcCmd) -> Result<()> {
             }
         }
         SrcCmd::Find { class } => {
-            let root = source::decompile(version, false)?;
+            let root = decompile(false)?;
             for p in source::find(&root, &class)? {
                 println!("{}", p.display());
             }
         }
         SrcCmd::Show { class, lines, grep, context } => {
-            let root = source::decompile(version, false)?;
+            let root = decompile(false)?;
             let files = source::find(&root, &class)?;
             let file = match files.as_slice() {
                 [one] => one.clone(),
