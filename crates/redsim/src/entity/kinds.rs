@@ -13,10 +13,13 @@ pub fn max_up_step(w: &World, i: usize) -> f32 {
     }
 }
 
-/// `Entity.getGravity()` (`getDefaultGravity` unless no gravity): 0.04, living entities 0.08.
+/// `Entity.getGravity()` (`getDefaultGravity` unless no gravity): 0.04, living entities 0.08,
+/// minecarts in water 0.005.
 pub fn gravity(w: &World, i: usize) -> f64 {
-    match w.entities.list[i].kind {
+    let e = &w.entities.list[i];
+    match e.kind {
         EntityKind::ArmorStand(_) => 0.08,
+        EntityKind::Minecart(_) if e.was_touching_water => 0.005,
         _ => 0.04,
     }
 }
