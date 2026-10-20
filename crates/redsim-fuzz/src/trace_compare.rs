@@ -130,12 +130,25 @@ fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
             "armor_stand" => EntityKind::ArmorStand(Default::default()),
             k => return Err(format!("entity {k} is not modeled by redsim")),
         };
-        if e.nbt.is_some() {
-            return Err(format!("entity {} with data ({}): entity containers are not modeled yet", e.kind, e.nbt.as_deref().unwrap_or("")));
+        if let Some(n) = &e.nbt {
+            // test scenes: `{Motion:[x d, y d, z d]}` only
+            let m = parse_motion(n).ok_or_else(|| format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind))?;
+            let id = w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
+            let idx = w.entities.list.iter().position(|x| x.id == id).unwrap();
+            w.entities.list[idx].delta_movement = Vec3::new(m[0], m[1], m[2]);
+            continue;
         }
         w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
     }
     Ok(())
+}
+
+/// `{Motion:[0.5d,0.0d,-0.25d]}` -> the three doubles.
+fn parse_motion(s: &str) -> Option<[f64; 3]> {
+    let inner = s.trim().strip_prefix('{')?.strip_suffix('}')?.trim();
+    let list = inner.strip_prefix("Motion:")?.trim().strip_prefix('[')?.strip_suffix(']')?;
+    let v: Vec<f64> = list.split(',').map(|t| t.trim().trim_end_matches(['d', 'D']).parse::<f64>()).collect::<Result<_, _>>().ok()?;
+    if v.len() == 3 { Some([v[0], v[1], v[2]]) } else { None }
 }
 
 /// The live entities of redsim's world, in tick order.
@@ -228,6 +241,7 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
+        // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
             let (_, a) = actions.remove(0);
             match a {
@@ -247,6 +261,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                     w.set_block(bp(pos), Block::Air, flags::ALL);
                 }
             }
+        }
+        if t > 0 {
+            w.tick();
         }
         for (p, s) in changes {
             expect.insert(*p, canon(&mut cache, s));
@@ -282,9 +299,6 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         if let Some(e) = w.errors.first() {
             return Ok(Outcome::Unmodeled(format!("tick {t}: {e}")));
-        }
-        if t + 1 < trace.frames.len() {
-            w.tick();
         }
     }
     Ok(Outcome::Same { ticks: trace.frames.len() })
