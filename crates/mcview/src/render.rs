@@ -16,6 +16,7 @@ struct U {
     sky_top: vec4<f32>,
     sky_low: vec4<f32>,
     inv_vp: mat4x4<f32>,
+    sky_void: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var tex: texture_2d_array<f32>;
@@ -108,7 +109,13 @@ fn fs_sky(i: SkyOut) -> @location(0) vec4<f32> {
     let far = u.inv_vp * vec4<f32>(i.ndc, 1.0, 1.0);
     let dir = normalize(far.xyz / far.w - u.eye.xyz);
     let t = clamp(dir.y * 1.6 + 0.1, 0.0, 1.0);
-    return vec4<f32>(mix(u.sky_low.rgb, u.sky_top.rgb, t), 1.0);
+    let c = mix(u.sky_low.rgb, u.sky_top.rgb, t);
+    // under the horizon in the viewer (no ground under a design: the judges' void): the sky fades
+    // into a quiet void tone, no surface
+    if (u.sky_void.a > 0.5 && dir.y < 0.0) {
+        return vec4<f32>(mix(c, u.sky_void.rgb, clamp(-dir.y * 1.4, 0.0, 1.0)), 1.0);
+    }
+    return vec4<f32>(c, 1.0);
 }
 "#;
 
@@ -121,6 +128,8 @@ struct Uniforms {
     sky_top: [f32; 4],
     sky_low: [f32; 4],
     inv_vp: Mat4,
+    /// The void's tone under the horizon (alpha 0: the pictures' sky, unchanged).
+    sky_void: [f32; 4],
 }
 
 /// What one frame draws.
@@ -159,6 +168,9 @@ pub struct Renderer {
     /// `web compare` matches). The browser viewer draws farther: the fogged end of the ground
     /// stays at the horizon instead of a curved band under it.
     pub view_chunks: Option<f32>,
+    /// The viewer's sky under the horizon: a void tone (it draws no ground under a design);
+    /// false: the pictures' sky (`web compare`).
+    pub void_below: bool,
 }
 
 /// The game texture of an atlas (its game assets' mip levels), or a 1x1 placeholder.
@@ -329,7 +341,7 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex, tiles_view: view, bgl, sampler, game_tex, game_of, view_chunks: None }
+        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex, tiles_view: view, bgl, sampler, game_tex, game_of, view_chunks: None, void_below: false }
     }
 
     fn bind_group(device: &wgpu::Device, bgl: &wgpu::BindGroupLayout, uniforms: &wgpu::Buffer, tiles: &wgpu::TextureView, sampler: &wgpu::Sampler, game: &wgpu::Texture) -> wgpu::BindGroup {
@@ -415,6 +427,7 @@ impl Renderer {
             sky_top: [0.55, 0.70, 1.0, 1.0],
             sky_low: [0.70, 0.81, 1.0, 1.0],
             inv_vp: invert(&vp),
+            sky_void: if self.void_below { [0.47, 0.55, 0.68, 1.0] } else { [0.0; 4] },
         };
         self.queue.write_buffer(&self.uniforms, 0, bytemuck::bytes_of(&u));
         let n_solid = frame.solid.len() as u32;

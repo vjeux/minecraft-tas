@@ -34,6 +34,7 @@ impl Gpu {
         let mut r = Renderer::new(device, queue, format, atlas, samples);
         // a player's client with a long render distance: the ground's fogged end at the horizon
         r.view_chunks = Some(VIEW_CHUNKS);
+        r.void_below = true;
         // a failed GPU command is reported (else it only leaves the canvas black)
         r.device.on_uncaptured_error(std::sync::Arc::new(|e: wgpu::Error| {
             crate::log(&format!("GPU error: {e}"));

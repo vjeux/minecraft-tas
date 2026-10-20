@@ -5,6 +5,9 @@
 # exception: a design it matches is published whatever the other lines say. Read by
 # crates/site/src/circuits.rs (`hidden_design`); `mctas site smoke` checks that none is published;
 # `mctas site build` lists the dominated designs still published (`mctas site dominated`).
+# 2026-10-20 19:15Z, the coordinator: a `~` line folds a design under another (published only as its variant,
+# reachable from its page): ~<study>/<file> TAB under <host>: <why>
+~memory/rs-crafter	under rs-dropper: bigger and slower (6 blocks vs 4, latency 13 vs 6 gt), nothing measured in its favour
 # 2026-10-20 19:05Z, the coordinator: the slime-free extenders are their own distinction (vjeux's list view named
 # "slimeless"): the best at every N is published; only a slime-free design beaten by a smaller, at-least-as-fast
 # slime-free one at the same N is hidden (`mctas site dominated --all`, "nothing in their favour"; vjeux 12:12Z on
@@ -36,21 +39,6 @@ pext/pext-n8-cascade66	dominated at N = 8 (pext's WR bar)
 pext/pext-cascade-r2-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r0-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
-# 2026-10-20 17:23Z, the coordinator from the build's dominated audit: bigger than the 13-block hopper one-shot of the same kind and L, the same speed, only avoids torches
-pulse/pulse-oneshot-rising-edge-L8	dominated: 17 blocks vs pulse-rise-hopper-oneshot-L8's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-rising-edge-L16	dominated: 17 blocks vs pulse-rise-hopper-oneshot-L16's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-rising-edge-L24	dominated: 21 blocks vs pulse-rise-hopper-oneshot-L24's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-rising-edge-L32	dominated: 21 blocks vs pulse-rise-hopper-oneshot-L32's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-rising-edge-L40	dominated: 25 blocks vs pulse-rise-hopper-oneshot-L40's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-fall-falling-edge-L8	dominated: 17 blocks vs pulse-fall-hopper-oneshot-L8's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-fall-falling-edge-L16	dominated: 17 blocks vs pulse-fall-hopper-oneshot-L16's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-fall-falling-edge-L24	dominated: 21 blocks vs pulse-fall-hopper-oneshot-L24's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-fall-falling-edge-L32	dominated: 21 blocks vs pulse-fall-hopper-oneshot-L32's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-fall-falling-edge-L40	dominated: 25 blocks vs pulse-fall-hopper-oneshot-L40's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-pulse-extender-L16	dominated: 17 blocks vs pulse-extender-hopper-oneshot-L16's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-pulse-extender-L24	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L24's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-pulse-extender-L32	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L32's 13, the same speed, only avoids torches
-pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-hopper-oneshot-L40's 13, the same speed, only avoids torches
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)

@@ -112,6 +112,12 @@ the input; fall-odd and dual-odd now give even lengths and were removed), dual-t
 and fall-note-qc-L1 (see above). Dual-lock L18/L34 and dual-edge-reset came back with a copper
 bulb in the input cell.
 
+Folded as dominated since (removed from the archive): the repeater-loop one-shots at the hopper
+one-shots' lengths (rising edge and falling edge L 8, 16, 24, 32, 40, extender L 16, 24, 32, 40:
+17 to 25 blocks against 13 with the same delay and min-pulse; the loop one-shots stay for the
+other lengths), pulse-limiter-u-L4/6/8 (the instant limiters), pulse-dual-observers-qc-L2-1 (a
+moved output).
+
 The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
 (a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and
 blocks around it leave it alone; a design that is not proof is its own class (axis `...,
@@ -126,7 +132,7 @@ tileable, fastest).
   62-state palette (24.8 M sims), k = 4 with 38 states (obs, pistons, note block, lamp, bulb,
   stone, slime, redstone block, trapdoor, torch, dust: 1.45 G sims). New at k = 2: the 2-block
   falling edge; k = 3: the 4-block delay-2 falling edge (3 + the input block); no odd length at
-  any k. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
+  k <= 3, and at k = 4 only the 1-tick falling edge. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
   observer fires into the input block, harmless when a repeater feeds that block, as the judge's
   does; robust with its output on the far side of the redstone block). The others (a falling edge
   L 4 at delay 0, a rising edge and a limiter L 2 at min-pulse 2) passed through a judge hole: a
