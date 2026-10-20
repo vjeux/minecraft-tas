@@ -421,7 +421,7 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         let hi = starts.get(k + 1).copied().unwrap_or(t.cells.len());
         let qs: Vec<usize> = t.primed.iter().filter(|q| (q.frame as usize) >= lo && (q.frame as usize) < hi).map(|q| q.frame as usize).collect();
         let end = tnt_in(t, hi - 1);
-        table.push(format!("pulse {} at frame {lo}: {} primed{}, TNT blocks at the end {end}", k + 1, qs.len(), qs.first().map(|f| format!(" (first at +{} gt)", f - lo)).unwrap_or_default()));
+        table.push(format!("pulse {} at frame {lo}: {} primed{}, TNT blocks at the end {end}", k + 1, qs.len(), if qs.is_empty() { String::new() } else { format!(" (at +{} gt)", qs.iter().map(|f| (f - lo).to_string()).collect::<Vec<_>>().join(", +")) }));
         if end < n0 {
             return Outcome { pass: false, why: format!("TNT consumed: {end} of {n0} TNT blocks stand after pulse {}", k + 1), metrics: Vec::new(), table };
         }
