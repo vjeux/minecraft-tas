@@ -65,7 +65,7 @@ pub fn start() {
         if let Err(e) = load().await {
             log(&format!("redstonepedia: {e:?}"));
             if let Some(f) = by_id("filters") {
-                f.set_inner_html(&format!("<p class=\"error\">Could not load the data: {}. <a href=\"all.html\">The list of everything</a> works without it.</p>", esc(&format!("{e:?}"))));
+                f.set_inner_html(&format!("<p class=\"error\">Could not load the data: {}. <a href=\"circuits/index.html\">The circuits</a> work without it.</p>", esc(&format!("{e:?}"))));
             }
         }
     });
@@ -199,11 +199,10 @@ fn draw_panel() -> Result<(), JsValue> {
             let q = &mut a.q;
             match act.as_str() {
                 "kind" => {
-                    // doors rank by size (the volume) first, as every door board does
-                    if val == "door" && q.sort == Sort::Blocks {
-                        q.sort = Sort::Volume;
-                    } else if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
-                        q.sort = Sort::Blocks;
+                    // the main number of each kind leads (doors: size; clocks: period; circuits:
+                    // kind and value); a sort that only means something for doors falls back to it
+                    if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
+                        q.sort = Sort::Main;
                     }
                     q.kind = val;
                     q.groups.clear();
@@ -500,8 +499,8 @@ fn draw_dynamic() {
             .collect();
         let groups_title = match q.kind.as_str() {
             "door" => "Category",
-            "clock" => "Clock family (the blocks that change state)",
-            "circuit" => "Circuit kind",
+            "clock" => "Made of (the blocks that change state)",
+            "circuit" => "What it does",
             _ => "Category or family",
         };
         let time_msg: Option<(String, bool)> = if !a.error.is_empty() {
@@ -513,7 +512,9 @@ fn draw_dynamic() {
                         site_model::ValueField::Latency => "a latency",
                         site_model::ValueField::L => "L",
                         site_model::ValueField::N => "N",
-                        site_model::ValueField::Axis => "L / N",
+                        site_model::ValueField::T => "T",
+                        site_model::ValueField::P => "P",
+                        site_model::ValueField::Axis => "L / N / T / P",
                     };
                     let range = if lo == hi { format!("= {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
                     (format!("with {what} {range}"), false)
@@ -544,9 +545,9 @@ fn draw_dynamic() {
             format!("<span class=\"error\">The search did not parse: {}</span>", esc(&a.error))
         };
         let placeholder = match q.kind.as_str() {
-            "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
+            "clock" => "Search: 48 ticks, 2.5 s…",
             "door" => "Search doors",
-            "circuit" => "Search circuits, or a value: L 12, N 3, latency 0",
+            "circuit" => "Search: toggle, timer, 12…",
             _ => "Search every build",
         };
         (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)

@@ -21,6 +21,8 @@ pub struct Schedule {
     /// around it (the BUD kind's block updates), by index (the cells move and turn with each
     /// build): frame, where, what.
     pub events: Vec<(u32, EventAt, TargetOp)>,
+    /// Strength inputs' values (study 12's hex kinds), at their frames: frame, input index, value.
+    pub levels: Vec<(u32, usize, u8)>,
 }
 
 /// Where a [`Schedule::events`] action happens.
@@ -30,6 +32,11 @@ pub enum EventAt {
     Target(usize),
     /// The k-th cell around the design (`Circuit::probe_cells`): the BUD footprint probes.
     Probe(usize),
+    /// The i-th input's cell (`Circuit::inputs`): where its device sits (the vibration test).
+    Input(usize),
+    /// A cell of the circuit as built (the vibration test's ambient game events, placed per build
+    /// by [`crate::vibration::with_ambient`]).
+    Cell([i32; 3]),
 }
 
 /// What the judge does at a target cell ([`Schedule::events`]).
@@ -43,11 +50,14 @@ pub enum TargetOp {
     Shape(String),
     /// A pure block update around the cell.
     Update,
+    /// A game event at the cell's center (`Level.gameEvent`, no entity, no affected state): what
+    /// sculk sensors hear (the vibration test, [`crate::vibration`]).
+    GameEvent(&'static str),
 }
 
 impl Schedule {
     pub fn new(inputs: usize) -> Schedule {
-        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new() }
+        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new(), levels: Vec::new() }
     }
 
     /// Drop every phase whose inputs pulse or pause for less than `min` frames inside it, with its

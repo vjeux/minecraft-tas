@@ -167,10 +167,18 @@ pub struct InterleaveArgs {
     /// interchangeable with door blocks); a written plan gets its own design copy.
     #[arg(long)]
     stone: bool,
+    /// With --islands: a cell the lever sits on or in, `x,y,z` (repeatable; for plans without
+    /// lever events): islands next to it start at t0 of both edges.
+    #[arg(long)]
+    lever_cell: Vec<String>,
+    /// --search also offers overlapping pulse pairs: input b pulsed d gt after input a (before the
+    /// build is idle), for each d in this list, e.g. `1,2,3`.
+    #[arg(long, value_delimiter = ',')]
+    pair_offsets: Vec<u32>,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments, prefix, after, islands, island_budget, stone } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments, prefix, after, islands, island_budget, stone, lever_cell, pair_offsets } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -230,9 +238,10 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
+    let lever_cells: Vec<[i32; 3]> = lever_cell.iter().map(|d| parse_pos(d)).collect::<Result<_>>()?;
     // with fewer plans than threads, each plan's search gets the spare threads
     let per_plan = if observe.is_some() { 1 } else if quiet { (threads / schedule.len().max(1)).max(1) } else { threads };
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: per_plan, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget, stone };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: per_plan, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget, stone, lever_cells, pair_offsets };
     if let Some(cells) = observe {
         let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
         anyhow::ensure!(search.is_some(), "--observe needs --search");

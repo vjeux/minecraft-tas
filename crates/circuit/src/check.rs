@@ -81,6 +81,9 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
+    if let Kind::Compute(spec) = kind {
+        return crate::compute::stimulus(c, *spec, z);
+    }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
     let gap = z.gap.max(20);
@@ -205,6 +208,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
+        Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
     }
     s.ticks = t;
     s
@@ -267,6 +271,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TntDuper => crate::tnt::check_duper(c, s, t),
         Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
+        Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
     }
 }
 

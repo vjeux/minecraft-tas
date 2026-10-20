@@ -74,30 +74,82 @@ pub fn truth_table(f: &str, inputs: &[String]) -> String {
 }
 
 /// The kind's name for people (`counter 4` -> `Counter (divide by 4)`).
+/// A kind's name for people, its base only (vjeux 12:15Z: "Circuit kind should be piston
+/// extender, not one per N"): the number (`piston-extender 5`, `divider 3`, `gate and`) is a
+/// property, shown in the property line; a short description in parentheses where it helps.
 pub fn kind_title(kind: &str) -> String {
-    match base(kind) {
-        "rising-edge" => "Rising-edge detector".into(),
-        "falling-edge" => "Falling-edge detector".into(),
-        "dual-edge" => "Dual-edge detector".into(),
-        "pulse-limiter" => "Pulse limiter".into(),
-        "pulse-extender" => "Pulse extender".into(),
-        "tff" => "T flip-flop (toggle)".into(),
-        "delay" => "Delay line".into(),
-        "gate" => match kind.split_whitespace().nth(1) {
-            Some(f) => format!("{} gate", f.to_uppercase()),
-            None => "Logic gate".into(),
+    // a kind already in words (a circuit's group): its title from the matching kind id
+    let id = if kind.starts_with(|c: char| c.is_uppercase()) { kind_id(kind) } else { kind.to_string() };
+    if id.is_empty() {
+        return kind.to_string();
+    }
+    // what it does first, the community's name in parentheses (vjeux 13:06Z; critique P1)
+    let words = site_model::html::kind_words(&id);
+    match base(&id) {
+        "rising-edge" => "One pulse when switched on (rising-edge detector)".into(),
+        "falling-edge" => "One pulse when switched off (falling-edge detector)".into(),
+        "dual-edge" => "One pulse on every switch (dual-edge detector)".into(),
+        "pulse-limiter" => "Signal shortener (pulse limiter)".into(),
+        "pulse-extender" => "Signal stretcher (pulse extender)".into(),
+        "tff" => "Toggle switch: press once on, press again off (T flip-flop)".into(),
+        "tff-reset" => "Toggle switch with a reset button (T flip-flop with reset)".into(),
+        "delay" => "Delay (delay line)".into(),
+        "rs-latch" => "On button + off button memory (RS latch)".into(),
+        "d-latch" => "Copy-and-hold memory (D latch)".into(),
+        "dff" => "Copies its input on each clock pulse (D flip-flop)".into(),
+        "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
+        "shift" => "Moves bits along on each clock pulse (shift register)".into(),
+        "counter" => "Counter: counts pulses and reacts on a set count".into(),
+        "bud" => "Block change detector (BUD switch)".into(),
+        "tnt-duper" => "TNT duper (runs by itself)".into(),
+        "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
+        "burst" => "Several pulses per press (burst)".into(),
+        "divider" => "Slows a clock down (clock divider)".into(),
+        "monostable" => match id.split_whitespace().nth(1) {
+            Some("retriggerable") => "One-shot timer that restarts on every press (retriggerable monostable)".into(),
+            Some("non-retriggerable") => "One-shot timer that ignores presses while on (non-retriggerable monostable)".into(),
+            _ => "One-shot timer (monostable)".into(),
         },
-        "rs-latch" => "RS latch (set / reset memory)".into(),
-        "d-latch" => "D latch (data latch)".into(),
-        "counter" => format!("Counter (counts to {})", kind_number(kind).unwrap_or(0)),
-        "piston-extender" => format!("Piston extender (reach {})", kind_number(kind).unwrap_or(0)),
-        "flying-machine" => "Flying machine".into(),
-        "shulker-loader" => format!("Shulker box loader ({})", stack_words(kind_number(kind).unwrap_or(64))),
-        "shulker-unloader" => format!("Shulker box unloader ({})", stack_words(kind_number(kind).unwrap_or(64))),
-        "bud" => "BUD switch (block update detector)".into(),
-        "tnt-duper" => "TNT duper (self-running)".into(),
-        "tnt-duper-triggered" => "TNT duper (one shot per pulse)".into(),
-        _ => kind.to_string(),
+        "off-delay" => "Stay-on timer (off-delay)".into(),
+        "on-delay" => "Hold-to-activate: ignores short presses (on-delay)".into(),
+        "pulse-train" => "Rapid fire while on (gated clock)".into(),
+        _ => words,
+    }
+}
+
+/// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
+fn kind_id(words: &str) -> String {
+    const IDS: [&str; 29] = [
+        "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train",
+    ];
+    IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
+}
+
+/// A design's "works in any direction, anywhere" line (vjeux 13:08Z: "robustness feels wrong"):
+/// the community's terms, directional / locational.
+pub fn direction_words(robustness: &str) -> String {
+    let r = robustness.trim();
+    if r.is_empty() {
+        return String::new();
+    }
+    if r == "robust" {
+        return "yes: not directional or locational (the same behavior facing all 4 ways and at 4 different spots in the world, in the real game)".to_string();
+    }
+    let rotation = r.starts_with("rotation");
+    let which = r.split("rotation ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit()).next()).and_then(|d| d.parse::<u32>().ok());
+    let facing = match which {
+        Some(1) => " (breaks when turned a quarter)",
+        Some(2) => " (breaks when turned around)",
+        Some(3) => " (breaks when turned three quarters)",
+        _ => "",
+    };
+    if rotation {
+        format!("no: directional, it depends on which way it faces{facing}")
+    } else if r.contains("position") || r.contains("offset") {
+        "no: locational, it depends on where it is built".to_string()
+    } else {
+        format!("no: {}", r.split(':').next().unwrap_or(r))
     }
 }
 
@@ -121,21 +173,32 @@ pub fn kind_summary(kind: &str) -> String {
         "rising-edge" => "when the input turns on, the output gives one short pulse; nothing when it turns off".into(),
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
         "dual-edge" => "a short output pulse every time the input changes, on or off".into(),
-        "pulse-limiter" => "the output pulse lasts at most L, however long the input stays on".into(),
-        "pulse-extender" => "any input pulse, even a 1-tick one, gives an output pulse of at least L".into(),
-        "tff" => "each input pulse flips the output: on, off, on, off... (a push-button switch)".into(),
-        "delay" => "the output is the input, N game ticks later (every pulse comes out the same length)".into(),
+        "pulse-limiter" => "the output pulse is cut to a set length, however long the input stays on".into(),
+        "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
+        "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
+        "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output is a fixed logic function of the inputs (NOT, AND, OR, XOR...)".into(),
         "rs-latch" => "a pulse on S turns the output on and it stays on; a pulse on R turns it off".into(),
         "d-latch" => "while the enable input E is active the output follows the data input D; otherwise it holds the last value".into(),
-        "counter" => "counts input pulses: the output changes once every N pulses (a frequency divider)".into(),
-        "piston-extender" => "one input pushes a block N cells out, the next brings it back exactly".into(),
+        "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
+        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
+        "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
+        "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
+        "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
+        "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
         "bud" => "fires its output when a block is placed, removed or changed at its target cell, although nothing there powers it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
-        "tnt-duper-triggered" => "lights TNT on every input pulse without using up its TNT block".into(),
+        "tnt-duper-triggered" => "lights TNT on every press without using up its TNT block".into(),
+        "burst" => "turns one press into an exact number of pulses".into(),
+        "divider" => "slows a clock down: the output goes on and off once for every few input pulses".into(),
+        "monostable" => "gives one output pulse of a set length for each press, however short the press".into(),
+        "off-delay" => "keeps the output on for a set time after the input turns off".into(),
+        "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
+        "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         _ => String::new(),
     }
 }
@@ -234,7 +297,14 @@ pub fn what_it_does(c: &Circuit) -> String {
             } else if style.starts_with("pulses") {
                 format!("the output gives <b>one pulse for every {n} input pulses</b>")
             } else {
-                format!("the output's state <b>repeats every {n} input pulses</b> (here it marks one pulse in every {n}: the output is on while that pulse is counted)")
+                // level style: the judge's own run says in how many of the N windows it is on
+                match c.counter_on {
+                    Some((k, m)) if m == n && k > 0 && k < n => format!(
+                        "the output's state <b>repeats every {n} input pulses</b>: after each pulse it is on for {k} of them and off for the other {}",
+                        n - k
+                    ),
+                    _ => format!("the output's state <b>repeats every {n} input pulses</b>"),
+                }
             };
             format!("<p>It <b>counts input pulses</b>: {how}. In other words, it divides the number of pulses by {n}.</p><p>Use it to do something every {} time, or to slow a fast clock down {n} times.</p>", ordinal(n))
         }
@@ -376,9 +446,165 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
                 if gap.is_empty() { String::new() } else { format!(" Pulses must be at least {gap} apart.") }
             )
         }
+        "burst" | "divider" | "monostable" | "off-delay" | "on-delay" | "pulse-train" => what_timer_does(c),
         _ => return None,
     };
     Some(html)
+}
+
+/// `20 gt` -> `1 pulse a second`, `8 gt` -> `2.5 pulses a second`, `40 gt` -> `a pulse every 2 s`.
+fn rate_words(v: &str) -> String {
+    let Some(n) = v.split_whitespace().next().and_then(|n| n.parse::<f64>().ok()).filter(|n| *n > 0.0) else {
+        return String::new();
+    };
+    let per_s = 20.0 / n;
+    if per_s < 1.0 {
+        format!("a pulse every {} s", trim_num(n / 20.0))
+    } else if (per_s - 1.0).abs() < 1e-9 {
+        "1 pulse a second".to_string()
+    } else {
+        format!("{} pulses a second", trim_num(per_s))
+    }
+}
+
+/// `2.50` -> `2.5`, `3.00` -> `3`.
+fn trim_num(x: f64) -> String {
+    let s = format!("{x:.2}");
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// Study 11 (pulse multipliers, dividers, monostables and timers): what the design does, with
+/// its numbers.
+fn what_timer_does(c: &Circuit) -> String {
+    let m = |k: &str| with_seconds(metric(c, k));
+    let n = kind_number(&c.kind).or_else(|| metric(c, "N").parse().ok()).unwrap_or(0);
+    let p = |s: String| if s.is_empty() { String::new() } else { format!("<p>{}</p>", s.trim()) };
+    match base(&c.kind) {
+        "burst" => {
+            let (pulse, period, latency, span) = (metric(c, "pulse").to_string(), metric(c, "period").to_string(), m("latency"), m("span"));
+            let shape = match (pulse.is_empty(), period.is_empty()) {
+                (false, false) => format!(" ({pulse} each, one every {period})"),
+                (false, true) => format!(" ({pulse} each)"),
+                _ => String::new(),
+            };
+            let timing = match (latency.is_empty(), span.is_empty()) {
+                (false, false) => format!("The first comes {latency} after the input; the whole burst takes {span}. "),
+                (false, true) => format!("The first comes {latency} after the input. "),
+                _ => String::new(),
+            };
+            let min_pulse = m("min-pulse");
+            let retrigger = match metric(c, "retrigger") {
+                "mixed" => "A second press during the burst: one that comes within a few game ticks is swallowed, a later one adds a second burst. ".to_string(),
+                "ignores" => "A second press during the burst is ignored. ".to_string(),
+                "adds" => format!("A second press during the burst adds {n} more pulses. "),
+                "restarts" => "A second press during the burst restarts it. ".to_string(),
+                "" => String::new(),
+                other => format!("A second press during the burst: {}. ", esc(other)),
+            };
+            let repeat = m("repeat");
+            format!(
+                "<p>Each input pulse gives <b>exactly {n} output pulses</b>{shape}: a pulse multiplier. Builds use it to fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press.</p>{}{}",
+                p(timing),
+                p(format!(
+                    "{}{retrigger}{}",
+                    if min_pulse.is_empty() { String::new() } else { format!("Any input of {min_pulse} or longer gives the same burst (a button, a plate or a held lever alike). ") },
+                    if repeat.is_empty() { String::new() } else { format!("Pressed again and again it keeps up with presses {repeat} apart: fed a clock that fast, it multiplies its frequency by {n}.") }
+                ))
+            )
+        }
+        "divider" => {
+            let square = metric(c, "output") == "square";
+            let duty = metric(c, "duty");
+            let shape = if square {
+                format!(
+                    " Its output is a <b>square wave</b>: on for half of each cycle, off for the other half{}.",
+                    if n % 2 == 1 { format!(" (for an odd N like {n} that takes both edges of the input clock: the output changes every {} input pulses)", trim_num(n as f64 / 2.0)) } else { String::new() }
+                )
+            } else if !duty.is_empty() {
+                format!(" Its output is on {} of the time (a short pulse per cycle).", esc(duty))
+            } else {
+                String::new()
+            };
+            let latency = m("latency");
+            let min_period = metric(c, "min-period");
+            format!(
+                "<p>It <b>divides a clock by {n}</b>: for every {n} pulses that come in, the output goes through one on-off cycle, so it runs {n} times slower than its input.{shape}</p>{}",
+                p(format!(
+                    "{}{}",
+                    if latency.is_empty() { String::new() } else { format!("Each output cycle starts {latency} after the input pulse that begins it, always the same. ") },
+                    if min_period.is_empty() { String::new() } else { format!("It keeps up with input clocks down to one pulse every {min_period} ({}); faster ones break the count.", rate_words(min_period)) }
+                ))
+            )
+        }
+        "monostable" => {
+            let l = m("L");
+            let retrig = c.kind.contains("non-retriggerable") || metric(c, "retrigger") == "non-retriggerable";
+            let kind_text = if retrig {
+                "It is <b>non-retriggerable</b>: input pulses that come while the output is on are ignored (one shot per press, however hard the button is mashed).".to_string()
+            } else if c.kind.contains("retriggerable") || metric(c, "retrigger") == "retriggerable" {
+                format!("It is <b>retriggerable</b>: another input pulse while the output is on restarts the count, so the output stays on while pulses keep coming and turns off {l} after the last one (a light that stays on while there is activity; inverted, an alarm for a clock that stopped).")
+            } else {
+                String::new()
+            };
+            let (delay, min_pulse, rearm) = (m("delay"), m("min-pulse"), m("re-arm"));
+            format!(
+                "<p>Each input pulse, however short, turns the output on for <b>{l}</b>: a one-shot timer. {kind_text}</p>{}",
+                p(format!(
+                    "{}{}{}",
+                    if delay.is_empty() { String::new() } else { format!("The output turns on {delay} after the input. ") },
+                    if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer. ") },
+                    if rearm.is_empty() { String::new() } else { format!("Two input pulses at least {rearm} apart give two full output pulses.") }
+                ))
+            )
+        }
+        "off-delay" => {
+            let l = m("L");
+            let latency = metric(c, "latency");
+            let min_pulse = m("min-pulse");
+            format!(
+                "<p>The output turns on with the input{} and <b>stays on {l} after the input turns off</b>: every output pulse is the input's length plus {l}. Input pulses closer together than that merge into one long output pulse (a light or a door that stays on a while after the last press of a pressure plate).</p>{}",
+                if latency == "0 gt" { " (in the same game tick)".to_string() } else if latency.is_empty() { String::new() } else { format!(" ({} later)", with_seconds(latency)) },
+                p(if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer.") })
+            )
+        }
+        "on-delay" => {
+            let t = m("T");
+            let shortening = m("shortening");
+            let latency = metric(c, "latency");
+            format!(
+                "<p>The output turns on only <b>once the input has been on for {t}</b>, and turns off with it: shorter inputs give nothing at all. It filters out glitches (the 1-2 gt pulses of observers, flicker) and makes \"hold the button\" controls.</p>{}",
+                p(format!(
+                    "{}{}",
+                    if shortening.is_empty() { String::new() } else { format!("An input longer than {t} comes out shortened by {shortening}") },
+                    match (shortening.is_empty(), latency) {
+                        (false, "0 gt") => "; the output falls in the same game tick as the input.".to_string(),
+                        (false, "") => ".".to_string(),
+                        (false, l) => format!("; the output falls {} after the input.", with_seconds(l)),
+                        _ => String::new(),
+                    }
+                ))
+            )
+        }
+        _ => {
+            // pulse-train
+            let (period, pulse, latency) = (metric(c, "P"), metric(c, "pulse"), m("latency"));
+            let stop = metric(c, "stop").split_whitespace().next().and_then(|v| v.parse::<i64>().ok());
+            format!(
+                "<p>While the input is on, the output <b>pulses every {period}</b> ({}{}): a clock with an on switch, for rapid fire from dispensers and droppers while a lever is on.</p>{}",
+                rate_words(period),
+                if pulse.is_empty() { String::new() } else { format!(", each {pulse} long") },
+                p(format!(
+                    "{}{}",
+                    if latency.is_empty() { String::new() } else { format!("The first pulse comes {latency} after the input turns on. ") },
+                    match stop {
+                        Some(s) if s <= 0 => "When the input turns off, it stops at once.".to_string(),
+                        Some(s) => format!("When the input turns off, no pulse starts more than {} later.", with_seconds(&format!("{s} gt"))),
+                        None => String::new(),
+                    }
+                ))
+            )
+        }
+    }
 }
 
 /// `2nd`, `3rd`, `11th`, `21st`.
@@ -402,8 +628,9 @@ fn input_label(name: &str) -> String {
 /// The kinds whose inputs are steady (toggled) rather than pulsed (webrender's input mode).
 pub fn input_mode(kind: &str) -> &'static str {
     match base(kind) {
-        // a shulker machine's start lever (and the combo's mode lever) stays where it is put
-        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" => "toggle",
+        // a shulker machine's start lever (and the combo's mode lever) stays where it is put; a
+        // gated pulse train and an off-delay timer act on the input's level (on / off)
+        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
         _ => "pulse",
     }
 }
@@ -516,7 +743,10 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         _ => {}
     }
     if !c.stimulus.is_empty() {
-        s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>");
+        match study11_demo(c) {
+            Some(demo) => s.push_str(&format!("<p><b>The view first plays the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
+            None => s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
+        }
     }
     let mut controls: Vec<String> = Vec::new();
     for (i, name) in c.inputs.iter().enumerate() {
@@ -533,7 +763,8 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         controls.push(what);
     }
     if !controls.is_empty() {
-        s.push_str(&format!("<p>To try it: {}.</p>", controls.join("; ")));
+        let hint = study11_try(c);
+        s.push_str(&format!("<p>To try it: {}{}.</p>", controls.join("; "), if hint.is_empty() { String::new() } else { format!(": {hint}") }));
     }
     let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
     if !outs.is_empty() {
@@ -557,6 +788,31 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
     match (base(kind), k) {
+        ("off-delay", "L") => "how long the output stays on after the input turns off",
+        ("monostable", "L") => "the length of each output pulse, whatever the input's length",
+        ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
+        ("monostable", "retrigger") => "retriggerable: a pulse while the output is on restarts L; non-retriggerable: it is ignored",
+        ("monostable", "re-arm") => "the shortest time between two input pulses that still gives two full output pulses",
+        ("burst", "N") => "output pulses per input pulse",
+        ("burst", "pulse") => "the length of each output pulse",
+        ("burst", "period") => "game ticks from one output pulse's start to the next one's",
+        ("burst", "latency") => "game ticks from the input turning on to the first output pulse",
+        ("burst", "span") => "game ticks from the first output pulse's start to the last one's end",
+        ("burst", "retrigger") => "what a second press during the burst does: ignored, restarts, adds N more, or mixed (depends on when)",
+        ("burst", "repeat") => "the fastest presses (one every this many game ticks) that still each give exactly N pulses",
+        ("divider", "N") => "input pulses per output cycle",
+        ("divider", "duty") => "the share of each output cycle the output is on",
+        ("divider", "output") => "square = on for exactly half of each cycle, pulse = a shorter on time",
+        ("divider", "latency") => "game ticks from the input pulse that starts an output cycle to the output turning on",
+        ("divider", "min-period") => "the fastest input clock it divides correctly: one pulse every this many game ticks",
+        ("on-delay", "T") => "how long the input must stay on before the output turns on",
+        ("on-delay", "shortening") => "how much shorter than the input the output pulse is",
+        ("on-delay", "latency") => "game ticks from the input turning off to the output turning off",
+        ("off-delay", "latency") => "game ticks from the input turning on to the output turning on",
+        ("pulse-train", "P") => "game ticks between two output pulses while the input is on",
+        ("pulse-train", "pulse") => "the length of each output pulse",
+        ("pulse-train", "latency") => "game ticks from the input turning on to the first output pulse",
+        ("pulse-train", "stop") => "the latest an output pulse starts after the input turns off (0 or less: none after)",
         (_, "L") => "the length of the output pulse",
         ("piston-extender", "N") => "the reach: how many cells the block is pushed out",
         ("counter", "N") => "how many input pulses one output cycle takes",
@@ -602,6 +858,97 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
     }
 }
 
+/// Study 11: what the judge's test (the view's demo) does to the input, in words.
+fn study11_demo(c: &Circuit) -> Option<String> {
+    let n = kind_number(&c.kind).unwrap_or(0);
+    let l = with_seconds(metric(c, "L"));
+    Some(match base(&c.kind) {
+        "burst" => format!("single input pulses of 1 to 40 gt (each must give exactly {n} output pulses), then pairs of presses closer and closer together (what a second press does), then trains of 6 presses faster and faster (how fast it keeps up)."),
+        "divider" => format!("a square clock on the input, first slow (a pulse every 40 gt, 2 s), then faster and faster down to a pulse every 2 gt; the output lamp goes through one on-off cycle for every {n} input pulses, until the clock gets faster than the design can follow."),
+        "monostable" => format!(
+            "single input pulses of 1 to 160 gt (each gives one output pulse of {l}), then pairs of short pulses closer and closer together: {}",
+            if c.kind.contains("non-retriggerable") { "a second pulse while the output is on is ignored." } else if c.kind.contains("retriggerable") { "a second pulse while the output is on restarts the count, so the output turns off L after the second one." } else { "what a second pulse while the output is on does." }
+        ),
+        "off-delay" => format!("input pulses of 1 to 80 gt (each output pulse lasts {l} longer than its input), then groups of 3 short pulses with growing gaps (closer than L, they merge into one output pulse)."),
+        "on-delay" => format!("input pulses of 1 to 80 gt: the ones shorter than {} give nothing, the longer ones come out shortened.", with_seconds(metric(c, "T"))),
+        "pulse-train" => format!("the input held on for 20, 60 and then 200 gt: the output pulses every {} while it is on and stops after.", with_seconds(metric(c, "P"))),
+        _ => return None,
+    })
+}
+
+/// Study 11: what to do with the input to see the design work.
+fn study11_try(c: &Circuit) -> String {
+    let n = kind_number(&c.kind).unwrap_or(0);
+    let l = with_seconds(metric(c, "L"));
+    match base(&c.kind) {
+        "burst" => format!("each tap gives exactly {n} flashes of the output"),
+        "divider" => format!("tap it {n} times and the output goes through one on-off cycle"),
+        "monostable" if c.kind.contains("non-retriggerable") => format!("a tap keeps the output on for {l}; tapping again while it is on changes nothing"),
+        "monostable" => format!("a tap keeps the output on for {l}; tap again while it is on and it stays on {l} after your last tap"),
+        "off-delay" => format!("turn the input on, then off: the output stays on {l} after you turn it off"),
+        "on-delay" => format!("a quick tap gives nothing; hold it longer than {} and the output lights until you let go", with_seconds(metric(c, "T"))),
+        "pulse-train" => format!("turn the input on and the output pulses every {} until you turn it off", with_seconds(metric(c, "P"))),
+        _ => String::new(),
+    }
+}
+
+/// Study 11: the judge's phase labels in words, for the view's demo badge and the timing diagram
+/// (`clock 40` -> `clock, a pulse every 40 gt`); other kinds keep theirs.
+pub fn phase_label(kind: &str, label: &str) -> String {
+    // a BUD's judge: `place 1 t`, `state 2b t`, `setup t`, `probe 3 place`, `rearm place 6 2`
+    if base(kind) == "bud" {
+        return bud_phase(label);
+    }
+    let mut w = label.split_whitespace();
+    let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
+        return label.to_string();
+    }
+    match (base(kind), what) {
+        ("divider", "clock") => format!("a clock pulsing every {v} ticks"),
+        ("pulse-train", "pulse") => format!("input on for {v} ticks"),
+        ("burst" | "monostable" | "off-delay" | "on-delay", "pulse") => format!("a {v}-tick press"),
+        ("burst" | "monostable", "pair") => format!("2 presses {v} ticks apart"),
+        ("burst", "train") => format!("6 presses, {v} ticks apart"),
+        ("off-delay", "train") => format!("3 presses, {v}-tick gaps"),
+        _ => label.to_string(),
+    }
+}
+
+/// A BUD judge's phase in words (the demo badge, the diagram): `place 1 t` -> `place #1`, `state
+/// 2b t` -> `change back #2`, `shape 1 t` -> `shape-only #1`, `update 3 t` -> `pure update #3`,
+/// `setup t` -> `setting up`, `probe 3 place` -> `the cells around (3)`, `rearm place 6 2` -> `2
+/// changes 6 gt apart`.
+fn bud_phase(label: &str) -> String {
+    let w: Vec<&str> = label.split_whitespace().collect();
+    let class = |c: &str| -> String {
+        match c {
+            "place" => "place",
+            "remove" => "remove",
+            "state" => "change",
+            "shape" => "shape-only",
+            "update" => "pure update",
+            other => other,
+        }
+        .to_string()
+    };
+    match w.as_slice() {
+        ["idle"] => "idle".to_string(),
+        ["setup", ..] => "setting up".to_string(),
+        ["relatch", ..] => "a second change while it holds".to_string(),
+        ["probe", k, ..] => format!("the cells around ({k})"),
+        ["rearm", _, g, ..] => format!("2 changes {g} gt apart"),
+        [c @ ("place" | "remove" | "state" | "shape" | "update"), k, ..] => {
+            let (n, back) = match k.strip_suffix('b') {
+                Some(n) => (n, true),
+                None => (*k, false),
+            };
+            format!("{}{} #{n}", class(c), if back { " back" } else { "" })
+        }
+        _ => label.to_string(),
+    }
+}
+
 /// A metric's value with seconds (`4 gt (0.2 s)`).
 pub fn metric_value(v: &str) -> String {
     let v = v.trim();
@@ -611,95 +958,110 @@ pub fn metric_value(v: &str) -> String {
     v.to_string()
 }
 
-/// The studies, in order: (folder, title, what it collects and how designs are ranked).
+/// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
+/// them for is [`STUDY_USES`].
 pub const STUDIES: [(&str, &str, &str); 11] = [
     (
         "pulse",
-        "Pulse circuits",
-        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length L; pulse extenders stretch short pulses to at least L. The study's axis is L, the output pulse length: for each L, the designs are ranked by blocks placed, then by the size of their box.",
+        "Pulse shapers",
+        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length; pulse extenders stretch short pulses to at least that length. For each output pulse length, the designs are ranked by blocks placed, then by the size of their box.",
     ),
     (
         "tff",
-        "T flip-flops",
-        "Toggles: each input pulse flips the output (on, off, on...). The study collects one design per mechanism family (the block kinds that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and ranks them by blocks placed; it also measures how short a pulse and how fast a pulse train each one follows.",
+        "Toggle switches (T flip-flops)",
+        "Each input pulse flips the output (on, off, on...). We collect one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and rank them by blocks placed; we also measure how short a pulse and how fast a series of presses each one follows.",
     ),
     (
         "delay",
-        "Delay lines",
-        "The output is the input N game ticks later, both edges, pulse lengths kept. The axis is N; for each N the designs are ranked by blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 gt) cover every N.",
+        "Delays",
+        "The output is the input a fixed number of game ticks later, both when it turns on and when it turns off, pulse lengths kept. For each delay the designs are ranked by blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 ticks) cover every delay.",
     ),
     (
         "gates",
         "Logic gates",
-        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, IMPLY, NIMPLY), each checked in every input combination and every transition between them. The axis is the function; for each function the designs are ranked by blocks placed, then by latency. Instant gates (the output changes in the same game tick, 0 gt) are their own class.",
+        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, and the A AND NOT B kinds), each checked in every input combination and every change between them. For each function the designs are ranked by blocks placed, then by how fast they react. Instant gates (the output changes in the same game tick) are their own class.",
     ),
     (
         "memory",
-        "Memory",
-        "Circuits that remember: RS latches (set / reset), D latches (follow D while enabled, hold otherwise) and counters that divide the number of input pulses by N. The axis is the function, and N for counters; designs are ranked by blocks placed.",
+        "Memory and counters",
+        "Circuits that remember: on/off memories with a set and a reset input (RS latches), copy-and-hold memories (D latches: follow D while enabled, hold otherwise), clocked memories and counters that react every Nth input pulse. Designs are ranked by blocks placed for each function (and each N for counters).",
     ),
     (
         "pext",
         "Piston extenders",
-        "Machines that push a block N cells out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). The axis is the reach N; designs are ranked by blocks placed, then by extend and retract times.",
+        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach, designs are ranked by blocks placed, then by how fast they go out and come back.",
     ),
     (
         "fly",
         "Flying machines",
-        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, two-way machines) and speed in game ticks per block; ranked by blocks placed.",
+        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, machines that come back) and by speed (game ticks per block); ranked by blocks placed.",
     ),
     (
         "shulker",
-        "Shulker loaders and unloaders",
-        "Machines that pack items into shulker boxes (loaders) or unpack them (unloaders). Only a dispenser can place a box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. The judge, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and 4 rotations, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... Designs are ranked by speed (items per second), then blocks placed; why builds want each variation is in designs/circuits/shulker/VARIATIONS.md.",
+        "Shulker box loaders and unloaders",
+        "Only a dispenser can place a shulker box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. Our test, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and facing 4 ways, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... Designs are ranked by speed (items per second), then blocks placed; why builds want each variation is in the variations table.",
     ),
     (
         "tnt",
         "TNT dupers",
-        "Machines that keep making lit TNT without using up their TNT block. A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every input pulse. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in the variations table below.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every press. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in the variations table.",
     ),
     (
         "bud",
-        "BUD switches",
-        "Block update detectors: a block placed, removed or changed at the target cell fires the output, although nothing there powers it. The judge tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design detects, its latency, its pulse, how soon it can fire again (re-arm) and its footprint. Designs are ranked by what they detect, then blocks placed.",
+        "Block change detectors (BUD switches)",
+        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (a block update detector, BUD). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. Designs are ranked by what they notice, then blocks placed.",
     ),
     (
         "pulsemult",
-        "Pulse multipliers, dividers and monostables",
-        "Timing circuits. A burst generator turns one input pulse into exactly N output pulses (N dispenser shots, N items, N piston pushes); a frequency divider slows a running clock by N; a monostable makes one pulse of length L per trigger, and either ignores triggers while it is on (non-retriggerable) or stays on until L after the last one (retriggerable); an off-delay keeps the output on L longer than the input, an on-delay ignores inputs shorter than T; a pulse train pulses every P gt while its input is on. The judge measures each one's main number (N, L, T or P) and how it behaves under fast or repeated inputs; designs are ranked by blocks placed for each value.",
+        "Timers and pulse multipliers",
+        "A burst turns one press into exactly N pulses; a clock slower (divider) slows a running clock by N; a one-shot timer (monostable) makes one pulse of a fixed length per press, and either ignores presses while it is on or restarts its countdown on every press; a stay-on timer (off-delay) keeps the output on a while after the input turns off; a hold-to-activate (on-delay) ignores presses shorter than a set time; a rapid-fire circuit (gated clock) pulses at a fixed beat while its input is on. Our test measures each one's main number and how it behaves under fast or repeated presses; designs are ranked by blocks placed for each value. Functions other studies already collect are linked from the variations table rather than collected again: a one-shot timer fed single presses is a pulse shaper's edge detector, slowing a clock by 2 is a toggle switch, counting slow pulses is a counter.",
     ),
 ];
+
+/// What a visitor would use each study's builds for, with a concrete example (critique P5): the
+/// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
+pub const STUDY_USES: [(&str, &str); 11] = [
+    ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
+    ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it. Every design here does exactly that; they differ in size and in how fast you can press."),
+    ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Each design delays the signal by an exact number of ticks."),
+    ("gates", "Combine signals: a door that needs two levers (AND), two buttons for one door (OR), a light switched from both ends of a hallway (XOR), a lamp that is on while a lever is off (NOT)."),
+    ("memory", "Remember things: a light that stays on after someone crosses a tripwire until you reset it, the digits of a combination lock, or doing something every 4th item through a hopper."),
+    ("pext", "Push a block several blocks away with one lever and pull it back exactly: hidden doors, extending bridges, secret staircases. The reach is how far the block goes."),
+    ("fly", "Machines that move themselves through the world with no power line: tree farms, quarries, world eaters, slime trains. Started once, they keep flying."),
+    ("shulker", "Box up a farm's output automatically, or unpack shulker boxes into a storage system, without opening them by hand."),
+    ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
+    ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
+    ("pulsemult", "Timers and pulse tools: keep a door open while people keep stepping on a pressure plate (one-shot timer), keep a light on a while after the last press (stay-on timer), ignore accidental taps (hold-to-activate), fire a dispenser exactly 3 times per press (burst), or slow a clock down (clock divider)."),
+];
+
+/// A study's plain intro ([`STUDY_USES`]).
+pub fn study_uses(folder: &str) -> &'static str {
+    STUDY_USES.iter().find(|s| s.0 == folder).map(|s| s.1).unwrap_or("")
+}
+
+/// A study's one line on the circuits index: what you get, concretely (critique: "Combine
+/// signals." said nothing).
+pub fn study_blurb(folder: &str) -> &'static str {
+    match folder {
+        "pulse" => "One short pulse from a lever, long presses cut short, quick blips stretched.",
+        "tff" => "One button that turns things on, then off.",
+        "delay" => "The same signal, a set number of ticks later.",
+        "gates" => "AND, OR, NOT, XOR: a door that needs two levers, a light switched from both ends.",
+        "memory" => "Remember an event until reset, or react on every 2nd, 3rd... pulse.",
+        "pext" => "Push a block 2 to 12 blocks out and pull it back exactly.",
+        "fly" => "Machines that fly by themselves: trains, tree farms, world eaters.",
+        "shulker" => "Box a farm's output into shulker boxes, or unpack them into storage.",
+        "tnt" => "Endless lit TNT, without crafting any.",
+        "bud" => "Notice a block placed, removed or grown next to it.",
+        "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
+        _ => "",
+    }
+}
 
 pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
     STUDIES.iter().find(|s| s.0 == folder).map(|s| (s.1, s.2))
 }
 
-/// The about page's glossary.
-pub fn glossary() -> String {
-    let items: [(&str, &str); 15] = [
-        ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
-        ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
-        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime and outputs in orange; the redstone lamp the judge adds in an output cell lights while the output is on (an orange marker glows instead where the output cell holds a block of the design)."),
-        ("pulse", "the input (or output) on for a while, then off again; its length in gt."),
-        ("edge", "the moment a signal changes: rising edge = it turns on, falling edge = it turns off."),
-        ("L", "the length of an output pulse (pulse circuits)."),
-        ("N", "the main number of a study: a delay line's delay in gt, a counter's count, a piston extender's reach in blocks."),
-        ("delay", "time from the input's edge to the start of the output pulse."),
-        ("latency", "the worst time from an input change to the output's change; 0 gt = instant."),
-        ("min-pulse", "the shortest input pulse a circuit handles correctly (every longer one works too)."),
-        ("min-gap", "the shortest gap between two pulses that a delay line still keeps apart."),
-        ("min-period", "the fastest pulse train a T flip-flop follows: one pulse every this many gt."),
-        ("period", "a clock's (or an engine's) cycle length in gt: its whole state repeats every period."),
-        ("blocks", "blocks placed (a piston head is part of its piston; the input device is not counted); entities count one each."),
-        ("robust", "it works the same at 4 positions and 4 rotations in the real game; otherwise position- or rotation-dependent."),
-    ];
-    let mut s = String::from("<dl class=\"glossary\">\n");
-    for (k, v) in items {
-        s.push_str(&format!("<dt id=\"g-{}\">{}</dt><dd>{}</dd>\n", k.split_whitespace().next().unwrap_or(k).to_lowercase(), esc(k), esc(v)));
-    }
-    s.push_str("</dl>\n");
-    s
-}
 
 /// A caption without its simulator attribution (vjeux: "we don't need the attribution"): every
 /// sentence naming redsim goes.
@@ -719,14 +1081,73 @@ pub fn scrub_attribution(caption: &str) -> String {
 /// The design's caption without its bookkeeping prefix (`Counter 2, dropper ring, 8 blocks
 /// (track memory, ...): ` -> the explanation after it).
 pub fn how_sentence(caption: &str) -> String {
+    // the bookkeeping head first (`Counter 2, dropper ring, 8 blocks (track memory, ...): `), then
+    // the source paths and tool commands left in the rest
     let c = caption.trim();
     if let Some(i) = c.find("): ") {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
-            return site_model::html::esc(&first_cap(&c[i + 3..]));
+            return site_model::html::esc(&first_cap(&drop_source_paths(&c[i + 3..])));
         }
     }
-    site_model::html::esc(c)
+    site_model::html::esc(&drop_source_paths(c))
+}
+
+/// A caption a visitor can read (escaped HTML), or nothing: agent logs ("Agents c77 + pockets3:
+/// ...", "From track c77.") and tool logs ("Found by `mctas clock census` ...") are dropped
+/// (critique C9 / C30); source paths are dropped from the rest.
+pub fn caption_plain(caption: &str) -> String {
+    let c = caption.trim();
+    let lc = c.to_lowercase();
+    let log = lc.starts_with("agents ") || lc.starts_with("agent ") || lc.starts_with("from track") || lc.starts_with("track ") || lc.starts_with("found by") || lc.starts_with("clock:") || lc.starts_with("circuit:") || lc.contains("`mctas ") || lc.contains("mctas clock") || lc.contains("mctas door") || lc.contains("census-k");
+    if c.is_empty() || log {
+        return String::new();
+    }
+    how_sentence(c)
+}
+
+/// A door's community-regulation check in words, or None for the internal ones (critique C9:
+/// "components S H G N E F, hipster -, t_player 48/50/15/26" mean nothing to a visitor).
+pub fn door_prop(key: &str, value: &str) -> Option<(String, String)> {
+    let v = value.trim();
+    let yes_no = |v: &str| match v {
+        "yes" | "true" => "yes".to_string(),
+        "no" | "false" | "-" => "no".to_string(),
+        other => other.to_string(),
+    };
+    let (label, value) = match key {
+        "clean" => ("Nothing left in the doorway", yes_no(v)),
+        "dents" => ("Dents in the wall", if v == "dentless" { "none".to_string() } else { v.to_string() }),
+        "frame" => ("Frame blocks in place when open", v.replace('/', " of ")),
+        "lever_support" => ("Lever on its own support block", yes_no(v)),
+        "lever_surface" => ("Lever on the wall's surface", yes_no(v)),
+        "risky" => ("Blocks that can be set off by accident", if v == "-" || v.is_empty() { "none".to_string() } else { site_model::html::human_blocks(&v.replace(',', "+")) }),
+        "seamless" => ("Seamless", if v == "-" || v.is_empty() { "no".to_string() } else { site_model::html::seamless_words(v) }),
+        "seamless_strict" => ("Seamless even while moving", yes_no(v)),
+        _ => return None,
+    };
+    Some((label.to_string(), value))
+}
+
+/// Captions sometimes name the tool's source file in parentheses (`a comparator ring
+/// (crates/circuit-timer/src/rings.rs): ...`): bookkeeping a visitor does not need.
+fn drop_source_paths(c: &str) -> String {
+    let mut s = c.to_string();
+    let mut from = 0;
+    while let Some(i) = s[from..].find('(').map(|i| i + from) {
+        let Some(j) = s[i..].find(')').map(|j| j + i) else { break };
+        let inner = &s[i + 1..j];
+        // a source path, a tool command, a repo file or an agent track: not for visitors
+        // (critique C15)
+        if inner.contains("crates/") || inner.ends_with(".rs") || inner.contains(".rs ") || inner.contains("mctas ") || inner.contains(".md") || inner.contains("designs/") || inner.starts_with("track ") || inner.contains("; track ") {
+            let start = if i > 0 && s.as_bytes()[i - 1] == b' ' { i - 1 } else { i };
+            s.replace_range(start..=j, "");
+            from = start;
+        } else {
+            from = j + 1;
+        }
+    }
+    s
 }
 
 fn first_cap(s: &str) -> String {
@@ -741,8 +1162,18 @@ fn first_cap(s: &str) -> String {
 /// inputs, orange for outputs (an output's height = its strength 0..15), the checker's phases
 /// as separators with labels when they fit. Pixel sizes fixed (scrolls when long).
 pub fn wave_svg(w: &Wave) -> String {
+    wave_svg_sized(w, 960.0, false)
+}
+
+/// A timing diagram drawn about `target` px wide that scales to its container (`class="wave
+/// fit"`): a clock's timeline fits a phone and fills a desktop column.
+pub fn wave_svg_fit(w: &Wave, target: f64) -> String {
+    wave_svg_sized(w, target, true)
+}
+
+fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
     let ticks = w.ticks.max(1) as f64;
-    let px = (960.0 / ticks).clamp(0.6, 12.0);
+    let px = (target / ticks).clamp(if fit { 0.2 } else { 0.6 }, 12.0);
     let label_w = 64.0;
     let top = 22.0;
     // a position track is taller (its values 0..N each get a step)
@@ -750,12 +1181,19 @@ pub fn wave_svg(w: &Wave) -> String {
     let width = label_w + ticks * px + 8.0;
     let height = top + w.rows.iter().map(height_of).sum::<f64>() + 22.0;
     let x = |t: f64| label_w + t * px;
-    let mut s = format!(
-        "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
-    );
-    // phases: a separator at each start, a label when it fits
+    let mut s = if fit {
+        format!("<svg class=\"wave fit\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram\">")
+    } else {
+        format!(
+            "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
+        )
+    };
+    // phases: a separator at each start, a label when it fits; a start-up span is shaded
     for (from, to, label) in &w.phases {
         let (a, b) = (x(*from as f64), x(*to as f64));
+        if label.starts_with("starting") {
+            s.push_str(&format!("<rect class=\"warm\" x=\"{a:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\"/>", top - 4.0, (b - a).max(0.0), height - top - 14.0));
+        }
         s.push_str(&format!("<line class=\"ph\" x1=\"{a:.1}\" y1=\"{:.1}\" x2=\"{a:.1}\" y2=\"{:.1}\"/>", top - 4.0, height - 18.0));
         if (b - a) >= label.len() as f64 * 6.2 + 6.0 {
             s.push_str(&format!("<text class=\"phl\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", a + 3.0, top - 8.0, esc(label)));
@@ -814,12 +1252,15 @@ pub fn wave_svg(w: &Wave) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a tick every 20, 100 or 500 gt
-    let step = [20u32, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
+    // a time axis: a label every 5, 10, 20, 50, 100... gt (at least 60 px apart)
+    let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
     let mut t = 0u32;
     let ya = height - 6.0;
     while (t as f64) <= ticks {
-        s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        // (a label that would run past the right edge is left out)
+        if t == 0 || x(t as f64) + 34.0 <= width {
+            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        }
         t += step;
     }
     s.push_str("</svg>");
@@ -837,6 +1278,15 @@ mod tests {
 
     #[test]
     fn unsimulated_reasons_read_plainly() {
+        assert_eq!(phase_label("bud", "place 1 t"), "place #1");
+        assert_eq!(phase_label("bud", "state 2b t"), "change back #2");
+        assert_eq!(phase_label("bud", "rearm place 6 t"), "2 changes 6 gt apart");
+        assert_eq!(phase_label("bud", "probe 3 update"), "the cells around (3)");
+        // every published kind has a title and a summary (the study pages' headings)
+        for k in ["dff", "dff-enable", "shift 2", "tff-reset", "burst 2", "divider 3", "monostable retriggerable", "off-delay", "on-delay", "pulse-train"] {
+            assert!(!kind_summary(k).is_empty(), "{k}");
+        }
+        assert_eq!(drop_source_paths("a comparator ring (crates/circuit-timer/src/rings.rs): 6 dust (C2) carry"), "a comparator ring: 6 dust (C2) carry");
         assert_eq!(plain_reason("not modeled by redsim (tick 28 of its run): dropper at (0,0,0) picks a random slot among 3 stacks (not modeled)"), "dropper picks a random slot among 3 stacks");
         assert_eq!(plain_reason("not modeled by redsim (tick 0 of its run): 2 container entities at (0,0,0): the game picks one at random (not modeled)"), "2 container entities: the game picks one at random");
         assert_eq!(plain_reason("block \"oak_fence\" is not modeled by redsim"), "block \"oak_fence\" is not modeled");

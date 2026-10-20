@@ -20,6 +20,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 | 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
+| 12 computational redstone | clk-obs (compute), pext | adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N | the kind and N | latency (worst transition), glitches, per bit, slice law ([variations](../designs/circuits/compute/VARIATIONS.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -36,6 +37,8 @@ port input: 0 1 0                # one input; several: port input.<name>: (input
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
 port target: 0 1 2               # bud only: a cell (air) where the judge performs its block updates
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
+input-device: far                # sculk designs only: the input comes from beyond the sensors' reach (no lever events)
+vibration: proof                 # sculk designs only: claim vibration-proof (refused if ambient events change it)
 ```
 
 * **Inputs** (`port input[.<name>]: x y z [args]`): the args say how the judge drives the cell.
@@ -91,6 +94,26 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
   stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
   input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  **Vibrations** (coordinator and clockinfra 2026-10-20, `crate::vibration`, shared events in
+  `clock::vibration`): a design that holds a sculk sensor (plain or calibrated) hears game events,
+  and the judge's own input (a redstone block written with `setBlock`) makes none. After its
+  plain run passes, two more runs of the same schedule:
+  * DEVICE, a hard rule: the game events a lever makes at every plain input cell
+    (`block_activate` when it turns on, `block_deactivate` when it turns off; a button makes the
+    same two) must leave the result unchanged, else `hears its input device`. A design whose input
+    comes by a line from beyond its sensors' reach says `input-device: far` and gets none (its
+    metric says `input from afar`).
+  * AMBIENT, a property: the device run plus seeded pseudo-random game events every 5..15 gt at
+    cells within the sensors' listener radius of the design's swept box (8 blocks, 16 with a
+    calibrated sensor), never inside it: footsteps, items hitting the ground, blocks placed or
+    broken, entities placed (frequencies 1, 2, 13, 12, 14). The metric `vibration-proof yes`
+    when the result is unchanged, else `no`; a `no` design is its own archive class (axis
+    `..., vibration-sensitive`). A design that says `vibration: proof` and is not is refused.
+  Every event is posted at its cell's center (redsim measures block centers), and the generator
+  is seeded by the build (the design as rotated and placed), so redsim and the game get the same
+  events for the same build. A calibrated sensor fed a constant back signal (a comparator reading
+  a chest) accepts that frequency only: `cal-sculk-filter-rise` (the note block's 10) is
+  vibration-proof.
   `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
@@ -231,7 +254,8 @@ kick) before the first input.
   the box is the design's own.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
-  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
+  (8 periods of up to 110 gt fit in its second half)
   the frames must repeat with a period P through the run's second half for at least 8 periods,
   every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
@@ -251,8 +275,19 @@ kick) before the first input.
   its rest state; a switchable one's running windows end with the same frames as its first
   period, its stopped windows the same; at least one TNT exploded or left out of range; no item
   entity at the end (a destroyed block drops one). The line then carries `(survives its own
-  explosions: N exploded, M out of range, design intact)`; redsim reports UNMODELED (no
-  explosions yet). `explode: off` is for analysis only (the measuring calibrations): the archive
+  explosions: N exploded, M out of range, design intact)`. On redsim (clk-misc's exact explosion
+  port, `clock::sim::drive_tnt`) the same run has every primed TNT kicked by one `d`, every ray at
+  its largest roll (`Rolls::Max`: surviving it is surviving every roll), TNT removed out of range
+  the same way. **All randoms** (vjeux 2026-10-20: "pass every possible random number"):
+  `circuit verify` then runs `circuit::robust::tnt_robust`: the kick's `nextDouble()` swept over
+  [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
+  piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
+  claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
+  (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
+  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
+  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
+  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
+  check). `explode: off` is for analysis only (the measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
@@ -463,6 +498,47 @@ kick) before the first input.
   * `pulse-train` (a gated clock): the input held 20, 60, 200 gt: output pulses every P gt while it
     is on, the first at the same latency each time, none starting more than P after the release.
     Metrics P (axis), pulse, latency, stop (release -> the output's last fall).
+* **Study 12, computational redstone** ([crate::compute](../crates/circuit/src/compute.rs), the
+  variations and why: [designs/circuits/compute/VARIATIONS.md](../designs/circuits/compute/VARIATIONS.md)).
+  Unsigned binary on one cell per bit: bit k of `a` is `port input.a<k>` (k = 0 the lowest), of the
+  sum `port output.s<k>`. Kinds and ports (`?` = optional):
+  * `adder N`: a, b, cin? -> s, cout?; `subtractor N`: a, b, bin? -> d, bout? (d - 2^N bout = a - b -
+    bin); `incrementer N`: a, cin? (else +1) -> s, cout?;
+  * `comparator N` (N >= 2): a, b -> any of eq, ne, lt, gt, le, ge;
+  * `mux N`: s0..s(N-1), d0..d(2^N - 1) -> q = d[s]; `demux N`: s, d -> q0..q(2^N - 1);
+    `decoder N` (N >= 2): a, e? (enable) -> q one-hot; `encoder N [priority]` (N >= 2): d0..d(2^N - 1)
+    -> q, valid? (a plain encoder is judged on one-hot and zero inputs only, a priority encoder on
+    every input: q = the highest set index);
+  * `binary-counter N` (N >= 2): clk, r? (reset) -> q0..q(N-1).
+  Combinational kinds (at most 16 inputs): every input state in Gray-code order, then (10 inputs or
+  fewer) every single-input transition in both directions (an Euler tour of the n-cube), then every
+  state reached from its complement (every input at once), each held for the gap (redsim's settle
+  time, at least 10 gt so that no torch toggles 8 times in 60 gt). At rest the outputs must read
+  the all-zero state's values; in every hold they must settle to the ideal values and keep them to
+  its end (`wrong output: <transition>: <output> is 1, want 0`). Metrics: `latency` (the worst gt
+  from an input change to the frame from which every output holds its final value, with the
+  transition: `b0 rises from a=0111 b=0000 cin=0`; 0 = class `instant`), `glitches` (holds where an
+  output changes more than once before it settles), `per bit` (blocks / N, arithmetic kinds).
+  `binary-counter N`: 2^N + 3 clock pulses of 4 gt each followed by the gap (with a reset input,
+  resets at three counts): the outputs read the count mod 2^N at the end of every gap; `latency`
+  from the edge that moves them (`edge` rising or falling), `per bit`.
+  **Bit slices** (`slice: dx dy dz`): the design is ONE bit (`adder 1`, `subtractor 1`,
+  `incrementer 1`, `binary-counter 1`) with chain ports, input cin (bin; a counter's clk) and output
+  cout (bout), cout a design block exactly one step from the cin cell (`compute::sliced`). The judge
+  judges the slice alone, then stacks 2, 3 and 4 copies (copy k one step further, its per-bit ports
+  renamed a<k>, b<k>, s<k> / q<k>, copy k's cin cell being copy k - 1's cout block; copy 0's cin
+  stays the input and keeps its own idle block, the last copy's cout the output) and judges each
+  stack as the N-bit kind. Metric `slice`: blocks per bit and the latency law (`latency 2 + 4
+  (N-1) gt` when it is linear). A chain that is on at rest (a torch) needs copy 0's chain input to
+  idle on as well: `port input.clk: x y z minecraft:air minecraft:redstone_block` (on = air).
+  **Hex** (`adder N hex`, `subtractor N hex`, `incrementer N hex`, `comparator N hex`, N <= 4): each
+  value on ONE line as a signal strength. Value inputs `port input.a: x y z strength` (and b) sit on
+  a single chest of the design (an input device, not counted): the judge rewrites its contents to
+  the fewest cobblestones whose comparator strength is the value (`compute::strength_items`:
+  floor(14 f) + 1 for a fill f > 0 of 27 slots of 64; the chest's state is unchanged, the contents
+  change updates the comparators reading it), and the design reads it with its own comparator.
+  The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
+  comparisons stay on/off lines. The state walks treat a value as N bits.
 
 ## Archive and catalog
 

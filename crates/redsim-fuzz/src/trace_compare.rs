@@ -248,9 +248,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     // TNT entities (their kick replaced: each new one takes the game's state when first seen)
     w.tnt_kick = Some(0.0);
     // the level random, mirrored from the sandbox's seed and forced chunks (before placement:
-    // placement can draw, e.g. a powered door's sound)
+    // placement can draw, e.g. a powered door's sound), and the bridge's seeded drops (popResource
+    // items: `rng::Drop` from the same seed)
     if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
         w.mirror_level_random(seed, chunks);
+        w.drop_seed = Some(seed);
     }
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
@@ -280,6 +282,10 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
     let mut sim_tnt_seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
     let mut primed_seen = 0usize;
+    let mut chain_seen = 0usize;
+    // redsim's level-random draws per frame (the last few, for a drift report)
+    let mut sim_rng: Vec<(usize, String)> = Vec::new();
+    let mut sim_rng_prev: Option<i64> = None;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -307,6 +313,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 Action::Update { pos } => {
                     let src = w.get(bp(pos)).kind();
                     w.update_neighbors_at(bp(pos), src);
+                }
+                Action::GameEvent { pos, event } => {
+                    w.game_event(event, bp(pos));
                 }
             }
         }
@@ -339,29 +348,54 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
         let new_game: Vec<&TraceEntity> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).collect();
         let mut game_spawns: Vec<[i32; 3]> = new_game.iter().map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
-        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().map(|(_, p)| [p.x, p.y, p.z]).collect();
+        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().chain(&w.chain_primed[chain_seen..]).map(|(_, p)| [p.x, p.y, p.z]).collect();
         primed_seen = w.primed.len();
+        chain_seen = w.chain_primed.len();
         game_spawns.sort();
         sim_spawns.sort();
         let near = |a: &[i32; 3], b: &[i32; 3]| (0..3).all(|i| (a[i] - b[i]).abs() <= 1);
         if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
             ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
         }
-        // redsim's TNT entities (World::tnt_kick): the game's random kick is unknown, so each new
-        // TNT takes the game's state at its first sighting; from then on it is compared bit for bit
+        // redsim's TNT entities (World::tnt_kick): without the level random the game's random kick
+        // is unknown, so each new TNT takes the game's state at its first sighting; from then on it
+        // is compared bit for bit (with the level random mirrored, the kick is the game's own:
+        // nothing is injected)
         let new_sim: Vec<usize> = (0..w.entities.list.len()).filter(|&k| matches!(w.entities.list[k].kind, redsim::entity::EntityKind::PrimedTnt(_)) && !w.entities.list[k].removed && sim_tnt_seen.insert(w.entities.list[k].id)).collect();
-        for (g, &k) in new_game.iter().zip(&new_sim) {
-            let e = &mut w.entities.list[k];
-            e.set_pos(redsim::entity::Vec3::new(g.pos[0], g.pos[1], g.pos[2]));
-            e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
+        if w.level_random.is_none() {
+            for (g, &k) in new_game.iter().zip(&new_sim) {
+                let e = &mut w.entities.list[k];
+                e.set_pos(redsim::entity::Vec3::new(g.pos[0], g.pos[1], g.pos[2]));
+                e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
+            }
         }
         entity_diffs(ents, &entities_of(&w), &mut ed);
         // the level random after this frame (exact traces with `rng`): a drift shows on the tick
-        // it starts, not later through behavior
+        // it starts, not later through behavior; with it, the draws of the last frames on both
+        // sides and redsim's explosions so far
         if let (Some(game), Some(r)) = (trace.rng.get(t).copied().flatten(), w.level_random.as_ref()) {
             if let Some(d) = redsim::rng::state_diff(game, r.state()) {
                 ed.push(d);
+                let draws = |a: Option<i64>, b: i64| a.and_then(|a| redsim::rng::lcg_steps(a, b, 100_000)).map(|k| k.to_string()).unwrap_or("?".into());
+                let lo = t.saturating_sub(6);
+                let game_draws: Vec<String> = (lo.max(1)..=t).map(|k| format!("t{k}: {}", draws(trace.rng.get(k - 1).copied().flatten(), trace.rng.get(k).copied().flatten().unwrap_or(0)))).collect();
+                ed.push(format!("game draws per frame: {}", game_draws.join(", ")));
+                let sim_draws: Vec<String> = sim_rng.iter().filter(|(k, _)| *k >= lo.max(1)).map(|(k, n)| format!("t{k}: {n}")).collect();
+                ed.push(format!("redsim draws per frame: {}, then {} at t{t}", sim_draws.join(", "), draws(sim_rng_prev, r.state())));
+                for b in &w.explosions {
+                    ed.push(format!("redsim explosion at game time {} center ({:.4}, {:.4}, {:.4}): {} positions, {} destroyed {:?}", b.time, b.center.x, b.center.y, b.center.z, b.positions, b.destroyed.len(), b.destroyed.iter().take(6).map(|(p, s)| format!("{p} {s}")).collect::<Vec<_>>()));
+                }
             }
+        }
+        if let Some(r) = w.level_random.as_ref() {
+            let s = r.state();
+            if let Some(prev) = sim_rng_prev {
+                sim_rng.push((t, redsim::rng::lcg_steps(prev, s, 100_000).map(|k| k.to_string()).unwrap_or("?".into())));
+                if sim_rng.len() > 8 {
+                    sim_rng.remove(0);
+                }
+            }
+            sim_rng_prev = Some(s);
         }
         n_diff += ed.len();
         for d in ed {

@@ -347,8 +347,8 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         return;
     }
     if should_be_removed(w, p, shape_of(&s)) {
-        // dropResources -> popResource (three level-random draws)
-        w.draw_pop_resource();
+        // dropResources: its loot's stacks pop (level-random draws, seeded items)
+        w.drop_resources(p, s);
         w.drops.push((p, s));
         w.remove_block(p, moved);
         return;

@@ -137,6 +137,10 @@ pub struct Entity {
     /// and `pistonDeltasGameTime`.
     pub piston_deltas: [f64; 3],
     pub piston_deltas_time: i64,
+    // ---- explosions (explosion.rs, clk-misc) ----
+    /// `VehicleEntity.getDamage()` (boats, minecarts): +10 per point of damage, destroyed past
+    /// 40, -1 per tick.
+    pub vehicle_damage: f32,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -191,6 +195,7 @@ impl Entity {
             fluid: Default::default(),
             piston_deltas: [0.0; 3],
             piston_deltas_time: 0,
+            vehicle_damage: 0.0,
         }
     }
 
@@ -435,9 +440,16 @@ pub fn tick_all(w: &mut World) {
     w.entities.list.retain(|e| !e.removed);
 }
 
-/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards).
+/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards); none outside
+/// the entity-ticking chunks (`World::entity_ticks_at`).
 pub fn tick_one(w: &mut World, i: usize) {
     if w.entities.list[i].removed {
+        return;
+    }
+    let p = w.entities.list[i].pos;
+    if !w.entity_ticks_at(p.x, p.z) {
+        let id = w.entities.list[i].id;
+        w.note_frozen(id);
         return;
     }
     common_tick(w, i);

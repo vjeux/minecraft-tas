@@ -9,6 +9,7 @@ extend axis: 30 + 16n
 extend blocks: 32 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
+extend group title: long pulse on both edges: an observer, two copper bulbs and a loop of repeaters
 extend base: 0
 extend generator: mctas circuit pulse family dual-edge-reset --n {n} --out {out}
 origin: 0 0 -3

@@ -91,14 +91,16 @@ pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
-fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
+pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     if let Some(st) = o.stimulus.as_ref().or(if c.kind.is_none() { c.stimulus.as_ref() } else { None }) {
         return Ok((crate::stimulus::parse(st, &names, 100)?, None));
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
-    Ok((check::stimulus(c, &kind, &Sizing { gap }), Some(kind)))
+    let mut s = check::stimulus(c, &kind, &Sizing { gap });
+    let _ = &mut s;
+    Ok((s, Some(kind)))
 }
 
 /// Result of [`sim`].
@@ -113,7 +115,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
-            (Err(e), _, Some(k)) if e.contains("no support") || c.input_refused.as_deref() == Some(e.as_str()) => format!("FAIL: {} {}: {e}", c.name(), k.name()),
+            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") || c.input_refused.as_deref() == Some(e.as_str()) => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -159,12 +161,31 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         (out, _) => out,
     };
+    // a sculk design: the device and ambient runs (crate::vibration)
+    let outcome = match (outcome, &kind, &trace) {
+        (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
+        (out, _, _) => out,
+    };
+    // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
+    let outcome = match (outcome, &kind, c.slice) {
+        (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
+            let margin = o.margin;
+            let gap0 = crate::compute::gap_of(&schedule);
+            Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+        }
+        (out, _, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
-/// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
+/// A design with a `tile:` header whose copies are judged too ([`tiled_check`]): study 11, and
+/// the sequential kinds builders tile into registers and counter rows (T flip-flops, latches,
+/// D flip-flops, shift cells, counters). The check itself is generic - every copy must pass its
+/// kind's own check and measure what the design measures alone.
 fn tiles(c: &Circuit, k: &Kind) -> bool {
-    c.tile.is_some() && k.study() == "pulsemult"
+    // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
+    // checker: study 1's pulse circuits and the sequential kinds tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
@@ -437,6 +458,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
         }
+        // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
+        if out.pass
+            && o.stimulus.is_none()
+            && let (Some(Kind::Compute(spec)), Some(_)) = (&kind, rc.slice)
+        {
+            let gap0 = crate::compute::gap_of(&schedule);
+            out = crate::compute::slice_check(&rc, *spec, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
+        }
         // a tiled study-11 design: its copies side by side, each judged on its own (the metric
         // names the design's own step, the same in every build)
         if out.pass
@@ -445,6 +474,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(tl) = c.tile
         {
             out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
+        // a sculk design: the device and ambient runs in this build (crate::vibration)
+        if out.pass
+            && rc.has_sculk()
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
@@ -462,6 +499,15 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     {
         rep.pass = false;
         rep.verdict = why;
+    }
+    // TNT dupers (explosions on): every kick angle on redsim (crate::robust; vjeux: "pass every
+    // possible random number")
+    if rep.pass && c.explodes() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        if let Err(why) = crate::robust::tnt_robust(c, crate::robust::SAMPLES, workers) {
+            rep.pass = false;
+            rep.verdict = format!("not robust over every kick (redsim): {why}");
+        }
     }
     Ok(rep)
 }

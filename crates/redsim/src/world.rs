@@ -154,6 +154,30 @@ pub struct World {
     /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
     /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
     pub chunk_draws: u32,
+    /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
+    /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
+    pub entity_chunks: Option<[i32; 4]>,
+    /// Entities that stopped ticking outside `entity_chunks` (game time, entity id), once each: a
+    /// sandbox artifact (in a real world the player keeps those chunks loaded), which a judge
+    /// fails or avoids by forcing more chunks.
+    pub frozen: Vec<(i64, u32)>,
+    // ---- explosions and TNT outcomes (clk-misc, `explosion.rs`) ----
+    /// How an explosion draws its rays' power (`explosion::Rolls`: the level random by default).
+    pub explosion_rolls: crate::explosion::Rolls,
+    /// Injected kicks: the `nextDouble()` of the k-th TNT entity spawned (block primes and
+    /// explosion primes together, in spawn order), in place of the level random's (still drawn
+    /// when mirrored) or `tnt_kick`. For robustness sweeps over every kick angle.
+    pub tnt_kicks: Vec<f64>,
+    /// TNT entities spawned so far (the index into `tnt_kicks`).
+    pub tnt_spawned: u32,
+    /// Injected fuses (10..=29) of the explosion-primed TNT (`TntBlock.wasExploded`), in order, in
+    /// place of the level random's `nextInt(20) + 10`.
+    pub chain_fuses: Vec<i32>,
+    pub chain_spawned: u32,
+    /// TNT blocks an explosion primed: (game time, cell), like `primed` for `TntBlock.prime`.
+    pub chain_primed: Vec<(i64, BlockPos)>,
+    /// Every explosion so far (`explosion::explode`): when, where, what it destroyed.
+    pub explosions: Vec<crate::explosion::Blast>,
 }
 
 impl World {
@@ -194,6 +218,15 @@ impl World {
             drop_count: 0,
             level_random: None,
             chunk_draws: 0,
+            entity_chunks: None,
+            frozen: Vec::new(),
+            explosion_rolls: Default::default(),
+            tnt_kicks: Vec::new(),
+            tnt_spawned: 0,
+            chain_fuses: Vec::new(),
+            chain_spawned: 0,
+            chain_primed: Vec::new(),
+            explosions: Vec::new(),
         }
     }
 
@@ -204,6 +237,28 @@ impl World {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
         let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
         self.chunk_draws = 3 * n;
+        self.entity_chunks = Some(chunks);
+    }
+
+    /// Does an entity at (x, z) tick? Only in the sandbox's forced chunks when they are known
+    /// (`entity_chunks`): `ServerLevel.tick` skips an entity outside the entity-ticking range (a
+    /// forced chunk has level 31, its neighbours 32+), so a TNT or an item flying out of them
+    /// freezes there.
+    pub fn entity_ticks_at(&self, x: f64, z: f64) -> bool {
+        match self.entity_chunks {
+            None => true,
+            Some([x0, z0, x1, z1]) => {
+                let (cx, cz) = ((x.floor() as i64).div_euclid(16) as i32, (z.floor() as i64).div_euclid(16) as i32);
+                cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1
+            }
+        }
+    }
+
+    /// Record entity `id` as frozen (outside `entity_chunks`), once.
+    pub fn note_frozen(&mut self, id: u32) {
+        if !self.frozen.iter().any(|(_, i)| *i == id) {
+            self.frozen.push((self.time, id));
+        }
     }
 
     /// The mirrored level random, if any (draw from it at the game's spot).
@@ -227,6 +282,40 @@ impl World {
             for _ in 0..3 {
                 r.next_double_between(-0.25, 0.25);
             }
+        }
+    }
+
+    /// `Block.popResource(level, pos, stack)`: the three level-random draws (when mirrored), and
+    /// with a drop seed the item entity the bridge spawns (`rng::Drop`, the sandbox's n-th drop;
+    /// `payload`: a shulker box item's contents).
+    pub fn pop_resource(&mut self, pos: BlockPos, item: &str, count: u32, payload: u16) {
+        self.draw_pop_resource();
+        let Some(seed) = self.drop_seed else { return };
+        let d = crate::rng::Drop::seeded(seed, self.drop_count, pos);
+        self.drop_count += 1;
+        let state = crate::entity::item::ItemState { item: item.to_string(), count: count.min(255) as u8, pickup_delay: 10, age: 0, payload, health: 5 };
+        let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
+        if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
+            e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
+        }
+    }
+
+    /// `Block.dropResources(state, level, pos)` of the block `s` just broken at `pos` (callers
+    /// record it in `drops`): with the level random mirrored or a drop seed, every stack of its
+    /// loot table pops (`pop_resource`); a table redsim cannot evaluate is a model error. Without
+    /// either, nothing (no draw, no entity).
+    pub fn drop_resources(&mut self, pos: BlockPos, s: Block) {
+        if self.level_random.is_none() && self.drop_seed.is_none() {
+            return;
+        }
+        let payload = crate::redstone::shulker::box_payload(self, pos, &s).unwrap_or(0);
+        match crate::loot::drops(&s) {
+            Ok(v) => {
+                for (item, n) in v {
+                    self.pop_resource(pos, &item, n, payload);
+                }
+            }
+            Err(e) => self.errors.push(e),
         }
     }
 
@@ -403,8 +492,8 @@ impl World {
             return false;
         }
         if drop && bh::drops_item(&s) {
-            // dropResources -> popResource: three level-random draws (when mirrored)
-            self.draw_pop_resource();
+            // dropResources: its loot's stacks pop (level-random draws, seeded items)
+            self.drop_resources(pos, s);
             self.drops.push((pos, s));
         }
         // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)

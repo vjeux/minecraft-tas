@@ -1,16 +1,17 @@
-# archived 2026-10-19T23:49Z from designs/circuits/tracks/pulse/hand/pulse-dual-edge-observer-repeater-L4.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-edge-observer-repeater-L4 dual-edge L 4 gt, delay 6 gt, min-pulse 8 gt, 3 blocks, 1x2x2, robust
+# archived 2026-10-20T14:07Z from /tmp/clkobs-runs/tiled/pulse-dual-edge-observer-repeater-L4-self-tile1.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-edge-observer-repeater-L4 dual-edge L 4 gt, delay 6 gt, min-pulse 8 gt, tileable every 1 (1 0 0), 3 blocks, 1x2x2, robust
 name: pulse-dual-edge-observer-repeater-L4
 circuit: dual-edge
-# An observer watching the input fires a 2 gt pulse 2 gt after each edge; the delay-2 repeater it
-# feeds (on a stone block) stretches every pulse to 4 gt (4 gt more delay).
-origin: 0 0 0
+group: pulse-dual-edge-observer-repeater
+group title: pulse on both edges: an observer and a repeater
+tile: 1 0 0
 port input: 0 1 2
-port output: 0 1 -1
+port output: 0 1 0
+origin: 0 0 0
 palette:
-  S minecraft:stone
-  R minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
   O minecraft:observer[facing=south,powered=false]
+  R minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  S minecraft:stone
 layer 0:
   S
   .

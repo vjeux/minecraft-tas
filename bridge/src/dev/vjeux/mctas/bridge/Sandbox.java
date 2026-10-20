@@ -650,6 +650,76 @@ final class Sandbox {
         this.entityCount = 0;
     }
 
+    /**
+     * Save, unload and load again every chunk of the sandbox, without ticking the world: a player
+     * walking away and back, or a server restart (coordinator 2026-10-20: a clock must survive a
+     * chunk reload). What the chunk data keeps (blocks, block entities, scheduled ticks, entities)
+     * comes back; what it does not (pending block events, the order of ticks due together) is lost,
+     * as in the game. The sandbox saves only while this runs.
+     */
+    void reload(SimServer server) {
+        this.level.noSave = false;
+        try {
+            for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+                for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                    this.level.setChunkForced(cx, cz, false);
+                }
+            }
+            PersistentEntitySectionManager<?> entityManager = (PersistentEntitySectionManager<?>) get(ENTITY_MANAGER, this.level);
+            long deadline = System.nanoTime() + 60_000_000_000L;
+            while (anyLoaded()) {
+                server.pumpTasks();
+                this.level.getChunkSource().tick(() -> true, false);
+                this.level.getChunkSource().pollTask();
+                entityManager.tick();
+                if (System.nanoTime() > deadline) {
+                    throw new IllegalStateException("chunks of sandbox " + this.id + " did not unload");
+                }
+                LockSupport.parkNanos(20_000L);
+            }
+            for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+                for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                    this.level.setChunkForced(cx, cz, true);
+                }
+            }
+            deadline = System.nanoTime() + 60_000_000_000L;
+            while (!entitiesLoaded(this.level, this.minChunkX, this.minChunkZ, this.maxChunkX, this.maxChunkZ) || !allChunks()) {
+                server.pumpTasks();
+                this.level.getChunkSource().tick(() -> true, false);
+                this.level.getChunkSource().pollTask();
+                entityManager.tick();
+                if (System.nanoTime() > deadline) {
+                    throw new IllegalStateException("chunks of sandbox " + this.id + " did not load again");
+                }
+                LockSupport.parkNanos(20_000L);
+            }
+        } finally {
+            this.level.noSave = true;
+        }
+    }
+
+    private boolean anyLoaded() {
+        for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+            for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                if (this.level.getChunkSource().hasChunk(cx, cz) || this.level.areEntitiesLoaded(ChunkPos.pack(cx, cz))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean allChunks() {
+        for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+            for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                if (!this.level.getChunkSource().hasChunk(cx, cz)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     void drop(SimServer server) {
         clear();
         for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {

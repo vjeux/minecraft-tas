@@ -211,7 +211,8 @@ fn states(b: &mut Browser) -> Result<Vec<Option<State>>> {
 
 /// A screenshot of a page after `seconds` of real time (animation frames run: playing viewers
 /// move, demos advance), scrolled to `scroll_y` CSS px.
-pub fn cmd_snap(url: &str, window: &str, scale: f32, seconds: f64, scroll_y: f64, eval: Option<&str>, out: &Path, browser: &Path) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+pub fn cmd_snap(url: &str, window: &str, scale: f32, seconds: f64, scroll_y: f64, eval: Option<&str>, before: Option<(&str, f64)>, out: &Path, browser: &Path) -> Result<()> {
     let mut b = Browser::start(browser, window, scale, url)?;
     b.attach_page()?;
     b.call("Page.enable", json!({}))?;
@@ -219,6 +220,10 @@ pub fn cmd_snap(url: &str, window: &str, scale: f32, seconds: f64, scroll_y: f64
     std::thread::sleep(Duration::from_millis(500));
     if scroll_y > 0.0 {
         b.eval(&format!("window.scrollTo(0, {scroll_y})"))?;
+    }
+    if let Some((js, at)) = before {
+        b.drain(Duration::from_secs_f64(at));
+        println!("before {js} = {}", b.eval(js)?);
     }
     b.drain(Duration::from_secs_f64(seconds));
     let r = b.call("Page.captureScreenshot", json!({ "format": "png" }))?;
@@ -490,6 +495,9 @@ pub fn cmd_swap(url: &str, to: &str, window: &str, browser: &Path) -> Result<()>
     std::thread::sleep(Duration::from_millis(2500));
     let st2 = states(&mut b)?.first().cloned().flatten().context("state after the swap")?;
     let same_cam = st2.cam.len() == 6 && st2.cam.iter().zip(&st1.cam).all(|(a, b)| (a - b).abs() < 1e-3);
+    // the person's orientation always stays; the distance and target too unless the new build
+    // does not fit that camera (then they are fitted again: never cut)
+    let same_dir = st2.cam.len() == 6 && st1.cam.len() == 6 && (st2.cam[0] - st1.cam[0]).abs() < 1e-3 && (st2.cam[1] - st1.cam[1]).abs() < 1e-3;
     // the viewer's pixels: the new design drawn, not black
     let shot = b.call("Page.captureScreenshot", json!({ "format": "png", "clip": { "x": r[0] + 2.0, "y": r[1] + 2.0, "width": r[2] - 4.0, "height": r[3] - 4.0, "scale": 0.5 } }))?;
     let (rgba, _, _) = mcview::tools::decode_png(&base64_decode(shot["data"].as_str().unwrap_or(""))?).map_err(anyhow::Error::msg)?;
@@ -498,12 +506,18 @@ pub fn cmd_swap(url: &str, to: &str, window: &str, browser: &Path) -> Result<()>
     println!(
         "swap to {to}: marked mcview-live-src {}, camera {} ({:?} -> {:?}), design changed {changed}, luma {luma:.0} ({:.0}% near black)",
         marked > 0,
-        if same_cam { "kept" } else { "MOVED" },
+        if same_cam {
+            "kept"
+        } else if same_dir {
+            "kept, re-fitted to the bigger build"
+        } else {
+            "TURNED"
+        },
         st1.cam,
         st2.cam,
         dark * 100.0
     );
-    if marked == 0 || !same_cam || !changed || luma < 40.0 || dark > 0.5 {
+    if marked == 0 || !same_dir || !changed || luma < 40.0 || dark > 0.5 {
         bail!("the in-place swap failed");
     }
     println!("web swap: PASS");

@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 11] = [
+pub const STUDIES: [(&str, &str); 12] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -31,6 +31,7 @@ pub const STUDIES: [(&str, &str); 11] = [
     ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
+    ("compute", "Computational redstone"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -212,6 +213,28 @@ pub fn variation_signature(r: &Row) -> String {
 /// Whether a design passed in every build (else it folds under a robust one of its value).
 pub fn is_robust(r: &Row) -> bool {
     r.robustness == "robust"
+}
+
+/// A design's input class for the fold: `own levers` / `own buttons` when its inputs are its own
+/// devices, `signal` otherwise (inputs from the rest of a build: the judge's repeater line, R7),
+/// empty for designs without inputs or that do not load.
+pub fn input_class(path: &Path) -> String {
+    let Ok(c) = Circuit::load(path) else { return String::new() };
+    if c.inputs.is_empty() {
+        return String::new();
+    }
+    let mut v: Vec<&str> = c
+        .inputs
+        .iter()
+        .map(|i| match i.how {
+            crate::InputHow::Lever => "own levers",
+            crate::InputHow::Button => "own buttons",
+            _ => "signal",
+        })
+        .collect();
+    v.sort();
+    v.dedup();
+    v.join("+")
 }
 
 /// Metrics where less is better (a speed, a reach of input lengths or clocks, a footprint).
@@ -428,6 +451,7 @@ pub fn type_key(c: &Circuit) -> String {
             crate::InputHow::Driven { .. } => id(crate::INPUT_ON),
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+            crate::InputHow::Strength { .. } => "strength".to_string(),
         };
         d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
@@ -450,6 +474,12 @@ pub fn type_key(c: &Circuit) -> String {
 
 /// A circuit's value on its study's axis.
 pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
+    let a = axis_base(kind, out, family);
+    // a sculk design that ambient game events disturb is its own class (crate::vibration)
+    if out.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("no")) { format!("{a}, vibration-sensitive") } else { a }
+}
+
+fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
@@ -481,6 +511,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::OffDelay => format!("off L = {}", m("L")),
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
+        Kind::Compute(..) => kind.name(),
     }
 }
 
@@ -1095,7 +1126,9 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let val = |f: &Family, n: i64| format!("{label} = {}{u}", f.period.eval(n));
         if card.members.len() == 1 {
-            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), f.id, r.file, f.blocks.text(), r.kind));
+            // its human title (`extend group title:`), else its id
+            let title = f.group_title.clone().unwrap_or_else(|| f.id.clone());
+            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), title, r.file, f.blocks.text(), r.kind));
             let ns: Vec<i64> = [f.n_lo, f.n_lo + 1].into_iter().filter(|n| *n <= f.n_hi).collect();
             md.push_str(&ns.iter().map(|n| format!("n = {n}: {}, {} blocks", val(f, *n), f.blocks.eval(*n))).collect::<Vec<_>>().join(" · "));
             let j = judged(f);
@@ -1256,6 +1289,11 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         }
         let caps = read_captions(&dir);
         let aliases = read_aliases(&dir);
+        // the input class of each design (critique 2026-10-20): inputs that are the design's own
+        // levers or buttons are a different class from signal inputs (the judge's repeater line,
+        // R7), and the two never fold into each other or count as equivalent layouts
+        let class: BTreeMap<String, String> = rows.iter().map(|r| (r.file.clone(), input_class(&dir.join(&r.file)))).collect();
+        let cls = |r: &Row| class.get(&r.file).cloned().unwrap_or_default();
         // extendable families (bases with `extend` headers) and their judged members: one card
         // each (cards of one group share one), the members leave the value tables
         let mut fams: Vec<(Row, clock::extend::Family, BTreeSet<String>)> = Vec::new();
@@ -1312,7 +1350,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             let items: Vec<(usize, i64, String)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
             let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
-            for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(g[i], g[j])).into_iter().enumerate() {
+            for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(g[i]) != cls(g[j]) || beats_on_variation(g[i], g[j])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
@@ -1326,7 +1364,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         {
             let mut eq: BTreeMap<(String, String, usize, String), Vec<&Row>> = BTreeMap::new();
             for r in rows.iter().filter(|r| !in_family(r) && !in_group(r) && !host.contains_key(&r.file)) {
-                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, variation_signature(r))).or_default().push(r);
+                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, format!("{}|{}", variation_signature(r), cls(r)))).or_default().push(r);
             }
             for v in eq.values_mut() {
                 if v.len() < 2 {
@@ -1437,7 +1475,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             for v in g.values() {
                 let items: Vec<(usize, i64, String)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
                 let robust: Vec<bool> = v.iter().map(|r| is_robust(r)).collect();
-                folded += clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
+                folded += clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(v[i]) != cls(v[j]) || beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };

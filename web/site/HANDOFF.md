@@ -9,17 +9,15 @@ UI, Rust -> WebAssembly; its own cargo workspace).
 ## Rebuild and redeploy (from the repository root, on main)
 
 ```sh
-cargo build --release && ./target/release/mctas site chrome   # once per box: headless Chrome
+cargo build --release
 ./target/release/mctas site publish --wait
-./target/release/mctas site smoke --dir site --engine webkit  # before any new viewer bundle
 ```
 
-`publish` = `site build` + `site smoke` (REQUIRED: no headless Chrome = no deploy; `--no-smoke`
-overrides; its viewer probes caught the 2026-10-20 black-texture bundle) + `site deploy`
-(force-pushes gh-pages, retries a rejected push). ~75 s. The WebKit smoke (WebKitGTK through
-WebKitWebDriver in Xvfb, desktop + phone; `sudo dnf install -y webkit2gtk3 webkit2gtk3-devel
-xorg-x11-server-Xvfb mesa-libEGL`) also checks the in-place swaps. Check the live site afterwards:
-`mctas site smoke --url https://vjeux.github.io/minecraft-tas/` (and `--engine webkit --url ...`).
+`publish` = `site build` + `site deploy` (force-pushes gh-pages, retries a rejected push). ~75 s.
+No browser end-to-end gate any more (vjeux 2026-10-20 14:20Z: "I think we're overreacting to a
+single bug we had. Please remove the e2e tests"): `mctas site smoke` (headless Chrome; `--engine
+webkit` for WebKitGTK desktop + phone; `--page` films pages) stays an optional dev tool, run only
+when someone asks for it (`mctas site chrome` installs the headless Chrome it needs).
 Every page loads the bundles, the CSS and the data by content hash (`?v=`), so a hotfix reaches
 phones at once.
 
@@ -37,9 +35,32 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 10:50Z, explore/site after main c188d60ab; box devvm59220, devvm59165 is gone)
+## State (2026-10-20 13:50Z, explore/site after main 8c126a4a5; box devvm59220, devvm59165 is gone)
 
-- 5629 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
+- Plain player language (vjeux 13:06Z): every build page leads with what it does in one sentence
+  with its own numbers (crates/site/src/plain.rs), then why build it and how to try it; kinds in
+  everyday words ("One-shot timer that restarts on every press (retriggerable monostable)");
+  headlines in words ("reach 3", "on for 32 ticks", "slows by 3"); our test, measurements,
+  properties and the design file in one collapsed Details.
+- No design ids in lists (vjeux 13:11Z): cards, variation tables, family member rows and related
+  lists show properties only; the name is in the URL, the downloads and the Details.
+- Deleted pages (vjeux 13:35Z): boards, families index, everything, about (generate::DELETED_PAGES,
+  smoke-checked); no page links in the footer.
+- "Works in any direction, anywhere" replaces "robust" (directional / locational when it fails).
+- hidden.tsv: the slime-free extenders, pext's world-record bar (only each N's holder; `!`
+  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, and the
+  coordinator's TEMPORARY hides (3 TNT launchers being re-judged on a floor, the 2-block sculk
+  pulse circuits until the vibration test).
+
+- Cards and build pages lead with the properties (kind in small capitals, the main property and
+  blocks as the headline, secondary metrics, chips, the name small); circuit kinds are base kinds
+  in words (the number is a property); lists sort by the main number, then blocks.
+- `crates/site/hidden.tsv`: circuits not published (the slime-free piston extenders);
+  `mctas site dominated` lists the material-only dominated designs for the coordinator to check.
+- Study 11 (pulse multipliers, dividers, monostables, timers): study page with variations and
+  linked rows (studies 1 / 2 / 5), per-kind explanations, demos.
+
+- 5644 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
   match; `door fill` variants folded under the best filling of their mechanism), clocks (the
   catalog's grouping), 408 circuits in 10 studies (the archives; vjeux keeps the basic
   single-component ones: "The interaction model is useful"; the shulker loaders, TNT dupers and
@@ -57,7 +78,7 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   build page and family member row.
 - Header (vjeux): the title, Doors / Clocks / Circuits, one search box (text; a period on the
   Clocks tab; a value `L 12` / `N 26` / `latency 0` on the Circuits tab, expanding tunable groups
-  and extendable families to the exact member); everything else in the footer.
+  and extendable families to the exact member); the footer only says what the site was built from.
 - Build pages open with the live 3D view (vjeux: "the redstone before the explanation"); circuit
   pages then explain themselves (crates/site/src/explain.rs: what it does with the design's
   numbers, how to try it with webrender's IN/A/B buttons and demo, the judge's test as a timing
