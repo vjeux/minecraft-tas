@@ -23,6 +23,8 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | dual-edge | 5, 7, 9 | 11 | ODD BY OVERLAP: the two observers 1 gt apart (input / piston), each through a delay-d repeater into one dust line: 2d + 1 |
 | rising-edge, pulse-limiter | 3, 5, 7, 9 | 12 | odd by overlap from two rising-edge detectors 1 gt apart (bulb edge at +4, pushed observer at +5), each through a delay-d repeater into one dust: 2d + 1 (`family odd --mode rise`) |
 | falling-edge | 3, 5, 7, 9 | 16 | odd by overlap from two falling-edge detectors 1 gt apart (pulled observer at +5; a torch the input turns off through dust relights 2 gt after the edge and toggles a bulb read by comparator + observer: +6) (`family odd --mode fall`) |
+| pulse-limiter, rising-edge | 3, 5, ..., 13 | 10 | PISTON-SUBTRACT: a sticky piston pushes a redstone block behind a subtract comparator (odd delay: the piston moves the tick after the input, the block lands in the block-entity phase), the side gets the input through two repeaters (even delay): L = 2 (d1 + d2) - 3 (`family odd --mode piston`) |
+| pulse-limiter | 13 + 16n | 18 + 4n | card `pulse-limiter-psub-u4` (n 0..10, L up to 173): the piston-subtract limiter with a repeater U on the side: odd L of any length |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
@@ -69,8 +71,10 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
   (1 gt), and two observers offset by a piston's next-tick event overlap into 3 gt. Overlap is
   the general trick: two pulses of 2d gt offset by an odd k <= 2d give 2d + k; done for dual-edge
   (5..9), rising-edge / limiters (3..9) and falling-edge (3..9: the second fall source is a torch
-  the input turns off, relit 2 gt after the edge, toggling a bulb). Open: odd L above 9
-  (repeaters stretch to 8 gt at most; a pair of one-shots would do it).
+  the input turns off, relit 2 gt after the edge, toggling a bulb). Odd L of any length: the
+  piston-subtract limiter (a piston-moved redstone block on the comparator's rear, odd, and a
+  repeater line or U on its side, even: L = side - 3; card 13 + 16n). Open: odd long rising /
+  falling / dual-edge cards (a one-shot whose loop holds a double piston stage would do it).
 * Judge leniency reported to clockinfra (19:43): a shortening delay line (out = in - 2) passes as
   "pulse-limiter L 38" when its longest input is 40, and a +4 gt stretcher passes as "pulse-extender
   L 5" (L read below the min-pulse): `k4/pulse-pulse-limiter-L38-4b-00.txt`,
