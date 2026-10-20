@@ -120,7 +120,14 @@ designs archived before, in the real game at 16 builds:
 
 PRECISE under explosions: DONE by slowing it down (coordinator), then REMOVED (2026-10-20: every TNT
 of it explodes in its water aligner, and the judge's usefulness rule fails a duper whose TNT explodes
-in water; the precise record is tnt-airburst, which launches each TNT out of the water first):
+in water; the precise record is tnt-airburst, which launches each TNT out of the water first: 58
+blocks since 2026-10-20, designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt, after fly's 75-block
+tnt-airburst-75b. Straight up from an aligner right at the duper (2 blocks north) the TNT peaks
+only ~6 blocks above the machine's top slime, inside the blast's 6.9-block reach, so the aligner sits
+4 blocks north; its x stop is a fence post, not a wall, so the TNT rests over obsidian (no slime
+slowdown) and the first launch tick, still sliding along the post, closes the last 0.0003 of a block
+that a TNT pushed by the current can stop short of (Entity.move drops a collided move under 3.2e-4
+blocks): every kick ends at one point):
 tnt-precise-slow-43b — the
 precise water-channel aligner on a slow engine (a 7-block crafter-loop clock, period 91 gt, holds
 the sticky piston and releases it for 6 gt: one push a period), so one TNT is alive at a time
