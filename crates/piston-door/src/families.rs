@@ -544,8 +544,8 @@ impl Mech {
         }
     }
 
-    /// Is piston `id` powered by a redstone block beside it (its back; with `--r-both` also its
-    /// front)?
+    /// Is piston `id` powered by a redstone block: beside it on any face but its front (with
+    /// `--r-both` the front too), or (QC on) next to the cell above it?
     pub fn rpow(&self, s: &St, id: usize) -> bool {
         let (_, f) = self.info[id];
         let p = s.pp[id] as usize;
@@ -556,6 +556,21 @@ impl Mech {
             }
             if let Some(j) = self.step(p, d) {
                 if s.g[j] == RB {
+                    return true;
+                }
+            }
+        }
+        // quasi-connectivity: a redstone block next to the cell above the piston (the game's
+        // getNeighborSignal checks above.above and above's side neighbours) powers it too
+        // (clockinfra's macrosat --physics rule (b), 2026-10-20: a retracted piston there
+        // extends at once, so it never rests that way)
+        if self.qc
+            && let Some(a) = self.step(p, 2)
+        {
+            for d in [0u8, 1, 2] {
+                if let Some(j) = self.step(a, d)
+                    && s.g[j] == RB
+                {
                     return true;
                 }
             }
