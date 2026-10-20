@@ -954,6 +954,11 @@ fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
     let mut out = Vec::new();
     for (p, s) in &d.blocks {
         if p[2] != z0 {
+            // an exported model's rest power (a redstone block behind a held piston) is an ideal
+            // input, not part of the layout
+            if s.trim_start_matches("minecraft:") == "redstone_block" {
+                continue;
+            }
             bail!("{path}: block at {p:?} is not in the door's plane (a flat door only)");
         }
         let name = s.split('[').next().unwrap_or("").trim_start_matches("minecraft:");
