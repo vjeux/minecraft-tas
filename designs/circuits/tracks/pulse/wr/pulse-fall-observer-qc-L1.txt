@@ -13,18 +13,22 @@ circuit: falling-edge
 tile: 1 0 0
 port output: 0 1 2
 port input: 0 2 0
-origin: 0 0 0
+origin: 0 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=north]
+  A minecraft:sticky_piston[extended=true,facing=north]
+  H minecraft:piston_head[facing=north,short=false,type=sticky]
   B minecraft:observer[facing=down,powered=false]
   C minecraft:redstone_block
   D minecraft:sticky_piston[extended=false,facing=down]
 layer 0:
+  H
   A
   C
 layer 1:
+  .
   B
   .
 layer 2:
+  .
   .
   D
