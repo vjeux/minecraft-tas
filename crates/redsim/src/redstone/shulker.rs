@@ -81,6 +81,35 @@ pub fn drop_box(w: &mut World, p: BlockPos, s: &Block) -> bool {
     true
 }
 
+// ---------------------------------------------------------------------- the judge's sandbox
+
+/// The judge's margin around a shulker design's blocks and ports: its watch box, the sandbox's
+/// box (`circuit::run::watch_box(c, 3)`).
+pub const JUDGE_MARGIN: i32 = 3;
+
+/// The sandbox seed of a build (crates/circuit/src/shulker.rs `build_seed`, which calls this):
+/// from where it stands (its watch box `from..to`), and the stress run's number (`salt`, 0 for
+/// the base scenario). The bridge reseeds the sandbox's level random to it (create and reset) and
+/// seeds each piston-broken drop's own random from it; redsim mirrors both
+/// (`World::mirror_level_random`, `World::drop_seed`).
+pub fn build_seed(from: [i32; 3], to: [i32; 3], salt: i64) -> i64 {
+    (from[0] as i64).wrapping_mul(73_856_093) ^ (from[1] as i64).wrapping_mul(19_349_663) ^ (from[2] as i64).wrapping_mul(83_492_791) ^ (to[0] as i64 - to[2] as i64).wrapping_mul(2_654_435_761) ^ salt.wrapping_mul(0x9E37_79B9_7F4A_7C15u64 as i64)
+}
+
+/// The sandbox's forced chunk range `[minX, minZ, maxX, maxZ]` for a watch box (the bridge forces
+/// the chunks of the box: `SandboxOptions::chunks`).
+pub fn chunk_range(from: [i32; 3], to: [i32; 3]) -> [i32; 4] {
+    [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)]
+}
+
+/// Run a world like the judge's sandbox for the base scenario of a design whose watch box is
+/// `from..to`: the level random mirrored and the drops seeded from [`build_seed`] (salt 0).
+pub fn judge_sandbox(w: &mut World, from: [i32; 3], to: [i32; 3]) {
+    let seed = build_seed(from, to, 0);
+    w.drop_seed = Some(seed);
+    w.mirror_level_random(seed, chunk_range(from, to));
+}
+
 // ---------------------------------------------------------------------- the judge's chests
 
 /// The settle between the judge's chests and their first fill (`circuit::stimulus::SETTLE`).
