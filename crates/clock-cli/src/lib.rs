@@ -129,6 +129,14 @@ pub enum ClockCmd {
         #[arg(long)]
         write: bool,
     },
+    /// The clocks kept off the catalog and the site (verdicts-v1.tsv's `hidden` column), counted
+    /// per reason; `--write` also writes the list to `hidden.md` in the archive directory.
+    Hidden {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+    },
     /// Archived clocks whose output pulses unevenly: move `port output` to a cell of the clock
     /// that pulses evenly (redsim picks the longest such period), judge again in the game, and with
     /// `--write` replace the archived design and its verdict row when the judge confirms the same
@@ -535,6 +543,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("UNMEASURED {f}");
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
+        }
+        ClockCmd::Hidden { dir, write } => {
+            let (md, counts) = clock::gaps::hidden_report(&dir)?;
+            for (reason, n) in &counts {
+                println!("{n:5} {reason}");
+            }
+            if write {
+                std::fs::write(dir.join("hidden.md"), md)?;
+                println!("wrote {}", dir.join("hidden.md").display());
+            }
         }
         ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers } => {
             if !apply.is_empty() {
