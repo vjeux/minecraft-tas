@@ -20,8 +20,38 @@ fn add(a: Pos, b: Pos) -> Pos {
 
 type Ev = (u32, Pos, Option<String>);
 
+/// What a run prints of its first cycle at its first position: every block change per tick
+/// (`--trace`) and/or the door plane drawn after every tick of a window (`--planes lo..hi`, open
+/// and close; ticks count from each flip like the plan's).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Trace {
+    pub changes: bool,
+    pub planes: Option<(u32, u32)>,
+}
+
+impl From<bool> for Trace {
+    fn from(changes: bool) -> Self {
+        Trace { changes, planes: None }
+    }
+}
+
+/// The door plane (z = the door's) of the watch box as sheet glyphs, rows top down, labeled in
+/// design coordinates (`off` = the run's world offset).
+fn plane_rows(w: &World, wlo: Pos, whi: Pos, z: i32, off: Pos) -> Vec<String> {
+    let mut rows = Vec::new();
+    for y in (wlo[1]..=whi[1]).rev() {
+        let mut line = format!("{:>3} ", y - off[1]);
+        for x in wlo[0]..=whi[0] {
+            line.push(crate::sheet::glyph_of(&w.get(BlockPos::new(x, y, z))));
+        }
+        rows.push(line);
+    }
+    rows.push(format!("    x from {}", wlo[0] - off[0]));
+    rows
+}
+
 /// One run at one position. Ok((worst open ticks, worst close ticks)).
-fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: Trace) -> std::result::Result<(u32, u32), String> {
     let blocks: Vec<(Pos, Block)> = blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
     let spec = spec.translated(off);
     let (mut w, (wlo, whi), idle) = cs::place_and_settle(&blocks, &spec, 400);
@@ -48,10 +78,21 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
             let phase = if open { "open" } else { "close" };
             let mut ok: Vec<bool> = Vec::new();
             let flag = |w: &World| if open { cs::open_ok_world(w, &walk_bp) } else { door_bp.iter().zip(closed_door.iter()).all(|(p, s)| w.get(*p) == *s) };
-            let mut prev = if trace && cycle == 0 { Some(Snap::take(&w, wlo, whi)) } else { None };
-            if prev.is_some() {
+            let mut prev = if trace.changes && cycle == 0 { Some(Snap::take(&w, wlo, whi)) } else { None };
+            if prev.is_some() || (trace.planes.is_some() && cycle == 0) {
                 println!("== {phase} (cycle {cycle})");
             }
+            let planes = if cycle == 0 { trace.planes } else { None };
+            let draw = |w: &World, t: u32| {
+                if let Some((lo, hi)) = planes
+                    && (lo..=hi).contains(&t)
+                {
+                    println!("-- {phase} t{t}");
+                    for r in plane_rows(w, wlo, whi, spec.door[2], off) {
+                        println!("{r}");
+                    }
+                }
+            };
             let mut show = |w: &World, label: String, prev: &mut Option<Snap>| {
                 if let Some(p) = prev.as_mut() {
                     let now = Snap::take(w, wlo, whi);
@@ -94,12 +135,14 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
                 t += 1;
                 ok.push(flag(&w));
                 show(&w, format!("t{t}"), &mut prev);
+                draw(&w, t);
             }
             let mut tt = t;
             let (n, idle) = cs::step_until_idle(&mut w, 300, |w| {
                 ok.push(flag(w));
                 tt += 1;
                 show(w, format!("t{tt}"), &mut prev);
+                draw(w, tt);
             });
             if !w.errors.is_empty() {
                 return Err(format!("model: {}", w.errors.join("; ")));
@@ -140,12 +183,13 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
 pub type Edit = (Pos, Option<String>);
 
 /// Run a schedule with these variables at every offset.
-pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: impl Into<Trace>) -> std::result::Result<(u32, u32), String> {
     run_edited(s, vars, &[], offsets, cycles, trace)
 }
 
 /// `run` on the schedule's design with some cells replaced first (in memory, no JVM).
-pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: impl Into<Trace>) -> std::result::Result<(u32, u32), String> {
+    let trace = trace.into();
     let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
     let d = &d;
     let door = *d.ports.get("door").ok_or("design has no door port")?;
@@ -163,7 +207,7 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
     }
     let mut worst = (0u32, 0u32);
     for (oi, off) in offsets.iter().enumerate() {
-        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0).map_err(|e| format!("at offset {off:?}: {e}"))?;
+        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, if oi == 0 { trace } else { Trace::default() }).map_err(|e| format!("at offset {off:?}: {e}"))?;
         worst = (worst.0.max(o), worst.1.max(c));
     }
     Ok(worst)
@@ -451,7 +495,7 @@ pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: 
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: Trace, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
@@ -576,7 +620,7 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
             jobs.push((l.join(" "), c.clone(), edits.clone()));
         }
     }
-    let results = cs::par_map(&jobs, threads, |(_, c, e)| run_edited(&s, c, e, &offsets, cycles, trace && jobs.len() == 1));
+    let results = cs::par_map(&jobs, threads, |(_, c, e)| run_edited(&s, c, e, &offsets, cycles, if jobs.len() == 1 { trace } else { Trace::default() }));
     let mut n_ok = 0usize;
     for ((label, _, _), r) in jobs.iter().zip(results) {
         match r {
