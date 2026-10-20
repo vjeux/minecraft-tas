@@ -161,7 +161,8 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         }
     }
     body.push_str(&format!(
-        "<section><h2>Design</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download the design file</a> <a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p>\n<p>Blocks used: {}</p>\n<details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        "<section><h2>Design</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design file</a> <a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block, block entity and entity of the design in one region.</p>\n<p>Blocks used: {}</p>\n<details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        esc(&crate::generate::litematic_path(&b.design)),
         esc(&b.design),
         esc(repo_path),
         chips(&b.kinds, prefix, "with"),
@@ -410,11 +411,15 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         body.push_str("</tbody></table></section>\n");
     }
     body.push_str("<section><h2>Every member</h2><p>Each member's design was generated with the family's own generator when this site was built. <span class=\"badge st-judged\">judged in the game</span> = verified by the clock judge in the real game; <span class=\"badge st-redsim\">simulated</span> = its generated design runs at exactly the formula's period in redsim (the exact simulator), not judged in the game; <span class=\"badge st-formula\">formula</span> = not individually checked.</p>\n");
-    body.push_str("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>period</th><th>blocks</th><th>box</th><th>status</th><th>design</th></tr></thead><tbody>\n");
+    body.push_str("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>period</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n");
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
-        let download = if m.design.is_empty() { "-".to_string() } else { format!("<a href=\"{prefix}{}\" download>.txt</a>", esc(&m.design)) };
+        let download = if m.design.is_empty() {
+            "-".to_string()
+        } else {
+            format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&m.design)), esc(&m.design))
+        };
         body.push_str(&format!(
             "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
             esc(&site_model::html::member_anchor(m, site)),
