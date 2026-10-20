@@ -50,14 +50,18 @@ skeleton census over its lock (k <= 5 components, 23 free cells) finds nothing s
 Skeleton files: tracks/tff/scratch/ms-skeleton.txt, win-skeleton.txt (`--skeleton --free=...`).
 
 ## Memory
-RS: rs-dropper 4 (two droppers + stone + comparator), rs-crafter 6. D: d-latch-repeater 4 (enable
+RS: rs-dropper 4 (two droppers + stone + comparator), rs-crafter 6, rs-loop 12 (redstone only:
+repeater + comparator + four dust ring, r at the comparator's side). D: d-latch-repeater 4 (enable
 low), d-latch-high 5 (subtract comparator with a redstone block behind it as the lock). Counters
 (level style unless noted): 2 bulb 3 / bulb2 6 (toggles) / ring 8; 3 corner 8 / ring 8; 4 bulb2 6 /
 ring9 9 / ring 10; 5 ring11 11 / star 12; 6 corner-bulb 11; 7 ring7 18; 8 bulb3 9; 9 ring3-ring3 17 /
 ring9 25; 10 ring5-bulb 14; 11 ring11 29; 12 ring3-bulb2 14 / ring3-ring4 18; 13 ring13 36; 14
 ring7-bulb1 21; 15 ring5-ring3 21; 16 bulb4 12 / ring4-ring4 20; 17 ring17 47; 18 ring9-bulb1 28; 20
 ring5-bulb2 17 / ring5-ring4 22; 21 ring7-ring3 28; 22 ring11-bulb1 32; 24 ring3-bulb3 17; 26
-ring13-bulb1 39; 28 ring7-ring4 29; 32 bulb5 15.
+ring13-bulb1 39; 28 ring7-ring4 29; 32 bulb5 15; then multi-stage chains (`--then a,b`, `--bulbs`
+after a chain): 18 ring3-ring3-bulb1 20, 27 ring3x3x3 26, 30 ring5-ring3-bulb1 24, 33 ring11-ring3
+39, 34 ring17-bulb1 50, 36 ring3-ring3-bulb2 23, 39 ring13-ring3 46, 40 ring5-bulb3 20, 45 ring5x3x3
+30, 48 ring3-bulb4 20; dividers (toggles style) for 3, 5, 7 (ring + one bulb).
 
 Learned: the judge's level style takes any output whose end-of-window level has period N, so a
 TFF is a counter 2 and n bulbs make a counter 2^n. Ring rules: droppers of one ring share a grid
