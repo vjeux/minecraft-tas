@@ -580,6 +580,8 @@ pub struct Options {
     pub islands: bool,
     /// With `islands`: pulses an island may deliver per edge, per cell of it (0 = no limit).
     pub island_budget: usize,
+    /// Smooth-stone statics become stone (the written plan gets its own design copy).
+    pub stone: bool,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -821,12 +823,12 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
         }
         if let Some(out) = out {
             let header = format!("door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len());
-            // with `--fix` blocks the plan needs its own design (the source's plus those blocks)
-            let design = if o.fix.is_empty() {
+            // with `--fix` blocks or `--stone` the plan needs its own design (the source's, changed)
+            let design = if o.fix.is_empty() && !o.stone {
                 None
             } else {
                 let mut dd = d.clone();
-                dd.name = format!("{}-fix", dd.name);
+                dd.name = format!("{}-{}", dd.name, if o.stone && o.fix.is_empty() { "stone" } else { "fix" });
                 let p = out.with_extension("txt");
                 dd.save(&p)?;
                 Some(p)
@@ -982,6 +984,15 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
     let (mut d, open_all, close_all, _) = s.realize(s.vars())?;
+    // `--stone`: smooth-stone statics become stone (the frame rule's door material; it also makes
+    // them interchangeable with door blocks, which a one-train often needs)
+    if o.stone {
+        for st in d.blocks.values_mut() {
+            if st.trim() == "minecraft:smooth_stone" {
+                *st = "minecraft:stone".to_string();
+            }
+        }
+    }
     // the design's real lever (`use` events): flipped at t0 of both edges, like lever-held inputs
     let is_use = |e: &(u32, Pos, Option<String>)| e.2.as_deref() == Some("@use");
     let mut uses: Vec<Pos> = open_all.iter().chain(close_all.iter()).filter(|e| is_use(e)).map(|e| e.1).collect();

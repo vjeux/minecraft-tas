@@ -163,10 +163,14 @@ pub struct InterleaveArgs {
     /// each pulse is charged to a started island that can feed it.
     #[arg(long, default_value_t = 0)]
     island_budget: usize,
+    /// Smooth-stone statics become stone (the frame rule's door material; makes them
+    /// interchangeable with door blocks); a written plan gets its own design copy.
+    #[arg(long)]
+    stone: bool,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments, prefix, after, islands, island_budget } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost, segments, prefix, after, islands, island_budget, stone } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -226,7 +230,7 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget, stone };
     if let Some(cells) = observe {
         let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
         anyhow::ensure!(search.is_some(), "--observe needs --search");
