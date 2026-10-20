@@ -37,6 +37,14 @@ pub struct Primed {
     /// The real game: its position and motion at fuse 1, the tick before it would explode (the
     /// judge removes it there); `None` when the run ended first, and on redsim.
     pub end: Option<([f64; 3], [f64; 3])>,
+    /// The real game: its motion when its horizontal speed was largest, if that reached 0.4
+    /// blocks per gt (a launch: the LAUNCHED direction).
+    pub launch: Option<[f64; 3]>,
+    /// The real game: the last frame its position changed (at rest since then).
+    pub moved: u32,
+    pub last_pos: [f64; 3],
+    /// The frame `end` was recorded at.
+    pub end_frame: u32,
 }
 
 impl Trace {

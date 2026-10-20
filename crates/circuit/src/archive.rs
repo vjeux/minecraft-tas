@@ -162,7 +162,7 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     // under its own explosions) keeps its own card over a smaller one that is not
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
         let has = |r: &Row, k: &str| r.summary.contains(k);
-        return (has(b, "(precise") && !has(a, "(precise")) || (has(b, "survives its own") && !has(a, "survives its own"));
+        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
@@ -338,6 +338,8 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
         Kind::TntDuper if out.why.contains("survives its own") => format!("{} survivable", m("rate")),
         Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
+        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
+        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
         Kind::TntDuper => m("rate"),
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }

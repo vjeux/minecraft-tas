@@ -261,12 +261,42 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
 /// The variation flags of a passing self-running duper: PRECISE and SURVIVABLE.
 fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
     let mut v: Vec<String> = Vec::new();
+    if c.explodes() {
+        // explosions push the TNT around: only the survival is reported
+        v.push(format!("survives its own explosions: {} exploded, design intact", t.exploded));
+        return v.join("; ");
+    }
     let p = precise_flag(t, start);
     if !p.is_empty() {
         v.push(p);
     }
-    if c.explodes() {
-        v.push(format!("survives its own explosions: {} exploded, design intact", t.exploded));
+    // LAUNCHED: every TNT of the periodic region reaches 0.4+ blocks per gt sideways; its launch
+    // motion (the largest), averaged, with the spread (the random kick shows on the cross axis)
+    let ps: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).collect();
+    if ps.len() >= 8 && ps.iter().all(|q| q.launch.is_some()) {
+        let ls: Vec<[f64; 3]> = ps.iter().map(|q| q.launch.unwrap()).collect();
+        let mean = |i: usize| ls.iter().map(|l| l[i]).sum::<f64>() / ls.len() as f64;
+        let spread = |i: usize| ls.iter().map(|l| l[i]).fold(f64::MIN, f64::max) - ls.iter().map(|l| l[i]).fold(f64::MAX, f64::min);
+        v.push(format!("launched at ({:.4}, {:.4}, {:.4}) blocks/gt, spread ({:.4}, {:.4}, {:.4})", mean(0), mean(1), mean(2), spread(0), spread(1), spread(2)));
+    }
+    // STATIONARY at fuse 1: every TNT of the periodic region that reached fuse 1 had been at rest
+    // (the same position, bit for bit) for 10+ gt
+    let ended: Vec<&&crate::trace::Primed> = ps.iter().filter(|q| q.end.is_some()).collect();
+    if ended.len() >= 8 {
+        let rest = ended.iter().map(|q| q.end_frame.saturating_sub(q.moved)).min().unwrap_or(0);
+        if rest >= 10 {
+            v.push(format!("stationary: every TNT at rest for {rest}+ gt before fuse 1"));
+        }
+        // DROPPED straight down: every TNT 3+ blocks below its first sighting at fuse 1, falling
+        // vertically then (horizontal motion under 0.01 blocks per gt)
+        let fall = ended.iter().map(|q| q.pos[1] - q.end.unwrap().0[1]).fold(f64::MAX, f64::min);
+        let vertical = ended.iter().all(|q| {
+            let m = q.end.unwrap().1;
+            m[0].abs() < 0.01 && m[2].abs() < 0.01 && m[1] < 0.0
+        });
+        if vertical && fall >= 3.0 {
+            v.push(format!("dropped: every TNT falls straight down, {fall:.1}+ blocks by fuse 1"));
+        }
     }
     v.join("; ")
 }

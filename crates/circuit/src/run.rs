@@ -55,7 +55,7 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
             let mut t = Trace::new(c, d.cells, d.signals);
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
-            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], motion: None, end: None }).collect();
+            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], ..Default::default() }).collect();
             Ok(t)
         }
         Err((_, why)) => Err(why),
@@ -174,7 +174,19 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                 }
                 if seen_tnt.insert(e.uuid.clone()) {
                     tnt_index.insert(e.uuid.clone(), primed.len());
-                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
+                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), moved: next, last_pos: e.pos, ..Default::default() });
+                }
+                // its launch: the largest horizontal speed seen, from 0.4 blocks per gt; and the
+                // last frame it moved
+                if let Some(&k) = tnt_index.get(&e.uuid) {
+                    let h = |m: &[f64; 3]| (m[0] * m[0] + m[2] * m[2]).sqrt();
+                    if h(&e.motion) >= 0.4 && primed[k].launch.is_none_or(|l| h(&e.motion) > h(&l)) {
+                        primed[k].launch = Some(e.motion);
+                    }
+                    if e.pos.iter().zip(&primed[k].last_pos).any(|(a, b)| a.to_bits() != b.to_bits()) {
+                        primed[k].moved = next;
+                        primed[k].last_pos = e.pos;
+                    }
                 }
                 let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok());
                 let Some(fuse) = fuse else {
@@ -198,6 +210,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                 if fuse <= 1 {
                     if let Some(&k) = tnt_index.get(&e.uuid) {
                         primed[k].end = Some((e.pos, e.motion));
+                        primed[k].end_frame = next;
                     }
                     if !explode {
                         w.exec(sb, &format!("kill {}", e.uuid))?;

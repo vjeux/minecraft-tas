@@ -224,6 +224,12 @@ kick) before the first input.
   with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
   explosions); the archive keeps it apart from the same blocks judged without explosions. The
   catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
+  spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
+  horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same
+  position bit for bit for 10+ gt); `dropped: every TNT falls straight down, N+ blocks by fuse 1`
+  (3+ blocks below its first sighting, horizontal motion under 0.01 at fuse 1). The axis takes the
+  first of switchable, survivable, precise, dropped, launched; each keeps its own catalog card.
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
