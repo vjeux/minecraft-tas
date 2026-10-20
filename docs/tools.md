@@ -6,7 +6,7 @@ enforces are in [rules.md](rules.md); how the simulator, the bridge and the vide
 [internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
 judge and its design format are in [clocks.md](clocks.md). The website of every build
 (`mctas site build | publish | serve | smoke | deploy`) is in [site.md](site.md); Litematica
-schematics of any design (`mctas litematic export | read | check`) in [litematic.md](litematic.md).
+schematics of any design (`mctas litematic export | read | check | verify-ingame`) in [litematic.md](litematic.md).
 
 ## The workflow behind the records
 

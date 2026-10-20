@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "mctas-litematica-probe",
+  "version": "1.0.0",
+  "name": "mctas Litematica probe",
+  "description": "mctas litematic verify-ingame: pastes .litematic files with Litematica's own code in the real client.",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.vjeux.mctas.probe.LitematicaProbe"] },
+  "depends": { "litematica": "*", "malilib": "*" }
+}

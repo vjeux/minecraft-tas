@@ -34,7 +34,8 @@ pub struct ExportArgs {
     #[arg(long, default_value_t = 3)]
     pub margin: i32,
     /// Full precision (for redsim's trace-compare gate): positions, motion and rotations as the
-    /// game's own doubles / floats (no rounding), plus each entity's "motion".
+    /// game's own doubles / floats (no rounding), plus each entity's "motion" and "net_id" (the
+    /// game's network id, which ItemEntity's ticks read).
     #[arg(long)]
     pub exact: bool,
     /// Record this many ticks of any design (not only archived ones: a test scene for redsim);
@@ -125,6 +126,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
             ents.push(if exact {
                 json!({
                     "id": id,
+                    "net_id": e.net_id,
                     "type": e.kind,
                     "pos": e.pos,
                     "motion": e.motion,

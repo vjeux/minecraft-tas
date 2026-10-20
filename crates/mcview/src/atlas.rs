@@ -710,6 +710,23 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         }
         t.rect(2, 0, 3, 15, rgb(0x8a8a8a)).rect(12, 0, 13, 15, rgb(0x8a8a8a));
     });
+    // a curve joining the south and east edges (the game's rail_corner, shape south_east)
+    add("rail_corner", &|t| {
+        t.fill(CLEAR);
+        for y in 0..16 {
+            for x in 0..16 {
+                let (dx, dy) = (16.0 - (x as f32 + 0.5), 16.0 - (y as f32 + 0.5));
+                let r = (dx * dx + dy * dy).sqrt();
+                let a = dy.atan2(dx).to_degrees();
+                let sleeper = (a % 22.5) < 6.0 && (1.5..14.5).contains(&r);
+                if (3.0..4.2).contains(&r) || (12.8..14.0).contains(&r) {
+                    t.px[y * 16 + x] = rgb(0x8a8a8a);
+                } else if sleeper {
+                    t.px[y * 16 + x] = rgb(0x6b5034);
+                }
+            }
+        }
+    });
     add("powered_rail", &|t| {
         t.fill(CLEAR);
         for y in [1, 5, 9, 13] {
@@ -756,6 +773,13 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     });
     add("dropper_front", &|t| {
         t.fill(rgb(0x787878)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
+    });
+    // facing up or down: the hole in the furnace-top face (the game's *_front_vertical)
+    add("dispenser_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(5, 6, 10, 9, rgb(0x141414)).rect(6, 5, 9, 10, rgb(0x141414));
+    });
+    add("dropper_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
     });
     add("crafter_top", &|t| {
         t.fill(rgb(0x6e6a68)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4644)).rect(2, 2, 13, 13, rgb(0x5a5654)).map(|x, y, c| if (2..14).contains(&x) && (2..14).contains(&y) && (x % 4 == 1 || y % 4 == 1) { rgb(0x403c3a) } else { c });
@@ -907,10 +931,52 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     out
 }
 
+/// One layer's mip levels (16, 8, 4, 2, 1 px), box-filtered with premultiplied alpha.
+fn layer_mips(px: &[Rgba; TILE * TILE]) -> Vec<Vec<u8>> {
+    let mut level: Vec<[f32; 4]> = px
+        .iter()
+        .map(|c| {
+            let a = c[3] as f32 / 255.0;
+            [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
+        })
+        .collect();
+    let mut n = TILE;
+    let mut out = Vec::new();
+    for _ in 0..MIPS {
+        let mut bytes = Vec::with_capacity(n * n * 4);
+        for p in &level {
+            let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
+            bytes.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
+        }
+        out.push(bytes);
+        if n > 1 {
+            let m = n / 2;
+            let mut next = vec![[0f32; 4]; m * m];
+            for y in 0..m {
+                for x in 0..m {
+                    let mut s = [0f32; 4];
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let q = level[(2 * y + dy) * n + 2 * x + dx];
+                        for c in 0..4 {
+                            s[c] += q[c] / 4.0;
+                        }
+                    }
+                    next[y * m + x] = s;
+                }
+            }
+            level = next;
+            n = m;
+        }
+    }
+    out
+}
+
 mod art;
+pub mod vanilla;
 
 /// The textures as an array (one 16x16 layer per tile, so filtering never bleeds between
 /// tiles): RGBA pixels per mip level of every layer, and each name's layer.
+#[derive(Clone)]
 pub struct Atlas {
     pub names: HashMap<&'static str, u16>,
     /// Number of layers.
@@ -921,44 +987,33 @@ pub struct Atlas {
 
 impl Atlas {
     pub fn build() -> Atlas {
-        let tiles = paint_all();
+        let mut tiles = paint_all();
+        // wgpu's WebGL2 backend guesses a texture's view kind from its layer count: a multiple of
+        // 6 is taken for a cube map array, and our 2D array then samples black (every block and
+        // the floor: f141e8417's 180 tiles). A blank layer keeps the count off multiples of 6.
+        if tiles.len() % 6 == 0 {
+            tiles.push(("pad", Tile::new(0)));
+        }
         assert!(tiles.len() <= MAX_LAYERS, "too many tiles for a WebGL2 texture array");
+        assert!(tiles.len() % 6 != 0);
         let mut names = HashMap::new();
         let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|_| Vec::new()).collect();
         for (i, (name, t)) in tiles.iter().enumerate() {
             names.insert(*name, i as u16);
-            // level 0, then box-filter (premultiplied alpha)
-            let mut level: Vec<[f32; 4]> = t.px.iter().map(|c| {
-                let a = c[3] as f32 / 255.0;
-                [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
-            }).collect();
-            let mut n = TILE;
-            for mip in mips.iter_mut() {
-                for p in &level {
-                    let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
-                    mip.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
-                }
-                if n > 1 {
-                    let m = n / 2;
-                    let mut next = vec![[0f32; 4]; m * m];
-                    for y in 0..m {
-                        for x in 0..m {
-                            let mut s = [0f32; 4];
-                            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                                let q = level[(2 * y + dy) * n + 2 * x + dx];
-                                for c in 0..4 {
-                                    s[c] += q[c] / 4.0;
-                                }
-                            }
-                            next[y * m + x] = s;
-                        }
-                    }
-                    level = next;
-                    n = m;
-                }
+            for (k, level) in layer_mips(&t.px).into_iter().enumerate() {
+                mips[k].extend_from_slice(&level);
             }
         }
         Atlas { names, layers: tiles.len(), mips }
+    }
+
+    /// Replace one layer's pixels (16x16 RGBA) and its mip levels.
+    pub fn set_layer(&mut self, layer: u16, px: &[Rgba; TILE * TILE]) {
+        for (k, level) in layer_mips(px).into_iter().enumerate() {
+            let n = level.len();
+            let o = layer as usize * n;
+            self.mips[k][o..o + n].copy_from_slice(&level);
+        }
     }
 
     /// The tile of a name (the generic white tile for unknown names).

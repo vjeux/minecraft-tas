@@ -68,10 +68,30 @@ pub fn subline(b: &Build) -> String {
         }
         "clock" => {
             let p = b.clock.as_ref().map(|c| gt_time(c.period)).unwrap_or_default();
-            format!("{p} · {} blocks · {}", b.blocks, b.group.replace('+', " + "))
+            format!("{p} · {} · {}", blocks_word(b.blocks), b.group.replace('+', " + "))
         }
-        _ => format!("{} · {} blocks", b.group, b.blocks),
+        _ => match &b.circuit {
+            // `rising-edge · L = 2 gt · 3 blocks`, `flying-machine · up · 10 gt/block · 6 blocks`:
+            // the axis value whenever the kind does not already say it
+            Some(c) => {
+                let mut parts = vec![b.group.clone()];
+                if !c.direction.is_empty() {
+                    parts.push(c.direction.clone());
+                }
+                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(c.axis.as_str()) {
+                    parts.push(c.axis.clone());
+                }
+                parts.push(blocks_word(b.blocks));
+                parts.join(" · ")
+            }
+            None => format!("{} · {}", b.group, blocks_word(b.blocks)),
+        },
     }
+}
+
+/// `1 block`, `3 blocks`.
+pub fn blocks_word(n: u32) -> String {
+    if n == 1 { "1 block".to_string() } else { format!("{n} blocks") }
 }
 
 /// Badges shown on a card (short).
@@ -85,9 +105,15 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(d.seamless.clone());
         }
     }
-    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite"] {
+    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite", "layout"] {
         if b.flags.iter().any(|x| x == f) {
             v.push(f.to_string());
+        }
+    }
+    // a tunable group's shown design: the group's span (`tunable: L 6-40 gt, 16 values`)
+    if let Some(c) = &b.circuit {
+        if !c.span.is_empty() {
+            v.push(format!("tunable: {}", c.span));
         }
     }
     v
@@ -147,7 +173,8 @@ pub fn member_href(m: &Member, site: &Site) -> String {
     }
 }
 
-/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks`.
+/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks` (a
+/// circuit family's member: its axis value, `N = 26 gt`).
 pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
     let group = site
         .cards
@@ -158,14 +185,16 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         .map(|b| b.group.replace('+', " + "))
         .unwrap_or_default();
     let status = format!("<span class=\"badge st-{}\">{}</span>", esc(&m.status), esc(status_label(&m.status)));
+    let circuit = !m.axis.is_empty();
+    let (kind, big, value) = if circuit { ("circuit", m.axis.clone(), m.axis.clone()) } else { ("clock", format!("{} gt", m.period), gt_time(m.period)) };
     format!(
-        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} blocks · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
+        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
-        thumb(prefix, &m.design, None, m.picture.as_deref(), "clock", &format!("{} gt", m.period), &format!("{} n={}", m.family, m.n)),
+        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, &format!("{} n={}", m.family, m.n)),
         esc(&m.family),
         m.n,
-        esc(&gt_time(m.period)),
-        m.blocks,
+        esc(&value),
+        esc(&blocks_word(m.blocks)),
         esc(&group)
     )
 }

@@ -33,6 +33,7 @@ pub fn collides(s: &Block) -> bool {
         Block::FenceGate { open, .. } => !open,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => false,
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
         Block::Water { .. } | Block::BubbleColumn { .. } => false,
         _ => true,
     }
@@ -59,6 +60,7 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Piston { extended, .. } => !extended,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -86,6 +88,11 @@ pub fn is_solid(s: &Block) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         // no collision and not forced solid (plates, wall banners and lanterns are forceSolidOn)
         Block::Tripwire { .. } | Block::TripwireHook { .. } => false,
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
+        // forceSolidOff
+        Block::BigDripleaf { .. } => false,
+        // dynamic shape (no shape cache) and no collision without an entity
+        Block::PowderSnow => false,
         _ => true,
     }
 }
@@ -107,6 +114,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -173,6 +181,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::DaylightDetector { .. } => face == Dir::Down,
         _ => false,
     }
 }
@@ -192,7 +202,7 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Target { .. }
         | Block::Sculk { .. } => true,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { .. } | Block::TripwireHook { .. } => true,
+        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -215,6 +225,11 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::signal(s),
         Block::TripwireHook { .. } => crate::react::hook::signal(s),
+        Block::DetectorRail { .. } => crate::rails::detector::signal(s),
+        // ownSignal: its power, every side
+        Block::DaylightDetector { power, .. } => power as i32,
+        // JukeboxBlock.ownSignal: 15 while a song plays
+        Block::Jukebox { .. } => crate::redstone::container::jukebox_signal(w, p),
         _ => 0,
     }
 }
@@ -231,6 +246,9 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::direct_signal(s, d),
         Block::TripwireHook { .. } => crate::react::hook::direct_signal(s, d),
+        Block::DetectorRail { .. } => crate::rails::detector::direct_signal(s, d),
+        // the daylight detector's power is weak only (getDirectSignal: 0)
+        Block::DaylightDetector { .. } | Block::Jukebox { .. } => 0,
         _ => 0,
     }
 }
@@ -257,7 +275,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::Composter { .. }
             | Block::RespawnAnchor { .. }
             | Block::Sculk { .. }
-    )
+    ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -278,7 +296,9 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::Composter { level } => level as i32,
         Block::Sculk { .. } => crate::sculk::analog_output(w, s, p),
         Block::RespawnAnchor { charges } => (charges as f32 / 4.0 * 15.0).floor() as i32,
-        Block::Dispenser { .. } | Block::Hopper { .. } => crate::redstone::container::analog_output(w, p),
+        Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -296,7 +316,7 @@ pub fn instrument(s: &Block) -> Instrument {
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } => Instrument::Bass,
+        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
@@ -326,7 +346,7 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
         // ---- entity-reacting blocks (clk-misc) ----
         // (wall banners: NORMAL, but a block entity makes them immovable)
-        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } => PushReaction::Popped,
+        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } | Block::BigDripleaf { .. } => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -347,7 +367,7 @@ pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
-    ) || matches!(s, Block::WallBanner { .. }) // ---- entity-reacting blocks (clk-misc) ----
+    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -455,6 +475,12 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => vec![],
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => vec![],
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => vec![],
+        Block::BigDripleaf { .. } => crate::react::dripleaf::collision_boxes(s),
+        // DaylightDetectorBlock.SHAPE = column(16, 0, 6)
+        Block::DaylightDetector { .. } => vec![[0, 16, 0, 6, 0, 16]],
+        // PowderSnowBlock.getCollisionShape: empty without an entity (no support either)
+        Block::PowderSnow => vec![],
         // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
         Block::Lantern { hanging } => {
             let h = hanging as i32;
@@ -485,6 +511,8 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::can_survive(w, p),
         Block::WallBanner { facing } => is_solid(&w.get(p.rel(facing.opposite()))),
         // canSupportCenter of the block above (hanging) or below
         Block::Lantern { hanging } => {
@@ -508,6 +536,9 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Note { .. } => note::neighbor_changed(w, s, p),
         Block::Trapdoor { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Skull { .. } | Block::WallSkull { .. } => indicator::neighbor_changed(w, s, p, src),
         Block::Rail { .. } => rail::neighbor_changed(w, s, p, moved),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::neighbor_changed(w, s, p, src, moved),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::neighbor_changed(w, s, p),
         Block::Dispenser { .. } | Block::Crafter { .. } => dispenser::neighbor_changed(w, s, p),
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
@@ -546,6 +577,7 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::Plate { .. } => crate::react::plate::update_shape(w, s, p, d),
         Block::Tripwire { .. } => crate::react::tripwire::update_shape(s, d, &ns),
         Block::TripwireHook { .. } => crate::react::hook::update_shape(w, s, p, d),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::update_shape(w, s, p, d, &ns),
         Block::WallBanner { facing } => {
             if d == facing.opposite() && !can_survive(w, &s, p) {
                 Block::Air
@@ -595,6 +627,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Tripwire { .. } => crate::react::tripwire::on_place(w, s, p, old),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::on_place(w, s, p, old, moved),
         Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
@@ -616,6 +649,10 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Plate { .. } => crate::react::plate::affect_neighbors_after_removal(w, s, p, moved),
         Block::Tripwire { .. } => crate::react::tripwire::affect_neighbors_after_removal(w, s, p, moved),
         Block::TripwireHook { .. } => crate::react::hook::affect_neighbors_after_removal(w, s, p, moved),
+        // Containers.updateNeighboursAfterDestroy
+        Block::ChiseledBookshelf { .. } => w.update_neighbour_for_output_signal(p, Kind::ChiseledBookshelf),
+        Block::Jukebox { .. } => w.update_neighbour_for_output_signal(p, Kind::Jukebox),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }
 }
@@ -642,15 +679,17 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Falling { .. } => crate::gravity::tick(w, s, p), // pistmodel
         Block::Sculk { .. } => crate::sculk::tick(w, s, p),
         // Droppers push one item into a facing container; dispensers with items spawn entities
-        // (noted); crafters: crafting from an empty grid changes no block.
+        // (noted); crafters craft their grid's recipe (container.rs).
         Block::Dispenser { dropper: true, .. } => crate::redstone::container::dropper_dispense(w, p),
         Block::Dispenser { dropper: false, .. } => crate::redstone::container::dispenser_dispense(w, p),
-        Block::Crafter { .. } => {}
+        Block::Crafter { .. } => crate::redstone::container::crafter_dispense(w, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::tick(w, s, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::tick(w, s, p),
         Block::Tripwire { .. } => crate::react::tripwire::tick(w, p),
         Block::TripwireHook { .. } => crate::react::hook::tick(w, s, p),
+        Block::DetectorRail { .. } => crate::rails::detector::tick(w, s, p),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::tick(w, s, p),
         Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
         Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
         _ => {}

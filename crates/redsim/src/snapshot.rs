@@ -89,6 +89,10 @@ impl World {
         comps.sort();
         comps.hash(h);
         self.containers.key_into(now, h);
+        // daylight detectors read only when the game time is a multiple of 20
+        if self.watch_light {
+            (0xd1u8, now.rem_euclid(20)).hash(h);
+        }
         let toggles: Vec<_> = self.torch_toggles.iter().filter(|(_, when)| now - when <= TORCH_WINDOW).map(|(p, when)| (*p, now - when)).collect();
         toggles.hash(h);
         self.piston.key_into(now, h);

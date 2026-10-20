@@ -1,0 +1,91 @@
+# archived 2026-10-20T02:04Z from designs/circuits/pext/work/n7-sfx-gen.txt by mctas circuit archive
+# CIRCUIT: pext-n7-sf-sweep276 piston-extender 7 N 7, extend 478 gt, retract 476 gt, 276 blocks, 17x8x8, robust
+name: pext-n7-sf-sweep276
+circuit: piston-extender 7
+travel: 1 0 0
+port input: 15 1 2 lever
+port payload: 8 1 0
+origin: -1 0 -4
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -2:
+  .
+  .
+  .
+  .
+  ........CD
+  .
+  .
+  .
+layer -1:
+  .........C
+  .........A
+  ......ooCAooC
+  ........oA...B
+  ........AODDDD
+  .
+  ...ooCooC.ooC
+  .
+layer 0:
+  .........C
+  .....ooB
+  ....C.OCC.OBC
+  ....ADDDDDDD.O
+  ........O.O
+  ooooB
+  ...OCCO.CCO.C...s
+  .......ooA
+layer 1:
+  .........C
+  .....O.C.ooB
+  ....CAOACAOOC.C
+  ....AAAAAAAAAOA
+  BDSSSSSSSG
+  O..BBBBBBBBBBBB
+  ...OCBOBCBOBCCooL
+  .....C.O.C.ooA
+layer 2:
+  .........C
+  .....BDooB
+  ....COO.COO.B.B
+  .....CDDDDDDDOC
+  O.....CCCCC.C
+  ADDDDDDDDDDDDD
+  ...OC.OOC.OOCAO
+  .....ooA.ooA
+layer 3:
+  .........C
+  ......ODDDDD
+  ....ooOBooOA
+  ....BDCB.CoAoOB
+  ....B.ABBAA.ADD
+  ...BD..CCADD
+  ...OooO.ooO.ooO
+  .
+layer 4:
+  .........B
+  .........B
+  .......ODD
+  ......ooBC
+  ......O.O.O
+  .......CooAO
+  .
+  .
+layer 5:
+  .
+  .
+  .
+  .........B
+  ......ODDD
+  .......ooooO
+  .
+  .

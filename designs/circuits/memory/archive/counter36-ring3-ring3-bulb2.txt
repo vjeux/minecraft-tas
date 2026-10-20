@@ -1,0 +1,34 @@
+# archived 2026-10-20T02:54Z from designs/circuits/memory/tracks/memory/counter36-ring3-ring3-bulb2.txt by mctas circuit archive
+# CIRCUIT: counter36-ring3-ring3-bulb2 counter 36 N 36, output level every 36 pulses, 23 blocks, 10x3x3, robust
+# Counter 36, 2 chained dropper rings (3 x 3) + 2 copper bulbs, 23 blocks (track memory, `mctas circuit memory ring --n 3 --then 3 --bulbs 2`): ring 1 (3 droppers fired by the input, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one, and the last ring toggles 2 bulb T flip-flops, each halving the rate; the last comparator is on during one pulse window in 36 (level style). Every transit crosses a hopper, so the firing order never matters.
+name: counter36-ring3-ring3-bulb2
+circuit: counter 36
+port input: 0 0 0
+port output: -10 0 0
+nbt: -4 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: -1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -9 0 -1
+palette:
+  A minecraft:dropper[facing=up,triggered=false]
+  B minecraft:dropper[facing=west,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=north,triggered=false]
+  E minecraft:hopper[enabled=true,facing=north]
+  F minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=south,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  S.S.S..S
+  .
+layer 0:
+  ........hA
+  CWCWCASCD
+  .....EB
+layer 1:
+  .........F
+  .....hd.HB
+  ......H

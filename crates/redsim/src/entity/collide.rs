@@ -286,15 +286,18 @@ fn speed_factor(s: &Block) -> f32 {
     }
 }
 
-/// `state.is(Blocks.WATER) || state.is(Blocks.BUBBLE_COLUMN)` (the fluid blocks of M1).
-fn is_water_or_bubble_column(_s: &Block) -> bool {
-    false
+/// `state.is(Blocks.WATER) || state.is(Blocks.BUBBLE_COLUMN)`.
+fn is_water_or_bubble_column(s: &Block) -> bool {
+    matches!(s, Block::Water { .. } | Block::BubbleColumn { .. })
 }
 
-/// `Entity.getBlockSpeedFactor`.
+/// `Entity.getBlockSpeedFactor` (minecarts: 1 on a rail).
 fn block_speed_factor(w: &World, i: usize) -> f32 {
     let e = &w.entities.list[i];
     let here = w.get(e.block_position());
+    if matches!(e.kind, super::EntityKind::Minecart(_)) && crate::rails::is_rail(&here) {
+        return 1.0;
+    }
     let f = speed_factor(&here);
     if !is_water_or_bubble_column(&here) {
         if f == 1.0 { speed_factor(&w.get(get_on_pos(w, e, 0.500001))) } else { f }
@@ -715,4 +718,24 @@ pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
 /// `CollisionGetter.noCollision(entity, box)`: no block shape and no collidable entity in `bb`.
 pub fn no_collision(w: &World, i: usize, bb: Aabb) -> bool {
     block_collisions(w, bb).is_empty() && entity_collisions(w, i, bb).is_empty()
+}
+
+/// `Entity.applyEffectsFromBlocks(from, to)`: the blocks one given move sweeps (minecarts call it
+/// with their position twice).
+pub fn apply_effects_from_blocks_between(w: &mut World, i: usize, from: Vec3, to: Vec3) {
+    if w.entities.list[i].removed || w.entities.list[i].no_physics {
+        return;
+    }
+    check_inside_blocks(w, i, &[Movement { from, to, axis_dependent: None }]);
+}
+
+/// `Entity.applyEffectsFromBlocksForLastMovements()` (item entities at rest):
+/// `applyEffectsFromBlocks(finalMovementsThisTick)`, the moves recorded last time, replayed as
+/// [`apply_effects_from_blocks`] replays this tick's (clockinfra, for `item.rs`).
+pub fn apply_effects_for_last_movements(w: &mut World, i: usize) {
+    let moves = w.entities.list[i].final_movements.clone();
+    if w.entities.list[i].removed || w.entities.list[i].no_physics {
+        return;
+    }
+    check_inside_blocks(w, i, &moves);
 }

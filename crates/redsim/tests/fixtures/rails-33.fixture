@@ -1,0 +1,9 @@
+# rail shapes (clockinfra, redsim M4 gate)
+box 10 2 13 13 5 15
+place update
+block 11 3 14 minecraft:stone
+block 12 3 14 minecraft:rail[shape=north_south,waterlogged=false]
+block 11 4 14 minecraft:powered_rail[powered=false,shape=ascending_south,waterlogged=false]
+frame 0
+cell 11 3 14 minecraft:stone
+cell 11 4 14 minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]

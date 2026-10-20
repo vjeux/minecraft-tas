@@ -7,10 +7,92 @@ use mctas::design::Design;
 use piston_door::leaderboard::{self, Entry, tier_rank};
 use piston_door::showcase::{self, BLOCK_BOARDS};
 use site_model::{Build, Door};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub const ARCHIVE: &str = "designs/piston-door-3x3/archive";
+/// Which archived doors are the project's own work (vjeux, 01:15Z: "We should only have things we
+/// generated on the website to avoid stealing people's work"): `name<TAB>origin` rows, origin
+/// `ours` or `community-derived` (written by track c70b). Only `ours` is published.
+pub const PROVENANCE: &str = "provenance.tsv";
+
+/// Name prefixes of designs derived from community doors (the seed rule, applied whether or not
+/// provenance.tsv exists; a published door matching it fails the build).
+// Not "pockets-63b": "63b" is only the 7x9 box volume. Most pockets-63b-* descend from t7b / e89b
+// (ours); the c79-seeded ones are flagged by provenance.tsv's run-seed lineage (c70b, a11b72084).
+pub const COMMUNITY_PREFIXES: [&str; 6] = ["community", "c79", "closed-b-fill", "satwire-c79", "satwire-63b", "c88"];
+
+/// Why a design is community-derived by the seed rule: its name, or a `note: door fill of`
+/// line naming a community design (a path under tracks/c77/community, or a file with one of the
+/// prefixes). `None`: not by this rule.
+pub fn community_seed(stem: &str, text: &str) -> Option<String> {
+    let has_prefix = |name: &str| COMMUNITY_PREFIXES.iter().find(|p| name.starts_with(*p)).copied();
+    if let Some(p) = has_prefix(stem) {
+        return Some(format!("its name starts with {p}"));
+    }
+    for l in text.lines() {
+        let Some(rest) = l.strip_prefix("note: door fill of ") else { continue };
+        let path = rest.split(": ").next().unwrap_or(rest).trim();
+        if path.contains("tracks/c77/community") {
+            return Some(format!("it is a door fill of {path}"));
+        }
+        let file = path.rsplit('/').next().unwrap_or(path);
+        if let Some(p) = has_prefix(file) {
+            return Some(format!("it is a door fill of {path} ({p}...)"));
+        }
+    }
+    None
+}
+
+/// The provenance table: stem -> origin (`ours`, `community-derived`).
+pub fn read_provenance(dir: &Path) -> Option<HashMap<String, String>> {
+    let text = std::fs::read_to_string(dir.join(PROVENANCE)).ok()?;
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#'));
+    let header: Vec<String> = lines.next()?.split('\t').map(|h| h.trim().to_lowercase()).collect();
+    let col = |names: &[&str]| header.iter().position(|h| names.contains(&h.as_str()));
+    let (ni, oi) = (col(&["name", "design", "file", "stem"]).unwrap_or(0), col(&["origin", "provenance"]).unwrap_or(1));
+    let mut m = HashMap::new();
+    for l in lines {
+        let f: Vec<&str> = l.split('\t').collect();
+        let (Some(n), Some(o)) = (f.get(ni), f.get(oi)) else { continue };
+        let n = n.trim();
+        let stem = n.rsplit('/').next().unwrap_or(n).trim_end_matches(".txt").to_string();
+        m.insert(stem, o.trim().to_lowercase());
+    }
+    Some(m)
+}
+
+/// The doors left out as not ours: stem -> why. With provenance.tsv: every door not marked `ours`,
+/// and every door the seed rule flags even when marked `ours` (never publish what either signal
+/// calls community work; such conflicts are reported); without it: the seed rule.
+pub fn not_ours(dir: &Path, stems_and_texts: &[(String, String)]) -> anyhow::Result<BTreeMap<String, String>> {
+    let prov = read_provenance(dir);
+    let mut out = BTreeMap::new();
+    for (stem, text) in stems_and_texts {
+        let seed = community_seed(stem, text);
+        match &prov {
+            Some(p) => match p.get(stem).map(String::as_str) {
+                Some("ours") => {
+                    if let Some(why) = seed {
+                        out.insert(stem.clone(), format!("CONFLICT: {PROVENANCE} says ours but {why} (the seed rule wins)"));
+                    }
+                }
+                Some(o) => {
+                    out.insert(stem.clone(), format!("{PROVENANCE}: {o}"));
+                }
+                None => {
+                    out.insert(stem.clone(), format!("not listed in {PROVENANCE}"));
+                }
+            },
+            None => {
+                if let Some(why) = seed {
+                    out.insert(stem.clone(), why);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
 
 /// The site's knobs for the doors.
 pub struct DoorOptions {
@@ -68,11 +150,22 @@ pub fn archived_at(text: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Every working archived door, sorted by size (volume, blocks). Returns the builds and the
-/// stems left out because main's judge has no cached verdict for them yet.
-pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)> {
+/// Every working archived door that is the project's own work ([`not_ours`] leaves the others
+/// out), sorted by size (volume, blocks). Returns the builds, the stems left out because main's
+/// judge has no cached verdict for them yet, and the stems left out as not ours (with why).
+pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, BTreeMap<String, String>)> {
     let dir = repo.join(ARCHIVE);
-    let (entries, uncached) = leaderboard::cached_entries(candidates(&dir)?, &dir);
+    let cands = candidates(&dir)?;
+    let texts: Vec<(String, String)> = cands
+        .iter()
+        .map(|(src, _)| {
+            let p = Path::new(src);
+            (p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default(), std::fs::read_to_string(p).unwrap_or_default())
+        })
+        .collect();
+    let excluded = not_ours(&dir, &texts)?;
+    let cands: Vec<(String, Design)> = cands.into_iter().filter(|(src, _)| !Path::new(src).file_stem().is_some_and(|s| excluded.contains_key(s.to_string_lossy().as_ref()))).collect();
+    let (entries, uncached) = leaderboard::cached_entries(cands, &dir);
     let working: Vec<&Entry> = entries.iter().filter(|e| e.verdict.is_ok()).collect();
     let all: Vec<showcase::Archived> = working.iter().map(|e| showcase::archived_of(e)).collect();
     let records = showcase::progression(&dir);
@@ -194,8 +287,15 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)>
     }
     out.sort_by(|a, b| (a.volume.unwrap_or(u32::MAX), a.blocks, &a.name).cmp(&(b.volume.unwrap_or(u32::MAX), b.blocks, &b.name)));
     fold_fills(&mut out, &dir);
+    // the guard: nothing community-derived is ever published (whatever the provenance file says)
+    for b in &out {
+        let text = std::fs::read_to_string(dir.join(format!("{}.txt", b.name))).unwrap_or_default();
+        if let Some(why) = community_seed(&b.name, &text) {
+            anyhow::bail!("refusing to publish {}: {why} (community work is never published)", b.name);
+        }
+    }
     let uncached = uncached.iter().map(|s| Path::new(s).file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default()).collect();
-    Ok((out, uncached))
+    Ok((out, uncached, excluded))
 }
 
 /// The design a fill variant was made from: `note: door fill of <path>: <changes>`.
@@ -272,6 +372,30 @@ mod tests {
     fn archived_header() {
         assert_eq!(archived_at("# verified WORKS\n# archived 2026-10-19 10:35Z from /tmp/x.txt (repo at ccbb856)\nname: x\n"), "2026-10-19 10:35Z");
         assert_eq!(archived_at("name: x\n"), "");
+    }
+
+    #[test]
+    fn community_work_is_recognized() {
+        for name in ["community-7x8-stone", "c79-49-tl1-49b", "closed-b-fill-48b-1-48b", "satwire-c79-x", "satwire-63b-49-49b", "c88-x"] {
+            assert!(community_seed(name, "").is_some(), "{name}");
+        }
+        assert!(community_seed("e78st-56b-37-37b", "name: x\n").is_none());
+        let fill = "note: door fill of designs/piston-door-3x3/tracks/c77/community/closed-b.txt: (1,2) stone\n";
+        assert!(community_seed("x-fill-1", fill).unwrap().contains("tracks/c77/community"));
+        let fill2 = "note: door fill of designs/piston-door-3x3/tracks/pockets/c79-open-b.txt: (1,2) stone\n";
+        assert!(community_seed("y-fill-2", fill2).is_some());
+        let ours = "note: door fill of designs/piston-door-3x3/tracks/shrink/wip/t7b-pw42.txt: (1,2) stone\n";
+        assert!(community_seed("t7b-fill", ours).is_none());
+        // with a provenance table: only `ours` is published, and a community name marked ours fails
+        let dir = std::env::temp_dir().join(format!("site-prov-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(PROVENANCE), "name\torigin\nt7b-a.txt\tours\nmystery\tcommunity-derived\n").unwrap();
+        let ex = not_ours(&dir, &[("t7b-a".into(), String::new()), ("mystery".into(), String::new()), ("unlisted".into(), String::new())]).unwrap();
+        assert_eq!(ex.keys().cloned().collect::<Vec<_>>(), vec!["mystery", "unlisted"]);
+        std::fs::write(dir.join(PROVENANCE), "name\torigin\nc79-x\tours\n").unwrap();
+        let ex = not_ours(&dir, &[("c79-x".into(), String::new())]).unwrap();
+        assert!(ex["c79-x"].starts_with("CONFLICT"), "{ex:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

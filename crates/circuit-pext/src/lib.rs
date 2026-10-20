@@ -14,6 +14,7 @@ pub mod game;
 pub mod rs;
 pub mod search;
 pub mod spec;
+pub mod stack;
 pub mod trains;
 
 use anyhow::{Result, anyhow, bail};
@@ -108,6 +109,9 @@ enum Cmd {
         /// Minimum gap between consecutive round starts of one edge (gt).
         #[arg(long, default_value_t = 6)]
         gap: i32,
+        /// The FLAT layout (everything in the line's plane).
+        #[arg(long)]
+        flat: bool,
         /// Write the `extend` headers of this family id (an extendable family base: N = base +
         /// step * n for n in 0..=--n-max, built by this generator).
         #[arg(long)]
@@ -127,6 +131,41 @@ enum Cmd {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
+    /// Generate a SLIME-FREE plain-stack extender from an interleaved static schedule (see
+    /// crates/circuit-pext/src/stack.rs) and check it on redsim.
+    Stack {
+        #[arg(long)]
+        n: usize,
+        #[arg(long, default_value_t = 12)]
+        max_train: usize,
+        #[arg(long, default_value_t = 3)]
+        hops: usize,
+        #[arg(long, default_value_t = 0)]
+        pick: usize,
+        /// Use the canonical train T_N instead of enumerating trains.
+        #[arg(long)]
+        canonical: bool,
+        /// Use the shortest single-cell schedule (any N, fewest pulses).
+        #[arg(long)]
+        cells: bool,
+        /// Everything in the line's plane.
+        #[arg(long)]
+        flat: bool,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Add an observer chain to a design: every cell of --path (`x,y,z;x,y,z;...`) gets an observer
+    /// watching the previous cell (the first one watches --from), so a change at --from runs down
+    /// the path 2 gt per cell.
+    Spine {
+        base: PathBuf,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        path: String,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Trains {
         #[arg(long, default_value_t = 3)]
         n: usize,
@@ -141,6 +180,12 @@ enum Cmd {
         /// Breadth-first search for the shortest train whose every step static cells can deliver.
         #[arg(long)]
         bfs: bool,
+        /// Interleaved delivery: the two edges' steps at different times (see trains::interleave).
+        #[arg(long)]
+        interleave: bool,
+        /// The shortest single-cell static schedule (see trains::cell_schedule).
+        #[arg(long)]
+        cells: bool,
     },
     /// Greedy shrink on redsim: remove blocks, or swap one for a palette state and remove
     /// another, while the extender keeps working; writes each step to --out.
@@ -150,6 +195,9 @@ enum Cmd {
         palette: String,
         #[arg(long, default_value_t = 64)]
         threads: usize,
+        /// Only place new blocks in this z plane (keeps a flat design flat).
+        #[arg(long, allow_hyphen_values = true)]
+        plane_z: Option<i32>,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -183,14 +231,14 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
         }
-        Cmd::Cascade { n, base, step, gap, family, n_max, group, out } => {
+        Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
             let reach = base + step * n;
-            let (mut d, log) = cascade::generate(&cascade::CascadeOptions { n: reach, gap })?;
+            let (mut d, log) = cascade::generate(&cascade::CascadeOptions { n: reach, gap, flat })?;
             if let Some(id) = &family {
                 // blocks(N) is linear along N = base + step*n when step is a multiple of 3 (a
                 // cell shared by two rounds comes every third N); measured, not assumed
                 let count = |k: usize| -> Result<i64> {
-                    let d = cascade::generate(&cascade::CascadeOptions { n: base + step * k, gap })?.0;
+                    let d = cascade::generate(&cascade::CascadeOptions { n: base + step * k, gap, flat })?.0;
                     Ok(Pext::from_design(d)?.blocks() as i64)
                 };
                 let (b0, b1, b2) = (count(0)?, count(1)?, count(2)?);
@@ -209,15 +257,23 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 );
                 m.insert(
                     "extend generator".into(),
-                    format!("mctas circuit pext cascade --base {base} --step {step} --n {{n}} --out {{out}}"),
+                    format!("mctas circuit pext cascade{} --base {base} --step {step} --n {{n}} --out {{out}}", if flat { " --flat" } else { "" }),
                 );
                 if let Some(g) = &group {
                     m.insert("extend group".into(), g.clone());
-                    m.insert("extend group title".into(), "cascade extender (self-triggered units)".into());
+                    m.insert(
+                        "extend group title".into(),
+                        if flat { "flat cascade extender (self-triggered units, 1 wide)" } else { "cascade extender (self-triggered units)" }.into(),
+                    );
                     m.insert("extend group period".into(), "N = any reach >= 2".into());
                     m.insert(
                         "extend group note".into(),
-                        "blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)".into(),
+                        if flat {
+                            "blocks = 10N - 5 - floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)"
+                        } else {
+                            "blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)"
+                        }
+                        .into(),
                     );
                 }
                 d.name = format!("{id}-n{n}");
@@ -265,16 +321,70 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Trains { n, max, show, shift, bfs } => {
-            if bfs {
+        Cmd::Stack { n, max_train, hops, pick, canonical, cells, flat, out } => {
+            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick, canonical, cells, flat })?;
+            for l in &log {
+                println!("  {l}");
+            }
+            let p = Pext::from_design(d.clone())?;
+            match rs::Prepared::new(&p, 2) {
+                Ok(prep) => {
+                    let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
+                    println!("{}", summary(&p, &r));
+                }
+                Err(e) => println!("not modeled: {e}"),
+            }
+            if let Some(out) = out {
+                d.save(&out)?;
+                println!("wrote {}", out.display());
+            }
+            Ok(())
+        }
+        Cmd::Spine { base, from, path, out } => {
+            let mut d = mctas::design::Design::load(&base)?;
+            let parse = |s: &str| -> Result<Pos> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                if v.len() != 3 {
+                    bail!("bad cell {s:?}");
+                }
+                Ok([v[0], v[1], v[2]])
+            };
+            let mut prev = parse(&from)?;
+            for (i, c) in path.split(';').filter(|s| !s.trim().is_empty()).enumerate() {
+                let p = parse(c)?;
+                let delta = [prev[0] - p[0], prev[1] - p[1], prev[2] - p[2]];
+                let facing = match delta {
+                    [1, 0, 0] => "east",
+                    [-1, 0, 0] => "west",
+                    [0, 1, 0] => "up",
+                    [0, -1, 0] => "down",
+                    [0, 0, 1] => "south",
+                    [0, 0, -1] => "north",
+                    _ => bail!("path cell {} {p:?} is not next to {prev:?}", i + 1),
+                };
+                if let Some(old) = d.blocks.insert(p, format!("minecraft:observer[facing={facing}]")) {
+                    bail!("path cell {} {p:?} is taken by {old}", i + 1);
+                }
+                prev = p;
+            }
+            d.save(&out)?;
+            println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
+            Ok(())
+        }
+        Cmd::Trains { n, max, show, shift, bfs, interleave, cells } => {
+            if cells {
+                trains::report_cells(n, max)
+            } else if interleave {
+                trains::report_interleave(n, max, show)
+            } else if bfs {
                 trains::report_bfs(n, shift, max)
             } else {
                 trains::report(n, max, show, shift)
             }
         }
-        Cmd::Minimize { design, palette, threads, out } => {
+        Cmd::Minimize { design, palette, threads, plane_z, out } => {
             let p = Pext::load(&design)?;
-            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads })?;
+            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads, plane_z })?;
             for (i, d) in steps.iter().enumerate() {
                 let np = Pext::from_design(d.clone())?;
                 let prep = rs::Prepared::new(&np, 4).map_err(|e| anyhow!("{e}"))?;

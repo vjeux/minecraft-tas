@@ -37,6 +37,11 @@ web-sys = { version = "0.3", features = [
   "IntersectionObserver",
   "IntersectionObserverEntry",
   "IntersectionObserverInit",
+  "DomParser",
+  "SupportedType",
+  "NodeList",
+  "MouseEvent",
+  "HtmlAnchorElement",
   "console",
 ] }
 

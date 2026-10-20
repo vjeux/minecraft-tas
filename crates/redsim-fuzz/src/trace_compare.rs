@@ -27,6 +27,8 @@ pub struct TraceEntity {
     pub motion: [f64; 3],
     pub yaw: f32,
     pub pitch: f32,
+    /// The game's network id (`getId()`), when the trace has it (`net_id`).
+    pub net_id: Option<i32>,
 }
 
 /// A parsed exact trace.
@@ -83,6 +85,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
                 motion,
                 yaw: e["yaw"].as_f64().unwrap_or(0.0) as f32,
                 pitch: e["pitch"].as_f64().unwrap_or(0.0) as f32,
+                net_id: e["net_id"].as_i64().map(|n| n as i32),
             });
         }
         t.frames.push((blocks, ents));
@@ -119,36 +122,14 @@ pub enum Outcome {
 }
 
 /// The design's entities as redsim entities (`Sandbox.summon`: created at their position, at
-/// rest, in the design's order, once the blocks stand); an error names what is missing.
+/// rest, in the design's order, once the blocks stand; `redsim::entity::spawn`, the clock sim's
+/// path too); an error names what is missing.
 fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
-    use redsim::entity::{EntityKind, Vec3};
     for e in &c.design.entities {
-        let kind = match e.kind.trim_start_matches("minecraft:") {
-            "oak_boat" => EntityKind::Boat(redsim::entity::boat::BoatState::default()),
-            "oak_chest_boat" => EntityKind::Boat(redsim::entity::boat::BoatState { chest: true, ..Default::default() }),
-            "minecart" => EntityKind::Minecart(Default::default()),
-            "armor_stand" => EntityKind::ArmorStand(Default::default()),
-            k => return Err(format!("entity {k} is not modeled by redsim")),
-        };
-        if let Some(n) = &e.nbt {
-            // test scenes: `{Motion:[x d, y d, z d]}` only
-            let m = parse_motion(n).ok_or_else(|| format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind))?;
-            let id = w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
-            let idx = w.entities.list.iter().position(|x| x.id == id).unwrap();
-            w.entities.list[idx].delta_movement = Vec3::new(m[0], m[1], m[2]);
-            continue;
-        }
-        w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
+        // spawn names any data it does not model (Motion, Rotation; items' and containers' own)
+        redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref())?;
     }
     Ok(())
-}
-
-/// `{Motion:[0.5d,0.0d,-0.25d]}` -> the three doubles.
-fn parse_motion(s: &str) -> Option<[f64; 3]> {
-    let inner = s.trim().strip_prefix('{')?.strip_suffix('}')?.trim();
-    let list = inner.strip_prefix("Motion:")?.trim().strip_prefix('[')?.strip_suffix(']')?;
-    let v: Vec<f64> = list.split(',').map(|t| t.trim().trim_end_matches(['d', 'D']).parse::<f64>()).collect::<Result<_, _>>().ok()?;
-    if v.len() == 3 { Some([v[0], v[1], v[2]]) } else { None }
 }
 
 /// The live entities of redsim's world, in tick order.
@@ -162,7 +143,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
             id: e.id as u64,
             kind: match &e.kind {
                 EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
-                EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
+                EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
                 EntityKind::Item(_) => "minecraft:item".to_string(),
                 EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
             },
@@ -170,6 +151,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
             motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
             yaw: e.y_rot,
             pitch: e.x_rot,
+            net_id: Some(e.network_id),
         })
         .collect()
 }
@@ -237,6 +219,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if let Err(e) = summon(&mut w, &c) {
         return Ok(Outcome::Unmodeled(e));
     }
+    // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
+    // first frame, in the summon order
+    if let Some((_, ents)) = trace.frames.first() {
+        for (k, te) in ents.iter().enumerate() {
+            if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
+                e.network_id = n;
+            }
+        }
+    }
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
@@ -295,6 +286,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         if n_diff > 0 {
             let shown = diffs.len();
+            if let Some(e) = w.errors.first() {
+                diffs.push(format!("(redsim's model note this tick: {e})"));
+            }
             return Ok(Outcome::Diverges { tick: t, diffs, more: n_diff - shown });
         }
         if let Some(e) = w.errors.first() {

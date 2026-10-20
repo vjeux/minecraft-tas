@@ -156,6 +156,9 @@ impl Census {
         let tr = self.trace_cells(blocks, be, spec).ok()?;
         let mut out = Vec::new();
         for (i, p) in tr.cells.iter().enumerate() {
+            if !Self::readable(blocks, *p) {
+                continue;
+            }
             if let Some(s) = spec.judge(tr.rest[i], &tr.changes[i], &tr.samples[i]) {
                 out.push((*p, s));
             }
@@ -293,6 +296,15 @@ impl Census {
         *outs.iter().min_by_key(|(p, s)| (occupied.contains(p), *s, *p)).unwrap()
     }
 
+    /// Can the judge read this cell as an output: air (it puts a lamp there) or a block that
+    /// drives a signal itself (dust, a diode, a torch, an observer)?
+    fn readable(blocks: &[(BlockPos, Block)], p: BlockPos) -> bool {
+        match blocks.iter().find(|(q, _)| *q == p) {
+            None => true,
+            Some((_, b)) => matches!(b, Block::Wire { .. } | Block::Repeater { .. } | Block::Comparator { .. } | Block::Torch { .. } | Block::WallTorch { .. } | Block::Observer { .. }),
+        }
+    }
+
     /// The type key: the blocks with the input cells marked, smallest over rotations and mirrors.
     pub fn key(&self, blocks: &[(BlockPos, Block)], be: &[(BlockPos, String)]) -> String {
         let mut m: BTreeMap<[i32; 3], String> = BTreeMap::new();
@@ -330,25 +342,46 @@ impl Census {
             let pre = k.min(2);
             let per: usize = p.pow(pre as u32);
             let items = subs.len() * per;
+            let done = std::sync::atomic::AtomicBool::new(false);
             std::thread::scope(|sc| {
-                for _ in 0..self.jobs.max(1) {
+                if progress {
+                    // a progress line every 2 minutes on long runs
                     sc.spawn(|| {
-                        loop {
-                            let i = next.fetch_add(1, Ordering::Relaxed);
-                            if i >= items {
-                                break;
+                        let mut last = std::time::Instant::now();
+                        while !done.load(Ordering::Relaxed) {
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                            if last.elapsed().as_secs() >= 120 {
+                                last = std::time::Instant::now();
+                                let n = next.load(Ordering::Relaxed).min(items);
+                                eprintln!("  k={k}: {n}/{items} work items started, {} judged, {} types, {:.0} s", judged.load(Ordering::Relaxed), found.lock().unwrap().len() - before, start.elapsed().as_secs_f64());
                             }
-                            let (si, mut code) = (i / per, i % per);
-                            let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
-                            let mut assign: Vec<usize> = Vec::with_capacity(k);
-                            for _ in 0..pre {
-                                assign.push(code % p);
-                                code /= p;
-                            }
-                            self.dfs(&cells, &mut assign, spec, &found, &judged);
                         }
                     });
                 }
+                let workers: Vec<_> = (0..self.jobs.max(1))
+                    .map(|_| {
+                        sc.spawn(|| {
+                            loop {
+                                let i = next.fetch_add(1, Ordering::Relaxed);
+                                if i >= items {
+                                    break;
+                                }
+                                let (si, mut code) = (i / per, i % per);
+                                let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
+                                let mut assign: Vec<usize> = Vec::with_capacity(k);
+                                for _ in 0..pre {
+                                    assign.push(code % p);
+                                    code /= p;
+                                }
+                                self.dfs(&cells, &mut assign, spec, &found, &judged);
+                            }
+                        })
+                    })
+                    .collect();
+                for w in workers {
+                    let _ = w.join();
+                }
+                done.store(true, Ordering::Relaxed);
             });
             if progress {
                 eprintln!(

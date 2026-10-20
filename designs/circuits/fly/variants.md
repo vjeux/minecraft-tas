@@ -9,6 +9,10 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [fly-d1](archive/fly-d1.txt) | 7 | - |
-| [fly-down-7b-10gt-aca731](archive/fly-down-7b-10gt-aca731.txt) | 7 | - |
-| [fly-payload-9-15b](archive/fly-payload-9-15b.txt) | 15 | gold_block |
-| [fly-payload-18-24b](archive/fly-payload-18-24b.txt) | 24 | gold_block |
+
+**[fly-up-6b-9gt-151e3e](archive/fly-up-6b-9gt-151e3e.txt)** (flying-machine, 9 gt/block; 6 blocks: observer, piston, redstone_block, slime_block, sticky_piston):
+
+| variant | blocks | adds |
+|---|---|---|
+| [fly-horizontal-7b-9gt-e75c5f](archive/fly-horizontal-7b-9gt-e75c5f.txt) | 7 | - |
+| [fly-horizontal-7b-9gt-aa517c](archive/fly-horizontal-7b-9gt-aa517c.txt) | 7 | - |
