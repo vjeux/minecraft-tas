@@ -1,0 +1,40 @@
+# Counter 7 as a divider, dropper ring + 1 copper bulb, 21 blocks (track memory, `mctas circuit memory ring --n 7 --bulbs 1 --divider`): the input cell fires 7 droppers (3 next to it, 4 through 1 dust), and 7 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 7, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (the last comparator changes state once every 7 pulses: toggles style). The input sits on the build's edge (nothing south of it), where a real input line reaches it.
+name: counter7-ring7-bulb1-div
+circuit: counter 7
+group: ring-divider
+group title: Dropper ring + one bulb as a divider (output toggles every N)
+group note: the ring's comparator lights once per lap and toggles a copper bulb T flip-flop; the bulb's comparator changes state once every N pulses (`mctas circuit memory ring --n N --bulbs 1 --divider`)
+port input: 0 0 0
+port output: 4 1 -2
+nbt: 0 1 -2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -1 0 -3
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  .
+  .S
+  .
+layer 0:
+  .BI
+  ASd.S
+  GRF
+  B.d
+layer 1:
+  .G
+  HECWC
+  .
+  hDH

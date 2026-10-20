@@ -1228,7 +1228,7 @@ const DRAWN_TICKS: u32 = 120;
 fn drawn_pass(text: &str, ticks: u32) -> Result<(), String> {
     let mut s = mcview::Session::new(text, &mcview::Options::default())?;
     // no ground but real blocks (vjeux 17:53Z): the viewer's look draws no decorative ground, and
-    // a TNT duper's ground is checked cell by cell below (`floor_drawn` against the world)
+    // a TNT duper's ground is checked cell by cell below (`Floor::now` against the world)
     if mcview::scene::viewer_look(&s).ground.is_some() {
         return Err("the viewer draws a ground that is not redsim blocks".into());
     }
