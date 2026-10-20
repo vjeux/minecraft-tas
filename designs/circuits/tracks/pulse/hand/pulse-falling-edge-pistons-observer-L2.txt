@@ -1,0 +1,19 @@
+name: pulse-falling-edge-pistons-observer-L2
+# An observer watching the input, a sticky piston under it (quasi-powered by the input, armed
+# silently) and a sticky piston behind it (powered by the observer): the rising edge sets the
+# pistons moving so the observer's first pulse misses the output cell; on the falling edge the
+# observer fires in place into it (2 gt, 5 gt after the edge). Inputs of 4 gt or more.
+circuit: falling-edge
+origin: 0 0 1
+port output: 0 1 2
+port input: 0 1 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C

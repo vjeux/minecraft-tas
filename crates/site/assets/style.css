@@ -72,6 +72,12 @@ h1.formula { font-size: 40px; font-variant-numeric: tabular-nums; }
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
 }
 @media (max-width: 860px) { .filters { position: static; max-height: none; } }
+.ftoggle { display: none; width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 8px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+@media (max-width: 860px) {
+  .ftoggle { display: block; }
+  .filters.collapsed > :not(.ftoggle) { display: none; }
+  .filters:not(.collapsed) > .ftoggle { margin-bottom: 8px; }
+}
 .filters h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
 .filters h3:first-child { margin-top: 0; }
 .filters input[type=search], .filters input[type=text], .filters select {
@@ -138,6 +144,9 @@ button { font: inherit; }
 }
 .fallback.has-pic .fb-big { font-size: 15px; }
 .fallback.has-pic .fb-small { display: none; }
+/* door GIFs carry their own label at the bottom: ours goes on top */
+.k-door .fallback.has-pic { justify-content: flex-start; }
+.k-door .fallback.has-pic .fb-big { margin: 6px 0 0 6px; }
 video.video { width: 100%; max-height: 560px; background: #000; border-radius: var(--radius); }
 .fb-big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .fb-small { font-size: 12px; opacity: .8; word-break: break-all; }
@@ -162,3 +171,9 @@ tr:target { background: var(--accent-soft); }
 pre.design { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; overflow: auto; max-height: 520px; }
 details summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 .loading { color: var(--muted); }
+.empty { grid-column: 1 / -1; padding: 16px; background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); }
+/* boards */
+ul.toc { columns: 3 260px; padding-left: 18px; }
+.board { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .board { grid-template-columns: 1fr; } }
+.hint { color: var(--muted); font-size: 13px; }

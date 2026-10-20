@@ -372,3 +372,32 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
   Sculk: m69v core open (3,2) + close (3,3) (4,2) (5,2) (3,2); m69g (s0 ideal) core close (5,0) (4,0) (3,-1).
   In every 9x6 m69 version (solid and sculk) the left half wires and the right half (horizontal elevator +
   corner + s1') is the wall. w86 is building a variant with the right elevator in row 1.
+- **6x9 lever-held right stack + ring pushers (22:00-22:15Z)**, all with the door lever on R1's back at (5,1)
+  (satwire patch f85eff5e: a lever behind any never-moving piston), all WORK with ideal inputs in tile phase:
+  * `m69L` (m69a + R0/R1 lever-held): satwire solid core close (0,3) (the lowered top-elevator piston);
+    sculk core close (0,4) (4,1) (0,3).
+  * `m69R` / `m69S` (column 0 by a RING PUSHER P0 (0,-1) facing up + escape puller E0 (0,-3), instead of
+    the top elevator; s0 reach-pulls ML; M0 gone; m69S merges the close: E0 pushes P0 + BL up in one spit):
+    redsim 32 positions + JVM, open 27 / close 25. The QC trap of E0 is real only for plan torches: fed from
+    the side, P0 extends first and E0's push then fails (P0 immovable). satwire solid: m69R core close E0;
+    m69S core = the bottom elevator (MB, raised U1, U1, P3b, E0).
+  * `m69T` / `m69U` (column 1 ALSO by a ring pusher RP1 (1,3) facing down + escape puller E1 (1,5); no
+    elevators at all; m69U: W idle on close, P3t pushes TM + TL back in one push): redsim 32 positions + JVM,
+    open 30 / close 36, frame 12/12. satwire solid core close s0 (0,4) + W (-1,3) + RP1 at (1,4): the
+    top-left corner again (s0, W and the escaped RP1 share (-1,4)/(0,5)).
+  * `m69V` (no top-left corner piston at all: a RING-RESTING puller Q (2,3) facing west pulls TL (0,3) ->
+    (1,3), escapes RIGHT into (3,3) pulled by QE (4,3), then pulls TL on to (2,3); ring pushers P0/RP1 for
+    both columns; R1/R2 lever-held from the lever on R2's back (5,2); R0 fed): redsim 32 positions + JVM,
+    open 38 / close 28, frame 12/12, the top-left corner is free. satwire solid core: open E1 (1,5), RP1
+    (1,3), RP1 at (1,4), Q at (3,3); close QE (4,3), Q at (3,3): the top middle/right (RP1's escape column
+    and Q's escape) now; sculk pending.
+    m69V sculk: UNSAT, core open U1 (1,-2) + open P0 at (0,-2) + close E0, P0 at (0,-2), P0 (0,-1): with sound the
+    top wires and the bottom-left (ring pusher + escape puller + U1) is the wall.
+  w86's m76 (8x6 m73 design, re-timed; solid at 9x6/10x6: core close RP0 (3,0) only): SCULK at 9x6 UNSAT in
+  496 s, core close (1,4) (the lever-held top middle) + close RP0 (3,0).
+  w86's m79 / m80 (9x6, column 5 free, RP0 resting at (4,0), left carriers stacked): SCULK UNSAT (490-530 s),
+  cores = the whole LEFT half (carried U0/U1 (-1,0)/(-1,1), MB0/MB1 (-3,0)/(-3,1), (-2,0)/(-2,1), the corner
+  (-1,3)) + the lever-held top (0,4)/(1,4) on close.
+  w86's m81 (m78's simple left + m80's right; solid core W' only): SCULK UNSAT in 568 s, core open MB0 (-3,0),
+  (1,4), U1 (-2,1), M1 (5,1), (-1,0), carried s1 (3,1) + close U0 (-2,0), s1 (4,1), MB0, (-1,0): W' leaves the
+  core with sound, but the sensors then disturb the left elevator / right carrier / held top.

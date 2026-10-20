@@ -124,6 +124,15 @@ pub struct Door {
     /// table: (key, value).
     #[serde(default)]
     pub props: Vec<(String, String)>,
+    /// The fill variants of one mechanism (`note: door fill of <design>`): the best of them (by
+    /// size, then blocks) stands for the others, hidden with the variants by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<String>,
+    /// The design it is a fill variant of (repository path).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub fill_of: String,
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -201,6 +210,18 @@ pub struct Circuit {
     pub inputs: Vec<String>,
     #[serde(default)]
     pub outputs: Vec<String>,
+    /// The mechanism family (the block kinds that change state), the judge's robustness.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub family: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub robustness: String,
+    /// Build id of the smaller design of its kind and axis value whose block kinds it only adds
+    /// to (a variant, as `mctas circuit catalog` folds them).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// When the judge archived it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub archived: String,
 }
 
 /// A period or block-count formula in n (the clock study's `extend period:`).
@@ -318,7 +339,7 @@ pub fn status_label(s: &str) -> &'static str {
     }
 }
 
-/// The flags, (key, label, kind it applies to), in display order.
+/// The flags, (key, label, the kinds it applies to: comma-separated), in display order.
 pub const FLAGS: &[(&str, &str, &str)] = &[
     ("rotation-safe", "rotation-safe", "door"),
     ("slime-free", "no slime or honey", "door"),
@@ -335,12 +356,12 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock"),
+    ("robust", "robust (any position and rotation)", "clock,circuit"),
     ("self-starting", "self-starting", "clock"),
     ("kicked", "needs a start kick", "clock"),
     ("chiral", "chiral", "clock"),
     ("extendable", "extendable family", "clock"),
-    ("variant", "variant of a smaller clock", "clock"),
+    ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("composite", "composite (beat)", "clock"),
     ("calibration", "judge calibration design", "circuit"),
     ("instant", "instant (0 gt latency)", "circuit"),
@@ -615,6 +636,29 @@ impl Site {
         self.builds.iter().enumerate().map(|(i, b)| (b.id.as_str(), i)).collect()
     }
 
+    /// The periods nearest to `[lo, hi]` that some clock or family member has (for an empty time
+    /// search): up to `k` (period, how many), closest first, then shorter first.
+    pub fn nearest_periods(&self, lo: u32, hi: u32, k: usize) -> Vec<(u32, usize)> {
+        let mut count: BTreeMap<u32, usize> = BTreeMap::new();
+        for b in &self.builds {
+            if let Some(c) = &b.clock {
+                if c.host.is_none() && !c.instance {
+                    *count.entry(c.period).or_default() += 1;
+                }
+            }
+        }
+        for m in &self.members {
+            if m.build.is_none() {
+                *count.entry(m.period).or_default() += 1;
+            }
+        }
+        let dist = |p: u32| if p < lo { lo - p } else { p.saturating_sub(hi) };
+        let mut v: Vec<(u32, usize)> = count.into_iter().collect();
+        v.sort_by_key(|(p, _)| (dist(*p), *p));
+        v.truncate(k);
+        v
+    }
+
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
@@ -637,7 +681,7 @@ impl Site {
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance),
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
                 })
             }
             Hit::Member(i) => {
@@ -1044,6 +1088,8 @@ mod tests {
         // 6..12 gt: the variant (6 gt) stays hidden
         let q = Query { time: "0.3-0.6 s".into(), ..Default::default() };
         assert_eq!(ids(&q), vec!["clocks/obs2", "obs-ring#n0", "obs-ring#n1"]);
+        // nothing at 7 gt: the nearest periods that exist
+        assert_eq!(s.nearest_periods(7, 7, 3), vec![(6, 1), (8, 1), (12, 1)]);
         assert!(s.run(&Query { time: "0.33 s".into(), ..Default::default() }).is_err());
     }
 

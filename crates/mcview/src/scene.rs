@@ -1,0 +1,136 @@
+//! A session as a picture: its blocks (moving ones mid-way), the output marker (orange stained
+//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, the
+//! grass ground; and the default camera framing it like `mctas clock shot`.
+
+use crate::atlas::Atlas;
+use crate::camera::{CAM_DIR, Camera, VFOV};
+use crate::design::Pos;
+use crate::mesh::{self, Builder, EntityDraw, Item, Mesh, Vertex};
+use crate::session::{Session, bp};
+use redsim::Block;
+
+/// What to draw besides the blocks.
+#[derive(Clone, Debug, Default)]
+pub struct Look {
+    /// The orange glass marker's cell (next to the output: [`marker_cell`]).
+    pub marker: Option<Pos>,
+    /// Lime outlines (clickable inputs).
+    pub outlines: Vec<Pos>,
+    /// The ground's top (None: no ground).
+    pub ground: Option<f32>,
+}
+
+/// Where the real-game pictures put the orange marker (`clock/src/shot.rs::marker_cell`): the
+/// output cell when it is air; else the air cell the output component powers (an observer's back,
+/// a repeater's or comparator's front, above a standing torch); else its air neighbor most visible
+/// from the camera.
+pub fn marker_cell(s: &Session, out: Pos) -> Option<Pos> {
+    let air = |p: Pos| -> bool {
+        if s.simulated() {
+            matches!(s.world.get(bp(p)), Block::Air)
+        } else {
+            !s.design.blocks.contains_key(&p)
+        }
+    };
+    if air(out) {
+        return Some(out);
+    }
+    let state = if s.simulated() { s.world.get(bp(out)).to_string() } else { s.design.blocks.get(&out).cloned().unwrap_or_default() };
+    let st = crate::models::St::parse(&state);
+    let step = |f: &str| -> Option<Pos> {
+        Some(match f {
+            "north" => [0, 0, -1],
+            "south" => [0, 0, 1],
+            "east" => [1, 0, 0],
+            "west" => [-1, 0, 0],
+            "up" => [0, 1, 0],
+            "down" => [0, -1, 0],
+            _ => return None,
+        })
+    };
+    let preferred: Option<Pos> = match st.name {
+        "observer" | "repeater" | "comparator" => st.get("facing").and_then(step).map(|d| [-d[0], -d[1], -d[2]]),
+        "redstone_torch" => Some([0, 1, 0]),
+        _ => None,
+    };
+    let mut cands: Vec<Pos> = vec![[0, 0, 1], [0, 1, 0], [-1, 0, 0], [1, 0, 0], [0, 0, -1], [0, -1, 0]];
+    let dot = |d: &Pos| d[0] as f32 * CAM_DIR[0] + d[1] as f32 * CAM_DIR[1] + d[2] as f32 * CAM_DIR[2];
+    cands.sort_by(|a, b| dot(b).total_cmp(&dot(a)));
+    if let Some(d) = preferred {
+        cands.retain(|c| *c != d);
+        cands.insert(0, d);
+    }
+    cands.into_iter().map(|d| [out[0] + d[0], out[1] + d[1], out[2] + d[2]]).find(|p| air(*p))
+}
+
+/// The default look of a session: the marker next to its first output, outlines on its inputs
+/// (a door's lever), grass under its lowest block.
+pub fn default_look(s: &Session) -> Look {
+    let marker = s.outputs.first().and_then(|o| marker_cell(s, *o));
+    let mut outlines: Vec<Pos> = Vec::new();
+    for p in &s.inputs {
+        if !outlines.contains(p) {
+            outlines.push(*p);
+        }
+    }
+    let (lo, _) = s.frame_box();
+    Look { marker, outlines, ground: Some(lo[1] as f32) }
+}
+
+/// The frame of a session at `partial` (0..1) after its current tick.
+pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
+    let blocks = s.render_blocks(partial);
+    let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
+    let mut b = Builder::new(atlas);
+    b.blocks(&items);
+    if !s.simulated() {
+        for e in &s.design.entities {
+            b.entity(&EntityDraw { kind: e.kind.clone(), pos: [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32], yaw: entity_yaw(e.nbt.as_deref()) });
+        }
+    }
+    if let Some(m) = look.marker {
+        b.marker(m, true, [255, 255, 255]);
+    }
+    for o in &look.outlines {
+        b.marker(*o, false, [110, 230, 40]);
+    }
+    let mut m = b.mesh;
+    if let Some(y) = look.ground {
+        let (lo, hi) = s.frame_box();
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, 48.0);
+        m.solid.extend_from_slice(&g);
+    }
+    m
+}
+
+/// `Rotation:[yaw f, pitch f]` in an entity's SNBT.
+pub fn entity_yaw(nbt: Option<&str>) -> f32 {
+    let Some(s) = nbt else { return 0.0 };
+    let Some(i) = s.find("Rotation:[") else { return 0.0 };
+    let rest = &s[i + "Rotation:[".len()..];
+    let num: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-').collect();
+    num.parse().unwrap_or(0.0)
+}
+
+/// The box the default camera frames: the design (and marker), 0.25 margin like the pictures.
+pub fn frame_bounds(s: &Session, look: &Look) -> ([f32; 3], [f32; 3]) {
+    let (mut lo, mut hi) = s.frame_box();
+    if let Some(m) = look.marker {
+        for k in 0..3 {
+            lo[k] = lo[k].min(m[k]);
+            hi[k] = hi[k].max(m[k]);
+        }
+    }
+    ([lo[0] as f32 - 0.25, lo[1] as f32 - 0.25, lo[2] as f32 - 0.25], [hi[0] as f32 + 1.25, hi[1] as f32 + 1.25, hi[2] as f32 + 1.25])
+}
+
+/// The real-game pictures' camera for a session at an aspect ratio.
+pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
+    let (lo, hi) = frame_bounds(s, look);
+    Camera::frame(lo, hi, CAM_DIR, VFOV, aspect, 0.85)
+}
+
+/// Solid and translucent triangles of a mesh for a camera.
+pub fn triangles(m: &Mesh, cam: &Camera) -> (Vec<Vertex>, Vec<Vertex>) {
+    (m.solid.clone(), m.sorted_translucent(cam.eye()))
+}

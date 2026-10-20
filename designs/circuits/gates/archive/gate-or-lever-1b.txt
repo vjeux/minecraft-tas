@@ -1,0 +1,16 @@
+# archived 2026-10-19T23:48Z from designs/circuits/gates/tracks/gates/gate-or-lever-1b.txt by mctas circuit archive
+# CIRCUIT: gate-or-lever-1b gate or function or, latency 0 gt, class instant, 1 blocks, 1x1x1, robust
+# OR gate with lever inputs (track gates): both levers hang on one stone and strongly power it; the
+# output cell above the stone sees it. 0 gt, one block.
+name: gate-or-lever-1b
+circuit: gate or
+port input.a: -1 1 0 lever
+port input.b: 1 1 0 lever
+port output: 0 2 0
+origin: -1 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  M minecraft:lever[face=wall,facing=east,powered=false]
+  S minecraft:stone
+layer 1:
+  LSM

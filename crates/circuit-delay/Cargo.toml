@@ -1,6 +1,6 @@
 [package]
 name = "circuit-delay"
-description = "Contraption study 3, track delay (mctas circuit delay ...): delay lines; owned by the track, see docs/circuits.md"
+description = "Track delay's commands (delay lines: output = input shifted by N gt) and the redsim stimulus harness shared with track gates, owned by clk-rt; see designs/circuits/tracks/delay/NOTES.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,8 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
