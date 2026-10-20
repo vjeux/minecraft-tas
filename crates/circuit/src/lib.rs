@@ -277,6 +277,16 @@ pub struct Circuit {
     /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
     /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
     pub stores: Vec<Store>,
+    /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
+    pub tile: Option<Tile>,
+}
+
+/// A shulker design's `tile:` header: the judge builds `copies` (default 3) side by side along
+/// `step`, each copy with its own judge chests, and judges each copy (badge `tileable`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tile {
+    pub step: Pos,
+    pub copies: u32,
 }
 
 /// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
@@ -354,8 +364,18 @@ impl Circuit {
         };
         let distance = design.meta.get("distance").map(|d| d.trim().parse::<u32>().with_context(|| format!("distance: {d:?}"))).transpose()?;
         let stimulus = design.meta.get("stimulus").cloned();
+        let tile = match design.meta.get("tile") {
+            Some(t) => {
+                let v: Vec<i32> = t.split_whitespace().map(|x| x.parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("tile: {t:?}"))?;
+                if !(v.len() == 3 || v.len() == 4) || v[..3] == [0, 0, 0] || v.get(3).is_some_and(|n| *n < 2) {
+                    bail!("tile: {t:?}: want dx dy dz [copies >= 2] (the step between copies)");
+                }
+                Some(Tile { step: [v[0], v[1], v[2]], copies: v.get(3).copied().unwrap_or(3) as u32 })
+            }
+            None => None,
+        };
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile };
         c.check_ports()?;
         Ok(c)
     }
@@ -377,7 +397,9 @@ impl Circuit {
             None => match k {
                 Kind::FlyingMachine => {}
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
-                    if names.len() > 1 || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
+                    // a tiled run ([`shulker::tiled`]) has one lever per copy
+                    let most = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()).unwrap_or(1);
+                    if names.len() > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
                         bail!("{}: at most one input, a lever the judge turns on once (`port input: x y z lever`); none = always on", k.name());
                     }
                 }
@@ -417,6 +439,9 @@ impl Circuit {
                     bail!("{}: needs `port output: x y z`", k.name());
                 }
             }
+        }
+        if self.tile.is_some() && !k.is_shulker() {
+            bail!("tile: only shulker loaders and unloaders are tiled");
         }
         Ok(())
     }
@@ -587,6 +612,10 @@ impl Circuit {
         if let Some(t) = self.travel {
             let r = clock::rotate_pos(t, turns);
             d.meta.insert("travel".into(), format!("{} {} {}", r[0], r[1], r[2]));
+        }
+        if let Some(t) = self.tile {
+            let r = clock::rotate_pos(t.step, turns);
+            d.meta.insert("tile".into(), format!("{} {} {} {}", r[0], r[1], r[2], t.copies));
         }
         Circuit::from_design(d)
     }
