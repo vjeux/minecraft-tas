@@ -135,6 +135,14 @@ pub struct World {
     /// Primed TNT become entities (`entity::primed_tnt`) with this value in place of the game's
     /// random `nextDouble()` for their kick; `None`: primes are records only (the judge's screen).
     pub tnt_kick: Option<f64>,
+    // ---- shulker study (clk-rt) ----
+    /// Shulker box items' contents (`Stack::payload` - 1 indexes it): 27 slots each.
+    pub payloads: Vec<Vec<Option<crate::redstone::container::Stack>>>,
+    /// The sandbox seed the bridge draws piston-broken drops from (`rng::Drop`): with one, a
+    /// destroyed shulker box drops as an item entity (`drop_count` numbers them); without, its
+    /// drop is only recorded in `drops`.
+    pub drop_seed: Option<i64>,
+    pub drop_count: u64,
 }
 
 impl World {
@@ -170,6 +178,9 @@ impl World {
             primed: Vec::new(),
             remove_primed: false,
             tnt_kick: None,
+            payloads: Vec::new(),
+            drop_seed: None,
+            drop_count: 0,
         }
     }
 
@@ -301,6 +312,8 @@ impl World {
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
             Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox => crate::redstone::container::remove(self, pos),
+            // ---- shulker study (clk-rt) ----
+            Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
@@ -313,6 +326,8 @@ impl World {
                 self.comparator_out.entry(pos).or_insert(0);
             }
             Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
+            // ---- shulker study (clk-rt) ----
+            Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),
             Kind::Jukebox => {
                 crate::redstone::container::create(self, pos, &state);
