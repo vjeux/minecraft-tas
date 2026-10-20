@@ -109,6 +109,7 @@ button { font: inherit; }
   display: inline-block; border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 6px 14px; border-radius: 8px; cursor: pointer;
 }
 .button:hover { text-decoration: none; filter: brightness(1.08); }
+.button.alt { background: var(--card); color: var(--accent); }
 .summary { color: var(--muted); margin: 0 0 12px; font-size: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .summary strong { color: var(--fg); }
 .summary select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; }
