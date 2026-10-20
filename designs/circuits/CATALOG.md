@@ -6,8 +6,8 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 |---|---|---|---|
 | [Pulse circuits](pulse/CATALOG.md) | 30 | 29 | 1 |
 | [T flip-flops](tff/CATALOG.md) | 5 | 5 | 0 |
-| [Delay lines](delay/CATALOG.md) | 11 | 10 | 1 |
-| [Logic gates](gates/CATALOG.md) | 12 | 11 | 1 |
+| [Delay lines](delay/CATALOG.md) | 16 | 15 | 1 |
+| [Logic gates](gates/CATALOG.md) | 13 | 12 | 1 |
 | [Memory](memory/CATALOG.md) | 4 | 3 | 1 |
 | [Piston extenders](pext/CATALOG.md) | 15 | 13 | 2 |
 | [Flying machines](fly/CATALOG.md) | 27 | 26 | 1 |
