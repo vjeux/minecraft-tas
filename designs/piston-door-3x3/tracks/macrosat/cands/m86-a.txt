@@ -1,0 +1,31 @@
+name: macrosat-m86-a
+# 8x6 (48) FULL-frame flat mechanism found by `door macrosat sweep --feed --lever` (box x -3..4, y -1..4, 6 parallel
+# steps per edge, island start on), exported with ideal inputs: WORKS in redsim (32 positions x 2 cycles) and in the real
+# game (`door ideal`, 4 positions x 2 cycles): open 56 / close 54 ticks. Wiring cells the model reserved (air here):
+# (-2,-1) (4,1) (-3,3) (-3,4) (-1,4) (0,4) (3,4); the lever on the block at (2,4) (its top face: it also QC-feeds the
+# top-row pistons (1,4) and (3,4)'s neighbours). Every firing has a feed (direct, QC, or a conductor powered from a wiring
+# cell) from a wiring region that has started (the lever, or a change next to it in an earlier step): per-firing feed
+# cells in m86-a.macrosat.txt. Pistons extended at rest hold a redstone block at z = 1 (their rest power).
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:piston[extended=false,facing=west]
+  B minecraft:stone
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:obsidian
+  H minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A.BBBBCD
+layer 0:
+  EE.BBB.F
+layer 1:
+  E.EBBB..
+layer 2:
+  GE.BBB.F
+layer 3:
+  .EB...HF
+layer 4:
+  .G..HH.G
