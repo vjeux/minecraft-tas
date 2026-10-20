@@ -80,6 +80,10 @@ pub enum Cmd {
         long: u32,
         #[arg(long, default_value_t = 160)]
         jobs: usize,
+        /// Stone under every placed dust, diode and standing torch (counted): search one layer
+        /// of components with `--box Ax1xC` placed at y=1.
+        #[arg(long)]
+        auto_floor: bool,
         #[arg(long)]
         out: PathBuf,
         /// A skeleton circuit (its blocks fixed, its `port input:` the input, its `port output:`
@@ -305,7 +309,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
                 println!("{}: {} blocks, family {}: {}; {verdict}", d.display(), c.blocks(), c.family(), m.summary());
             }
         }
-        Cmd::Census { dims, input, k, palette, len, period, count, long, jobs, out, skeleton, free: free_box } => {
+        Cmd::Census { dims, input, k, palette, len, period, count, long, jobs, auto_floor, out, skeleton, free: free_box } => {
             let d: Vec<i32> = dims.split('x').map(|t| t.parse::<i32>()).collect::<Result<_, _>>().context("--box AxBxC")?;
             if d.len() != 3 {
                 bail!("--box AxBxC");
@@ -371,7 +375,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
             let mut all: std::collections::BTreeMap<String, (redsim::BlockPos, crate::census::Found)> = std::collections::BTreeMap::new();
             for inp in &inputs {
                 eprintln!("input {},{},{}: {} free cells, {} palette states, k {k_min}..={k_max}", inp.x, inp.y, inp.z, free.len(), pal.len());
-                let c = crate::census::Census { inputs: vec![*inp], fixed: fixed.clone(), fixed_be: fixed_be.clone(), free: free.clone(), palette: pal.clone(), palette_be: pal_be.clone(), k_min, k_max, outputs: fixed_out.clone(), jobs, margin: 3 };
+                let c = crate::census::Census { inputs: vec![*inp], fixed: fixed.clone(), fixed_be: fixed_be.clone(), free: free.clone(), palette: pal.clone(), palette_be: pal_be.clone(), k_min, k_max, outputs: fixed_out.clone(), jobs, margin: 3, auto_floor };
                 for f in c.run(&spec, true) {
                     all.entry(f.key.clone()).or_insert((*inp, f));
                 }
