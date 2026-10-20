@@ -76,13 +76,17 @@ pub struct MechmutArgs {
     /// With --max-actions: at most this many actions per edge beyond one per piston.
     #[arg(long)]
     extra_actions: Option<usize>,
+    /// Incomparable action vectors kept per state in the constrained search (see families).
+    #[arg(long, default_value_t = 64)]
+    pareto: usize,
     /// Reject variants with more unfed receivers than this (after the lever allowance).
     #[arg(long)]
     max_unfed: Option<usize>,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, max_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed } = args;
+    crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::REDSTONE.store(add_redstone, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
