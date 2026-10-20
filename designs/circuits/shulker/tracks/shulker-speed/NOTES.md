@@ -83,6 +83,13 @@ dropper75 plus an east-side hourglass: Tc (500 stone) over Hd, which drains into
 - Routing: c via a cart (rail on hopper h1 (0,1,2) facing N into Y2, plus h2 (-1,1,2) going down to (-1,0,2) -> (-1,0,1) -> (-1,0,0) -> Y). a via G (0,2,1) facing DOWN into Y2. b via (1,2,1) facing down -> (1,1,1) facing W into Y2.
 - Firing both droppers with one clock: pulse the box itself every 4 gt (while 0<L<15). A strongly powered closed box powers every dropper next to it, and Y also by QC. Sources: the drop-cell wall stone (2,1,0) and a block at (1,1,-1), both next to the dot dust on K. Each is strongly powered by an observer, in opposite phases of the gate clock. Do not point a diode or observer into the dot dust: it stops being a dot.
 
+- Geometry findings for (a), worked out on paper:
+  - Supply has to come from the south (chests at z=1..2). The bottom dropper Y1 can only be fed from W and S, and its S feeder sits under (0,1,1). The piston, drop cell and read stone block every hopper route to Y1's N face.
+  - A second dropper at (0,1,1) can't get two clock phases. The clock is at y=-2. The only blocks next to both droppers are (0,0,1) and X, and X needs a pulse at the drop cell, far from the clock. Bringing two clock phases up 3 levels costs ~15 blocks.
+  - Cleanest re-layout: the dispenser on the SOUTH face (facing north) and the second dropper ON TOP of X (facing down). The top dropper has 5 free faces, enough for 2 feeders plus 2 phase observers, right under the item chests.
+  - Its own clock then goes up top, and the bottom dropper keeps O1/O2.
+  - The dispenser's always-on firing (the stone-cell observer O, the A-level observer) and the one-shot have to be re-routed to the south.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
