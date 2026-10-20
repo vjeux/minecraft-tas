@@ -12,7 +12,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 2 | 3 | [counter2-bulb](archive/counter2-bulb.txt) | N 2, output level every 2 pulses |
+| 2 | 3 | [counter2-bulb](archive/counter2-bulb.txt) | N 2, output level every 2 pulses, tileable every 2 (0 2 0) |
 | 2 | 6 | [counter2-bulb2](archive/counter2-bulb2.txt) | N 2, output toggles every 2 pulses |
 | 4 | 6 | [counter4-bulb2](archive/counter4-bulb2.txt) | N 4, output level every 4 pulses |
 | 8 | 9 | [counter8-bulb3](archive/counter8-bulb3.txt) | N 8, output level every 8 pulses |
@@ -103,7 +103,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
 | [d-latch-repeater](archive/d-latch-repeater.txt) | d-latch | latency 4 gt, enable low | 4 | 1x2x2 | robust | Repeater-lock D latch, 4 blocks (track memory census): the data input feeds repeater M (on stone) whose output is q; the enable input feeds a second repeater L pointing into M's side. While L is on M is locked and holds q; while it is off M follows d. Transparent while e is OFF (`enable low`), latency 4 gt. |
-| [d-latch-high](archive/d-latch-high.txt) | d-latch | latency 4 gt, enable high | 5 | 1x2x3 | robust | D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt. |
+| [d-latch-high](archive/d-latch-high.txt) | d-latch | latency 4 gt, enable high, tileable every 2 (0 2 0) | 5 | 1x2x3 | robust | D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt. A stack of them tiles with NO gap (`tile: 0 2 0`): a register column costs 5 blocks per bit. |
 
 ## dff
 
@@ -121,7 +121,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [rs-dropper](archive/rs-dropper.txt) | rs-latch | latency 6 gt | 4 | 2x2x2 | robust | Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). |
+| [rs-dropper](archive/rs-dropper.txt) | rs-latch | latency 6 gt, tileable every 2 (0 2 0) | 4 | 2x2x2 | robust | Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). A stack of them tiles with NO gap (`tile: 0 2 0`): a column of latches costs 4 blocks per bit. |
 | [rs-loop](archive/rs-loop.txt) | rs-latch | latency 4 gt | 12 | 3x2x2 | robust | Repeater-loop RS latch, redstone only, 12 blocks (track memory): a repeater and a comparator joined by four dust into a ring hold a signal once s (a redstone block next to the ring) starts it; r, at the comparator's side, outruns its rear input and cuts the ring, which then stays dark. q is the dust after the repeater. Latency 2-4 gt. |
 
 ## tff-reset

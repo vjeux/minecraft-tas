@@ -1,6 +1,7 @@
-# Counter 2, one copper bulb, 3 blocks (track memory): the copper bulb T flip-flop seen as a counter: the input toggles the bulb, its comparator's level alternates every pulse (level style, period 2).
+# Counter 2, one copper bulb, 3 blocks (track memory): the copper bulb T flip-flop seen as a counter: the input toggles the bulb, its comparator's level alternates every pulse (level style, period 2). The same build is tff-bulb, judged as a T flip-flop. A stack of them tiles with NO gap (`tile: 0 2 0`): a counter column costs 3 blocks per stage.
 name: counter2-bulb
 circuit: counter 2
+tile: 0 2 0
 group: bulb-chain
 group title: Copper bulb chain (counter 2^K)
 group note: K copper bulb T flip-flops in a line, each read by a comparator that toggles the next bulb: 3K blocks

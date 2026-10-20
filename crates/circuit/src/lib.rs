@@ -521,11 +521,19 @@ impl Circuit {
             bail!("{}: target ports are for the bud kind", k.name());
         }
         let names: Vec<&str> = self.inputs.iter().map(|i| i.name.as_str()).collect();
+        // a tiled run ([`tiled`]): copy k's ports are renamed `<name>.t<k>`, so the kind's port
+        // check runs on copy 0's names (`<name>` and `<name>.t<k>`, `copies` of each)
+        let copies = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok());
+        let base: Vec<&str> = match copies {
+            Some(_) => names.iter().filter(|n| !n.contains(".t")).copied().collect(),
+            None => names.clone(),
+        };
         match k.inputs_needed() {
             Some(need) => {
                 let mut want: Vec<&str> = need.to_vec();
                 want.sort();
-                if names != want {
+                let ok = base == want && copies.is_none_or(|c| names.len() == want.len() * c);
+                if !ok {
                     bail!("{}: needs inputs {} (port input.<name>), has {:?}", k.name(), want.join(", "), names);
                 }
             }
@@ -544,8 +552,8 @@ impl Circuit {
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
-                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
-                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                // a tiled run ([`tiled`]) of a tileable design: one input per copy
+                _ if matches!(k.study(), "pulsemult" | "tff" | "memory") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -582,8 +590,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
-            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "tff" | "memory") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, the study-11 kinds and the sequential kinds (tff, memory) are tiled");
         }
         Ok(())
     }

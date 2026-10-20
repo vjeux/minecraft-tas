@@ -250,7 +250,18 @@ pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Tra
         let levels: Option<Vec<Vec<u8>>> = c.outputs.iter().map(|o| tc.outputs.iter().position(|x| copy_of(&x.name, "out") == (o.name.clone(), k)).and_then(|j| t.levels.get(j).cloned())).collect();
         let (Some(inputs), Some(levels)) = (inputs, levels) else { return fail(format!("tile: copy {k}'s ports are not in the tiled run"), Vec::new()) };
         let tk = Trace { inputs, levels, names: t.names.clone(), cells: t.cells.clone(), ..Default::default() };
-        let out = check(c, kind, &shifted(s, shift * k), &tk);
+        // the kind's own check: study 11's here, every other kind's in crate::check. Outside
+        // study 11 the check reads cells (`update_less` looks at the output's lamp), so it gets
+        // the copy's own circuit: `c` translated onto copy k.
+        let out = if matches!(kind.study(), "pulsemult") {
+            check(c, kind, &shifted(s, shift * k), &tk)
+        } else {
+            let step = [tile.step[0] * k as i32, tile.step[1] * k as i32, tile.step[2] * k as i32];
+            match c.translated(step) {
+                Ok(ck) => crate::check::check(&ck, kind, &shifted(s, shift * k), &tk),
+                Err(e) => return fail(format!("tile: copy {k}: {e}"), Vec::new()),
+            }
+        };
         if !out.pass {
             return fail(format!("tile {} {} {} (copies driven {phase}): copy {k} of {}: {}", tile.step[0], tile.step[1], tile.step[2], tile.copies, out.why), out.table);
         }
