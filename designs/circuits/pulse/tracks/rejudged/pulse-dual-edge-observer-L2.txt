@@ -1,0 +1,11 @@
+# rejudged (2026-10-20T16:40Z, mctas circuit archive --rejudge): FAIL: pulse-dual-edge-observer-L2 dual-edge: the longest input pulse (40 gt) gives 0 output pulse(s): want one per edge
+name: pulse-dual-edge-observer-L2
+circuit: dual-edge
+tile: 0 1 0
+port input: 0 0 0
+port output: 1 0 0
+origin: 1 0 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  O

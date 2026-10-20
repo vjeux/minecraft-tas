@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:47Z from designs/circuits/tracks/pulse/k4/pulse-dual-two-observers-L3.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-two-observers-L3 dual-edge L 3 gt, delay 2 gt, min-pulse 4 gt, 4 blocks, 2x2x3, robust
+# CIRCUIT: pulse-dual-two-observers-L3 dual-edge L 2 gt, delay 2 gt, min-pulse 4 gt, 4 blocks, 2x2x3, rotation-dependent
 name: pulse-dual-two-observers-L3
 # A 3 gt pulse on both edges (4-block census): one observer watches the input cell, the other watches a sticky piston the input moves; the piston's block event runs in the tick after the input changes, so the two observers fire 1 gt apart on each edge, and their two 2 gt pulses (one through a lamp the first observer powers, one from the second observer's back) overlap into one 3 gt pulse at the output.
 circuit: dual-edge
