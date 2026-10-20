@@ -14,6 +14,9 @@ use redsim::Block;
 pub struct Look {
     /// The orange glass marker's cell (next to the output: [`marker_cell`]).
     pub marker: Option<Pos>,
+    /// The marker glows while the output is on (the live viewer; still pictures keep the
+    /// real-game pictures' plain orange glass).
+    pub lit_marker: bool,
     /// Lime outlines (clickable inputs).
     pub outlines: Vec<Pos>,
     /// The ground's top (None: no ground).
@@ -74,7 +77,7 @@ pub fn default_look(s: &Session) -> Look {
         }
     }
     let (lo, _) = s.path_box();
-    Look { marker, outlines, ground: Some(lo[1] as f32) }
+    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32) }
 }
 
 /// The frame of a session at `partial` (0..1) after its current tick.
@@ -94,7 +97,7 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         }
     }
     if let Some(m) = look.marker {
-        b.marker(m, true, [255, 255, 255], s.output_on().unwrap_or(false));
+        b.marker(m, true, [255, 255, 255], look.lit_marker && s.output_on().unwrap_or(false));
     }
     for o in &look.outlines {
         b.marker(*o, false, [110, 230, 40], false);

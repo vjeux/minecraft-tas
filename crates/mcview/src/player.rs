@@ -35,7 +35,8 @@ impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
         let mut session = Session::new(text, &Options::default())?;
         session.find_auto_output(20_000);
-        let look = scene::default_look(&session);
+        let mut look = scene::default_look(&session);
+        look.lit_marker = true;
         let camera = scene::default_camera(&session, &look, aspect);
         let mut p = Player { session, look, home: camera, camera, playing: false, tps: 20.0, acc: 0.0, partial: 0.0, mesh: None, mesh_key: (u32::MAX, 0), dirty: true, hold: 0.0, follow: None };
         p.follow_machine();

@@ -170,6 +170,22 @@ pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u3
     Ok((grid, gw, gh))
 }
 
+/// Decode a PNG or a JPEG to RGBA8.
+pub fn decode_image(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+    if bytes.starts_with(&[0xff, 0xd8]) {
+        let mut dec = jpeg_decoder::Decoder::new(bytes);
+        let px = dec.decode().map_err(|e| format!("jpeg: {e}"))?;
+        let info = dec.info().ok_or("jpeg: no info")?;
+        let rgba: Vec<u8> = match info.pixel_format {
+            jpeg_decoder::PixelFormat::RGB24 => px.chunks(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
+            jpeg_decoder::PixelFormat::L8 => px.iter().flat_map(|v| [*v, *v, *v, 255]).collect(),
+            f => return Err(format!("jpeg: unsupported pixel format {f:?}")),
+        };
+        return Ok((rgba, info.width as u32, info.height as u32));
+    }
+    decode_png(bytes)
+}
+
 /// Decode a PNG to RGBA8 (any color type, 8-bit).
 pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));

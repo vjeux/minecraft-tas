@@ -149,6 +149,10 @@ pub enum WebCmd {
         k: usize,
         #[arg(long)]
         tint: Option<String>,
+        /// Only this rectangle `x,y,w,h` of each image (PNG or JPEG: a region of a real-game
+        /// picture); default: the first 16x16 (a texture's first frame).
+        #[arg(long)]
+        crop: Option<String>,
     },
     /// LOCAL REFERENCE ONLY (never commit or ship the output: Mojang's assets): the game's block
     /// textures from the client jar of `--version` (downloaded once into the version's cache
@@ -199,7 +203,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             println!("{} tiles in {}", names.len(), out.display());
             Ok(())
         }
-        WebCmd::Palette { pngs, k, tint } => {
+        WebCmd::Palette { pngs, k, tint, crop } => {
             let tint = match tint {
                 Some(h) => {
                     let v = u32::from_str_radix(h.trim_start_matches('#'), 16)?;
@@ -207,11 +211,21 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 }
                 None => None,
             };
+            let crop: Option<Vec<u32>> = crop.map(|c| c.split(',').filter_map(|w| w.trim().parse().ok()).collect());
             for p in &pngs {
-                let (px, w, h) = mcview::tools::decode_png(&std::fs::read(p)?).map_err(anyhow::Error::msg)?;
-                // the first 16x16 frame (animated textures are vertical strips)
-                let n = (w.min(16) * h.min(16)) as usize * 4;
-                let (mean, pal) = mcview::tools::palette(&px[..n.min(px.len())], k, tint);
+                let (px, w, h) = mcview::tools::decode_image(&std::fs::read(p)?).map_err(anyhow::Error::msg)?;
+                let (x0, y0, cw, ch) = match crop.as_deref() {
+                    Some([x, y, cw, ch]) => (*x, *y, *cw, *ch),
+                    _ => (0, 0, w.min(16), h.min(16)),
+                };
+                let mut sel = Vec::new();
+                for y in y0..(y0 + ch).min(h) {
+                    for x in x0..(x0 + cw).min(w) {
+                        let o = ((y * w + x) * 4) as usize;
+                        sel.extend_from_slice(&px[o..o + 4]);
+                    }
+                }
+                let (mean, pal) = mcview::tools::palette(&sel, k, tint);
                 let hex = |c: [u8; 3]| format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
                 let parts: Vec<String> = pal.iter().map(|(c, f)| format!("{} {:.0}%", hex(*c), f * 100.0)).collect();
                 println!("{:<32} mean {}  {}", p.file_stem().unwrap_or_default().to_string_lossy(), hex(mean), parts.join("  "));
