@@ -150,6 +150,10 @@ pub enum ClockCmd {
         /// Apply results files to the archive (designs, rows, the hidden column) and print counts.
         #[arg(long, num_args = 1..)]
         apply: Vec<PathBuf>,
+        /// The chunk-reload pass instead: each clock still shown is judged in the game with a chunk
+        /// reload mid-run (`clock verify --reload`); one that does not survive it is hidden.
+        #[arg(long)]
+        reload_pass: bool,
         #[arg(long, default_value_t = 4)]
         positions: usize,
         #[arg(long, default_value_t = 4000)]
@@ -524,7 +528,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
         }
-        ClockCmd::Retap { files, dir, write, shard, results, apply, positions, horizon, margin, workers } => {
+        ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers } => {
             if !apply.is_empty() {
                 let res = clock::gaps::read_results(&apply)?;
                 let a = clock::gaps::apply(&dir, &res)?;
@@ -546,8 +550,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 None => None,
             };
             let (mut moved, mut refused, mut notap, mut hidden) = (0, 0, 0, 0);
+            let shown: std::collections::BTreeSet<String> = if reload_pass { clock::catalog::read_rows(&dir)?.into_iter().filter(|r| r.shown()).map(|r| r.file).collect() } else { Default::default() };
             for f in &files {
-                let r = clock::gaps::retap(&pool, &o, &dir, f, write && out.is_none());
+                let r = if reload_pass {
+                    if !shown.contains(f) {
+                        continue;
+                    }
+                    clock::gaps::reload_check(&pool, &o, &dir, f)
+                } else {
+                    clock::gaps::retap(&pool, &o, &dir, f, write && out.is_none())
+                };
                 if let (Some(w), Ok(r)) = (out.as_mut(), r.as_ref()) {
                     use std::io::Write as _;
                     writeln!(w, "{}", r.result_line(f))?;

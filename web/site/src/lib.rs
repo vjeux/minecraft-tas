@@ -499,8 +499,8 @@ fn draw_dynamic() {
             .collect();
         let groups_title = match q.kind.as_str() {
             "door" => "Category",
-            "clock" => "Clock family (the blocks that change state)",
-            "circuit" => "Circuit kind",
+            "clock" => "Made of (the blocks that change state)",
+            "circuit" => "What it does",
             _ => "Category or family",
         };
         let time_msg: Option<(String, bool)> = if !a.error.is_empty() {
@@ -545,9 +545,9 @@ fn draw_dynamic() {
             format!("<span class=\"error\">The search did not parse: {}</span>", esc(&a.error))
         };
         let placeholder = match q.kind.as_str() {
-            "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
+            "clock" => "Search: 48 ticks, 2.5 s…",
             "door" => "Search doors",
-            "circuit" => "Search: toggle, piston extender, timer, or a number like 12",
+            "circuit" => "Search: toggle, timer, 12…",
             _ => "Search every build",
         };
         (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)
