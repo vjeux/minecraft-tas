@@ -117,6 +117,9 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   sticky piston pulls back above it, so the front piston needs no starter. Archived
   pext-n3-flat-cascade16 (28/34 gt); 17 and 18 removed (dominated). From 16 nothing smaller (remove
   3 or 4, grow 2).
+* `--free-lever --repeat` on the rest of the flat family: N=4 26 -> 23 (35/47 gt), N=5 33 -> 31, N=6
+  39 -> 38, N=7 48 -> 46, N=8 54 -> 53, N=9 61 -> 59 (remove 2, grow 1 is enough for N >= 6 and runs
+  in seconds); N=10..12 nothing with remove 2. Each record archived, the old one removed.
 * Dead ends (redsim traces): a staircase of riders and a single frame carrying both stage pistons
   (`frame3`) fail on simultaneous triggers: one push moves every carried observer, they all fire 2 gt
   later, the block event order lets one piston act and the other fail, and an observer moved while
