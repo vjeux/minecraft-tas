@@ -39,8 +39,13 @@ What the study holds now: the repeater line (2 blocks per started 8 gt, every ev
 - A repeater line is N = 2 x the sum of its delays, 2 blocks per repeater: blocks = 2 x ceil(N / 8).
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
 
-## Settled facts (do not re-derive)
+### Odd N on a hopper stage: tried, and why it does not transfer (2026-10-20)
+
+Study 1's hopper item timer gives odd LENGTHS (L = 8n - 1) because it measures how long items keep flowing: the length is the item count times the 8 gt cooldown, less the gt the comparator sees the last transfer. A DELAY is a different demand — both edges must shift by the SAME fixed N — and the hopper's cooldown is free-running relative to the input: when the lock releases, the next transfer lands anywhere in the remaining 0..7 gt of the current cooldown, so the shift is not a constant. Judged: the L7 timer used directly as a delay fails with "only the 1 longest pulse(s) come out shifted", i.e. it limits rather than delays.
+So an odd-N delay needs a block-entity event whose phase is SET by the input rather than free-running: a dropper fired by the edge (its scheduled tick is 4 gt, even, but the item's arrival in a hopper below is a block-entity event in the same tick), a 0-tick piston retraction, or an observer watching a block a piston moves. Those are the untried candidates; the hopper-lock route is closed for this kind.
 
 - Every REDSTONE component moves an edge by an even number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2). That is not the whole game: BLOCK-ENTITY timings give odd lengths (a hopper moves an item every 8 gt and its comparator reads the transfer a gt before the cooldown ends: study 1 L = 8n - 1, robust under R7), and so may a dropper tick, a 0-tick retraction, a moving block arrival, or a comparator reading a container mid-tick.
 - A repeater line is N = 2 x the sum of its delays, 2 blocks per repeater: blocks = 2 x ceil(N / 8).
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
+
+## Settled facts (do not re-derive)
