@@ -38,6 +38,8 @@ struct App {
     all_groups: bool,
     /// How many of the hits name what the search's words name (the rest only mention them).
     named: usize,
+    /// What each tab's cards hold with no filter (Site::holds): the tab counts then.
+    holds: [usize; 3],
 }
 
 thread_local! {
@@ -110,7 +112,8 @@ async fn load() -> Result<(), JsValue> {
             }
         }
     }
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, all_groups: false, named: 0 }));
+    let holds = site.holds();
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, all_groups: false, named: 0, holds }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -500,8 +503,12 @@ fn draw_dynamic() {
     let Some(parts) = with_app(|a| {
         let q = &a.q;
         let f = &a.facets;
-        // the header's tabs: the active kind and each kind's count under the other filters
-        let tabs: Vec<(String, bool, usize)> = ["door", "clock", "circuit"].iter().map(|k| (k.to_string(), q.kind == *k, f.kinds.get(*k).copied().unwrap_or(0))).collect();
+        // the header's tabs: the active kind and each kind's count under the other filters; with
+        // no filter, what each tab's cards hold (11 door records, 172 clock periods, 39 circuit
+        // kinds: critique, "Doors 1 · Clocks 1" read as one door and one clock)
+        let r0 = |r: &site_model::Range| r.min.is_none() && r.max.is_none();
+        let plain = q.text.trim().is_empty() && q.time.trim().is_empty() && q.value.trim().is_empty() && q.groups.is_empty() && q.kinds_in.is_empty() && q.kinds_out.is_empty() && q.flags_in.is_empty() && q.flags_out.is_empty() && r0(&q.blocks) && r0(&q.volume) && r0(&q.period) && r0(&q.open) && r0(&q.close);
+        let tabs: Vec<(String, bool, usize)> = ["door", "clock", "circuit"].iter().enumerate().map(|(i, k)| (k.to_string(), q.kind == *k, if plain { a.holds[i] } else { f.kinds.get(*k).copied().unwrap_or(0) })).collect();
         // groups: the selected first, then by count
         let mut groups: Vec<(&String, usize)> = f.groups.iter().map(|(k, v)| (k, *v)).collect();
         for g in &q.groups {
@@ -523,8 +530,11 @@ fn draw_dynamic() {
             }
         };
         let limit = if a.all_groups { usize::MAX } else { 10 };
-        let mut groups_html: String = groups.iter().enumerate().filter(|(k, (g, _))| *k < limit || q.groups.contains(*g)).map(|(_, (g, n))| chip("group", g, &label(g), *n, if q.groups.contains(*g) { "in" } else { "" })).collect();
-        if groups.len() > 10 {
+        // (every category one card: the facet says nothing, it goes; critique, "show all 31"
+        // categories of one card each)
+        let useful = groups.iter().any(|(_, n)| *n > 1) || !q.groups.is_empty();
+        let mut groups_html: String = if useful { groups.iter().enumerate().filter(|(k, (g, _))| *k < limit || q.groups.contains(*g)).map(|(_, (g, n))| chip("group", g, &label(g), *n, if q.groups.contains(*g) { "in" } else { "" })).collect() } else { String::new() };
+        if useful && groups.len() > 10 {
             groups_html.push_str(&format!("<button type=\"button\" class=\"chip more\" data-act=\"groups-all\" data-val=\"\">{}</button>", if a.all_groups { "show fewer".to_string() } else { format!("show all {}", groups.len()) }));
         }
         let kf = a.kind_filter.trim().to_lowercase();
@@ -548,6 +558,7 @@ fn draw_dynamic() {
             })
             .collect();
         let groups_title = match q.kind.as_str() {
+            _ if !useful => "",
             "door" => "Category",
             "clock" => "Made of (the blocks that change state)",
             "circuit" => "What it does",

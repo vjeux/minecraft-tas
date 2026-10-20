@@ -141,6 +141,14 @@ pub struct Door {
     /// The design it is a fill variant of (repository path).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub fill_of: String,
+    /// The one door card (vjeux 21:47Z): how many board records its page's table holds (0 on
+    /// every other door).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub records: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -157,8 +165,9 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
-    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table covers
-    /// (`1 to 5118 ticks, 646 periods`); empty on every other clock.
+    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
+    /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
+    /// other clock.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kind_range: String,
     pub warmup: u32,
@@ -232,6 +241,10 @@ pub struct Circuit {
     /// fastest, then smallest): its card leads with it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lead: String,
+    /// Why this design is the one on the site (vjeux 21:47Z: one per kind; critique: "cards don't
+    /// say why they're the best"): `smallest of 14 tested`, `tiles side by side, 1 block wide`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub claim: String,
     /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
     /// rising-edge detector): its card says it is also one of those.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -362,6 +375,10 @@ pub struct Circuit {
     /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extend_range: Option<(i64, i64, i64)>,
+    /// A port above or below the design's own layers: its input or output stacks over it in use
+    /// (no "lies flat" chip then).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ports_off_layers: bool,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]
@@ -1051,6 +1068,16 @@ impl Site {
                 })
             }
         }
+    }
+
+    /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
+    /// read as one door and one clock): the door records, the tested clock periods, the circuit
+    /// kinds (the shown circuit cards).
+    pub fn holds(&self) -> [usize; 3] {
+        let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
+        let periods = self.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "generator")).count();
+        let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
+        [doors, periods, kinds]
     }
 
     /// Run the query: the hits in display order and the facet counts. With a time search, the

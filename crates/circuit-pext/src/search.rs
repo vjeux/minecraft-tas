@@ -61,6 +61,9 @@ pub struct GrowOptions {
     /// Only cells face-adjacent (Manhattan distance <= near) to a base block other than the
     /// input, when set.
     pub near: Option<i32>,
+    /// Only cells within this Manhattan distance of one of these cells, when set (`pext lns
+    /// --local`: grow back near the removed blocks).
+    pub focus: Option<(Vec<Pos>, i32)>,
 }
 
 #[derive(Clone, Debug)]
@@ -153,6 +156,11 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
                     if !close {
                         continue;
                     }
+                }
+                if let Some((fs, fd)) = &o.focus
+                    && !fs.iter().any(|q| (q[0] - c[0]).abs() + (q[1] - c[1]).abs() + (q[2] - c[2]).abs() <= *fd)
+                {
+                    continue;
                 }
                 cells.push(c);
             }

@@ -120,7 +120,9 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
 * `--free-lever --repeat` on the rest of the flat family: N=4 26 -> 23 (35/47 gt), N=5 33 -> 31, N=6
   39 -> 38 -> 37 (59/75 gt; the last step needs remove 3, grow 2), N=7 48 -> 46, N=8 54 -> 53, N=9
   61 -> 59 (remove 2, grow 1 runs in seconds); N=10..12 nothing with remove 2. Each record archived,
-  the old one removed.
+  the old one removed. N=7 from 46 with remove 3, grow 2: nothing smaller (109 min).
+* `--local d` grows back only within d of the removed cells: from 18 (N=3) it finds the same 46
+  designs of 17 in 32 s instead of 261 s; the deep passes on N=8..12 use it.
 * Dead ends (redsim traces): a staircase of riders and a single frame carrying both stage pistons
   (`frame3`) fail on simultaneous triggers: one push moves every carried observer, they all fire 2 gt
   later, the block event order lets one piston act and the other fail, and an observer moved while
