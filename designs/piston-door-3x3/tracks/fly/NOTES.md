@@ -146,6 +146,28 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Every one of these gaps has a structural cause. The hand-design space of this family looks
     exhausted for 6x9; the next step is a search with island/feed checks inside the mechanism
     search, not after it.
+* New elements (21:10Z), not yet used in a design:
+  - SELF-INVERSE TOGGLE ELEVATOR: a puller Q (sticky, retracted) and a lifter L under/over it,
+    every input a 2 gt pulse. The train L, Q, L, Q moves a block 2 cells on open, and the SAME
+    train undoes it on close (checked by hand). A top elevator for C, P_T (1,4) + M (1,5), with
+    Pl and a pull-type Qv (1,-2), gives the centre train P_T, Pl, M, P_T, M, P_T, Qv, which opens
+    the centre (TM to (0,3) via the slime, C to (1,3), BM to (1,-1)) AND closes it when replayed
+    in the same order. A single train for both edges is exactly what observer dominoes / `door
+    interleave` need.
+  - J-SLIME: L = (-1,-2..2) + (0,-1), pushed by Pb (0,-2) facing west (6 slimes + 4 dragged).
+    The (0,-1) arm drags (1,-1)'s block into the bottom-left corner. It cannot also take the
+    (0,3) corner (13 blocks), so (0,3) becomes a 4th static and one door block must hide.
+  - BOTTOM-ROW SHIFTER: a slime arm at y=-2 under the bottom frame row ((0,-2),(1,-2), pushed
+    from (2,-2)) shifts the row west when L moves: (1,-1) to (0,-1), and (0,-1) to (-1,-1), which
+    hides a block there (7 slimes + 5 dragged = 12).
+  - Invariant obstacle in 6 wide: the box-edge column's middle block MR. Hiding it in the x=2
+    column conflicts with that column's pullers, so it always needs a corner slider (K at
+    (3,-1) or K' at (3,3)).
+* `door selffeed --anywhere` (tool, 49a191c8b5): carried-observer candidates (every free cell
+  and facing). On q69m: 0 of 11 inputs (its inputs are levels and multi-pulse; selffeed needs a
+  2 gt train). `door interleave --search 1M --levels --segments`: no train for q68f / q68g /
+  q69j / q69m (18-20 cells off). Next: toggle-form plans (every input a 2 gt pulse), designed so
+  that the open train replayed closes.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
