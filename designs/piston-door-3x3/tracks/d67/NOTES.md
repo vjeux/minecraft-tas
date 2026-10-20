@@ -142,3 +142,25 @@ firings needing different targets. Library: `piston_door::feeds::analyze` -> Fee
 - c70b's u0-7x7 (explore/c70b 1d105a221, u0-7x7-feeds.txt): no unfed firing, 7 weak ones on the box
   edges (SW(3,-1) x2, SE(-1,1), SD(-1,3) x3, SE(-1,-1)); conflict: the sealed (0,-2) is the only clean
   feed of both SU(1,-2) and SU(-1,-2) (and its 2 gt delay orders them wrongly).
+
+## Wiring u0-7x7 (u0/: u0-l2 .. u0-l6)
+- Islands: u0's (and u2's) 16 free cells are 5 regions with no electrical path between them (pistons do
+  not conduct; no block touches two regions): A2 {(-2,-2),(-2,-1)}, B4 {(-2,2),(-2,3),(-2,4),(-1,4)},
+  C1 {(0,-2)}, D5 {(2,4),(3,3),(3,4),(4,3),(4,4)}, E4 {(3,-2),(4,-2),(4,-1),(4,0)}. A region can only be
+  triggered by observing the pistons next to it, or by the lever if it touches it. D5 sees only SD(1,4)
+  and SW(4,2) ((3,2) only changes by SW(4,2)), which only D5 feeds; E4 sees SU(2,-2), SW(3,-1) (E4-fed)
+  and SW(4,1). With the lever at the top (B4 sees SD(0,4)), D5 and E4 never start: u0 as given has no
+  static wiring.
+- The lever: on SD(0,4)'s top (0,5) it powers SD(0,4) and QC-powers SD(1,4) (the lever touches (1,5)).
+  Anywhere else near SD(0,4) also powers SD(-1,3) (anything emitting into (-1,4) QC-powers it).
+  u0-l2: SD(1,4) extended at rest, held by the lever (its open reach-pull and close push happen at the
+  flip): WORKS redsim 32 x 2 (57/45). D5 now sees the lever through SD(1,4).
+- u0-l3: SW(4,1)/(4,2) work at any tick, both edges (64/64 early pairs at 32 positions).
+- u0-l4: D5 wired: observers (2,4)W (watching SD(1,4)) (3,4)W (4,4)W (4,3)U (into (4,2): SW(4,2)
+  directly, SW(4,1) by QC); an observer watching a 2 gt piston action gives one pulse (the later changes
+  fall inside its pending tick). One pulse per edge, SW(4,x) at ~t9. WORKS redsim 32 x 2, game 4 x 2.
+- E4 is next and does not fit u0's timing: it sees only SW(4,1) (the same on both edges) and has 3
+  spare cells (no memory), so SU(2,-2) and SW(3,-1) must act the same on both edges after SW(4,1);
+  u0-l5's windows: SU(2,-2) #1 open t1..10 (before SW(4,1)), #2 open >= 25, extra close pulse harmless
+  only at t25..26 (u0-l6); SW(3,-1) open t23..28, close t35..41 (disjoint). Needs a symmetric train
+  (pext's interleave) or a mechanism variant (c70b) with those constraints.
