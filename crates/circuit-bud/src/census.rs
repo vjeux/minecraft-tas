@@ -330,12 +330,18 @@ pub struct TraceArgs {
     /// The frames each event is given.
     #[arg(long, default_value_t = 30)]
     pub gap: u32,
+    /// The judge's whole stimulus (footprint probes and re-arm pairs too).
+    #[arg(long)]
+    pub full: bool,
+    /// Start the window at the first phase whose label starts with this (`rearm update 2`).
+    #[arg(long)]
+    pub phase: Option<String>,
 }
 
 /// Print a BUD design's run on redsim, frame by frame, in a window.
 pub fn trace(a: TraceArgs) -> Result<()> {
     let c = Circuit::load(&a.design)?;
-    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, false);
+    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, a.full);
     let actions = c.actions(&s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let (from, to) = circuit::run::watch_box(&c, 2);
@@ -343,7 +349,8 @@ pub fn trace(a: TraceArgs) -> Result<()> {
     if let Some((t, why)) = &run.stopped {
         println!("stopped at frame {t}: {why}");
     }
-    let start = a.from.unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
+    let by_phase = a.phase.as_ref().and_then(|p| s.phases.iter().find(|(_, _, l)| l.starts_with(p.as_str())).map(|ph| ph.0));
+    let start = a.from.or(by_phase).unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
     let end = (start + a.frames as usize).min(run.cells.len());
     let mut prev: BTreeMap<Pos, String> = run.cells.get(start.saturating_sub(1)).map(|f| f.iter().cloned().collect()).unwrap_or_default();
     for f in start..end {
