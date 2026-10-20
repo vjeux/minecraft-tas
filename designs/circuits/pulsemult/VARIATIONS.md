@@ -43,3 +43,15 @@ smallest (blocks, then box), fastest (latency, then span), flat (2 high), tileab
 as study 9's `tile`), a tunable family (N or L set by a repeater delay, a comparator mode or a
 line length: one card, study 1's tunable groups), slime-free. The best design of each variation is
 archived; a design bigger and no better on the variation's metric stays out.
+
+## Results
+
+Owners: burst, divider, pulse-train: fly (explore/pulsemult); monostable, off-delay, on-delay:
+clk-rt (explore/timer). Every line below is judged in the real game (16 builds) unless it says
+redsim.
+
+| kind / variation | status | design / measure |
+|---|---|---|
+| divider N, pulse output | COVERED by study 5: every archived `counter N` passes `divider N` on clocks (`mctas circuit pulsemult as --kind 'divider {n}' <counters>`, redsim, N = 3..48): ring counters give a pulse (duty 3..33%) and follow clocks down to 10 gt (12 gt for rings of 19+); bulb chains (N = 2^k) are square and follow 2 gt clocks; a ring + bulb counter that toggles every N (`-div`) is a square /2N, 10 gt | linked, not re-archived |
+| divider, odd N with a 50% duty | DONE: archive/pm-div3-square (13 blocks), pm-div5-square (16), pm-div7-square (23); any N with `mctas circuit pulsemult square-divider --n N` (redsim: 9, 11, 13 pass, 30 / 34 / 41 blocks). A ring + bulb counter toggles every N pulses; fed on BOTH input edges (an observer powering the input cell's stone) it toggles every N/2 input periods | min-period 20 gt: the ring's droppers take one action per edge, edges 10 gt apart |
+| divider, fastest for N not a power of 2 | open: rings stop at 10 gt clocks | redsim search running |

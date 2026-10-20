@@ -10,6 +10,7 @@ repository.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 circuit = { path = "../circuit" }
+circuit-memory = { path = "../circuit-memory" }
 clock = { path = "../clock" }
 mctas = { path = "../mctas" }
 redsim = { path = "../redsim" }

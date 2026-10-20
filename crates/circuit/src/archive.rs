@@ -168,6 +168,13 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         let has = |r: &Row, k: &str| r.summary.contains(k);
         return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
     }
+    // study 11: a burst that repeats faster or takes shorter inputs, a divider that follows a
+    // faster clock, a timer with a shorter latency or re-arm keeps its own card
+    let pm = ["burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train"];
+    if pm.iter().any(|k| b.kind.starts_with(k)) && pm.iter().any(|k| a.kind.starts_with(k)) {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("repeat ") || less("min-pulse ") || less("min-period ") || less("latency ") || less("re-arm ");
+    }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
     }
@@ -376,7 +383,8 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
         Kind::TntDuper => m("rate"),
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
-        Kind::Burst(n) | Kind::Divider(n) => format!("N = {n}"),
+        Kind::Burst(n) => format!("N = {n}"),
+        Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
         Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
         Kind::OffDelay => format!("L = {}", m("L")),
         Kind::OnDelay => format!("T = {}", m("T")),

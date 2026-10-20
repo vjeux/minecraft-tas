@@ -237,9 +237,85 @@ fn slug(kind: &Kind, metrics: &[(String, String)]) -> String {
     }
 }
 
+/// `circuit pulsemult square-divider`: study 5's ring of N + one bulb, fed on both input edges
+/// (see `Cmd::SquareDivider`); the first observer placement whose cells are free wins.
+pub fn square_divider(n: usize, max_dust: usize, out: &Path) -> Result<String> {
+    let rings = circuit_memory::ring::search(n, max_dust, 1, 1);
+    let Some(mut r) = rings.into_iter().next() else { bail!("no ring of {n} with at most {max_dust} dust") };
+    r.divider = true;
+    let name = format!("pm-div{n}-square");
+    let mut d = r.build(&name);
+    let input = d.ports.get("input").copied().unwrap_or([0, 0, 0]);
+    let near = |d: &Design, p: Pos, but: Pos| DIRS.iter().any(|s| {
+        let q = [p[0] + s[0], p[1] + s[1], p[2] + s[2]];
+        q != but && d.blocks.contains_key(&q)
+    });
+    let mut placed = false;
+    for s in DIRS {
+        let obs = [input[0] + s[0], input[1] + s[1], input[2] + s[2]];
+        let cell = [input[0] + 2 * s[0], input[1] + 2 * s[1], input[2] + 2 * s[2]];
+        if d.blocks.contains_key(&obs) || d.blocks.contains_key(&cell) || near(&d, cell, obs) || d.ports.values().any(|p| *p == obs || *p == cell) {
+            continue;
+        }
+        let face = match s {
+            [1, 0, 0] => "east",
+            [-1, 0, 0] => "west",
+            [0, 1, 0] => "up",
+            [0, -1, 0] => "down",
+            [0, 0, 1] => "south",
+            _ => "north",
+        };
+        d.blocks.insert(input, "minecraft:stone".into());
+        d.blocks.insert(obs, format!("minecraft:observer[facing={face},powered=false]"));
+        d.ports.insert("input".into(), cell);
+        placed = true;
+        break;
+    }
+    if !placed {
+        bail!("ring of {n}: no free cell for the observer");
+    }
+    d.meta.insert("circuit".into(), format!("divider {n}"));
+    d.meta.insert("group".into(), "pm-square-divider".into());
+    d.meta.insert("group title".into(), "Square /N divider (dropper ring + bulb, fed on both edges)".into());
+    d.meta.insert(
+        "group note".into(),
+        "study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`)".into(),
+    );
+    let c = Circuit::from_design(d.clone())?;
+    let line = match judge(&c) {
+        Some((summary, _)) => summary,
+        None => bail!("ring of {n}: the square divider does not pass on redsim"),
+    };
+    let p = out.join(format!("{name}.txt"));
+    d.save(&p)?;
+    Ok(format!("{} blocks: {line} -> {}", d.blocks.len(), p.display()))
+}
+
+const DIRS: [Pos; 6] = [[0, -1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0]];
+
 /// Seed cells that must stay empty: the ports (the judge's input block, its lamps).
 fn port_cells(d: &Design) -> Vec<Pos> {
     d.ports.values().copied().collect()
+}
+
+/// `circuit pulsemult as`: one design judged on redsim under `kind` (see `Cmd::As`).
+pub fn judge_as(path: &Path, kind: &str) -> Result<String> {
+    let mut d = Design::load(path)?;
+    let own = d.meta.get("circuit").cloned().unwrap_or_default();
+    let n: u32 = own.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(0);
+    let k = kind.replace("{2n}", &(2 * n).to_string()).replace("{n}", &n.to_string());
+    d.meta.insert("circuit".into(), k.clone());
+    let c = Circuit::from_design(d)?;
+    let rep = circuit::verify::sim(&c, &circuit::verify::Options::default())?;
+    let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    Ok(match rep.outcome {
+        Some(o) if o.pass => {
+            let m: Vec<String> = o.metrics.iter().map(|(a, b)| format!("{a} {b}")).collect();
+            format!("PASS {name} ({own}) as {k}: {}", m.join(", "))
+        }
+        Some(o) => format!("FAIL {name} ({own}) as {k}: {}", o.why),
+        None => format!("FAIL {name} ({own}) as {k}: {}", rep.trace.err().unwrap_or_default()),
+    })
 }
 
 pub fn search(o: &SearchOptions) -> Result<usize> {

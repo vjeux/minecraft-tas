@@ -1,0 +1,4 @@
+file	caption
+pm-div3-square.txt	square /3 divider: study 5's dropper ring of 3 with one copper bulb, fed on both input edges by an observer (the input cell is a stone the observer powers): the bulb toggles every 3 edges, so the output is a 50% square wave at 1/3 of the input clock, for odd N too
+pm-div5-square.txt	square /5 divider: study 5's dropper ring of 5 with one copper bulb, fed on both input edges by an observer (the input cell is a stone the observer powers): the bulb toggles every 5 edges, so the output is a 50% square wave at 1/5 of the input clock, for odd N too
+pm-div7-square.txt	square /7 divider: study 5's dropper ring of 7 with one copper bulb, fed on both input edges by an observer (the input cell is a stone the observer powers): the bulb toggles every 7 edges, so the output is a 50% square wave at 1/7 of the input clock, for odd N too
