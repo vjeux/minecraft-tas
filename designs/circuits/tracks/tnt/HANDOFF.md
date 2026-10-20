@@ -22,6 +22,11 @@ tools). Notes: [NOTES.md](NOTES.md). Variations and results:
 
 ## Open variations, with what the code says
 
+* DONE since: PRECISE (archive/tnt-precise-28b, judge flag `(precise: ...)`), lever on/off
+  (archive/tnt-lever-12b, `tnt-duper` with an input). Tools: `precise-sim`, `align`,
+  `precise-shrink`, `precision --list`, `search --forbid`. redsim has PrimedTnt entities
+  (`World::tnt_kick`) and clk-misc's piston entity pushing: the duper traces are bit-identical.
+
 * PRECISE: from `PistonMovingBlockEntity.moveCollidedEntities`: a moving block pushes the entities in
   the slab it moves into this tick, by `min(needed, progress step) + 0.01` (step 0.5): an entity
   it overlaps only partly (a block ENTERING the entity's cell from one side) ends exactly at the
