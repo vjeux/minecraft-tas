@@ -12,7 +12,7 @@ Each card: the value's formula in n, the size, how to extend it and the members 
 
 n = 0: N = 2 gt, 2 blocks · n = 1: N = 4 gt, 4 blocks
 
-Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N = 2 gt .. N = 22 gt); judged in the game: N = 2 gt, 4 gt, 6 gt, 8 gt, 10 gt, 12 gt, 14 gt, 16 gt, 18 gt, 20 gt, 22 gt.
+Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N = 2 gt .. N = 22 gt); judged in the game: N = 2 gt, 2 gt, 4 gt, 4 gt, 6 gt, 6 gt, 8 gt, 10 gt, 12 gt, 12 gt, 14 gt, 16 gt, 18 gt, 20 gt, 22 gt, 22 gt.
 
 ### N = N = 2 x the sum of the delays gt
 
@@ -20,10 +20,10 @@ Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N 
 
 | family | N | blocks | n (N) | judged in the game |
 |---|---|---|---|---|
-| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | N = 2 gt, 10 gt, 18 gt, 26 gt, 34 gt, 42 gt, 50 gt, 58 gt, 66 gt, 74 gt, 82 gt |
 | [delay-rep4](archive/delay-rep4-n0.txt) | 4 + 8n | 2 + 2n | 0..10 (4 .. 84) | N = 4 gt, 12 gt, 20 gt, 28 gt, 36 gt, 44 gt, 52 gt, 60 gt, 68 gt, 76 gt, 84 gt |
 | [delay-rep6](archive/delay-rep6-n0.txt) | 6 + 8n | 2 + 2n | 0..10 (6 .. 86) | N = 6 gt, 14 gt, 22 gt, 30 gt, 38 gt, 46 gt, 54 gt, 62 gt, 70 gt, 78 gt, 86 gt |
 | [delay-rep8](archive/delay-rep8-n0.txt) | 8 + 8n | 2 + 2n | 0..10 (8 .. 88) | N = 8 gt, 16 gt, 24 gt, 32 gt, 40 gt, 48 gt, 56 gt, 64 gt, 72 gt, 80 gt, 88 gt |
+| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | N = 2 gt, 2 gt, 10 gt, 10 gt, 18 gt, 18 gt, 26 gt, 34 gt, 42 gt, 42 gt, 50 gt, 58 gt, 66 gt, 74 gt, 82 gt, 82 gt |
 
 ### N = 6 + 4n gt
 
