@@ -98,6 +98,8 @@ dropper75 plus an east-side hourglass: Tc (500 stone) over Hd, which drains into
   - Supply: chests a and b feed Y2 (2.5 + 2.5), chest c feeds Y1 through the cart (5). Box intake 5 + 5 = 10/s.
   - The 81-stack base budget fills a, b and c in name order, so all three are supplied.
 
+- Build attempt 2026-10-20 (not finished): the two phase columns from y=-2 up to y=1 at z=1..2 kept failing the support check (a dust column needs a solid block under every dust, and the clock dust already occupies the cells below). The columns have to be built as solid stone pillars with the dust climbing their SIDES, one step out in z (z=3), away from the clock dust at z=1..2. The rest of the plan is unchanged.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
