@@ -28,8 +28,11 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   `edges` can differ. Declare the output to make both read the same: `mctas clock misc
   declare-output <archived designs> [--write]` adds `port output` at the cell the judge measures,
   judges each again in the game and rewrites only those whose line is unchanged (2026-10-20: 136
-  archived clocks, mostly census picks, now declare it, lines unchanged; two census copper-bulb
-  clocks archived before the current auto-output rule keep an older judge line).
+  archived clocks, mostly census picks, now declare it, lines unchanged;
+  census-p12-copper_bulb-redstone_block-sticky_piston-4b, archived before the current auto-output
+  rule, was re-archived with today's line; census-p12-copper_bulb-observer-3b keeps its older line,
+  since `clock archive` refuses it again: same type and period as clk-obs-divider, the divider
+  family's base, which prints today's line).
 * **Composite** (coordinator's ruling, 2026-10-19): when the output repeats faster than the whole
   structure AND the changing cells split into independent groups (cells linked when at most 2
   apart, or within a sculk sensor's range), the design is independent sub-clocks side by side
@@ -277,10 +280,10 @@ container entities as hopper sources and targets. Each is gated tick by tick aga
 traces (`redsim-fuzz trace-compare`, below). Anything else (unwaxed copper, other items' dispenser
 behaviors, multi-stack droppers, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and
-circuit archives runs on redsim to a line (2026-10-20, `redsim-fuzz archive-check`: 3484 of 3491 print
-the judge's own line; the 7 others are listed in
-[archive-check.txt](../designs/clocks/tracks/clk-misc/archive-check.txt): the two copper-bulb
-census clocks of the Output note above, and 5 hopper/dropper rings whose warmup the judge counts
+circuit archives runs on redsim to a line (2026-10-20, `redsim-fuzz archive-check`: 3485 of 3491 print
+the judge's own line; the 6 others are listed in
+[archive-check.txt](../designs/clocks/tracks/clk-misc/archive-check.txt): the copper-bulb
+census clock of the Output note above, and 5 hopper/dropper rings whose warmup the judge counts
 differently, their states identical). The browser viewer (native and wasm, `mctas web check
 --wasm`) finds the same warmups and periods on the whole archive.
 The bridge and redsim emit no `block_place` vibration for a placement (a sculk clock cannot start
