@@ -1,0 +1,34 @@
+name: pulse-fall-observer-qc-L1
+circuit: falling-edge
+# The only 1-tick falling-edge pulse, 4 blocks: when the input turns off, a sticky piston pulls a
+# redstone block up beside the output for exactly 1 tick, 2 ticks after the edge, for any input.
+# Copies stand side by side every block.
+# Detail: while the input is on, the upper sticky piston rests its head on the redstone block; when
+# the input turns off, it pulls the block up (output on), and the lower sticky piston, no longer
+# powered by that block, retracts; the observer watching that piston fires into the input block,
+# which powers the upper piston again: it pushes the redstone block straight back down (a moving
+# block powers nothing, so the output lasted 1 tick), and as the observer's pulse is short, it
+# leaves the block below and retracts. Feed the input block through a repeater: the observer powers
+# that block for 2 ticks after each falling edge. Found by the R7 pulse census (k = 4).
+tile: 1 0 0
+port output: 0 1 2
+port input: 0 2 0
+origin: 0 0 -1
+palette:
+  A minecraft:sticky_piston[extended=true,facing=north]
+  H minecraft:piston_head[facing=north,short=false,type=sticky]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:redstone_block
+  D minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  H
+  A
+  C
+layer 1:
+  .
+  B
+  .
+layer 2:
+  .
+  .
+  D

@@ -117,8 +117,8 @@ pub fn one_liner(c: &Circuit) -> String {
             let two = !matches!(f, "not" | "buffer");
             format!("{}{}{}.", if two { "It has two inputs, A and B. " } else { "" }, gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
         }
-        "rs-latch" => "Press S and the output turns on and stays on; press R and it turns off and stays off.".to_string(),
-        "d-latch" => "While E is on, the output copies D; when E turns off, the output keeps the last value.".to_string(),
+        "rs-latch" => "Press the set button (S) and the output turns on and stays on; press the reset button (R) and it turns off and stays off.".to_string(),
+        "d-latch" => "Two inputs: while the enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value.".to_string(),
         "dff" => "At each clock pulse the output takes the value of D and keeps it until the next clock pulse.".to_string(),
         "dff-enable" => "At each clock pulse, if E is on, the output takes the value of D; otherwise it keeps its value.".to_string(),
         "shift" => format!("Each clock pulse moves every stored bit one step along: what goes in comes out {n} clock pulses later."),
@@ -153,8 +153,14 @@ pub fn one_liner(c: &Circuit) -> String {
             if two_way {
                 format!("Once started it flies one way, then comes back by itself{pace}.")
             } else {
-                let dir = if c.direction.is_empty() { String::new() } else { format!(" {}", c.direction) };
-                format!("Once started it flies{dir} by itself{pace}, until something stops it.")
+                // (direction words: "flies sideways", not "flies horizontal": critique)
+                let dir = match c.direction.as_str() {
+                    "" => String::new(),
+                    "horizontal" => " sideways".to_string(),
+                    d => format!(" {d}"),
+                };
+                let carries = if c.feature.is_empty() { String::new() } else { format!(" It {}.", c.feature) };
+                format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
             }
         }
         "shulker-loader" => format!("Takes items from a chest, puts them into empty shulker boxes and sends each full box out{}.", rate(m(c, "items/s"))),
@@ -229,8 +235,8 @@ pub fn why_build(c: &Circuit) -> String {
         "burst" => format!("fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press"),
         "divider" => "slow a fast clock down: run a farm, a sorter or a light show at a slower beat".into(),
         "monostable" if c.kind.contains("non-retriggerable") => "one shot per press however much the button is mashed: a door that opens for a fixed time".into(),
-        "monostable" => "keep a door open while people keep stepping on a pressure plate, or a light that stays on while there is activity".into(),
-        "off-delay" => "a light or a door that stays on a while after the last press of a pressure plate".into(),
+        "monostable" => "a light that stays on a few seconds after each press, restarting with every press: a hallway light on a pressure plate".into(),
+        "off-delay" => "a light that stays on 10 seconds after you step off a pressure plate".into(),
         "on-delay" => "ignore accidental taps and observer flicker: a door that only opens if you hold the button".into(),
         "pulse-train" => "rapid fire while a lever is on: dispensers, droppers, item spammers".into(),
         _ => String::new(),
@@ -245,7 +251,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
-        "flying-machine" => return "It starts by itself: press play under the view and watch it fly; reset to see it again.".to_string(),
+        "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
         "tnt-duper" => return "It runs by itself: watch the lit TNT drop out of the machine each cycle while the TNT block lands back in place.".to_string(),
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
         "shulker-loader" | "shulker-unloader" => {
@@ -330,18 +336,27 @@ fn first_cap(s: &str) -> String {
 /// What a builder must know before building it, near the top (critique, coordinator 13:54Z):
 /// a sculk door can be set off by footsteps; a directional build works only facing one way.
 pub fn warning(b: &Build) -> Option<String> {
+    let mut out: Vec<String> = Vec::new();
     if b.kind == "door" && b.group == "sculk" {
-        return Some("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
+        out.push("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
     // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
         if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
-            return Some(format!(
+            out.push(format!(
                 "Uses a sculk sensor tuned so footsteps and other noises don't trigger it{}.",
                 if b.kinds.iter().any(|k| k == "chest") { ": the items in its chest set the one sound it listens to" } else { "" }
             ));
         }
+    }
+    // what the world around it does to it (vjeux 19:02Z: these builds are published, with their
+    // limitation said plainly instead of hidden)
+    if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
+        out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
+    }
+    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
+        out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
@@ -350,12 +365,11 @@ pub fn warning(b: &Build) -> Option<String> {
     };
     let directional = robustness.starts_with("rotation") || (b.kind == "door" && b.door.is_some() && !b.flags.iter().any(|f| f == "rotation-safe"));
     if directional {
-        return Some("Works only when built facing the way it is shown here: turned another way, it breaks.".to_string());
+        out.push("Works only facing the way it is shown here: build it from the download without turning it; turned another way it stops or changes its timing (our test tried all 4 directions).".to_string());
+    } else if robustness.contains("position") || robustness.contains("offset") {
+        out.push("Depends on where it is built: at another spot in the world its timing changed in our test, so try it where you build it.".to_string());
     }
-    if robustness.contains("position") || robustness.contains("offset") {
-        return Some("Depends on where it is built: it does not work at every spot in the world, so test it where you build it.".to_string());
-    }
-    None
+    if out.is_empty() { None } else { Some(out.join(" ")) }
 }
 
 /// What a build needs to work where you build it, for its opening lines (critique, real-world
@@ -392,9 +406,7 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
     }
-    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
-        v.push("Needs open sky above its daylight sensor.".to_string());
-    }
+    // (open sky for a daylight detector: said in its warning line)
     v
 }
 
@@ -424,7 +436,10 @@ pub fn door(b: &Build) -> (String, String, String) {
     };
     let seamless = d.is_some_and(|d| !d.seamless.is_empty());
     let why = match b.group.as_str() {
-        "sculk" => "a hidden 3×3 entrance for a base.".to_string(),
+        // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
+        // nearby can open it")
+        // (the sensor's warning is the line right under it: said once, critique)
+        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
@@ -515,6 +530,22 @@ mod tests {
     }
 
     #[test]
+    fn warnings_say_every_limitation() {
+        // a tripwire clock that only works facing one way says both, in plain words
+        let b = Build {
+            kind: "clock".into(),
+            kinds: vec!["tripwire".into(), "tripwire_hook".into(), "oak_boat".into()],
+            clock: Some(site_model::ClockInfo { period: 40, robustness: "rotation-dependent".into(), ..Default::default() }),
+            ..Default::default()
+        };
+        let w = warning(&b).unwrap_or_default();
+        assert!(w.contains("Uses a tripwire") && w.contains("Works only facing the way it is shown here"), "{w}");
+        let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
+        assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
+        assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
+    }
+
+    #[test]
     fn needs_say_what_the_build_needs() {
         // a TNT duper's safe height, and the items its containers start with
         let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
@@ -530,7 +561,7 @@ mod tests {
     fn plain_sentences_carry_the_numbers() {
         let mono = circuit("monostable retriggerable", &[("L", "32 gt")]);
         assert_eq!(one_liner(&mono), "One press keeps the output on for 32 ticks (1.6 s); pressing again while it is on restarts the countdown.");
-        assert!(why_build(&mono).starts_with("Keep a door open while people keep stepping on a pressure plate"));
+        assert!(why_build(&mono).starts_with("A light that stays on a few seconds after each press"), "{}", why_build(&mono));
         assert_eq!(ticks("1 gt"), "1 tick (0.05 s)");
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");

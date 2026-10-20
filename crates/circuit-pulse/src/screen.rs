@@ -256,6 +256,10 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
         }
     };
     let rest: Vec<i32> = cells.iter().map(|p| level_at(&w, *p)).collect();
+    // the block kind each candidate cell holds at rest: a cell whose block moves out (or gets a
+    // block moved in, which would push the judge's lamp away) is no output (the judge's
+    // `output_entered`); its record is poisoned below so it never classifies
+    let rest_kind: Vec<std::mem::Discriminant<Block>> = cells.iter().map(|p| std::mem::discriminant(&w.get(*p))).collect();
     let snapshot = w.blocks();
     let input_block = w.get(c.input);
     // one input pulse of `wd` gt: the recorded deviations from rest, None when the design does
@@ -281,7 +285,8 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
             w.tick();
             t += 1;
             for (i, p) in cells.iter().enumerate() {
-                rec[i].push(level_at(w, *p) - rest[i]);
+                let moved = std::mem::discriminant(&w.get(*p)) != rest_kind[i];
+                rec[i].push(if moved { -1000 } else { level_at(w, *p) - rest[i] });
             }
             if drv.is_some() && w.get(input) != input_block {
                 return None;

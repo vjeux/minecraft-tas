@@ -16,6 +16,7 @@
 mod gpu;
 mod live;
 mod overlay;
+mod record;
 
 use mcview::atlas::Atlas;
 use mcview::render::Frame;

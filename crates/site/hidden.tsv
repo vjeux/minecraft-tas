@@ -5,11 +5,19 @@
 # exception: a design it matches is published whatever the other lines say. Read by
 # crates/site/src/circuits.rs (`hidden_design`); `mctas site smoke` checks that none is published;
 # `mctas site build` lists the dominated designs still published (`mctas site dominated`).
-pext/pext-*-sf*	vjeux 2026-10-20 12:12Z on pext-n5-sf-sweep136: "Why would anyone use this monstrosity? It's bigger and slower than the other ones we have" (the slime-free line of the piston extenders)
+# 2026-10-20 19:15Z, the coordinator: a `~` line folds a design under another (published only as its variant,
+# reachable from its page): ~<study>/<file> TAB under <host>: <why>
+~memory/rs-crafter	under rs-dropper: bigger and slower (6 blocks vs 4, latency 13 vs 6 gt), nothing measured in its favour
+# 2026-10-20 19:05Z, the coordinator: the slime-free extenders are their own distinction (vjeux's list view named
+# "slimeless"): the best at every N is published; only a slime-free design beaten by a smaller, at-least-as-fast
+# slime-free one at the same N is hidden (`mctas site dominated --all`, "nothing in their favour"; vjeux 12:12Z on
+# slime-free pext-n5-sf-sweep136: "bigger and slower than the other ones we have")
+pext/pext-n3-sf-v1	dominated by a slime-free one at N = 3: 62 blocks vs pext-n3-sf38's 38, extend 98 vs 54 gt, retract 98 vs 50 gt
+pext/pext-n3-sf43	dominated by a slime-free one at N = 3: 43 blocks vs pext-n3-sf38's 38, extend 66 vs 54 gt, retract 64 vs 50 gt
+pext/pext-n4-sf-sweep96	dominated by a slime-free one at N = 4: 96 blocks vs pext-n4-sf60's 60, extend 162 vs 49 gt, retract 160 vs 47 gt
+pext/pext-n5-sf-sweep136	vjeux 12:12Z: "bigger and slower than the other ones we have": 136 blocks vs pext-n5-sf105's 105, extend 230 vs 149 gt
+pext/pext-n6-sf-sweep192	dominated by a slime-free one at N = 6: 192 blocks vs pext-n6-sf151's 151, extend 326 vs 149 gt, retract 324 vs 147 gt
 # 2026-10-20 12:55Z, the coordinator from pext's world-record bar (explore/pext designs/circuits/pext/WR.md): only the current holder of each N
-!pext/pext-n2-sf7-1	the N = 2 slime-free holder stays (pext's WR bar)
-!pext/pext-n2-sf7-1-button	the N = 2 slime-free holder with its own button stays (pext's WR bar)
-!pext/pext-n2-sf8-flat	the N = 2 slime-free flat holder stays (pext's WR bar)
 pext/pext-n1-sticky	a lone sticky piston (N = 1): not a holder (pext's WR bar)
 pext/pext-n2-rider7-3d	dominated at N = 2 (pext's WR bar)
 pext/pext-n2-rider-3d	dominated at N = 2 (pext's WR bar)
@@ -46,28 +54,8 @@ pulse/pulse-oneshot-pulse-extender-L16	dominated: 17 blocks vs pulse-extender-ho
 pulse/pulse-oneshot-pulse-extender-L24	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L24's 13, the same speed, only avoids torches
 pulse/pulse-oneshot-pulse-extender-L32	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L32's 13, the same speed, only avoids torches
 pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-hopper-oneshot-L40's 13, the same speed, only avoids torches
-# 2026-10-20 15:45Z, the coordinator: TEMPORARY, until clk-rt's in-game R7 re-judge lands: the circuits R7's preview
-# (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
-# (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
-# clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
-memory/counter5-ring11	temporary (R7): refused with a real input
-memory/counter10-ring5-bulb	temporary (R7): refused with a real input
-memory/counter20-ring5-bulb2	temporary (R7): refused with a real input
-memory/counter7-ring7	temporary (R7): refused with a real input
-memory/counter11-ring11	temporary (R7): refused with a real input
-memory/counter13-ring13	temporary (R7): refused with a real input
-memory/counter14-ring7-bulb1	temporary (R7): refused with a real input
-memory/counter15-ring5-ring3	temporary (R7): refused with a real input
-memory/counter21-ring7-ring3	temporary (R7): refused with a real input
-memory/counter22-ring11-bulb1	temporary (R7): refused with a real input
-memory/counter26-ring13-bulb1	temporary (R7): refused with a real input
-memory/counter28-ring7-ring4	temporary (R7): refused with a real input
-memory/counter5-ring5-bulb1-div	temporary (R7): refused with a real input
-memory/counter7-ring7-bulb1-div	temporary (R7): refused with a real input
-memory/counter30-ring5-ring3-bulb1	temporary (R7): refused with a real input
-memory/counter33-ring11-ring3	temporary (R7): refused with a real input
-memory/counter40-ring5-bulb3	temporary (R7): refused with a real input
-memory/counter45-ring5-ring3-ring3	temporary (R7): refused with a real input
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
+# 2026-10-20 19:04Z, vjeux ("A tnt duper that explodes in water is useless"): until the TNT judge's water rule removes it
+tnt/tnt-precise-slow-43b	its TNT explode in its water channel, so they destroy nothing (vjeux 19:04Z)

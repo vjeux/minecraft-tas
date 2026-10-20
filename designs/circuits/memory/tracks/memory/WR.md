@@ -44,7 +44,17 @@ Expected size, constant for every N: about 20 blocks with the torch latch, about
 
 Nine same-N counters that were strictly bigger than another entry with the same metrics line are out of the archive (`circuit archive --remove`): counter12-ring3-ring4 18b, counter16-ring4-ring4 20b, counter18-ring9-bulb1 28b, counter20-ring5-ring4 22b, counter2-ring 8b, counter4-ring9 9b, counter4-ring 10b, counter5-star 12b, counter9-ring9 25b. counter3-ring and counter3-corner are both 8 blocks, so they stay as equivalent layouts. counter 38 at 57 blocks beside counter 48 at 20 is not a mislabel: a composite N chains into small rings while a prime factor forces one long ring, so size tracks the factorisation of N, not N.
 
-## R7 (real input devices): six designs removed, two kinds now empty
+## D flip-flop under R7: where the rebuild stands (2026-10-20)
+
+The latch is rebuilt and archived: `d-latch-r7`, 8 blocks, enable high, robust. The fix is clk-rt's rule, the same one that rebuilt the gates: an input that feeds a comparator's SIDE must arrive on the design's own repeater in the input cell, because a comparator side never reads the judge's powered stone. (d-latch-high, which had the enable arriving as a bare input cell, is removed: under R7 it reads 0 and the latch never opens.)
+
+The flip-flop is NOT done. Two latches with opposite enables is the right shape and each half works; what blocks it is geometry, and the constraint is worth writing down because it is the whole difficulty:
+- A subtract comparator's enable must come from one of its two SIDE cells, and `getAlternateSignal` takes the MAX of both. So the master's enable (NOT clk) and the slave's enable (clk) must never share a side cell, or each latch sees whichever is high and both go transparent together.
+- With the latches side by side along x, their side cells are 2 apart and the clock line has to reach both while being inverted for exactly one of them. Every route tried so far either shares a side cell, crosses the data path between the latches, or leaves a dust without support.
+- Tried and judged: a bulb-gated repeater (the bulb toggles per clock edge, so q follows the bulb and not d), an observer on the clock's input block (the observer's own pulse is 2 gt and the judge's clock phase is longer), the two latches in one row (shared side cell), and the clock carried on a second layer above them (support failures, the dust needs its own floor).
+- Next shape to try: the clock line BELOW the latches at y=-1 with the two enables rising into their comparators through separate blocks, which keeps the two side cells apart by construction.
+
+Until it passes, `dff`, `dff-enable` and `shift 2` stay empty in the archive rather than holding a design that fails the judge.
 
 Re-judged both studies under R7 and removed what fails the judge: rs-loop (12b), dff-window (10b), dffe-window (13b), shift2-window (20b), tff-window (17b), tff-masterslave (24b). All six are window or master-slave designs that time their copy against the input's own edges; R7 drives the input with a repeater, whose shortest pulse is 2 gt and whose edge lands inside a tick rather than between ticks, so the window never opens where the design expects. Widening the window repeater (delay 2, 3, 4) does not fix dff-window: the clock edge itself is in the wrong phase, not merely too short.
 
