@@ -126,7 +126,7 @@ tileable, fastest).
   62-state palette (24.8 M sims), k = 4 with 38 states (obs, pistons, note block, lamp, bulb,
   stone, slime, redstone block, trapdoor, torch, dust: 1.45 G sims). New at k = 2: the 2-block
   falling edge; k = 3: the 4-block delay-2 falling edge (3 + the input block); no odd length at
-  any k. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
+  k <= 3, and at k = 4 only the 1-tick falling edge. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
   observer fires into the input block, harmless when a repeater feeds that block, as the judge's
   does; robust with its output on the far side of the redstone block). The others (a falling edge
   L 4 at delay 0, a rising edge and a limiter L 2 at min-pulse 2) passed through a judge hole: a
