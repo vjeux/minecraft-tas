@@ -34,3 +34,9 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [pext-n4-cascade-v1](archive/pext-n4-cascade-v1.txt) | 40 | - |
+
+**[pext-n5-cascade46](archive/pext-n5-cascade46.txt)** (piston-extender 5, N = 5; 46 blocks: gold_block, observer, slime_block, sticky_piston, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [pext-n5-cascade-v1](archive/pext-n5-cascade-v1.txt) | 52 | - |
