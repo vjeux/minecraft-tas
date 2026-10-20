@@ -390,3 +390,16 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   - 6x9 m69T mechmut variants (c70b): satwire with c78l's lever-behind-held-piston recipe UNSAT, cores close (4,0)
     / (4,1): their held levels drop at t30/t60/t72, not at the flip; under a strict lever rule the macro model has
     no solution for the family (c70b, 01:55Z).
+  - 6x7-in2 mm01 (c70b, one inside action): satwire core open (0,-2) = the SU carried there from (-1,-2), fed
+    in the plan from (0,-3) below the volume; pockets k=4 drives 3 of 16 inputs (pulse counts: (-2,1) fires 9x).
+    d67's q7 (7x7, observer feeds the inside action): same core (0,-2).
+  - pext's one-train plans (same pulses on both lever edges; `door interleave`): w1k2-train (7x7) core (1,-2)
+    (P/Q/BM-down boxed in); m69T-mm02 trains with the right stack lever-held: satwire UNSAT in 11-23 s with
+    one-piston cores cycling through the top-left (0,4)/(-1,3), the top middle (1,3)+(1,4) and the bottom-left
+    (0,-2)/(0,-1): the 3-cell top-left and bottom-left pockets can't make the taps (pext's --sat-loop agrees).
+  - w86's 6x8 s1: right side close to wired (pockets k=4: (4,1)+(4,2)+(3,3) from the top-right 4 cells,
+    (1,-1), (4,0), (3,-1) c24 from the bottom-right); the bottom-left trio and the top-left drive nothing.
+  - TOOL TRAP fixed (56fb440b): pockets kept the `port lever` cell out of the free cells even without
+    --keep-lever; the ports I add to designers' plans (they carry none) cost a pocket one cell in the 6x7 / w1k2 /
+    m69T screens above (their satwire cores are elsewhere, so the conclusions stand). Put such ports outside
+    the box, or use a binary with 56fb440b.

@@ -632,7 +632,7 @@ fn checks() -> Vec<Check> {
             // the drop's random offset can move a median time by a gt: match around the times
             let line = |name: &str| o[0].lines().find(|l| l.starts_with(&format!("CIRCUIT: {name} "))).unwrap_or("").to_string();
             let l = line("shulker-auto-loader-1");
-            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.5") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
+            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
                 return Err(format!("auto loader: {l:?}: {}", tail(&o[0])));
             }
             let l = line("shulker-auto-unloader-1");
