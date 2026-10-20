@@ -166,9 +166,12 @@ each build's page.
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
-  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
-  5 blocks across and 3 high in every direction is framed as if it were that big (a 4-block
-  clock stands in some grass, its OUT box clear of the controls). The browser draws like a
+  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`, the still build
+  only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
+  high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
+  little grass). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
+  along its length at the pictures' elevation (`scene::view_dir`: a 3/4 view, the camera closer)
+  instead of side-on. The browser draws like a
   client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
   pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
   reaches 420 blocks around (past it); near
@@ -196,7 +199,9 @@ each build's page.
   (`mcview::labels`: what a label says and the layout; `overlay.rs` draws).
 * Outlines (live viewers; thumbnails have none): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
-  REJECT pink, TARGET cyan (shown as built too).
+  REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
+  cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
+  judge's equipment reads as part of the input it drives.
 
 ## Only what redsim simulates
 
