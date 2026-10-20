@@ -1,6 +1,7 @@
 # Ring of 10 calibrated sensors on a circle (r 26.39), hops [15,15,15,15,15,15,15,15,15,15], first resonator a note block (the kick), the others amethyst: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
 name: clk-sculk-ringbig10-p150-1
 # how: ring of 10 calibrated sensors on a circle (r 26.39), hops [15,15,15,15,15,15,15,15,15,15], first resonator a note block (the kick), the others amethyst
+# how: ring of 10 calibrated sensors on a circle (r 26.39), hops [15,15,15,15,15,15,15,15,15,15], first resonator a note block (the kick), the others amethyst
 port output: 26 0 0
 port start: 26 0 1 use
 origin: -26 0 -25
