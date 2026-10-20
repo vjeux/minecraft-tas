@@ -36,10 +36,10 @@ enum Cmd {
         /// Copper bulb T flip-flops chained after the comparator (counter N * 2^bulbs).
         #[arg(long, default_value_t = 0)]
         bulbs: usize,
-        /// A second ring of this many droppers around a stone the first ring's comparator powers
-        /// (counter N * THEN).
-        #[arg(long)]
-        then: Option<usize>,
+        /// More rings, each around a stone the previous ring's comparator powers (comma-separated
+        /// sizes: counter N * THEN1 * THEN2 ...).
+        #[arg(long, value_delimiter = ',')]
+        then: Vec<usize>,
         /// With --bulbs: judge as a divider (the last comparator toggles once every N * 2^(K-1)
         /// pulses) instead of a level counter N * 2^K.
         #[arg(long)]
@@ -90,7 +90,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
-        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, then, divider, &out)?,
+        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, &out)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
