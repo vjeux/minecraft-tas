@@ -131,6 +131,8 @@ struct Details {
     summary: String,
     /// Why the screen fails, when it does.
     fails: Option<String>,
+    /// Every output cell gets the judge's lamp in the 3D view.
+    output_lamp: bool,
 }
 
 fn details(c: &Design) -> Details {
@@ -145,7 +147,11 @@ fn details(c: &Design) -> Details {
         })
         .collect();
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None };
+    // the viewer puts the judge's lamp in every air output cell (webrender bbe3bf7ba): then the
+    // lamp shows the output, else the orange marker does
+    let consumers = c.consumer_cells();
+    let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -337,6 +343,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
+                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),

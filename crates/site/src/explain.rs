@@ -297,9 +297,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     }
     let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
     if !outs.is_empty() {
+        // webrender bbe3bf7ba: the judge's own lamp stands in every air output cell and shows the
+        // output; an output cell that holds a block of the design gets the orange marker instead
+        let shows = if c.output_lamp {
+            format!(
+                "the output is tagged <span class=\"tag-out\">{}</span>: the <b>redstone lamp</b> in that cell (the lamp the judge itself adds to read the output) <b>lights while the output is on</b>",
+                esc(&outs.join(", "))
+            )
+        } else {
+            format!("the output is tagged <span class=\"tag-out\">{}</span>: the orange glass marker next to it <b>glows while the output is on</b>", esc(&outs.join(", ")))
+        };
         s.push_str(&format!(
-            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; the output is the <span class=\"tag-out\">orange</span> glass tagged <b>{}</b>, which <b>glows while the output is on</b> (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>",
-            esc(&outs.join(", "))
+            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; {shows} (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>"
         ));
     }
     s
@@ -390,7 +399,7 @@ pub fn glossary() -> String {
     let items: [(&str, &str); 15] = [
         ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
         ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
-        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime, the output is orange glass that glows while the output is on."),
+        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime and outputs in orange; the redstone lamp the judge adds in an output cell lights while the output is on (an orange marker glows instead where the output cell holds a block of the design)."),
         ("pulse", "the input (or output) on for a while, then off again; its length in gt."),
         ("edge", "the moment a signal changes: rising edge = it turns on, falling edge = it turns off."),
         ("L", "the length of an output pulse (pulse circuits)."),
@@ -587,6 +596,11 @@ mod tests {
         g.devices = vec!["lever".into(), "redstone block".into()];
         let h = how_to_try(&g, true);
         assert!(h.contains("click the <b>lever</b> tagged <b>A</b>") && h.contains("tap the <b>B</b> button"), "{h}");
+        // the output: the judge's lamp when every output cell gets one, else the orange marker
+        assert!(h.contains("orange glass marker"), "{h}");
+        g.output_lamp = true;
+        let h = how_to_try(&g, true);
+        assert!(h.contains("<b>redstone lamp</b>") && !h.contains("orange glass"), "{h}");
     }
 
     #[test]
