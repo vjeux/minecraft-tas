@@ -130,6 +130,83 @@ fn replay(m: &Mech, rest: &St, open: &[fam::E], close: &[fam::E]) -> Option<(Vec
     (m.is_open(&o) && m.holes_ok(&refs, &o) && c == *rest).then_some((states, o))
 }
 
+/// `--lever-held`: piston ids the lever drives (their level only, toggled first on both edges).
+pub static LEVER_HELD: std::sync::OnceLock<Vec<Pc>> = std::sync::OnceLock::new();
+
+/// The lever-held phase rule: open = the lever flips (every held piston's level toggles at once)
+/// then a search over the other pistons' events to an open state; close = the lever flips back
+/// then a search back to rest. Shortest open first; up to 64 open states tried for a close.
+fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<fam::E>, Vec<fam::E>)> {
+    use std::collections::{HashMap, VecDeque};
+    let flips: Vec<fam::E> = held.iter().map(|&id| fam::E { id: id as u8, act: Act::L }).collect();
+    let flip = |s: &St| -> Option<St> {
+        let mut c = s.clone();
+        for e in &flips {
+            match m.apply(&c, *e) {
+                Out::Ok(n) => c = n,
+                _ => return None,
+            }
+        }
+        Some(c)
+    };
+    let evs: Vec<fam::E> = m.events(true).into_iter().filter(|e| !held.contains(&(e.id as usize))).collect();
+    // BFS from `start`; returns the path to the first states meeting `goal` (up to `want`)
+    let bfs = |start: &St, goal: &dyn Fn(&St) -> bool, want: usize| -> Vec<(St, Vec<fam::E>)> {
+        let mut states: Vec<St> = vec![start.clone()];
+        let mut parent: Vec<(u32, Option<fam::E>)> = vec![(0, None)];
+        let mut index: HashMap<St, u32> = HashMap::new();
+        index.insert(start.clone(), 0);
+        let mut q = VecDeque::from([0u32]);
+        let mut found = Vec::new();
+        let path = |mut i: u32, parent: &[(u32, Option<fam::E>)]| -> Vec<fam::E> {
+            let mut v = Vec::new();
+            while let (p, Some(e)) = parent[i as usize] {
+                v.push(e);
+                i = p;
+            }
+            v.reverse();
+            v
+        };
+        if goal(start) {
+            found.push((start.clone(), Vec::new()));
+            if found.len() >= want {
+                return found;
+            }
+        }
+        while let Some(si) = q.pop_front() {
+            let st = states[si as usize].clone();
+            for &e in &evs {
+                let Out::Ok(n) = m.apply(&st, e) else { continue };
+                if index.contains_key(&n) || states.len() >= cap {
+                    continue;
+                }
+                let i = states.len() as u32;
+                index.insert(n.clone(), i);
+                states.push(n.clone());
+                parent.push((si, Some(e)));
+                q.push_back(i);
+                if goal(&n) {
+                    found.push((n, path(i, &parent)));
+                    if found.len() >= want {
+                        return found;
+                    }
+                }
+            }
+        }
+        found
+    };
+    let s1 = flip(rest)?;
+    for (o, p1) in bfs(&s1, &|s: &St| m.is_open(s), 64) {
+        let Some(o2) = flip(&o) else { continue };
+        if let Some((_, p2)) = bfs(&o2, &|s: &St| s == rest, 1).into_iter().next() {
+            let open: Vec<fam::E> = flips.iter().copied().chain(p1).collect();
+            let close: Vec<fam::E> = flips.iter().copied().chain(p2).collect();
+            return Some((open, close));
+        }
+    }
+    None
+}
+
 /// Solve `pieces` in `bx`: the parent's schedule first (`hint`), then the exact solver (`cap`, 0 =
 /// none); Some when it opens, closes and holds a FULL frame.
 pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Change)>, reserve: &[(i8, i8)]) -> Option<Var> {
@@ -142,8 +219,21 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         }
     }
     if found.is_none() && cap > 0 {
-        if let Ok(Some(sol)) = fam::solve(&m, &rest, cap, true) {
-            found = Some((sol.open, sol.close, false));
+        match LEVER_HELD.get().filter(|h| !h.is_empty()) {
+            Some(held) => {
+                // the lever drives these pistons: their levels flip first on both edges
+                let ids: Vec<usize> = held.iter().filter_map(|h| m.pid.iter().position(|&pi| m.pieces[pi] == *h)).collect();
+                if ids.len() == held.len()
+                    && let Some((o, c)) = solve_lever(&m, &rest, cap, &ids)
+                {
+                    found = Some((o, c, false));
+                }
+            }
+            None => {
+                if let Ok(Some(sol)) = fam::solve(&m, &rest, cap, true) {
+                    found = Some((sol.open, sol.close, false));
+                }
+            }
         }
     }
     let (open_e, close_e, replayed) = found?;
