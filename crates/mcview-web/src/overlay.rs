@@ -401,6 +401,17 @@ impl Overlays {
                 layout.obstacles.push(b);
             }
         }
+        for (lo, hi) in &p.look.input_spans {
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        if let Some(b) = cell_box([x, y, z]) {
+                            layout.obstacles.push(b);
+                        }
+                    }
+                }
+            }
+        }
         // where each other container is, for taps
         self.hits.clear();
         for s in now.iter().filter(|s| !in_tags.contains(&s.key)) {
