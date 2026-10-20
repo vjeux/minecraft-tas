@@ -1,0 +1,69 @@
+name: shulker-loader-pitch3
+circuit: shulker-loader
+tile: 3 0 0
+# A shulker box loader whose copies stand side by side every 3 blocks, judged on a real box read
+# (1 wide is impossible: a box cell in a 1-wide slice has 4 free faces for 5 jobs, and every
+# signal there is on/off, so "full" (15 against 14) cannot be read; 2 wide cannot carry a signal
+# from one column to the other without touching the neighbour's).
+#
+# How it works:
+# - The box cell X has the feed hopper above it, the dispenser below it (facing up), the box read
+#   on its east side, the pushed stone of a sticky piston on its north side and the drop cell on
+#   its south side, over the output hopper.
+# - The read is a comparator in compare mode with a redstone block on its side: 15 only when
+#   the box is full. Its output runs north along the third column through two repeaters and
+#   back west into the stone behind the piston, which pushes its stone into X: the box breaks and
+#   the moving stone pushes it into the drop cell.
+# - The dispenser fires whenever its contents change (a comparator reads it through a stone;
+#   two observers watch that comparator and power the stone under the dispenser), which places
+#   the first box and refills after a box shortage, and after every break (an observer under the
+#   first repeater of the full line, watched by an observer that powers the read-through stone).
+port items: 0 3 0
+port boxes: 1 1 1
+port output: 0 0 2
+origin: 0 0 -3
+palette:
+  S minecraft:stone
+  F minecraft:hopper[enabled=true,facing=down]
+  D minecraft:dispenser[facing=up,triggered=false]
+  V minecraft:hopper[enabled=true,facing=west]
+  H minecraft:hopper[enabled=true,facing=north]
+  N minecraft:hopper[enabled=true,facing=south]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  K minecraft:comparator[facing=south,mode=compare,powered=false]
+  B minecraft:redstone_block
+  P minecraft:sticky_piston[extended=false,facing=south]
+  w minecraft:redstone_wire[east=none,north=side,south=none,west=side,power=0]
+  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  E minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  U minecraft:observer[facing=up,powered=false]
+  Q minecraft:observer[facing=north,powered=false]
+  W minecraft:observer[facing=east,powered=false]
+layer -1:
+  ...
+  U..
+  Q..
+  S..
+  ...
+  ...
+layer 0:
+  .S.
+  K.S
+  SWU
+  DVS
+  NH.
+  ...
+layer 1:
+  SES
+  P.R
+  SBR
+  .Cw
+  ...
+  S..
+layer 2:
+  ...
+  ...
+  ...
+  F..
+  ...
+  ...
