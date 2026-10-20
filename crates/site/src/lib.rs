@@ -9,6 +9,7 @@
 //! - `mctas site deploy --dir site/` publishes the folder as the `gh-pages` branch (GitHub
 //!   Pages: https://vjeux.github.io/minecraft-tas/).
 
+pub mod audit;
 pub mod circuits;
 pub mod clocks;
 pub mod deploy;
@@ -36,6 +37,17 @@ pub enum SiteCmd {
     Publish(BuildArgs),
     /// Download Chrome for Testing's headless shell into ~/.cache/mctas (for smoke and publish).
     Chrome,
+    /// The circuits a builder has no reason to pick: another design of the same kind and main
+    /// value is smaller and at least as fast, and the listed one only avoids a material (slime,
+    /// honey, torches...). Both lists: strictly slower, and the same speed.
+    Dominated {
+        /// The repository (designs/circuits).
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Also the designs crates/site/hidden.tsv already keeps off the site.
+        #[arg(long)]
+        all: bool,
+    },
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
         #[arg(long, default_value = "site")]
@@ -174,6 +186,12 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
+        SiteCmd::Dominated { repo, all } => {
+            let (builds, _notes) = circuits::export_with(&repo, all)?;
+            let site = site_model::Site { builds, ..Default::default() };
+            print!("{}", audit::report(&site));
+            Ok(())
+        }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
         SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click } => {
             if !page.is_empty() {

@@ -74,30 +74,36 @@ pub fn truth_table(f: &str, inputs: &[String]) -> String {
 }
 
 /// The kind's name for people (`counter 4` -> `Counter (divide by 4)`).
+/// A kind's name for people, its base only (vjeux 12:15Z: "Circuit kind should be piston
+/// extender, not one per N"): the number (`piston-extender 5`, `divider 3`, `gate and`) is a
+/// property, shown in the property line; a short description in parentheses where it helps.
 pub fn kind_title(kind: &str) -> String {
+    // already a name for people (a circuit's group): as it is
+    if kind.starts_with(|c: char| c.is_uppercase()) {
+        return kind.to_string();
+    }
+    let words = site_model::html::kind_words(kind);
     match base(kind) {
-        "rising-edge" => "Rising-edge detector".into(),
-        "falling-edge" => "Falling-edge detector".into(),
-        "dual-edge" => "Dual-edge detector".into(),
-        "pulse-limiter" => "Pulse limiter".into(),
-        "pulse-extender" => "Pulse extender".into(),
         "tff" => "T flip-flop (toggle)".into(),
-        "delay" => "Delay line".into(),
-        "gate" => match kind.split_whitespace().nth(1) {
-            Some(f) => format!("{} gate", f.to_uppercase()),
-            None => "Logic gate".into(),
-        },
         "rs-latch" => "RS latch (set / reset memory)".into(),
         "d-latch" => "D latch (data latch)".into(),
-        "counter" => format!("Counter (counts to {})", kind_number(kind).unwrap_or(0)),
-        "piston-extender" => format!("Piston extender (reach {})", kind_number(kind).unwrap_or(0)),
-        "flying-machine" => "Flying machine".into(),
-        "shulker-loader" => format!("Shulker box loader ({})", stack_words(kind_number(kind).unwrap_or(64))),
-        "shulker-unloader" => format!("Shulker box unloader ({})", stack_words(kind_number(kind).unwrap_or(64))),
+        "shulker-loader" => "Shulker box loader".into(),
+        "shulker-unloader" => "Shulker box unloader".into(),
         "bud" => "BUD switch (block update detector)".into(),
         "tnt-duper" => "TNT duper (self-running)".into(),
         "tnt-duper-triggered" => "TNT duper (one shot per pulse)".into(),
-        _ => kind.to_string(),
+        "burst" => "Burst (pulse multiplier)".into(),
+        "divider" => "Divider (clock divider)".into(),
+        "monostable" => match kind.split_whitespace().nth(1) {
+            Some("retriggerable") => "Retriggerable monostable (one-shot timer)".into(),
+            Some("non-retriggerable") => "Non-retriggerable monostable (one-shot timer)".into(),
+            _ => "Monostable (one-shot timer)".into(),
+        },
+        "on-delay" => "On-delay timer (pulse filter)".into(),
+        "pulse-train" => "Gated pulse train (a clock with an on switch)".into(),
+        "" => kind.to_string(),
+        _ if words.is_empty() => kind.to_string(),
+        _ => words,
     }
 }
 
@@ -136,6 +142,12 @@ pub fn kind_summary(kind: &str) -> String {
         "bud" => "fires its output when a block is placed, removed or changed at its target cell, although nothing there powers it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
         "tnt-duper-triggered" => "lights TNT on every input pulse without using up its TNT block".into(),
+        "burst" => "turns one input pulse into exactly N output pulses".into(),
+        "divider" => "slows a clock down: the output goes through one on-off cycle for every N input pulses".into(),
+        "monostable" => "gives one output pulse of a fixed length L for each input pulse, however short the input".into(),
+        "off-delay" => "keeps the output on for L more game ticks after the input turns off".into(),
+        "on-delay" => "turns the output on only once the input has been on for T game ticks, so shorter inputs are ignored".into(),
+        "pulse-train" => "pulses the output every P game ticks for as long as the input is on".into(),
         _ => String::new(),
     }
 }
@@ -376,9 +388,165 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
                 if gap.is_empty() { String::new() } else { format!(" Pulses must be at least {gap} apart.") }
             )
         }
+        "burst" | "divider" | "monostable" | "off-delay" | "on-delay" | "pulse-train" => what_timer_does(c),
         _ => return None,
     };
     Some(html)
+}
+
+/// `20 gt` -> `1 pulse a second`, `8 gt` -> `2.5 pulses a second`, `40 gt` -> `a pulse every 2 s`.
+fn rate_words(v: &str) -> String {
+    let Some(n) = v.split_whitespace().next().and_then(|n| n.parse::<f64>().ok()).filter(|n| *n > 0.0) else {
+        return String::new();
+    };
+    let per_s = 20.0 / n;
+    if per_s < 1.0 {
+        format!("a pulse every {} s", trim_num(n / 20.0))
+    } else if (per_s - 1.0).abs() < 1e-9 {
+        "1 pulse a second".to_string()
+    } else {
+        format!("{} pulses a second", trim_num(per_s))
+    }
+}
+
+/// `2.50` -> `2.5`, `3.00` -> `3`.
+fn trim_num(x: f64) -> String {
+    let s = format!("{x:.2}");
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// Study 11 (pulse multipliers, dividers, monostables and timers): what the design does, with
+/// its numbers.
+fn what_timer_does(c: &Circuit) -> String {
+    let m = |k: &str| with_seconds(metric(c, k));
+    let n = kind_number(&c.kind).or_else(|| metric(c, "N").parse().ok()).unwrap_or(0);
+    let p = |s: String| if s.is_empty() { String::new() } else { format!("<p>{}</p>", s.trim()) };
+    match base(&c.kind) {
+        "burst" => {
+            let (pulse, period, latency, span) = (metric(c, "pulse").to_string(), metric(c, "period").to_string(), m("latency"), m("span"));
+            let shape = match (pulse.is_empty(), period.is_empty()) {
+                (false, false) => format!(" ({pulse} each, one every {period})"),
+                (false, true) => format!(" ({pulse} each)"),
+                _ => String::new(),
+            };
+            let timing = match (latency.is_empty(), span.is_empty()) {
+                (false, false) => format!("The first comes {latency} after the input; the whole burst takes {span}. "),
+                (false, true) => format!("The first comes {latency} after the input. "),
+                _ => String::new(),
+            };
+            let min_pulse = m("min-pulse");
+            let retrigger = match metric(c, "retrigger") {
+                "mixed" => "A second press during the burst: one that comes within a few game ticks is swallowed, a later one adds a second burst. ".to_string(),
+                "ignores" => "A second press during the burst is ignored. ".to_string(),
+                "adds" => format!("A second press during the burst adds {n} more pulses. "),
+                "restarts" => "A second press during the burst restarts it. ".to_string(),
+                "" => String::new(),
+                other => format!("A second press during the burst: {}. ", esc(other)),
+            };
+            let repeat = m("repeat");
+            format!(
+                "<p>Each input pulse gives <b>exactly {n} output pulses</b>{shape}: a pulse multiplier. Builds use it to fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press.</p>{}{}",
+                p(timing),
+                p(format!(
+                    "{}{retrigger}{}",
+                    if min_pulse.is_empty() { String::new() } else { format!("Any input of {min_pulse} or longer gives the same burst (a button, a plate or a held lever alike). ") },
+                    if repeat.is_empty() { String::new() } else { format!("Pressed again and again it keeps up with presses {repeat} apart: fed a clock that fast, it multiplies its frequency by {n}.") }
+                ))
+            )
+        }
+        "divider" => {
+            let square = metric(c, "output") == "square";
+            let duty = metric(c, "duty");
+            let shape = if square {
+                format!(
+                    " Its output is a <b>square wave</b>: on for half of each cycle, off for the other half{}.",
+                    if n % 2 == 1 { format!(" (for an odd N like {n} that takes both edges of the input clock: the output changes every {} input pulses)", trim_num(n as f64 / 2.0)) } else { String::new() }
+                )
+            } else if !duty.is_empty() {
+                format!(" Its output is on {} of the time (a short pulse per cycle).", esc(duty))
+            } else {
+                String::new()
+            };
+            let latency = m("latency");
+            let min_period = metric(c, "min-period");
+            format!(
+                "<p>It <b>divides a clock by {n}</b>: for every {n} pulses that come in, the output goes through one on-off cycle, so it runs {n} times slower than its input.{shape}</p>{}",
+                p(format!(
+                    "{}{}",
+                    if latency.is_empty() { String::new() } else { format!("Each output cycle starts {latency} after the input pulse that begins it, always the same. ") },
+                    if min_period.is_empty() { String::new() } else { format!("It keeps up with input clocks down to one pulse every {min_period} ({}); faster ones break the count.", rate_words(min_period)) }
+                ))
+            )
+        }
+        "monostable" => {
+            let l = m("L");
+            let retrig = c.kind.contains("non-retriggerable") || metric(c, "retrigger") == "non-retriggerable";
+            let kind_text = if retrig {
+                "It is <b>non-retriggerable</b>: input pulses that come while the output is on are ignored (one shot per press, however hard the button is mashed).".to_string()
+            } else if c.kind.contains("retriggerable") || metric(c, "retrigger") == "retriggerable" {
+                format!("It is <b>retriggerable</b>: another input pulse while the output is on restarts the count, so the output stays on while pulses keep coming and turns off {l} after the last one (a light that stays on while there is activity; inverted, an alarm for a clock that stopped).")
+            } else {
+                String::new()
+            };
+            let (delay, min_pulse, rearm) = (m("delay"), m("min-pulse"), m("re-arm"));
+            format!(
+                "<p>Each input pulse, however short, turns the output on for <b>{l}</b>: a one-shot timer. {kind_text}</p>{}",
+                p(format!(
+                    "{}{}{}",
+                    if delay.is_empty() { String::new() } else { format!("The output turns on {delay} after the input. ") },
+                    if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer. ") },
+                    if rearm.is_empty() { String::new() } else { format!("Two input pulses at least {rearm} apart give two full output pulses.") }
+                ))
+            )
+        }
+        "off-delay" => {
+            let l = m("L");
+            let latency = metric(c, "latency");
+            let min_pulse = m("min-pulse");
+            format!(
+                "<p>The output turns on with the input{} and <b>stays on {l} after the input turns off</b>: every output pulse is the input's length plus {l}. Input pulses closer together than that merge into one long output pulse (a light or a door that stays on a while after the last press of a pressure plate).</p>{}",
+                if latency == "0 gt" { " (in the same game tick)".to_string() } else if latency.is_empty() { String::new() } else { format!(" ({} later)", with_seconds(latency)) },
+                p(if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer.") })
+            )
+        }
+        "on-delay" => {
+            let t = m("T");
+            let shortening = m("shortening");
+            let latency = metric(c, "latency");
+            format!(
+                "<p>The output turns on only <b>once the input has been on for {t}</b>, and turns off with it: shorter inputs give nothing at all. It filters out glitches (the 1-2 gt pulses of observers, flicker) and makes \"hold the button\" controls.</p>{}",
+                p(format!(
+                    "{}{}",
+                    if shortening.is_empty() { String::new() } else { format!("An input longer than {t} comes out shortened by {shortening}") },
+                    match (shortening.is_empty(), latency) {
+                        (false, "0 gt") => "; the output falls in the same game tick as the input.".to_string(),
+                        (false, "") => ".".to_string(),
+                        (false, l) => format!("; the output falls {} after the input.", with_seconds(l)),
+                        _ => String::new(),
+                    }
+                ))
+            )
+        }
+        _ => {
+            // pulse-train
+            let (period, pulse, latency) = (metric(c, "P"), metric(c, "pulse"), m("latency"));
+            let stop = metric(c, "stop").split_whitespace().next().and_then(|v| v.parse::<i64>().ok());
+            format!(
+                "<p>While the input is on, the output <b>pulses every {period}</b> ({}{}): a clock with an on switch, for rapid fire from dispensers and droppers while a lever is on.</p>{}",
+                rate_words(period),
+                if pulse.is_empty() { String::new() } else { format!(", each {pulse} long") },
+                p(format!(
+                    "{}{}",
+                    if latency.is_empty() { String::new() } else { format!("The first pulse comes {latency} after the input turns on. ") },
+                    match stop {
+                        Some(s) if s <= 0 => "When the input turns off, it stops at once.".to_string(),
+                        Some(s) => format!("When the input turns off, no pulse starts more than {} later.", with_seconds(&format!("{s} gt"))),
+                        None => String::new(),
+                    }
+                ))
+            )
+        }
+    }
 }
 
 /// `2nd`, `3rd`, `11th`, `21st`.
@@ -402,8 +570,9 @@ fn input_label(name: &str) -> String {
 /// The kinds whose inputs are steady (toggled) rather than pulsed (webrender's input mode).
 pub fn input_mode(kind: &str) -> &'static str {
     match base(kind) {
-        // a shulker machine's start lever (and the combo's mode lever) stays where it is put
-        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" => "toggle",
+        // a shulker machine's start lever (and the combo's mode lever) stays where it is put; a
+        // gated pulse train and an off-delay timer act on the input's level (on / off)
+        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
         _ => "pulse",
     }
 }
@@ -516,7 +685,10 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         _ => {}
     }
     if !c.stimulus.is_empty() {
-        s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>");
+        match study11_demo(c) {
+            Some(demo) => s.push_str(&format!("<p><b>The view first plays the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
+            None => s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
+        }
     }
     let mut controls: Vec<String> = Vec::new();
     for (i, name) in c.inputs.iter().enumerate() {
@@ -533,7 +705,8 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         controls.push(what);
     }
     if !controls.is_empty() {
-        s.push_str(&format!("<p>To try it: {}.</p>", controls.join("; ")));
+        let hint = study11_try(c);
+        s.push_str(&format!("<p>To try it: {}{}.</p>", controls.join("; "), if hint.is_empty() { String::new() } else { format!(": {hint}") }));
     }
     let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
     if !outs.is_empty() {
@@ -557,6 +730,31 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
     match (base(kind), k) {
+        ("off-delay", "L") => "how long the output stays on after the input turns off",
+        ("monostable", "L") => "the length of each output pulse, whatever the input's length",
+        ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
+        ("monostable", "retrigger") => "retriggerable: a pulse while the output is on restarts L; non-retriggerable: it is ignored",
+        ("monostable", "re-arm") => "the shortest time between two input pulses that still gives two full output pulses",
+        ("burst", "N") => "output pulses per input pulse",
+        ("burst", "pulse") => "the length of each output pulse",
+        ("burst", "period") => "game ticks from one output pulse's start to the next one's",
+        ("burst", "latency") => "game ticks from the input turning on to the first output pulse",
+        ("burst", "span") => "game ticks from the first output pulse's start to the last one's end",
+        ("burst", "retrigger") => "what a second press during the burst does: ignored, restarts, adds N more, or mixed (depends on when)",
+        ("burst", "repeat") => "the fastest presses (one every this many game ticks) that still each give exactly N pulses",
+        ("divider", "N") => "input pulses per output cycle",
+        ("divider", "duty") => "the share of each output cycle the output is on",
+        ("divider", "output") => "square = on for exactly half of each cycle, pulse = a shorter on time",
+        ("divider", "latency") => "game ticks from the input pulse that starts an output cycle to the output turning on",
+        ("divider", "min-period") => "the fastest input clock it divides correctly: one pulse every this many game ticks",
+        ("on-delay", "T") => "how long the input must stay on before the output turns on",
+        ("on-delay", "shortening") => "how much shorter than the input the output pulse is",
+        ("on-delay", "latency") => "game ticks from the input turning off to the output turning off",
+        ("off-delay", "latency") => "game ticks from the input turning on to the output turning on",
+        ("pulse-train", "P") => "game ticks between two output pulses while the input is on",
+        ("pulse-train", "pulse") => "the length of each output pulse",
+        ("pulse-train", "latency") => "game ticks from the input turning on to the first output pulse",
+        ("pulse-train", "stop") => "the latest an output pulse starts after the input turns off (0 or less: none after)",
         (_, "L") => "the length of the output pulse",
         ("piston-extender", "N") => "the reach: how many cells the block is pushed out",
         ("counter", "N") => "how many input pulses one output cycle takes",
@@ -599,6 +797,59 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "period") => "game ticks per cycle of the engine (one push of each piston)",
         (_, "two-way") => "goes and comes back by itself",
         _ => "",
+    }
+}
+
+/// Study 11: what the judge's test (the view's demo) does to the input, in words.
+fn study11_demo(c: &Circuit) -> Option<String> {
+    let n = kind_number(&c.kind).unwrap_or(0);
+    let l = with_seconds(metric(c, "L"));
+    Some(match base(&c.kind) {
+        "burst" => format!("single input pulses of 1 to 40 gt (each must give exactly {n} output pulses), then pairs of presses closer and closer together (what a second press does), then trains of 6 presses faster and faster (how fast it keeps up)."),
+        "divider" => format!("a square clock on the input, first slow (a pulse every 40 gt, 2 s), then faster and faster down to a pulse every 2 gt; the output lamp goes through one on-off cycle for every {n} input pulses, until the clock gets faster than the design can follow."),
+        "monostable" => format!(
+            "single input pulses of 1 to 160 gt (each gives one output pulse of {l}), then pairs of short pulses closer and closer together: {}",
+            if c.kind.contains("non-retriggerable") { "a second pulse while the output is on is ignored." } else if c.kind.contains("retriggerable") { "a second pulse while the output is on restarts the count, so the output turns off L after the second one." } else { "what a second pulse while the output is on does." }
+        ),
+        "off-delay" => format!("input pulses of 1 to 80 gt (each output pulse lasts {l} longer than its input), then groups of 3 short pulses with growing gaps (closer than L, they merge into one output pulse)."),
+        "on-delay" => format!("input pulses of 1 to 80 gt: the ones shorter than {} give nothing, the longer ones come out shortened.", with_seconds(metric(c, "T"))),
+        "pulse-train" => format!("the input held on for 20, 60 and then 200 gt: the output pulses every {} while it is on and stops after.", with_seconds(metric(c, "P"))),
+        _ => return None,
+    })
+}
+
+/// Study 11: what to do with the input to see the design work.
+fn study11_try(c: &Circuit) -> String {
+    let n = kind_number(&c.kind).unwrap_or(0);
+    let l = with_seconds(metric(c, "L"));
+    match base(&c.kind) {
+        "burst" => format!("each tap gives exactly {n} flashes of the output"),
+        "divider" => format!("tap it {n} times and the output goes through one on-off cycle"),
+        "monostable" if c.kind.contains("non-retriggerable") => format!("a tap keeps the output on for {l}; tapping again while it is on changes nothing"),
+        "monostable" => format!("a tap keeps the output on for {l}; tap again while it is on and it stays on {l} after your last tap"),
+        "off-delay" => format!("turn the input on, then off: the output stays on {l} after you turn it off"),
+        "on-delay" => format!("a quick tap gives nothing; hold it longer than {} and the output lights until you let go", with_seconds(metric(c, "T"))),
+        "pulse-train" => format!("turn the input on and the output pulses every {} until you turn it off", with_seconds(metric(c, "P"))),
+        _ => String::new(),
+    }
+}
+
+/// Study 11: the judge's phase labels in words, for the view's demo badge and the timing diagram
+/// (`clock 40` -> `clock, a pulse every 40 gt`); other kinds keep theirs.
+pub fn phase_label(kind: &str, label: &str) -> String {
+    let mut w = label.split_whitespace();
+    let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
+        return label.to_string();
+    }
+    match (base(kind), what) {
+        ("divider", "clock") => format!("clock, a pulse every {v} gt"),
+        ("pulse-train", "pulse") => format!("input on for {v} gt"),
+        ("burst" | "monostable" | "off-delay" | "on-delay", "pulse") => format!("one {v} gt pulse"),
+        ("burst" | "monostable", "pair") => format!("2 pulses {v} gt apart"),
+        ("burst", "train") => format!("6 presses, one every {v} gt"),
+        ("off-delay", "train") => format!("3 pulses, gaps of {v} gt"),
+        _ => label.to_string(),
     }
 }
 
@@ -666,7 +917,7 @@ pub const STUDIES: [(&str, &str, &str); 11] = [
     (
         "pulsemult",
         "Pulse multipliers, dividers and monostables",
-        "Timing circuits. A burst generator turns one input pulse into exactly N output pulses (N dispenser shots, N items, N piston pushes); a frequency divider slows a running clock by N; a monostable makes one pulse of length L per trigger, and either ignores triggers while it is on (non-retriggerable) or stays on until L after the last one (retriggerable); an off-delay keeps the output on L longer than the input, an on-delay ignores inputs shorter than T; a pulse train pulses every P gt while its input is on. The judge measures each one's main number (N, L, T or P) and how it behaves under fast or repeated inputs; designs are ranked by blocks placed for each value.",
+        "Timing circuits. A burst generator turns one input pulse into exactly N output pulses (N dispenser shots, N items, N piston pushes); a frequency divider slows a running clock by N; a monostable makes one pulse of length L per trigger, and either ignores triggers while it is on (non-retriggerable) or stays on until L after the last one (retriggerable); an off-delay keeps the output on L longer than the input, an on-delay ignores inputs shorter than T; a pulse train pulses every P gt while its input is on. The judge measures each one's main number (N, L, T or P) and how it behaves under fast or repeated inputs; designs are ranked by blocks placed for each value. The functions earlier studies already collect are linked from the variations table rather than collected again: a non-retriggerable monostable fed single pulses is study 1's edge detector, divide by 2 is study 2's T flip-flop, counting slow pulses is study 5's counters.",
     ),
 ];
 
@@ -719,7 +970,8 @@ pub fn scrub_attribution(caption: &str) -> String {
 /// The design's caption without its bookkeeping prefix (`Counter 2, dropper ring, 8 blocks
 /// (track memory, ...): ` -> the explanation after it).
 pub fn how_sentence(caption: &str) -> String {
-    let c = caption.trim();
+    let c = drop_source_paths(caption.trim());
+    let c = c.as_str();
     if let Some(i) = c.find("): ") {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
@@ -727,6 +979,25 @@ pub fn how_sentence(caption: &str) -> String {
         }
     }
     site_model::html::esc(c)
+}
+
+/// Captions sometimes name the tool's source file in parentheses (`a comparator ring
+/// (crates/circuit-timer/src/rings.rs): ...`): bookkeeping a visitor does not need.
+fn drop_source_paths(c: &str) -> String {
+    let mut s = c.to_string();
+    let mut from = 0;
+    while let Some(i) = s[from..].find('(').map(|i| i + from) {
+        let Some(j) = s[i..].find(')').map(|j| j + i) else { break };
+        let inner = &s[i + 1..j];
+        if inner.contains("crates/") || inner.ends_with(".rs") || inner.contains(".rs ") {
+            let start = if i > 0 && s.as_bytes()[i - 1] == b' ' { i - 1 } else { i };
+            s.replace_range(start..=j, "");
+            from = start;
+        } else {
+            from = j + 1;
+        }
+    }
+    s
 }
 
 fn first_cap(s: &str) -> String {
@@ -837,6 +1108,7 @@ mod tests {
 
     #[test]
     fn unsimulated_reasons_read_plainly() {
+        assert_eq!(drop_source_paths("a comparator ring (crates/circuit-timer/src/rings.rs): 6 dust (C2) carry"), "a comparator ring: 6 dust (C2) carry");
         assert_eq!(plain_reason("not modeled by redsim (tick 28 of its run): dropper at (0,0,0) picks a random slot among 3 stacks (not modeled)"), "dropper picks a random slot among 3 stacks");
         assert_eq!(plain_reason("not modeled by redsim (tick 0 of its run): 2 container entities at (0,0,0): the game picks one at random (not modeled)"), "2 container entities: the game picks one at random");
         assert_eq!(plain_reason("block \"oak_fence\" is not modeled by redsim"), "block \"oak_fence\" is not modeled");
