@@ -5,6 +5,9 @@
 # exception: a design it matches is published whatever the other lines say. Read by
 # crates/site/src/circuits.rs (`hidden_design`); `mctas site smoke` checks that none is published;
 # `mctas site build` lists the dominated designs still published (`mctas site dominated`).
+# 2026-10-20 19:15Z, the coordinator: a `~` line folds a design under another (published only as its variant,
+# reachable from its page): ~<study>/<file> TAB under <host>: <why>
+~memory/rs-crafter	under rs-dropper: bigger and slower (6 blocks vs 4, latency 13 vs 6 gt), nothing measured in its favour
 # 2026-10-20 19:05Z, the coordinator: the slime-free extenders are their own distinction (vjeux's list view named
 # "slimeless"): the best at every N is published; only a slime-free design beaten by a smaller, at-least-as-fast
 # slime-free one at the same N is hidden (`mctas site dominated --all`, "nothing in their favour"; vjeux 12:12Z on
