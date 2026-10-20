@@ -84,16 +84,20 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
     b.blocks(&items);
-    if !s.simulated() {
+    if let Some(r) = &s.replay {
+        for e in r.entities(partial) {
+            b.entity(&e);
+        }
+    } else if !s.simulated() {
         for e in &s.design.entities {
             b.entity(&EntityDraw { kind: e.kind.clone(), pos: [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32], yaw: entity_yaw(e.nbt.as_deref()) });
         }
     }
     if let Some(m) = look.marker {
-        b.marker(m, true, [255, 255, 255]);
+        b.marker(m, true, [255, 255, 255], s.output_on().unwrap_or(false));
     }
     for o in &look.outlines {
-        b.marker(*o, false, [110, 230, 40]);
+        b.marker(*o, false, [110, 230, 40], false);
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
@@ -153,4 +157,25 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 /// Solid and translucent triangles of a mesh for a camera.
 pub fn triangles(m: &Mesh, cam: &Camera) -> (Vec<Vertex>, Vec<Vertex>) {
     (m.solid.clone(), m.sorted_translucent(cam.eye()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session::Options;
+
+    const OBS2: &str = "name: c\norigin: 0 0 0\nport output: 0 0 0\nport start: 1 0 0 last\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  B minecraft:observer[facing=west,powered=false]\nlayer 0:\n  AB\n";
+
+    #[test]
+    fn the_marker_never_shares_a_face_with_a_block() {
+        let atlas = Atlas::build();
+        let s = Session::new(OBS2, &Options::default()).unwrap();
+        let look = default_look(&s);
+        assert_eq!(look.marker, Some([-1, 0, 0]));
+        let m = build(&atlas, &s, 0.0, &look);
+        // the marker is the only translucent block: its faces against the observer and the
+        // ground are culled (they would z-fight), the other 4 remain
+        assert_eq!(m.translucent.len(), 4);
+        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01 && q.center[1] > 0.01));
+    }
 }

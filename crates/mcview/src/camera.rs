@@ -129,6 +129,20 @@ impl Camera {
         self.pitch = (self.pitch + dpitch).clamp(-1.5, 1.5);
     }
 
+    /// Keep the eye above `floor` (the ground's top): the target no lower than it, the pitch no
+    /// lower than what holds the eye a little over it.
+    pub fn keep_above(&mut self, floor: f32) {
+        let margin = 0.05;
+        if self.target[1] < floor {
+            self.target[1] = floor;
+        }
+        let h = self.target[1] - (floor + margin);
+        let min_pitch = (-h / self.dist.max(0.01)).clamp(-1.0, 1.0).asin().max(-1.5);
+        if self.pitch < min_pitch {
+            self.pitch = min_pitch;
+        }
+    }
+
     /// Move the target in the view plane (pan), by fractions of the view height.
     pub fn pan(&mut self, dx: f32, dy: f32) {
         let (_, r, u) = self.basis();

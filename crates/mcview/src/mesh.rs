@@ -102,6 +102,11 @@ fn norm(a: [f32; 3]) -> [f32; 3] {
     [a[0] / l, a[1] / l, a[2] / l]
 }
 
+/// `minecraft:water[level=1]` -> `minecraft:water`.
+fn base_name(state: &str) -> &str {
+    state.split('[').next().unwrap_or(state)
+}
+
 /// The game's directional shade for a face normal (up 1.0, down 0.5, z 0.8, x 0.6).
 pub fn shade(n: [f32; 3]) -> f32 {
     let y = if n[1] > 0.0 { n[1] * n[1] } else { n[1] * n[1] * 0.5 };
@@ -115,6 +120,8 @@ pub struct Builder<'a> {
     pub atlas: &'a Atlas,
     /// Cells holding an opaque full block (not moving).
     occ: HashSet<Pos>,
+    /// Block names of the still cells (translucent faces between the same blocks are culled).
+    names: HashMap<Pos, String>,
     /// The ground: every cell below this y counts as an opaque block (culling, AO).
     pub ground: Option<i32>,
     cache: HashMap<String, Option<Model>>,
@@ -123,7 +130,7 @@ pub struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
     }
 
     fn occupied(&self, c: Pos) -> bool {
@@ -142,13 +149,16 @@ impl<'a> Builder<'a> {
     /// Add blocks (call once per frame with every block).
     pub fn blocks(&mut self, items: &[Item]) {
         self.occ.clear();
+        self.names.clear();
         for it in items {
-            if it.offset == [0.0; 3]
-                && let Some(m) = self.model(it.state)
-                && m.full
-                && m.parts.iter().all(|p| p.layer == Layer::Opaque)
-            {
-                self.occ.insert(it.cell);
+            if it.offset == [0.0; 3] {
+                self.names.insert(it.cell, base_name(it.state).to_string());
+                if let Some(m) = self.model(it.state)
+                    && m.full
+                    && m.parts.iter().all(|p| p.layer == Layer::Opaque)
+                {
+                    self.occ.insert(it.cell);
+                }
             }
         }
         for it in items {
@@ -168,11 +178,13 @@ impl<'a> Builder<'a> {
     }
 
     /// The orange marker (stained glass) or an outline box (input) at a cell.
-    pub fn marker(&mut self, cell: Pos, glass: bool, color: [u8; 3]) {
+    pub fn marker(&mut self, cell: Pos, glass: bool, color: [u8; 3], lit: bool) {
         let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];
         if glass {
-            let m = models::model_for("minecraft:orange_stained_glass", self.atlas).unwrap();
-            self.add_model(&m, base, None, None);
+            // culled against the solid blocks it touches, like the game draws glass: never a
+            // face coplanar with a block's (no z-fighting)
+            let m = models::marker_model(lit);
+            self.add_model(&m, base, Some(cell), None);
             return;
         }
         let t = 0.6;
@@ -244,7 +256,8 @@ impl<'a> Builder<'a> {
         {
             let mut q = c;
             q[axis] += s;
-            if self.occupied(q) {
+            // against an opaque cube; translucent blocks also against their own kind (water, glass)
+            if self.occupied(q) || (p.layer == Layer::Translucent && self.names.get(&q).is_some_and(|n| self.names.get(&c) == Some(n))) {
                 return;
             }
         }
@@ -333,18 +346,61 @@ impl Mesh {
 
 /// The ground: a grass plane under the build (top face at `y`), `r` blocks around its box.
 pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<Vertex> {
-    // one quad, the grass tile repeated once per block
-    let layer = atlas.tile("grass_top") as u32;
+    // a one-block-thick layer of grass blocks: the grass tile repeated once per block on top,
+    // dirt under it and grass-block sides around it (seen from below or from the edge too)
+    let top = atlas.tile("grass_top") as u32;
+    let dirt = atlas.tile("dirt") as u32;
+    let side = atlas.tile("grass_side") as u32;
     let x0 = (lo[0] - r).floor();
     let x1 = (hi[0] + r).ceil();
     let z0 = (lo[2] - r).floor();
     let z1 = (hi[2] + r).ceil();
-    let c = [255, 255, 255, 255];
-    let v = [
-        Vertex { pos: [x0, y, z0], uv: [x0, z0], layer, color: c },
-        Vertex { pos: [x0, y, z1], uv: [x0, z1], layer, color: c },
-        Vertex { pos: [x1, y, z1], uv: [x1, z1], layer, color: c },
-        Vertex { pos: [x1, y, z0], uv: [x1, z0], layer, color: c },
-    ];
-    vec![v[0], v[1], v[2], v[0], v[2], v[3]]
+    let yb = y - 1.0;
+    let lum = |s: f32| {
+        let c = (255.0 * s).round() as u8;
+        [c, c, c, 255]
+    };
+    let mut out = Vec::new();
+    let mut quad = |v: [Vertex; 4]| out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
+    let c = lum(1.0);
+    quad([
+        Vertex { pos: [x0, y, z0], uv: [x0, z0], layer: top, color: c },
+        Vertex { pos: [x0, y, z1], uv: [x0, z1], layer: top, color: c },
+        Vertex { pos: [x1, y, z1], uv: [x1, z1], layer: top, color: c },
+        Vertex { pos: [x1, y, z0], uv: [x1, z0], layer: top, color: c },
+    ]);
+    let c = lum(0.5);
+    quad([
+        Vertex { pos: [x0, yb, z0], uv: [x0, z0], layer: dirt, color: c },
+        Vertex { pos: [x1, yb, z0], uv: [x1, z0], layer: dirt, color: c },
+        Vertex { pos: [x1, yb, z1], uv: [x1, z1], layer: dirt, color: c },
+        Vertex { pos: [x0, yb, z1], uv: [x0, z1], layer: dirt, color: c },
+    ]);
+    // sides, wound to face outward (north -z, south +z, west -x, east +x)
+    let (cz, cx) = (lum(0.8), lum(0.6));
+    quad([
+        Vertex { pos: [x0, y, z0], uv: [x0, 0.0], layer: side, color: cz },
+        Vertex { pos: [x1, y, z0], uv: [x1, 0.0], layer: side, color: cz },
+        Vertex { pos: [x1, yb, z0], uv: [x1, 1.0], layer: side, color: cz },
+        Vertex { pos: [x0, yb, z0], uv: [x0, 1.0], layer: side, color: cz },
+    ]);
+    quad([
+        Vertex { pos: [x1, y, z1], uv: [x1, 0.0], layer: side, color: cz },
+        Vertex { pos: [x0, y, z1], uv: [x0, 0.0], layer: side, color: cz },
+        Vertex { pos: [x0, yb, z1], uv: [x0, 1.0], layer: side, color: cz },
+        Vertex { pos: [x1, yb, z1], uv: [x1, 1.0], layer: side, color: cz },
+    ]);
+    quad([
+        Vertex { pos: [x0, y, z1], uv: [z1, 0.0], layer: side, color: cx },
+        Vertex { pos: [x0, y, z0], uv: [z0, 0.0], layer: side, color: cx },
+        Vertex { pos: [x0, yb, z0], uv: [z0, 1.0], layer: side, color: cx },
+        Vertex { pos: [x0, yb, z1], uv: [z1, 1.0], layer: side, color: cx },
+    ]);
+    quad([
+        Vertex { pos: [x1, y, z0], uv: [z0, 0.0], layer: side, color: cx },
+        Vertex { pos: [x1, y, z1], uv: [z1, 0.0], layer: side, color: cx },
+        Vertex { pos: [x1, yb, z1], uv: [z1, 1.0], layer: side, color: cx },
+        Vertex { pos: [x1, yb, z0], uv: [z0, 1.0], layer: side, color: cx },
+    ]);
+    out
 }

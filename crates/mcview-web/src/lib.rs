@@ -67,7 +67,11 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
+    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
+    pub trace: Option<String>,
     pub tick: Option<u32>,
+    /// `data-autoplay`: a live viewer starts playing once loaded.
+    pub autoplay: bool,
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
     /// Canvas size in device pixels.
@@ -195,6 +199,31 @@ pub fn start() {
     ensure_frame();
 }
 
+/// For `mctas web check --wasm`: memory the host fills with a design's text.
+#[unsafe(no_mangle)]
+pub extern "C" fn mcview_alloc(len: usize) -> *mut u8 {
+    let mut v = Vec::<u8>::with_capacity(len.max(1));
+    let p = v.as_mut_ptr();
+    std::mem::forget(v);
+    p
+}
+
+/// For `mctas web check --wasm`: the clock period detector of THIS wasm (the code the browser
+/// runs) on a design text written at `ptr` (taken back and freed). Returns state warmup, state
+/// period, visible warmup and visible period as four u16 (low to high), or u64::MAX.
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_clock_period(ptr: *mut u8, len: usize, horizon: u32) -> u64 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()).and_then(|s| s.period(horizon)) {
+        Ok(p) if p.state_warmup < 65536 && p.state_period < 65536 => p.state_warmup as u64 | (p.state_period as u64) << 16 | (p.warmup as u64) << 32 | (p.period as u64) << 48,
+        _ => u64::MAX,
+    }
+}
+
 /// Register every viewer element in (and including) `root`.
 fn scan(root: &Element) {
     let mut found: Vec<HtmlElement> = Vec::new();
@@ -294,7 +323,9 @@ impl App {
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
+            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            autoplay: el.has_attribute("data-autoplay"),
             yaw: attr_f32(&el, "data-yaw"),
             pitch: attr_f32(&el, "data-pitch"),
             el: el.clone(),
@@ -401,17 +432,31 @@ impl App {
             return Some(Ok(t.clone()));
         }
         let src = v.src.clone()?;
-        if let Some(r) = self.texts.get(&src) {
+        self.url_text(&src)
+    }
+
+    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
+    /// `View::trace` first).
+    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
+        let url = self.views.get(&id)?.trace.clone()?;
+        self.url_text(&url)
+    }
+
+    /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
+    /// arrives, every view using it (as design or recording) is queued again.
+    fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
+        if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
         }
+        let src = url.to_string();
         if self.fetching.insert(src.clone()) {
             wasm_bindgen_futures::spawn_local(async move {
                 let r = fetch_text(&src).await.map(|t| Rc::<str>::from(t.as_str()));
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    // wake every view waiting for this text
-                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| v.src.as_deref() == Some(src.as_str()) && !v.done && (v.visible || v.full)).map(|(id, _)| *id).collect();
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
                             a.queue.push_back(id);

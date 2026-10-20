@@ -38,7 +38,7 @@ impl Player {
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
     pub fn update(&mut self, dt: f32) -> bool {
-        if !self.playing || !self.session.simulated() {
+        if !self.playing || !self.session.playable() {
             return std::mem::take(&mut self.dirty);
         }
         self.acc += dt.min(0.25) * self.tps;
@@ -117,13 +117,20 @@ impl Player {
         self.dirty = true;
     }
 
-    /// The tick counter: `123 gt (6.15 s)`, plus the ticks since the last flip for a door.
+    /// After moving the camera: keep it above the ground (never under the floor).
+    pub fn keep_camera_above_ground(&mut self) {
+        if let Some(g) = self.look.ground {
+            self.camera.keep_above(g);
+        }
+    }
+
+    /// The tick counter: `123 gt · 6.15 s`, plus the ticks since the last flip for a door.
     pub fn label(&self) -> String {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
-        let mut out = format!("{t} gt ({})", seconds(t));
+        let mut out = format!("{t} gt · {}", seconds(t));
         if s.last_input.is_some() {
-            out.push_str(&format!(" · {} gt since the flip", s.since_input()));
+            out.push_str(&format!(" · flip +{} gt", s.since_input()));
         }
         out
     }

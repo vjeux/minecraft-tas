@@ -480,6 +480,15 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("orange_stained_glass", &|t| {
         t.fill(rgba(0xd87f33, 110)).outline(0, 0, 15, 15, rgba(0xe89a50, 190)).rect(2, 2, 3, 3, rgba(0xf8c890, 140));
     });
+    add("marker_lit", &|t| {
+        t.fill(rgba(0xffb347, 175)).outline(0, 0, 15, 15, rgba(0xfff1b0, 245)).outline(1, 1, 14, 14, rgba(0xffd27a, 215)).rect(2, 2, 3, 3, rgba(0xfff8e0, 220));
+    });
+    add("grass_side", &|t| {
+        t.fill(rgb(0x866043)).vary(0.1).map(|x, y, c| {
+            let fringe = 2 + ((x * 7 + 3) % 5 == 0) as i32 + ((x * 3) % 4 == 1) as i32;
+            if y < fringe { rgb(0x5d8a3a) } else { c }
+        });
+    });
     add("lime_stained_glass", &|t| {
         t.fill(rgba(0x7fcc19, 110)).outline(0, 0, 15, 15, rgba(0x99dd33, 190)).rect(2, 2, 3, 3, rgba(0xc8f090, 140));
     });
@@ -808,6 +817,18 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     });
     add("water", &|t| {
         t.fill(rgba(0x3f76e4, 170)).vary(0.05);
+    });
+    add("bubbles", &|t| {
+        t.fill(rgba(0x5a8cf0, 150)).vary(0.06).map(|x, y, c| if (x * 7 + y * 13) % 11 == 0 { rgba(0xd8e8ff, 210) } else { c });
+    });
+    add("magma", &|t| {
+        t.stones(rgb(0x8a3a10), rgb(0x5a1e08), rgb(0xff8a20), 8, 9).vary(0.08);
+    });
+    add("dripleaf_top", &|t| {
+        t.fill(rgb(0x5f9a2c)).vary(0.08).map(|x, y, c| if (x - y).abs() < 1 || (x + y - 15).abs() < 1 { rgb(0x4a7e22) } else { c }).outline(0, 0, 15, 15, rgb(0x4a7e22));
+    });
+    add("tripwire", &|t| {
+        t.fill(CLEAR).rect(0, 7, 15, 8, rgba(0xdedede, 230));
     });
     add("snow", &|t| {
         t.fill(rgb(0xf4fcfc)).vary(0.02);

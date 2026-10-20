@@ -131,3 +131,127 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
     }
     Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, note })
 }
+
+/// A grid of frames over time (the animation the browser plays): a door from its lever flip, a
+/// clock from its still moment; `step` game ticks between frames (fractions show moving blocks
+/// mid-way). Returns the grid's RGBA and its size.
+pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u32, step: f32, w: u32, h: u32) -> Result<(Vec<u8>, u32, u32), String> {
+    let mut s = Session::new(text, &Options::default())?;
+    if !s.mode.is_door() {
+        s.go_to_still(20_000);
+    }
+    let look = scene::default_look(&s);
+    let cam = scene::default_camera(&s, &look, w as f32 / h as f32);
+    if let crate::session::Mode::Door { lever, .. } = s.mode {
+        s.toggle(lever);
+    }
+    let (gw, gh) = (cols * w, rows * h);
+    let mut grid = vec![0u8; (gw * gh * 4) as usize];
+    let mut t = 0.0f32;
+    for i in 0..cols * rows {
+        while (s.tick - s.rest_tick) as f32 + 1.0 <= t && s.tick < 100_000 {
+            s.step();
+        }
+        let partial = t - (s.tick - s.rest_tick) as f32;
+        let mesh = scene::build(atlas, &s, partial.clamp(0.0, 0.999), &look);
+        let (solid, translucent) = scene::triangles(&mesh, &cam);
+        let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: w, height: h })?;
+        let (ox, oy) = ((i % cols) * w, (i / cols) * h);
+        for y in 0..h {
+            let src = &rgba[(y * w * 4) as usize..((y + 1) * w * 4) as usize];
+            let o = (((oy + y) * gw + ox) * 4) as usize;
+            grid[o..o + (w * 4) as usize].copy_from_slice(src);
+        }
+        t += step;
+    }
+    Ok((grid, gw, gh))
+}
+
+/// Decode a PNG to RGBA8 (any color type, 8-bit).
+pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut r = dec.read_info().map_err(|e| e.to_string())?;
+    let mut buf = vec![0; r.output_buffer_size().ok_or("png too big")?];
+    let info = r.next_frame(&mut buf).map_err(|e| e.to_string())?;
+    let (w, h) = (info.width, info.height);
+    let px = &buf[..info.buffer_size()];
+    let rgba: Vec<u8> = match info.color_type {
+        png::ColorType::Rgba => px.to_vec(),
+        png::ColorType::Rgb => px.chunks(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
+        png::ColorType::GrayscaleAlpha => px.chunks(2).flat_map(|c| [c[0], c[0], c[0], c[1]]).collect(),
+        png::ColorType::Grayscale => px.iter().flat_map(|v| [*v, *v, *v, 255]).collect(),
+        png::ColorType::Indexed => return Err("indexed png not expanded".into()),
+    };
+    Ok((rgba, w, h))
+}
+
+/// Textures in a grid, each scaled up `scale` times (nearest), on a checkerboard (transparency).
+pub fn sheet(paths: &[std::path::PathBuf], scale: u32, cols: u32) -> Result<(Vec<u8>, u32, u32), String> {
+    let cell = 16 * scale + 4;
+    let rows = (paths.len() as u32).div_ceil(cols.max(1));
+    let (w, h) = (cols * cell, rows.max(1) * cell);
+    let mut out = vec![40u8; (w * h * 4) as usize];
+    for (i, p) in paths.iter().enumerate() {
+        let bytes = std::fs::read(p).map_err(|e| format!("{}: {e}", p.display()))?;
+        let (px, tw, th) = decode_png(&bytes).map_err(|e| format!("{}: {e}", p.display()))?;
+        let (ox, oy) = ((i as u32 % cols) * cell + 2, (i as u32 / cols) * cell + 2);
+        for y in 0..16 * scale {
+            for x in 0..16 * scale {
+                let (sx, sy) = (x * tw.min(16) / (16 * scale), y * th.min(16).max(1) / (16 * scale));
+                let s = ((sy * tw + sx) * 4) as usize;
+                let a = px[s + 3] as u32;
+                let bg = if ((x / 8) + (y / 8)) % 2 == 0 { 90 } else { 120 };
+                let o = (((oy + y) * w + ox + x) * 4) as usize;
+                for k in 0..3 {
+                    out[o + k] = ((px[s + k] as u32 * a + bg * (255 - a)) / 255) as u8;
+                }
+                out[o + 3] = 255;
+            }
+        }
+    }
+    Ok((out, w, h))
+}
+
+/// The shipped wasm (`mcview_bg.wasm`) run natively by an interpreter, to check that the browser's
+/// simulation is the native one: its `mcview_clock_period` export on design texts. Every import
+/// (the browser's API) traps if called; the period detector needs none.
+pub struct WasmProbe {
+    store: wasmi::Store<()>,
+    memory: wasmi::Memory,
+    alloc: wasmi::TypedFunc<u32, u32>,
+    period: wasmi::TypedFunc<(u32, u32, u32), u64>,
+}
+
+impl WasmProbe {
+    pub fn load(bytes: &[u8]) -> Result<WasmProbe, String> {
+        let engine = wasmi::Engine::default();
+        let module = wasmi::Module::new(&engine, bytes).map_err(|e| format!("wasm: {e}"))?;
+        let mut store = wasmi::Store::new(&engine, ());
+        let mut linker = wasmi::Linker::<()>::new(&engine);
+        for imp in module.imports() {
+            if let wasmi::ExternType::Func(ft) = imp.ty() {
+                let label = format!("{}.{}", imp.module(), imp.name());
+                linker.func_new(imp.module(), imp.name(), ft.clone(), move |_, _, _| Err(wasmi::Error::new(format!("the check called the browser import {label}")))).map_err(|e| format!("{e}"))?;
+            }
+        }
+        let instance = linker.instantiate_and_start(&mut store, &module).map_err(|e| format!("instantiate: {e}"))?;
+        let memory = instance.get_memory(&store, "memory").ok_or("no exported memory")?;
+        let alloc = instance.get_typed_func::<u32, u32>(&store, "mcview_alloc").map_err(|e| format!("mcview_alloc: {e}"))?;
+        let period = instance.get_typed_func::<(u32, u32, u32), u64>(&store, "mcview_clock_period").map_err(|e| format!("mcview_clock_period: {e}"))?;
+        Ok(WasmProbe { store, memory, alloc, period })
+    }
+
+    /// (state warmup, state period, warmup, period), or None when the wasm finds no clock.
+    pub fn period(&mut self, text: &str, horizon: u32) -> Result<Option<(u32, u32, u32, u32)>, String> {
+        let len = text.len() as u32;
+        let ptr = self.alloc.call(&mut self.store, len).map_err(|e| format!("alloc: {e}"))?;
+        self.memory.write(&mut self.store, ptr as usize, text.as_bytes()).map_err(|e| format!("write: {e}"))?;
+        let r = self.period.call(&mut self.store, (ptr, len, horizon)).map_err(|e| format!("period: {e}"))?;
+        if r == u64::MAX {
+            return Ok(None);
+        }
+        let f = |k: u32| ((r >> (16 * k)) & 0xffff) as u32;
+        Ok(Some((f(0), f(1), f(2), f(3))))
+    }
+}

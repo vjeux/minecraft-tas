@@ -76,6 +76,8 @@ pub struct Session {
     pub outputs: Vec<Pos>,
     /// Everything as placed, for [`Session::reset`].
     initial: Option<(World, Vec<(u32, Action)>, u32)>,
+    /// A real-game recording played instead of simulating ([`Session::attach_trace`]).
+    pub replay: Option<crate::replay::Replay>,
 }
 
 pub fn bp(p: Pos) -> BlockPos {
@@ -274,6 +276,7 @@ impl Session {
             inputs,
             outputs,
             initial: None,
+            replay: None,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks.
@@ -362,6 +365,11 @@ impl Session {
 
     /// Back to the placed state.
     pub fn reset(&mut self) {
+        if let Some(r) = self.replay.as_mut() {
+            r.reset();
+            self.tick = r.tick;
+            return;
+        }
         if let Some((w, a, t)) = &self.initial {
             self.world = w.clone();
             self.actions = a.clone();
@@ -373,6 +381,38 @@ impl Session {
 
     pub fn simulated(&self) -> bool {
         self.unsimulated.is_none()
+    }
+
+    /// Something moves when played: a redsim simulation or a recording.
+    pub fn playable(&self) -> bool {
+        self.simulated() || self.replay.is_some()
+    }
+
+    /// Is the (first) output on now? (None: no output, or nothing simulated or recorded.)
+    pub fn output_on(&self) -> Option<bool> {
+        let o = *self.outputs.first()?;
+        if let Some(r) = &self.replay {
+            return Some(r.state_at(o).is_some_and(active_state));
+        }
+        if !self.simulated() {
+            return None;
+        }
+        Some(active(&self.world.get(bp(o))))
+    }
+
+    /// Play a real-game recording (`designs/clocks/traces/<stem>.trace`) instead of simulating:
+    /// for the designs redsim does not model (boats, minecarts, fluids).
+    pub fn attach_trace(&mut self, text: &str) -> Result<(), String> {
+        let r = crate::replay::Replay::parse(text)?;
+        if self.outputs.is_empty()
+            && let Some(o) = r.output
+        {
+            self.outputs.push(o);
+        }
+        self.tick = r.tick;
+        self.rest_tick = 0;
+        self.replay = Some(r);
+        Ok(())
     }
 
     /// Apply the scheduled inputs due now (between ticks).
@@ -399,6 +439,11 @@ impl Session {
     /// One game tick, then the scheduled inputs due at the new tick (so the state shown at tick t
     /// is what the judge sees between ticks t and t+1).
     pub fn step(&mut self) {
+        if let Some(r) = self.replay.as_mut() {
+            r.step();
+            self.tick = r.tick;
+            return;
+        }
         if !self.simulated() {
             return;
         }
@@ -444,6 +489,9 @@ impl Session {
     /// moving blocks at their interpolated offset, like the client draws them.
     pub fn render_blocks(&self, partial: f32) -> Vec<RBlock> {
         let mut out = Vec::new();
+        if let Some(r) = &self.replay {
+            return r.render_blocks();
+        }
         if !self.simulated() {
             // what redsim could not place is drawn from the design text
             for (p, s) in &self.design.blocks {
@@ -696,6 +744,7 @@ impl Session {
             inputs: Vec::new(),
             outputs: Vec::new(),
             initial: None,
+            replay: None,
         };
         s.apply_due();
         s
@@ -822,6 +871,28 @@ impl Session {
     }
 }
 
+/// [`active`] for a block state string (a recording's cells).
+pub fn active_state(state: &str) -> bool {
+    let st = crate::models::St::parse(state);
+    match st.name {
+        "air" | "cave_air" | "void_air" => return false,
+        "piston_head" | "moving_piston" => return true,
+        "hopper" => return st.get("enabled") == Some("false"),
+        "sculk_sensor" | "calibrated_sculk_sensor" => return st.get("sculk_sensor_phase") == Some("active"),
+        "leaves" => return st.get("distance").and_then(|d| d.parse::<u32>().ok()).is_some_and(|d| d < 7),
+        _ => {}
+    }
+    for k in ["powered", "lit", "extended", "open", "triggered", "attached"] {
+        if let Some(v) = st.get(k) {
+            return v == "true";
+        }
+    }
+    if let Some(p) = st.get("power") {
+        return p.parse::<u32>().is_ok_and(|p| p > 0);
+    }
+    true
+}
+
 /// Is a component "on" (`crates/clock/src/wave.rs::active`)?
 pub fn active(b: &Block) -> bool {
     match *b {
@@ -889,9 +960,23 @@ mod tests {
         let (w0, p) = s.picture_period(20_000).unwrap();
         assert_eq!((w0, p), (0, 12));
         let cells = s.period_cells(w0, p);
-        for (pos, seq) in &cells {
-            eprintln!("{pos:?}: {} {:?}", seq.iter().map(|b| if active(b) { '#' } else { '.' }).collect::<String>(), seq.iter().map(|b| b.to_string()).collect::<Vec<_>>());
-        }
         assert_eq!(Session::auto_output(&cells), Some([2, 0, 0]));
+    }
+
+    #[test]
+    fn the_kick_block_shows_at_tick_0() {
+        // `port start: 0 0 0 last`: the observer placed last is there from the first frame
+        let s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        assert_eq!(s.tick, 0);
+        assert!(s.render_blocks(0.0).iter().any(|b| b.cell == [0, 0, 0] && b.state.contains("observer")));
+    }
+
+    #[test]
+    fn recorded_output_states_light_the_marker() {
+        assert!(active_state("minecraft:redstone_lamp[lit=true]"));
+        assert!(!active_state("minecraft:redstone_wire[power=0,east=side]"));
+        assert!(active_state("minecraft:redstone_wire[power=3]"));
+        assert!(!active_state("minecraft:air"));
+        assert!(active_state("minecraft:hopper[enabled=false,facing=down]"));
     }
 }
