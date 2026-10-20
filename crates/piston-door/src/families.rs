@@ -142,6 +142,20 @@ pub struct St {
 /// arms Y (held on QC), X's level-off releases a Y held that way.
 pub static QC: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
+thread_local! {
+    /// Per thread: mechanisms built while set have no quasi-connectivity coupling (mechmut's
+    /// macrosat seeds and their variants; see [`Mech::qc`]).
+    pub static NO_QC_HERE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Run `f` with [`NO_QC_HERE`] set to `off` on this thread (mechanisms built inside take it).
+pub fn with_qc_off<T>(off: bool, f: impl FnOnce() -> T) -> T {
+    let prev = NO_QC_HERE.with(|c| c.replace(off));
+    let r = f();
+    NO_QC_HERE.with(|c| c.set(prev));
+    r
+}
+
 /// The static part of a mechanism: box + pistons (sticky, facing) by id.
 #[derive(Clone, Debug)]
 pub struct Mech {
@@ -158,6 +172,9 @@ pub struct Mech {
     /// The mechanism has redstone blocks: pistons next to one (not through their front) are
     /// powered, and every state is settled (powered pistons extend, unpowered ones retract).
     pub has_r: bool,
+    /// Quasi-connectivity coupling for this mechanism ([`QC`] at construction; mechmut turns it
+    /// off for macrosat seeds, whose schedules list co-fired pistons as their own actions).
+    pub qc: bool,
 }
 
 /// Extended-at-rest pullers (the DEFAULT since 2026-10-19; `--no-ext-pullers` turns it off): the
@@ -306,7 +323,7 @@ impl Mech {
             _ => Vec::new(),
         };
         let has_r = pieces.iter().any(|p| matches!(p.k, K::Redstone));
-        let mut m = Mech { bx, pieces, info, pid, ext_rest, forbid, has_r };
+        let mut m = Mech { bx, pieces, info, pid, ext_rest, forbid, has_r, qc: QC.load(Ordering::Relaxed) && !NO_QC_HERE.with(|c| c.get()) };
         let mut st = St { g, pow, pp, qc: 0 };
         if has_r {
             // a piston held out at rest by a redstone block beside it is not wired: no level bit
@@ -322,7 +339,7 @@ impl Mech {
                 return None;
             }
         }
-        if QC.load(Ordering::Relaxed) {
+        if m.qc {
             // a piston held powered at rest QC-arms a retracted piston right below it: unstable
             for id in 0..m.info.len() {
                 if !m.ext_rest[id] {
@@ -433,10 +450,10 @@ impl Mech {
         out
     }
 
-    /// One event, with the quasi-connectivity coupling of [`QC`].
+    /// One event, with the quasi-connectivity coupling of [`QC`] (this mechanism's `qc`).
     pub fn apply(&self, s: &St, e: E) -> Out {
         let out = self.apply_raw(s, e);
-        if !QC.load(Ordering::Relaxed) {
+        if !self.qc {
             return out;
         }
         let Out::Ok(mut n) = out else { return out };

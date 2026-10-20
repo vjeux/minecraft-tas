@@ -73,6 +73,8 @@ pub struct Var {
     pub extent: (i32, i32),
     /// Where the seed came from (a macrosat dump's file name, or "").
     pub origin: String,
+    /// Solved without quasi-connectivity coupling (its seed's `qc_off`).
+    pub qc_off: bool,
 }
 
 impl Var {
@@ -424,6 +426,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         reserve: reserve.to_vec(),
         extent,
         origin: String::new(),
+        qc_off: !m.qc,
     })
 }
 
@@ -542,13 +545,15 @@ pub struct Opts {
     pub reserve: Vec<(i8, i8)>,
     /// A macrosat seed keeps its model's wiring cells free too.
     pub reserve_wiring: bool,
+    /// macrosat seeds keep families' quasi-connectivity coupling (default: off for them).
+    pub macrosat_qc: bool,
 }
 
 /// A placeholder variant for a mechanism that does not solve (beam steering only; fewer pieces
 /// first among equal growth).
 fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), strict: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new(), reserve: Vec::new(), extent: (0, 0), origin: String::new() }
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), strict: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new(), reserve: Vec::new(), extent: (0, 0), origin: String::new(), qc_off: fam::NO_QC_HERE.with(|c| c.get()) }
 }
 
 /// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
@@ -591,6 +596,9 @@ pub struct Seed {
     pub hint: Option<(Sched, Sched)>,
     pub reserve: Vec<(i8, i8)>,
     pub origin: String,
+    /// Solve (and replay the hint) without quasi-connectivity coupling (macrosat seeds: its
+    /// schedules list co-fired pistons as their own actions); redsim stays the judge.
+    pub qc_off: bool,
 }
 
 /// A `door macrosat` dump (clockinfra's model printout: the `macrosat: box WxH at (x0,y0)` line,
@@ -802,8 +810,8 @@ fn prune_idle(pieces: &[Pc], named: &HashSet<(i8, i8)>, open: Option<&HashMap<(i
 
 /// The seeds in `input`: a file of `W H x0 y0 pieces` lines, a macrosat dump, or a folder (every
 /// macrosat dump under it, recursively). `reserve_wiring`: a macrosat seed keeps its wiring cells
-/// free.
-pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool) -> Result<Vec<Seed>> {
+/// free; `macrosat_qc_off`: macrosat seeds are solved without quasi-connectivity coupling.
+pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool, macrosat_qc_off: bool) -> Result<Vec<Seed>> {
     let mut files = Vec::new();
     if input.is_dir() {
         let mut stack = vec![input.to_path_buf()];
@@ -826,7 +834,7 @@ pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool) -> R
         let text = std::fs::read_to_string(f).with_context(|| format!("{}", f.display()))?;
         let label = f.strip_prefix(input).unwrap_or(f).display().to_string();
         if let Some((bx, pieces, wiring, sched)) = parse_macrosat(&text).with_context(|| f.display().to_string())? {
-            let hint = macrosat_sched(bx, &pieces, &sched);
+            let hint = fam::with_qc_off(macrosat_qc_off, || macrosat_sched(bx, &pieces, &sched));
             let mut res = reserve.to_vec();
             if reserve_wiring {
                 res.extend(wiring.iter().copied());
@@ -845,10 +853,10 @@ pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool) -> R
                     Err(e) => format!("; its schedule does not replay: {e}"),
                 }
             );
-            seeds.push(Seed { bx, pieces, hint: hint.ok(), reserve: res, origin: label });
+            seeds.push(Seed { bx, pieces, hint: hint.ok(), reserve: res, origin: label, qc_off: macrosat_qc_off });
         } else if !input.is_dir() {
             for (bx, pieces) in parse_lines(&text)? {
-                seeds.push(Seed { bx, pieces, hint: None, reserve: reserve.to_vec(), origin: String::new() });
+                seeds.push(Seed { bx, pieces, hint: None, reserve: reserve.to_vec(), origin: String::new(), qc_off: false });
             }
         }
     }
@@ -862,7 +870,7 @@ pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
     let mut beam: Vec<Var> = Vec::new();
     let seed_res = cs::par_map(seeds, o.threads, |s| {
         let hint = s.hint.as_ref().map(|(so, sc)| (so, sc, None));
-        eval(s.bx, &s.pieces, o.cap, hint, &s.reserve)
+        fam::with_qc_off(s.qc_off, || eval(s.bx, &s.pieces, o.cap, hint, &s.reserve))
     });
     for (s, res) in seeds.iter().zip(seed_res) {
         let (bx, p) = (&s.bx, &s.pieces);
@@ -887,25 +895,20 @@ pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
                 kept.push(v);
             }
             None => {
-                // why: the bare solve's verdict (cap / proven none under the bars / solves but
-                // dropped by a filter)
-                let why = match Mech::new(*bx, p) {
-                    None => "families refuses the rest state".to_string(),
-                    Some((m, rest)) => match fam::solve(&m, &rest, o.cap, true) {
-                        Err(()) => format!("cap {} hit", o.cap),
-                        Ok(None) => "PROVEN no open+close (under the wirability bars if set)".to_string(),
-                        Ok(Some(s)) => format!("solves ({} + {} events) but a filter drops it (FULL frame, reserve, inside, unfed)", s.open.len(), s.close.len()),
-                    },
-                };
+                // why (without re-solving: the seed's solve just ran)
+                let why = fam::with_qc_off(s.qc_off, || match Mech::new(*bx, p) {
+                    None => format!("families refuses the rest state ({})", refusal(*bx, p)),
+                    Some(_) => format!("no schedule within the cap {}, or one a filter drops (FULL frame, reserve, inside, unfed)", o.cap),
+                });
                 eprintln!("[mechmut] seed fails{}: {why}: {} {:?}", if s.origin.is_empty() { String::new() } else { format!(" [{}]", s.origin) }, p.iter().map(|q| q.code()).collect::<Vec<_>>().join(" "), bx);
                 if o.repair {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
-                    let mut v = partial(*bx, p, 10);
+                    let mut v = fam::with_qc_off(s.qc_off, || partial(*bx, p, 10));
                     v.reserve = s.reserve.clone();
                     v.origin = s.origin.clone();
                     if ADD.load(std::sync::atomic::Ordering::Relaxed) {
-                        v.missing = progress(*bx, p, o.bfs_cap.max(100_000));
+                        v.missing = fam::with_qc_off(s.qc_off, || progress(*bx, p, o.bfs_cap.max(100_000)));
                         eprintln!("[mechmut]   (growth from it: {} 3x3 cells stay filled at best)", v.missing);
                     }
                     beam.push(v);
@@ -929,23 +932,25 @@ pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
         let grow = ADD.load(std::sync::atomic::Ordering::Relaxed);
         let res = cs::par_map(&cand, o.threads, |(k, p, ch)| {
             let parent = &beam[*k];
-            let r = match eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &parent.reserve) {
-                Some(v) => Some(v),
-                // --add growth: an unsolved neighbour steers the beam by how far it opens, only
-                // when it opens strictly further than its (unsolved) parent
-                None if grow && parent.missing > 0 => {
-                    let mi = progress(parent.bx, p, o.bfs_cap.clamp(20_000, 200_000));
-                    (mi < parent.missing || (mi == parent.missing && mi < 10)).then(|| {
-                        let mut v = partial(parent.bx, p, mi);
-                        v.reserve = parent.reserve.clone();
-                        v
-                    })
-                }
-                None => None,
-            };
-            r.map(|mut v| {
-                v.origin = parent.origin.clone();
-                v
+            fam::with_qc_off(parent.qc_off, || {
+                let r = match eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &parent.reserve) {
+                    Some(v) => Some(v),
+                    // --add growth: an unsolved neighbour steers the beam by how far it opens, only
+                    // when it opens strictly further than its (unsolved) parent
+                    None if grow && parent.missing > 0 => {
+                        let mi = progress(parent.bx, p, o.bfs_cap.clamp(20_000, 200_000));
+                        (mi < parent.missing || (mi == parent.missing && mi < 10)).then(|| {
+                            let mut v = partial(parent.bx, p, mi);
+                            v.reserve = parent.reserve.clone();
+                            v
+                        })
+                    }
+                    None => None,
+                };
+                r.map(|mut v| {
+                    v.origin = parent.origin.clone();
+                    v
+                })
             })
         });
         let new: Vec<Var> = res.into_iter().flatten().collect();
@@ -977,7 +982,7 @@ pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
 /// only, see `mechsynth::CORRIDOR_INPUTS`): the plan header says so.
 pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
-    let (m, rest) = Mech::new(v.bx, &v.pieces).context("pieces overlap")?;
+    let (m, rest) = fam::with_qc_off(v.qc_off, || Mech::new(v.bx, &v.pieces)).context("pieces overlap")?;
     let (o, c) = (from_sched(&m, &v.so, None), from_sched(&m, &v.sc, None));
     let sol = fam::Sol { open: o, close: c, sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
     let (wld, map) = fam::to_world(&m);
@@ -1008,7 +1013,7 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 
 /// The command: read the seeds, search, print the ranked TSV, export the top designs.
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
-    let seeds = read_seeds(input, &o.reserve, o.reserve_wiring)?;
+    let seeds = read_seeds(input, &o.reserve, o.reserve_wiring, !o.macrosat_qc)?;
     let kept = search(&seeds, o);
     let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\tfeeds_cannot_start\textent\torigin\tstrict_fail\n");
     for v in &kept {

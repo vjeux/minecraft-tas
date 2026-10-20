@@ -90,10 +90,14 @@ pub struct MechmutArgs {
     /// macrosat seeds: keep the model's wiring cells free (no piece, never swept).
     #[arg(long)]
     reserve_wiring: bool,
+    /// macrosat seeds: keep families' quasi-connectivity coupling (default off for them: their
+    /// schedules list co-fired pistons as actions of their own; redsim judges either way).
+    #[arg(long)]
+    macrosat_qc: bool,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed, connect_cap, reserve_wiring } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed, connect_cap, reserve_wiring, macrosat_qc } = args;
     crate::mechmut::CONNECT_CAP.store(connect_cap, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
@@ -127,7 +131,7 @@ pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
             .collect::<Result<_>>()?,
         None => Vec::new(),
     };
-    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve, reserve_wiring }, out.as_deref(), ideal_out.as_deref())
+    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve, reserve_wiring, macrosat_qc }, out.as_deref(), ideal_out.as_deref())
 }
 
 #[derive(clap::Args)]
