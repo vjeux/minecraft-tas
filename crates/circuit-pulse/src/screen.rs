@@ -31,7 +31,9 @@ use redsim::{Block, BlockPos, World};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const WIDTHS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+/// The judge's input pulse lengths (docs/circuits.md), plus 60 and 80 gt: two inputs longer than a
+/// limiter's L up to 58 (the judge adds them for long limiters: adaptive lengths)
+pub const WIDTHS: [u32; 14] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40, 60, 80];
 
 /// A pulse-circuit design: the clock-format blocks, the input cell, an optional output cell.
 #[derive(Clone, Debug)]
@@ -300,15 +302,19 @@ fn kinds_from(per_w: &[Vec<Pulse>], widths: &[u32]) -> Vec<String> {
         if s_const {
             let wmax = widths.iter().copied().max().unwrap_or(0);
             for big_l in 1..wmax {
-                // limiter: L for every input >= L (shorter inputs pass shorter, up to L)
-                if widths.iter().any(|w| *w > big_l) && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
+                // limiter: L for every input >= L (shorter inputs pass shorter, up to L); limiting
+                // witnessed by two inputs longer than L (the judge's rule since clockinfra 8b52997d8)
+                let longer = widths.iter().filter(|w| **w > big_l).count();
+                if longer >= 2 && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
                     out.push(format!("pulse-limiter L={big_l} delay={}", s[0]));
                     break;
                 }
             }
             for big_l in 2..=wmax + 20 {
-                // extender: L for every input shorter than L, never shorter than L
-                if widths.iter().any(|w| *w < big_l) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
+                // extender: L for every input shorter than L, never shorter than L; witnessed by two
+                // inputs shorter than L (or every tested one when fewer exist)
+                let shorter = widths.iter().filter(|w| **w < big_l).count();
+                if shorter >= 1 && (shorter >= 2 || big_l <= 2) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
                     out.push(format!("pulse-extender L={big_l} delay={}", s[0]));
                     break;
                 }
