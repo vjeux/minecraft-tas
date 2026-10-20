@@ -68,6 +68,7 @@ impl Trace {
                     InputHow::Block { on, .. } if mctas::blockstate::is_air(on) => s.is_none_or(|s| state_matches(s, on)),
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
+                    InputHow::Strength { .. } => false,
                 };
                 t.inputs[k].push(on);
             }

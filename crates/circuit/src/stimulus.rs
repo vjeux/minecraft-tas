@@ -21,6 +21,8 @@ pub struct Schedule {
     /// around it (the BUD kind's block updates), by index (the cells move and turn with each
     /// build): frame, where, what.
     pub events: Vec<(u32, EventAt, TargetOp)>,
+    /// Strength inputs' values (study 12's hex kinds), at their frames: frame, input index, value.
+    pub levels: Vec<(u32, usize, u8)>,
 }
 
 /// Where a [`Schedule::events`] action happens.
@@ -55,7 +57,7 @@ pub enum TargetOp {
 
 impl Schedule {
     pub fn new(inputs: usize) -> Schedule {
-        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new() }
+        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new(), levels: Vec::new() }
     }
 
     /// Input `i` on at frame `at` for `len` frames.
