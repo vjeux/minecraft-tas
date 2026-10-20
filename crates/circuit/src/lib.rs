@@ -20,6 +20,7 @@ pub mod fly;
 pub mod run;
 pub mod seq;
 pub mod stimulus;
+pub mod tnt;
 pub mod trace;
 pub mod verify;
 
@@ -96,6 +97,12 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// A self-running TNT duper (study 9): spawns primed TNT every period while every TNT block
+    /// of the design survives (`tnt.rs`).
+    TntDuper,
+    /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
+    /// without one, every TNT block surviving (`tnt.rs`).
+    TntDuperTriggered,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -159,8 +166,10 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "tnt-duper" => Kind::TntDuper,
+            "tnt-duper-triggered" => Kind::TntDuperTriggered,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, tnt-duper, tnt-duper-triggered)"
             ),
         })
     }
@@ -186,6 +195,8 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::TntDuper => "tnt-duper".into(),
+            Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
         }
     }
 
@@ -199,6 +210,7 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
+            Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
         }
     }
 
@@ -329,7 +341,7 @@ impl Circuit {
                 }
             }
             None => match k {
-                Kind::FlyingMachine => {}
+                Kind::FlyingMachine | Kind::TntDuper => {}
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
@@ -350,6 +362,8 @@ impl Circuit {
                     bail!("flying-machine: needs `travel: dx dy dz`");
                 }
             }
+            // read through the primed TNT they spawn (no output cell)
+            Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
                 if self.outputs.is_empty() {
                     bail!("{}: needs `port output: x y z`", k.name());

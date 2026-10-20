@@ -531,6 +531,8 @@ fn checks() -> Vec<Check> {
         ("window-dff", "cal-window-dff dff latency 4 gt, edge falling, setup 0 gt, hold 2 gt, 10 blocks, 2x2x5"),
         ("window-dff-enable", "cal-window-dff-enable dff-enable latency 4 gt, edge falling, 13 blocks, 4x2x5"),
         ("window-shift1", "cal-window-shift1 shift 1 N 1, latency 4 gt, edge falling, 10 blocks, 2x2x5"),
+        ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
+        ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
@@ -550,7 +552,7 @@ fn checks() -> Vec<Check> {
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 16 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register): their known metrics; the OR gate claiming AND, a floating dust, an update-less (redirection-only) NOR, a stone output and four false memory claims refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 18 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, an update-less (redirection-only) NOR, a stone output and four false memory claims refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -575,7 +577,7 @@ fn checks() -> Vec<Check> {
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 16 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 18 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{

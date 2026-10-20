@@ -188,6 +188,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
         }
+        Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
     }
     s.ticks = t;
     s
@@ -215,6 +216,8 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
+        Kind::TntDuper => crate::tnt::check_duper(c, s, t),
+        Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
     }
 }
 

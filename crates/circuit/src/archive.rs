@@ -261,6 +261,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        Kind::TntDuper | Kind::TntDuperTriggered => m("rate"),
     }
 }
 
