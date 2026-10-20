@@ -10,6 +10,7 @@ extend blocks: 22 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..2
 extend group title: odd-length falling-edge pulse: a piston-moved redstone block and a loop of repeaters
+extend group note: Why a chain of repeaters: the pulse starts when the input turns off, so the input can't keep a timer counting (the smaller 7-block hopper item timer only counts while its input stays on); and its lengths are odd, which the copper bulb one-shots (18, 34, 50... ticks) can't make.
 extend base: 0
 extend generator: mctas circuit pulse family fall-psub-u4 --n {n} --out {out}
 origin: -2 0 -1

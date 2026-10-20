@@ -74,6 +74,33 @@ Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use;
 The best design of each variation is archived (`mctas circuit archive`); a design that is bigger
 and slower than an archived one of the same variation is dominated and stays out.
 
+## On the ground, and the SAFE DROP HEIGHT (vjeux 13:13Z, 13:31Z): the current judge
+
+vjeux on tnt-launch-15b: "There's no way this tnt duper doesn't explode after a few seconds". He
+was right: the first explosion judge ran in a void sandbox, where every TNT that left the machine
+fell forever and blew up 70+ blocks below. On a floor one block under the machine (`mctas circuit
+tnt blasts`), the dropping and launching dupers broke within seconds: a dropped TNT lands right
+beside the machine; launched ones pile up 10-20 blocks away and every blast throws some of the
+pile back within the ~7 blocks a TNT blast can break. So every TNT duper is now judged standing
+on a ground (grass over dirt over bedrock, which craters like a real world, and obsidian, which
+does not; both must pass), with no TNT removed anywhere (each explodes where it lands; the ground
+grows until no TNT leaves it), at every kick angle, and the judge measures its SAFE DROP HEIGHT:
+the fewest air blocks between the machine and the ground at which it never damages itself (0 =
+safe on the ground; more than 40 = fails). A lower safe height beats a smaller machine.
+
+| design | blocks | rate | safe drop | where its TNT explode (16 kick angles, both grounds) |
+|---|---|---|---|---|
+| tnt-triggered-launch-16b | 16 | one per pulse | **0: safe on the ground** | 14.2 to 18.5 blocks away (grass), 14.2 (obsidian); 0 machine blocks destroyed |
+| tnt-slow-launch-30b | 30 | 13.2/min | **0: safe on the ground** | 14.2 to 18.5 (grass), 14.2 (obsidian): one TNT at a time (a 91-tick clock) |
+| tnt-precise-slow-43b | 43 | 13.2/min, precise | **0: safe on the ground** | all in its own water channel (water: no block breaks); 0 destroyed, also over 10 minutes |
+| tnt-lever-launch-15b | 15 | 200/min, switchable | 6 blocks | (at its safe drop) 13.7 to 49.3 (grass), 9.5 to 41.3 (obsidian) |
+| tnt-launch-15b | 15 | 200/min | 8 blocks | (at its safe drop) 11.8 to 54.3 (grass), 11.7 to 59.1 (obsidian); 0 destroyed over 10 minutes |
+| tnt-drop-16b | 16 | 200/min, dropped | 31 blocks | (at its safe drop) 23.6 to 35.7 blocks away: it only works over a deep pit |
+| tnt-launch-14b | 14 | 200/min | 40 blocks | below bar: the 15b needs a lower drop |
+
+Open record: a fast (200/min) duper that is safe ON the ground (its TNT must land far enough that
+the pile's blasts can never throw one back within ~7 blocks: a steeper launch or a water landing).
+
 ## Explosions on (vjeux 2026-10-20 11:53Z): the re-judge
 
 "You didn't model tnt explosion. This will blow up the machine." Every TNT duper is now judged

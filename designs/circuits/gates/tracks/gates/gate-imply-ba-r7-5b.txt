@@ -1,0 +1,15 @@
+# IMPLY (NOT a OR b): a's input block carries a torch, lit when a is off; that torch and input b both power the output dust between them. The b input never sits on the torch, so the gate is steady at rest. 2 gt, 5 blocks.
+name: gate-imply-ba-r7-5b
+circuit: gate imply-ba
+port input.b: 0 1 0
+port input.a: 3 2 0
+port output: 1 2 0
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  T minecraft:redstone_torch[lit=true]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 1:
+  S.S
+layer 2:
+  T.r

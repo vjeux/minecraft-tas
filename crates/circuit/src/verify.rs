@@ -98,6 +98,9 @@ pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kin
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
+    // a triggered TNT duper with explosions: pulses at least a fuse apart (its last TNT has gone
+    // off before the next pulse), so the gap is the duper's, not the TNT pile's
+    let gap = if c.explodes() && o.gap.is_none() { gap.max(crate::tnt::TRIGGER_GAP) } else { gap };
     let mut s = check::stimulus(c, &kind, &Sizing { gap });
     let _ = &mut s;
     Ok((s, Some(kind)))
@@ -137,10 +140,26 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
+    // kicks; `circuit verify` sweeps every kick)
+    let mut cd = c.clone();
+    let mut drop_fail: Option<String> = None;
+    if c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        match crate::robust::safe_drop_screen(c, workers) {
+            Ok(h) => cd.drop = h,
+            Err(why) => drop_fail = Some(why),
+        }
+    }
+    let c = &cd;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
+        (Ok(_), Some(_)) if drop_fail.is_some() => Some(Outcome::fail(drop_fail.clone().unwrap_or_default(), Vec::new())),
         (Ok(t), Some(k)) => {
-            let out = check::check(c, k, &schedule, t);
+            let mut out = check::check(c, k, &schedule, t);
+            if out.pass && c.explodes() && o.stimulus.is_none() {
+                out.metrics.push(crate::robust::drop_metric(c.drop));
+            }
             let out = match lamp_part(c, &schedule, o.margin, t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
                 _ => out,
@@ -429,11 +448,25 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         return crate::shulker::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
+    // vjeux 13:31Z), then every build stands that high above the grass ground
+    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+    let mut c = c.clone();
+    if c.explodes() && o.stimulus.is_none() {
+        match crate::robust::safe_drop(&c, workers) {
+            Ok((h, _)) => c.drop = h,
+            Err(why) => {
+                return Ok(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds: Vec::new(), verdict: why, pass: false, note: String::new() });
+            }
+        }
+    }
+    let c = &c;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
-        let rc = c.rotated(w, t)?.translated(off)?;
+        let mut rc = c.rotated(w, t)?.translated(off)?;
+        rc.drop = c.drop;
         let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
             Ok(tr) => tr,
             Err(why) => return Ok(Err(why)),
@@ -448,6 +481,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(why) = rc.input_entered(&tr)
         {
             out = Outcome::fail(why, out.table);
+        }
+        if out.pass && rc.explodes() && o.stimulus.is_none() {
+            out.metrics.push(crate::robust::drop_metric(rc.drop));
         }
         // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
         // the metric names the design's own step (the same in every build)
@@ -500,15 +536,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         rep.pass = false;
         rep.verdict = why;
     }
-    // TNT dupers (explosions on): every kick angle on redsim (crate::robust; vjeux: "pass every
-    // possible random number")
-    if rep.pass && c.explodes() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
-        if let Err(why) = crate::robust::tnt_robust(c, crate::robust::SAMPLES, workers) {
-            rep.pass = false;
-            rep.verdict = format!("not robust over every kick (redsim): {why}");
-        }
-    }
+    // TNT dupers (explosions on): every kick angle on both grounds was swept on redsim at the safe
+    // drop height before the builds (crate::robust::safe_drop; vjeux: "pass every possible random
+    // number")
     Ok(rep)
 }
 

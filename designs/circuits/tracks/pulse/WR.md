@@ -51,7 +51,7 @@ the record files live in [wr/](wr/) until archived.
 | rising-edge | L 2 | 2 blocks | `pulse-rising-edge-piston-observer-L2` (min-pulse 4, delay 5) | holds; target min-pulse 1 in <= 3 blocks |
 | rising-edge | L 4..8 even | 4 blocks (census: none in 3) | repeater designs (min-pulse 4) | target min-pulse 1 at 4..6 blocks |
 | rising-edge | odd L | <= 4 blocks | overlap designs, 12 blocks | target: two filtered sensors at different distances from the note block give 10 + d |
-| rising-edge | any L (long) | constant size, <= 8 blocks | the hopper item timer judges as rising-edge too (L = 8n - 1, 7 blocks) but with min-pulse = L | target: the timer holding its own run (the output keeps the first hopper open and the last one closed): needs about 2 more blocks |
+| rising-edge | any L (long) | constant size, <= 8 blocks | `pulse-rise-hopper-oneshot-L*` (group): 13 blocks for every L = 8n (8 .. 480 gt), min-pulse 4, robust at L 8, 16, 24, 32, 40, 64, 128, 256. A copper bulb holds a two-hopper item timer open (its comparator locks one hopper and turns off the torch locking the other); the first hopper's comparator, inverted by a torch under the bulb, toggles it off when that hopper empties | **constant size reached** (was 17 + 4n); <= 8 open: the bulb latch (2), two locks (2: a block and a torch), the end detector (3: comparator, block, torch), two comparator supports and the edge detector (2) |
 | rising-edge | instant | delay 0 | none (best delay 1: sculk) | target: an input -> dust -> output path that a piston cuts after L; or prove impossible |
 | rising-edge | 1-wide tileable | pitch 1 | `pulse-rising-edge-piston-observer-L2` (2 blocks), `pulse-rise-bulb-L2` (min-pulse 1) and `pulse-rise-bulb-repeater-L4/6/8`, all `tile:` every 1, robust | **record**; the judge's `tile:` covers pulse kinds since 44b8f83c7 (the output read from a self-reporting component beside the output cell, so no lamp crosstalk) |
 | falling-edge, limiter | 1-wide tileable | pitch 1 | `pulse-falling-edge-pistons-observer-L2`, `pulse-limiter-piston-observer-L2`, tile every 1, robust | **record** |
@@ -68,7 +68,8 @@ the record files live in [wr/](wr/) until archived.
 | pulse-limiter | any L | constant size | `pulse-limiter-hopper-timer-L*` (group `hopper item timer`): 7 blocks for every L = 8n - 1 (7 .. 2559 gt), min-pulse 2, robust at L 7, 15, 23, 31, 127, 511 | **record** for L = 8n - 1; even L needs an odd-delay element (every redstone delay is even; the hoppers' 8n - 1 is odd): open |
 | pulse-extender | L 2..8 | 2 blocks (bound) | one repeater | **record** |
 | pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 1 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
-| pulse-extender | any L | constant size | one-shots, 17-25 blocks | as rising-edge, long L |
+| pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4, robust at L 8 .. 256 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
+| falling-edge | any L | constant size | `pulse-fall-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 6, robust at L 8 .. 256 (the piston lifts the observer away; pulled back, it fires into the bulb) | **constant size reached** (was 17 + 4n) |
 
 The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
 (a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and

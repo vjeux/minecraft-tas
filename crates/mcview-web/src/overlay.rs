@@ -63,6 +63,8 @@ pub struct Overlays {
     /// its box on the view, its distance.
     hits: Vec<(Key, Rect, f32)>,
     history: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
+    /// What the strip is (`output, last 2 s`), beside it.
+    history_caption: Option<HtmlElement>,
 }
 
 fn div(css: &str) -> HtmlElement {
@@ -138,6 +140,7 @@ impl Overlays {
             pinned: HashSet::new(),
             hits: Vec::new(),
             history: None,
+            history_caption: None,
         }
     }
 
@@ -151,6 +154,9 @@ impl Overlays {
         }
         self.input_tags.clear();
         self.pinned.clear();
+        // what tells the story: a shulker design's port chests and boxes (its hoppers and carts
+        // on a tap); any other design's containers all (an item counter's droppers hold its count)
+        self.show_all = !mcview::circuit::is_shulker(&p.session.design);
         self.hits.clear();
         let make = |layer: &HtmlElement, text: &str, color: &str, cells: Vec<[i32; 3]>| -> Tag {
             let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
@@ -194,14 +200,23 @@ impl Overlays {
         if let Some((c, _)) = self.history.take() {
             c.remove();
         }
+        if let Some(t) = self.history_caption.take() {
+            t.remove();
+        }
         if (!p.session.circuit_inputs.is_empty() || clock_out && p.session.simulated()) && !p.history.is_empty() {
             let c: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
             let rows = p.history.len() as u32;
             c.set_width(HISTORY as u32 * 3);
             c.set_height(rows * 8 + (rows - 1) * 2);
-            let _ = c.set_attribute("style", &format!("position:absolute;right:8px;top:34px;width:{}px;height:{}px;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
+            // every edge set: a page's own rules for the viewer's canvases (`left:0`, a full
+            // size) must not move the strip
+            let _ = c.set_attribute("style", &format!("position:absolute;left:auto;bottom:auto;right:8px;top:34px;width:{}px;height:{}px;max-width:none;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
             c.set_title("the output: powered (red) or not, over the last 40 game ticks");
             let _ = self.layer.append_child(&c);
+            // what the strip is, beside it: the last 2 s (40 ticks)
+            let caption = span(&format!("position:absolute;left:auto;bottom:auto;right:{}px;top:32px;padding:0 4px;border-radius:3px;background:rgba(0,0,0,0.45);color:#e8e8e8;font:500 10px/12px system-ui,sans-serif;white-space:nowrap", 8 + HISTORY * 3 + 4), if rows > 1 { "outputs, last 2 s" } else { "output, last 2 s" });
+            let _ = self.layer.append_child(&caption);
+            self.history_caption = Some(caption);
             if let Some(ctx) = c.get_context("2d").ok().flatten().and_then(|x| x.dyn_into::<CanvasRenderingContext2d>().ok()) {
                 self.history = Some((c, ctx));
             }
@@ -314,10 +329,11 @@ impl Overlays {
             Some(b)
         };
         let mut layout = Layout::default();
-        // the history strip stays clear
+        // the history strip and its caption stay clear
         if let Some((c, _)) = &self.history {
             let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);
-            layout.obstacles.push(Rect { x0: w - 8.0 - cw, y0: 34.0, x1: w - 8.0, y1: 34.0 + ch });
+            let tw = self.history_caption.as_ref().map(|t| t.offset_width() as f64 + 4.0).unwrap_or(0.0);
+            layout.obstacles.push(Rect { x0: w - 8.0 - cw - tw, y0: 32.0, x1: w - 8.0, y1: 34.0 + ch.max(12.0) });
         }
         // what the containers hold (nearest first)
         let game = game_of(atlas);
@@ -329,8 +345,14 @@ impl Overlays {
         let dist = |a: [f32; 3]| (a[0] - eye[0]).powi(2) + (a[1] - eye[1]).powi(2) + (a[2] - eye[2]).powi(2);
         now.sort_by(|a, b| dist(a.anchor).total_cmp(&dist(b.anchor)).then(a.key.cmp(&b.key)));
         // the tags first, always shown (at their point when no free spot is left); the
-        // containers under a tag (port chests) show their contents in the tag
+        // containers under a tag (port chests) show their contents in the tag; no tag covers an
+        // input's cell (a tap there presses that input, not the tag's)
         let view = Rect { x0: 0.0, y0: 0.0, x1: w, y1: h };
+        for ci in &p.session.circuit_inputs {
+            if let Some((x, y)) = project([ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 0.5, ci.pos[2] as f32 + 0.5]) {
+                layout.obstacles.push(Rect { x0: x - 10.0, y0: y - 10.0, x1: x + 10.0, y1: y + 10.0 });
+            }
+        }
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
@@ -403,7 +425,7 @@ impl Overlays {
             }
             k
         });
-        let safe = Rect { x0: 2.0, y0: 30.0, x1: w - 2.0, y1: h - 62.0 };
+        let safe = Rect { x0: 2.0, y0: 48.0, x1: w - 2.0, y1: h - 62.0 };
         for s in &now {
             let content = format!("{:?}{:?}", s.entries, self.icons_of);
             if !self.labels.contains_key(&s.key) {

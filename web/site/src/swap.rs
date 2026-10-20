@@ -21,7 +21,7 @@ use web_sys::{Document, Element, Node};
 const VIEWER: &str = "main > [data-mcview=\"full\"]";
 
 /// The attributes of the viewer contract that follow the design (`data-src` is set last).
-const VIEWER_ATTRS: [&str; 11] = ["data-stimulus", "data-events", "data-phases", "data-input-mode", "data-circuit", "data-trace", "data-kind", "data-autoplay", "data-tick", "data-yaw", "data-pitch"];
+const VIEWER_ATTRS: [&str; 12] = ["data-stimulus", "data-levels", "data-events", "data-phases", "data-input-mode", "data-circuit", "data-trace", "data-kind", "data-autoplay", "data-tick", "data-yaw", "data-pitch"];
 
 fn doc() -> Document {
     web_sys::window().and_then(|w| w.document()).expect("a document")

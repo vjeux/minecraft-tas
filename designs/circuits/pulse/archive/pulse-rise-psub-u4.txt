@@ -10,6 +10,7 @@ extend blocks: 25 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..2
 extend group title: odd-length rising-edge pulse: a piston-moved redstone block and a loop of repeaters
+extend group note: Odd lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the smaller 7-block hopper item timer; this chain gives the odd lengths it can't (13, 29, 45... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family rise-psub-u4 --n {n} --out {out}
 origin: -2 0 -1
