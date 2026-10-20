@@ -7,7 +7,8 @@ Split agreed with clk-rt (owner, explore/shulker): clk-rt keeps the judge (crate
 | design | items/s (BASE 64) | blocks | badges | how |
 |---|---|---|---|---|
 | shulker-speed-unloader-2cart | 15.00 (6x the reference) | 52 | always-on, 16-stack | 2 off-rail hopper minecarts in the cell under the box, each centred in the box's column (sucks it at 20/s) and straddling 4 of 6 hoppers |
-| shulker-speed-unloader-rail | 7.50 (3x) | 57 | always-on, 16-stack, unstackable, colours, box-starved, drop-free; tileable(6) with `tile: 0 0 6` (track file) | 2 hopper minecarts on one activator rail over 3 hoppers; the empty-box pulse powers the rail in the same redstone update as the breaking piston |
+| shulker-speed-unloader-rail | 7.50 (3x) | 57 | always-on, 16-stack, unstackable, colours, box-starved, drop-free, tileable(6) | 2 hopper minecarts on one activator rail over 3 hoppers; the empty-box pulse powers the rail in the same redstone update as the breaking piston |
+| shulker-small-unloader | 2.50 | 41 (clk-rt's always-on: 49) | all of the above, tileable(5) | clk-rt's always-on unloader without the hopper lock (the hopper's 8 gt cooldown covers the break; robust over 16 seeded drop draws) and without the drop cell's side walls and the wall south of the box; a piston next to the box fails (its QC cell gets the observer's stone) |
 
 ## Mechanics (26.3 source, verified in the game)
 
