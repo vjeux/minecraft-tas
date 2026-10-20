@@ -52,6 +52,15 @@ fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
     if (t.a < 0.5) {
         discard;
     }
+    // the game draws only the chunks within its render distance of the camera's chunk (a square):
+    // the sky shows beyond (the pictures' band over the horizon)
+    if (u.fog.z > 0.0) {
+        let c = floor(u.eye.xz / 16.0);
+        let f = floor(i.world.xz / 16.0);
+        if (abs(f.x - c.x) > u.fog.z || abs(f.y - c.y) > u.fog.z) {
+            discard;
+        }
+    }
     return vec4<f32>(fogged(t.rgb * i.color.rgb, i.world), 1.0);
 }
 
@@ -317,13 +326,15 @@ impl Renderer {
         let vp = frame.camera.view_proj(aspect);
         let eye = frame.camera.eye();
         let d = frame.camera.dist;
-        // like the game at a long render distance: the ground stays green almost to the horizon,
-        // fogged out just before the far plane (and the floor's edge)
-        let fog_end = ((d * 8.0 + 200.0) * 0.95).min(480.0);
+        // the pictures' client: render distance 6 chunks (the square beyond which the sky shows)
+        // and the terrain fog toward it; a farther camera (zoomed out) pushes both back so the
+        // build stays clear
+        let chunks = (((d * 2.0 + 16.0) / 16.0).ceil()).max(6.0);
+        let fog_end = chunks * 16.0 * 1.5;
         let u = Uniforms {
             vp,
             eye: [eye[0], eye[1], eye[2], 1.0],
-            fog: [fog_end * 0.6, fog_end, 0.0, 0.0],
+            fog: [fog_end * 0.55, fog_end, chunks, 0.0],
             sky_top: [0.55, 0.70, 1.0, 1.0],
             sky_low: [0.70, 0.81, 1.0, 1.0],
             inv_vp: invert(&vp),
