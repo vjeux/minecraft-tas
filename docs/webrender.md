@@ -97,7 +97,10 @@ each build's page.
   selects text or opens a callout on a long press (user-select / touch-callout off, no context
   menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
-  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
+  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0,
+  or from 1 s before its first change when that is more than 3 s away (a BUD switch's judge waits
+  240 gt before its first event; every tick is simulated, the counter shows the real tick, a
+  reset comes back there: `Player::skip_demo_wait`)
   (the left badge says the phase in words: `demo: A on, B off`, `demo: 2nd input pulse`,
   `demo: all inputs off`, `circuit::phase_words`; as wide as its widest phase from the start so it
   never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
@@ -179,7 +182,8 @@ each build's page.
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
-  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`, the still build
+  top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
+  the badges on a phone), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
   only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
   high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
   little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
@@ -218,7 +222,9 @@ each build's page.
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
   REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
-  judge's equipment reads as part of the input it drives.
+  judge's equipment reads as part of the input it drives; the repeater, its support and the
+  switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
+  redsim's blocks there all the same).
 * Record (vjeux 2026-10-20: "add a record video button using mediabunny in the viewer"): the
   round red button over a live viewer's bottom right (above the bar; hidden where the browser
   has no WebCodecs `VideoEncoder`) records the viewer's own rendering of redsim's run from tick 0

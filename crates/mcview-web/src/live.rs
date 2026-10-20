@@ -490,8 +490,14 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
-    // where the build goes: clear of the bar and the badges at this viewer's height
-    let window = mcview::scene::live_window(v.h.max(1) as f32);
+    // where the build goes: clear of the bar and the badges at this viewer's height, both in CSS
+    // pixels (the canvas counts device pixels: twice as many on a phone, which put the build
+    // under the badges: critique, the e78st lever's box under the time badge)
+    let css_h = match v.canvas.client_height() {
+        h if h > 0 => h as f32,
+        _ => v.h.max(1) as f32,
+    };
+    let window = mcview::scene::live_window(css_h);
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -606,6 +612,7 @@ pub fn load(app: &mut App, id: u32) {
                 if let Some(d) = demo {
                     l.demo = Some(d.clone());
                     p.session.attach_demo(d);
+                    p.skip_demo_wait();
                     // the badge shows each phase in turn: as wide (and as tall: two lines on a
                     // narrow viewer) as its longest label from the start, so it never resizes
                     // while the demo plays
@@ -945,6 +952,7 @@ impl Live {
         p.pulse_inputs = live.pulse_inputs;
         if let Some(d) = &self.demo {
             p.session.attach_demo(d.clone());
+            p.skip_demo_wait();
         }
         // a door: its demo (closed, opening, open, closing), one cycle
         let door = p.session.mode.is_door() && p.session.simulated() && p.session.demo.is_none();
