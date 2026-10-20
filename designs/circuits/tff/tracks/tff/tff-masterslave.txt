@@ -1,0 +1,30 @@
+# Repeater-lock master-slave T flip-flop, redstone only, 24 blocks (track tff): master repeater M feeds slave repeater S; M is locked while the input is on (a repeater fed by a dust from the input), S while it is off (a repeater reading a stone that a dust, kept straight by a redstone block, points into, until the input next to that dust bends it into a corner). S's output powers a stone whose torch (NOT q) runs back along four dust into M, so M holds NOT q while the input is off and S copies it on the rising edge.
+name: tff-masterslave
+circuit: tff
+port input: 1 1 -3
+port output: 3 1 0
+origin: 0 0 -4
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  l minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  m minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:redstone_wall_torch[facing=south,lit=true]
+  v minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  h minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  c minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  e minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+layer 0:
+  ....
+  ..S.
+  .S..
+  .SS.
+  SSS.
+  SSS.
+layer 1:
+  ..R.
+  ..v.
+  .vS.
+  .ll.
+  cmmS
+  ehhT
