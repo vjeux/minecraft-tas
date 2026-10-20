@@ -796,12 +796,20 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             let mine = badges_of(i);
             let mut new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
             new.sort_by_key(|bd| (count.get(bd).copied().unwrap_or(0), bd.clone()));
-            // (no new badge alone: a pair no smaller card has together, "restarts + flushes")
+            // (no new badge alone: a pair no smaller card has together, "sends out a part-full box,
+            // and restarts by itself too"; the rarer first, one most cards share said with "too" so
+            // it does not contradict the shared line: critique)
+            let common = |bd: &String| count.get(bd).copied().unwrap_or(0) * 3 >= list.len() * 2;
             let pair = || -> Option<String> {
                 for (x, a) in mine.iter().enumerate() {
                     for b in &mine[x + 1..] {
                         if !smaller.iter().any(|&j| { let o = badges_of(j); o.contains(a) && o.contains(b) }) {
-                            return Some(format!("{} + {}", site_model::html::badge_words(a), site_model::html::badge_words(b)));
+                            let (rare, other) = if count.get(a).copied().unwrap_or(0) <= count.get(b).copied().unwrap_or(0) { (a, b) } else { (b, a) };
+                            return Some(if common(other) {
+                                format!("{}, and {} too", site_model::html::badge_words(rare), site_model::html::badge_words(other))
+                            } else {
+                                format!("{} + {}", site_model::html::badge_words(rare), site_model::html::badge_words(other))
+                            });
                         }
                     }
                 }

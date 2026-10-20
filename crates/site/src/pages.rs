@@ -1330,8 +1330,12 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
         }
     }
     format!(
-        "<section><h2>Variations</h2><p>What builds need from these machines, each tested as its own scenario in the real game, and the best design for each (the smallest that has it). <a href=\"{}\">The full list of variations</a>, with the ones nobody has built yet.</p><div class=\"scroll-x\"><table class=\"list variations\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></div><p class=\"hint phone-only\">Swipe the table sideways to see every column.</p></section>\n",
-        esc(&link)
+        // (on a phone each row stacks into a small card: the variation, what it means, the best
+        // designs with their labels; critique: only two cut columns showed, the links 3 screens
+        // to the right)
+        "<section id=\"variations\"><h2>Variations</h2><p>What builds need from these machines, each tested as its own scenario in the real game, and the best design for each (the smallest that has it). <a href=\"{}\">The full list of variations</a>, with the ones nobody has built yet.</p><div class=\"scroll-x\"><table class=\"list variations{}\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></div></section>\n",
+        esc(&link),
+        if folder == "shulker" { " two-best" } else { "" }
     )
 }
 
