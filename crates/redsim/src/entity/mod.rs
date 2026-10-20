@@ -20,6 +20,7 @@ pub mod item;
 pub mod kinds;
 pub mod minecart;
 pub mod mth;
+pub mod piston_push;
 pub mod vec3;
 
 use crate::block::Block;
@@ -126,6 +127,11 @@ pub struct Entity {
     pub network_id: i32,
     /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
     pub fluid: fluid_push::FluidInteraction,
+    // ---- piston pushing (piston_push.rs, clk-misc) ----
+    /// `pistonDeltas` (how far pistons moved it per axis this game tick, each within +-0.51)
+    /// and `pistonDeltasGameTime`.
+    pub piston_deltas: [f64; 3],
+    pub piston_deltas_time: i64,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -178,6 +184,8 @@ impl Entity {
             invulnerable_time: 0,
             network_id: id as i32,
             fluid: Default::default(),
+            piston_deltas: [0.0; 3],
+            piston_deltas_time: 0,
         }
     }
 
@@ -199,6 +207,9 @@ impl Entity {
 pub struct Entities {
     pub list: Vec<Entity>,
     pub next_id: u32,
+    /// `PistonMovingBlockEntity.NOCLIP`: the direction of the piston move under way (set only
+    /// inside `piston_push::move_entity_by_piston`, None between calls).
+    pub noclip: Option<crate::pos::Dir>,
 }
 
 /// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
