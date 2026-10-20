@@ -15,6 +15,7 @@
 pub mod armor_stand;
 pub mod boat;
 pub mod collide;
+pub mod fluid_push;
 pub mod item;
 pub mod kinds;
 pub mod minecart;
@@ -55,6 +56,16 @@ impl EntityKind {
             EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
         }
     }
+
+    /// `EntityDimensions.eyeHeight` (`eyeHeight(..)` in `EntityTypes`, else height * 0.85F).
+    pub fn eye_height(&self) -> f32 {
+        match self {
+            EntityKind::Boat(_) => 0.5625,
+            EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
+            EntityKind::Item(_) => 0.2125,
+            EntityKind::ArmorStand(_) => 1.7775,
+        }
+    }
 }
 
 /// The `Entity` fields the engine reads and writes (the game's names).
@@ -89,8 +100,6 @@ pub struct Entity {
     pub removed: bool,
     pub was_touching_water: bool,
     pub was_eye_in_water: bool,
-    /// `isEyeInFluid(WATER)` as of the last fluid update (`fluidOnEyes`).
-    pub eye_in_water: bool,
     /// `fluidHeight` per fluid tag: [water, lava].
     pub fluid_height: [f64; 2],
     pub first_tick: bool,
@@ -112,6 +121,8 @@ pub struct Entity {
     pub last_known_position: Option<Vec3>,
     pub last_known_speed: Vec3,
     pub invulnerable_time: i32,
+    /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
+    pub fluid: fluid_push::FluidInteraction,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -149,7 +160,6 @@ impl Entity {
             removed: false,
             was_touching_water: false,
             was_eye_in_water: false,
-            eye_in_water: false,
             fluid_height: [0.0; 2],
             first_tick: true,
             fall_distance: 0.0,
@@ -163,6 +173,7 @@ impl Entity {
             last_known_position: None,
             last_known_speed: Vec3::ZERO,
             invulnerable_time: 0,
+            fluid: Default::default(),
         }
     }
 
@@ -247,38 +258,16 @@ pub fn base_tick(w: &mut World, i: usize) {
         let last = *e.last_known_position.get_or_insert(e.pos);
         e.last_known_speed = e.pos.subtract_v(last);
         e.last_known_position = Some(e.pos);
-        e.was_eye_in_water = e.eye_in_water;
+        // the previous tick's trackers
+        e.was_eye_in_water = e.fluid.eye_in_water();
     }
-    update_fluid_interaction(w, i);
+    fluid_push::update_fluid_interaction(w, i);
     let e = &mut w.entities.list[i];
     // `checkBelowWorld`: below the world's bottom by 64
     if e.pos.y < (crate::gravity::MIN_Y - 64) as f64 {
         e.removed = true;
     }
     e.first_tick = false;
-}
-
-/// `Entity.updateFluidInteraction` (clockinfra's, M1/M2): no fluid in the entity's cells means no
-/// water contact and no push, which is all a dry design needs; with fluid around, the fluid
-/// core's (still a stub: a model error).
-pub fn update_fluid_interaction(w: &mut World, i: usize) {
-    let bb = w.entities.list[i].bb.inflate(0.001, 0.001, 0.001);
-    let mut wet = false;
-    for y in mth::floor(bb.min_y)..=mth::floor(bb.max_y) {
-        for z in mth::floor(bb.min_z)..=mth::floor(bb.max_z) {
-            for x in mth::floor(bb.min_x)..=mth::floor(bb.max_x) {
-                wet |= !crate::fluid::fluid_state(w, BlockPos::new(x, y, z)).is_empty();
-            }
-        }
-    }
-    if !wet {
-        let e = &mut w.entities.list[i];
-        e.was_touching_water = false;
-        e.eye_in_water = false;
-        e.fluid_height = [0.0; 2];
-        return;
-    }
-    update_fluid_height_and_do_fluid_pushing(w, i, crate::fluid::Fluid::Water, 0.014);
 }
 
 /// `Entity.move(type, delta)` of entity `i` (index in the list): `collide::move_`.
@@ -296,11 +285,10 @@ pub fn no_collision(w: &World, i: usize, bb: Aabb) -> bool {
     collide::no_collision(w, i, bb)
 }
 
-/// `Entity.updateFluidHeightAndDoFluidPushing(tag, flowScale)`. STUB until clockinfra fills it
-/// (false).
-pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, _i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
-    w.errors.push("entity fluid pushing is not modeled yet (redsim M2)".into());
-    false
+/// `Entity.updateFluidInteraction` (the old name `updateFluidHeightAndDoFluidPushing`): see
+/// [`fluid_push::update_fluid_interaction`]; the fluid and scale are the game's (water, 0.014).
+pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
+    fluid_push::update_fluid_interaction(w, i)
 }
 
 impl World {

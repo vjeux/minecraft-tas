@@ -33,6 +33,7 @@ pub fn collides(s: &Block) -> bool {
         Block::FenceGate { open, .. } => !open,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => false,
+        Block::Water { .. } | Block::BubbleColumn { .. } => false,
         _ => true,
     }
 }
@@ -78,7 +79,10 @@ pub fn is_solid(s: &Block) -> bool {
         | Block::Skull { .. }
         | Block::WallSkull { .. }
         // dynamic shape: no shape cache, so `calculateSolid` says no (NULL_CACHE)
-        | Block::Scaffolding { .. } => false,
+        | Block::Scaffolding { .. }
+        // fluids: no collision
+        | Block::Water { .. }
+        | Block::BubbleColumn { .. } => false,
         // ---- entity-reacting blocks (clk-misc) ----
         // no collision and not forced solid (plates, wall banners and lanterns are forceSolidOn)
         Block::Tripwire { .. } | Block::TripwireHook { .. } => false,
@@ -316,6 +320,8 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         | Block::Leaves { .. }
         | Block::Scaffolding { .. }
         | Block::Door { .. } => PushReaction::Popped,
+        // LiquidBlock / BubbleColumnBlock: PushReaction.DESTROY (no loot: nothing drops)
+        Block::Water { .. } | Block::BubbleColumn { .. } => PushReaction::Popped,
         Block::RespawnAnchor { .. } => PushReaction::Immoveable,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
         // ---- entity-reacting blocks (clk-misc) ----
@@ -328,7 +334,7 @@ pub fn push_reaction(s: &Block) -> PushReaction {
 /// Leaves a drop (an item entity) when destroyed with drops: false for blocks without a loot
 /// table (`noLootTable`: piston heads, moving pistons, end portal frames) and air.
 pub fn drops_item(s: &Block) -> bool {
-    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. })
+    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. } | Block::Water { .. } | Block::BubbleColumn { .. })
 }
 
 /// Destroy speed -1 (unbreakable: pistons cannot move it).
@@ -344,9 +350,9 @@ pub fn has_block_entity(s: &Block) -> bool {
     ) || matches!(s, Block::WallBanner { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
-/// `canBeReplaced` (by a moving block / a falling block): air only among the modeled blocks.
+/// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
 pub fn can_be_replaced(s: &Block) -> bool {
-    s.is_air()
+    s.is_air() || matches!(s, Block::Water { .. } | Block::BubbleColumn { .. })
 }
 
 /// A box in 1/16 block units, laid out `[x0, x1, y0, y1, z0, z1]` (pistmodel's `B16`).
@@ -378,7 +384,9 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         | Block::WallTorch { .. }
         | Block::Lever { .. }
         | Block::Button { .. }
-        | Block::Rail { .. } => vec![],
+        | Block::Rail { .. }
+        | Block::Water { .. }
+        | Block::BubbleColumn { .. } => vec![],
         Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
         Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
         // DiodeBlock.SHAPE = column(16, 0, 2)
@@ -484,6 +492,7 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
             let q = p.rel(d);
             sturdy(w, &w.get(q), q, d.opposite(), Support::Center)
         }
+        Block::BubbleColumn { .. } => crate::fluid::bubble_can_survive(w, p),
         _ => true,
     }
 }
@@ -502,6 +511,7 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Dispenser { .. } | Block::Crafter { .. } => dispenser::neighbor_changed(w, s, p),
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
+        Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
 }
@@ -550,6 +560,8 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
                 s
             }
         }
+        Block::Water { .. } => crate::fluid::liquid_update_shape(w, s, p, d, ns),
+        Block::BubbleColumn { .. } => crate::fluid::bubble_update_shape(w, s, p, d, ns),
         _ => s,
     }
 }
@@ -583,6 +595,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Tripwire { .. } => crate::react::tripwire::on_place(w, s, p, old),
+        Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
 }
@@ -638,6 +651,8 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Plate { .. } => crate::react::plate::tick(w, s, p),
         Block::Tripwire { .. } => crate::react::tripwire::tick(w, p),
         Block::TripwireHook { .. } => crate::react::hook::tick(w, s, p),
+        Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
+        Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
         _ => {}
     }
 }

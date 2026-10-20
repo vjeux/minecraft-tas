@@ -223,10 +223,12 @@ pub enum Simple {
     CryingObsidian,
     // ---- entity-reacting blocks (clk-misc) ----
     Dirt,
+    // ---- fluids (clockinfra): what turns water above into a bubble column ----
+    MagmaBlock,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 61] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 62] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -295,6 +297,8 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 61] = [
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
     // ---- entity-reacting blocks (clk-misc) ----
     (Simple::Dirt, "dirt", true, true, Instrument::Harp, PushReaction::PushPull),
+    // ---- fluids (clockinfra) ----
+    (Simple::MagmaBlock, "magma_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
 ];
 
 impl Simple {
@@ -460,6 +464,13 @@ pub enum Block {
     Lantern { hanging: bool },
     /// Stone slab: 0 bottom, 1 top, 2 double (the shapes of `Slab`).
     StoneSlab { kind: u8 },
+    // ---- fluids (clockinfra, `fluid/`) ----
+    /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
+    /// falling (`getLegacyLevel`).
+    Water { level: u8 },
+    /// A bubble column (`BubbleColumnBlock`, a water source): `drag` = down (magma below), else up
+    /// (soul sand below).
+    BubbleColumn { drag: bool },
 }
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
@@ -519,6 +530,8 @@ pub enum Kind {
     WallBanner,
     Lantern,
     StoneSlab,
+    Water,
+    BubbleColumn,
 }
 
 fn b(s: bool) -> &'static str {
@@ -573,6 +586,8 @@ impl Block {
             Block::WallBanner { .. } => Kind::WallBanner,
             Block::Lantern { .. } => Kind::Lantern,
             Block::StoneSlab { .. } => Kind::StoneSlab,
+            Block::Water { .. } => Kind::Water,
+            Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
     }
 
@@ -860,6 +875,8 @@ impl Block {
                     },
                 }
             }
+            "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
+            "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -991,6 +1008,8 @@ impl fmt::Display for Block {
             Block::WallBanner { facing } => write!(f, "minecraft:white_wall_banner[facing={}]", facing.name()),
             Block::Lantern { hanging } => write!(f, "minecraft:lantern[hanging={},waterlogged=false]", b(hanging)),
             Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
+            Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
+            Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }
     }
 }
