@@ -27,18 +27,33 @@ track's tracker as `crates/circuit/src/fly.rs`).
   its time in glibc's malloc arena locks.
 - `types <designs>...`: type identity (normal form by redsim-verified swaps: sticky->piston,
   honey->slime, slime/honey->stone, observer->stone; then rotation + mirror) and the dominance fold.
-- `prep <designs>... --out-dir DIR`: readable names (fly-<class>-<blocks>b-<speed>gt-<type hash>)
-  and a caption (pistons and observers by facing relative to the travel) for the archive.
+- `prep <designs>... --out-dir DIR [--skip-archived DIR]`: readable names
+  (fly-<class>-<blocks>b-<speed>gt-<type hash>) and a caption (pistons and observers by facing
+  relative to the travel) for the archive; `--skip-archived` leaves out types already archived.
+- `orient <designs>... --out-dir DIR`: the 24 cube orientations on redsim (class, speed, forward or
+  BACKWARD); writes the vertical ones.
+- `grow <designs>... --add 1|2 --out-dir DIR`: one or two blocks added anywhere around each design
+  (every palette state), every quarter turn; keeps the ones that fly at another speed.
+- `gen payload --base <design> --from x,y,z --dir up --n N [--cap 9 --from2 x,y,z --dir2 down]`:
+  the payload family's generator.
+- `station <machine> --k 3 [--palette ...] --procs 8 --out-dir DIR`: return-station search (below).
+- `two-way <machines>... --out-dir DIR [--reversible-only]`: for each reversible machine (kicked
+  from its back-facing sticky piston by a 2 gt redstone block it flies backward) the station search
+  ahead and behind, then station pairs composed into one design, kept when it shuttles.
 
 ## Results
 - MINIMUM = 6 BLOCKS (census, redsim, every quarter turn): no flying machine with <= 5 blocks in
-  3x2x1, 4x2x1, 2x2x2 (k <= 6), nor 6 blocks in 3x2x1. 6-block machines: 26 horizontal types, all
-  10 gt/block, all robust in the real game (designs/circuits/fly/archive/, 2026-10-19): two parts
+  any box up to 6 cells long (14 boxes: 3x2x1 ... 2x2x2, 3x3x1, 2x3x2, 3x2x2, 2x4x1, 4x1x2, 3x1x3,
+  5x2x1, k <= 6: 277 machines, 140 census types, 68 after the redsim-verified swaps of `types`).
+  Archived: 47 horizontal 6-block types, all 10 gt/block, all robust in the real game; 3 up
+  6-block types robust; 17 down 6-block types, all east-west only (rotation-dependent). Two parts
   of 3 blocks (observer + slime + piston each); the rear part's piston pushes the front part one
   cell, the front observer (riding) fires 2 gt after landing, the front's sticky piston reach-pulls
   the rear slime (dragging the rest of the rear); the rear observer fires the pusher again. Variants
   differ in where the observers watch (back / forward / up / down / sideways), honey in place of a
   slime, or a sticky pusher (spits with the 2 gt pulse).
+- `grow --add 1` (every 6-block archive machine + one block anywhere around it, every state, 4
+  quarter turns): 21756 candidates, none flies at another speed than its base.
 - 4 vertical (down) 6-block types fly 10 gt/block only when the structure lies east-west
   (rotations 0 and 2); turned north-south they oscillate in place (period 7 gt): Java's update
   order. Archived as rotation-dependent (the judge passes them flagged since af4104864).
@@ -52,7 +67,16 @@ track's tracker as `crates/circuit/src/fly.rs`).
   robust (fly-down-7b-10gt-aca731 = fly-d1 tilted down); 7 more 6-block down types, all
   rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
   east-west-only machines in every 6-block case found.
-- No other speed than 10 gt/block yet (k <= 7 in 4x2x1; bigger boxes running).
+- No other speed than 10 gt/block horizontally (k <= 7 in 4x2x1, k <= 6 in 14 boxes, grow +1).
+
+## Payload
+- fly-payload-e2cf52 family (base tracks/fly/payload/fly-payload-n1.txt, generator `mctas circuit
+  fly gen payload ... --n {n}`): the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying n = 1..18
+  blocks, 6 + n blocks, 10 gt/block for every n (judged n = 1, 2, 3, 9, 18 robust): a slime column
+  up from the front slime (the top block gold), 9 at most (a piston moves at most 12 blocks: the
+  3-block part + 9; n = 10 on one part never moves), then a column down from the rear slime; a 10th
+  block on the rear: the pull fails and the machine breaks. fly-payload-9-15b and -18-24b are its
+  members, archived first.
 
 ## Two-way (return stations)
 - The reversible engine: the 6-block types with TWO sticky pistons (e.g. fly-horizontal-6b-10gt-

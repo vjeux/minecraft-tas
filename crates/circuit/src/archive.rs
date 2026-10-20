@@ -376,10 +376,12 @@ fn axis_number(a: &str) -> Option<i64> {
     digits.parse().ok()
 }
 
-/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", "")).
+/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", ""); a flying
+/// machine's `10 gt/block` -> ("speed", "gt/block")).
 fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
+        None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
         None => (String::new(), String::new()),
     }
 }
