@@ -188,6 +188,8 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
         }
+        // judged by crate::shulker's own runner (judge chests), not by a stimulus
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
     }
     s.ticks = t;
@@ -216,6 +218,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
         Kind::TntDuper => crate::tnt::check_duper(c, s, t),
         Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
     }
@@ -420,6 +423,12 @@ fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         ));
         rows.push((len, os, back));
     }
+    // off at rest and back off at the end of EVERY gap (docs/circuits.md), handled input or not: a
+    // short input that leaves the output on would hold it on until the next input
+    if let Some((len, _, _)) = rows.iter().find(|r| !r.2) {
+        let len = *len;
+        return Outcome::fail(format!("latches: after a {len} gt input the output is still on at the end of its gap (the output must be back off after every input, handled or not)"), table);
+    }
     let n = rows.len();
     let last = &rows[n - 1];
     // each row's verdict against the reference (the longest input, or the kind's rule)
@@ -460,21 +469,54 @@ fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
                 return Outcome::fail(format!("never limits: the longest input pulse ({} gt) comes out {l} gt long", last.0), table);
             }
             let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len >= l { os[0].2 == l } else { os[0].2 <= l }).collect();
+            // limiting is witnessed by two input lengths above L coming out exactly L (one would
+            // not tell a limiter from a delay line that shortens every pulse by a fixed amount)
+            let above = rows.iter().zip(&ok).filter(|((len, _, _), o)| **o && *len > l).count();
+            if above < 2 {
+                return Outcome::fail(
+                    format!("limiting not witnessed: {above} input pulse(s) longer than L ({l} gt) come out L long, want 2 (a delay line that shortens pulses looks the same; a longer gap or a `stimulus:` hint adds longer inputs)"),
+                    table,
+                );
+            }
             finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
         }
         _ => {
-            // a pulse extender
+            // a pulse extender: L is the output of the shortest inputs; a candidate L (each one-pulse
+            // output, shortest input first) holds when two input lengths shorter than L come out
+            // exactly L INSIDE the handled suffix (an input below the min-pulse shows no extension,
+            // and one length alone would not tell an extender from a stretcher that adds a fixed
+            // amount to every pulse when the stimulus has no other length between them)
             if last.1.len() != 1 || last.1[0].0 < 0 {
                 return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want 1 from its rising edge", last.0, last.1.len()), table);
             }
             let d = last.1[0].0;
-            let Some(l) = rows.iter().find(|(_, os, back)| *back && os.len() == 1 && os[0].0 == d).map(|(_, os, _)| os[0].2) else {
+            let candidates: Vec<usize> = rows.iter().filter(|(_, os, back)| *back && os.len() == 1 && os[0].0 == d).map(|(_, os, _)| os[0].2).collect();
+            if candidates.is_empty() {
                 return Outcome::fail("no input pulse comes out as one pulse", table);
-            };
-            let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len < l { os[0].2 == l } else { os[0].2 >= l }).collect();
-            if !rows.iter().zip(&ok).any(|((len, _, _), o)| *o && *len < l) {
-                return Outcome::fail(format!("never extends: no input pulse shorter than its output ({l} gt) is handled"), table);
             }
+            let verdict = |l: usize| -> (Vec<bool>, bool) {
+                let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len < l { os[0].2 == l } else { os[0].2 >= l }).collect();
+                let n = ok.len();
+                let k0 = (0..=n).rev().take_while(|&k| k == n || ok[k]).last().unwrap_or(n);
+                // two witnesses, or every tested length below L when fewer exist (L 2: only 1 gt)
+                let below = rows.iter().filter(|r| r.0 < l).count();
+                let extends = below > 0 && (k0..n).filter(|&k| rows[k].0 < l).count() >= below.min(2);
+                (ok, extends)
+            };
+            let Some((l, ok)) = candidates.iter().find_map(|&l| {
+                let (ok, extends) = verdict(l);
+                extends.then_some((l, ok))
+            }) else {
+                let l = candidates[0];
+                let (ok, _) = verdict(l);
+                let mut table = table;
+                for (k, line) in table.iter_mut().enumerate() {
+                    if k < ok.len() && !ok[k] {
+                        line.push_str("  <- not handled");
+                    }
+                }
+                return Outcome::fail(format!("never extends: no two input pulses shorter than its output come out exactly that long among the handled inputs (from the shortest input: L {l} gt)"), table);
+            };
             finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
         }
     }

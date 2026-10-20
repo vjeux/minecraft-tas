@@ -95,11 +95,27 @@ each build's page.
   changed cells and every entity per tick), once through the warmup, then one period looped, with
   entities interpolated between ticks.
 * Entities (redsim's entity list: boats and chest boats, minecarts and hopper minecarts, item
-  entities, armor stands) are summoned like the judge (after the blocks), simulated live and drawn
-  interpolated between ticks; their clocks' period follows the real-game judge's rule for
-  entities (block frames over 4000 gt, 3 periods: `clock::sim::entity_clock_period`), which
-  `web check` compares too. Water heights follow the game (source 8/9, flowing (8 - level)/9,
-  falling and bubble columns full, water under water full), with no faces between fluid cells.
+  entities, armor stands; redsim's falling blocks) are summoned like the judge (after the blocks),
+  simulated live and drawn interpolated between ticks; their clocks' period follows the real-game
+  judge's rule for entities (block frames over 4000 gt, 3 periods:
+  `clock::sim::entity_clock_period`), which `web check` compares too. Water heights follow the
+  game (source 8/9, flowing (8 - level)/9, falling and bubble columns full, water under water
+  full), with no faces between fluid cells.
+* `mcview::entitymodel`: entities drawn like the game's client (read with `mctas src --client`):
+  `BoatModel` (both paddles where `animatePaddle` holds an idle boat; the chest boat's chest),
+  `MinecartModel` with its display block (a hopper minecart's hopper, 0.75 scale, display offset
+  1), `ArmorStandModel` in the default pose (`ArmorStand.DEFAULT_*_POSE`, arms hidden, base plate
+  square to the world), each through its renderer's transform (`AbstractBoatRenderer`,
+  `AbstractMinecartRenderer.oldRender`: a cart on a rail follows the rail's line and slope,
+  `ArmorStandRenderer`), the boxes as `ModelPart.Cube` builds them (UV layout, mirror), lit like
+  `light.glsl` (two lights, 0.6 + 0.4 ambient); dropped items bob and spin like
+  `ItemEntityRenderer` (a block item: its block model at the `ground` scale 0.25; any other: its
+  item sprite, double-sided); falling blocks: the block model half a block back
+  (`FallingBlockRenderer`). The textures are misode/mcmeta's entity atlas (boats and chest boats
+  of every wood, the minecart, the armor stand) and its whole item atlas, packed below the block
+  atlas in the game texture when a page first draws an entity (`entities.png`,
+  `entities.min.json`, `items.png`, `items.min.json` in a `data-mcview-textures` directory);
+  until then (or without them) the viewer's stand-in boxes are drawn.
 * A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
   corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
   cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
@@ -122,16 +138,32 @@ each build's page.
   texture, tinting the gray grass, leaves and water): nothing Mojang-owned is in the repository
   or the site. Thumbnails wait up to 4 s for them; without them (offline, blocked, or
   `data-mcview-textures="none"` on the page's root element, which can also point to another
-  directory holding `atlas.png` + `data.min.json`) the hand-drawn tiles of `atlas::art` (colors
+  directory holding `atlas.png` + `data.min.json` + `block_definition.min.json` +
+  `model.min.json`) the hand-drawn tiles of `atlas::art` (colors
   measured from the game, shapes after its layout) and procedural ones are used. Native tools
   (`shot`, `compare`, `strip`) download the same atlas once into `~/.cache/mctas` (`--procedural`:
   the hand-drawn tiles).
+* `mcview::gamemodel`: the game's own block GEOMETRY, from misode/mcmeta's summary of every
+  block definition and model of 26.3 (fetched with the atlas, cached): variants by properties,
+  multipart conditions (`OR`/`AND`, `a|b`), weighted variants picked from the block's position
+  like the game (`Mth.getSeed` + Java `Random.nextInt`), model parents, `#texture` variables
+  (26.3's `{sprite}` objects too), elements with their rotations (and rescale), faces with uv,
+  rotation, cullface and tint (redstone power, plains grass and foliage), quarter turns and
+  uvlock. Their faces sample the game's block atlas uploaded as one 2D texture beside the tile
+  array (vertex layer 65535). Blocks without game geometry (block-entity renderers: chests,
+  signs, banners, skulls...) and water keep the viewer's own models (`MCVIEW_NO_GAME_MODELS=1`
+  natively: the viewer's models everywhere).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
   `PistonHeadRenderer`, translucent faces sorted back to front, a floor of grass blocks.
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
-  mipmapped texture array (no bleeding between tiles), sky gradient and distance fog.
+  mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
+  faces culled in both passes like the game's chunk render types (a glass block shows its three
+  near faces only), and the game's fog (`fog.glsl` + `FogRenderer.setupFog`): the overworld's
+  environment fog (spherical distance, linear from 0 to 1024 blocks) and the render distance's
+  (cylindrical distance `max(|xz|, |y|)`, from 6 chunks minus a tenth to 6 chunks; a zoomed-out
+  camera pushes the render distance back so the build is never cut), toward the sky colour.
 
 ## Commands
 
@@ -139,7 +171,7 @@ each build's page.
 |---|---|
 | `mctas web shot <designs> -o <png or dir>` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir>` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera, with a pixel difference |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
@@ -151,6 +183,7 @@ each build's page.
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
+| `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
 --enable-unsafe-swiftshader --virtual-time-budget=60000 --screenshot=x.png <url>` (EPEL package

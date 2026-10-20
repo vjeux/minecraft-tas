@@ -200,3 +200,122 @@ impl Spec for CounterSpec {
         None
     }
 }
+
+/// dff: inputs (clk, d); the judge's main sequence (`circuit::seq::DFF_CYCLES`: per cycle d := a,
+/// clock up, d := b, clock down, `gap` frames each); passes when the output at the end of every
+/// step matches an ideal register loading at the rising edges (score: latency) or the falling ones
+/// (+1000). No setup / hold sweeps (the judge measures them).
+pub struct DffSpec {
+    pub gap: u32,
+}
+
+impl DffSpec {
+    /// Per step: (frame, clk, d).
+    fn steps(&self) -> Vec<(u32, bool, bool)> {
+        let mut v = Vec::new();
+        let mut t = SETTLE;
+        for (a, b, _) in circuit::seq::DFF_CYCLES {
+            for (clk, d) in [(false, a), (true, a), (true, b), (false, b)] {
+                v.push((t, clk, d));
+                t += self.gap;
+            }
+        }
+        v
+    }
+}
+
+impl Spec for DffSpec {
+    fn events(&self) -> Vec<Event> {
+        let mut v = Vec::new();
+        let (mut c0, mut d0) = (false, false);
+        for (t, clk, d) in self.steps() {
+            if clk != c0 {
+                v.push(Event { t, input: 0, on: clk });
+            }
+            if d != d0 {
+                v.push(Event { t, input: 1, on: d });
+            }
+            (c0, d0) = (clk, d);
+        }
+        v
+    }
+    fn frames(&self) -> u32 {
+        SETTLE + self.steps().len() as u32 * self.gap
+    }
+    fn watch_from(&self) -> u32 {
+        SETTLE - REST
+    }
+    fn react_by(&self) -> u32 {
+        // two cycles: a falling-edge register loads b = 0 in the first one (no change from rest)
+        SETTLE + 8 * self.gap + 16
+    }
+    fn judge(&self, rest_on: bool, changes: &[u32], _samples: &[u8]) -> Option<u32> {
+        let st = self.steps();
+        let starts: Vec<u32> = st.iter().map(|s| s.0).collect();
+        let ends: Vec<u32> = starts.iter().map(|s| s + self.gap).collect();
+        let (vals, worst) = window_values(rest_on, changes, &starts, &ends)?;
+        for (rising, bonus) in [(true, 0), (false, 1000)] {
+            let mut q = rest_on;
+            let mut prev_clk = false;
+            let ok = st.iter().zip(&vals).all(|(&(_, clk, d), &v)| {
+                if clk != prev_clk && clk == rising {
+                    q = d;
+                }
+                prev_clk = clk;
+                v == q
+            });
+            if ok {
+                return Some(worst + bonus);
+            }
+        }
+        None
+    }
+}
+
+/// tff-reset: inputs (r, t); the judge's main sequence of 4 gt and 20 gt pulses (t toggles, r
+/// clears), spaced by `gap`; score: the worst change offset.
+pub struct TffResetSpec {
+    pub gap: u32,
+}
+
+impl TffResetSpec {
+    fn steps(&self) -> Vec<(usize, u32, u32)> {
+        let mut t = SETTLE;
+        let mut v = Vec::new();
+        for (i, len) in [(1, 4), (1, 4), (1, 4), (0, 4), (0, 4), (1, 4), (0, 4), (1, 4), (1, 4), (0, 4), (1, 20), (0, 20), (1, 20), (0, 20)] {
+            v.push((i, t, len));
+            t += len + self.gap;
+        }
+        v
+    }
+}
+
+impl Spec for TffResetSpec {
+    fn events(&self) -> Vec<Event> {
+        self.steps().iter().flat_map(|&(i, t, l)| [Event { t, input: i, on: true }, Event { t: t + l, input: i, on: false }]).collect()
+    }
+    fn frames(&self) -> u32 {
+        let (_, t, l) = *self.steps().last().unwrap();
+        t + l + self.gap
+    }
+    fn watch_from(&self) -> u32 {
+        SETTLE - REST
+    }
+    fn react_by(&self) -> u32 {
+        SETTLE + 16
+    }
+    fn judge(&self, rest_on: bool, changes: &[u32], _samples: &[u8]) -> Option<u32> {
+        let st = self.steps();
+        let starts: Vec<u32> = st.iter().map(|s| s.1).collect();
+        let ends: Vec<u32> = st.iter().map(|s| s.1 + s.2 + self.gap).collect();
+        let (vals, worst) = window_values(rest_on, changes, &starts, &ends)?;
+        let mut q = rest_on;
+        for (&(i, _, _), &v) in st.iter().zip(&vals) {
+            q = if i == 1 { !q } else { false };
+            if v != q {
+                return None;
+            }
+        }
+        Some(worst)
+    }
+}

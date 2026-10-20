@@ -681,8 +681,22 @@ impl Session {
                     _ => kind,
                 };
                 let yaw = e.y_rot_o + (e.y_rot - e.y_rot_o) * partial;
-                crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
+                let pitch = e.x_rot_o + (e.x_rot - e.x_rot_o) * partial;
+                let pos = [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)];
+                let age = e.tick_count as f32 + partial;
+                if let EntityKind::Minecart(_) = &e.kind {
+                    // on a rail: the rail's line and slope (AbstractMinecartRenderer.oldRender)
+                    let p64 = [e.xo + (e.pos.x - e.xo) * partial as f64, e.yo + (e.pos.y - e.yo) * partial as f64, e.zo + (e.pos.z - e.zo) * partial as f64];
+                    let (p, rot, xrot) = crate::entitymodel::minecart_pose(&self.world, p64, yaw, pitch);
+                    return crate::mesh::EntityDraw { kind, pos: [p[0] as f32, p[1] as f32, p[2] as f32], yaw: rot, pitch: xrot, age };
+                }
+                crate::mesh::EntityDraw { kind, pos, yaw, pitch, age }
             })
+            .chain(self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+                // a falling block, from where it was last tick
+                let y0 = f.y - f.vy;
+                crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [f.x as f32, (y0 + (f.y - y0) * partial as f64) as f32, f.z as f32], ..Default::default() }
+            }))
             .collect()
     }
 

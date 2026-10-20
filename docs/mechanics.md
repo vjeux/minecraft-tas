@@ -772,6 +772,13 @@ behaves identically in the official server.**
   hold it up.
 * A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
   item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* **Known gap (2026-10-19, not chased):** `door redsim-verify` FAILS 8 of the 12 archived gravity
+  doors that pass the real judge (g1-67b, g1-69b, g3-60b, g4-51b, g6-49b, sf1-66b, sf1-68b,
+  sf3-64b; g7, g8, g9, g10 pass): redsim's falling-block model (`gravity.rs`, pistmodel) is
+  stricter than the game somewhere in these doors. As a search pre-screen it would reject them.
+* In redsim, falling blocks take their ids from the counter every entity shares and tick with the
+  other entities in spawn order (`entity::tick_phase`); they do not run `applyEffectsFromBlocks`
+  (plates, tripwires and bubble columns do not see them).
 * Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
   (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
 * An isolated redstone dust is a dot and powers nothing sideways; written as a cross

@@ -10,6 +10,11 @@ use crate::json::Json;
 /// The atlas of the judge's version (`mctas setup`'s 26.3) on misode/mcmeta.
 pub const ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png";
 pub const INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/data.min.json";
+/// The entity and item atlases (loaded when a page draws an entity).
+pub const ENTITY_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/atlas.png";
+pub const ENTITY_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/data.min.json";
+pub const ITEM_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/atlas.png";
+pub const ITEM_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/data.min.json";
 
 /// How a game texture becomes a tile.
 #[derive(Clone, Copy, Debug)]

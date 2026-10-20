@@ -16,6 +16,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
+| 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
@@ -118,9 +119,13 @@ kick) before the first input.
     nothing on the falling edge; `falling-edge`: the same after the falling edge; `dual-edge`: one
     pulse after each edge (L and delay per edge when they differ);
   * `pulse-limiter`: one pulse from the rising edge, length L for every input >= L (shorter inputs
-    may pass shorter); L must be shorter than the longest input;
+    may pass shorter); L must be shorter than the longest input, and at least two inputs longer
+    than L must come out exactly L (one would not tell a limiter from a delay line that shortens
+    every pulse by a fixed amount; a longer gap or a `stimulus:` hint adds longer inputs);
   * `pulse-extender`: one pulse from the rising edge, length L for every input shorter than L and
-    never shorter than L; at least one input shorter than L must be handled.
+    never shorter than L; at least two inputs shorter than L (every tested one when fewer exist,
+    as for L 2) must come out exactly L inside the handled inputs (from the min-pulse up), so a
+    stretcher that adds a fixed amount to every pulse fails.
   * `min-pulse`: the shortest input from which every longer one is handled (at least the 3 longest
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
@@ -211,6 +216,29 @@ kick) before the first input.
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
+* **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
+  crates/circuit/src/shulker.rs; the variations and how each is measured:
+  designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:
+  cobblestone (the default), snowballs, iron shovels. These kinds are not judged by the waveform.
+  The design declares air cells `port items[.k]:`, `port boxes[.k]:` and `port output[.k]:`, and
+  the judge puts a single chest on each (not counted, not part of the type). A loader's `items`
+  chest is a source the judge keeps topped up between ticks until 3 boxes' worth is supplied; its
+  `boxes` chest holds 4 empty boxes. An unloader's `boxes` chest holds 3 full boxes, and its
+  `items` chest is a sink the judge empties and counts. The judge empties the `output` chests and
+  records every box that arrives (the gt, colour, name, contents) from per-gt block-entity frames.
+  An optional `port input: x y z lever` is turned on once at the start; without it the design is
+  always on. The design is placed and left 40 gt, then the chests are filled. Pass:
+  * a loader delivers 3 boxes, each holding 27 full stacks of the item;
+  * an unloader delivers 3 empty boxes, and every item reaches `items`;
+  * nothing else reaches an output, no item or box is left in the machine, no entity is alive at
+    the end, and the design stands still for 400 gt (it gets up to 5 windows to settle).
+  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `boxes/min`, `items/s` and
+  `cycle` over the first to the last box, and `first box` (the gt from the start). A piston drops
+  the box at a random offset with a random drift, which can shift a pickup by a gt. Builds within
+  4 gt of the base build are the same circuit (`robust`), and the reported times are the builds'
+  medians. `circuit sim` reports UNMODELED until redsim models shulker boxes and chests.
+  `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
+  snapshots of a..b) add what changed to `--table`: a design aid.
 
 ## Archive and catalog
 
