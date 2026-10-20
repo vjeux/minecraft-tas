@@ -150,30 +150,45 @@ fn tiles(c: &Circuit, k: &Kind) -> bool {
     c.tile.is_some() && k.study() == "pulsemult"
 }
 
-/// The tiled run of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]).
+/// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
+/// driven 7 gt apart, then in phase ([`crate::pulsemult::TILE_SHIFTS`]); the first failure fails.
 fn tiled_sim(c: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) -> Outcome {
     let tc = match crate::tiled(c) {
         Ok(tc) => tc,
         Err(e) => return Outcome::fail(format!("{e}"), alone.table.clone()),
     };
-    let ts = crate::pulsemult::tiled_schedule(c, &tc, s);
-    match run::sim_trace(&tc, &ts, margin) {
-        Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone),
-        Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(c, &tc, s, shift);
+        out = match run::sim_trace(&tc, &ts, margin) {
+            Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone, shift),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
     }
+    out
 }
 
-/// The tiled run of a study-11 design in one build of the game (`rc`: the build's circuit).
+/// The tiled runs of a study-11 design in one build of the game (`rc`: the build's circuit).
 fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) -> Result<Outcome> {
     let tc = match crate::tiled(rc) {
         Ok(tc) => tc,
         Err(e) => return Ok(Outcome::fail(format!("{e}"), alone.table.clone())),
     };
-    let ts = crate::pulsemult::tiled_schedule(rc, &tc, s);
-    Ok(match run::game_trace(w, &tc, &ts, margin)? {
-        Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone),
-        Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
-    })
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(rc, &tc, s, shift);
+        out = match run::game_trace(w, &tc, &ts, margin)? {
+            Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone, shift),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 /// The judge's consumer lamps observe the outputs, never take part in the circuit (clockinfra

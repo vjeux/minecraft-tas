@@ -353,7 +353,7 @@ pub struct Circuit {
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
 /// ([`tiled`]) and judges each copy on its own: a shulker loader with its own judge chests (badge
 /// `tileable`), a study-11 kind against its own input, the copies' stimuli shifted
-/// ([`pulsemult::TILE_SHIFT`]) so their edges interleave (metric `tile`).
+/// ([`pulsemult::TILE_SHIFTS`]: 7 gt apart, then in phase; metric `tile`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Tile {
     pub step: Pos,
