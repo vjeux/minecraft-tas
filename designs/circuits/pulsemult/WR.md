@@ -17,3 +17,20 @@ Why the present (item-free) designs can still win a card: no items to load (noth
 lose), 4 gt pulse periods (a hopper moves one item per 8 gt), and their re-trigger behaviour is
 measured; the item designs will be judged on the same axes and the cards keep whichever is better
 on each.
+
+## The item burst: what the design has to solve (worked out, not built yet)
+
+The gated 3-block observer chase (pm-train-observers) is the pulse source; each chase pulse fires a
+dropper D holding the N items, which drops one item into a hopper H above it (H points back into D).
+What makes it hard is the stop and the reset, not the counting:
+* a comparator reading D sees every change, including the refill, so a loop that restarts on
+  "D changed" restarts while H refills D; the end of the burst must flip a latch (a copper bulb L
+  toggled by the input) whose state blocks the chase, and the empty-D edge must reach L as a rising
+  edge (a torch under D's comparator), while L's own state locks H during the burst;
+* every part of that loop has its own direction (a comparator reading D outputs away from D, the
+  piston must touch the observer it pushes, the torch must touch L), so the latch, the chase and D
+  sit on three sides of D and the wiring between them is where the blocks go; a first layout needs
+  about 12-14 blocks, constant for N up to 576 (nine stacks of 64);
+* without locking H, D drains at one item per 8 gt net (two out per hopper cooldown, one back), so
+  the burst gives about 2N pulses for N items: still a deterministic tunable family.
+Divider: the same counter with two droppers whose direction a bulb flips at empty.
