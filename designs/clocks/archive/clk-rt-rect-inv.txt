@@ -12,7 +12,8 @@ extend generator: mctas clock rt family rect-inv --n {n} --out {out}
 extend n: 0..8
 extend period: 52 + 32n
 extend rule: lengthen the 3 x (3+n) inverter ring (delay-4 repeaters, corner blocks, a wall torch on one corner block, the next corner dust) by one row: one more repeater on each long side
-port output: 1 1 2
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 2: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 2
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=4,facing=north,locked=false,powered=false]

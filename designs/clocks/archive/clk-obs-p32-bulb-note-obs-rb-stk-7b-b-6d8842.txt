@@ -1,9 +1,10 @@
 # archived 2026-10-19T20:13Z from designs/clocks/tracks/clk-obs/mech2/p32-bulb-note-obs-rb-stk-7b-b-6d8842.txt by mctas clock archive
-# CLOCK: clk-obs-p32-bulb-note-obs-rb-stk-7b-b-6d8842 period 32 gt (1.6 s), on 16/32, edges 8, warmup 5, family copper_bulb+note_block+observer+redstone_block+sticky_piston, 7 blocks, 3x1x4, rotation-dependent
+# CLOCK: clk-obs-p32-bulb-note-obs-rb-stk-7b-b-6d8842 period 32 gt (1.6 s), on 16/32, edges 4, warmup 5, family copper_bulb+note_block+observer+redstone_block+sticky_piston, 7 blocks, 3x1x4, rotation-dependent
 name: clk-obs-p32-bulb-note-obs-rb-stk-7b-b-6d8842
 # P32: 1 copper bulb, 2 note blocks, 1 observer, 1 redstone block, 2 sticky pistons; changing in place: copper_bulb, note_block, observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 2
 port start: 0 0 2 last
 palette:
   A minecraft:note_block[instrument=harp,note=0,powered=false]

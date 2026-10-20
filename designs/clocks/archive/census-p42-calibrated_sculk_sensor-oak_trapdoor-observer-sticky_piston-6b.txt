@@ -6,7 +6,8 @@ census: box 3x1x2 k<=6 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_
 port start: 0 0 0 last
 # port output declared 2026-10-20 (clk-misc): the cell the judge measures as this clock's automatic output, so
 # clock sim reads it the same way (re-judged in the game: its CLOCK line is unchanged)
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 origin: 0 0 0
 palette:
   A minecraft:observer[facing=west,powered=false]

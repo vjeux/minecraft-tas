@@ -64,8 +64,9 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   `daytime only` (a daylight detector), `tripwire` (any passing mob, player or item fires it),
   `no output` (no exterior cell that pulses evenly), `not robust` (it must work in any direction,
   anywhere), `does not survive a chunk reload` (`clock verify --reload`: the bridge saves, unloads
-  and loads the sandbox's chunks after the warmup and 2 periods; the period must hold from at least
-  one period before; the 2-observer P6 clock comes back at P4 in 2 of 8 builds). Item clocks run
+  and loads the sandbox's chunks after the warmup and 2 periods; the clock must run at the same
+  state period afterwards, a glitch of at most 2 periods + 40 gt right after the reload allowed
+  (lost block events, a phase shift); the 2-observer P6 clock comes back at P4 in 2 of 8 builds). Item clocks run
   past their items' 6000 gt lifetime (12000 gt, redsim and the game). `clock retap [--shard i/n]
   --results FILE` gives each archived clock its best exterior output (redsim ranks, the game
   confirms) or a reason to hide it; `--apply FILE...` rewrites designs and rows; `--reload-pass`

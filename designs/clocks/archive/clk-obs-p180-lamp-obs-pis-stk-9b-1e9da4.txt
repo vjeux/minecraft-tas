@@ -1,9 +1,10 @@
 # archived 2026-10-19T23:40Z from designs/clocks/tracks/clk-obs/families9/p180-lamp-obs-pis-stk-9b-1e9da4.txt by mctas clock archive
-# CLOCK: clk-obs-p180-lamp-obs-pis-stk-9b-1e9da4 period 180 gt (9 s), on 82/180, edges 41, warmup 8, family observer+piston+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
+# CLOCK: clk-obs-p180-lamp-obs-pis-stk-9b-1e9da4 period 180 gt (9 s), on 60/180, edges 30, warmup 8, family observer+piston+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
 name: clk-obs-p180-lamp-obs-pis-stk-9b-1e9da4
 # clk-obs grow: P=180 (redsim), family observer+piston+redstone_lamp+sticky_piston, kick last 0 1 0, swept volume 15.
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 5 2
 port start: 0 1 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

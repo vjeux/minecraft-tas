@@ -1,12 +1,13 @@
 # archived 2026-10-19T20:38Z from /tmp/gen/arch2/s3x2x2-k4-census-p48-calibrated_sculk_sensor-oak_trapdoor-observer-sticky_piston-4b.txt by mctas clock archive
-# CLOCK: census-p48-calibrated_sculk_sensor-oak_trapdoor-observer-sticky_piston-4b period 48 gt (2.4 s), on 0/48, edges 0, warmup 0, family calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston, 4 blocks, 3x2x1, robust
+# CLOCK: census-p48-calibrated_sculk_sensor-oak_trapdoor-observer-sticky_piston-4b period 48 gt (2.4 s), on 20/48, edges 2, warmup 0, family calibrated_sculk_sensor+oak_trapdoor+observer+sticky_piston, 4 blocks, 3x2x1, robust
 # Found by `mctas clock census` (box 3x2x2 k<=4) with a sculk palette: s3x2x2-k4-census-p48-calibrated_sculk_sensor-oak_trapdoor-observer-sticky_piston-4b
 name: census-p48-calibrated_sculk_sensor-oak_trapdoor-observer-sticky_piston-4b
 census: box 3x2x2 k<=4 (0,0,0=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false];0,1,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];1,1,0=observer[facing=west,powered=false];2,0,0=sticky_piston[extended=false,facing=west])
 port start: 0 1 0 last
 # port output declared 2026-10-20 (clk-misc): the cell the judge measures as this clock's automatic output, so
 # clock sim reads it the same way (re-judged in the game: its CLOCK line is unchanged)
-port output: 1 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 1 -1
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

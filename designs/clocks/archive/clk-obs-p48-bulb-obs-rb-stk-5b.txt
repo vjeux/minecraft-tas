@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:25Z from /tmp/clk-in7/clk-obs--best--p48-bulb-obs-rb-stk-5b.txt by mctas clock archive
-# CLOCK: clk-obs-p48-bulb-obs-rb-stk-5b period 48 gt, on 24/48, edges 12, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 5 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p48-bulb-obs-rb-stk-5b period 48 gt (2.4 s), on 24/48, edges 6, warmup 4, family copper_bulb+observer+redstone_block+sticky_piston, 5 blocks, 1x3x3, robust
 name: clk-obs-p48-bulb-obs-rb-stk-5b
-# CLOCK: census-k5-p48-0001 period 48 gt, on 24/48, edges 12, warmup 3, family copper_bulb+observer+redstone_block+sticky_piston, 5 blocks, 1x3x3, kick: last 0,2,2
+# CLOCK: clk-obs-p48-bulb-obs-rb-stk-5b period 48 gt (2.4 s), on 24/48, edges 6, warmup 4, family copper_bulb+observer+redstone_block+sticky_piston, 5 blocks, 1x3x3, robust
 # (clk-obs, found by census-k5-p48-0001.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
 origin: 0 0 0
-port output: 0 2 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 2
 port start: 0 2 2 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=north]
