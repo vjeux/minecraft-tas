@@ -132,3 +132,15 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   trio seeds never got below 2-3 filled cells.
 - `door mechmut --add` (completion search): neighbours also add one piece; with `--repair`,
   unsolved variants steer the beam by growth (3x3 cells still filled at best), never kept.
+- families 7x7 ring-escape-only feedable P13, K=1 + no-inside + fed: 0 of 2,124,083 (1,572,866
+  proven none, 551,217 undecided), 104 min. K=2 with `--extra-actions 1` (w1's profile: one piston
+  may act twice per edge) needs `--pareto 64` (all of the first 3,000 P12 candidates decided in
+  40 s; 2,325 undecided at the default 3).
+- mechmut from w1 under K=2 + no-inside (3 rounds, beam 8): 109 variants, all WORK in redsim,
+  every one leaves P (1,-1) and the bottom-middle SU(1,-2) unfed (mm/bars-7x7.tsv).
+- Independent check of w86's argument (asked by the coordinator): sound for the class where the
+  middle-frame piston FIRES from the frame and escapes along it; the hole is the class where it is
+  carried INTO the door square and fires there (a3s's W, 6x7 mm01): d67 game-verified a QC feed
+  through a powered frame block for it. 6x7-in2/mm01 widened to 7x7 (x -3..3) WORKS in redsim,
+  d67's `door connect` leaves only SU(1,-2) never fed, but it needs up to 7 actions per piston per
+  edge and is PROVEN unsolvable at K=2 (15 s): excluded by the action bar, not by physics.
