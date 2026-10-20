@@ -1,0 +1,47 @@
+# archived 2026-10-20T01:01Z from designs/circuits/pext/work/n6-cascade47.txt by mctas circuit archive
+# CIRCUIT: pext-n6-cascade47 piston-extender 6 N 6, extend 67 gt, retract 85 gt, 47 blocks, 18x4x4, robust
+# N=6 CASCADE extender, minimized (mctas circuit pext minimize) from the generated one
+# (mctas circuit pext cascade --n 6, 63 blocks): the same units and round starts; the minimizer
+# replaced the spine's towers by repeaters and some triggers by sticky pistons.
+name: pext-n6-cascade47
+circuit: piston-extender 6
+travel: 1 0 0
+port input: 16 3 3 lever
+port payload: 12 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .O.O.O.O.O
+  .
+  .
+  .
+layer 1:
+  FSFSFSFSFSFG
+  .
+  .
+  .
+layer 2:
+  C
+  ..B.B.B.BB..B..B
+  ..C.C.C.s...D..D
+  ...............H
+layer 3:
+  r
+  B
+  .ERARARAoAAA.AA
+  ...............L

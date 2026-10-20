@@ -251,6 +251,10 @@ fn start_box(c: &Clock, blocks: &[(BlockPos, Block)], from: Pos, to: Pos) -> Res
             be_lines(&mut w, None)?;
         }
     }
+    // the design's entities, once the blocks stand (as the real-game judge summons them)
+    for e in &c.design.entities {
+        redsim::entity::spawn(&mut w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| (Verdict::Unmodeled, format!("not modeled by redsim: {why}")))?;
+    }
     Ok(Started { world: w, actions: c.actions() })
 }
 
@@ -332,6 +336,30 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// The design's blocks that cannot stand where they are once placed like the judge places them:
+/// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
+/// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
+/// player could not build), in the box `from`..=`to`. `Err` when redsim does not model the design.
+pub fn unsupported(c: &Clock, from: Pos, to: Pos) -> Result<Vec<(Pos, String)>, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    let s = start_box(c, &blocks, from, to).map_err(|(_, why)| why)?;
+    let withheld = c.withheld();
+    let mut out = Vec::new();
+    for (p, s0) in &c.design.blocks {
+        if Some(*p) == withheld {
+            continue;
+        }
+        let b = s.world.get(bp(*p));
+        if matches!(b, Block::Air) {
+            out.push((*p, s0.clone()));
+        } else if !redsim::behavior::can_survive(&s.world, &b, bp(*p)) {
+            out.push((*p, b.to_string()));
+        }
+    }
+    Ok(out)
+}
+
 /// One driven run on redsim (the circuit judge's screen, `mctas circuit sim`): what [`drive`]
 /// recorded after every tick 0..=ticks.
 pub struct Driven {
@@ -351,9 +379,6 @@ pub struct Driven {
 /// tick 0..=ticks. Fails on a block redsim does not model; a problem during the run (a drop, a write
 /// outside the box) stops it ([`Driven::stopped`]).
 pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
-    if !c.design.entities.is_empty() {
-        return Err((Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...)".into()));
-    }
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
         if let Action::Place { state, .. } = a {
@@ -466,24 +491,75 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)
     Some((w0, r.period, counts))
 }
 
+/// The real-game judge's horizon and minimum periods (`verify::VerifyOptions`), used for designs
+/// with entities.
+pub const ENTITY_HORIZON: u32 = 4000;
+const ENTITY_MIN_PERIODS: usize = 3;
+
+/// (warmup, period) of a design with entities by the real-game judge's rule: the block frames
+/// (every cell of the world box: block state + block-entity extras; entities left out) over
+/// 0..=[`ENTITY_HORIZON`], `wave::detect_period` from the first free tick with 3 periods. `None`:
+/// not periodic.
+fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, end: u32) -> Result<Option<(u32, u32)>, (Verdict, String)> {
+    let mut s = start(c, blocks, o.margin)?;
+    let wmin = s.world.min;
+    let size = s.world.size;
+    let cells: Vec<BlockPos> = (0..size[1])
+        .flat_map(|y| (0..size[2]).flat_map(move |z| (0..size[0]).map(move |x| BlockPos::new(wmin.x + x, wmin.y + y, wmin.z + z))))
+        .collect();
+    let mut ids: HashMap<u128, u64> = HashMap::new();
+    let mut frames: Vec<u64> = Vec::with_capacity(ENTITY_HORIZON as usize + 1);
+    for t in 0..=ENTITY_HORIZON {
+        between_ticks(&mut s, t)?;
+        use std::hash::Hash;
+        let mut h = H128 { a: 0xcbf29ce484222325, b: 0x84222325cbf29ce4 };
+        for q in &cells {
+            let b = s.world.get(*q);
+            b.hash(&mut h);
+            wave::be_extra_redsim(&s.world, *q, &b).hash(&mut h);
+        }
+        let d = ((h.a as u128) << 64) | h.b as u128;
+        let n = ids.len() as u64;
+        frames.push(*ids.entry(d).or_insert(n));
+        if t < ENTITY_HORIZON {
+            s.world.tick();
+        }
+    }
+    Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).map(|(w, p)| (w as u32, p as u32)))
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
-    if !c.design.entities.is_empty() {
-        return SimReport::fail(c, Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...): judge it with clock verify".into());
-    }
     let blocks = match parse_blocks(c) {
         Ok(b) => b,
         Err(e) => return SimReport::fail(c, Verdict::Unmodeled, format!("not modeled by redsim: {e}")),
     };
     let end = c.free_from();
+    // Designs with entities: their exact state never repeats (an entity's doubles drift in the
+    // low bits), so the period comes from the BLOCKS, by the real-game judge's own rule
+    // (`verify::run_in`): the frames of every cell (block state + block-entity extras, entities
+    // left out) must repeat with period p for 3 periods within its 4000 gt horizon; the smallest
+    // warmup, then the smallest p (`wave::detect_period`).
+    let entity_period = if c.design.entities.is_empty() {
+        None
+    } else {
+        match entity_clock_period(c, &blocks, o, end) {
+            Ok(Some(wp)) => Some(wp),
+            Ok(None) => return SimReport::fail(c, Verdict::NoRepeat, format!("not periodic for 3 periods within {ENTITY_HORIZON} gt (the judge's rule for designs with entities)")),
+            Err((v, why)) => return SimReport::fail(c, v, why),
+        }
+    };
     // Phase 1: the first repeat of the full state.
     let mut s = match start(c, &blocks, o.margin) {
         Ok(s) => s,
         Err((v, why)) => return SimReport::fail(c, v, why),
     };
     let mut seen: HashMap<u128, u32> = HashMap::new();
-    let mut found = None;
+    let mut found = entity_period;
     for t in 0..=o.horizon {
+        if found.is_some() {
+            break;
+        }
         if let Err((v, why)) = between_ticks(&mut s, t) {
             return SimReport::fail(c, v, why);
         }
@@ -556,7 +632,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             }
         }
         if t == w0 + p {
-            if s.world.state_key() != key_w {
+            if entity_period.is_none() && s.world.state_key() != key_w {
                 return SimReport::fail(c, Verdict::Unmodeled, format!("digest collision: states at {w0} and {} differ (report this)", w0 + p));
             }
             break;
@@ -577,7 +653,16 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let refs: Vec<Vec<&str>> = period_states[..full_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
     out_seq.truncate(full_p);
     out_level.truncate(full_p);
-    let analysis = wave::analyze(&cells, &refs);
+    let mut analysis = wave::analyze(&cells, &refs);
+    // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
+    // join the family, as in the real-game judge (`detector_rail+minecart`)
+    for e in &c.design.entities {
+        let k = crate::short(&e.kind).to_string();
+        if !analysis.family.contains(&k) {
+            analysis.family.push(k);
+        }
+    }
+    analysis.family.sort();
     let mut rep = SimReport {
         name: c.name().to_string(),
         verdict: Verdict::Clock,

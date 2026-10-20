@@ -68,10 +68,19 @@ pub fn subline(b: &Build) -> String {
         }
         "clock" => {
             let p = b.clock.as_ref().map(|c| gt_time(c.period)).unwrap_or_default();
-            format!("{p} · {} blocks · {}", b.blocks, b.group.replace('+', " + "))
+            format!("{p} · {} · {}", blocks_word(b.blocks), b.group.replace('+', " + "))
         }
-        _ => format!("{} · {} blocks", b.group, b.blocks),
+        _ => match &b.circuit {
+            // `rising-edge · L = 2 gt · 3 blocks`
+            Some(c) if c.axis.contains('=') => format!("{} · {} · {}", b.group, c.axis, blocks_word(b.blocks)),
+            _ => format!("{} · {}", b.group, blocks_word(b.blocks)),
+        },
     }
+}
+
+/// `1 block`, `3 blocks`.
+pub fn blocks_word(n: u32) -> String {
+    if n == 1 { "1 block".to_string() } else { format!("{n} blocks") }
 }
 
 /// Badges shown on a card (short).
@@ -85,9 +94,15 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(d.seamless.clone());
         }
     }
-    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite"] {
+    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite", "layout"] {
         if b.flags.iter().any(|x| x == f) {
             v.push(f.to_string());
+        }
+    }
+    // a tunable group's shown design: the group's span (`tunable: L 6-40 gt, 16 values`)
+    if let Some(c) = &b.circuit {
+        if !c.span.is_empty() {
+            v.push(format!("tunable: {}", c.span));
         }
     }
     v
@@ -100,9 +115,10 @@ fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>,
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
         None => (String::new(), ""),
     };
+    // no design file (a member listed from its formula only): no 3D view
+    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
     format!(
-        "<div class=\"thumb k-{kind}\" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
-        esc(&format!("{prefix}{design}")),
+        "<div class=\"thumb k-{kind}\"{view}><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
         esc(big),
         esc(small)
     )
@@ -130,15 +146,24 @@ pub fn build_card(b: &Build, prefix: &str) -> String {
     )
 }
 
+/// The anchor of a member's row on its family card's page: `n<k>` for the card's first family,
+/// `n<k>-<family>` for the others.
+pub fn member_anchor(m: &Member, site: &Site) -> String {
+    let first = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.first()).map(|f| f.id.as_str());
+    if first.is_none_or(|f| f == m.family) { format!("n{}", m.n) } else { format!("n{}-{}", m.n, m.family) }
+}
+
 /// The page a member links to: its archived build, else its family's card at its row.
 pub fn member_href(m: &Member, site: &Site) -> String {
+    let card = || format!("families/{}.html#{}", m.card, member_anchor(m, site));
     match &m.build {
-        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(|| format!("families/{}.html#n{}", m.card, m.n)),
-        None => format!("families/{}.html#n{}", m.card, m.n),
+        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(card),
+        None => card(),
     }
 }
 
-/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks`.
+/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks` (a
+/// circuit family's member: its axis value, `N = 26 gt`).
 pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
     let group = site
         .cards
@@ -149,14 +174,16 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         .map(|b| b.group.replace('+', " + "))
         .unwrap_or_default();
     let status = format!("<span class=\"badge st-{}\">{}</span>", esc(&m.status), esc(status_label(&m.status)));
+    let circuit = !m.axis.is_empty();
+    let (kind, big, value) = if circuit { ("circuit", m.axis.clone(), m.axis.clone()) } else { ("clock", format!("{} gt", m.period), gt_time(m.period)) };
     format!(
-        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} blocks · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
+        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
-        thumb(prefix, &m.design, None, m.picture.as_deref(), "clock", &format!("{} gt", m.period), &format!("{} n={}", m.family, m.n)),
+        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, &format!("{} n={}", m.family, m.n)),
         esc(&m.family),
         m.n,
-        esc(&gt_time(m.period)),
-        m.blocks,
+        esc(&value),
+        esc(&blocks_word(m.blocks)),
         esc(&group)
     )
 }

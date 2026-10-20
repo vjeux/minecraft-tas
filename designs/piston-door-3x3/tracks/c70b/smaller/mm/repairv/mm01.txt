@@ -1,0 +1,23 @@
+name: mm01
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:stone
+  S minecraft:smooth_stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ..BBB
+layer -1:
+  A.B
+layer 0:
+  ..CCCS
+layer 1:
+  A.CCCS
+layer 2:
+  AACCCS
+layer 3:
+  .
+layer 4:
+  .s.ss

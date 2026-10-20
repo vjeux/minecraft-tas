@@ -268,10 +268,15 @@ pub struct FullmechArgs {
     /// Generated candidates: audit bound (a), extended-at-rest pistons reused lifted / carried.
     #[arg(long)]
     lift_ext: bool,
+    /// --check: keep the design's plain stones / obsidian as pieces (static frame stones of an
+    /// ideal-input design; by default plain blocks are taken for wiring and dropped).
+    #[arg(long)]
+    keep_stone: bool,
 }
 
 pub fn cmd_fullmech(args: FullmechArgs) -> Result<()> {
-    let FullmechArgs { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext } = args;
+    let FullmechArgs { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, keep_stone } = args;
+    crate::fullmech::KEEP_STONE.store(keep_stone, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);

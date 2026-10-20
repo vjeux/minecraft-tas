@@ -1,0 +1,19 @@
+# N=3 one-frame rider, IDEAL pulses (redstone blocks beside the line at z=1): A held by the lever
+# pushes a 5-slime row; inner train C B C after each landing: C1 at x=4 (both edges), B at x=2,3,
+# C2 at x=3,5 (B is hit too on the on-edge, harmless when simultaneous).
+name: ideal-r3
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 0 0 lever
+port payload: 4 1 0
+ideal: both 5 set 4 1 1 minecraft:redstone_block; both 7 clear 4 1 1; both 10 set 2 1 1 minecraft:redstone_block; both 10 set 3 1 1 minecraft:redstone_block; both 12 clear 2 1 1; both 12 clear 3 1 1; both 15 set 3 1 1 minecraft:redstone_block; both 15 set 5 1 1 minecraft:redstone_block; both 17 clear 3 1 1; both 17 clear 5 1 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 0:
+  LASSSSS
+layer 1:
+  ..BBG

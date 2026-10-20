@@ -75,17 +75,67 @@ async fn load() -> Result<(), JsValue> {
     let text = JsFuture::from(resp.text()?).await?.as_string().ok_or("data/site.json: not text")?;
     let site: Site = serde_json::from_str(&text).map_err(|e| JsValue::from_str(&format!("data/site.json: {e}")))?;
     let hash = window.location().hash().unwrap_or_default();
-    let q = Query::from_fragment(&hash);
+    let mut q = Query::from_fragment(&hash);
+    // the header's search form submitted from another page: index.html?kind=..&q=..
+    let search = window.location().search().unwrap_or_default();
+    let mut from_form = false;
+    for part in search.trim_start_matches('?').split('&') {
+        if let Some((k, v)) = part.split_once('=') {
+            let v = site_model::decode(&v.replace('+', " "));
+            match k {
+                "kind" if !v.is_empty() => {
+                    q.kind = v;
+                    from_form = true;
+                }
+                "q" => {
+                    route_search(&mut q, &v);
+                    from_form = true;
+                }
+                _ => {}
+            }
+        }
+    }
     APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new() }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
-    if hash.contains("time=") {
-        if let Some(t) = input("f-time") {
+    if from_form || hash.contains("time=") {
+        if let Some(t) = input("hq") {
             let _ = t.focus();
         }
     }
     Ok(())
+}
+
+/// The header's search text into the query: on the Clocks tab (or with an explicit time unit) a
+/// period or a time range is the clock time search (`48`, `2.5 s`, `40-60 gt`); anything else is
+/// the text search.
+fn route_search(q: &mut Query, s: &str) {
+    let t = s.trim();
+    let has_digit = t.chars().any(|c| c.is_ascii_digit());
+    let lower = t.to_lowercase();
+    // the Circuits tab: a value (`12`, `L 12`, `N 3`, `10-20 gt`, `latency 0`) is the circuit
+    // value search, which expands the tunable groups to the member that hits it
+    if q.kind == "circuit" && has_digit && site_model::parse_value_query(t).is_ok() {
+        q.value = t.to_string();
+        q.text.clear();
+        q.time.clear();
+        return;
+    }
+    q.value.clear();
+    let explicit_unit = ["gt", "tick", " s", "sec", "min", "rt"].iter().any(|u| lower.contains(u)) || lower.ends_with('s');
+    let is_time = has_digit && site_model::parse_time_query(t).is_ok() && (q.kind == "clock" || explicit_unit);
+    if is_time {
+        if q.kind != "clock" {
+            q.kind = "clock".into();
+            q.groups.clear();
+        }
+        q.time = t.to_string();
+        q.text.clear();
+    } else {
+        q.text = t.to_string();
+        q.time.clear();
+    }
 }
 
 fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
@@ -102,14 +152,12 @@ fn draw_panel() -> Result<(), JsValue> {
         )
     };
     let html = format!(
-        "<h3>Kind</h3><div id=\"f-kinds\" class=\"tabs\"></div>\
-         <h3>Find a clock by time</h3><div class=\"time\"><input id=\"f-time\" type=\"search\" placeholder=\"48 gt, 2.5 s, 1 min, 40-60 gt, 2-3 s\" aria-label=\"clock period\"><p id=\"f-time-msg\" class=\"hint\">A period in game ticks (20 gt = 1 s) or a time, or a range: every clock of that period, and every extendable family's member that hits it.</p></div>\
-         <h3>Search</h3><input id=\"f-text\" type=\"search\" placeholder=\"name, how it works, block…\" aria-label=\"search\">\
+        "<button id=\"f-toggle\" class=\"ftoggle\" type=\"button\" aria-expanded=\"false\">Filters</button>\
          <h3 id=\"f-groups-title\">Category</h3><div id=\"f-groups\" class=\"chips\"></div>\
          <h3>Block kinds</h3><p class=\"hint\">Click: must use it. Again: must not. Again: either.</p><input id=\"f-kind-filter\" type=\"search\" placeholder=\"filter the block kinds\" aria-label=\"filter block kinds\"><div id=\"f-blocks\" class=\"chips\"></div>\
          <h3>Properties</h3><div id=\"f-flags\" class=\"chips\"></div>\
          <h3>Ranges</h3>{}{}{}{}{}\
-         <label class=\"check\"><input id=\"f-variants\" type=\"checkbox\"> Show variants (clocks that only add block kinds to a smaller one) and archived family members</label>\
+         <label class=\"check\"><input id=\"f-variants\" type=\"checkbox\"> Show variants (designs that only add block kinds to a smaller one) and archived family members</label>\
          <button id=\"f-reset\" class=\"reset\" type=\"button\">Reset all filters</button>",
         range("blocks", "Blocks placed"),
         range("volume", "Volume"),
@@ -118,6 +166,18 @@ fn draw_panel() -> Result<(), JsValue> {
         range("close", "Door closes in (gt)")
     );
     filters.set_inner_html(&html);
+    // narrow screens: the panel starts folded under its "Filters" button
+    let _ = filters.class_list().add_1("collapsed");
+    if let Some(t) = by_id("f-toggle") {
+        listen(&t, "click", |_| {
+            if let Some(f) = by_id("filters") {
+                let folded = f.class_list().toggle("collapsed").unwrap_or(false);
+                if let Some(t) = by_id("f-toggle") {
+                    let _ = t.set_attribute("aria-expanded", if folded { "false" } else { "true" });
+                }
+            }
+        })?;
+    }
     let sorts: String = Sort::ALL.iter().map(|(_, k, label)| format!("<option value=\"{k}\">{label}</option>")).collect();
     if let Some(s) = by_id("summary") {
         s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label>"));
@@ -132,6 +192,12 @@ fn draw_panel() -> Result<(), JsValue> {
             let q = &mut a.q;
             match act.as_str() {
                 "kind" => {
+                    // doors rank by size (the volume) first, as every door board does
+                    if val == "door" && q.sort == Sort::Blocks {
+                        q.sort = Sort::Volume;
+                    } else if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
+                        q.sort = Sort::Blocks;
+                    }
                     q.kind = val;
                     q.groups.clear();
                 }
@@ -141,15 +207,32 @@ fn draw_panel() -> Result<(), JsValue> {
                 _ => {}
             }
         });
+        // a tab click changed the sort: show it
+        if let Some(s) = by_id("f-sort").and_then(|e| e.dyn_into::<HtmlSelectElement>().ok()) {
+            if let Some(k) = with_app(|a| a.q.sort.key()) {
+                s.set_value(k);
+            }
+        }
         refresh(true);
     })?;
-    for id in ["f-text", "f-time", "f-kind-filter"] {
+    for id in ["f-kind-filter"] {
         if let Some(el) = by_id(id) {
             listen(&el, "input", |_| {
                 read_inputs();
                 refresh(true);
             })?;
         }
+    }
+    // the header's search box: live on this page (the form only navigates from other pages)
+    if let Some(el) = by_id("hq") {
+        listen(&el, "input", |_| {
+            let s = input("hq").map(|i| i.value()).unwrap_or_default();
+            with_app(|a| route_search(&mut a.q, &s));
+            refresh(true);
+        })?;
+    }
+    if let Some(form) = by_id("hsearch") {
+        listen(&form, "submit", |e| e.prevent_default())?;
     }
     for id in ["blocks", "volume", "period", "open", "close"] {
         for end in ["min", "max"] {
@@ -195,7 +278,7 @@ fn draw_panel() -> Result<(), JsValue> {
         cb.forget();
         std::mem::forget(io);
     }
-    // nav links to index.html#... on this page, back/forward
+    // nav links to index.html#... on this page (the header tabs), back/forward
     let window = web_sys::window().ok_or("no window")?;
     let cb = Closure::<dyn FnMut(web_sys::Event)>::new(|_e: web_sys::Event| {
         let hash = web_sys::window().map(|w| w.location().hash().unwrap_or_default()).unwrap_or_default();
@@ -205,11 +288,6 @@ fn draw_panel() -> Result<(), JsValue> {
             with_app(|a| a.q = q);
             sync_inputs();
             refresh(false);
-        }
-        if hash.contains("time=") {
-            if let Some(t) = input("f-time") {
-                let _ = t.focus();
-            }
         }
     });
     window.add_event_listener_with_callback("hashchange", cb.as_ref().unchecked_ref())?;
@@ -243,24 +321,15 @@ fn num(id: &str) -> Option<i64> {
     input(id).and_then(|i| i.value().trim().parse::<i64>().ok())
 }
 
-/// Read the static inputs into the query.
+/// Read the static inputs into the query (the header's search box is routed on its own).
 fn read_inputs() {
-    let text = input("f-text").map(|i| i.value()).unwrap_or_default();
-    let time = input("f-time").map(|i| i.value()).unwrap_or_default();
     let kind_filter = input("f-kind-filter").map(|i| i.value()).unwrap_or_default();
     let variants = input("f-variants").map(|i| i.checked()).unwrap_or(false);
     let sort = by_id("f-sort").and_then(|e| e.dyn_into::<HtmlSelectElement>().ok()).map(|s| Sort::from_key(&s.value())).unwrap_or_default();
     let r = |id: &str| Range { min: num(&format!("f-{id}-min")), max: num(&format!("f-{id}-max")) };
     let (blocks, volume, period, open, close) = (r("blocks"), r("volume"), r("period"), r("open"), r("close"));
     with_app(|a| {
-        // typing a time while looking at doors: show the clocks
-        if !time.trim().is_empty() && a.q.time.trim().is_empty() && a.q.kind == "door" {
-            a.q.kind = "clock".into();
-            a.q.groups.clear();
-        }
         let q = &mut a.q;
-        q.text = text;
-        q.time = time;
         q.variants = variants;
         q.sort = sort;
         q.blocks = blocks;
@@ -282,8 +351,7 @@ fn sync_inputs() {
             }
         }
     };
-    set("f-text", &q.text);
-    set("f-time", &q.time);
+    set("hq", if !q.value.is_empty() { &q.value } else if q.time.is_empty() { &q.text } else { &q.time });
     set("f-kind-filter", &kf);
     let opt = |v: Option<i64>| v.map(|x| x.to_string()).unwrap_or_default();
     for (id, r) in [("blocks", q.blocks), ("volume", q.volume), ("period", q.period), ("open", q.open), ("close", q.close)] {
@@ -331,11 +399,14 @@ fn refresh(write_hash: bool) {
     more();
 }
 
-/// Append the next page of cards.
+/// Append the next page of cards (or say why there is none).
 fn more() {
     let Some((html, shown, total)) = with_app(|a| {
         if !a.error.is_empty() {
             return (String::new(), 0, 0);
+        }
+        if a.hits.is_empty() {
+            return (empty_message(a), 0, 0);
         }
         let end = (a.shown + PAGE).min(a.hits.len());
         let html: String = a.hits[a.shown..end].iter().map(|h| hit_card(&a.site, *h, "")).collect();
@@ -355,6 +426,26 @@ fn more() {
     }
 }
 
+/// No result: for a time search, the nearest periods that exist (links); else a hint.
+fn empty_message(a: &App) -> String {
+    if !a.q.time.trim().is_empty() {
+        if let Ok((lo, hi)) = site_model::parse_time_query(&a.q.time) {
+            let near = a.site.nearest_periods(lo, hi, 6);
+            let links: Vec<String> = near
+                .iter()
+                .map(|(p, n)| {
+                    let mut q = a.q.clone();
+                    q.time = format!("{p} gt");
+                    format!("<a href=\"#{}\">{}</a> ({n})", esc(&q.to_fragment()), esc(&gt_time(*p)))
+                })
+                .collect();
+            let what = if lo == hi { gt_time(lo) } else { format!("{} to {}", gt_time(lo), gt_time(hi)) };
+            return format!("<p class=\"empty\">No clock or family member with a period of {} matches. Nearest periods that exist: {}.</p>", esc(&what), links.join(", "));
+        }
+    }
+    "<p class=\"empty\">Nothing matches these filters. Remove one, or reset them all.</p>".to_string()
+}
+
 fn chip(act: &str, val: &str, label: &str, count: usize, state: &str) -> String {
     format!(
         "<button type=\"button\" class=\"chip {state}{}\" data-act=\"{act}\" data-val=\"{}\">{}<span class=\"count\">{count}</span></button>",
@@ -369,18 +460,8 @@ fn draw_dynamic() {
     let Some(parts) = with_app(|a| {
         let q = &a.q;
         let f = &a.facets;
-        let total: usize = f.kinds.values().sum();
-        let mut tabs = format!(
-            "<button type=\"button\" class=\"tab{}\" data-act=\"kind\" data-val=\"\">All <span class=\"count\">{total}</span></button>",
-            if q.kind.is_empty() { " on" } else { "" }
-        );
-        for (k, label) in [("door", "Doors"), ("clock", "Clocks"), ("circuit", "Circuits")] {
-            let n = f.kinds.get(k).copied().unwrap_or(0);
-            if n == 0 && q.kind != k && !a.site.builds.iter().any(|b| b.kind == k) {
-                continue;
-            }
-            tabs.push_str(&format!("<button type=\"button\" class=\"tab{}\" data-act=\"kind\" data-val=\"{k}\">{label} <span class=\"count\">{n}</span></button>", if q.kind == k { " on" } else { "" }));
-        }
+        // the header's tabs: the active kind and each kind's count under the other filters
+        let tabs: Vec<(String, bool, usize)> = ["door", "clock", "circuit"].iter().map(|k| (k.to_string(), q.kind == *k, f.kinds.get(*k).copied().unwrap_or(0))).collect();
         // groups: the selected first, then by count
         let mut groups: Vec<(&String, usize)> = f.groups.iter().map(|(k, v)| (k, *v)).collect();
         for g in &q.groups {
@@ -403,7 +484,7 @@ fn draw_dynamic() {
         let blocks_html: String = blocks.iter().map(|(k, n)| chip("block", k, &k.replace('_', " "), *n, state(k))).collect();
         let flags_html: String = FLAGS
             .iter()
-            .filter(|(k, _, kind)| q.kind.is_empty() || q.kind == *kind || q.flags_in.contains(*k) || q.flags_out.contains(*k))
+            .filter(|(k, _, kind)| q.kind.is_empty() || kind.split(',').any(|x| x == q.kind) || q.flags_in.contains(*k) || q.flags_out.contains(*k))
             .filter_map(|(k, _, _)| {
                 let n = f.flags.get(*k).copied().unwrap_or(0);
                 let st = if q.flags_in.contains(*k) { "in" } else if q.flags_out.contains(*k) { "out" } else { "" };
@@ -416,48 +497,80 @@ fn draw_dynamic() {
             "circuit" => "Circuit kind",
             _ => "Category or family",
         };
-        let time_msg = if !a.error.is_empty() {
-            (format!("{}", a.error), true)
-        } else if q.time.trim().is_empty() {
-            ("A period in game ticks (20 gt = 1 s) or a time, or a range: every clock of that period, and every extendable family's member that hits it.".to_string(), false)
-        } else {
-            match site_model::parse_time_query(&q.time) {
-                Ok((lo, hi)) if lo == hi => (format!("= {}", gt_time(lo)), false),
-                Ok((lo, hi)) if hi == u32::MAX => (format!("from {}", gt_time(lo)), false),
-                Ok((lo, hi)) => (format!("from {} to {}", gt_time(lo), gt_time(hi)), false),
+        let time_msg: Option<(String, bool)> = if !a.error.is_empty() {
+            Some((a.error.clone(), true))
+        } else if !q.value.trim().is_empty() {
+            Some(match site_model::parse_value_query(&q.value) {
+                Ok((field, lo, hi)) => {
+                    let what = match field {
+                        site_model::ValueField::Latency => "a latency",
+                        site_model::ValueField::L => "L",
+                        site_model::ValueField::N => "N",
+                        site_model::ValueField::Axis => "L / N",
+                    };
+                    let range = if lo == hi { format!("= {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
+                    (format!("with {what} {range}"), false)
+                }
                 Err(e) => (e, true),
-            }
+            })
+        } else if q.time.trim().is_empty() {
+            None
+        } else {
+            Some(match site_model::parse_time_query(&q.time) {
+                Ok((lo, hi)) if lo == hi => (format!("with a period of {}", gt_time(lo)), false),
+                Ok((lo, hi)) if hi == u32::MAX => (format!("with a period from {}", gt_time(lo)), false),
+                Ok((lo, hi)) => (format!("with a period from {} to {}", gt_time(lo), gt_time(hi)), false),
+                Err(e) => (e, true),
+            })
         };
         let members = a.hits.iter().filter(|h| matches!(h, Hit::Member(_))).count();
         let count = if a.error.is_empty() {
             let mut s = format!("<strong>{}</strong> result{}", a.hits.len(), if a.hits.len() == 1 { "" } else { "s" });
+            if let Some((m, false)) = &time_msg {
+                s.push_str(&format!(" {}", esc(m)));
+            }
             if members > 0 {
-                s.push_str(&format!(" ({members} of them extendable family members)"));
+                s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
             }
             s
         } else {
-            "the time search did not parse".to_string()
+            format!("<span class=\"error\">The search did not parse: {}</span>", esc(&a.error))
         };
-        (tabs, groups_html, groups_title, blocks_html, flags_html, time_msg, count)
+        let placeholder = match q.kind.as_str() {
+            "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
+            "door" => "Search doors",
+            "circuit" => "Search circuits, or a value: L 12, N 3, latency 0",
+            _ => "Search every build",
+        };
+        (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)
     }) else {
         return;
     };
-    let (tabs, groups_html, groups_title, blocks_html, flags_html, (time_msg, time_err), count) = parts;
+    let (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count) = parts;
     let set = |id: &str, html: &str| {
         if let Some(e) = by_id(id) {
             e.set_inner_html(html);
         }
     };
-    set("f-kinds", &tabs);
+    for (k, on, n) in &tabs {
+        if let Some(e) = by_id(&format!("tab-{k}")) {
+            let label = match k.as_str() {
+                "door" => "Doors",
+                "clock" => "Clocks",
+                _ => "Circuits",
+            };
+            e.set_inner_html(&format!("{label} <span class=\"count\">{n}</span>"));
+            let _ = if *on { e.class_list().add_1("on") } else { e.class_list().remove_1("on") };
+        }
+    }
+    if let Some(i) = input("hq") {
+        i.set_placeholder(placeholder);
+    }
     set("f-groups", &groups_html);
     set("f-blocks", &blocks_html);
     set("f-flags", &if flags_html.is_empty() { "<span class=\"hint\">none for this kind</span>".to_string() } else { flags_html });
     set("f-count", &count);
     if let Some(e) = by_id("f-groups-title") {
         e.set_text_content(Some(groups_title));
-    }
-    if let Some(e) = by_id("f-time-msg") {
-        e.set_text_content(Some(&time_msg));
-        e.set_class_name(if time_err { "error" } else { "hint" });
     }
 }

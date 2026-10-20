@@ -1,0 +1,26 @@
+# archived 2026-10-20T00:23Z from designs/circuits/tracks/fly/c6all/fly-down-6b-10gt-a14d69.txt by mctas circuit archive
+# CIRCUIT: fly-down-6b-10gt-a14d69 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 6 blocks, 2x4x1, rotation-dependent
+# flies down: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
+
+# census: 6 blocks, 10 gt per 1 cell(s), first move t2, flies turned 0,2 (redsim)
+name: fly-down-6b-10gt-a14d69
+circuit: flying-machine
+distance: 24
+travel: 0 -1 0
+port start: 0 -1 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:honey_block
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  O
+layer 1:
+  AH
+layer 2:
+  Ss
+layer 3:
+  o

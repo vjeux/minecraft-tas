@@ -127,7 +127,7 @@ impl Recorder {
                 continue;
             }
             if let Some(st) = self.stops.get(&p)
-                && st == s
+                && (st == s || clock::canon::structural(st) == clock::canon::structural(s))
             {
                 continue;
             }
@@ -213,7 +213,17 @@ impl Steady {
 /// repeat on consecutive ticks while blocks are in motion (the moving blocks' progress is hidden),
 /// so a lone repeat proves nothing: the relation must hold for whole periods.
 pub fn steady(r: &Recorder, from: usize) -> Option<Steady> {
-    let n = r.canon.len();
+    steady_of(&r.canon, &r.corner, from)
+}
+
+/// [`steady`] over raw per-tick frame ids and corners (the census's fast tracker).
+///
+/// Both kinds of runs are looked for over every period: MOVING runs (d != 0: the smallest p,
+/// earliest first) and IN-PLACE runs whose frames change (d = 0: a shuttle or a clock). An in-place
+/// run that lasts at least as long as the best moving run wins: a two-way machine flies steadily
+/// between its stations for a few periods only, then the whole round trip repeats in place.
+pub fn steady_of(canon: &[u64], corner: &[Pos], from: usize) -> Option<Steady> {
+    let n = canon.len();
     if n < from + 3 {
         return None;
     }
@@ -223,13 +233,13 @@ pub fn steady(r: &Recorder, from: usize) -> Option<Steady> {
     for p in 1..=maxp {
         let mut t = from;
         while t + p < n {
-            if r.canon[t + p] != r.canon[t] {
+            if canon[t + p] != canon[t] {
                 t += 1;
                 continue;
             }
-            let d = sub(r.corner[t + p], r.corner[t]);
+            let d = sub(corner[t + p], corner[t]);
             let s = t;
-            while t + p < n && r.canon[t + p] == r.canon[t] && sub(r.corner[t + p], r.corner[t]) == d {
+            while t + p < n && canon[t + p] == canon[t] && sub(corner[t + p], corner[t]) == d {
                 t += 1;
             }
             let len = t - s;
@@ -243,17 +253,21 @@ pub fn steady(r: &Recorder, from: usize) -> Option<Steady> {
                 }
             } else {
                 // an in-place run counts only when its frames change within a period
-                let changes = (s..s + p).any(|k| r.canon[k] != r.canon[s]);
+                let changes = (s..s + p).any(|k| canon[k] != canon[s]);
                 if changes && best_still.is_none() {
                     best_still = Some(cand);
                 }
             }
         }
-        if best_moving.is_some() {
+        if best_moving.is_some() && best_still.is_some() {
             break;
         }
     }
-    best_moving.or(best_still)
+    match (best_moving, best_still) {
+        (Some(m), Some(s)) if s.periods * s.period >= m.periods * m.period => Some(s),
+        (Some(m), _) => Some(m),
+        (None, s) => s,
+    }
 }
 
 /// The distinct translations the machine takes, in order, with the first tick of each visit.

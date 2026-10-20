@@ -1,0 +1,31 @@
+# archived 2026-10-19T23:28Z from designs/clocks/tracks/clk-obs/families9/p156-bulb-note-obs-pis-8b-9f6ffe.txt by mctas clock archive
+# CLOCK: clk-obs-p156-bulb-note-obs-pis-8b-9f6ffe period 156 gt (7.8 s), on 72/156, edges 36, warmup 7, family copper_bulb+note_block+observer+piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p156-bulb-note-obs-pis-8b-9f6ffe
+# clk-obs grow: P=156 (redsim), family note_block+observer+piston+waxed_copper_bulb, kick last 0 2 0, swept volume 12.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 2 0 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:piston[extended=false,facing=up]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  C
+  D
+  .
+layer 2:
+  E
+  F
+  .
+layer 3:
+  E
+  .
+  G

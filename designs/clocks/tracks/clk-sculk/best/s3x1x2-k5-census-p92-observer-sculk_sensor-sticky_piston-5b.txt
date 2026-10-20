@@ -1,0 +1,14 @@
+# Found by `mctas clock census` (box 3x1x2 k<=5) with a sculk palette: s3x1x2-k5-census-p92-observer-sculk_sensor-sticky_piston-5b
+name: census-p92-observer-sculk_sensor-sticky_piston-5b
+census: box 3x1x2 k<=5 (0,0,0=observer[facing=down,powered=false];0,0,1=sticky_piston[extended=false,facing=north];1,0,1=observer[facing=east,powered=false];2,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];2,0,1=observer[facing=north,powered=false])
+port start: 2 0 0 last
+origin: 0 0 0
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  O.S
+  soA

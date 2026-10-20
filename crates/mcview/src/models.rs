@@ -141,7 +141,7 @@ pub struct Model {
 }
 
 impl Model {
-    fn one(p: Part) -> Model {
+    pub fn one(p: Part) -> Model {
         Model { parts: vec![p], ..Default::default() }
     }
     fn cube(p: Part) -> Model {
@@ -152,6 +152,13 @@ impl Model {
         self.yrot = y;
         self
     }
+}
+
+/// The orange output marker (a block of orange stained glass, as in the real-game pictures); lit
+/// (bright, glowing) while the output is on.
+pub fn marker_model(lit: bool) -> Model {
+    let p = Part::new([0.0, 0.0, 0.0], [16.0, 16.0, 16.0]).all(if lit { "marker_lit" } else { "orange_stained_glass" }).layer(Layer::Translucent);
+    Model::one(if lit { p.emissive(true) } else { p })
 }
 
 /// A state string's name and properties.
@@ -240,7 +247,7 @@ pub fn dust_color(power: i32) -> [u8; 3] {
 }
 
 /// A stable pastel color for a name (unknown blocks).
-fn name_color(name: &str) -> [u8; 3] {
+pub fn name_color(name: &str) -> [u8; 3] {
     let mut h: u32 = 2166136261;
     for b in name.bytes() {
         h = (h ^ b as u32).wrapping_mul(16777619);
@@ -279,16 +286,13 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
                 0
             };
             let lit = st.b("lit", false);
-            let tile: &'static str = match (k, lit) {
-                (0, false) => "bulb_0",
-                (0, true) => "bulb_0_lit",
-                (1, false) => "bulb_1",
-                (1, true) => "bulb_1_lit",
-                (2, false) => "bulb_2",
-                (2, true) => "bulb_2_lit",
-                (3, false) => "bulb_3",
-                _ => "bulb_3_lit",
-            };
+            const BULB: [[&str; 4]; 4] = [
+                ["bulb_0", "bulb_0_p", "bulb_0_lit", "bulb_0_lit_p"],
+                ["bulb_1", "bulb_1_p", "bulb_1_lit", "bulb_1_lit_p"],
+                ["bulb_2", "bulb_2_p", "bulb_2_lit", "bulb_2_lit_p"],
+                ["bulb_3", "bulb_3_p", "bulb_3_lit", "bulb_3_lit_p"],
+            ];
+            let tile = BULB[k][lit as usize * 2 + st.b("powered", false) as usize];
             let mut m = cube_all(tile);
             m.parts[0] = m.parts[0].clone().emissive(lit);
             m
@@ -300,8 +304,15 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
         "oak_fence_gate" => fence_gate(&st),
         "powered_rail" | "activator_rail" | "rail" | "detector_rail" => rail(&st),
         "dispenser" | "dropper" => {
+            let facing = st.dir("facing", Dir::North);
+            if matches!(facing, Dir::Up | Dir::Down) {
+                // the game's orientable_vertical: the hole on the facing side, furnace top all around
+                let front = if name == "dropper" { "dropper_front_vertical" } else { "dispenser_front_vertical" };
+                let (f, back) = if facing == Dir::Up { (UP, DOWN) } else { (DOWN, UP) };
+                return Some(Model::cube(Part::new(FULL.0, FULL.1).all("furnace_top").face(f, front).face(back, "furnace_top")));
+            }
             let front = if name == "dropper" { "dropper_front" } else { "dispenser_front" };
-            Model::cube(Part::new(FULL.0, FULL.1).all("furnace_side").face(UP, "furnace_top").face(DOWN, "furnace_top").face(NORTH, front)).rotated(rot_north(st.dir("facing", Dir::North)))
+            Model::cube(Part::new(FULL.0, FULL.1).all("furnace_side").face(UP, "furnace_top").face(DOWN, "furnace_top").face(NORTH, front)).rotated(rot_north(facing))
         }
         "crafter" => {
             let on = st.b("triggered", false) || st.b("crafting", false);
@@ -416,11 +427,64 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
             m.parts[0] = m.parts[0].clone().emissive(true);
             m
         }
-        "water" | "lava" => {
+        "water" | "lava" | "bubble_column" => {
+            // the game's fluid heights: a source 8/9 of a block, flowing water (8 - level)/9, a
+            // falling column (level 8+) and a bubble column full (the builder also fills a cell
+            // under another water cell)
             let level = st.i("level", 0);
-            let h = if level == 0 || level >= 8 { 14.0 } else { (16.0 - level as f32 * 1.75).max(2.0) };
+            let h = if name == "bubble_column" || level >= 8 { 16.0 } else if level == 0 { 16.0 * 8.0 / 9.0 } else { (16.0 * (8 - level.min(7)) as f32 / 9.0).max(1.0) };
             let tint = if name == "lava" { [255, 120, 30] } else { [255, 255, 255] };
             Model::one(Part::new([0.0, 0.0, 0.0], [16.0, h, 16.0]).all("water").tint(tint).layer(Layer::Translucent))
+        }
+        "magma_block" => {
+            let mut m = cube_all("magma");
+            m.parts[0] = m.parts[0].clone().emissive(true);
+            m
+        }
+        "big_dripleaf" => {
+            let tilt = match st.get("tilt").unwrap_or("none") {
+                "unstable" => 10.0,
+                "partial" => 22.5,
+                "full" => 45.0,
+                _ => 0.0,
+            };
+            // the leaf tips down toward `facing` (built for north) around its back edge
+            let leaf = Part::new([0.0, 15.0, 0.0], [16.0, 15.5, 16.0]).face(UP, "dripleaf_top").face(DOWN, "dripleaf_top").nocull().rotated(0, tilt, [8.0, 15.0, 16.0]);
+            let stem = Part::new([7.0, 0.0, 9.0], [9.0, 15.0, 11.0]).all("dripleaf_top").nocull();
+            Model { parts: vec![leaf, stem], ..Default::default() }.rotated((0, yturns(st.dir("facing", Dir::North))))
+        }
+        "tripwire" => {
+            let (ns, ew) = (st.b("north", false) || st.b("south", false), st.b("east", false) || st.b("west", false));
+            let y = if st.b("attached", false) { 1.5 } else { 1.0 };
+            let line = |rot: u8| Part::new([0.0, y, 0.0], [16.0, y, 16.0]).face(UP, "tripwire").face(DOWN, "tripwire").rot_uv(UP, rot).rot_uv(DOWN, rot).nocull().layer(Layer::Cutout).flat();
+            let mut parts = Vec::new();
+            if ew || !ns {
+                parts.push(line(0));
+            }
+            if ns {
+                parts.push(line(1));
+            }
+            Model { parts, ..Default::default() }
+        }
+        "tripwire_hook" => {
+            let f = st.dir("facing", Dir::North);
+            let parts = vec![
+                Part::new([6.2, 0.0, 14.0], [9.8, 9.0, 16.0]).all("oak_planks").nocull(),
+                Part::new([7.2, 6.0, 10.0], [8.8, 7.5, 14.0]).all("iron_block").nocull(),
+                Part::new([7.0, 5.0, 8.0], [9.0, 9.0, 10.0]).all("iron_block").nocull(),
+            ];
+            Model { parts, ..Default::default() }.rotated((0, yturns(f)))
+        }
+        n if n.ends_with("_wall_banner") => {
+            let color = n.trim_end_matches("_wall_banner");
+            let tint = match color {
+                "white" => [235, 235, 235],
+                "red" => [180, 40, 40],
+                "black" => [30, 30, 30],
+                "blue" => [50, 70, 170],
+                _ => name_color(color),
+            };
+            Model { parts: vec![Part::new([1.0, -14.0, 14.0], [15.0, 14.0, 15.0]).all("white_wool").tint(tint).nocull(), Part::new([0.0, 13.0, 13.5], [16.0, 15.0, 15.5]).all("oak_planks").nocull()], ..Default::default() }.rotated((0, yturns(st.dir("facing", Dir::North))))
         }
         "stone_pressure_plate" | "oak_pressure_plate" | "light_weighted_pressure_plate" | "heavy_weighted_pressure_plate" => {
             let down = st.b("powered", false) || st.i("power", 0) > 0;
@@ -737,6 +801,16 @@ fn rail(st: &St) -> Model {
             }
             Model::one(p)
         }
+        "south_east" | "south_west" | "north_west" | "north_east" if st.name == "rail" => {
+            // the game's rail_curved model (rail_corner joins the south and east edges), turned
+            let rot = match shape {
+                "south_east" => 0,
+                "south_west" => 3,
+                "north_west" => 2,
+                _ => 1,
+            };
+            Model::one(Part::new([0.0, 1.0, 0.0], [16.0, 1.0, 16.0]).face(UP, "rail_corner").face(DOWN, "rail_corner").rot_uv(UP, rot).rot_uv(DOWN, rot).nocull().layer(Layer::Cutout))
+        }
         "south_east" | "south_west" | "north_west" | "north_east" => flat(0),
         _ => flat(0),
     }
@@ -831,14 +905,26 @@ pub fn entity_model(kind: &str) -> Option<Model> {
         return Some(Model { parts, ..Default::default() });
     }
     if k.contains("boat") || k.contains("raft") {
-        let wood = "oak_planks";
-        let parts = vec![
-            Part::new([-7.0, 0.0, -11.0], [7.0, 1.0, 11.0]).all(wood),
-            Part::new([-8.0, 0.0, -11.0], [-7.0, 6.0, 11.0]).all(wood),
-            Part::new([7.0, 0.0, -11.0], [8.0, 6.0, 11.0]).all(wood),
-            Part::new([-7.0, 0.0, -12.0], [7.0, 6.0, -11.0]).all(wood),
-            Part::new([-7.0, 0.0, 11.0], [7.0, 6.0, 12.0]).all(wood),
+        // the boat's wood when the tiles have it
+        let wood = match k.split('_').next().unwrap_or("oak") {
+            "spruce" => "spruce_planks",
+            _ => "oak_planks",
+        };
+        let mut parts = vec![
+            // the hull: its floor a little above the entity's position, its rim well above the
+            // water line like the game's boat model
+            Part::new([-7.0, 2.0, -11.0], [7.0, 3.0, 11.0]).all(wood),
+            Part::new([-8.0, 2.0, -11.0], [-7.0, 9.0, 11.0]).all(wood),
+            Part::new([7.0, 2.0, -11.0], [8.0, 9.0, 11.0]).all(wood),
+            Part::new([-7.0, 2.0, -12.0], [7.0, 9.0, -11.0]).all(wood),
+            Part::new([-7.0, 2.0, 11.0], [7.0, 9.0, 12.0]).all(wood),
         ];
+        if k.contains("chest") {
+            // the chest at the stern, its lid line and latch
+            parts.push(Part::new([-6.0, 3.0, 1.0], [6.0, 14.0, 10.0]).all("oak_planks").tint([200, 150, 90]));
+            parts.push(Part::new([-6.2, 10.0, 0.8], [6.2, 10.6, 10.2]).all("oak_log").tint([90, 60, 30]));
+            parts.push(Part::new([-1.0, 8.0, 0.5], [1.0, 11.0, 1.0]).all("iron_block"));
+        }
         return Some(Model { parts: parts.into_iter().map(|p| p.nocull()).collect(), ..Default::default() });
     }
     if k.contains("armor_stand") {

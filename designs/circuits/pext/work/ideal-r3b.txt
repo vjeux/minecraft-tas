@@ -1,0 +1,21 @@
+# N=3 one-frame rider: C1 from two observers hanging under the frame (landing burst into S1 and
+# S2: C at rel 1 on the on-edge, rel 2 on the off-edge); B and C2 still IDEAL (z=1 redstone blocks).
+name: ideal-r3b
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 4 2 0
+ideal: both 10 set 2 2 1 minecraft:redstone_block; both 10 set 3 2 1 minecraft:redstone_block; both 12 clear 2 2 1; both 12 clear 3 2 1; both 15 set 3 2 1 minecraft:redstone_block; both 15 set 5 2 1 minecraft:redstone_block; both 17 clear 3 2 1; both 17 clear 5 2 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  O minecraft:observer[facing=down]
+layer 0:
+  ...OO
+layer 1:
+  LASSSSS
+layer 2:
+  ..BBG

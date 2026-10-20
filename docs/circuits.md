@@ -45,9 +45,29 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   cell (air, a solid block, a lamp, a piston, a bulb) the best signal INTO it (what a lamp there
   would see). On = level > 0. Put the output where a lamp would go, not on a lamp (a lamp's lit
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
+* **A circuit must drive something** (vjeux/coordinator 2026-10-19): the judge puts a redstone
+  lamp in every AIR output cell (not a design block: not counted, not part of the type; none for
+  kinds read through payloads, piston extenders and flying machines, nor in a cell on a piston's
+  line, where a moved block may land) and the lamp must follow the output: lit whenever the output
+  is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the update that tells
+  it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick, like two inputs
+  placed in the same tick, is a glitch, not a failure), from the first frame the circuit may be
+  driven. The metrics still come from the level above, so they do not change. An
+  output that changes without a block update fails (`update-less output: ... it drives
+  nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
+  nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
+  dust-redirection gates, track delay's 1 gt line). An output cell is therefore air or holds a
+  redstone component or consumer (dust, repeater, comparator, torch, observer, lamp, piston, copper
+  bulb, note block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell,
+  hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
+  stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
+  input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
-  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload).
+  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload),
+  `port station[.<name>]: x y z` (a two-way flying machine's return-station block: a design block
+  that counts, left out of the machine's tracked shape; calibration: `cal-two-way-machine`).
 * **Block count**: every design block except piston heads (part of their piston) and the blocks in
   input cells (a lever or button there is the stimulus device), plus design entities. A block in
   the output cell counts: leave it air when it is only a marker.
@@ -62,10 +82,14 @@ the game turns every block state, the ports and `travel` turn with it), each in 
 placed exactly like `clock verify` places a clock (raw writes, a shape update of every wire, a
 `self` update of every block), runs the kind's stimulus and records every gt: each input's state
 read from its cell, each output's level, every non-air cell of the watched box (the circuit's box
-plus a 3-cell margin; swept along `travel` for machines). A build fails when anything reaches the
+plus a 3-cell margin; swept along `travel` for machines). A build fails when a design block cannot
+stand where it is (the placement removes a floating dust; a floating lever, torch or repeater
+fails `canSurvive`: a player could not build it), when anything reaches the
 outer layer of the watched box, when an entity appears (a drop, a popped block), or when the
-kind's checker says so. All builds passing with the same metrics: `robust`; passing with
-different metrics: `position-dependent` / `rotation-dependent` (allowed, flagged). One line:
+kind's checker says so. All builds passing with the same metrics: `robust`; builds that
+disagree, with other metrics or failing (as for clocks): `position-dependent` /
+`rotation-dependent` (allowed, flagged; the archive row notes how many builds fail and why, e.g. a
+flying machine that flies east-west only). No build passing: `FAIL`. One line:
 
 `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, robust` or `FAIL: <name> <kind>: <why>`.
 
@@ -78,7 +102,9 @@ kick) before the first input.
 
 ### What each kind is judged on
 
-* **Pulse circuits**: one input pulse of each length 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40 gt
+* **Pulse circuits**: one input pulse of each length 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40 gt,
+  then 60, 80, 120, 160, 240, 320, 480... gt up to twice the gap (the gap is the recovery time, so
+  a long limiter's or extender's L is exceeded by the longest input)
   (a button: 3 presses), each followed by the gap. The output must be off at rest and back off
   at the end of every gap. Per input pulse, the output pulses (delay from the input's edge,
   length):
@@ -93,7 +119,8 @@ kick) before the first input.
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
   (half on, half off) at periods 30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2 gt (C). Every A pulse must
-  change the output exactly once (steady until the next). `latency`: input edge to output change;
+  change the output exactly once (steady until the next), and so must every longer pulse (a lever
+  held down). `latency`: input edge to output change;
   `edge`: rising when the change keeps its offset as the pulse lengthens, falling when it moves
   with the falling edge; `min-pulse`: the shortest pulse from which every longer one toggles;
   `min-period`: the fastest train period from which every slower one gives exactly 6 changes and a
@@ -128,10 +155,14 @@ kick) before the first input.
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
   machine's translation (structural states, piston heads part of their piston, a moving block = in
-  motion) and a canonical frame; the steady state is frame t + P = frame t shifted by d cells for
-  at least 2 periods. It must fly along `travel` and stay intact over `distance` cells (or to the
-  corridor's end); a steady shuttle in place over 2+ positions passes as two-way. `speed`: P / d gt
-  per block; `latency`: the kick to the first change; the box is the design's own.
+  motion; station cells holding their own block left out of the shape, never out of the frame) and
+  a canonical frame; the steady state is frame t + P = frame t shifted by d cells for at least 2
+  periods, an in-place run (d = 0, frames changing) winning over a moving run it outlasts. It must
+  fly along `travel` and stay intact over `distance` cells (or to the corridor's end); a steady
+  shuttle in place over 2+ positions (a two-way machine between its return stations: the round
+  trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
+  trip's period and the positions it stands intact at; `latency`: the kick to the first change;
+  the box is the design's own.
 
 ## Archive and catalog
 
@@ -142,8 +173,13 @@ kick) before the first input.
 axis value, metrics, blocks, box, family = the kinds of the blocks whose state changes,
 robustness, block kinds, type key) and its caption in `captions.tsv` (default: the design's first
 comment block). Refused: a failing design, or a structure already archived as the same kind (the
-TYPE: up to translation, the 4 rotations and the mirror image, input cells marked whatever drives
-them, output and payload cells marked: `same type as <file>`). A name taken by another structure
+TYPE: up to translation, the 4 rotations and the mirror image, input cells marked with their
+device (a lever, a stone or wooden button, the judge's redstone block: their timings differ; not
+their facing), output and payload cells marked, after the swaps that keep the run identical on redsim under
+the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
+stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
+study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
+without stone"); the catalog shows them as "also found as". A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
 flying machines their speed (or `two-way`).
@@ -157,7 +193,32 @@ a smaller one, plus others, is its variant, listed under it with the kinds it ad
 (study, kind, axis, name, path, metrics, blocks, box, family, robustness, variant_of, caption): the
 data the website renders.
 
-Extendable families (`extend` headers, cards with groups, as for clocks) come next.
+**Extendable families** use the clock `extend` headers ([clocks.md](clocks.md#extendable-clocks-extend-headers-vjeux-2026-10-19)) with
+`extend axis:` for the formula of the study's axis value in n (L, N, the reach; `extend period:`
+is read the same), e.g. track pulse's `extend family: limiter-u`, `extend axis: 4 + 4n`, `extend
+blocks: 10 + 4n`, `extend generator: mctas circuit pulse family limiter-u --n {n} --out {out}`,
+and the same `extend group` headers. `circuit archive` of a family base judges n = low, low+1,
+low+2, the middle and the high end in the game (built with the generator; each must pass with the
+formulas' axis value and block count) and records them in `extend.tsv`; the catalog shows one
+card per family (or group) at the top of the study page (the formula as the heading, the two
+smallest members' value and size, the rule, the n range and the judged n), its members leave the
+value tables, and `designs/circuits/families.tsv` lists the families for the website.
+`mctas circuit gen repeater-line --n N --out F` is the judge's own calibration family (n + 1
+delay-1 repeaters: N = 2 + 2n gt).
+
+**Tunable groups** (vjeux 2026-10-19: "we don't need 20 variations of the same design"): designs
+that are ONE mechanism with other repeater delays, comparator modes or a longer repeater line are
+one card. A design joins a group with a `group: <name>` header (optional `group title:` and `group
+note:`, read from the first member carrying them; track generators stamp them, e.g. `mctas circuit
+pulse stamp-group`), or automatically when its TUNABLE key (the type key with every repeater's
+delay and every comparator's mode masked, `archive::tunable_key`) and kind equal another
+design's. A group of two or more designs gets a card under "Tunable groups" (the value range as
+the heading, the two smallest members, a table value -> blocks -> design, and the extendable
+families carrying the same `group:`); its members leave the value tables. **Equivalent layouts**:
+designs with the same kind, value, block count and block kinds as a shown design (the one with the
+smallest box, then archived first) are listed on its row as "also N other layouts". `catalog.tsv`
+has a `group` column (the member's group) and its `variant_of` names a layout's shown design too.
+`mctas circuit catalog` prints, per study, the card count before and after the folds.
 
 ## Commands
 
@@ -167,6 +228,7 @@ Extendable families (`extend` headers, cards with groups, as for clocks) come ne
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
+| `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
 

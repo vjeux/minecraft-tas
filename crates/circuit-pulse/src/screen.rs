@@ -167,24 +167,24 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
     };
     let rest: Vec<i32> = cells.iter().map(|p| level_at(&w, *p)).collect();
     let snapshot = w.blocks();
-    let rb = Block::RedstoneBlock;
-    let mut pulses: Vec<Vec<Vec<Pulse>>> = vec![Vec::new(); cells.len()];
-    for &wd in widths {
+    // one input pulse of `wd` gt: the recorded deviations from rest, None when the design does
+    // not come back to rest (kept state, runaway)
+    fn run_pulse(w: &mut World, input: BlockPos, cells: &[BlockPos], rest: &[i32], snapshot: &[(BlockPos, Block)], wd: u32) -> Option<Vec<Vec<i32>>> {
         let mut rec: Vec<Vec<i32>> = vec![Vec::new(); cells.len()];
-        w.set_block(c.input, rb, flags::ALL);
+        w.set_block(input, Block::RedstoneBlock, flags::ALL);
         let mut t = 0u32;
         let mut quiet = 0u32;
         loop {
             if t == wd {
-                w.set_block(c.input, Block::Air, flags::ALL);
+                w.set_block(input, Block::Air, flags::ALL);
             }
             w.tick();
             t += 1;
             for (i, p) in cells.iter().enumerate() {
-                rec[i].push(level_at(&w, *p) - rest[i]);
+                rec[i].push(level_at(w, *p) - rest[i]);
             }
             if t > wd {
-                let at_rest = cells.iter().enumerate().all(|(i, p)| level_at(&w, *p) == rest[i]);
+                let at_rest = cells.iter().enumerate().all(|(i, p)| level_at(w, *p) == rest[i]);
                 quiet = if w.idle() && at_rest { quiet + 1 } else { 0 };
                 if quiet >= 8 {
                     break;
@@ -194,9 +194,19 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
                 return None;
             }
         }
-        if w.blocks() != snapshot {
-            return None; // kept state: not a pulse circuit
-        }
+        // the judge checks the outputs only (back off, idle): an inner toggle (a copper bulb that
+        // flips on every rising edge) is allowed as long as every pulse is answered the same way
+        let _ = snapshot;
+        Some(rec)
+    }
+    // a quick probe with the longest input: an inert design (no cell ever moves) is dropped here
+    let probe = run_pulse(&mut w, c.input, &cells, &rest, &snapshot, widths.iter().copied().max().unwrap_or(40))?;
+    if probe.iter().all(|r| r.iter().all(|l| *l == 0)) {
+        return None;
+    }
+    let mut pulses: Vec<Vec<Vec<Pulse>>> = vec![Vec::new(); cells.len()];
+    for &wd in widths {
+        let rec = run_pulse(&mut w, c.input, &cells, &rest, &snapshot, wd)?;
         for i in 0..cells.len() {
             if rec[i].iter().any(|l| *l < 0) {
                 pulses[i].push(vec![Pulse { start: -1, len: 0, level: -1 }]); // inverted: not handled

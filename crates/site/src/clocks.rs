@@ -250,6 +250,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             works_with,
             note: fs.iter().find_map(|f| f.group_note.clone()).unwrap_or_default(),
             families,
+            ..Default::default()
         });
     }
     // the builds: one per type (+ every family base design, + composite clocks)
@@ -344,6 +345,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             circuit: None,
             trace,
             picture: picture(repo, &st),
+            archived: site_model::normalize_time(&crate::doors::archived_at(&text_of(&r.file))),
         });
     }
     builds.sort_by(|a, b| {
@@ -381,6 +383,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 let (d, v) = c.map(dims_of).unzip();
                 (format!("designs/clocks/{}", r.file), d, v, if judged || job.n == f.base { STATUS_JUDGED } else { STATUS_FORMULA })
             }
+            Gen::Formula => (String::new(), None, None, if judged { STATUS_JUDGED } else { STATUS_FORMULA }),
             Gen::Made { rel, dims, volume, sim, blocks } => {
                 if blocks as i64 != want_b {
                     notes.push(format!("{} n = {}: {} blocks, the formula says {}", f.id, job.n, blocks, want_b));
@@ -420,6 +423,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 let base_stem = stem(&r.file);
                 if job.n == f.base { picture(repo, base_stem) } else { picture(repo, &format!("{base_stem}.n{}", job.n)) }
             },
+            axis: String::new(),
         });
     }
     Ok(ClockExport { builds, cards, members, notes })
@@ -427,17 +431,22 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
 
 /// A generated member.
 enum Gen {
-    /// n is the base design itself (or nothing is generated): the archived file.
+    /// n is the base design itself: the archived file.
     Base,
+    /// Not generated (`--no-members`, or a family without a generator): the formula only.
+    Formula,
     Made { rel: String, dims: String, volume: u32, sim: Option<u32>, blocks: usize },
     Failed(String),
 }
 
 fn run_one(job: &Job, fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -> Gen {
     let (r, f) = &fams[job.fam];
-    let Some(out_dir) = &o.members_dir else { return Gen::Base };
-    if job.n == f.base || f.generator.is_empty() {
+    if job.n == f.base {
         return Gen::Base;
+    }
+    let Some(out_dir) = &o.members_dir else { return Gen::Formula };
+    if f.generator.is_empty() {
+        return Gen::Formula;
     }
     let tmp = std::env::temp_dir().join(format!("mctas-site-{}-{}", std::process::id(), job.fam));
     let path = match f.build(&dir.join(&r.file), job.n, &tmp) {

@@ -1,0 +1,19 @@
+# N=2, slime + observer: like n2-rider-flat with the observer beside B (on its own slime).
+name: pext-n2-rider-3d
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 0 0 0 lever
+port payload: 3 1 0
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  O minecraft:observer[facing=south]
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 0:
+  LASSS
+  ..S..
+layer 1:
+  ..BG.
+  ..O..

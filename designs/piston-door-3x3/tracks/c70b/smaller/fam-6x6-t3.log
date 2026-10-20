@@ -1,0 +1,36 @@
+[families] 6x6: 667646 candidate mechanisms (667646 generated, 10.5s)
+[families]   6x6: 20000/667646 solved, 0 work, 48s
+[families]   6x6: 40000/667646 solved, 0 work, 154s
+[families]   6x6: 60000/667646 solved, 0 work, 271s
+[families]   6x6: 80000/667646 solved, 0 work, 370s
+[families]   6x6: 100000/667646 solved, 0 work, 510s
+[families]   6x6: 120000/667646 solved, 0 work, 617s
+[families]   6x6: 140000/667646 solved, 0 work, 743s
+[families]   6x6: 160000/667646 solved, 0 work, 820s
+[families]   6x6: 180000/667646 solved, 0 work, 933s
+[families]   6x6: 200000/667646 solved, 0 work, 1064s
+[families]   6x6: 220000/667646 solved, 0 work, 1172s
+[families]   6x6: 240000/667646 solved, 0 work, 1235s
+[families]   6x6: 260000/667646 solved, 0 work, 1318s
+[families]   6x6: 280000/667646 solved, 0 work, 1387s
+[families]   6x6: 300000/667646 solved, 0 work, 1474s
+[families]   6x6: 320000/667646 solved, 0 work, 1578s
+[families]   6x6: 340000/667646 solved, 0 work, 1645s
+[families]   6x6: 360000/667646 solved, 0 work, 1800s
+[families]   6x6: 380000/667646 solved, 0 work, 2001s
+[families]   6x6: 400000/667646 solved, 0 work, 2195s
+[families]   6x6: 420000/667646 solved, 0 work, 2320s
+[families]   6x6: 440000/667646 solved, 0 work, 2533s
+[families]   6x6: 460000/667646 solved, 0 work, 2638s
+[families]   6x6: 480000/667646 solved, 0 work, 2756s
+[families]   6x6: 500000/667646 solved, 0 work, 2833s
+[families]   6x6: 520000/667646 solved, 0 work, 2974s
+[families]   6x6: 540000/667646 solved, 0 work, 3059s
+[families]   6x6: 560000/667646 solved, 0 work, 3138s
+[families]   6x6: 580000/667646 solved, 0 work, 3249s
+[families]   6x6: 600000/667646 solved, 0 work, 3342s
+[families]   6x6: 620000/667646 solved, 0 work, 3454s
+[families]   6x6: 640000/667646 solved, 0 work, 3573s
+[families]   6x6: 660000/667646 solved, 0 work, 3651s
+[families] 6x6: 0 open+close (208025 candidates unresolved: pulse graph over the cap and A* found nothing), minimizing
+[families] 6x6: 0 minimal mechanisms fit (0 new) in 7734s

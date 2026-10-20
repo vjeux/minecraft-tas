@@ -1,0 +1,32 @@
+name: pulse-limiter-u4
+# Extendable family limiter-u4 (n = 0): pulse-limiter with L = 16 + 16n gt, 10 + 4n blocks. the limiter-u with delay-4 repeaters: 16 gt per row. Extension: lengthen the U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family limiter-u4 --n N --out FILE.
+circuit: pulse-limiter
+group: pulse-limiter-u
+group title: subtract-comparator limiter
+group note: a subtract comparator whose side gets the input back through a U of repeaters; L set by the repeater delays and the U's length
+extend family: pulse-limiter-u4
+extend axis: 16 + 16n
+extend blocks: 10 + 4n
+extend rule: lengthen the U by one row: one more delay-4 repeater (on stone) in each column
+extend n: 0..10
+extend base: 0
+extend generator: mctas circuit pulse family limiter-u4 --n {n} --out {out}
+origin: 0 0 -1
+port input: 0 1 0
+port output: 2 1 0
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  W minecraft:redstone_wire
+  a minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  b minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+layer 0:
+  ...
+  .S.
+  SS.
+  SS.
+layer 1:
+  ...
+  .C.
+  ab.
+  WW.

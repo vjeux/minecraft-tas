@@ -90,6 +90,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
+            (Err(e), _, Some(k)) if e.contains("no support") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -117,7 +118,9 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     }
-    let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers are not the circuit's
+    ins.extend(c.consumer_cells());
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
@@ -177,6 +180,8 @@ pub struct VerifyReport {
     /// `robust`, `position-dependent`, `rotation-dependent`, or why it fails.
     pub verdict: String,
     pub pass: bool,
+    /// On a position- or rotation-dependent pass: which builds fail (empty otherwise).
+    pub note: String,
 }
 
 impl VerifyReport {
@@ -199,7 +204,13 @@ impl VerifyReport {
 /// input cells left out, as `Clock::kinds` names them (a wall torch is a torch, every copper bulb
 /// a copper bulb; piston heads and moving blocks are their piston's), `+`-joined.
 pub fn family(c: &Circuit, t: &Trace) -> String {
-    let ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers (lamps in air output cells) are not the circuit's
+    ins.extend(c.consumer_cells());
+    // a temporary kick block's cell is the judge's, not the design's
+    if let Some(clock::Kick::Place { pos, .. }) = &c.clock.kick {
+        ins.insert(*pos);
+    }
     let mut first: std::collections::HashMap<Pos, u32> = std::collections::HashMap::new();
     let mut seen: std::collections::HashMap<Pos, usize> = std::collections::HashMap::new();
     let mut varying: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
@@ -269,8 +280,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false };
-    let failed = rep.builds.iter().find(|b| !b.result.as_ref().is_ok_and(|b| b.outcome.pass));
+    let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() };
     let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|b| b.outcome.pass)).count();
     if ok_count == 0 {
         let b = &rep.builds[0];
@@ -280,17 +290,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         };
         return Ok(rep);
     }
-    if let Some(b) = failed {
-        // some builds pass, some do not: a failing build is reported
-        let why = match &b.result {
-            Ok(b) => b.outcome.why.clone(),
-            Err(e) => e.clone(),
-        };
-        rep.verdict = format!("fails at rotation {} offset {:?}: {why}", b.turns, b.offset);
-        return Ok(rep);
-    }
-    let sig = |b: &Build| b.result.as_ref().map(|b| b.outcome.metrics_text()).unwrap_or_default();
-    let base = sig(rep.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0]).unwrap_or(&rep.builds[0]));
+    // as for clocks: builds that disagree (other metrics, or failing) make the circuit position-
+    // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`)
+    let sig = |b: &Build| match &b.result {
+        Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
+        _ => "FAIL".to_string(),
+    };
+    let base_build = rep.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && sig(b) != "FAIL").or_else(|| rep.builds.iter().find(|b| sig(b) != "FAIL")).unwrap();
+    let base = sig(base_build);
     let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| sig(b) != base);
     let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| sig(b) != base);
     rep.verdict = match (pos_dep, rot_dep) {
@@ -298,6 +305,21 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         (true, _) => "position-dependent".into(),
         (false, true) => "rotation-dependent".into(),
     };
+    let fails: Vec<String> = rep
+        .builds
+        .iter()
+        .filter(|b| sig(b) == "FAIL")
+        .map(|b| {
+            let why = match &b.result {
+                Ok(k) => k.outcome.why.clone(),
+                Err(e) => e.clone(),
+            };
+            format!("rotation {} at {:?}: {why}", b.turns, b.offset)
+        })
+        .collect();
+    if !fails.is_empty() {
+        rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
+    }
     rep.pass = true;
     Ok(rep)
 }

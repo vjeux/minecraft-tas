@@ -1,0 +1,23 @@
+# flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways + up + up; honey + slime
+
+# grow of fly-horizontal-6b-10gt-3c7ccd: 8 blocks, 16 gt per 1 cell(s), first move t2, flies turned 4/4
+name: fly-horizontal-8b-16gt-a7c099
+circuit: flying-machine
+distance: 24
+travel: 1 0 0
+port start: 0 3 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:honey_block
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  sH
+layer 1:
+  SBOo
+layer 2:
+  AA

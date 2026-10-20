@@ -44,6 +44,13 @@ impl Default for Sizing {
 
 /// The input pulse lengths the pulse checkers try.
 pub const PULSE_LENS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+
+/// [`PULSE_LENS`], then longer pulses (60, 80, 120, 160, 240, 320... gt) up to twice the recovery
+/// gap: the longest input must exceed a long limiter's or extender's L (the gap covers its output).
+pub fn pulse_lens(gap: u32) -> Vec<u32> {
+    const LONG: [u32; 13] = [60, 80, 120, 160, 240, 320, 480, 640, 960, 1280, 1920, 2560, 3840];
+    PULSE_LENS.iter().copied().chain(LONG.iter().copied().filter(|l| *l <= 2 * gap)).collect()
+}
 /// The pulse lengths the delay checker tries, then the gaps between two 20 gt pulses.
 pub const DELAY_LENS: [u32; 11] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30];
 pub const DELAY_GAPS: [u32; 8] = [1, 2, 3, 4, 5, 6, 8, 10];
@@ -75,7 +82,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     t += gap + 40;
                 }
             } else {
-                for &l in &PULSE_LENS {
+                for l in pulse_lens(gap) {
                     s.pulse(0, t, l);
                     s.phase(t, t + l + gap, format!("pulse {l}"));
                     t += l + gap;
@@ -189,6 +196,12 @@ fn state_name(st: usize, n: usize) -> String {
 
 /// Judge a run of `kind`'s stimulus.
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    if let Some((name, p, id)) = c.passive_output() {
+        return Outcome::fail(format!("output {name} at {p:?} holds {id}, which drives nothing by itself: leave the output cell air (the judge puts a lamp there) or put a consumer there"), Vec::new());
+    }
+    if let Some(why) = update_less(c, t) {
+        return Outcome::fail(why, Vec::new());
+    }
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
@@ -201,6 +214,42 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     }
 }
 
+/// A circuit must drive something: the judge's lamp in each air output cell
+/// ([`crate::CONSUMER`]) must follow the output, from the first frame the circuit may be driven:
+/// lit whenever the output is on, and unlit within 5 gt after the output turns off (a lamp turns off
+/// 4 gt after the block update that tells it; a later flash while the output stays off, from a
+/// state inside one tick, is a glitch, not a stale lamp). An output that changes without a block
+/// update (a dust redirected without a power change) leaves the lamp stale: why it fails.
+pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
+    let from = (start(c) as usize).min(t.frames());
+    for p in c.watched_lamps() {
+        let Some(k) = c.outputs.iter().position(|o| o.pos == p) else {
+            continue;
+        };
+        let name = &c.outputs[k].name;
+        // the frame the output turned off, and whether the lamp has gone off since
+        let mut fell: Option<(usize, bool)> = None;
+        for f in from..t.frames() {
+            let on = t.on(k, f);
+            let lit = crate::trace::lamp_lit(t.state(f, p));
+            if on {
+                if !lit {
+                    return Some(format!("update-less output: {name} turns on at frame {f} without a block update (a lamp in its cell stays unlit), it drives nothing"));
+                }
+                fell = None;
+                continue;
+            }
+            let (at, gone) = fell.unwrap_or((f, false));
+            let gone = gone || !lit;
+            if !gone && f >= at + 5 {
+                return Some(format!("update-less output: {name} is off from frame {at} without a block update (a lamp in its cell stays lit), it drives nothing"));
+            }
+            fell = Some((at, gone));
+        }
+    }
+    None
+}
+
 /// A flying machine (track fly's tracker, [`crate::fly`]): a steady motion along `travel` (frame
 /// t + P = frame t shifted by d cells, at least 2 periods), intact over `distance` cells (or to the
 /// corridor's end); or a steady shuttle in place that takes 2+ positions (two-way).
@@ -211,7 +260,7 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
         Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
         _ => None,
     };
-    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick);
+    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
     for f in 0..t.frames() {
         r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
     }
@@ -610,6 +659,10 @@ fn tff(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let a: Vec<&(usize, Option<usize>)> = offsets.iter().take(8).collect();
     if a.iter().any(|(_, o)| o.is_none()) {
         return Outcome::fail("the first 8 pulses must each toggle the output exactly once", table);
+    }
+    // a long pulse (a lever held) must toggle it too
+    if let Some((l, _)) = offsets.iter().filter(|(l, _)| *l > a[0].0).find(|(_, o)| o.is_none()) {
+        return Outcome::fail(format!("a {l} gt pulse does not toggle it exactly once (long pulses must: a lever held down)"), table);
     }
     // the edge: the offset stays when the pulse length changes (rising) or moves with it (falling)
     let a_len = a[0].0;

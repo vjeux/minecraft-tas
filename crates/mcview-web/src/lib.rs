@@ -15,6 +15,7 @@
 
 mod gpu;
 mod live;
+mod overlay;
 
 use mcview::atlas::Atlas;
 use mcview::render::Frame;
@@ -39,6 +40,14 @@ pub(crate) fn log(s: &str) {
     web_sys::console::log_1(&JsValue::from_str(&format!("mcview: {s}")));
 }
 
+/// `?mcview-debug` in the page URL: timings in the console.
+pub(crate) fn debug() -> bool {
+    thread_local! {
+        static DEBUG: bool = web_sys::window().and_then(|w| w.location().search().ok()).is_some_and(|s| s.contains("mcview-debug"));
+    }
+    DEBUG.with(|d| *d)
+}
+
 pub(crate) fn window() -> web_sys::Window {
     web_sys::window().expect("no window")
 }
@@ -59,7 +68,17 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
+    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
+    pub trace: Option<String>,
     pub tick: Option<u32>,
+    /// `data-autoplay`: a live viewer starts playing once loaded.
+    pub autoplay: bool,
+    /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
+    pub stimulus: Option<String>,
+    /// `data-phases`: the checker's phase labels.
+    pub phases: Option<String>,
+    /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
+    pub input_mode: Option<String>,
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
     /// Canvas size in device pixels.
@@ -102,6 +121,94 @@ pub(crate) struct App {
     io: IntersectionObserver,
     ro: ResizeObserver,
     frame_scheduled: bool,
+    work_scheduled: bool,
+    /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
+    /// (applied, or unavailable: the hand-drawn tiles stay).
+    textures_pending: bool,
+}
+
+/// Where the game's block atlas comes from: `data-mcview-textures` on the page's root element
+/// (`none` = the hand-drawn tiles only; else the directory of `atlas.png` and `data.min.json`),
+/// by default misode/mcmeta's atlas of the judge's version.
+fn texture_urls() -> Option<(String, String)> {
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some((format!("{base}/atlas.png"), format!("{base}/data.min.json")))
+        }
+        _ => Some((mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string())),
+    }
+}
+
+/// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
+/// is unavailable, e.g. on http pages).
+async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
+    use wasm_bindgen_futures::JsFuture;
+    let w = window();
+    let cache: Option<web_sys::Cache> = match w.caches() {
+        Ok(cs) => JsFuture::from(cs.open("mcview-textures-1")).await.ok().map(|c| c.unchecked_into()),
+        Err(_) => None,
+    };
+    let mut resp: Option<web_sys::Response> = None;
+    if let Some(c) = &cache
+        && let Ok(r) = JsFuture::from(c.match_with_str(url)).await
+        && !r.is_undefined()
+    {
+        resp = Some(r.unchecked_into());
+    }
+    let resp = match resp {
+        Some(r) => r,
+        None => {
+            let r: web_sys::Response = JsFuture::from(w.fetch_with_str(url)).await.map_err(|e| format!("fetch {url}: {e:?}"))?.unchecked_into();
+            if !r.ok() {
+                return Err(format!("fetch {url}: HTTP {}", r.status()));
+            }
+            if let Some(c) = &cache
+                && let Ok(copy) = r.clone()
+            {
+                let _ = JsFuture::from(c.put_with_str(url, &copy)).await;
+            }
+            r
+        }
+    };
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
+    Ok(js_sys::Uint8Array::new(&buf).to_vec())
+}
+
+/// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
+async fn load_textures() {
+    let Some((png_url, index_url)) = texture_urls() else {
+        with_app(|a| a.textures_pending = false);
+        ensure_frame();
+        return;
+    };
+    let got = async {
+        let png = fetch_cached(&png_url).await?;
+        let index = String::from_utf8(fetch_cached(&index_url).await?).map_err(|e| e.to_string())?;
+        Ok::<_, String>((png, index))
+    }
+    .await;
+    with_app(|a| {
+        match got {
+            Ok((png, index)) => {
+                let mut atlas = (*a.atlas).clone();
+                match atlas.apply_vanilla_png(&png, &index) {
+                    Ok(n) => {
+                        if debug() {
+                            log(&format!("the game's textures on {n} tiles"));
+                        }
+                        a.set_atlas(atlas);
+                    }
+                    Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                }
+            }
+            Err(e) => log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)")),
+        }
+        a.textures_pending = false;
+    });
+    ensure_frame();
 }
 
 #[wasm_bindgen(start)]
@@ -136,8 +243,22 @@ pub fn start() {
         io,
         ro,
         frame_scheduled: false,
+        work_scheduled: false,
+        textures_pending: true,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
+    // the game's textures (hand-drawn tiles if they do not come within a few seconds)
+    wasm_bindgen_futures::spawn_local(load_textures());
+    {
+        let cb = Closure::once_into_js(move || {
+            let late = with_app(|a| std::mem::replace(&mut a.textures_pending, false)).unwrap_or(false);
+            if late {
+                log("the game's textures are slow: drawing with the hand-drawn tiles meanwhile");
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 4000);
+    }
     // the shared thumbnail context, on a canvas that is never shown
     let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
     canvas.set_width(240);
@@ -185,6 +306,61 @@ pub fn start() {
     ensure_frame();
 }
 
+/// For `mctas web check --wasm`: memory the host fills with a design's text.
+#[unsafe(no_mangle)]
+pub extern "C" fn mcview_alloc(len: usize) -> *mut u8 {
+    let mut v = Vec::<u8>::with_capacity(len.max(1));
+    let p = v.as_mut_ptr();
+    std::mem::forget(v);
+    p
+}
+
+/// For `mctas web check --wasm`: the clock period detector of THIS wasm (the code the browser
+/// runs) on a design text written at `ptr` (taken back and freed). Returns state warmup, state
+/// period, visible warmup and visible period as four u16 (low to high), or u64::MAX.
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_clock_period(ptr: *mut u8, len: usize, horizon: u32) -> u64 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()).and_then(|s| s.period(horizon)) {
+        Ok(p) if p.state_warmup < 65536 && p.state_period < 65536 => p.state_warmup as u64 | (p.state_period as u64) << 16 | (p.warmup as u64) << 32 | (p.period as u64) << 48,
+        _ => u64::MAX,
+    }
+}
+
+/// For `mctas web check --wasm`: a flying machine's end tick in THIS wasm's session (the judge's
+/// corridor end), or u32::MAX. Takes back and frees the text like [`mcview_clock_period`].
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_fly_end(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()) {
+        Ok(s) if s.simulated() => s.end_tick.unwrap_or(u32::MAX),
+        _ => u32::MAX,
+    }
+}
+
+/// For `mctas web check --wasm`: the digest of this wasm's frames 0..=`ticks`
+/// ([`mcview::session::Session::frames_digest`]), or 0.
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_frames_digest(ptr: *mut u8, len: usize, ticks: u32) -> u64 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()) {
+        Ok(s) if s.simulated() => s.frames_digest(ticks),
+        _ => 0,
+    }
+}
+
 /// Register every viewer element in (and including) `root`.
 fn scan(root: &Element) {
     let mut found: Vec<HtmlElement> = Vec::new();
@@ -209,22 +385,29 @@ fn scan(root: &Element) {
     }
 }
 
-/// Make sure an animation frame is coming.
+/// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
+/// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
-    let go = with_app(|a| {
-        if a.frame_scheduled {
-            false
-        } else {
-            a.frame_scheduled = true;
-            true
-        }
-    })
-    .unwrap_or(false);
+    let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
+    if work {
+        let cb = Closure::once_into_js(move || {
+            let more = with_app(|a| {
+                a.work_scheduled = false;
+                a.thumbs()
+            })
+            .unwrap_or(false);
+            if more {
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 0);
+    }
+    let go = with_app(|a| a.views.values().any(|v| v.full) && !std::mem::replace(&mut a.frame_scheduled, true)).unwrap_or(false);
     if go {
         let cb = Closure::once_into_js(move |ts: f64| {
             let more = with_app(|a| {
                 a.frame_scheduled = false;
-                a.frame(ts)
+                a.live_frames(ts)
             })
             .unwrap_or(false);
             if more {
@@ -251,6 +434,33 @@ fn attr_f32(el: &Element, k: &str) -> Option<f32> {
 }
 
 impl App {
+    /// New tiles (the game's textures arrived): every context uploads them, every picture is
+    /// drawn again.
+    fn set_atlas(&mut self, atlas: Atlas) {
+        self.atlas = Rc::new(atlas);
+        if let ThumbGpu::Ready(g) = &self.thumb {
+            g.r.upload_atlas(&self.atlas);
+        }
+        self.cache.clear();
+        let atlas = self.atlas.clone();
+        let mut again = Vec::new();
+        for (id, v) in self.views.iter_mut() {
+            if let Some(l) = v.live.as_mut() {
+                l.atlas_changed(&atlas);
+            } else if v.done {
+                v.done = false;
+                if v.visible {
+                    again.push(*id);
+                }
+            }
+        }
+        for id in again {
+            if !self.queue.contains(&id) {
+                self.queue.push_back(id);
+            }
+        }
+    }
+
     fn register(&mut self, el: HtmlElement) {
         let id = self.next_id;
         self.next_id += 1;
@@ -277,7 +487,12 @@ impl App {
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
+            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            autoplay: el.has_attribute("data-autoplay"),
+            stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
+            phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
+            input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
             pitch: attr_f32(&el, "data-pitch"),
             el: el.clone(),
@@ -384,17 +599,31 @@ impl App {
             return Some(Ok(t.clone()));
         }
         let src = v.src.clone()?;
-        if let Some(r) = self.texts.get(&src) {
+        self.url_text(&src)
+    }
+
+    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
+    /// `View::trace` first).
+    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
+        let url = self.views.get(&id)?.trace.clone()?;
+        self.url_text(&url)
+    }
+
+    /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
+    /// arrives, every view using it (as design or recording) is queued again.
+    fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
+        if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
         }
+        let src = url.to_string();
         if self.fetching.insert(src.clone()) {
             wasm_bindgen_futures::spawn_local(async move {
                 let r = fetch_text(&src).await.map(|t| Rc::<str>::from(t.as_str()));
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    // wake every view waiting for this text
-                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| v.src.as_deref() == Some(src.as_str()) && !v.done && (v.visible || v.full)).map(|(id, _)| *id).collect();
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
                             a.queue.push_back(id);
@@ -407,11 +636,18 @@ impl App {
         None
     }
 
-    /// One animation frame: thumbnails within a time budget, then the live viewers. Returns
-    /// whether another frame is needed.
-    fn frame(&mut self, ts: f64) -> bool {
+    /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
+    /// work is left.
+    fn thumbs(&mut self) -> bool {
+        if self.textures_pending {
+            // drawn once, with the game's textures (load_textures or its timeout wakes us)
+            return false;
+        }
         let perf = window().performance();
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
+        if debug() && !self.queue.is_empty() {
+            log(&format!("work at {t0:.0}: {} queued", self.queue.len()));
+        }
         let mut waiting = VecDeque::new();
         while let Some(id) = self.queue.pop_front() {
             if perf.as_ref().is_some_and(|p| p.now() - t0 > 12.0) {
@@ -454,7 +690,12 @@ impl App {
             }
         }
         self.queue.extend(waiting);
-        let mut more = !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending);
+        !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending)
+    }
+
+    /// One animation frame of every live viewer; true while one needs more (playing).
+    fn live_frames(&mut self, ts: f64) -> bool {
+        let mut more = false;
         let ids: Vec<u32> = self.views.iter().filter(|(_, v)| v.full).map(|(id, _)| *id).collect();
         for id in ids {
             more |= live::frame(self, id, ts);
@@ -464,8 +705,12 @@ impl App {
 
     /// Draw a thumbnail (from the cache when it has this source at this size).
     fn thumb(&mut self, id: u32, text: &str) {
+        let t0 = window().performance().map(|p| p.now()).unwrap_or(0.0);
         let Some(v) = self.views.get(&id) else { return };
         let key = v.key();
+        if debug() {
+            log(&format!("thumb {key} start"));
+        }
         let (w, h) = (v.w.max(1), v.h.max(1));
         let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
         let Some(ctx) = ctx else { return };
@@ -477,14 +722,17 @@ impl App {
         let picture = (|| -> Result<(), String> {
             let mut s = Session::new(text, &Options::default())?;
             match v.tick {
-                Some(t) => s.run(t),
+                Some(t) => {
+                    s.find_auto_output(20_000);
+                    s.run(t)
+                }
                 None => {
                     s.go_to_still(20_000);
                 }
             }
             let look = scene::default_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::default_camera(&s, &look, aspect);
+            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();
@@ -505,6 +753,9 @@ impl App {
         })();
         match picture {
             Ok(()) => {
+                if debug() {
+                    log(&format!("thumb {key} done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t0));
+                }
                 self.ready(id);
                 let canvas = self.views[&id].canvas.clone();
                 if let Ok(p) = window().create_image_bitmap_with_html_canvas_element(&canvas) {

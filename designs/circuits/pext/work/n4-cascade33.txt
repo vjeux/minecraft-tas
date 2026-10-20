@@ -1,0 +1,48 @@
+# N=4 CASCADE extender, minimized from n4-cascade-v1 (mctas circuit pext minimize): units [slime +
+# sticky piston + observer under the slime] in a line; a moved unit fires its own piston 2 gt after
+# landing, so only the four round starts come from the lever (D: lamp-delayed observer for the
+# on-edge cell + the lever's observer for the off-edge cell; then C, B, A). The minimizer swapped
+# parts of the timing chain for pistons used as delays.
+name: pext-n4-cascade33
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 9 2 2 lever
+port payload: 8 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:gold_block
+  H minecraft:sticky_piston[extended=false,facing=west]
+  I minecraft:sticky_piston[facing=east]
+  J minecraft:stone
+  L minecraft:lever[face=wall,facing=north]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_lamp
+  S minecraft:slime_block
+  o minecraft:observer[facing=down]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .o.o.o
+  .
+  .
+  .
+layer 1:
+  ISISISIG
+  .
+  .
+  .
+layer 2:
+  C.F
+  ..BB..B..B
+  .sDD..ARLD
+  ........J
+layer 3:
+  .
+  EAAo
+  ..A.AHAO
+  .

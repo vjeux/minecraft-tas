@@ -819,6 +819,29 @@ behaves identically in the official server.**
   is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
   it, so whatever it drives must stop moving before then, or the re-run must be a no-op.
 
+## Water and bubble columns (`FlowingFluid`, `WaterFluid`, `LiquidBlock`, `BubbleColumnBlock`) — redsim M1
+
+Modeled in redsim (`crates/redsim/src/fluid/`, track clockinfra), checked cell by cell against the
+game by `redsim-fuzz fuzz --gen basin --palette stone:6,water:10,...` (random circuits in a stone
+basin: 6000 cases, 0 mismatches, 2026-10-19).
+
+* Fluid ticks have their own list (`fluidTicks`), keyed by the fluid TYPE (source `water` or
+  `flowing_water`: a tick scheduled for flowing water does nothing once the cell is a source),
+  run right after the block ticks of the same game tick; the sub-tick counter is shared.
+* Water's tick delay is 5 gt. A flowing cell recomputes its level from its 4 sides (highest
+  minus 1; 2+ adjacent sources over a solid block or a source = a new source; water above =
+  falling level 8), then spreads: down first if it can (then sideways too only with 3+ source
+  neighbors), else sideways toward the nearest hole within 4 cells (`getSlopeDistance`; ties
+  spread to all of them, applied north, south, west, east). Side walls are collision shapes:
+  water passes a face unless the two shapes' touching faces together cover it
+  (`Shapes.mergedFaceOccludes`).
+* Water replaces air and the `#washed_away_by_fluids` blocks (dust, repeaters, comparators,
+  torches, levers, buttons, skulls, rails, tripwire...), which DROP as items; waterloggable
+  blocks would take only a source (not modeled yet: a model note). Pistons destroy water (no drop).
+* A full source above soul sand (up) or magma (down) schedules a 20 gt block tick that turns the
+  water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
+  support goes away turns back into water 5 gt after its shape update.
+
 ## 12. redsim: the exact model (track redmodel)
 
 `crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,

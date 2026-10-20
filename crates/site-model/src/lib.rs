@@ -80,6 +80,14 @@ pub struct Build {
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// When it was archived (`YYYY-MM-DD HH:MMZ`; `""` unknown): the "newest first" sort.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub archived: String,
+}
+
+/// `2026-10-19T15:45Z` / `2026-10-19 15:45Z` -> `2026-10-19 15:45Z`.
+pub fn normalize_time(s: &str) -> String {
+    s.trim().replacen('T', " ", 1)
 }
 
 /// A 3x3 piston door's facts (designs/piston-door-3x3/archive and its caches).
@@ -124,6 +132,15 @@ pub struct Door {
     /// table: (key, value).
     #[serde(default)]
     pub props: Vec<(String, String)>,
+    /// The fill variants of one mechanism (`note: door fill of <design>`): the best of them (by
+    /// size, then blocks) stands for the others, hidden with the variants by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<String>,
+    /// The design it is a fill variant of (repository path).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub fill_of: String,
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -201,6 +218,91 @@ pub struct Circuit {
     pub inputs: Vec<String>,
     #[serde(default)]
     pub outputs: Vec<String>,
+    /// The mechanism family (the block kinds that change state), the judge's robustness.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub family: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub robustness: String,
+    /// Build id of the smaller design of its kind and axis value whose block kinds it only adds
+    /// to (a variant, as `mctas circuit catalog` folds them).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// Build id of the shown design this one is an equivalent layout of (same kind, value, block
+    /// count and block kinds: "also N other layouts" on that design's page).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_of: Option<String>,
+    /// The tunable group it belongs to (one mechanism with other repeater delays, comparator modes
+    /// or a longer line: the catalog's `group` column), and on the group's shown design (the
+    /// smallest) the group's span (`L 6-40 gt, 16 values`); the other members are hidden by
+    /// default and come back through the value search (`L 12`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tunable: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub span: String,
+    /// The group's title and note (`group title:` / `group note:` headers). Pages only.
+    #[serde(skip)]
+    pub group_title: String,
+    #[serde(skip)]
+    pub group_note: String,
+    /// The extendable family card it is a base design of (`families/<card>.html`); a card with
+    /// several families shows its first base only (`card_member` on the others: hidden like a
+    /// tunable group's members).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub card: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub card_member: bool,
+    /// When the judge archived it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub archived: String,
+    /// How each input is driven (parallel to `inputs`): `redstone block`, `lever`, `button`, or
+    /// the custom on-state. Pages only (not exported).
+    #[serde(skip)]
+    pub devices: Vec<String>,
+    /// The judge's stimulus as the design format's `stimulus:` text (per input its edges), for
+    /// the viewer's demo (`data-stimulus`), and its labeled phases (`from-to label; ...`). Pages
+    /// only.
+    #[serde(skip)]
+    pub stimulus: String,
+    #[serde(skip)]
+    pub phases: String,
+    /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
+    #[serde(skip)]
+    pub wave: Option<Wave>,
+    /// The checker's report, one line per test (`pulse 4: out 2 gt after 5 gt`). Pages only.
+    #[serde(skip)]
+    pub table: Vec<String>,
+}
+
+/// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Wave {
+    /// Frames 0..ticks.
+    pub ticks: u32,
+    pub rows: Vec<WaveRow>,
+    /// The checker's labeled spans: (from, to, label).
+    pub phases: Vec<(u32, u32, String)>,
+}
+
+/// One signal of a [`Wave`]: an input (on/off) or an output (its level 0..15), as runs of equal
+/// level: (from frame, level).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WaveRow {
+    pub name: String,
+    pub input: bool,
+    pub steps: Vec<(u32, u8)>,
+}
+
+impl WaveRow {
+    /// The runs of a per-frame signal.
+    pub fn from_levels(name: &str, input: bool, levels: &[u8]) -> WaveRow {
+        let mut steps: Vec<(u32, u8)> = Vec::new();
+        for (t, l) in levels.iter().enumerate() {
+            if steps.last().is_none_or(|s| s.1 != *l) {
+                steps.push((t as u32, *l));
+            }
+        }
+        WaveRow { name: name.to_string(), input, steps }
+    }
 }
 
 /// A period or block-count formula in n (the clock study's `extend period:`).
@@ -252,6 +354,12 @@ pub struct Card {
     pub note: String,
     /// The card's families, the pictured (simplest) one first.
     pub families: Vec<Family>,
+    /// `circuit` for an extendable circuit family's card (its formula is the study's axis value,
+    /// its members carry their `axis`), empty for a clock card; the circuit's study.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub study: String,
 }
 
 /// One extendable family (a base design with `extend` headers).
@@ -303,6 +411,10 @@ pub struct Member {
     /// An interim picture (absolute URL), for the members the catalog pictured.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// A circuit family's member: its axis value as the study writes it (`N = 26 gt`, `L = 50 gt`,
+    /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub axis: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -313,12 +425,12 @@ pub const STATUS_FORMULA: &str = "formula";
 pub fn status_label(s: &str) -> &'static str {
     match s {
         STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated (redsim), not judged in the game",
+        STATUS_REDSIM => "simulated, not judged in the game",
         _ => "formula, not individually judged",
     }
 }
 
-/// The flags, (key, label, kind it applies to), in display order.
+/// The flags, (key, label, the kinds it applies to: comma-separated), in display order.
 pub const FLAGS: &[(&str, &str, &str)] = &[
     ("rotation-safe", "rotation-safe", "door"),
     ("slime-free", "no slime or honey", "door"),
@@ -335,12 +447,14 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock"),
+    ("robust", "robust (any position and rotation)", "clock,circuit"),
     ("self-starting", "self-starting", "clock"),
     ("kicked", "needs a start kick", "clock"),
     ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock"),
-    ("variant", "variant of a smaller clock", "clock"),
+    ("extendable", "extendable family", "clock,circuit"),
+    ("variant", "variant of a smaller design", "door,clock,circuit"),
+    ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
+    ("layout", "another layout of a shown design", "circuit"),
     ("composite", "composite (beat)", "clock"),
     ("calibration", "judge calibration design", "circuit"),
     ("instant", "instant (0 gt latency)", "circuit"),
@@ -384,6 +498,47 @@ pub fn gt_time(gt: u32) -> String {
 /// `40..60`, `2-3 s`, `2 s to 3 s`, `< 60 gt`, `>= 1 min`). Returns the inclusive range in gt
 /// (an exact time is the one period it names; a time between two ticks matches nothing).
 pub fn parse_time_query(q: &str) -> Result<(u32, u32), String> {
+    parse_time_range(q)
+}
+
+/// What a circuit value search compares: the study's axis value (any study, or only the studies
+/// whose axis is L, the output pulse length, or N: a delay, a count, a reach) or the latency.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ValueField {
+    Axis,
+    L,
+    N,
+    Latency,
+}
+
+/// Parse a circuit value search: an optional field (`L` = an output pulse length, `N` = a delay
+/// line's delay, a counter's count or an extender's reach, `reach` / `speed` / `delay` = the
+/// study's axis value; `latency` / `lat` = the latency), an optional `=` or `:`, then a number,
+/// a time or a range as [`parse_time_query`] reads them (`L 12`, `N=3`, `12`, `10-20 gt`, `lat 0`).
+pub fn parse_value_query(q: &str) -> Result<(ValueField, u32, u32), String> {
+    let t = q.trim();
+    let lower = t.to_lowercase();
+    let mut field = ValueField::Axis;
+    let mut rest = lower.as_str();
+    for (word, f) in [("latency", ValueField::Latency), ("lat", ValueField::Latency), ("reach", ValueField::N), ("speed", ValueField::Axis), ("delay", ValueField::N), ("l", ValueField::L), ("n", ValueField::N)] {
+        if let Some(r) = rest.strip_prefix(word) {
+            // the word must stand alone: `l 12`, `l=12`, `l12`, not `lever`
+            if r.is_empty() || r.starts_with([' ', '=', ':']) || r.starts_with(|c: char| c.is_ascii_digit()) {
+                field = f;
+                rest = r;
+                break;
+            }
+        }
+    }
+    let rest = rest.trim_start_matches([' ', '=', ':']).trim();
+    if rest.is_empty() {
+        return Err(format!("{t}: which value? (e.g. L 12, N 3, latency 0)"));
+    }
+    let (lo, hi) = parse_time_query(rest)?;
+    Ok((field, lo, hi))
+}
+
+fn parse_time_range(q: &str) -> Result<(u32, u32), String> {
     let s = q.trim().to_lowercase().replace('–', "-").replace('—', "-").replace('≤', "<=").replace('≥', ">=");
     if s.is_empty() {
         return Err("empty".into());
@@ -519,16 +674,19 @@ pub enum Sort {
     Period,
     Open,
     Close,
+    /// Most recently archived first.
+    Newest,
     Name,
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 6] = [
+    pub const ALL: [(Sort, &'static str, &'static str); 7] = [
         (Sort::Blocks, "blocks", "fewest blocks"),
         (Sort::Volume, "volume", "smallest volume"),
-        (Sort::Period, "period", "shortest period"),
+        (Sort::Period, "period", "shortest period / smallest value"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
+        (Sort::Newest, "newest", "newest first"),
         (Sort::Name, "name", "name"),
     ];
 
@@ -551,6 +709,10 @@ pub struct Query {
     pub text: String,
     /// The clock time search, as typed ([`parse_time_query`]).
     pub time: String,
+    /// The circuit value search, as typed ([`parse_value_query`]): the study's axis value (`L 12`,
+    /// `N 3`, `12`, `10-20 gt`) or the latency (`latency 0`); it expands the tunable groups to the
+    /// member that hits it.
+    pub value: String,
     pub groups: BTreeSet<String>,
     pub kinds_in: BTreeSet<String>,
     pub kinds_out: BTreeSet<String>,
@@ -598,21 +760,53 @@ struct View<'a> {
     kind: &'a str,
     group: &'a str,
     name: &'a str,
+    archived: &'a str,
     blocks: i64,
     volume: Option<i64>,
     period: Option<i64>,
+    /// The main number for sorting: a clock's period, a circuit's axis value.
+    main: Option<i64>,
     open: Option<i64>,
     close: Option<i64>,
     kinds: &'a [String],
     flags: &'a [String],
-    text: [&'a str; 3],
+    text: [&'a str; 4],
     variant: bool,
+    /// A tunable group's member other than its shown design (hidden unless a value search hits
+    /// it), and the circuit's latency in gt.
+    member: bool,
+    latency: Option<i64>,
+    /// A circuit axis's letter (`L` for `L = 4 gt`, `N` for `N = 3`), else empty.
+    axis_letter: &'a str,
 }
 
 impl Site {
     /// Build index by id.
     pub fn index(&self) -> BTreeMap<&str, usize> {
         self.builds.iter().enumerate().map(|(i, b)| (b.id.as_str(), i)).collect()
+    }
+
+    /// The periods nearest to `[lo, hi]` that some clock or family member has (for an empty time
+    /// search): up to `k` (period, how many), closest first, then shorter first.
+    pub fn nearest_periods(&self, lo: u32, hi: u32, k: usize) -> Vec<(u32, usize)> {
+        let mut count: BTreeMap<u32, usize> = BTreeMap::new();
+        for b in &self.builds {
+            if let Some(c) = &b.clock {
+                if c.host.is_none() && !c.instance {
+                    *count.entry(c.period).or_default() += 1;
+                }
+            }
+        }
+        for m in &self.members {
+            if m.build.is_none() && m.axis.is_empty() {
+                *count.entry(m.period).or_default() += 1;
+            }
+        }
+        let dist = |p: u32| if p < lo { lo - p } else { p.saturating_sub(hi) };
+        let mut v: Vec<(u32, usize)> = count.into_iter().collect();
+        v.sort_by_key(|(p, _)| (dist(*p), *p));
+        v.truncate(k);
+        v
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
@@ -629,33 +823,47 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     name: &b.name,
+                    archived: &b.archived,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
                     period: b.clock.as_ref().map(|c| c.period as i64),
+                    main: b.clock.as_ref().map(|c| c.period as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
                     open: b.door.as_ref().and_then(|d| d.open).map(|v| v as i64),
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&b.name, &b.caption, &b.group],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance),
+                    text: [&b.name, &b.caption, &b.group, &b.page],
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
+                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
+                    latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
+                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").map(|(l, _)| l.trim()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
             }
             Hit::Member(i) => {
                 let m = self.members.get(i)?;
                 let b = self.base_of(m, index)?;
+                let circuit = !m.axis.is_empty();
+                // a family whose value never changes (a flying machine growing its payload at one
+                // speed) is no answer to a value search: its members differ by size only
+                let constant = circuit && self.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family)).is_some_and(|f| matches!(f.period, Formula::Linear { b: 0, .. }));
                 Some(View {
-                    kind: "clock",
+                    kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     name: &m.family,
+                    archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
-                    period: Some(m.period as i64),
+                    period: (!circuit).then_some(m.period as i64),
+                    main: (!constant).then_some(m.period as i64),
                     open: None,
                     close: None,
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&m.family, &b.caption, &b.name],
+                    text: [&m.family, &b.caption, &b.name, ""],
                     variant: false,
+                    member: false,
+                    latency: None,
+                    axis_letter: m.axis.split_once(" = ").map(|(l, _)| l.trim()).unwrap_or(""),
                 })
             }
         }
@@ -667,9 +875,10 @@ impl Site {
     pub fn run(&self, q: &Query) -> Result<(Vec<Hit>, Facets), String> {
         let index = self.index();
         let time = if q.time.trim().is_empty() { None } else { Some(parse_time_query(&q.time)?) };
+        let value = if q.value.trim().is_empty() { None } else { Some(parse_value_query(&q.value)?) };
         let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
         let mut cands: Vec<Hit> = (0..self.builds.len()).map(Hit::Build).collect();
-        if time.is_some() {
+        if time.is_some() || value.is_some() {
             // members replace the archived designs they are (same family and n)
             let covered: BTreeSet<&str> = self.members.iter().filter_map(|m| m.build.as_deref()).collect();
             cands.retain(|h| match h {
@@ -687,6 +896,23 @@ impl Site {
                     Some(p) if p >= lo as i64 && p <= hi as i64 => {}
                     _ => return false,
                 }
+            }
+            if let Some((field, lo, hi)) = value {
+                if v.kind != "circuit" {
+                    return false;
+                }
+                let x = match field {
+                    ValueField::Axis => v.main,
+                    ValueField::L => v.main.filter(|_| v.axis_letter == "L"),
+                    ValueField::N => v.main.filter(|_| v.axis_letter == "N"),
+                    ValueField::Latency => v.latency,
+                };
+                match x {
+                    Some(p) if p >= lo as i64 && p <= hi as i64 => {}
+                    _ => return false,
+                }
+            } else if !q.variants && v.member {
+                return false;
             }
             if !q.variants && v.variant {
                 return false;
@@ -747,9 +973,10 @@ impl Site {
             let primary = match q.sort {
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
-                Sort::Period => a.period.unwrap_or(big).cmp(&b.period.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
+                Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
+                Sort::Newest => b.archived.cmp(a.archived),
                 Sort::Name => std::cmp::Ordering::Equal,
             };
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
@@ -771,6 +998,7 @@ impl Query {
         push("kind", &self.kind);
         push("q", &self.text);
         push("time", &self.time);
+        push("value", &self.value);
         let join = |s: &BTreeSet<String>| s.iter().cloned().collect::<Vec<_>>().join(",");
         push("group", &join(&self.groups));
         push("with", &join(&self.kinds_in));
@@ -805,6 +1033,7 @@ impl Query {
                 "kind" => q.kind = v,
                 "q" => q.text = v,
                 "time" => q.time = v,
+                "value" => q.value = v,
                 "group" => q.groups = set(&v),
                 "with" => q.kinds_in = set(&v),
                 "without" => q.kinds_out = set(&v),
@@ -927,6 +1156,105 @@ mod tests {
         }
     }
 
+    fn circuit(id: &str, kind: &str, value: i64, blocks: u32, tunable: &str, span: &str, latency: Option<&str>) -> Build {
+        Build {
+            id: format!("circuits/pulse/{id}"),
+            kind: "circuit".into(),
+            group: kind.into(),
+            name: id.into(),
+            page: format!("circuits/pulse/{id}.html"),
+            blocks,
+            circuit: Some(Circuit {
+                study: "pulse".into(),
+                kind: kind.into(),
+                axis: format!("L = {value} gt"),
+                value: Some(value),
+                tunable: tunable.into(),
+                span: span.into(),
+                metrics: latency.map(|l| vec![("latency".to_string(), l.to_string())]).unwrap_or_default(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn tunable_groups_fold_and_the_value_search_expands_them() {
+        let mut s = Site { version: DATA_VERSION, ..Default::default() };
+        s.builds = vec![
+            circuit("rise-L6", "rising-edge", 6, 17, "oneshot", "L 6-40 gt, 3 values", None),
+            circuit("rise-L12", "rising-edge", 12, 17, "oneshot", "", None),
+            circuit("rise-L40", "rising-edge", 40, 25, "oneshot", "", None),
+            circuit("obs-L2", "rising-edge", 2, 1, "", "", Some("2 gt")),
+        ];
+        let mut layout = circuit("obs-L2-b", "rising-edge", 2, 1, "", "", Some("2 gt"));
+        layout.circuit.as_mut().unwrap().layout_of = Some("circuits/pulse/obs-L2".into());
+        s.builds.push(layout);
+        fn names_of(s: &Site, q: &Query) -> Vec<String> {
+            s.run(q).unwrap().0.iter().map(|h| match h {
+                Hit::Build(i) => s.builds[*i].name.clone(),
+                Hit::Member(_) => String::new(),
+            }).collect()
+        }
+        let names = |q: &Query| names_of(&s, q);
+        // default: the group's shown design only, no layout
+        assert_eq!(names(&Query { kind: "circuit".into(), ..Default::default() }), vec!["obs-L2", "rise-L6"]);
+        // a value search expands the group to the member that hits it
+        assert_eq!(names(&Query { kind: "circuit".into(), value: "L 12".into(), ..Default::default() }), vec!["rise-L12"]);
+        assert_eq!(names(&Query { value: "10-40".into(), ..Default::default() }), vec!["rise-L12", "rise-L40"]);
+        assert_eq!(names(&Query { value: "latency 2".into(), ..Default::default() }), vec!["obs-L2"]);
+        // variants on: every design
+        assert_eq!(names(&Query { kind: "circuit".into(), variants: true, ..Default::default() }).len(), 5);
+        assert_eq!(parse_value_query("N=3").unwrap(), (ValueField::N, 3, 3));
+        assert_eq!(parse_value_query("12").unwrap(), (ValueField::Axis, 12, 12));
+        assert_eq!(parse_value_query("lat 0").unwrap(), (ValueField::Latency, 0, 0));
+        // `N 12` asks for an N axis: the L = 12 member does not answer it
+        assert!(names(&Query { kind: "circuit".into(), value: "N 12".into(), ..Default::default() }).is_empty());
+        assert!(parse_value_query("lever").is_err());
+        let q = Query { kind: "circuit".into(), value: "L 12".into(), ..Default::default() };
+        assert_eq!(Query::from_fragment(&q.to_fragment()), q);
+        // an extendable circuit family's generated members answer the value search; a family
+        // card's second base design stays out of the default grid
+        s.cards.push(Card { id: "rep-line".into(), kind: "circuit".into(), families: vec![Family {
+            id: "rep2".into(),
+            build: "circuits/pulse/obs-L2".into(),
+            period: Formula::Linear { a: 2, b: 8 },
+            period_text: "2 + 8n".into(),
+            blocks: Formula::Linear { a: 1, b: 2 },
+            blocks_text: "1 + 2n".into(),
+            rule: String::new(),
+            n_lo: 0,
+            n_hi: 4,
+            base: 0,
+            judged: vec![0],
+            extra: vec![],
+        }], ..Default::default() });
+        for n in 0..=4i64 {
+            s.members.push(Member {
+                card: "rep-line".into(),
+                family: "rep2".into(),
+                n,
+                period: (2 + 8 * n) as u32,
+                blocks: (1 + 2 * n) as u32,
+                design: String::new(),
+                dims: None,
+                volume: None,
+                status: STATUS_REDSIM.into(),
+                build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
+                picture: None,
+                axis: format!("N = {} gt", 2 + 8 * n),
+            });
+        }
+        let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
+        assert_eq!(hits, vec![Hit::Member(3)]);
+        // a clock time search never returns a circuit member
+        assert!(s.run(&Query { time: "26".into(), ..Default::default() }).unwrap().0.is_empty());
+        let mut second = circuit("obs-L4", "rising-edge", 4, 1, "", "", None);
+        second.circuit.as_mut().unwrap().card_member = true;
+        s.builds.push(second);
+        assert!(!names_of(&s, &Query { kind: "circuit".into(), ..Default::default() }).contains(&"obs-L4".to_string()));
+    }
+
     fn site() -> Site {
         let mut ring = clock("obs-ring", 8, 4, "observer", &["observer"], &["robust", "extendable"]);
         ring.clock.as_mut().unwrap().card = Some("obs-ring".into());
@@ -957,6 +1285,7 @@ mod tests {
                 status: if n < 3 { STATUS_JUDGED.into() } else { STATUS_FORMULA.into() },
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
+                axis: String::new(),
             })
             .collect();
         Site {
@@ -1044,6 +1373,8 @@ mod tests {
         // 6..12 gt: the variant (6 gt) stays hidden
         let q = Query { time: "0.3-0.6 s".into(), ..Default::default() };
         assert_eq!(ids(&q), vec!["clocks/obs2", "obs-ring#n0", "obs-ring#n1"]);
+        // nothing at 7 gt: the nearest periods that exist
+        assert_eq!(s.nearest_periods(7, 7, 3), vec![(6, 1), (8, 1), (12, 1)]);
         assert!(s.run(&Query { time: "0.33 s".into(), ..Default::default() }).is_err());
     }
 

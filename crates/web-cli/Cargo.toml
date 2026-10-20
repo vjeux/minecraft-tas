@@ -13,3 +13,8 @@ mctas = { path = "../mctas" }
 clock = { path = "../clock" }
 mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
+circuit-fly = { path = "../circuit-fly" }
+circuit = { path = "../circuit" }
+zip.workspace = true
+serde_json.workspace = true
+libc = "0.2"

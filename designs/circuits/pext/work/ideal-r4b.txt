@@ -1,0 +1,20 @@
+# N=4 one-frame rider, IDEAL pulses (redstone blocks at z=1 beside the line y=2). A (lever on its
+# back) pushes a 7-slime row (11 blocks moved: the push limit is 12); inner train D C D B C D
+# after each landing, all from fixed cells: 1 {5,6}, 2 {4}, 3 {5,6}, 4 {2,3}, 5 x3 at t25 both
+# edges + x5 at t25 on / t29 off (a lamp-like edge delay), 6 {4,7}.
+name: ideal-r4b
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 5 2 0
+ideal: both 5 set 5 2 1 minecraft:redstone_block; both 5 set 6 2 1 minecraft:redstone_block; both 7 clear 5 2 1; both 7 clear 6 2 1; both 10 set 4 2 1 minecraft:redstone_block; both 12 clear 4 2 1; both 15 set 5 2 1 minecraft:redstone_block; both 15 set 6 2 1 minecraft:redstone_block; both 17 clear 5 2 1; both 17 clear 6 2 1; both 20 set 2 2 1 minecraft:redstone_block; both 20 set 3 2 1 minecraft:redstone_block; both 22 clear 2 2 1; both 22 clear 3 2 1; both 25 set 3 2 1 minecraft:redstone_block; both 27 clear 3 2 1; on 25 set 5 2 1 minecraft:redstone_block; on 27 clear 5 2 1; off 29 set 5 2 1 minecraft:redstone_block; off 31 clear 5 2 1; both 34 set 4 2 1 minecraft:redstone_block; both 34 set 7 2 1 minecraft:redstone_block; both 36 clear 4 2 1; both 36 clear 7 2 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 1:
+  LASSSSSSS
+layer 2:
+  ..BBBG

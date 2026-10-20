@@ -5,9 +5,8 @@
 use std::collections::HashMap;
 
 pub const TILE: usize = 16;
-/// Tiles per atlas row.
-pub const COLS: usize = 32;
-pub const SIZE: usize = TILE * COLS;
+/// WebGL2's guaranteed texture-array depth.
+pub const MAX_LAYERS: usize = 256;
 /// Mip levels: 16, 8, 4, 2, 1 pixels per tile.
 pub const MIPS: usize = 5;
 
@@ -199,6 +198,58 @@ impl Tile {
         }
         self
     }
+    /// Paint 16 rows of 16 characters, each mapped to a color by `pal`; other characters (`.`)
+    /// leave the pixel as it is.
+    fn grid(&mut self, rows: &[&str; 16], pal: &[(char, Rgba)]) -> &mut Self {
+        for (y, r) in rows.iter().enumerate() {
+            for (x, ch) in r.chars().enumerate() {
+                if let Some((_, c)) = pal.iter().find(|(k, _)| *k == ch) {
+                    self.set(x as i32, y as i32, *c);
+                }
+            }
+        }
+        self
+    }
+    /// Mottled pixels in the rectangle (x0, y0)..=(x1, y1) with exactly these colors in these
+    /// shares, darkest where a tileable smooth noise (cells `sx` x `sy` px; 16 must divide by them)
+    /// mixed with per-pixel noise (`clump` 0..1 = how blotchy) is lowest.
+    #[allow(clippy::too_many_arguments)]
+    fn mottle_in(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, cols: &[(u32, f32)], sx: i32, sy: i32, clump: f32, k: u32) -> &mut Self {
+        let (cx, cy) = (16 / sx.max(1), 16 / sy.max(1));
+        let lat = |t: &Tile, i: i32, j: i32| t.n(i.rem_euclid(cx), j.rem_euclid(cy), 500 + k);
+        let mut vals: Vec<(f32, i32, i32)> = Vec::new();
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let (fx, fy) = (x as f32 / sx as f32, y as f32 / sy as f32);
+                let (i0, j0) = (fx.floor() as i32, fy.floor() as i32);
+                let (tx, ty) = (fx - i0 as f32, fy - j0 as f32);
+                let top = lat(self, i0, j0) * (1.0 - tx) + lat(self, i0 + 1, j0) * tx;
+                let bot = lat(self, i0, j0 + 1) * (1.0 - tx) + lat(self, i0 + 1, j0 + 1) * tx;
+                let s = top * (1.0 - ty) + bot * ty;
+                vals.push(((1.0 - clump) * self.n(x, y, 600 + k) + clump * s, x, y));
+            }
+        }
+        vals.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut cols: Vec<(Rgba, f32)> = cols.iter().map(|(c, f)| (rgb(*c), *f)).collect();
+        let lum = |c: &Rgba| c[0] as f32 * 0.3 + c[1] as f32 * 0.59 + c[2] as f32 * 0.11;
+        cols.sort_by(|a, b| lum(&a.0).total_cmp(&lum(&b.0)));
+        let total: f32 = cols.iter().map(|c| c.1).sum::<f32>().max(1e-6);
+        let n = vals.len() as f32;
+        let mut acc = 0.0;
+        let mut ci = 0;
+        for (i, (_, x, y)) in vals.iter().enumerate() {
+            while ci + 1 < cols.len() && (i as f32 + 0.5) / n > (acc + cols[ci].1) / total {
+                acc += cols[ci].1;
+                ci += 1;
+            }
+            self.set(*x, *y, cols[ci].0);
+        }
+        self
+    }
+    /// [`Tile::mottle_in`] over the whole tile.
+    fn mottle(&mut self, cols: &[(u32, f32)], sx: i32, sy: i32, clump: f32, k: u32) -> &mut Self {
+        self.mottle_in(0, 0, 15, 15, cols, sx, sy, clump, k)
+    }
 }
 
 /// The painted tiles, by name, in a fixed order.
@@ -330,7 +381,7 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         t.fill(rgb(0x866043)).vary(0.08).speckle(rgb(0x6c4c34), 0.15, 1).speckle(rgb(0x9a7354), 0.1, 2);
     });
     add("grass_top", &|t| {
-        t.fill(rgb(0x5e9440)).vary(0.1).speckle(rgb(0x4f8236), 0.2, 1).speckle(rgb(0x6aa64a), 0.12, 2);
+        t.fill(rgb(0x527a3a)).vary(0.07).speckle(rgb(0x456a30), 0.25, 1).speckle(rgb(0x5d8744), 0.18, 2).speckle(rgb(0x3e612b), 0.06, 3);
     });
     // ---- metal / mineral blocks
     add("gold_block", &|t| {
@@ -481,6 +532,15 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("orange_stained_glass", &|t| {
         t.fill(rgba(0xd87f33, 110)).outline(0, 0, 15, 15, rgba(0xe89a50, 190)).rect(2, 2, 3, 3, rgba(0xf8c890, 140));
     });
+    add("marker_lit", &|t| {
+        t.fill(rgba(0xff9a1a, 205)).outline(0, 0, 15, 15, rgba(0xffe08a, 250)).outline(1, 1, 14, 14, rgba(0xffc04a, 230)).rect(2, 2, 3, 3, rgba(0xfff0c0, 235));
+    });
+    add("grass_side", &|t| {
+        t.fill(rgb(0x866043)).vary(0.1).map(|x, y, c| {
+            let fringe = 2 + ((x * 7 + 3) % 5 == 0) as i32 + ((x * 3) % 4 == 1) as i32;
+            if y < fringe { rgb(0x5d8a3a) } else { c }
+        });
+    });
     add("lime_stained_glass", &|t| {
         t.fill(rgba(0x7fcc19, 110)).outline(0, 0, 15, 15, rgba(0x99dd33, 190)).rect(2, 2, 3, 3, rgba(0xc8f090, 140));
     });
@@ -546,39 +606,59 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         t.fill(rgb(0x565656)).vary(0.2).speckle(rgb(0x2a2a2a), 0.25, 1).speckle(rgb(0x8a8a8a), 0.1, 2);
     });
     add("observer_front", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(2, 3, 13, 12, rgb(0x3a3a3a)).rect(3, 5, 6, 8, rgb(0x161616)).rect(9, 5, 12, 8, rgb(0x161616)).rect(4, 10, 11, 10, rgb(0x262626));
-        t.rect(4, 6, 5, 7, rgb(0x5a5a5a)).rect(10, 6, 11, 7, rgb(0x5a5a5a));
+        // a dark face: two square eyes and a mouth slot in a stone frame
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a));
+        t.rect(2, 2, 13, 13, rgb(0x2f2f2f)).outline(2, 2, 13, 13, rgb(0x3c3c3c));
+        t.rect(4, 4, 6, 7, rgb(0x101010)).rect(9, 4, 11, 7, rgb(0x101010)).rect(4, 10, 11, 11, rgb(0x181818));
+        t.rect(5, 5, 5, 5, rgb(0x707070)).rect(10, 5, 10, 5, rgb(0x707070));
     });
     add("observer_back", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x404040)).rect(6, 6, 9, 9, rgb(0x241010)).rect(7, 7, 8, 8, rgb(0x501010));
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x353535)).rect(6, 6, 9, 9, rgb(0x1c1010)).rect(7, 7, 8, 8, rgb(0x3a1010));
     });
     add("observer_back_on", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x404040)).rect(6, 6, 9, 9, rgb(0xb01810)).rect(7, 7, 8, 8, rgb(0xff5030));
+        t.fill(rgb(0x6f6f6f)).vary(0.05).grain(rgb(0x5f5f5f), 0.12, 1).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(3, 3, 12, 12, rgb(0x353535)).rect(6, 6, 9, 9, rgb(0xc01c10)).rect(7, 7, 8, 8, rgb(0xff6a40));
     });
     add("observer_side", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(1, 6, 14, 9, rgb(0x585858)).rect(1, 7, 14, 8, rgb(0x484848));
-        // arrow head pointing up (toward the face)
-        t.rect(6, 2, 9, 3, rgb(0x5a5a5a)).rect(7, 1, 8, 1, rgb(0x5a5a5a));
+        // light stone bands top and bottom, a dark body with a ridge (the game's look)
+        t.fill(rgb(0x3a3a3a)).vary(0.08);
+        t.rect(0, 0, 15, 3, rgb(0x8c8c8c)).rect(0, 13, 15, 15, rgb(0x8c8c8c));
+        t.map(|x, y, c| if y <= 3 || y >= 13 { scale(c, 0.9 + 0.2 * noise(x, y, 31)) } else { c });
+        t.rect(0, 3, 15, 3, rgb(0x5e5e5e)).rect(0, 13, 15, 13, rgb(0x5e5e5e)).rect(1, 8, 14, 8, rgb(0x4a4a4a)).rect(1, 7, 14, 7, rgb(0x2c2c2c));
     });
     add("observer_top", &|t| {
-        t.fill(rgb(0x6e6e6e)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4a4a)).rect(6, 1, 9, 14, rgb(0x585858)).rect(7, 1, 8, 14, rgb(0x484848)).rect(4, 3, 11, 4, rgb(0x5a5a5a)).rect(5, 2, 10, 2, rgb(0x5a5a5a));
+        t.fill(rgb(0x8a8a8a)).vary(0.06).grain(rgb(0x7a7a7a), 0.12, 2).outline(0, 0, 15, 15, rgb(0x5a5a5a));
+        t.rect(2, 6, 13, 9, rgb(0x3a3a3a)).rect(3, 7, 12, 8, rgb(0x262626)).rect(6, 2, 9, 4, rgb(0x6a6a6a)).rect(7, 1, 8, 1, rgb(0x6a6a6a));
     });
     add("lamp_off", &|t| {
-        t.fill(rgb(0x6b4226)).vary(0.06).outline(0, 0, 15, 15, rgb(0x3e2412)).map(|x, y, c| if (x % 5 == 2 || y % 5 == 2) && (1..15).contains(&x) && (1..15).contains(&y) { rgb(0x9a6a3e) } else { c });
+        t.fill(rgb(0x5b3a21)).vary(0.08).outline(0, 0, 15, 15, rgb(0x2e1c0e)).map(|x, y, c| {
+            let d = (x as i32 - 7).abs().min((x as i32 - 8).abs()) + (y as i32 - 7).abs().min((y as i32 - 8).abs());
+            if (1..15).contains(&x) && (1..15).contains(&y) && (d == 5 || d == 2) { rgb(0x8a5a32) } else { c }
+        });
     });
     add("lamp_on", &|t| {
-        t.fill(rgb(0xf6c76a)).vary(0.05).outline(0, 0, 15, 15, rgb(0x8a5a26)).map(|x, y, c| if (x % 5 == 2 || y % 5 == 2) && (1..15).contains(&x) && (1..15).contains(&y) { rgb(0xfff4c8) } else { c });
+        t.fill(rgb(0xc98a3c)).vary(0.06).outline(0, 0, 15, 15, rgb(0x6a4218)).map(|x, y, c| {
+            let d = (x as i32 - 7).abs().min((x as i32 - 8).abs()) + (y as i32 - 7).abs().min((y as i32 - 8).abs());
+            if (1..15).contains(&x) && (1..15).contains(&y) && (d <= 2 || d == 5) { rgb(0xffe6a8) } else if d == 3 || d == 6 { rgb(0xf0b860) } else { c }
+        });
     });
     for (name, base) in [("bulb_0", 0xb4684d_u32), ("bulb_1", 0xa87f68), ("bulb_2", 0x6a9a7c), ("bulb_3", 0x52a28a)] {
         let base = rgb(base);
-        let off: &'static str = Box::leak(format!("{name}").into_boxed_str());
+        let off: &'static str = Box::leak(name.to_string().into_boxed_str());
         let on: &'static str = Box::leak(format!("{name}_lit").into_boxed_str());
-        add(off, &|t| {
-            t.fill(base).vary(0.05).outline(0, 0, 15, 15, scale(base, 0.75)).rect(4, 4, 11, 11, rgb(0x3a2a24)).outline(4, 4, 11, 11, scale(base, 0.6)).rect(6, 6, 9, 9, rgb(0x5a3e30));
-        });
-        add(on, &|t| {
-            t.fill(base).vary(0.05).outline(0, 0, 15, 15, scale(base, 0.75)).rect(4, 4, 11, 11, rgb(0xffe08a)).outline(4, 4, 11, 11, scale(base, 0.6)).rect(6, 6, 9, 9, rgb(0xfff8d8));
-        });
+        // four petals in the quadrants around the filament, a copper frame
+        let petals = move |t: &mut Tile, petal: Rgba, core: Rgba| {
+            t.fill(base).vary(0.06).outline(0, 0, 15, 15, scale(base, 0.7)).rect(2, 2, 13, 13, scale(base, 0.55));
+            for (x0, y0) in [(3, 3), (9, 3), (3, 9), (9, 9)] {
+                t.rect(x0, y0, x0 + 3, y0 + 3, petal).rect(x0 + 1, y0 + 1, x0 + 2, y0 + 2, scale(petal, 1.12));
+            }
+            t.rect(7, 2, 8, 13, scale(base, 0.8)).rect(2, 7, 13, 8, scale(base, 0.8)).rect(7, 7, 8, 8, core);
+        };
+        add(off, &|t| petals(t, rgb(0x6e4a3a), rgb(0x3a2620)));
+        add(on, &|t| petals(t, rgb(0xffd77a), rgb(0xfff4d0)));
+        let off_p: &'static str = Box::leak(format!("{name}_p").into_boxed_str());
+        let on_p: &'static str = Box::leak(format!("{name}_lit_p").into_boxed_str());
+        add(off_p, &|t| petals(t, rgb(0x6e4a3a), rgb(0xd02010)));
+        add(on_p, &|t| petals(t, rgb(0xffd77a), rgb(0xe02810)));
     }
     add("note_block", &|t| {
         t.planks(rgb(0x6a432c));
@@ -630,6 +710,23 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         }
         t.rect(2, 0, 3, 15, rgb(0x8a8a8a)).rect(12, 0, 13, 15, rgb(0x8a8a8a));
     });
+    // a curve joining the south and east edges (the game's rail_corner, shape south_east)
+    add("rail_corner", &|t| {
+        t.fill(CLEAR);
+        for y in 0..16 {
+            for x in 0..16 {
+                let (dx, dy) = (16.0 - (x as f32 + 0.5), 16.0 - (y as f32 + 0.5));
+                let r = (dx * dx + dy * dy).sqrt();
+                let a = dy.atan2(dx).to_degrees();
+                let sleeper = (a % 22.5) < 6.0 && (1.5..14.5).contains(&r);
+                if (3.0..4.2).contains(&r) || (12.8..14.0).contains(&r) {
+                    t.px[y * 16 + x] = rgb(0x8a8a8a);
+                } else if sleeper {
+                    t.px[y * 16 + x] = rgb(0x6b5034);
+                }
+            }
+        }
+    });
     add("powered_rail", &|t| {
         t.fill(CLEAR);
         for y in [1, 5, 9, 13] {
@@ -676,6 +773,13 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     });
     add("dropper_front", &|t| {
         t.fill(rgb(0x787878)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
+    });
+    // facing up or down: the hole in the furnace-top face (the game's *_front_vertical)
+    add("dispenser_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(5, 6, 10, 9, rgb(0x141414)).rect(6, 5, 9, 10, rgb(0x141414));
+    });
+    add("dropper_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
     });
     add("crafter_top", &|t| {
         t.fill(rgb(0x6e6a68)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4644)).rect(2, 2, 13, 13, rgb(0x5a5654)).map(|x, y, c| if (2..14).contains(&x) && (2..14).contains(&y) && (x % 4 == 1 || y % 4 == 1) { rgb(0x403c3a) } else { c });
@@ -790,6 +894,18 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("water", &|t| {
         t.fill(rgba(0x3f76e4, 170)).vary(0.05);
     });
+    add("bubbles", &|t| {
+        t.fill(rgba(0x5a8cf0, 150)).vary(0.06).map(|x, y, c| if (x * 7 + y * 13) % 11 == 0 { rgba(0xd8e8ff, 210) } else { c });
+    });
+    add("magma", &|t| {
+        t.stones(rgb(0x8a3a10), rgb(0x5a1e08), rgb(0xff8a20), 8, 9).vary(0.08);
+    });
+    add("dripleaf_top", &|t| {
+        t.fill(rgb(0x5f9a2c)).vary(0.08).map(|x, y, c| if (x - y).abs() < 1 || (x + y - 15).abs() < 1 { rgb(0x4a7e22) } else { c }).outline(0, 0, 15, 15, rgb(0x4a7e22));
+    });
+    add("tripwire", &|t| {
+        t.fill(CLEAR).rect(0, 7, 15, 8, rgba(0xdedede, 230));
+    });
     add("snow", &|t| {
         t.fill(rgb(0xf4fcfc)).vary(0.02);
     });
@@ -802,65 +918,95 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("generic", &|t| {
         t.fill(rgb(0xffffff)).vary(0.05).outline(0, 0, 15, 15, rgb(0xd0d0d0));
     });
+    // the hand-drawn vanilla-look tiles replace the procedural ones of the same name
+    for (name, f) in art::tiles() {
+        seed = seed.wrapping_mul(747796405).wrapping_add(2891336453);
+        let mut t = Tile::new(seed);
+        f(&mut t);
+        match out.iter_mut().find(|(n, _)| *n == name) {
+            Some(slot) => slot.1 = t,
+            None => out.push((name, t)),
+        }
+    }
     out
 }
 
-/// The texture atlas: RGBA pixels for each mip level and the tile index of every name.
+/// One layer's mip levels (16, 8, 4, 2, 1 px), box-filtered with premultiplied alpha.
+fn layer_mips(px: &[Rgba; TILE * TILE]) -> Vec<Vec<u8>> {
+    let mut level: Vec<[f32; 4]> = px
+        .iter()
+        .map(|c| {
+            let a = c[3] as f32 / 255.0;
+            [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
+        })
+        .collect();
+    let mut n = TILE;
+    let mut out = Vec::new();
+    for _ in 0..MIPS {
+        let mut bytes = Vec::with_capacity(n * n * 4);
+        for p in &level {
+            let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
+            bytes.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
+        }
+        out.push(bytes);
+        if n > 1 {
+            let m = n / 2;
+            let mut next = vec![[0f32; 4]; m * m];
+            for y in 0..m {
+                for x in 0..m {
+                    let mut s = [0f32; 4];
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let q = level[(2 * y + dy) * n + 2 * x + dx];
+                        for c in 0..4 {
+                            s[c] += q[c] / 4.0;
+                        }
+                    }
+                    next[y * m + x] = s;
+                }
+            }
+            level = next;
+            n = m;
+        }
+    }
+    out
+}
+
+mod art;
+pub mod vanilla;
+
+/// The textures as an array (one 16x16 layer per tile, so filtering never bleeds between
+/// tiles): RGBA pixels per mip level of every layer, and each name's layer.
+#[derive(Clone)]
 pub struct Atlas {
     pub names: HashMap<&'static str, u16>,
-    /// `mips[k]`: (SIZE >> k)^2 RGBA pixels.
+    /// Number of layers.
+    pub layers: usize,
+    /// `mips[k]`: every layer's (TILE >> k)^2 RGBA pixels, layer after layer.
     pub mips: Vec<Vec<u8>>,
 }
 
 impl Atlas {
     pub fn build() -> Atlas {
         let tiles = paint_all();
-        assert!(tiles.len() <= COLS * COLS, "atlas full");
+        assert!(tiles.len() <= MAX_LAYERS, "too many tiles for a WebGL2 texture array");
         let mut names = HashMap::new();
-        let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|k| vec![0u8; (SIZE >> k) * (SIZE >> k) * 4]).collect();
+        let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|_| Vec::new()).collect();
         for (i, (name, t)) in tiles.iter().enumerate() {
             names.insert(*name, i as u16);
-            let (tx, ty) = (i % COLS, i / COLS);
-            // level 0, then box-filter each tile on its own (premultiplied alpha)
-            let mut level: Vec<[f32; 4]> = t.px.iter().map(|c| {
-                let a = c[3] as f32 / 255.0;
-                [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
-            }).collect();
-            let mut n = TILE;
-            for (k, mip) in mips.iter_mut().enumerate() {
-                let w = SIZE >> k;
-                for y in 0..n {
-                    for x in 0..n {
-                        let p = level[y * n + x];
-                        let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
-                        let o = ((ty * n + y) * w + tx * n + x) * 4;
-                        mip[o] = r.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 1] = g.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 2] = b.round().clamp(0.0, 255.0) as u8;
-                        mip[o + 3] = (p[3] * 255.0).round().clamp(0.0, 255.0) as u8;
-                    }
-                }
-                if n > 1 {
-                    let m = n / 2;
-                    let mut next = vec![[0f32; 4]; m * m];
-                    for y in 0..m {
-                        for x in 0..m {
-                            let mut s = [0f32; 4];
-                            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                                let q = level[(2 * y + dy) * n + 2 * x + dx];
-                                for c in 0..4 {
-                                    s[c] += q[c] / 4.0;
-                                }
-                            }
-                            next[y * m + x] = s;
-                        }
-                    }
-                    level = next;
-                    n = m;
-                }
+            for (k, level) in layer_mips(&t.px).into_iter().enumerate() {
+                mips[k].extend_from_slice(&level);
             }
         }
-        Atlas { names, mips }
+        Atlas { names, layers: tiles.len(), mips }
+    }
+
+    /// Replace one layer's pixels (16x16 RGBA) and its mip levels.
+    pub fn set_layer(&mut self, layer: u16, px: &[Rgba; TILE * TILE]) {
+        for (k, level) in layer_mips(px).into_iter().enumerate() {
+            let n = level.len();
+            let o = layer as usize * n;
+            self.mips[k][o..o + n].copy_from_slice(&level);
+        }
     }
 
     /// The tile of a name (the generic white tile for unknown names).
@@ -872,11 +1018,9 @@ impl Atlas {
         self.names.contains_key(name)
     }
 
-    /// UV rectangle (0..1) of pixel rect (u0, v0, u1, v1) (in 0..16) of a tile.
-    pub fn uv(&self, tile: u16, r: [f32; 4]) -> [f32; 4] {
-        let (tx, ty) = ((tile as usize % COLS) as f32, (tile as usize / COLS) as f32);
-        let s = SIZE as f32;
+    /// UV rectangle (0..1 within its layer) of pixel rect (u0, v0, u1, v1) (in 0..16).
+    pub fn uv(&self, _tile: u16, r: [f32; 4]) -> [f32; 4] {
         let t = TILE as f32;
-        [(tx * t + r[0]) / s, (ty * t + r[1]) / s, (tx * t + r[2]) / s, (ty * t + r[3]) / s]
+        [r[0] / t, r[1] / t, r[2] / t, r[3] / t]
     }
 }

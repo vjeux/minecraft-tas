@@ -1,0 +1,29 @@
+# archived 2026-10-19T23:56Z from designs/clocks/tracks/clk-obs/families9/p19-lamp-note-obs-stk-8b-4e787a.txt by mctas clock archive
+# CLOCK: clk-obs-p19-lamp-note-obs-stk-8b-4e787a period 19 gt (0.95 s), on 8/19, edges 4, warmup 21, family note_block+observer+redstone_lamp+sticky_piston, 8 blocks, 1x6x2, robust
+name: clk-obs-p19-lamp-note-obs-stk-8b-4e787a
+# clk-obs grow: P=19 (redsim), family note_block+observer+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
+layer 1:
+  C
+  A
+layer 2:
+  D
+  E
+layer 3:
+  .
+  C
+layer 4:
+  .
+  F

@@ -1,0 +1,26 @@
+# archived 2026-10-20T01:40Z from designs/clocks/tracks/clk-obs/families9/p54-bulb-obs-rb-stk-7b-5a59af.txt by mctas clock archive
+# CLOCK: clk-obs-p54-bulb-obs-rb-stk-7b-5a59af period 54 gt (2.7 s), on 24/54, edges 12, warmup 5, family copper_bulb+observer+redstone_block+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p54-bulb-obs-rb-stk-7b-5a59af
+# clk-obs grow: P=54 (redsim), family observer+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 1 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:redstone_block
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  F
+layer 2:
+  .
+  D
+  .

@@ -7,7 +7,7 @@
 //! browser shows what the judges measured; `mctas web check` compares the two natively and on the
 //! shipped wasm.
 
-use crate::design::{Design, Pos};
+use crate::design::{Design, Pos, parse_travel};
 use redsim::piston::MovingBe;
 use redsim::world::flags;
 use redsim::{Block, BlockPos, Dir, World};
@@ -76,6 +76,62 @@ pub struct Session {
     pub outputs: Vec<Pos>,
     /// Everything as placed, for [`Session::reset`].
     initial: Option<(World, Vec<(u32, Action)>, u32)>,
+    /// A real-game recording played instead of simulating ([`Session::attach_trace`]).
+    pub replay: Option<crate::replay::Replay>,
+    /// The box a travelling design runs in (a flying machine: `circuit fly sim`'s corridor).
+    pub corridor: Option<(Pos, Pos)>,
+    /// A flying machine: the tick its judge stops at (it reaches the corridor's end, comes to
+    /// rest or breaks); the viewer loops there.
+    pub end_tick: Option<u32>,
+    /// A circuit's inputs (`port input[.<name>]`), driven like its judge drives them.
+    pub circuit_inputs: Vec<crate::circuit::CircuitInput>,
+    /// Each circuit input's level now.
+    pub input_on: Vec<bool>,
+    /// The judge's stimulus being replayed (the auto-demo), from placement.
+    pub demo: Option<crate::circuit::Schedule>,
+    /// Pending input releases (tick, input): a tapped pulse input goes off there.
+    releases: Vec<(u32, usize)>,
+    /// A clock's picture box (`clock shot`'s frame: the judge's swept box), once known.
+    pub picture: Option<(Pos, Pos)>,
+}
+
+/// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
+/// blocks, kick cell and `stop:` blocks swept `distance:` cells (32 by default) along the travel,
+/// plus 3 free cells; a piston extender sweeps its N (`circuit: piston-extender N`) + 1.
+pub fn corridor_of(d: &Design, mode: &Mode) -> Option<(Pos, Pos)> {
+    let ((lo, hi), margin) = travel_box(d, mode)?;
+    Some(([lo[0] - margin, lo[1] - margin, lo[2] - margin], [hi[0] + margin, hi[1] + margin, hi[2] + margin]))
+}
+
+/// A travelling design's swept box (where it can be, without the free cells) and the corridor's
+/// free margin.
+pub fn travel_box(d: &Design, mode: &Mode) -> Option<((Pos, Pos), i32)> {
+    let v = parse_travel(d.meta.get("travel")?)?;
+    let kind = d.meta.get("circuit").map(|s| s.as_str()).unwrap_or("flying-machine");
+    let (mut lo, mut hi) = d.bounds()?;
+    if let Mode::Clock { kick: Some((k, _)), .. } = mode {
+        let p = match k {
+            Kick::Last { pos } | Kick::Use { pos, .. } | Kick::Place { pos, .. } => *pos,
+        };
+        grow(&mut lo, &mut hi, p);
+    }
+    for (p, _) in &d.stops {
+        grow(&mut lo, &mut hi, *p);
+    }
+    let (k, margin) = if kind.starts_with("flying-machine") {
+        (d.meta.get("distance").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(32), 3)
+    } else {
+        let n = kind.split_whitespace().nth(1).and_then(|w| w.parse::<i32>().ok()).unwrap_or(1);
+        (d.meta.get("distance").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(n + 1), 4)
+    };
+    for i in 0..3 {
+        if v[i] > 0 {
+            hi[i] += k;
+        } else if v[i] < 0 {
+            lo[i] -= k;
+        }
+    }
+    Some(((lo, hi), margin))
 }
 
 pub fn bp(p: Pos) -> BlockPos {
@@ -209,6 +265,12 @@ impl Session {
                 inputs.push(*p);
             }
         }
+        let circuit_inputs = crate::circuit::inputs(&design);
+        for ci in &circuit_inputs {
+            if !inputs.contains(&ci.pos) {
+                inputs.push(ci.pos);
+            }
+        }
         match &mode {
             Mode::Door { door, along_z, .. } => {
                 for c in door_cells(*door, *along_z) {
@@ -237,8 +299,15 @@ impl Session {
             }
         }
         let m = o.margin;
-        let min = BlockPos::new(lo[0] - m, lo[1] - m, lo[2] - m);
-        let size = [hi[0] - lo[0] + 1 + 2 * m, hi[1] - lo[1] + 1 + 2 * m, hi[2] - lo[2] + 1 + 2 * m];
+        let mut min = BlockPos::new(lo[0] - m, lo[1] - m, lo[2] - m);
+        let mut size = [hi[0] - lo[0] + 1 + 2 * m, hi[1] - lo[1] + 1 + 2 * m, hi[2] - lo[2] + 1 + 2 * m];
+        // a design that travels (a flying machine, a piston extender's payload): the world is the
+        // judge's corridor, never the design's box (blocks leaving it would be cut off)
+        let corridor = corridor_of(&design, &mode);
+        if let Some((clo, chi)) = corridor {
+            min = BlockPos::new(clo[0], clo[1], clo[2]);
+            size = [chi[0] - clo[0] + 1, chi[1] - clo[1] + 1, chi[2] - clo[2] + 1];
+        }
         let mut world = World::new(min, size);
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
@@ -258,9 +327,6 @@ impl Session {
                 }
             }
         }
-        if !design.entities.is_empty() {
-            unsimulated.push("entities (minecarts...) are not simulated by redsim".into());
-        }
         let mut s = Session {
             design,
             mode,
@@ -274,6 +340,14 @@ impl Session {
             inputs,
             outputs,
             initial: None,
+            replay: None,
+            corridor,
+            end_tick: None,
+            input_on: vec![false; circuit_inputs.len()],
+            circuit_inputs,
+            demo: None,
+            releases: Vec::new(),
+            picture: None,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks.
@@ -292,6 +366,11 @@ impl Session {
         }
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
+        // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
+        s.apply_due();
+        if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
+            s.end_tick = Some(s.fly_end());
+        }
         Ok(s)
     }
 
@@ -323,6 +402,16 @@ impl Session {
                     Some((Kick::Last { pos }, _)) => Some(*pos),
                     _ => None,
                 };
+                // `stop:` blocks first, placed and updated on their own (the environment stands
+                // before the build: `circuit fly sim`'s order)
+                let mut stops: Vec<(BlockPos, Block)> = Vec::new();
+                for (p, s) in &self.design.stops {
+                    stops.push((bp(*p), convert(s)?.0));
+                }
+                if !stops.is_empty() {
+                    w.place_raw(&stops);
+                    w.place_updates(&stops);
+                }
                 let silent: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| Some(p.arr()) != last).copied().collect();
                 if player_placement {
                     for (p, b) in &silent {
@@ -333,6 +422,10 @@ impl Session {
                     w.place_raw(&silent);
                     nbt(w, None, last)?;
                     w.place_updates(&silent);
+                }
+                // the design's entities, once the blocks stand (as the judge summons them)
+                for e in self.design.entities.clone() {
+                    redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| format!("not modeled by redsim: {why}"))?;
                 }
                 if let Some((k, at)) = kick {
                     self.actions = match k {
@@ -360,16 +453,57 @@ impl Session {
 
     /// Back to the placed state.
     pub fn reset(&mut self) {
+        if let Some(r) = self.replay.as_mut() {
+            r.reset();
+            self.tick = r.tick;
+            return;
+        }
         if let Some((w, a, t)) = &self.initial {
             self.world = w.clone();
             self.actions = a.clone();
             self.tick = *t;
             self.last_input = None;
+            self.input_on = vec![false; self.circuit_inputs.len()];
+            self.releases.clear();
+            self.apply_due();
+            self.inputs_due();
         }
     }
 
     pub fn simulated(&self) -> bool {
         self.unsimulated.is_none()
+    }
+
+    /// Something moves when played: a redsim simulation or a recording.
+    pub fn playable(&self) -> bool {
+        self.simulated() || self.replay.is_some()
+    }
+
+    /// Is the (first) output on now? (None: no output, or nothing simulated or recorded.)
+    pub fn output_on(&self) -> Option<bool> {
+        let o = *self.outputs.first()?;
+        if let Some(r) = &self.replay {
+            return Some(r.state_at(o).is_some_and(active_state));
+        }
+        if !self.simulated() {
+            return None;
+        }
+        Some(active(&self.world.get(bp(o))))
+    }
+
+    /// Play a real-game recording (`designs/clocks/traces/<stem>.trace`) instead of simulating:
+    /// for the designs redsim does not model (boats, minecarts, fluids).
+    pub fn attach_trace(&mut self, text: &str) -> Result<(), String> {
+        let r = crate::replay::Replay::parse(text)?;
+        if self.outputs.is_empty()
+            && let Some(o) = r.output
+        {
+            self.outputs.push(o);
+        }
+        self.tick = r.tick;
+        self.rest_tick = 0;
+        self.replay = Some(r);
+        Ok(())
     }
 
     /// Apply the scheduled inputs due now (between ticks).
@@ -393,14 +527,22 @@ impl Session {
         }
     }
 
-    /// One game tick (the scheduled inputs due before it first).
+    /// One game tick, then the scheduled inputs due at the new tick (so the state shown at tick t
+    /// is what the judge sees between ticks t and t+1).
     pub fn step(&mut self) {
+        if let Some(r) = self.replay.as_mut() {
+            r.step();
+            self.tick = r.tick;
+            return;
+        }
         if !self.simulated() {
             return;
         }
         self.apply_due();
         self.world.tick();
         self.tick += 1;
+        self.apply_due();
+        self.inputs_due();
     }
 
     /// Ticks run since the last input (or since rest / placement).
@@ -411,6 +553,70 @@ impl Session {
     /// Is this cell clickable (a lever, a button, an input port)?
     pub fn is_input(&self, p: Pos) -> bool {
         self.inputs.contains(&p)
+    }
+
+    /// Drive circuit input `i` like the judge (between ticks): its cell written with updates, or its
+    /// lever used at every edge, or its button at a rising edge. False when nothing changed.
+    pub fn set_input(&mut self, i: usize, on: bool) -> bool {
+        if !self.simulated() || i >= self.circuit_inputs.len() || self.input_on[i] == on {
+            return false;
+        }
+        let ci = self.circuit_inputs[i].clone();
+        match &ci.how {
+            crate::circuit::InputHow::Block { on: a, off: b } => {
+                self.world.set_block(bp(ci.pos), if on { *a } else { *b }, flags::ALL);
+            }
+            crate::circuit::InputHow::Lever => {
+                self.world.use_block(bp(ci.pos));
+            }
+            crate::circuit::InputHow::Button => {
+                if on {
+                    self.world.use_block(bp(ci.pos));
+                }
+            }
+        }
+        self.input_on[i] = on;
+        self.last_input = Some(self.tick);
+        true
+    }
+
+    /// A short pulse on input `i`: on now, off `len` ticks later (a tap on a pulse input).
+    pub fn pulse_input(&mut self, i: usize, len: u32) -> bool {
+        if !self.set_input(i, true) {
+            return false;
+        }
+        self.releases.push((self.tick + len.max(1), i));
+        true
+    }
+
+    /// Input `i` goes off at `tick` (a short press released early).
+    pub fn release_input_at(&mut self, i: usize, tick: u32) {
+        self.releases.push((tick, i));
+    }
+
+    /// Replay the judge's stimulus from placement (the auto-demo); its edges due now are applied.
+    pub fn attach_demo(&mut self, s: crate::circuit::Schedule) {
+        self.demo = Some(s);
+        self.inputs_due();
+    }
+
+    /// The demo's edges and the pending releases due at this tick.
+    fn inputs_due(&mut self) {
+        let t = self.tick;
+        if let Some(d) = self.demo.clone() {
+            for (i, e) in d.edges.iter().enumerate() {
+                for &(at, on) in e {
+                    if at == t {
+                        self.set_input(i, on);
+                    }
+                }
+            }
+        }
+        let due: Vec<usize> = self.releases.iter().filter(|(at, _)| *at <= t).map(|(_, i)| *i).collect();
+        self.releases.retain(|(at, _)| *at > t);
+        for i in due {
+            self.set_input(i, false);
+        }
     }
 
     /// The player's right click on a cell (between ticks): levers flip, buttons press. Returns
@@ -430,6 +636,72 @@ impl Session {
         ok
     }
 
+    /// Is a component "on" now (a lever's or button's `powered`, a lamp's `lit`...)?
+    pub fn is_on(&self, p: Pos) -> bool {
+        if let Some(r) = &self.replay {
+            return r.state_at(p).is_some_and(active_state);
+        }
+        self.simulated() && active(&self.world.get(bp(p)))
+    }
+
+    /// The simulated entities to draw, each at its position `partial` of the way through the
+    /// current tick (from where it started the tick), like the game interpolates them.
+    pub fn entities(&self, partial: f32) -> Vec<crate::mesh::EntityDraw> {
+        use redsim::entity::EntityKind;
+        let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
+        self.world
+            .entities
+            .list
+            .iter()
+            .filter(|e| !e.removed)
+            .map(|e| {
+                // the design's own type id (its wood, ...) for the entities it summons (spawned
+                // first, in file order), else the kind's
+                let kind = match self.design.entities.get(e.id as usize) {
+                    Some(d) => d.kind.clone(),
+                    None => match &e.kind {
+                        EntityKind::Boat(b) if b.chest => "minecraft:oak_chest_boat".to_string(),
+                        EntityKind::Boat(_) => "minecraft:oak_boat".to_string(),
+                        EntityKind::Minecart(m) if m.hopper => "minecraft:hopper_minecart".to_string(),
+                        EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
+                        EntityKind::Item(_) => String::new(),
+                        EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                    },
+                };
+                let kind = match &e.kind {
+                    EntityKind::Item(it) => format!("item:{}", it.item),
+                    _ => kind,
+                };
+                let yaw = e.y_rot_o + (e.y_rot - e.y_rot_o) * partial;
+                crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
+            })
+            .collect()
+    }
+
+    /// The containers redsim models (droppers, dispensers, hoppers) with their stacks: (cell,
+    /// slot count, (item, count) per non-empty slot).
+    pub fn containers(&self) -> Vec<(Pos, usize, Vec<(&'static str, u8)>)> {
+        if !self.simulated() || self.replay.is_some() {
+            return Vec::new();
+        }
+        let mut v: Vec<(Pos, usize, Vec<(&'static str, u8)>)> = self
+            .world
+            .containers
+            .map
+            .iter()
+            .map(|(p, c)| (p.arr(), c.slots.len(), c.slots.iter().flatten().map(|s| (redsim::redstone::container::item_name(s.item), s.count)).collect()))
+            .collect();
+        v.sort_by_key(|(p, _, _)| *p);
+        v
+    }
+
+    /// A door's opening: how many of its 9 cells hold a block (0 = open, 9 = closed); None for
+    /// other designs.
+    pub fn door_blocks(&self) -> Option<usize> {
+        let Mode::Door { door, along_z, .. } = self.mode else { return None };
+        Some(door_cells(door, along_z).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
+    }
+
     /// Nothing pending (no scheduled ticks, events, moving blocks, pending inputs).
     pub fn idle(&self) -> bool {
         self.actions.is_empty() && self.world.idle()
@@ -439,6 +711,9 @@ impl Session {
     /// moving blocks at their interpolated offset, like the client draws them.
     pub fn render_blocks(&self, partial: f32) -> Vec<RBlock> {
         let mut out = Vec::new();
+        if let Some(r) = &self.replay {
+            return r.render_blocks();
+        }
         if !self.simulated() {
             // what redsim could not place is drawn from the design text
             for (p, s) in &self.design.blocks {
@@ -473,13 +748,72 @@ impl Session {
 
     /// The box the camera frames: the design and its ports (a door's opening included).
     pub fn frame_box(&self) -> (Pos, Pos) {
-        let (mut lo, mut hi) = self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+        let (mut lo, mut hi) = match self.picture {
+            Some(b) => b,
+            None => self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])),
+        };
         if let Mode::Door { door, along_z, .. } = self.mode {
             for c in door_cells(door, along_z) {
                 grow(&mut lo, &mut hi, c);
             }
         }
+        // a circuit's input cells (often empty: the judge writes a block there) are in the picture
+        for ci in &self.circuit_inputs {
+            grow(&mut lo, &mut hi, ci.pos);
+        }
         (lo, hi)
+    }
+
+    /// [`Session::frame_box`] plus a travelling design's whole path, up to where its judge stops
+    /// it (the corridor's edge): the floor goes under it.
+    pub fn path_box(&self) -> (Pos, Pos) {
+        let (mut lo, mut hi) = self.frame_box();
+        if self.corridor.is_some()
+            && let Some(((a, b), margin)) = travel_box(&self.design, &self.mode)
+        {
+            grow(&mut lo, &mut hi, a);
+            grow(&mut lo, &mut hi, b);
+            if let Some(v) = self.design.meta.get("travel").and_then(|t| parse_travel(t)) {
+                for i in 0..3 {
+                    if v[i] > 0 {
+                        hi[i] += margin;
+                    } else if v[i] < 0 {
+                        lo[i] -= margin;
+                    }
+                }
+            }
+        }
+        (lo, hi)
+    }
+
+    /// A flying machine's end, the way `circuit fly sim` ends a run: the first tick a block stands
+    /// on the corridor's edge, or something is destroyed, or nothing is pending (at rest), or the
+    /// horizon (200 + 60 gt per corridor cell).
+    pub fn fly_end(&self) -> u32 {
+        let Some((lo, hi)) = self.corridor else { return 0 };
+        let k = self.design.meta.get("distance").and_then(|s| s.trim().parse::<u32>().ok()).unwrap_or(32).max(1);
+        let horizon = 200 + 60 * k;
+        let mut s = self.fresh();
+        let edge = |p: BlockPos| p.x <= lo[0] || p.y <= lo[1] || p.z <= lo[2] || p.x >= hi[0] || p.y >= hi[1] || p.z >= hi[2];
+        loop {
+            let t = s.tick;
+            if !s.world.drops.is_empty() || !s.world.errors.is_empty() || s.world.blocks().iter().any(|(p, _)| edge(*p)) || (s.actions.is_empty() && s.world.idle()) || t >= horizon {
+                return t;
+            }
+            s.step();
+        }
+    }
+
+    /// A digest of every frame (the non-air cells, sorted) of ticks 0..=`ticks` from placement:
+    /// `mctas web check` compares it with `circuit fly sim`'s frames and with the shipped wasm's.
+    pub fn frames_digest(&self, ticks: u32) -> u64 {
+        let mut s = self.fresh();
+        let mut h: u64 = 0xcbf29ce484222325;
+        for _ in 0..=ticks {
+            h = frame_hash(h, &s.world.blocks());
+            s.step();
+        }
+        h
     }
 
     /// Run `n` ticks (stops early at an error).
@@ -636,10 +970,35 @@ impl Session {
             return Err(format!("not modeled by redsim: {why}"));
         }
         let end = self.free_from();
+        let found = if !self.design.entities.is_empty() {
+            // designs with entities never repeat their exact state (an entity's doubles drift):
+            // the real-game judge's rule (`clock::sim::entity_clock_period`): the block frames over
+            // 4000 gt, periodic for 3 periods from the first free tick
+            let mut s = self.fresh();
+            let mut ids: HashMap<u128, u64> = HashMap::new();
+            let mut frames: Vec<u64> = Vec::with_capacity(ENTITY_HORIZON as usize + 1);
+            for t in 0..=ENTITY_HORIZON {
+                s.apply_due();
+                s.check(t)?;
+                let d = frame_digest(&s.world);
+                let n = ids.len() as u64;
+                frames.push(*ids.entry(d).or_insert(n));
+                if t < ENTITY_HORIZON {
+                    s.world.tick();
+                    s.tick += 1;
+                }
+            }
+            Some(detect_period(&frames, end as usize, 3).map(|(w, p)| (w as u32, p as u32)).ok_or_else(|| format!("not periodic for 3 periods within {ENTITY_HORIZON} gt (the judge's rule for designs with entities)"))?)
+        } else {
+            None
+        };
         let mut s = self.fresh();
         let mut seen: HashMap<u128, u32> = HashMap::new();
-        let mut found = None;
+        let mut found = found;
         for t in 0..=horizon {
+            if found.is_some() {
+                break;
+            }
             s.apply_due();
             s.check(t)?;
             if t >= end {
@@ -675,10 +1034,10 @@ impl Session {
         Ok(Period { state_warmup: w0, state_period: p, period: full_p as u32, warmup: vis_w as u32 })
     }
 
-    /// A copy back at placement.
+    /// A copy back at placement (the inputs due at its tick applied).
     fn fresh(&self) -> Session {
         let (w, a, t) = self.initial.clone().expect("simulated session");
-        Session {
+        let mut s = Session {
             design: Design::default(),
             mode: self.mode.clone(),
             world: w,
@@ -691,7 +1050,17 @@ impl Session {
             inputs: Vec::new(),
             outputs: Vec::new(),
             initial: None,
-        }
+            replay: None,
+            corridor: self.corridor,
+            end_tick: None,
+            circuit_inputs: Vec::new(),
+            input_on: Vec::new(),
+            demo: None,
+            releases: Vec::new(),
+            picture: None,
+        };
+        s.apply_due();
+        s
     }
 
     /// The clock judge's validity checks between ticks.
@@ -708,24 +1077,21 @@ impl Session {
         Ok(())
     }
 
-    /// The still frame a thumbnail shows: a door at rest (the settled closed state); a clock at
-    /// the most active moment of one period (most changing cells on, nothing moving if
-    /// possible), like `mctas clock shot` picks it. Leaves the session at that tick.
-    pub fn go_to_still(&mut self, horizon: u32) -> u32 {
+    /// The clock's (warmup, period) for pictures: the exact detector like `clock::sim::activity`
+    /// (whole-state warmup, visible period), else the archive's judge line.
+    pub fn picture_period(&self, horizon: u32) -> Option<(u32, u32)> {
         if !self.simulated() || self.mode.is_door() {
-            return self.tick;
+            return None;
         }
-        let (w0, p) = match self.design.clock_hint() {
-            Some((w, p)) if w + p <= horizon => (w, p),
-            _ => match self.period(horizon.min(4000)) {
-                Ok(r) => (r.state_warmup.max(r.warmup), r.period),
-                Err(_) => (0, 0),
-            },
-        };
-        if p == 0 {
-            return self.tick;
+        match self.period(horizon) {
+            Ok(r) if r.period > 0 => Some((r.state_warmup.max(r.warmup), r.period)),
+            _ => self.design.clock_hint().filter(|(w, p)| w + p <= horizon && *p > 0),
         }
-        // pass 1: which cells change during one period; pass 2: the busiest moment
+    }
+
+    /// One period from `w0`: every changing cell and its state at each tick (two passes on fresh
+    /// copies; the session is not moved).
+    pub fn period_cells(&self, w0: u32, p: u32) -> Vec<(Pos, Vec<Block>)> {
         let mut s = self.fresh();
         while s.tick < w0 {
             s.step();
@@ -740,29 +1106,168 @@ impl Session {
             }
             s.step();
         }
+        let idx: Vec<usize> = (0..first.len()).filter(|&i| changing[i]).collect();
+        let w = &s.world;
+        let pos_of = |i: usize| -> Pos {
+            let (sx, sz) = (w.size[0] as usize, w.size[2] as usize);
+            let (x, z, y) = (i % sx, (i / sx) % sz, i / (sx * sz));
+            [w.min.x + x as i32, w.min.y + y as i32, w.min.z + z as i32]
+        };
+        let mut out: Vec<(Pos, Vec<Block>)> = idx.iter().map(|&i| (pos_of(i), Vec::with_capacity(p as usize))).collect();
         let mut s = self.fresh();
         while s.tick < w0 {
             s.step();
         }
-        let mut best = (0u32, (std::cmp::Reverse(usize::MAX), 0usize));
-        for t in 0..p {
+        for _ in 0..p {
             let cells = cells_of(&s.world);
-            let on = cells.iter().zip(&changing).filter(|(b, c)| **c && active(b)).count();
-            let moving = cells.iter().zip(&changing).filter(|(b, c)| **c && matches!(b, Block::MovingPiston { .. })).count();
-            let score = (std::cmp::Reverse(moving), on);
-            if t == 0 || score > best.1 {
-                best = (t, score);
+            for (k, &i) in idx.iter().enumerate() {
+                out[k].1.push(cells[i]);
             }
             s.step();
         }
-        let best = best.0;
-        let target = w0 + best;
+        out
+    }
+
+    /// The clock judge's output when none is declared: the changing cell with the longest own
+    /// period, then the most rising edges, then the most ticks on (`clock::sim::simulate`).
+    pub fn auto_output(cells: &[(Pos, Vec<Block>)]) -> Option<Pos> {
+        let stat = |seq: &[Block]| {
+            let n = seq.len();
+            let period = (1..=n.max(1)).filter(|d| n % d == 0).find(|&d| (0..n).all(|t| seq[t] == seq[(t + d) % n])).unwrap_or(n.max(1));
+            let on: Vec<bool> = seq.iter().map(active).collect();
+            let edges = (0..n).filter(|&t| on[t] && !on[(t + n - 1) % n]).count();
+            let ons = on.iter().filter(|b| **b).count();
+            (period, edges, ons)
+        };
+        cells.iter().max_by(|a, b| stat(&a.1).cmp(&stat(&b.1)).then(b.0.cmp(&a.0))).map(|(p, _)| *p)
+    }
+
+    /// The still frame a thumbnail shows: a door at rest (the settled closed state); a clock at
+    /// the most active moment of one period (most changing cells on, nothing moving if
+    /// possible), like `mctas clock shot` picks it. Leaves the session at that tick and records the
+    /// clock judge's output when the design declares none.
+    pub fn go_to_still(&mut self, horizon: u32) -> u32 {
+        // a travelling design (flying machine, extender) is pictured as built: no period to find
+        if self.corridor.is_some() {
+            return self.tick;
+        }
+        let Some((w0, p)) = self.picture_period(horizon) else { return self.tick };
+        let cells = self.period_cells(w0, p);
+        if self.outputs.is_empty()
+            && let Some(o) = Session::auto_output(&cells)
+        {
+            self.outputs.push(o);
+        }
+        self.picture = self.picture_box(horizon);
+        let mut best = (0u32, (std::cmp::Reverse(usize::MAX), 0usize));
+        for t in 0..p as usize {
+            let on = cells.iter().filter(|(_, seq)| active(&seq[t])).count();
+            let moving = cells.iter().filter(|(_, seq)| matches!(seq[t], Block::MovingPiston { .. })).count();
+            let score = (std::cmp::Reverse(moving), on);
+            if t == 0 || score > best.1 {
+                best = (t as u32, score);
+            }
+        }
+        let target = w0 + best.0;
         self.reset();
         while self.tick < target {
             self.step();
         }
         target
     }
+
+    /// A clock's picture box, like `clock shot`: the judge's swept box (`clock::sim`: the design's
+    /// box with its kick cell, grown by every cell occupied over the state warmup and one state
+    /// period), and for an elongated clock (its longest side over 16 blocks and over 5x the next) a
+    /// window of it along that side around the output, 3x the next side long (8 to 16 blocks).
+    pub fn picture_box(&self, horizon: u32) -> Option<(Pos, Pos)> {
+        if !self.simulated() || self.mode.is_door() || self.corridor.is_some() || self.replay.is_some() {
+            return None;
+        }
+        let r = self.period(horizon).ok()?;
+        let (mut lo, mut hi) = self.design.bounds()?;
+        if let Mode::Clock { kick: Some((k, _)), .. } = &self.mode {
+            let p = match k {
+                Kick::Last { pos } | Kick::Use { pos, .. } | Kick::Place { pos, .. } => *pos,
+            };
+            grow(&mut lo, &mut hi, p);
+        }
+        let mut s = self.fresh();
+        let end = r.state_warmup + r.state_period;
+        loop {
+            for (q, _) in s.world.blocks() {
+                grow(&mut lo, &mut hi, q.arr());
+            }
+            if s.tick >= end {
+                break;
+            }
+            s.step();
+        }
+        let ext = |lo: &Pos, hi: &Pos, k: usize| hi[k] - lo[k] + 1;
+        let mut axes = [0usize, 1, 2];
+        axes.sort_by_key(|&k| std::cmp::Reverse(ext(&lo, &hi, k)));
+        let (long, next) = (axes[0], axes[1]);
+        if ext(&lo, &hi, long) > 16 && ext(&lo, &hi, long) > 5 * ext(&lo, &hi, next) {
+            let win = (3 * ext(&lo, &hi, next)).clamp(8, 16);
+            let c = self.outputs.first().map(|o| o[long]).unwrap_or((lo[long] + hi[long]) / 2);
+            let a = (c - win / 2).clamp(lo[long], hi[long] - win + 1);
+            lo[long] = a;
+            hi[long] = a + win - 1;
+        }
+        Some((lo, hi))
+    }
+
+    /// Find the clock judge's output (no `port output`) without moving the session.
+    pub fn find_auto_output(&mut self, horizon: u32) {
+        if !self.outputs.is_empty() || self.corridor.is_some() {
+            return;
+        }
+        if let Some((w0, p)) = self.picture_period(horizon)
+            && let Some(o) = Session::auto_output(&self.period_cells(w0, p))
+        {
+            self.outputs.push(o);
+        }
+    }
+}
+
+/// Fold one frame (non-air cells, any order) into an FNV-1a digest: the cells sorted by position,
+/// each as `x,y,z=state;`, then `|`.
+pub fn frame_hash(mut h: u64, cells: &[(BlockPos, Block)]) -> u64 {
+    let mut v: Vec<(BlockPos, String)> = cells.iter().map(|(p, b)| (*p, b.to_string())).collect();
+    v.sort_by_key(|(p, _)| (p.x, p.y, p.z));
+    let mut eat = |bytes: &[u8]| {
+        for b in bytes {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+    };
+    for (p, s) in &v {
+        eat(format!("{},{},{}={s};", p.x, p.y, p.z).as_bytes());
+    }
+    eat(b"|");
+    h
+}
+
+/// [`active`] for a block state string (a recording's cells).
+pub fn active_state(state: &str) -> bool {
+    let st = crate::models::St::parse(state);
+    match st.name {
+        "air" | "cave_air" | "void_air" => return false,
+        "piston_head" | "moving_piston" => return true,
+        "hopper" => return st.get("enabled") == Some("false"),
+        "sculk_sensor" | "calibrated_sculk_sensor" => return st.get("sculk_sensor_phase") == Some("active"),
+        "leaves" => return st.get("distance").and_then(|d| d.parse::<u32>().ok()).is_some_and(|d| d < 7),
+        _ => {}
+    }
+    for k in ["powered", "lit", "extended", "open", "triggered", "attached"] {
+        if let Some(v) = st.get(k) {
+            return v == "true";
+        }
+    }
+    if let Some(p) = st.get("power") {
+        return p.parse::<u32>().is_ok_and(|p| p > 0);
+    }
+    true
 }
 
 /// Is a component "on" (`crates/clock/src/wave.rs::active`)?
@@ -808,14 +1313,92 @@ pub fn cells_of(w: &World) -> Vec<Block> {
 }
 
 /// `out`, `out_a`, `out2`, `output`, `output_b`...: a port named after `prefix`.
+/// The real-game judge's horizon for designs with entities (`clock::sim::ENTITY_HORIZON`).
+pub const ENTITY_HORIZON: u32 = 4000;
+
+/// `clock::wave::detect_period`: the smallest period of a sequence of frame ids periodic from some
+/// warmup on, seen in `frames[start..]`: per candidate p the earliest W from which
+/// `frames[t] == frames[t + p]` holds to the end, with at least `min_periods` periods after it;
+/// the smallest W, then the smallest p.
+pub fn detect_period(frames: &[u64], start: usize, min_periods: usize) -> Option<(usize, usize)> {
+    let n = frames.len();
+    if n <= start + 1 {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None;
+    let maxp = (n - start) / min_periods.max(1);
+    for p in 1..=maxp {
+        let mut w = n - p;
+        while w > start && frames[w - 1] == frames[w - 1 + p] {
+            w -= 1;
+        }
+        if n - w < min_periods * p {
+            continue;
+        }
+        if best.is_none_or(|(bw, bp)| (w, p) < (bw, bp)) {
+            best = Some((w, p));
+        }
+    }
+    best
+}
+
 fn is_port_named(name: &str, prefix: &str) -> bool {
     let long = if prefix == "in" { "input" } else { "output" };
     let rest = name.strip_prefix(long).or_else(|| name.strip_prefix(prefix));
-    rest.is_some_and(|r| r.is_empty() || r.starts_with('_') || r.starts_with('-') || r.chars().all(|c| c.is_ascii_alphanumeric()) && r.chars().next().is_some_and(|c| c.is_ascii_digit() || c.is_ascii_uppercase()))
+    rest.is_some_and(|r| r.is_empty() || r.starts_with('_') || r.starts_with('-') || r.starts_with('.') || r.chars().all(|c| c.is_ascii_alphanumeric()) && r.chars().next().is_some_and(|c| c.is_ascii_digit() || c.is_ascii_uppercase()))
 }
 
 /// Unit step of a direction as f32.
 pub fn dir_step(d: Dir) -> [f32; 3] {
     let s = d.step();
     [s[0] as f32, s[1] as f32, s[2] as f32]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
+
+    #[test]
+    fn entity_clocks_run_their_entities() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-boat-ring-3x3.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let start = s.entities(0.0);
+        assert_eq!(start.len(), 1, "the boat");
+        assert_eq!(start[0].kind, "minecraft:oak_boat");
+        for _ in 0..60 {
+            s.step();
+        }
+        let later = s.entities(0.0);
+        let moved = (0..3).map(|k| (later[0].pos[k] - start[0].pos[k]).abs()).sum::<f32>();
+        assert!(moved > 0.5, "the boat moves with the current: {:?} -> {:?}", start[0].pos, later[0].pos);
+    }
+
+    #[test]
+    fn auto_output_is_the_clock_judges() {
+        let s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        let (w0, p) = s.picture_period(20_000).unwrap();
+        assert_eq!((w0, p), (0, 12));
+        let cells = s.period_cells(w0, p);
+        assert_eq!(Session::auto_output(&cells), Some([2, 0, 0]));
+    }
+
+    #[test]
+    fn the_kick_block_shows_at_tick_0() {
+        // `port start: 0 0 0 last`: the observer placed last is there from the first frame
+        let s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        assert_eq!(s.tick, 0);
+        assert!(s.render_blocks(0.0).iter().any(|b| b.cell == [0, 0, 0] && b.state.contains("observer")));
+    }
+
+    #[test]
+    fn recorded_output_states_light_the_marker() {
+        assert!(active_state("minecraft:redstone_lamp[lit=true]"));
+        assert!(!active_state("minecraft:redstone_wire[power=0,east=side]"));
+        assert!(active_state("minecraft:redstone_wire[power=3]"));
+        assert!(!active_state("minecraft:air"));
+        assert!(active_state("minecraft:hopper[enabled=false,facing=down]"));
+    }
 }

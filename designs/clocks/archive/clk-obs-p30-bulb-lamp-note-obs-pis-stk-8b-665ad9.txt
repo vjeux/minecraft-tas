@@ -1,0 +1,30 @@
+# archived 2026-10-20T00:39Z from designs/clocks/tracks/clk-obs/families9/p30-bulb-lamp-note-obs-pis-stk-8b-665ad9.txt by mctas clock archive
+# CLOCK: clk-obs-p30-bulb-lamp-note-obs-pis-stk-8b-665ad9 period 30 gt (1.5 s), on 8/30, edges 4, warmup 0, family copper_bulb+note_block+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
+name: clk-obs-p30-bulb-lamp-note-obs-pis-stk-8b-665ad9
+# clk-obs grow: P=30 (redsim), family note_block+observer+piston+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
+origin: 0 0 -1
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:note_block[instrument=harp,note=0,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:redstone_lamp[lit=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:piston[extended=false,facing=down]
+layer -1:
+  A
+  B
+  .
+  .
+layer 0:
+  B
+  C
+  D
+  .
+layer 1:
+  .
+  E
+  F
+  G
