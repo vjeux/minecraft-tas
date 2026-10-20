@@ -362,14 +362,47 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // cards and pages lead with the properties (vjeux 12:09Z), kinds are base kinds (12:15Z)
+    let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
+    check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
+    let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
+    let reaches: Vec<u32> = pext_page.split("<div class=\"title\">N = ").skip(1).filter_map(|s| s.split(' ').next()?.parse().ok()).collect();
+    check(
+        "study cards: the property line leads, sorted by the main number",
+        reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && pext_page.contains("<div class=\"kind\">Piston extender</div>") && pext_page.contains("<div class=\"name\">"),
+        format!("pext reaches in order: {reaches:?}"),
+    );
+    let mut named: Vec<String> = Vec::new();
+    for b in site.builds.iter().filter(|b| b.kind == "circuit").take(30) {
+        let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        if html.contains(&format!("<h1>{}</h1>", b.name)) || !html.contains("<p class=\"design-name\">") {
+            named.push(b.name.clone());
+        }
+    }
+    check("design pages: the property line is the title, the name below", named.is_empty(), if named.is_empty() { "30 pages".into() } else { named.join(", ") });
     // the machines' studies: a variations table with the best design per variation
-    for folder in ["shulker", "tnt", "bud"] {
+    for folder in ["shulker", "tnt", "bud", "pulsemult"] {
         if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
             let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
             let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
             let best = table.matches("<a href=").count();
             check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
         }
+    }
+    // study 11: the rows earlier studies answer point at their pages; every kind explains itself
+    if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
+        let page = std::fs::read_to_string(dir.join("circuits/pulsemult/index.html")).unwrap_or_default();
+        let linked: Vec<&str> = ["circuits/pulse/index.html", "circuits/tff/index.html", "circuits/memory/index.html"].into_iter().filter(|p| page.contains(p)).collect();
+        check("study 11: linked rows point at studies 1, 2 and 5", linked.len() == 3, format!("{linked:?}"));
+        let mut bare: Vec<String> = Vec::new();
+        for b in site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
+            let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+            let what = html.split("<section class=\"what\">").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+            if what.matches("<b>").count() == 0 || what.contains("<p></p>") {
+                bare.push(b.name.clone());
+            }
+        }
+        check("study 11: every design page says what it does with its numbers", bare.is_empty(), if bare.is_empty() { "all".into() } else { bare.join(", ") });
     }
     // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
     // different sizes, not others of size 1"): every card there has another value
@@ -395,6 +428,25 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let calib = site.builds.iter().filter(|b| b.page.starts_with("circuits/calibration/") || b.page.starts_with("circuits/selftest/")).count();
     let calib_dir = dir.join("circuits/calibration").exists() || dir.join("circuits/selftest").exists() || dir.join("designs/circuits/calibration").exists();
     check("no calibration or selftest circuit published", calib == 0 && !calib_dir, format!("{calib} builds, folders: {calib_dir}"));
+    // nothing crates/site/hidden.tsv keeps off the site (vjeux on the slime-free extender sweeps)
+    let hidden: Vec<String> = site
+        .builds
+        .iter()
+        .filter_map(|b| {
+            let c = b.circuit.as_ref()?;
+            crate::circuits::hidden(&c.study, &format!("{}.txt", b.name)).map(|_| b.name.clone())
+        })
+        .collect();
+    let studies: std::collections::BTreeSet<String> = crate::circuits::hidden_rules().into_iter().map(|(s, _, _)| s).collect();
+    let hidden_pages = studies
+        .iter()
+        .map(|s| {
+            std::fs::read_dir(dir.join("circuits").join(s))
+                .map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().strip_suffix(".html").is_some_and(|stem| crate::circuits::hidden(s, &format!("{stem}.txt")).is_some())).count())
+                .unwrap_or(0)
+        })
+        .sum::<usize>();
+    check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
     let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();

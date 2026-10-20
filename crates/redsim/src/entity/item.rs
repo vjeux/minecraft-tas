@@ -31,15 +31,21 @@ pub struct ItemState {
     pub age: i32,
     /// A shulker box item's contents (`redstone::container::Stack::payload`; clk-rt): 0 = none.
     pub payload: u16,
+    /// `health` (5; explosions take it, clk-misc): gone at 0.
+    pub health: i32,
 }
 
 impl std::fmt::Debug for ItemState {
-    /// As derived, without a zero payload (so states without one print as before it existed).
+    /// As derived, without a zero payload or a full health (so states without them print as
+    /// before they existed).
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut d = f.debug_struct("ItemState");
         d.field("item", &self.item).field("count", &self.count).field("pickup_delay", &self.pickup_delay).field("age", &self.age);
         if self.payload != 0 {
             d.field("payload", &self.payload);
+        }
+        if self.health != 5 {
+            d.field("health", &self.health);
         }
         d.finish()
     }
@@ -48,7 +54,7 @@ impl std::fmt::Debug for ItemState {
 impl ItemState {
     /// From the summon NBT: `Item:{id:"..",count:N}`, `PickupDelay:Ns`, `Age:Ns`.
     pub fn from_nbt(nbt: Option<&str>) -> ItemState {
-        let mut s = ItemState { item: String::new(), count: 1, pickup_delay: 0, age: 0, payload: 0 };
+        let mut s = ItemState { item: String::new(), count: 1, pickup_delay: 0, age: 0, payload: 0, health: 5 };
         let Some(n) = nbt else { return s };
         if let Some(i) = n.find("id:\"") {
             s.item = n[i + 4..].split('"').next().unwrap_or("").to_string();

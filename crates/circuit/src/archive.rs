@@ -1,8 +1,9 @@
 //! The archive and the catalog of the contraption studies. `mctas circuit archive` judges a design
 //! in the real game and keeps it in `designs/circuits/<study>/archive/` (the design with its judge
 //! line, a row of `verdicts.tsv`, a caption in `captions.tsv`); `mctas circuit catalog` writes, per
-//! study, `CATALOG.md` (by the study's axis, smallest first; a design that only adds block kinds to
-//! a smaller one with the same axis value is a variant, listed on `variants.md`), the index
+//! study, `CATALOG.md` (by the study's axis, smallest first; a design with no fewer blocks than
+//! another with the same axis value and no better on any variation, whatever its block kinds, is a
+//! variant, listed on `variants.md`), the index
 //! `designs/circuits/CATALOG.md`, and the data the website renders: `designs/circuits/catalog.tsv`.
 
 use crate::check::Outcome;
@@ -145,13 +146,19 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
-/// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
+/// Whether design `b` keeps its own card over `a` (same kind and axis value): `b` does better than
+/// `a` on a variation a builder would choose on (coordinator 2026-10-20). The dominance fold folds
+/// a design under any other with no more blocks that it does not beat this way, whatever its
+/// block palette (vjeux 2026-10-20: palette alone is never a distinction), and a design that is
+/// not robust under a robust one ([`clock::catalog::fold_hosts_robust`]).
 /// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
 /// (lag, fewer). BUD switches: a denser `tileable` pitch (or tileable where the host is not),
-/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. Other kinds
-/// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
-/// carry adds that metric here.
+/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. TNT dupers:
+/// precise, launched, dropped, stationary. Every other kind ([`beats_generic`]): a lower latency /
+/// delay / min-pulse / min-period / re-arm / extend / retract..., a higher speed, a denser
+/// `tileable` pitch (or tileable at all), a different value of a metric with no better direction
+/// (an edge, a class, an output shape, a pulse length), no glitches where `a` has some, flat where
+/// `a` is not. Never a distinction: the materials (slime-free...), a lower box that is not flat.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
     let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
@@ -170,20 +177,14 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
     // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
-    // under its own explosions) keeps its own card over a smaller one that is not
+    // under its own explosions) keeps its own card over a smaller one that is not (slime-free is a
+    // material restriction, no distinction: coordinator 2026-10-20)
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
         let has = |r: &Row, k: &str| r.summary.contains(k);
-        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
-    }
-    // study 11: a burst that repeats faster or takes shorter inputs, a divider that follows a
-    // faster clock, a timer with a shorter latency or re-arm keeps its own card
-    let pm = ["burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train"];
-    if pm.iter().any(|k| b.kind.starts_with(k)) && pm.iter().any(|k| a.kind.starts_with(k)) {
-        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
-        return less("repeat ") || less("min-pulse ") || less("min-period ") || less("latency ") || less("re-arm ");
+        return ["(precise", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
-        return false;
+        return beats_generic(b, a);
     }
     if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
         if fb > fa * 1.01 {
@@ -195,6 +196,78 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         return true;
     }
     matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// What two designs of one kind and value must share to be equivalent layouts: their metrics and
+/// flat or not (their block kinds may differ: palette alone is no distinction).
+pub fn variation_signature(r: &Row) -> String {
+    let flat = r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()).is_some_and(|h| h <= 2);
+    format!("{}|flat {flat}", r.metrics)
+}
+
+/// Whether a design passed in every build (else it folds under a robust one of its value).
+pub fn is_robust(r: &Row) -> bool {
+    r.robustness == "robust"
+}
+
+/// Metrics where less is better (a speed, a reach of input lengths or clocks, a footprint).
+const LOWER_BETTER: [&str; 12] = ["latency", "delay", "min-pulse", "min-gap", "min-period", "re-arm", "repeat", "extend", "retract", "setup", "hold", "stop"];
+/// Metrics where more is better.
+const HIGHER_BETTER: [&str; 1] = ["speed"];
+/// Metrics present only when something goes wrong.
+const WORSE_IF_PRESENT: [&str; 3] = ["glitches", "jams", "fragile"];
+
+/// [`beats_on_variation`] for the kinds without their own rule: every metric of `b` against `a`'s.
+pub fn beats_generic(b: &Row, a: &Row) -> bool {
+    let parse = |r: &Row| -> BTreeMap<String, String> {
+        r.metrics
+            .split(", ")
+            .filter_map(|m| {
+                let m = m.trim();
+                let (k, v) = m.split_once(' ').unwrap_or((m, ""));
+                (!k.is_empty()).then(|| (k.to_string(), v.trim().to_string()))
+            })
+            .collect()
+    };
+    let (mb, ma) = (parse(b), parse(a));
+    let first = |v: &str| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok());
+    for (k, vb) in &mb {
+        if WORSE_IF_PRESENT.contains(&k.as_str()) {
+            continue;
+        }
+        let Some(va) = ma.get(k) else { return true };
+        if vb == va {
+            continue;
+        }
+        // `tileable every N (dx dy dz)`: a denser pitch is better
+        if k == "tileable" {
+            let pitch = |v: &str| v.split_whitespace().nth(1).and_then(|x| x.parse::<i32>().ok());
+            match (pitch(vb), pitch(va)) {
+                (Some(x), Some(y)) if x >= y => continue,
+                _ => return true,
+            }
+        }
+        match (first(vb), first(va)) {
+            (Some(x), Some(y)) if LOWER_BETTER.contains(&k.as_str()) => {
+                if x < y {
+                    return true;
+                }
+            }
+            (Some(x), Some(y)) if HIGHER_BETTER.contains(&k.as_str()) => {
+                if x > y {
+                    return true;
+                }
+            }
+            // a class, an edge, an output shape, a pulse length or a range: another behaviour
+            _ => return true,
+        }
+    }
+    if WORSE_IF_PRESENT.iter().any(|k| ma.contains_key(*k) && !mb.contains_key(*k)) {
+        return true;
+    }
+    let height = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok());
+    let flat = |r: &Row| height(r).is_some_and(|h| h <= 2);
+    flat(b) && !flat(a)
 }
 
 /// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
@@ -308,11 +381,16 @@ pub fn tunable_key(c: &Circuit) -> String {
     for t in &c.targets {
         d.blocks.insert(t.pos, "circuit:target".to_string());
     }
-    // a TNT duper judged with explosions on (SURVIVABLE) is not a setting of the same mechanism
-    if c.explodes() {
-        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    // a TNT duper judged with explosions off (`explode: off`, analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
     }
     clock::canon::design_type_key(&d)
+}
+
+/// A TNT duper with explosions turned off (`explode: off`: analysis only).
+fn no_explode(c: &Circuit) -> bool {
+    matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered)) && !c.explodes()
 }
 
 /// A block state with one property set to a value (`delay=3` -> `delay=1`).
@@ -354,9 +432,9 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
-    // a TNT duper judged with explosions on (the SURVIVABLE variation) is its own type
-    if c.explodes() {
-        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    // a TNT duper judged with explosions off (analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
     }
     // a BUD's target cells (where the judge acts) are part of its structure
     for t in &c.targets {
@@ -386,7 +464,6 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
-        Kind::TntDuper if out.why.contains("survives its own") => format!("{} survivable", m("rate")),
         Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
         Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
         Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
@@ -415,11 +492,14 @@ pub struct Archived {
 pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Circuit::load(path)?;
     let kind = c.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", path.display()))?;
+    if no_explode(&c) {
+        bail!("not archived: {} has `explode: off` (analysis only): a TNT duper is archived only when it survives its own explosions", path.display());
+    }
     let dir = archive_dir(root, kind.study());
     let text = std::fs::read_to_string(path)?;
     // the same blocks and ports under another kind (a claim) are another entry; so is a TNT duper
     // judged with explosions on (the SURVIVABLE variation)
-    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if c.explodes() { "-explode" } else { "" });
+    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if no_explode(&c) { "-noexplode" } else { "" });
     let rows = read_rows(&dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
@@ -1030,31 +1110,33 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         }
         group_cards.sort_by_key(|(n, k, m)| (axis_key(&m[0].axis), k.clone(), n.clone()));
         let in_group = |r: &Row| group_of.contains_key(&r.file);
-        // the dominance fold within one kind and axis value: a design with more blocks that only
-        // adds block kinds to a smaller one is its variant
+        // the dominance fold within one kind and axis value (vjeux 2026-10-20: palette alone is
+        // never a distinction): a design folds under one with fewer blocks (or as many and better
+        // on a variation) that it does not beat on any variation metric or property
+        // ([`beats_on_variation`]), whatever their block kinds
         let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r) && !in_group(r)) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         let mut host: BTreeMap<String, String> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-            for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
-                // a design better than its host on a variation metric (shulker: flow, badges,
-                // lag) is its own card, never a variant
-                if let Some(h) = h.filter(|h| !beats_on_variation(g[i], g[*h])) {
+            let items: Vec<(usize, i64, String)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+            let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
+            for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(g[i], g[j])).into_iter().enumerate() {
+                if let Some(h) = h {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
         }
-        // EQUIVALENT LAYOUTS: the same kind, value, block count and block kinds: one shown, the
-        // others listed as "also N other layouts" (catalog.tsv variant_of)
+        // EQUIVALENT LAYOUTS: the same kind, value, block count and variation signature (metrics,
+        // flat, slime-free), whatever the block kinds: one shown, the others listed as "also N
+        // other layouts" (catalog.tsv variant_of)
         let mut layout: BTreeMap<String, String> = BTreeMap::new();
         let mut layouts_of: BTreeMap<String, Vec<String>> = BTreeMap::new();
         {
             let mut eq: BTreeMap<(String, String, usize, String), Vec<&Row>> = BTreeMap::new();
             for r in rows.iter().filter(|r| !in_family(r) && !in_group(r) && !host.contains_key(&r.file)) {
-                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, r.kinds.clone())).or_default().push(r);
+                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, variation_signature(r))).or_default().push(r);
             }
             for v in eq.values_mut() {
                 if v.len() < 2 {
@@ -1082,7 +1164,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             by_axis.entry(axis_key(&r.axis)).or_default().push(r);
         }
         let mut md = format!(
-            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (more blocks that only add block kinds to a smaller design with the same value: [variants](variants.md)), {} other layouts (same kind, value, size and block kinds as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
+            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (no fewer blocks and no better on a variation a builder would choose on than a design with the same value, whatever their block kinds, or not robust where it is: [variants](variants.md)), {} other layouts (same kind, value, size, metrics and flatness as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
             rows.len(),
             shown.len(),
             host.len(),
@@ -1163,8 +1245,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             }
             let mut folded = 0usize;
             for v in g.values() {
-                let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-                folded += clock::catalog::fold_hosts(&items).into_iter().enumerate().filter(|(i, h)| h.is_some_and(|h| !beats_on_variation(v[*i], v[h]))).count();
+                let items: Vec<(usize, i64, String)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+                let robust: Vec<bool> = v.iter().map(|r| is_robust(r)).collect();
+                folded += clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };
@@ -1186,4 +1269,34 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     std::fs::write(root.join("catalog.tsv"), tsv)?;
     std::fs::write(root.join("families.tsv"), ftsv)?;
     Ok(lines)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(file: &str, metrics: &str, blocks: usize, dims: &str, kinds: &str) -> Row {
+        Row::parse(&format!("2026-10-20T00:00Z\t{file}\tpiston-extender 5\tN = 5\t{metrics}\t{blocks}\t{dims}\t0\t-\trobust\t{kinds}\t-\t-\t-")).unwrap()
+    }
+
+    /// vjeux 2026-10-20: pext-n5-sf-sweep136 (136 blocks, 230/228 gt) is no better than
+    /// pext-n5-sf105 (105 blocks, 149/147 gt) on anything: it folds although it has no plain piston
+    /// (palette alone is never a distinction); a faster larger design, a flat one, or one with
+    /// another class keeps its card.
+    #[test]
+    fn variation_not_palette() {
+        let small = row("sf105.txt", "N 5, extend 149 gt, retract 147 gt", 105, "9x5x4", "observer+piston+sticky_piston+stone");
+        let sweep = row("sweep136.txt", "N 5, extend 230 gt, retract 228 gt", 136, "9x5x6", "observer+sticky_piston+stone");
+        assert!(!beats_on_variation(&sweep, &small));
+        assert!(beats_on_variation(&small, &sweep));
+        let faster = row("fast.txt", "N 5, extend 140 gt, retract 150 gt", 140, "9x5x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&faster, &small));
+        let flat = row("flat.txt", "N 5, extend 149 gt, retract 147 gt", 120, "9x2x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&flat, &small));
+        let classed = row("class.txt", "N 5, extend 149 gt, retract 147 gt, edge falling", 120, "9x5x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&classed, &small));
+        let items: Vec<(usize, i64, String)> = [&small, &sweep, &faster].iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+        let rows = [&small, &sweep, &faster];
+        assert_eq!(clock::catalog::fold_hosts_by(&items, |i, j| beats_on_variation(rows[i], rows[j])), vec![None, Some(0), None]);
+    }
 }

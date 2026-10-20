@@ -174,7 +174,12 @@ video.video { width: 100%; max-height: 560px; background: #000; border-radius: v
 .fb-small { font-size: 12px; opacity: .8; word-break: break-all; }
 .fb-note { font-size: 12px; opacity: .6; }
 .meta { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 3px; }
-.meta .title { font-weight: 650; font-size: 14px; word-break: break-word; }
+.meta .kind { color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+.meta .title { font-weight: 700; font-size: 15px; word-break: break-word; }
+.meta .name { color: var(--muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .8; word-break: break-all; margin-top: 2px; }
+p.kindline { margin: 0 0 2px; color: var(--muted); font-size: 13px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+p.design-name { margin: 2px 0 8px; color: var(--muted); font-size: 13px; }
+p.design-name code { font-size: 12.5px; }
 .meta .title .n { color: var(--accent); font-weight: 700; }
 .meta .sub { color: var(--muted); font-size: 12.5px; }
 .badges { display: flex; gap: 4px; flex-wrap: wrap; }

@@ -1,5 +1,6 @@
 name: tnt-honey-15b
 circuit: tnt-duper
+explode: off
 origin: 1 0 -3
 palette:
   D minecraft:dead_tube_coral_wall_fan[facing=south,waterlogged=false]

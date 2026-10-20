@@ -214,7 +214,8 @@ kick) before the first input.
   the box is the design's own.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
-  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
+  (8 periods of up to 110 gt fit in its second half)
   the frames must repeat with a period P through the run's second half for at least 8 periods,
   every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
@@ -224,12 +225,31 @@ kick) before the first input.
   real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
-  With the header `explode: on` (the SURVIVABLE variation) the game run lets every primed TNT
-  explode instead of removing it, and the same check (periodic frames, every TNT block standing
-  again, no item entity at the end) must still pass with at least one explosion; the line ends
-  with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
-  explosions); the archive keeps it apart from the same blocks judged without explosions. The
-  catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  **Explosions are on by default** (vjeux 2026-10-20: "You didn't model tnt explosion. This will
+  blow up the machine"): the game run lets every primed TNT explode, and a TNT 16+ blocks from the
+  design's box (`run::OUT_OF_RANGE`: beyond the reach of its blast, blocks up to about 7, entities
+  up to 8) is removed and counted as out of range (the sandbox is loaded 18 blocks around for
+  them). The duper must survive: a self-running one's block frames repeat with its period from
+  before its first explosion through the end of the run (`blown up: its first explosion (frame F)
+  changes it` otherwise); a triggered one waits 100 gt after its last pulse and must be back in
+  its rest state; a switchable one's running windows end with the same frames as its first
+  period, its stopped windows the same; at least one TNT exploded or left out of range; no item
+  entity at the end (a destroyed block drops one). The line then carries `(survives its own
+  explosions: N exploded, M out of range, design intact)`. On redsim (clk-misc's exact explosion
+  port, `clock::sim::drive_tnt`) the same run has every primed TNT kicked by one `d`, every ray at
+  its largest roll (`Rolls::Max`: surviving it is surviving every roll), TNT removed out of range
+  the same way. **All randoms** (vjeux 2026-10-20: "pass every possible random number"):
+  `circuit verify` then runs `circuit::robust::tnt_robust`: the kick's `nextDouble()` swept over
+  [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
+  piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
+  claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
+  (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
+  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
+  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
+  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
+  check). `explode: off` is for analysis only (the measuring calibrations): the archive
+  refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
+  survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
   spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
   horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same

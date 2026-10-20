@@ -1,5 +1,6 @@
 name: tnt-duper-triggered-13b
 circuit: tnt-duper-triggered
+explode: off
 port input: 0 0 2
 origin: 0 0 0
 palette:

@@ -37,6 +37,12 @@
   (core (0,-2)), d67 q7 (0,-2), c70b t1-r22 7x7 ((-1,4): its lever at (0,5) QC-powers SD (-1,4)/(1,4)), pext's
   one-trains (w1k2 (1,-2); m69T-mm02 x8: top-left / bottom-left / top-middle), w86 6x8 s1 ((3,3) solid; with
   sculk in (-1,4) + the bottom-left trio: (0,4) close).
+- Later (01:00-04:15Z): c70b u0-7x7 (core (1,-2)), u2-7x7 ((-2,0); (0,-2) load fixed to 2 ticks), pext u2-train-isl
+  (islands OK with the lever top-left; pockets k=4 2 of 12 real; (-1,-2) fires 9x), d67 u0-s0 with sculk in the
+  bottom-right (everything else ideal: core SU(2,-2)), clockinfra macrosat m86-a 8x6 (core (3,-1); retracted by
+  clockinfra, which now encodes the lever-level / static-conductor / per-region-budget rules). clk-misc's exact
+  lever screen: `door ideal-rs <plan> --vary 'x,y,z=lever[...]'` + `open 0 use` / `close 0 use`.
+- Waiting for: c70b's island-start-0 mechmut variants, macrosat's next exports, pext's budgeted trains.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
