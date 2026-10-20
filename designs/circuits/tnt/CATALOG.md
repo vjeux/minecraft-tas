@@ -6,7 +6,7 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tnt-triggered-launch-19b](archive/tnt-triggered-launch-19b.txt) | tnt-duper-triggered | per pulse 1, latency 5 gt, gap 100 gt | 19 | 6x4x4 | robust | TRIGGERED and SURVIVABLE: the lever engine (the 12b held still by power on its sticky piston) with the launcher of tnt-launch-15b, held by a redstone torch that the input pulse turns off through a dust and a stone: each pulse releases the piston for one push, one TNT flung away at 1 block/gt that goes off out of range |
+| [tnt-triggered-launch-15b](archive/tnt-triggered-launch-15b.txt) | tnt-duper-triggered | per pulse 1, latency 4 gt, gap 100 gt | 15 | 3x3x4 | robust | TRIGGERED and SURVIVABLE (record): the lever engine with the launcher of tnt-launch-15b and an ACTIVE-LOW input: at rest a redstone block in the input cell holds the sticky piston out; the 4 gt pulse removes it and the engine pushes once: one TNT flung away at 1 block/gt per pulse, going off out of range. No inverter needed (the torch version was 19 blocks) |
 
 ## 13.2 TNT/min precise
 
@@ -14,17 +14,17 @@
 |---|---|---|---|---|---|---|
 | [tnt-precise-slow-43b](archive/tnt-precise-slow-43b.txt) | tnt-duper | rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt | 43 | 8x5x7 | robust | PRECISE and SURVIVABLE: the precise water-channel aligner (a slime flings every TNT north at exactly 1 block/gt into a wall, the water current pins it at one point) on a SLOW engine: a 7-block crafter-loop clock (period 91 gt) holds the sticky piston out and releases it for 6 gt (the hold extended by a 4 gt repeater loop) so the 12b engine pushes once per period; one TNT alive at a time (91 gt > its 80 gt fuse), so no blast knocks the next one, and each goes off in the water (no block damage): every TNT at one point at fuse 1, bit for bit |
 
+## 200 TNT/min
+
+| design | kind | metrics | blocks | box | robustness | how it works |
+|---|---|---|---|---|---|---|
+| [tnt-launch-14b](archive/tnt-launch-14b.txt) | tnt-duper | rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt | 14 | 3x3x4 | robust | SMALLEST SURVIVABLE (record, found by the explosion-screened search): the 12b core with its stone turned to slime and two static stones, one above the fan and one above the dust; the stones pin every TNT at x 2.49 whatever its kick, so it never drifts over the frame: it falls straight down past the frame's north edge (for some kicks it is flung north) and goes off out of range. 0 exploded for every kick angle; also 6 other layouts (stone/slime/obsidian in those three cells) in tracks/tnt/layouts |
+
 ## 200 TNT/min dropped
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
 | [tnt-drop-16b](archive/tnt-drop-16b.txt) | tnt-duper | rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt | 16 | 3x3x6 | robust | DROPPED straight down: the launching duper plus one stone as a north wall: every TNT is flung north, stops against the wall (its north-south position and motion exact) and falls straight down (horizontal motion under 0.01 blocks/gt at fuse 1), 72+ blocks by fuse 1 |
-
-## 200 TNT/min launched
-
-| design | kind | metrics | blocks | box | robustness | how it works |
-|---|---|---|---|---|---|---|
-| [tnt-launch-15b](archive/tnt-launch-15b.txt) | tnt-duper | rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt | 15 | 3x3x4 | robust | LAUNCHED: the 12b duper with its stone swapped for a slime chain that carries a slime over the TNT cell during the push: every fresh TNT is flung north at exactly vz = -1.0 and vy = 0.1568 blocks/gt (only the cross axis keeps the random 0.02 kick); the judge measures the launch motion of every TNT |
 
 ## 200 TNT/min switchable
 

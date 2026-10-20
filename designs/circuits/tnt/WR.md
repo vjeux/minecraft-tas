@@ -22,12 +22,12 @@ the fan and the redstone block to the piston face. The 40M-iteration local searc
 
 | variation | current | target (why) | status |
 |---|---|---|---|
-| smallest survivable, self-running | 15 (tnt-launch-15b) | 12-14: the core is 12; survival needs every TNT to leave the frame's reach for every kick. A core whose TNT spawn has no frame block within 1 cell at y <= 0 drops clear (the kick drifts a TNT about 0.18 block before it falls below the frame top, but it starts level with it), so 12-13 may survive without a launcher | search (redsim, explosions, all kicks) |
+| smallest survivable, self-running | **14 (tnt-launch-14b)** | 12-14: the core is 12. RECORD 14: the search seeded with the 11-block core (+1..4 blocks of slime, stone, obsidian in a 5x5x7 box, 3M samples, every duper screened with its explosions at 16 kicks) finds none with 12 or 13 blocks and 7 layouts with 14, all robust over every kick and in the game: two static stones above the fan and the dust pin each TNT's x so it falls clear | RECORD (12-13: none in the searched box) |
 | fastest | 200 TNT/min (period 6) | 300 (period 4): a sticky piston's push takes 2 gt and its pull 2 gt; 6 gt is the 12b's self-clock (extend 2 + the dust/obsidian power path + retract 2 + reset). A faster external clock (observers, 4 gt) on the same core could reach 4 gt if the priming still happens | search |
 | tileable | 4 copies, pitch 4 (explosions off) | pitch 3 (the core is 3 wide) with explosions on: a launched TNT flies over the neighbours, so copies can touch side by side | build + judge |
 | PRECISE + survivable | 43 (tnt-precise-slow-43b) | about 30: the aligner (wall stone, water source, channel floor and walls) on the core plus the smallest slow driver that gives one push per 81+ gt. The 7-block crafter loop releases 10 gt (2 pushes); a clock whose release is 6 gt by itself saves the 6-block hold extension | shrink (precise-shrink + the all-kicks rule) |
-| TRIGGERED + survivable | 19 (tnt-triggered-launch-19b) | 15: the lever engine + launcher is 15, and an active-low input (the input's off state a redstone block holding the piston, on = air releasing it) needs no torch inverter | build |
-| lever + survivable | 15 (tnt-lever-launch-15b) | 13-15: same as the smallest | search with the smallest |
+| TRIGGERED + survivable | **15 (tnt-triggered-launch-15b)** | 15: the lever engine + launcher with an ACTIVE-LOW input (at rest a redstone block in the input cell holds the piston; the pulse removes it): no torch inverter (the torch version was 19). The 14-block record's engine cannot be held: stopped with its frame out, the last TNT lands on the frame | RECORD |
+| lever + survivable | 15 (tnt-lever-launch-15b) | 15: the 14b engine blows up when held (its last TNT lands on the pushed-out frame), so the launcher stays | RECORD for now |
 | slime-free + survivable | none | a honey frame cannot fling; the TNT must drop clear (no honey within 1 cell below its spawn) or explode in water | search |
 
 Below-bar designs (bigger with nothing better on any variation) leave the archive when a record
