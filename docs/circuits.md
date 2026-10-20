@@ -223,12 +223,20 @@ kick) before the first input.
   real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
-  With the header `explode: on` (the SURVIVABLE variation) the game run lets every primed TNT
-  explode instead of removing it, and the same check (periodic frames, every TNT block standing
-  again, no item entity at the end) must still pass with at least one explosion; the line ends
-  with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
-  explosions); the archive keeps it apart from the same blocks judged without explosions. The
-  catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  **Explosions are on by default** (vjeux 2026-10-20: "You didn't model tnt explosion. This will
+  blow up the machine"): the game run lets every primed TNT explode, and a TNT 16+ blocks from the
+  design's box (`run::OUT_OF_RANGE`: beyond the reach of its blast, blocks up to about 7, entities
+  up to 8) is removed and counted as out of range (the sandbox is loaded 18 blocks around for
+  them). The duper must survive: a self-running one's block frames repeat with its period from
+  before its first explosion through the end of the run (`blown up: its first explosion (frame F)
+  changes it` otherwise); a triggered one waits 100 gt after its last pulse and must be back in
+  its rest state; a switchable one's running windows end with the same frames as its first
+  period, its stopped windows the same; at least one TNT exploded or left out of range; no item
+  entity at the end (a destroyed block drops one). The line then carries `(survives its own
+  explosions: N exploded, M out of range, design intact)`; redsim reports UNMODELED (no
+  explosions yet). `explode: off` is for analysis only (the measuring calibrations): the archive
+  refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
+  survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
   spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
   horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same

@@ -9,6 +9,10 @@ use anyhow::{Result, anyhow};
 use mctas::sim::{Region, SandboxOptions, Worker};
 use std::collections::HashMap;
 
+/// A burning TNT this far (blocks) from the design's box can no longer reach it when it explodes
+/// (blocks up to about 7 away, entities up to 8): the game runner removes it as out of range.
+pub const OUT_OF_RANGE: f64 = 16.0;
+
 /// The watched box: the circuit's box plus `margin`, swept along `travel` by `distance` + margin
 /// (a flying machine) or by its reach + 1 (a piston extender).
 pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
@@ -71,7 +75,10 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
 /// when the run itself breaks a rule (an entity, a block reaching the edge of the watched box).
 pub fn game_trace(w: &mut Worker, c: &Circuit, s: &Schedule, margin: i32) -> Result<std::result::Result<Trace, String>> {
     let (from, to) = watch_box(c, margin);
-    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+    // TNT dupers with explosions: load far enough around for every burning TNT to keep ticking
+    // until it explodes or is out of range (OUT_OF_RANGE)
+    let pad = if c.explodes() { OUT_OF_RANGE as i32 + 2 } else { 0 };
+    let chunks = [(from[0] - pad).div_euclid(16), (from[2] - pad).div_euclid(16), (to[0] + pad).div_euclid(16), (to[2] + pad).div_euclid(16)];
     let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
     let r = game_in(w, sb, c, s, from, to, margin);
     let _ = w.drop_sandbox(sb);
@@ -117,6 +124,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let explode = tnt && c.explodes();
     let mut burning: HashMap<String, i32> = HashMap::new();
     let mut exploded = 0u32;
+    let mut out_of_range = 0u32;
+    let design_box: ([i32; 3], [i32; 3]) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+    let mut explosions: Vec<u32> = Vec::new();
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -164,6 +174,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     // earlier left the loaded world or was removed otherwise
                     if *last_fuse <= 1 {
                         exploded += 1;
+                        explosions.push(next as u32);
                     } else if vanished_early.is_none() {
                         vanished_early = Some((u.clone(), *last_fuse));
                     }
@@ -198,6 +209,20 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
                 };
                 if explode {
+                    // out of range: 16+ blocks from the design's box, beyond any reach of its
+                    // explosion (blocks up to about 7, entities up to 8): harmless to the machine;
+                    // removed and counted (it would otherwise fly out of the loaded sandbox)
+                    let (lo, hi) = design_box;
+                    let dist = (0..3).map(|i| (lo[i] as f64 - e.pos[i]).max(e.pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, |a, b| a.max(b));
+                    if dist > OUT_OF_RANGE {
+                        out_of_range += 1;
+                        if let Some(&k) = tnt_index.get(&e.uuid) {
+                            primed[k].gone = Some((e.pos, e.motion));
+                        }
+                        burning.remove(&e.uuid);
+                        w.exec(sb, &format!("kill {}", e.uuid))?;
+                        continue;
+                    }
                     burning.insert(e.uuid.clone(), fuse);
                 }
                 // the burning TNT is a real entity in the game only (redsim records primes): an
@@ -261,5 +286,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     t.ended = ended.map(|k| format!("reached the corridor end at frame {k}"));
     t.primed = primed;
     t.exploded = exploded;
+    t.out_of_range = out_of_range;
+    t.explosions = explosions;
     Ok(Ok(t))
 }
