@@ -1,0 +1,23 @@
+# archived 2026-10-20T00:20Z from designs/circuits/delay/tracks/delay/families/delay-cmp.txt by mctas circuit archive
+# CIRCUIT: delay-cmp-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1, robust
+# Comparator line N = 2 gt (track delay, family delay-cmp: N = 2 + 2n gt, n = 0): 1 compare-mode
+# comparator(s) in a row on stones, 2 gt each; keeps pulses down to 2-3 gt
+name: delay-cmp-n0
+circuit: delay
+extend axis: 2 + 2n
+extend base: 0
+extend blocks: 2 + 2n
+extend family: delay-cmp
+extend generator: mctas circuit delay family cmp --n {n} --out {out}
+extend n: 0..10
+extend rule: add one compare-mode comparator (on its stone) at the end
+port input: 0 1 0
+port output: 1 1 0
+origin: 1 0 0
+palette:
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  C
