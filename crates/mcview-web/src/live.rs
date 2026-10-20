@@ -97,6 +97,7 @@ fn button(content: &str, title: &str) -> HtmlButtonElement {
             ("border-radius", "12px"),
             ("font", "600 18px/1 system-ui, sans-serif"),
             ("cursor", "pointer"),
+            ("pointer-events", "auto"),
             ("touch-action", "manipulation"),
             ("-webkit-tap-highlight-color", "transparent"),
             ("user-select", "none"),
@@ -156,6 +157,9 @@ pub fn start(app: &mut App, id: u32) {
             ("padding", "8px"),
             ("height", "60px"),
             ("overflow", "hidden"),
+            // only the buttons take the pointer: a tap on the scene behind the bar (a lever near
+            // the bottom of the view) reaches the canvas
+            ("pointer-events", "none"),
             ("background", "linear-gradient(transparent, rgba(0,0,0,0.55))"),
             ("color", "#fff"),
             ("font", "13px system-ui, sans-serif"),
@@ -366,6 +370,8 @@ pub fn load(app: &mut App, id: u32) {
                 let (lo, hi) = mcview::scene::frame_bounds(&p.session, &p.look);
                 p.camera.fit(lo, hi, aspect, 0.85);
                 p.home = p.camera;
+            } else {
+                p.show_inputs(&app.atlas, aspect);
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
@@ -442,6 +448,26 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     format!("{:.1},{:.1},{:.1},{:.1}", b.x(), b.y(), b.width(), b.height())
                 };
                 log(&format!("layout view {id} tick {} el {} bar {} label {} status {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status)));
+                // for `mctas web click`: where a click uses each input (fractions of the canvas),
+                // and what the sim shows
+                let cr = v.canvas.get_bounding_client_rect();
+                let aspect = (cr.width() / cr.height().max(1.0)) as f32;
+                let inputs: Vec<String> = p
+                    .session
+                    .inputs
+                    .clone()
+                    .iter()
+                    .map(|c| {
+                        let on = p.session.is_on(*c) as u8;
+                        match p.screen_point(&atlas, *c, aspect) {
+                            Some((x, y)) => format!("{:.4},{:.4},{on}", (x + 1.0) / 2.0, (1.0 - y) / 2.0),
+                            None => format!("-,-,{on}"),
+                        }
+                    })
+                    .collect();
+                let door = p.session.door_blocks().map(|n| n.to_string()).unwrap_or_else(|| "-".into());
+                let active = p.session.design.blocks.keys().filter(|c| !p.session.inputs.contains(c) && p.session.is_on(**c)).count();
+                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
         }
         p.playing
@@ -482,9 +508,18 @@ impl Live {
     }
 
     fn flip(&mut self) {
-        if let Some(p) = self.player.as_mut() {
-            p.flip();
+        if let Some(p) = self.player.as_mut()
+            && p.flip()
+        {
             self.redraw = true;
+            self.play_after_input();
+        }
+    }
+
+    /// After using a lever or button: run the simulation so it reacts (a door opens).
+    fn play_after_input(&mut self) {
+        if self.player.as_ref().is_some_and(|p| !p.playing) {
+            self.toggle_play();
         }
     }
 
@@ -601,6 +636,7 @@ impl Live {
             && p.click(atlas, x, y, aspect).is_some()
         {
             self.redraw = true;
+            self.play_after_input();
         }
     }
 }

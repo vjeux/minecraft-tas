@@ -44,7 +44,7 @@ impl Camera {
     }
 
     /// Camera basis: forward, right, up.
-    fn basis(&self) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    pub fn basis(&self) -> ([f32; 3], [f32; 3], [f32; 3]) {
         let d = self.dir();
         let f = [-d[0], -d[1], -d[2]];
         let right = norm(cross(f, [0.0, 1.0, 0.0]));

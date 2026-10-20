@@ -7,7 +7,7 @@
 //! browser shows what the judges measured; `mctas web check` compares the two natively and on the
 //! shipped wasm.
 
-use crate::design::{Design, Pos};
+use crate::design::{Design, Pos, parse_travel};
 use redsim::piston::MovingBe;
 use redsim::world::flags;
 use redsim::{Block, BlockPos, Dir, World};
@@ -78,6 +78,50 @@ pub struct Session {
     initial: Option<(World, Vec<(u32, Action)>, u32)>,
     /// A real-game recording played instead of simulating ([`Session::attach_trace`]).
     pub replay: Option<crate::replay::Replay>,
+    /// The box a travelling design runs in (a flying machine: `circuit fly sim`'s corridor).
+    pub corridor: Option<(Pos, Pos)>,
+    /// A flying machine: the tick its judge stops at (it reaches the corridor's end, comes to
+    /// rest or breaks); the viewer loops there.
+    pub end_tick: Option<u32>,
+}
+
+/// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
+/// blocks, kick cell and `stop:` blocks swept `distance:` cells (32 by default) along the travel,
+/// plus 3 free cells; a piston extender sweeps its N (`circuit: piston-extender N`) + 1.
+pub fn corridor_of(d: &Design, mode: &Mode) -> Option<(Pos, Pos)> {
+    let ((lo, hi), margin) = travel_box(d, mode)?;
+    Some(([lo[0] - margin, lo[1] - margin, lo[2] - margin], [hi[0] + margin, hi[1] + margin, hi[2] + margin]))
+}
+
+/// A travelling design's swept box (where it can be, without the free cells) and the corridor's
+/// free margin.
+pub fn travel_box(d: &Design, mode: &Mode) -> Option<((Pos, Pos), i32)> {
+    let v = parse_travel(d.meta.get("travel")?)?;
+    let kind = d.meta.get("circuit").map(|s| s.as_str()).unwrap_or("flying-machine");
+    let (mut lo, mut hi) = d.bounds()?;
+    if let Mode::Clock { kick: Some((k, _)), .. } = mode {
+        let p = match k {
+            Kick::Last { pos } | Kick::Use { pos, .. } | Kick::Place { pos, .. } => *pos,
+        };
+        grow(&mut lo, &mut hi, p);
+    }
+    for (p, _) in &d.stops {
+        grow(&mut lo, &mut hi, *p);
+    }
+    let (k, margin) = if kind.starts_with("flying-machine") {
+        (d.meta.get("distance").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(32), 3)
+    } else {
+        let n = kind.split_whitespace().nth(1).and_then(|w| w.parse::<i32>().ok()).unwrap_or(1);
+        (d.meta.get("distance").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(n + 1), 4)
+    };
+    for i in 0..3 {
+        if v[i] > 0 {
+            hi[i] += k;
+        } else if v[i] < 0 {
+            lo[i] -= k;
+        }
+    }
+    Some(((lo, hi), margin))
 }
 
 pub fn bp(p: Pos) -> BlockPos {
@@ -239,8 +283,15 @@ impl Session {
             }
         }
         let m = o.margin;
-        let min = BlockPos::new(lo[0] - m, lo[1] - m, lo[2] - m);
-        let size = [hi[0] - lo[0] + 1 + 2 * m, hi[1] - lo[1] + 1 + 2 * m, hi[2] - lo[2] + 1 + 2 * m];
+        let mut min = BlockPos::new(lo[0] - m, lo[1] - m, lo[2] - m);
+        let mut size = [hi[0] - lo[0] + 1 + 2 * m, hi[1] - lo[1] + 1 + 2 * m, hi[2] - lo[2] + 1 + 2 * m];
+        // a design that travels (a flying machine, a piston extender's payload): the world is the
+        // judge's corridor, never the design's box (blocks leaving it would be cut off)
+        let corridor = corridor_of(&design, &mode);
+        if let Some((clo, chi)) = corridor {
+            min = BlockPos::new(clo[0], clo[1], clo[2]);
+            size = [chi[0] - clo[0] + 1, chi[1] - clo[1] + 1, chi[2] - clo[2] + 1];
+        }
         let mut world = World::new(min, size);
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
@@ -277,6 +328,8 @@ impl Session {
             outputs,
             initial: None,
             replay: None,
+            corridor,
+            end_tick: None,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks.
@@ -297,6 +350,9 @@ impl Session {
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
+        if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
+            s.end_tick = Some(s.fly_end());
+        }
         Ok(s)
     }
 
@@ -328,6 +384,16 @@ impl Session {
                     Some((Kick::Last { pos }, _)) => Some(*pos),
                     _ => None,
                 };
+                // `stop:` blocks first, placed and updated on their own (the environment stands
+                // before the build: `circuit fly sim`'s order)
+                let mut stops: Vec<(BlockPos, Block)> = Vec::new();
+                for (p, s) in &self.design.stops {
+                    stops.push((bp(*p), convert(s)?.0));
+                }
+                if !stops.is_empty() {
+                    w.place_raw(&stops);
+                    w.place_updates(&stops);
+                }
                 let silent: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| Some(p.arr()) != last).copied().collect();
                 if player_placement {
                     for (p, b) in &silent {
@@ -480,6 +546,21 @@ impl Session {
         ok
     }
 
+    /// Is a component "on" now (a lever's or button's `powered`, a lamp's `lit`...)?
+    pub fn is_on(&self, p: Pos) -> bool {
+        if let Some(r) = &self.replay {
+            return r.state_at(p).is_some_and(active_state);
+        }
+        self.simulated() && active(&self.world.get(bp(p)))
+    }
+
+    /// A door's opening: how many of its 9 cells hold a block (0 = open, 9 = closed); None for
+    /// other designs.
+    pub fn door_blocks(&self) -> Option<usize> {
+        let Mode::Door { door, along_z, .. } = self.mode else { return None };
+        Some(door_cells(door, along_z).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
+    }
+
     /// Nothing pending (no scheduled ticks, events, moving blocks, pending inputs).
     pub fn idle(&self) -> bool {
         self.actions.is_empty() && self.world.idle()
@@ -533,6 +614,58 @@ impl Session {
             }
         }
         (lo, hi)
+    }
+
+    /// [`Session::frame_box`] plus a travelling design's whole path, up to where its judge stops
+    /// it (the corridor's edge): the floor goes under it.
+    pub fn path_box(&self) -> (Pos, Pos) {
+        let (mut lo, mut hi) = self.frame_box();
+        if self.corridor.is_some()
+            && let Some(((a, b), margin)) = travel_box(&self.design, &self.mode)
+        {
+            grow(&mut lo, &mut hi, a);
+            grow(&mut lo, &mut hi, b);
+            if let Some(v) = self.design.meta.get("travel").and_then(|t| parse_travel(t)) {
+                for i in 0..3 {
+                    if v[i] > 0 {
+                        hi[i] += margin;
+                    } else if v[i] < 0 {
+                        lo[i] -= margin;
+                    }
+                }
+            }
+        }
+        (lo, hi)
+    }
+
+    /// A flying machine's end, the way `circuit fly sim` ends a run: the first tick a block stands
+    /// on the corridor's edge, or something is destroyed, or nothing is pending (at rest), or the
+    /// horizon (200 + 60 gt per corridor cell).
+    pub fn fly_end(&self) -> u32 {
+        let Some((lo, hi)) = self.corridor else { return 0 };
+        let k = self.design.meta.get("distance").and_then(|s| s.trim().parse::<u32>().ok()).unwrap_or(32).max(1);
+        let horizon = 200 + 60 * k;
+        let mut s = self.fresh();
+        let edge = |p: BlockPos| p.x <= lo[0] || p.y <= lo[1] || p.z <= lo[2] || p.x >= hi[0] || p.y >= hi[1] || p.z >= hi[2];
+        loop {
+            let t = s.tick;
+            if !s.world.drops.is_empty() || !s.world.errors.is_empty() || s.world.blocks().iter().any(|(p, _)| edge(*p)) || (s.actions.is_empty() && s.world.idle()) || t >= horizon {
+                return t;
+            }
+            s.step();
+        }
+    }
+
+    /// A digest of every frame (the non-air cells, sorted) of ticks 0..=`ticks` from placement:
+    /// `mctas web check` compares it with `circuit fly sim`'s frames and with the shipped wasm's.
+    pub fn frames_digest(&self, ticks: u32) -> u64 {
+        let mut s = self.fresh();
+        let mut h: u64 = 0xcbf29ce484222325;
+        for _ in 0..=ticks {
+            h = frame_hash(h, &s.world.blocks());
+            s.step();
+        }
+        h
     }
 
     /// Run `n` ticks (stops early at an error).
@@ -745,6 +878,8 @@ impl Session {
             outputs: Vec::new(),
             initial: None,
             replay: None,
+            corridor: self.corridor,
+            end_tick: None,
         };
         s.apply_due();
         s
@@ -834,6 +969,10 @@ impl Session {
     /// possible), like `mctas clock shot` picks it. Leaves the session at that tick and records the
     /// clock judge's output when the design declares none.
     pub fn go_to_still(&mut self, horizon: u32) -> u32 {
+        // a travelling design (flying machine, extender) is pictured as built: no period to find
+        if self.corridor.is_some() {
+            return self.tick;
+        }
         let Some((w0, p)) = self.picture_period(horizon) else { return self.tick };
         let cells = self.period_cells(w0, p);
         if self.outputs.is_empty()
@@ -860,7 +999,7 @@ impl Session {
 
     /// Find the clock judge's output (no `port output`) without moving the session.
     pub fn find_auto_output(&mut self, horizon: u32) {
-        if !self.outputs.is_empty() {
+        if !self.outputs.is_empty() || self.corridor.is_some() {
             return;
         }
         if let Some((w0, p)) = self.picture_period(horizon)
@@ -869,6 +1008,24 @@ impl Session {
             self.outputs.push(o);
         }
     }
+}
+
+/// Fold one frame (non-air cells, any order) into an FNV-1a digest: the cells sorted by position,
+/// each as `x,y,z=state;`, then `|`.
+pub fn frame_hash(mut h: u64, cells: &[(BlockPos, Block)]) -> u64 {
+    let mut v: Vec<(BlockPos, String)> = cells.iter().map(|(p, b)| (*p, b.to_string())).collect();
+    v.sort_by_key(|(p, _)| (p.x, p.y, p.z));
+    let mut eat = |bytes: &[u8]| {
+        for b in bytes {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+    };
+    for (p, s) in &v {
+        eat(format!("{},{},{}={s};", p.x, p.y, p.z).as_bytes());
+    }
+    eat(b"|");
+    h
 }
 
 /// [`active`] for a block state string (a recording's cells).

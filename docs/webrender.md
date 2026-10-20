@@ -41,7 +41,10 @@ each build's page.
   in the clock judge's order.
 * Full viewer (touch first): one finger or the mouse drags to orbit, two fingers pinch to zoom and
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
-  resets the view, a tap on a lever or button uses it; the camera stays above the ground. Bar of
+  resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
+  simulation starts, so the build responds); the camera stays above the ground and starts on the
+  side every lever and button can be seen from (a door's lever is often behind the build from the
+  pictures' side). Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors); badges at the top: what runs
   (redsim, a recording, or shown as built) on the left, the tick counter in gt and seconds on the
@@ -61,6 +64,13 @@ each build's page.
 * `mcview::replay` plays a real-game recording (JSON Lines from `mctas clock misc trace-export`:
   changed cells and every entity per tick), once through the warmup, then one period looped, with
   entities interpolated between ticks.
+* A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
+  corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
+  cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
+  first; the floor goes under the whole path; the camera follows a flying machine; it loops where
+  `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
+  every archived flying machine against `circuit fly sim`: same end tick and same frames, native
+  and wasm.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
   sculk, hoppers, doors, trapdoors, rails, ...) and 16x16 textures drawn procedurally (no game asset
@@ -85,6 +95,7 @@ each build's page.
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
