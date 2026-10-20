@@ -1073,7 +1073,7 @@ impl Atlas {
         };
         let ent_rects: Vec<(String, [u32; 4])> = parse(ent.3)?
             .into_iter()
-            .filter(|(k, r)| (k.starts_with("entity/boat/") || k.starts_with("entity/chest_boat/") || k == "entity/minecart/minecart" || k == "entity/armorstand/armorstand") && r[0] + r[2] <= ent.1 && r[1] + r[3] <= ent.2)
+            .filter(|(k, r)| (k.starts_with("entity/boat/") || k.starts_with("entity/chest_boat/") || k == "entity/minecart/minecart" || k == "entity/armorstand/armorstand" || k == "entity/chest/normal" || k.starts_with("entity/shulker/shulker")) && r[0] + r[2] <= ent.1 && r[1] + r[3] <= ent.2)
             .collect();
         // items: the whole atlas at (0, bh); entities shelf-packed at x >= its width
         let (iw, ih) = (items.1, items.2);

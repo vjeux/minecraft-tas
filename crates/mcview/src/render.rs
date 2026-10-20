@@ -77,7 +77,9 @@ fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
             discard;
         }
     }
-    return vec4<f32>(fogged(t.rgb * i.color.rgb, i.world), 1.0);
+    // a white flash (a primed TNT) rides in the vertex alpha of solid faces: 1 = none
+    let lit = mix(t.rgb * i.color.rgb, vec3<f32>(1.0, 1.0, 1.0), 1.0 - i.color.a);
+    return vec4<f32>(fogged(lit, i.world), 1.0);
 }
 
 @fragment

@@ -75,8 +75,32 @@ each build's page.
   menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
   `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
-  (the left badge shows `demo · <phase>`), looped until the person's first input (any button,
-  tap, play/pause/step/reset); then the inputs are theirs.
+  (the left badge shows `demo · <phase>`, as wide as its widest phase from the start so it never
+  resizes), looped until the person's first input (any button, tap, play/pause/step/reset); then
+  the inputs are theirs.
+* `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
+  `data-stimulus`: after placement): the judge's actions at cells besides the inputs
+  (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed
+  in the auto-demo (with `data-autoplay`, with or without inputs): `place` (setBlock with
+  updates, flags 3, like a player), `clear` (removed with updates), `shape` (changed with shape
+  updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
+  replays the BUD switches' events through this parser frame by frame against `circuit sim`.
+  Cyan tags name a BUD switch's TARGET cells.
+* TNT dupers run live (redsim primes TNT); the primed TNT is drawn like the game's
+  `TntRenderer` (swelling over the last 10 ticks of its fuse, flashing 75% white every 5) and
+  moved by the viewer (`mcview::tnt`, redsim records only when and where TNT primes): the game's
+  `PrimedTnt.tick` (gravity, the game's collision, air drag, ground friction, slime bounce) and
+  `PistonMovingBlockEntity.moveCollidedEntities` (moving blocks push it, a moving slime block
+  launches it at one block per tick); its sideways direction (random in the game) comes from a
+  hash of the cell and time; it vanishes at fuse 0 without exploding (the judge removes it).
+* Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) are shown as built
+  (redsim models no shulker boxes and chests: their judge runs in the game): the judge's chest on
+  each `items`, `boxes` and `output` port (tags ITEMS, BOXES, OUT), a still shulker box in the
+  box cell (in front of the dispenser), no inputs. Chests and shulker boxes are drawn with the
+  game's `ChestModel` / `ShulkerModel` and entity textures. A design shown as built never offers
+  inputs or input outlines.
+* A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
+  pictures' framing, which may cut a tall build).
 * Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
   above each one, item icons with counts, live every tick; a bar button (grid icon) hides them.
 

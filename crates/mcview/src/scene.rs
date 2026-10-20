@@ -71,12 +71,17 @@ pub fn marker_cell(s: &Session, out: Pos) -> Option<Pos> {
 /// The default look of a session: the marker next to its first output, outlines on its inputs
 /// (a door's lever), grass under its lowest block.
 pub fn default_look(s: &Session) -> Look {
-    // a circuit output holding the judge's lamp shows itself (lit when on): no marker there
-    let marker = s.outputs.first().filter(|o| !s.consumers.contains(o)).and_then(|o| marker_cell(s, *o));
+    // a circuit output holding the judge's lamp shows itself (lit when on), and a shulker
+    // design's output holds the judge's chest: no marker there
+    let shulker = crate::circuit::is_shulker(&s.design);
+    let marker = s.outputs.first().filter(|o| !s.consumers.contains(o) && !shulker).and_then(|o| marker_cell(s, *o));
     let mut outlines: Vec<Pos> = Vec::new();
-    for p in &s.inputs {
-        if !outlines.contains(p) {
-            outlines.push(*p);
+    // a design shown as built has nothing to press: no outlines (a recording plays by itself)
+    if s.simulated() {
+        for p in &s.inputs {
+            if !outlines.contains(p) {
+                outlines.push(*p);
+            }
         }
     }
     let (lo, _) = s.path_box();
@@ -160,8 +165,16 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 /// centre crop (64%): a build may run off the picture's edges like in the real-game pictures.
 pub fn camera_from(s: &Session, look: &Look, aspect: f32, dir: [f32; 3]) -> Camera {
     let (lo, hi) = frame_bounds(s, look);
+    let crop = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
+    if s.design.meta.contains_key("circuit") {
+        // a circuit: the whole build in view (no real-game picture to match; a tall BUD switch
+        // would run off the cropped frame)
+        let mut cam = Camera::frame(lo, hi, dir, crop, aspect, 0.85);
+        cam.vfov = crop;
+        return cam;
+    }
     let mut cam = Camera::frame(lo, hi, dir, VFOV, aspect, 0.85);
-    cam.vfov = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
+    cam.vfov = crop;
     cam
 }
 

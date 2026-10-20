@@ -83,8 +83,8 @@ fn shapes_collide(a: usize, moving: Aabb, shapes: &[Vec<Aabb>], mut distance: f6
     distance
 }
 
-/// `Entity.collideWithShapes`.
-fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
+/// `Entity.collideWithShapes` (public for entities the viewer moves itself: primed TNT).
+pub fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
     if shapes.is_empty() {
         return movement;
     }
