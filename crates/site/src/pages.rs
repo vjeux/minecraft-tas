@@ -774,16 +774,14 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         if fams.contains(&format!("families/{}.html", cd.id)) {
             continue;
         }
-        let words: Vec<String> = cd
-            .families
-            .iter()
-            .map(|f| {
-                let (lo, hi) = (f.period.eval(f.n_lo), f.period.eval(f.n_hi));
-                let step = if f.n_hi > f.n_lo { f.period.eval(f.n_lo + 1) - lo } else { 0 };
-                if step > 1 { format!("{lo} to {hi}, in steps of {step}") } else { format!("{lo} to {hi}") }
-            })
-            .collect();
-        fams.push_str(&format!("<li><a href=\"{prefix}families/{}.html\">{}</a>: {}</li>", esc(&cd.id), esc(&first_upper(&site_model::html::props(o).title)), esc(&words.join("; "))));
+        // one line per family card: every size it builds, its block range, what it is made of
+        // (the base's own title read "Reach 2 · 15 blocks" next to sizes 2 to 16)
+        let lo = cd.families.iter().map(|f| f.period.eval(f.n_lo)).min().unwrap_or(0);
+        let hi = cd.families.iter().map(|f| f.period.eval(f.n_hi)).max().unwrap_or(0);
+        let lo_b = cd.families.iter().map(|f| f.blocks.eval(f.n_lo)).min().unwrap_or(0);
+        let hi_b = cd.families.iter().map(|f| f.blocks.eval(f.n_hi)).max().unwrap_or(0);
+        let made = o.circuit.as_ref().map(|oc| oc.family.clone()).filter(|f| !f.is_empty()).map(|f| format!(", made of {}", site_model::html::human_blocks(&f))).unwrap_or_default();
+        fams.push_str(&format!("<li><a href=\"{prefix}families/{}.html\">every size from {lo} to {hi}</a> ({lo_b} to {hi_b} blocks{})</li>", esc(&cd.id), esc(&made)));
     }
     let (head, what) = if fly { ("Every direction and load", "direction or load") } else { ("Every size", "size") };
     let fam_part = if fams.is_empty() { String::new() } else { format!("<p>More sizes, built step by step from these designs (every size ready to download):</p><ul class=\"fams\">{fams}</ul>") };
