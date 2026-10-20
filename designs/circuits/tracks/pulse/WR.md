@@ -102,7 +102,7 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | pulse-extender | L 4..8 | 2 blocks (bound) | one repeater (min-pulse 2, tiles every 1 reading the repeater) | **record**; L 2 has nothing to extend since R7 |
 | pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 2 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
-| pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge | target |
+| pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge. The base census (`pulse census --base`, 12 M designs each): the piston + observer rising core (observer facing any side) with up to 4 more dusts or stones gives no extender | target |
 
 Folded at the R7 re-judge (in `designs/circuits/pulse/tracks/rejudged/`, the reason in each file's
 first line): the 1-block observer dual-edge and observer+repeater L4/6/8 (the observer watched the
@@ -111,6 +111,12 @@ pushed the input's redstone block), every odd-length family (psub, odd2: the pis
 the input; fall-odd and dual-odd now give even lengths and were removed), dual-three-observers-L4-2
 and fall-note-qc-L1 (see above). Dual-lock L18/L34 and dual-edge-reset came back with a copper
 bulb in the input cell.
+
+Folded as dominated since (removed from the archive): the repeater-loop one-shots at the hopper
+one-shots' lengths (rising edge and falling edge L 8, 16, 24, 32, 40, extender L 16, 24, 32, 40:
+17 to 25 blocks against 13 with the same delay and min-pulse; the loop one-shots stay for the
+other lengths), pulse-limiter-u-L4/6/8 (the instant limiters), pulse-dual-observers-qc-L2-1 (a
+moved output).
 
 The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
 (a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and
@@ -126,7 +132,7 @@ tileable, fastest).
   62-state palette (24.8 M sims), k = 4 with 38 states (obs, pistons, note block, lamp, bulb,
   stone, slime, redstone block, trapdoor, torch, dust: 1.45 G sims). New at k = 2: the 2-block
   falling edge; k = 3: the 4-block delay-2 falling edge (3 + the input block); no odd length at
-  any k. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
+  k <= 3, and at k = 4 only the 1-tick falling edge. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
   observer fires into the input block, harmless when a repeater feeds that block, as the judge's
   does; robust with its output on the far side of the redstone block). The others (a falling edge
   L 4 at delay 0, a rising edge and a limiter L 2 at min-pulse 2) passed through a judge hole: a
