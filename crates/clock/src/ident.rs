@@ -41,7 +41,7 @@ fn id(s: &str) -> &str {
 
 /// A state with the sticky-piston swap applied (sticky_piston -> piston, a sticky head or moving
 /// block -> normal).
-fn unstick(s: &str) -> String {
+pub fn unstick(s: &str) -> String {
     if id(s) == "minecraft:sticky_piston" {
         return s.replacen("minecraft:sticky_piston", "minecraft:piston", 1);
     }
@@ -52,7 +52,7 @@ fn unstick(s: &str) -> String {
 }
 
 /// A state with the solid swap applied (any inert full solid -> stone).
-fn unsolid(s: &str) -> String {
+pub fn unsolid(s: &str) -> String {
     if SOLIDS.contains(&id(s)) { "minecraft:stone".to_string() } else { s.to_string() }
 }
 

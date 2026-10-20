@@ -140,13 +140,67 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// The structure's type key: the design up to translation, the 4 rotations and the mirror image
-/// (`clock::canon::design_type_key`), with its input cells marked (whatever drives them: a lever
-/// and a redstone-block input are the same circuit) and its output and payload cells marked.
+/// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
+/// stone: `clock::ident`) whose run on redsim under the kind's stimulus is identical modulo the swap
+/// (every cell's full state at every frame); the circuit itself when redsim does not model it.
+pub fn normalized(c: &Circuit) -> Circuit {
+    let Some(kind) = c.kind.clone() else {
+        return c.clone();
+    };
+    let gap = verify::sizing(c, 3).unwrap_or(crate::check::Sizing::default().gap);
+    let s = crate::check::stimulus(c, &kind, &crate::check::Sizing { gap });
+    let Ok(mut base) = crate::run::sim_trace(c, &s, 3) else {
+        return c.clone();
+    };
+    let mut cur = c.clone();
+    let swaps: [&dyn Fn(&str) -> String; 2] = [&clock::ident::unstick, &clock::ident::unsolid];
+    for f in swaps {
+        let mut d = cur.clock.design.clone();
+        let mut changed = false;
+        for st in d.blocks.values_mut() {
+            let n = f(st);
+            if n != *st {
+                *st = n;
+                changed = true;
+            }
+        }
+        let Some(c2) = changed.then(|| Circuit::from_design(d).ok()).flatten() else {
+            continue;
+        };
+        let Ok(t2) = crate::run::sim_trace(&c2, &s, 3) else {
+            continue;
+        };
+        let same = base.frames() == t2.frames()
+            && base.cells.iter().zip(&t2.cells).all(|(a, b)| a.len() == b.len() && a.iter().zip(b).all(|((p, x), (q, y))| p == q && f(&base.names[*x as usize]) == f(&t2.names[*y as usize])));
+        if same {
+            cur = c2;
+            base = t2;
+        }
+    }
+    cur
+}
+
+/// The structure's type key: the [`normalized`] design up to translation, the 4 rotations and the
+/// mirror image (`clock::canon::design_type_key`), with its input cells marked (whatever drives
+/// them: a lever and a redstone-block input are the same circuit) and its output and payload cells
+/// marked.
 pub fn type_key(c: &Circuit) -> String {
+    let n = normalized(c);
+    let c = &n;
     let mut d = c.clock.design.clone();
     for i in &c.inputs {
-        d.blocks.insert(i.pos, "circuit:input".into());
+        // the input DEVICE is part of the type (a lever, a stone or a wooden button, a judge-placed
+        // block: different timings, coordinator 2026-10-19); its facing is not
+        let id = |s: &str| -> String {
+            let s = s.split('[').next().unwrap_or(s);
+            s.strip_prefix("minecraft:").unwrap_or(s).to_string()
+        };
+        let dev = match &i.how {
+            crate::InputHow::Block { on, .. } => id(on),
+            crate::InputHow::Lever => "lever".to_string(),
+            crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+        };
+        d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
     }
     for (tag, probes) in [("circuit:output", &c.outputs), ("circuit:payload", &c.payloads)] {
@@ -234,7 +288,7 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
         dims: format!("{w}x{h}x{d}"),
         volume: (w * h * d) as i64,
         family: base.family.clone(),
-        robustness: rep.verdict.clone(),
+        robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
         kinds: c.kinds().into_iter().collect::<Vec<_>>().join("+"),
         type_key: tk,
         hash,
@@ -261,6 +315,88 @@ fn axis_key(a: &str) -> (i64, String) {
     (digits.parse().unwrap_or(i64::MAX), a.to_string())
 }
 
+pub const ALIASES: &str = "aliases.tsv";
+
+/// The aliases of an archive: kept file -> the names of its removed twins (with what they were
+/// built with).
+fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
+    let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for l in std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_default().lines().skip(1) {
+        let f: Vec<&str> = l.split('\t').collect();
+        if f.len() >= 3 {
+            m.entry(f[0].to_string()).or_default().push(f[2].to_string());
+        }
+    }
+    m
+}
+
+/// `mctas circuit archive --dedupe`: in every study, keep ONE archived design per (kind, type) (the
+/// earliest archived), remove the others (design, verdict row, caption) and record them in
+/// `aliases.tsv` (kept file, removed file, its name and what it was built with), which the catalog
+/// lists as "also found as". The type keys are recomputed from the files (the swaps included).
+pub fn dedupe(root: &Path) -> Result<Vec<String>> {
+    let mut lines = Vec::new();
+    for (study, _) in STUDIES {
+        let dir = archive_dir(root, study);
+        let mut rows = read_rows(&dir)?;
+        if rows.is_empty() {
+            continue;
+        }
+        rows.sort_by(|a, b| (&a.archived, &a.file).cmp(&(&b.archived, &b.file)));
+        let mut kept: BTreeMap<(String, String), String> = BTreeMap::new();
+        let mut gone: Vec<(String, String, String)> = Vec::new();
+        for r in &rows {
+            let c = Circuit::load(&dir.join(&r.file));
+            let tk = c.as_ref().map(type_key).unwrap_or_else(|_| r.type_key.clone());
+            match kept.get(&(r.kind.clone(), tk.clone())) {
+                Some(k) if *k != r.file => {
+                    let with = match (Circuit::load(&dir.join(k)), &c) {
+                        (Ok(a), Ok(b)) => {
+                            let (ka, kb) = (a.kinds(), b.kinds());
+                            let extra: Vec<&String> = kb.difference(&ka).collect();
+                            let missing: Vec<&String> = ka.difference(&kb).collect();
+                            let mut parts = Vec::new();
+                            if !extra.is_empty() {
+                                parts.push(format!("with {}", extra.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")));
+                            }
+                            if !missing.is_empty() {
+                                parts.push(format!("without {}", missing.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")));
+                            }
+                            if parts.is_empty() { String::new() } else { format!(" (built {})", parts.join(", ")) }
+                        }
+                        _ => String::new(),
+                    };
+                    gone.push((k.clone(), r.file.clone(), format!("{}{with}", r.file.trim_end_matches(".txt"))));
+                }
+                Some(_) => {}
+                None => {
+                    kept.insert((r.kind.clone(), tk), r.file.clone());
+                }
+            }
+        }
+        if gone.is_empty() {
+            continue;
+        }
+        let removed: BTreeSet<String> = gone.iter().map(|g| g.1.clone()).collect();
+        rows.retain(|r| !removed.contains(&r.file));
+        write_rows(&dir, &rows)?;
+        let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| !l.split('\t').next().is_some_and(|f| removed.contains(f))).map(|l| format!("{l}\n")).collect();
+        std::fs::write(dir.join(CAPTIONS), caps)?;
+        let ap = dir.join(ALIASES);
+        let mut al = if ap.exists() { std::fs::read_to_string(&ap)? } else { "kept\tremoved\tname\n".to_string() };
+        for (k, f, name) in &gone {
+            al.push_str(&format!("{k}\t{f}\t{name}\n"));
+            let _ = std::fs::remove_file(dir.join(f));
+            lines.push(format!("REMOVED {study}/{f} ({name}): same type as {k} (kept, archived first)"));
+        }
+        std::fs::write(&ap, al)?;
+    }
+    if lines.is_empty() {
+        lines.push("no duplicate types".into());
+    }
+    Ok(lines)
+}
+
 /// `mctas circuit catalog`: every study's CATALOG.md and variants.md, the index and catalog.tsv,
 /// from the archives' rows (no game). Returns one line per study.
 pub fn catalog(root: &Path) -> Result<Vec<String>> {
@@ -273,6 +409,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         let caps = read_captions(&dir);
+        let aliases = read_aliases(&dir);
         // the dominance fold within one kind and axis value: a design with more blocks that only
         // adds block kinds to a smaller one is its variant
         let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
@@ -310,8 +447,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
             md.push_str(&format!("\n## {ax}\n\n| design | kind | metrics | blocks | box | robustness | how it works |\n|---|---|---|---|---|---|---|\n"));
             for r in rs.iter() {
+                let also = aliases.get(&r.file).map(|v| format!(" (also found as {})", v.join(", "))).unwrap_or_default();
                 md.push_str(&format!(
-                    "| [{}](archive/{}) | {} | {} | {} | {} | {} | {} |\n",
+                    "| [{}](archive/{}){also} | {} | {} | {} | {} | {} | {} |\n",
                     r.file.trim_end_matches(".txt"),
                     r.file,
                     r.kind,

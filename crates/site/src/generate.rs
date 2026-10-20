@@ -58,6 +58,29 @@ pub fn copy_files(from: &Path, to: &Path, ext: Option<&str>) -> Result<usize> {
     Ok(n)
 }
 
+/// Copy `<git ref>:web/viewer/*` into `to` (git ls-tree + git show, bytes as committed).
+pub fn viewer_from_ref(repo: &Path, r: &str, to: &Path) -> Result<usize> {
+    let git = |args: &[&str]| -> Result<Vec<u8>> {
+        let o = std::process::Command::new("git").arg("-C").arg(repo).args(args).output()?;
+        if !o.status.success() {
+            bail!("git {}: {}", args.join(" "), String::from_utf8_lossy(&o.stderr).trim());
+        }
+        Ok(o.stdout)
+    };
+    let list = String::from_utf8(git(&["ls-tree", "-r", "--name-only", r, "web/viewer/"])?)?;
+    std::fs::create_dir_all(to)?;
+    let mut n = 0;
+    for path in list.lines().filter(|l| !l.is_empty()) {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        std::fs::write(to.join(name), git(&["show", &format!("{r}:{path}")])?)?;
+        n += 1;
+    }
+    if !to.join("mcview.js").exists() {
+        bail!("{r}: no web/viewer/mcview.js");
+    }
+    Ok(n)
+}
+
 pub fn build(a: &BuildArgs) -> Result<()> {
     let repo = PathBuf::from(".");
     if !repo.join(doors::ARCHIVE).is_dir() || !repo.join(clocks::ARCHIVE).is_dir() {
@@ -124,9 +147,13 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     }
     write(&out.join("data/site.json"), &serde_json::to_string(&slim)?)?;
     drop(slim);
-    // the viewer and the UI
-    let viewer = match &a.viewer {
-        Some(dir) => {
+    // the viewer (webrender's bundle: --viewer, --viewer-ref, else the checkout's web/viewer/)
+    // and the UI
+    let checkout_viewer = repo.join("web/viewer");
+    let viewer_dir = a.viewer.clone().or_else(|| (a.viewer_ref.is_none() && !a.no_viewer && checkout_viewer.join("mcview.js").is_file()).then(|| checkout_viewer.clone()));
+    let viewer = match (&viewer_dir, &a.viewer_ref) {
+        _ if a.no_viewer => false,
+        (Some(dir), _) => {
             let n = copy_files(dir, &out.join("viewer"), None)?;
             if !out.join("viewer/mcview.js").exists() {
                 bail!("{}: no mcview.js in the viewer bundle", dir.display());
@@ -134,7 +161,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             eprintln!("viewer: {n} files from {}", dir.display());
             true
         }
-        None => false,
+        (None, Some(r)) => {
+            let n = viewer_from_ref(&repo, r, &out.join("viewer"))?;
+            eprintln!("viewer: {n} files from {r}:web/viewer");
+            true
+        }
+        (None, None) => false,
     };
     let app = if a.no_wasm {
         false
@@ -158,6 +190,7 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     write(&out.join(".nojekyll"), "")?;
     write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
     write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
+    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
     for b in &site.builds {

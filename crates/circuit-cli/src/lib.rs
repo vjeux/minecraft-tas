@@ -60,7 +60,9 @@ pub enum CircuitCmd {
     },
     /// Judge designs in the real game and keep the passing ones in their study's archive
     /// (designs/circuits/<study>/archive/: the design with its judge line, a verdict row, a
-    /// caption); a structure already archived as the same kind is refused.
+    /// caption); a structure already archived as the same kind is refused. `--dedupe` (no
+    /// designs, no game): keep one design per kind and type in every study, the others listed in
+    /// aliases.tsv.
     Archive {
         designs: Vec<PathBuf>,
         /// The caption (default: the design's first comment block).
@@ -72,6 +74,8 @@ pub enum CircuitCmd {
         positions: usize,
         #[arg(long, default_value_t = 8)]
         workers: usize,
+        #[arg(long)]
+        dedupe: bool,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
@@ -190,13 +194,24 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
                     }
                 }
+                if !rep.note.is_empty() {
+                    println!("  {}", rep.note);
+                }
                 println!("{}", rep.summary(&c));
             }
             if failed > 0 {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe } => {
+            if dedupe {
+                for l in circuit::archive::dedupe(&root)? {
+                    println!("{l}");
+                }
+                if designs.is_empty() {
+                    return Ok(());
+                }
+            }
             let o = Options { positions, workers, version: version.to_string(), ..Default::default() };
             let pool = circuit::verify::spawn_pool(&o)?;
             for p in &designs {

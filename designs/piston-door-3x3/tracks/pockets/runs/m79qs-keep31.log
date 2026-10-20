@@ -1,0 +1,4 @@
+fill designs/piston-door-3x3/tracks/pockets/svc/satwire-m79q-sat-topright.txt: 31 region cells (31 free, 0 fixed), base 47 blocks (design 47), k 0..=3, global palette 42 states, gaps allowed, KEEP mode (k = changed cells)
+4991 subsets pass the connectivity rule; 344718829 fillings to screen in 191079 work items
+[   600s] 136796356 screened (227947/s), 158528437 pruned, item 163838/191079, 0 pass the 1-position screen, 0 finds
+done in 696 s: 160564132 screened, 184154697 pruned, 0 passed the screen, 0 finds

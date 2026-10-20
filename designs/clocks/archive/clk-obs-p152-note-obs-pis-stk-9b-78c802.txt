@@ -1,0 +1,29 @@
+# archived 2026-10-19T23:27Z from designs/clocks/tracks/clk-obs/families9/p152-note-obs-pis-stk-9b-78c802.txt by mctas clock archive
+# CLOCK: clk-obs-p152-note-obs-pis-stk-9b-78c802 period 152 gt (7.6 s), on 72/152, edges 36, warmup 5, family note_block+observer+piston+sticky_piston, 9 blocks, 4x3x3, robust
+name: clk-obs-p152-note-obs-pis-stk-9b-78c802
+# clk-obs grow: P=152 (redsim), family note_block+observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 36.
+origin: 0 0 0
+port output: 1 0 0
+port start: 0 0 2 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -1:
+  ..H
+  ...
+  ...
+layer 0:
+  AFI
+  B..
+  CG.
+layer 1:
+  ...
+  D..
+  E..
