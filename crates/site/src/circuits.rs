@@ -670,6 +670,9 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
     });
+    // a bigger design that is faster than every smaller one of its value says so
+    let n = crate::audit::mark_faster(&mut builds);
+    notes.push(format!("circuits: {n} designs marked faster than the smallest of their value"));
     // the dominated-design audit, at every build (a study re-archived: new candidates show here)
     if !keep_hidden {
         let probe = site_model::Site { builds: builds.clone(), ..Default::default() };
