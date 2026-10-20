@@ -114,6 +114,16 @@ fn archived_from(text: &str) -> String {
         .unwrap_or_default()
 }
 
+/// A pockets run's seed (`tracks/pockets/runs/<run>.log`'s `seed <path>` line) for an archived
+/// path `.../tracks/pockets/runs/<run>/<file>`: a run's outputs inherit their seed's origin.
+fn run_seed(repo: &Path, from: &str) -> Option<String> {
+    let (_, rest) = from.split_once("tracks/pockets/runs/")?;
+    let run = rest.split('/').next()?;
+    let log = repo.join(format!("designs/piston-door-3x3/tracks/pockets/runs/{run}.log"));
+    let text = std::fs::read_to_string(log).ok()?;
+    text.lines().find_map(|l| l.strip_prefix("seed ").map(|r| r.split(':').next().unwrap_or(r).trim().to_string()))
+}
+
 /// A design's mechanism: (piston signature, door-block path signature), or why there is none.
 fn signature_of(path: &Path) -> std::result::Result<(Sig, PSig), String> {
     let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
@@ -179,22 +189,58 @@ pub fn run(archive: &Path, roots: &[PathBuf], out: &Path, threads: usize, near: 
         }
     }
     let names: Vec<String> = files.iter().map(|f| stem(f)).collect();
-    // (a) names / provenance, (b) roots' mechanisms and paths
+    // archived source paths (after "designs/"), to follow a run's seed to an archived design
+    let norm = |p: &str| -> String { p.split_once("designs/").map(|(_, r)| r.to_string()).unwrap_or_else(|| p.to_string()) };
+    let mut froms: Vec<String> = Vec::new();
+    let mut seeds: Vec<Option<String>> = Vec::new();
+    for f in &files {
+        let from = archived_from(&std::fs::read_to_string(f).unwrap_or_default());
+        seeds.push(run_seed(Path::new("."), &from));
+        froms.push(from);
+    }
+    let by_source: BTreeMap<String, usize> = froms.iter().enumerate().filter(|(_, f)| !f.is_empty()).map(|(i, f)| (norm(f), i)).collect();
+    // (a) names / provenance / a pockets run's seed, (b) roots' mechanisms and paths
     let mut verdict: Vec<Option<String>> = vec![None; files.len()];
     let mut nearest: Vec<Option<(usize, String)>> = vec![None; files.len()];
-    for (i, f) in files.iter().enumerate() {
-        let text = std::fs::read_to_string(f).unwrap_or_default();
-        let from = archived_from(&text);
-        if let Some(t) = text_root(&names[i]).or_else(|| text_root(&from)) {
-            verdict[i] = Some(format!("provenance names {t}: {} (archived from {})", names[i], if from.is_empty() { "-" } else { &from }));
+    let mut dists: Vec<String> = vec![String::new(); files.len()];
+    for i in 0..files.len() {
+        let from = &froms[i];
+        if let Some(t) = text_root(&names[i]).or_else(|| text_root(from)) {
+            verdict[i] = Some(format!("provenance names {t}: {} (archived from {})", names[i], if from.is_empty() { "-" } else { from }));
+            continue;
+        }
+        if let Some(s) = &seeds[i]
+            && let Some(t) = text_root(s)
+        {
+            verdict[i] = Some(format!("its pockets run's seed names {t}: {s}"));
             continue;
         }
         let Ok((s, p)) = &sigs[i] else { continue };
         nearest[i] = root_sigs.iter().map(|(rn, r, _)| (distance(s, r), rn.clone())).min();
+        dists[i] = root_sigs.iter().map(|(rn, r, _)| format!("{rn} {}", distance(s, r))).collect::<Vec<_>>().join(", ");
         if let Some((d, rn)) = nearest[i].as_ref().filter(|(d, _)| *d <= near) {
             verdict[i] = Some(if *d == 0 { format!("mechanism = {rn}'s") } else { format!("mechanism within {d} pieces of {rn}'s") });
         } else if let Some((rn, _, _)) = root_sigs.iter().find(|(_, _, rp)| same_paths(p, rp)) {
             verdict[i] = Some(format!("door-block paths = {rn}'s (its moves, pistons re-laid)"));
+        }
+    }
+    // a pockets run's seed that is itself archived: its outputs inherit the seed's origin
+    loop {
+        let mut changed = false;
+        for i in 0..files.len() {
+            if verdict[i].is_some() {
+                continue;
+            }
+            if let Some(s) = &seeds[i]
+                && let Some(&j) = by_source.get(&norm(s))
+                && let Some(vj) = &verdict[j]
+            {
+                verdict[i] = Some(format!("its pockets run's seed {s} = {} ({vj})", names[j]));
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
         }
     }
     // (c) lineage: close to a design already community-derived, to a fixpoint
@@ -234,7 +280,7 @@ pub fn run(archive: &Path, roots: &[PathBuf], out: &Path, threads: usize, near: 
             Some(r) => ("community-derived", r.clone()),
             None => {
                 let why = match (&nearest[i], &sigs[i]) {
-                    (Some((d, rn)), Ok((s, _))) => format!("own mechanism ({} pieces; nearest community mechanism {rn} at distance {d})", s.len()),
+                    (Some((_, _)), Ok((s, _))) => format!("own mechanism ({} pieces; distance to the community mechanisms: {}; lineage names no root)", s.len(), dists[i]),
                     (_, Err(e)) => {
                         unchecked.push(name.clone());
                         format!("no mechanism extracted ({}); provenance names no root", e.lines().next().unwrap_or(""))
