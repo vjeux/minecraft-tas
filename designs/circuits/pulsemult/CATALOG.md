@@ -116,28 +116,28 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst2-bulb](archive/pm-burst2-bulb.txt) | burst 2 | N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt | 7 | 5x2x1 | robust | burst 2: a copper bulb toggles on each rising edge, its comparator changes, an observer makes that a 2 gt pulse, a delay-3 repeater stretches it to 6 gt, and a second observer pulses on both of the repeater's edges: 2 pulses 6 gt apart for any input length (min-pulse 1) |
+| [pm-burst2-bulb](archive/pm-burst2-bulb.txt) | burst 2 | N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt | 7 | 5x2x1 | robust | One press gives exactly two pulses: a copper bulb notices the press, and a short delay plus a second observer turn that one event into two blips. Detail: the bulb toggles on each rising edge, its comparator changes, an observer makes that a 2 tick pulse, a delay-3 repeater stretches it to 6 ticks, and a second observer pulses on both of the repeater's edges |
 
 ## N = 3
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst3-bulb](archive/pm-burst3-bulb.txt) | burst 3 | N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt | 12 | 7x2x3 | robust | burst 3: the 2-pulse bulb burst (bulb, comparator, observer, delay-3 repeater, observer) plus an observer cascade: an observer watching the second observer toggles a second bulb, and two more observers turn that into a third pulse 6 gt after the second (found by local search from a 20-block tap design) |
+| [pm-burst3-bulb](archive/pm-burst3-bulb.txt) | burst 3 | N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt | 12 | 7x2x3 | robust | One press gives exactly three pulses: the two-pulse bulb burst plus one more observer stage that adds a third blip. Detail: bulb, comparator, observer, delay-3 repeater, observer, then an observer watching the second observer toggles a second bulb whose own observers add the third pulse |
 
 ## N = 3 pulse
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-div3-fast](archive/pm-div3-fast.txt) | divider 3 | N 3, duty 33%, output pulse (40 gt), latency 12 gt, min-period 8 gt | 55 | 9x4x7 | robust | fast /3 (8 gt clocks; rings stop at 10): a one-hot ring of 3 copper bulbs: a bulb edge detector (bulb, comparator, observer) and a delay-2 repeater give a 4 gt pulse on a stone, three subtract comparators around it pass the pulse to their bulb unless the NEXT bulb is lit (its comparator, through dust and a repeater, holds their side at 15): each pulse turns the lit bulb off and the next on |
+| [pm-div3-fast](archive/pm-div3-fast.txt) | divider 3 | N 3, duty 33%, output pulse (40 gt), latency 12 gt, min-period 8 gt | 55 | 9x4x7 | robust | Divides a fast clock by 3 (one output pulse for every 3 input pulses) and keeps up with clocks as fast as a pulse every 8 ticks, where the item-ring dividers stop at 10. Detail: three copper bulbs in a ring with exactly one lit; every input pulse passes the lit one on to the next (each step: the bulb's comparator gates a short edge pulse), and the output reads one of them |
 
 ## N = 4
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst4-taps](archive/pm-burst4-taps.txt) | burst 4 | N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 20 gt | 19 | 7x2x4 | robust | burst 4: a bulb edge detector (bulb, comparator, observer) whose pulse fans out through observers, a second bulb and a torch into delayed taps that all end in the output cell: four 2 gt pulses for any input length (found by local search from a 32-block design with three repeater taps) |
+| [pm-burst4-taps](archive/pm-burst4-taps.txt) | burst 4 | N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 20 gt | 19 | 7x2x4 | robust | One press gives exactly four pulses: one detected press is split into four copies that arrive at different times, like echoes, all into the same output. Detail: a bulb edge detector (bulb, comparator, observer) whose pulse fans out through observers, a second bulb and a torch into four delayed taps; any input length |
 
 ## P = 4 gt
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-train-observers](archive/pm-train-observers.txt) | pulse-train | P 4 gt, pulse 2 gt, latency 3 gt, stop 5 gt | 3 | 2x1x3 | robust | gated pulse train in 3 blocks: the input extends a sticky piston that pushes an observer face to face with another; the two observers chase each other (each fires on the other's change), a 2 gt pulse every 4 gt at the output, until the piston pulls the observer away (the fastest and smallest gated clock: P 4 gt) |
+| [pm-train-observers](archive/pm-train-observers.txt) | pulse-train | P 4 gt, pulse 2 gt, latency 3 gt, stop 5 gt | 3 | 2x1x3 | robust | While the input is held on, two observers stare at each other and keep firing, a pulse every 4 ticks; it stops when the input goes off. Detail: 3 blocks: the input extends a sticky piston that pushes one observer face to face with the other (the chase), and retracting it breaks the pair apart |
