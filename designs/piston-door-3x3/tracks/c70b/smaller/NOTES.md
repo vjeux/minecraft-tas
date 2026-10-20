@@ -213,3 +213,9 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   the cell above it (input at z = +-1) with a glass update beside it; m7-a's schedule then opens
   in redsim (its close still fails: the non-physics model). A dump's own export pair is judged
   directly at load (redsim, strict feeds, extent; CANDIDATE when all pass).
+- clockinfra's `--feed --lever --physics --max-pistons 14` sweep (h6 / h8, 14 boxes: 8 of 48 +
+  6 of 7x7): 17 of 28 instances finished, ALL UNSAT (the rest unfinished after 3.8 h): no fed,
+  physical, island-starting mechanism within 14 pistons and 8 parallel steps per edge there.
+  Next (asked 16:01Z): the same with `--max-pistons 18` at h8 (+ h10 for 7x7): room for up to
+  four helper pistons beyond the known 12-14-piston mechanisms; uncapped models are too big for
+  families' exact solver (the 21-25-piston nofeed seeds all hit 10M states).
