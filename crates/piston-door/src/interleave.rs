@@ -460,7 +460,12 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         // (levels the plan leaves on): the lever itself sets them at t0 of each edge, the train
         // never touches them
         let (rs, os_) = (sim.snap(&w0), sim.snap(&wopen));
-        let lever: Vec<(Pos, Block, Block)> = cells.iter().filter(|c| rs.get(**c) != os_.get(**c)).map(|c| (*c, rs.get(*c).unwrap_or(Block::Air), os_.get(*c).unwrap_or(Block::Air))).collect();
+        let is_rb = |b: Option<Block>| b.is_some_and(|b| b.to_string().contains("redstone_block"));
+        let lever: Vec<(Pos, Block, Block)> = cells
+            .iter()
+            .filter(|c| rs.get(**c) != os_.get(**c) && (is_rb(rs.get(**c)) || is_rb(os_.get(**c))))
+            .map(|c| (*c, rs.get(*c).unwrap_or(Block::Air), os_.get(*c).unwrap_or(Block::Air)))
+            .collect();
         cells.retain(|c| !lever.iter().any(|l| l.0 == *c));
         let flip = |w: &World, to_open: bool| -> Result<World> {
             let mut w = w.clone();
