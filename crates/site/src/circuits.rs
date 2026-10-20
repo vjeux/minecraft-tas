@@ -1149,8 +1149,13 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.variant_label = labels[k].clone();
             }
         }
+        // the group's sizes (critique: "every 2nd to 32nd pulse · 3 blocks" while the 32nd needs
+        // 15 blocks): its card says the range of blocks when they differ
+        let lo_b = members.iter().map(|&i| builds[i].blocks).min().unwrap_or(0);
+        let hi_b = members.iter().map(|&i| builds[i].blocks).max().unwrap_or(0);
         if let Some(c) = builds[rep].circuit.as_mut() {
             c.span = span;
+            c.span_blocks = if hi_b > lo_b { format!("{lo_b} to {hi_b} blocks") } else { String::new() };
         }
         builds[rep].flags.push("tunable".into());
     }

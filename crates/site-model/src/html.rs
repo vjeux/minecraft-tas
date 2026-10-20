@@ -301,7 +301,8 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
     })?;
     let mut w = c.kind.split_whitespace();
     let (k0, k1) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
-    let ticks = format!("{lo} to {hi} ticks");
+    // (with seconds: critique, "on for 12 to 36 ticks" had none)
+    let ticks = format!("{lo} to {hi} ticks ({} to {})", crate::real_time(lo), crate::real_time(hi));
     Some(match k0 {
         "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
         "piston-extender" => format!("reach {lo} to {hi}"),
@@ -496,7 +497,11 @@ fn tk(v: &str) -> String {
     match n.parse::<u32>() {
         Ok(1) => format!("1 tick ({})", crate::real_time(1)),
         Ok(x) => format!("{x} ticks ({})", crate::real_time(x)),
-        Err(_) => format!("{} ticks", n.replace('-', " to ")),
+        // a range with its seconds too (critique: "4 to 6 ticks apart" had none)
+        Err(_) => match n.split_once('-').and_then(|(a, b)| Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?))) {
+            Some((a, b)) => format!("{a} to {b} ticks ({} to {})", crate::real_time(a), crate::real_time(b)),
+            None => format!("{} ticks", n.replace('-', " to ")),
+        },
     }
 }
 
@@ -609,7 +614,9 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
         "adder" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
-        "counter" => (format!("every {} pulse", nth(k1)), sub(&[("reacts in {}", "latency")])),
+        // (a counter whose output toggles says so: it reads differently from a level counter of
+        // twice its count, critique)
+        "counter" => (if cm(c, "output").starts_with("toggles") { format!("toggles every {} pulse", nth(k1)) } else { format!("every {} pulse", nth(k1)) }, sub(&[("reacts in {}", "latency")])),
         "piston-extender" => {
             let (e, r) = (tk(cm(c, "extend")), tk(cm(c, "retract")));
             let timing = if e.is_empty() { None } else { Some(format!("out in {e}, back in {r}")) };
@@ -617,15 +624,29 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "flying-machine" => {
             let two_way = c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way");
-            let dir = if two_way { "goes and comes back".to_string() } else { c.direction.clone() };
+            // (direction words: "flies sideways", not "flies horizontal": critique)
+            let flies = match c.direction.as_str() {
+                "horizontal" => "flies sideways".to_string(),
+                "" => "flies".to_string(),
+                d => format!("flies {d}"),
+            };
             let speed = cm(c, "speed").split_whitespace().next().and_then(|g| g.parse::<f64>().ok()).filter(|g| *g > 0.0).map(|g| {
                 let s = format!("{:.2}", 20.0 / g);
                 format!("{} blocks a second", s.trim_end_matches('0').trim_end_matches('.'))
             });
-            // what it carries or pulls (critique: five "horizontal · 2 blocks a second" cards differed
-            // only by block count)
-            let feature = if c.feature.is_empty() { None } else { Some(c.feature.clone()) };
-            ([Some(dir), feature, speed].into_iter().flatten().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("starts in {}", "latency")]))
+            // the title says what sets it apart, the rest goes under it (critique: five
+            // "horizontal · 2 blocks a second" cards differed only by block count; a payload
+            // title ran 4 lines)
+            let (lead, mut rest) = if two_way {
+                ("goes and comes back".to_string(), vec![])
+            } else if !c.feature.is_empty() {
+                (c.feature.clone(), vec![flies])
+            } else {
+                (flies, vec![])
+            };
+            rest.extend(speed);
+            rest.extend(sub(&[("starts in {}", "latency")]));
+            (lead, rest)
         }
         "shulker-loader" | "shulker-unloader" => {
             // what the card is best at leads (critique: cards with the same numbers differed only
@@ -671,7 +692,13 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
-        "divider" => (format!("slows by {k1}{}", if cm(c, "output") == "square" { " · even on/off" } else { "" }), sub(&[("follows clocks down to {}", "min-period")])),
+        // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
+        // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
+        "divider" => {
+            let follows = cm(c, "min-period");
+            let even = if cm(c, "output") == "square" { " · even on/off" } else { "" };
+            (if follows.is_empty() { format!("slows by {k1}{even}") } else { format!("slows by {k1} · follows clocks down to {}{even}", tk(follows)) }, Vec::new())
+        }
         "monostable" => (
             format!("on for {l}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
             // (a retriggerable timer's re-arm reads like a contradiction next to "restarts on
@@ -715,14 +742,23 @@ pub fn props(b: &Build) -> Props {
             // one block count (critique: "7×8×1 · 38 blocks" next to "56 blocks of space" read as
             // two counts): the blocks, in their space
             let title = if dims.is_empty() { blocks_word(b.blocks) } else { format!("{} in a {dims} space", blocks_word(b.blocks)) };
-            Props { kind: if cat.is_empty() { "3×3 piston door".into() } else { format!("3×3 piston door · {cat}") }, title, sub, chips }
+            // one short kind line (critique: "3×3 PISTON DOOR · STONE DOOR" on every card)
+            let kind = match b.group.as_str() {
+                "solid" => "3×3 stone door",
+                "sculk" => "3×3 sculk door",
+                "gravity" => "3×3 sand or gravel door",
+                "entity" => "3×3 entity door",
+                _ => if cat.is_empty() { "3×3 piston door" } else { cat },
+            };
+            Props { kind: kind.into(), title, sub, chips }
         }
         "clock" => {
             let c = b.clock.as_ref();
             let period = c.map(|c| format!("every {} ({})", if c.every() == 1 { "tick".to_string() } else { format!("{} ticks", c.every()) }, crate::real_time(c.every()))).unwrap_or_default();
-            // an output that pulses several times evenly in a cycle: its pulses, and the cycle
+            // an output that pulses several times evenly in a cycle: its page says the cycle; the
+            // card's "2 pulses in each 8-tick cycle" under "every 4 ticks" added nothing (critique)
             let pulse = c.and_then(|c| match (c.pulse_every, c.edges) {
-                (Some(_), e) => Some(format!("{e} pulses in each {}-tick cycle", c.period)),
+                (Some(_), _) => None,
                 (None, 0) => None,
                 (None, 1) if c.on > 0 => Some(format!("on for {} of {} ticks", c.on, c.period)),
                 (None, 1) => None,
@@ -747,7 +783,7 @@ pub fn props(b: &Build) -> Props {
                 if !c.span.is_empty() {
                     chips.push(format!("{} versions", c.span.split(", ").last().unwrap_or("").trim_end_matches(" values").trim_end_matches(" versions")));
                 }
-                for (f, words) in [("faster", "faster than the smallest"), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("there-and-back", "flies there and back"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "variant"), ("layout", "another layout")] {
+                for (f, words) in [("faster", "faster than smaller versions"), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "variant"), ("layout", "another layout")] {
                     if b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -756,12 +792,15 @@ pub fn props(b: &Build) -> Props {
                 for a in &c.also {
                     chips.push(format!("also a {}", a.to_lowercase()));
                 }
-                // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side)
+                // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side); a
+                // BUD's box leaves out the block it watches, which its picture shows (critique: a
+                // "lies flat" card with a fence standing on it)
+                let watches = c.kind.starts_with("bud");
                 if let Some(d) = &b.dims {
                     let n: Vec<u32> = d.split('x').filter_map(|v| v.trim().parse().ok()).collect();
                     if n.len() == 3 && !chips.iter().any(|c| c == "1 block thick") {
                         if n[1] == 1 {
-                            chips.push("lies flat (1 block high)".into());
+                            chips.push(if watches { "1 block high, plus the block it watches".into() } else { "lies flat (1 block high)".into() });
                         } else if n[0] == 1 || n[2] == 1 {
                             chips.push("1 block wide".into());
                         }
@@ -778,9 +817,12 @@ pub fn props(b: &Build) -> Props {
                 }
                 // what it is made of (the blocks that change state) and its box tell siblings apart
                 // (no design names in lists: vjeux 13:11Z; critique: two delay cards read the
-                // same, "2 comparators" vs "a repeater"; fly cards: slime or honey)
-                if !c.family.is_empty() && c.family.split('+').count() <= 3 {
-                    sub.push(format!("made of {}", human_blocks(&c.family)));
+                // same, "2 comparators" vs "a repeater"; fly cards: slime or honey); only the
+                // design's own blocks, not the test's (a BUD's target block: critique, "made of oak
+                // log, observer")
+                let own: Vec<&str> = c.family.split('+').filter(|k| !k.is_empty() && (b.kinds.is_empty() || b.kinds.iter().any(|x| x == k))).collect();
+                if !own.is_empty() && own.len() <= 3 {
+                    sub.push(format!("made of {}", human_blocks(&own.join("+"))));
                 }
                 if !dims.is_empty() {
                     sub.push(format!("fits in {dims}"));
@@ -820,17 +862,21 @@ pub fn build_card_opts(b: &Build, prefix: &str, show_kind: bool, shared: &[Strin
 /// there carries (a door keeps its category, a clock drops it; critique: six cards in a row read
 /// "3×3 PISTON DOOR · STONE DOOR"), and without the chips most cards share (said once above).
 pub fn build_card_tab(b: &Build, prefix: &str, tab: &str, shared: &[String]) -> String {
+    card_inner(b, prefix, tab_kind(b, tab), shared)
+}
+
+/// The kind line of a card on the index's tab `tab` ([`build_card_tab`]).
+pub fn tab_kind(b: &Build, tab: &str) -> Option<String> {
     let full = props(b).kind;
-    let kind = if tab != b.kind {
+    if tab != b.kind {
         Some(full)
     } else {
         match b.kind.as_str() {
-            "door" => full.split_once(" · ").map(|(_, cat)| cat.to_string()),
+            "door" => Some(full.trim_start_matches("3×3 ").to_string()),
             "clock" => None,
             _ => Some(full),
         }
-    };
-    card_inner(b, prefix, kind, shared)
+    }
 }
 
 fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) -> String {
@@ -838,7 +884,8 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
     // a group's card says the whole range, not its smallest member's value (critique: "counter
     // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
     if let Some(r) = b.circuit.as_ref().and_then(group_range) {
-        p.title = format!("{r} · {}", blocks_word(b.blocks));
+        let size = b.circuit.as_ref().map(|c| c.span_blocks.clone()).filter(|s| !s.is_empty()).unwrap_or_else(|| blocks_word(b.blocks));
+        p.title = format!("{r} · {size}");
     }
     let chips: String = p
         .chips
@@ -846,7 +893,7 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
         .filter(|x| !shared.contains(x))
         .cloned()
         // a chip most cards around share, missing here, is said (critique: two cards read the same)
-        .chain(shared.iter().filter(|s| !p.chips.contains(s)).map(|s| unlike_most(s)))
+        .chain(shared.iter().filter(|s| !p.chips.contains(s)).filter_map(|s| unlike_most(s)))
         .map(|x| format!("<span class=\"badge\">{}</span>", esc(&x)))
         .collect();
     format!(
@@ -889,18 +936,24 @@ pub fn common_chips(list: &[&Build]) -> Vec<String> {
     seen
 }
 
-/// A common chip a card lacks, in words (`no slime` -> `uses slime`).
-pub fn unlike_most(chip: &str) -> String {
-    match chip {
-        "no slime" => "uses slime".to_string(),
-        "has its own lever" => "no lever of its own".to_string(),
-        "has its own button" => "no button of its own".to_string(),
-        "1 block wide" => "wider than 1 block".to_string(),
-        "1 block thick" => "thicker than 1 block".to_string(),
-        "lies flat (1 block high)" => "taller than 1 block".to_string(),
-        "comes in every size" => "one size only".to_string(),
-        other => format!("not {other}"),
-    }
+/// A common chip a card lacks, in words (`no slime` -> `uses slime`); a chip without its own
+/// negation says nothing (critique: "not works facing any way").
+pub fn unlike_most(chip: &str) -> Option<String> {
+    Some(
+        match chip {
+            "no slime" => "uses slime",
+            "has its own lever" => "no lever of its own",
+            "has its own button" => "no button of its own",
+            "1 block wide" => "wider than 1 block",
+            "1 block thick" => "thicker than 1 block",
+            "lies flat (1 block high)" => "taller than 1 block",
+            "comes in every size" => "one size only",
+            "works facing any way" => "works only facing one way",
+            "starts by itself" => "needs a kick to start",
+            _ => return None,
+        }
+        .to_string(),
+    )
 }
 
 /// A chip as what most of a list do (`has its own lever` -> `have their own lever`), for the line
@@ -912,13 +965,34 @@ pub fn chip_plural(chip: &str) -> String {
     if chip.starts_with("no ") {
         return format!("use {chip}");
     }
+    // (critique: "Most are machine hidden from both sides")
+    if let Some(rest) = chip.strip_prefix("machine hidden ") {
+        return format!("hide their machine {rest}");
+    }
+    if let Some(rest) = chip.strip_prefix("also a ") {
+        return format!("are also {rest}s");
+    }
     match chip {
         "comes in every size" => "come in every size".to_string(),
         "lies flat (1 block high)" => "lie flat (1 block high)".to_string(),
         "works facing any way" => "work facing any way".to_string(),
         "starts by itself" => "start by themselves".to_string(),
         "carries extra blocks" => "carry extra blocks".to_string(),
-        "flies there and back" => "fly there and back".to_string(),
+        "mirror version too" => "come in a mirror version too".to_string(),
+        "1 block high, plus the block it watches" => "are 1 block high, plus the block they watch".to_string(),
+        "16-stack items too" => "handle 16-stack items too".to_string(),
+        "unstackable items too" => "handle unstackable items too".to_string(),
+        "packs mixed items" => "pack mixed items".to_string(),
+        "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),
+        "tiles side by side" => "tile side by side".to_string(),
+        "restarts by itself" => "restart by themselves".to_string(),
+        "waits out a box shortage" => "wait out a box shortage".to_string(),
+        "keeps box colours and names" => "keep box colours and names".to_string(),
+        "sends out a part-full box" => "send out a part-full box".to_string(),
+        "tops up part-full boxes" => "top up part-full boxes".to_string(),
+        "drops nothing on the ground" => "drop nothing on the ground".to_string(),
+        "loads and unloads" => "load and unload".to_string(),
+        "empties any box" => "empty any box".to_string(),
         other => format!("are {other}"),
     }
 }
@@ -1000,9 +1074,29 @@ pub fn hit_card(site: &Site, h: Hit, prefix: &str) -> String {
 /// [`hit_card`] on the index's tab `tab` (`door`, `clock`, `circuit`, or empty for every kind),
 /// without the chips in `shared` ([`build_card_tab`]).
 pub fn hit_card_tab(site: &Site, h: Hit, prefix: &str, tab: &str, shared: &[String]) -> String {
+    let mut prev = None;
+    hit_card_run(site, h, prefix, tab, shared, &mut prev)
+}
+
+/// [`hit_card_tab`] in a run of cards: on the every-kind list (the home page) a kind line the
+/// previous card already showed is left out, so it reads like a heading over its run (critique:
+/// the home repeated "3×3 STONE DOOR" on every card).
+pub fn hit_card_run(site: &Site, h: Hit, prefix: &str, tab: &str, shared: &[String], prev: &mut Option<String>) -> String {
     match h {
-        Hit::Build(i) => site.builds.get(i).map(|b| build_card_tab(b, prefix, tab, shared)).unwrap_or_default(),
-        Hit::Member(i) => site.members.get(i).map(|m| member_card(m, site, prefix)).unwrap_or_default(),
+        Hit::Build(i) => site
+            .builds
+            .get(i)
+            .map(|b| {
+                let kind = tab_kind(b, tab);
+                let shown = if tab.is_empty() && kind.is_some() && kind == *prev { None } else { kind.clone() };
+                *prev = kind;
+                card_inner(b, prefix, shown, shared)
+            })
+            .unwrap_or_default(),
+        Hit::Member(i) => {
+            *prev = None;
+            site.members.get(i).map(|m| member_card(m, site, prefix)).unwrap_or_default()
+        }
     }
 }
 
