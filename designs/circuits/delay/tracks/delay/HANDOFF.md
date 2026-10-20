@@ -12,7 +12,8 @@ NOTES](NOTES.md), [gates NOTES](../../../gates/tracks/gates/NOTES.md).
   + 8n, 13 + 2n blocks), `delay-torch` (N = 6 + 4n). Every N >= 1 has a design.
 * Logic gates (`designs/circuits/gates/archive/`): OR (lever 1b, dust 2b, 0 gt), NOT / NOR (lever
   2b; torch 3b; bump 4b at 0 gt), NIMPLY(-BA) (comparator 2b; bump 4b at 0 gt), IMPLY(-BA) (torch 3b;
-  bump 4b at 0 gt), NAND (torch 6b; bump 8b at 0 gt), AND (comparators 5b, 4 gt). XOR and XNOR open.
+  bump 4b at 0 gt), NAND (torch 6b; bump 8b at 0 gt), AND (comparators 5b, 4 gt), XOR (dust ring
+  14b, 0 gt), XNOR (ring + torch 16b, 2 gt).
 * The judge: "a circuit must drive something" (crates/circuit `check::update_less`,
   `Circuit::{consumer_cells, with_consumers, watched_lamps, passive_output}`, docs/circuits.md),
   `circuit archive --rejudge`, selftests in crates/piston-door/src/selftest.rs (circuit:sim- and
@@ -34,7 +35,7 @@ NOTES](NOTES.md), [gates NOTES](../../../gates/tracks/gates/NOTES.md).
 
 * N = 3 and odd N >= 5 smaller than 9 / 13 blocks: the N=1 tricks (input above a dust, a
   quasi-connected piston, the power bump) may shrink the OR stage.
-* XOR / XNOR update-correct: one dust cannot (two transitions need a power change); two subtract
-  comparators with both inputs direct face opposite ways (their outputs are 3 cells apart), so the
-  smallest is probably 7-8 blocks; XNOR = 15 - max(a - b, b - a) on a third comparator.
+* Smaller XOR / XNOR than the 14 / 16 block rings: comparator versions (about 8-10 blocks, 2 gt)
+  need a dust link per input, since the two subtract comparators fed directly by both inputs face
+  opposite ways and their fronts end up 3 cells apart.
 * Smaller odd tails than 13 blocks (the OR before the tail costs a dust and its stone).
