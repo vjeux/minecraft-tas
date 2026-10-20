@@ -45,6 +45,11 @@ fn max_stack(id: u8) -> u8 {
     item_entry(id).1
 }
 
+/// The max stack size of an item by name (64 for an item this list does not know).
+pub fn max_stack_of(name: &str) -> u8 {
+    item_id(name).map(max_stack).unwrap_or(64)
+}
+
 /// `#bookshelf_books` among the modeled items.
 fn is_book(id: u8) -> bool {
     item_name(id) == "book"
@@ -575,24 +580,69 @@ fn try_take_in_item_from_slot(w: &mut World, into: CRef, from: CRef, slot: usize
 }
 
 /// ---- item entities (clockinfra): the item entities a hopper (block or minecart) with no
-/// container above it would pull (`getItemsAtAndAbove` + `addItem(container, itemEntity)`, and
-/// `MinecartHopper.suckInItems`'s inflated box). None are modeled here yet: nothing moves.
-fn item_entities_above(_w: &mut World, _hopper: CRef) -> bool {
+/// container above it pulls: `getItemsAtAndAbove` (`Hopper.SUCK_AABB` = column(16, 11, 32) moved by
+/// (levelX - 0.5, levelY - 0.5, levelZ - 0.5); a hopper block's level point is its center, a
+/// hopper minecart's (x, y + 0.5, z)) and `addItem(container, itemEntity)` for each, in list order,
+/// until one is taken whole.
+fn item_entities_above(w: &mut World, hopper: CRef) -> bool {
+    let (lx, ly, lz) = match hopper {
+        CRef::Block(p) => (p.x as f64 + 0.5, p.y as f64 + 0.5, p.z as f64 + 0.5),
+        CRef::Entity(id) => match w.entities.list.iter().find(|e| e.id == id && !e.removed) {
+            Some(e) => (e.pos.x, e.pos.y + 0.5, e.pos.z),
+            None => return false,
+        },
+    };
+    let (dx, dy, dz) = (lx - 0.5, ly - 0.5, lz - 0.5);
+    let bb = crate::entity::Aabb::new(0.0 + dx, 0.6875 + dy, 0.0 + dz, 1.0 + dx, 2.0 + dy, 1.0 + dz);
+    take_item_entities(w, hopper, bb)
+}
+
+/// `HopperBlockEntity.addItem(container, itemEntity)` for every live item entity in `bb`: true
+/// when one went in whole (it is discarded; a partly taken stack keeps the rest).
+fn take_item_entities(w: &mut World, hopper: CRef, bb: crate::entity::Aabb) -> bool {
+    use crate::entity::EntityKind;
+    for i in w.get_entities(bb, |e| matches!(e.kind, EntityKind::Item(_))) {
+        let EntityKind::Item(s) = w.entities.list[i].kind.clone() else { continue };
+        let Some(item) = item_id(&s.item) else {
+            w.errors.push(format!("item entity {} is not a modeled item", s.item));
+            continue;
+        };
+        if s.count == 0 {
+            continue;
+        }
+        match add_item(w, None, hopper, Stack { item, count: s.count }) {
+            None => {
+                if let EntityKind::Item(st) = &mut w.entities.list[i].kind {
+                    st.count = 0;
+                }
+                w.entities.list[i].removed = true;
+                return true;
+            }
+            Some(rest) => {
+                if let EntityKind::Item(st) = &mut w.entities.list[i].kind {
+                    st.count = rest.count;
+                }
+            }
+        }
+    }
     false
 }
 
-/// `MinecartHopper.suckInItems` of entity `i` (`HopperBlockEntity.suckInItems` with the cart as
-/// the hopper: the point `(x, y + 0.5 + 1, z)`, then item entities): whether an item moved.
+/// `MinecartHopper.suckInItems` of entity `i`: `HopperBlockEntity.suckInItems` with the cart as
+/// the hopper (the point `(x, y + 0.5 + 1, z)`: a container there, else the item entities in the
+/// suck box), then the item entities in its box inflated by 0.25 horizontally: whether an item moved.
 pub fn hopper_minecart_suck(w: &mut World, i: usize) -> bool {
     let e = &w.entities.list[i];
     let me = CRef::Entity(e.id);
+    let inflated = e.bb.inflate(0.25, 0.0, 0.25);
     let (x, y, z) = (e.pos.x, e.pos.y + 0.5 + 1.0, e.pos.z);
     let p = BlockPos::new(crate::entity::mth::floor(x), crate::entity::mth::floor(y), crate::entity::mth::floor(z));
-    match container_at_point(w, p, [x, y, z]) {
+    let first = match container_at_point(w, p, [x, y, z]) {
         Some(from) if from != me => suck_from(w, me, from),
         // a minecart is not grid-aligned: never blocked
         _ => item_entities_above(w, me),
-    }
+    };
+    first || take_item_entities(w, me, inflated)
 }
 
 /// A container entity's contents from its `Items` NBT (clk-misc: chest boats, hopper minecarts).

@@ -38,13 +38,30 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
 - `clock misc ring --relay R --n N [--check K]`: relay rings.
 - `clock misc crafter-loop --n N`, `clock misc cart-pingpong --n N [--bare|--short|--track S/P/D/L...]`,
   `clock misc cart-loop --n N [--three|--long-only]`, `clock misc boat-ring --a A --b B`,
-  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf] [--chest N]`: generators (judge with `clock verify`: redsim models
-  neither crafting nor entities).
+  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf] [--chest N]`: generators (judge with `clock verify`;
+  `clock sim` runs them on redsim since the fluids + entities port, crafting excepted).
 - `clock misc trace <design> [--ticks N] [--every K] [--only prefixes]`: built like the judge, prints every entity's
   position / motion and the changed cells per tick (how the boat rings were found).
-- `clock misc trace-export <archived designs>`: real-game traces for the in-browser viewer (webrender), JSON Lines in
-  designs/clocks/traces/ (format: designs/clocks/traces/README.md). Re-export after re-archiving an entity / fluid clock,
-  and tell site (6df38b98) and webrender (084de54f) about new traces or new block kinds.
+- `clock misc trace-export <archived designs> [--exact] [--ticks N]`: real-game traces for the in-browser viewer
+  (webrender), JSON Lines in designs/clocks/traces/ (format: designs/clocks/traces/README.md). Re-export after re-archiving
+  an entity / fluid clock, and tell site (6df38b98) and webrender (084de54f) about new traces or new block kinds.
+  `--exact` (designs/clocks/traces/exact/) is redsim's gate: re-export those too, then
+  `redsim-fuzz trace-compare designs/clocks/traces/exact/*.trace` must say OK for every trace.
+
+## The redsim fluids + entities port (2026-10-19, with clockinfra d650ed4f)
+- Gate: all 50 exact traces tick-identical (`redsim-fuzz trace-compare`), plus the test scenes in
+  `redsim-tests/` (`--ticks` traces of hand-made scenes: boat fall / slide / ice / slow, a 300-tick dripleaf stand;
+  `rt-boat-airx` is UNMODELED: the long-fall raycast).
+- Mine: `redsim/src/entity/{collide,kinds,boat,minecart,armor_stand}.rs` (Entity.move / collide / step-up / movement
+  recording, checkInsideBlocks, baseTick, AbstractBoat, AbstractMinecart + OldMinecartBehavior, LivingEntity.travel for
+  a stand), `react.rs` (plates, tripwire, hooks, bubble-column entity effect, big dripleaf), `rails.rs` (RailState for
+  every rail kind, plain and detector rails), the containers in `redstone/container.rs` (CRef: block entities or
+  container entities; chest boats, hopper minecarts, the chiseled bookshelf), `redsim-fuzz/src/trace_compare.rs`.
+  clockinfra's: fluids (`fluid/`), fluid pushing, waterlogging hooks, item entities, entity spawn / clock sim wiring,
+  the rail-shape fuzz gate.
+- Known gaps (noted in the code): per-box collideX when an entity already overlaps a multi-box shape, the long-fall
+  raycast, entities pushing each other, a hopper minecart's item-entity pulls (clockinfra's hook), random container
+  picks among several container entities.
 - `clock misc unarchive FILES`: design + verdict / caption rows + the family's extend rows out of the archive, to
   re-archive a rebuilt clock under its name. `clock misc rename --prefix P FILES`: rename other tracks' picks.
 - Searches: `clock obs census --k K --palette "obs,sticky,stone,<raw states>" --require X --out-dir D` (clk-obs) and

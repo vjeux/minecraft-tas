@@ -1,0 +1,14 @@
+name: rt-item-hopper
+# redsim test scene (not a clock): two stone items fall onto a hopper, which pulls them in
+# (getItemsAtAndAbove, addItem: the item entities vanish), read by a comparator.
+entity: minecraft:item 0.5 2.5 0.5 {Item:{id:"minecraft:stone",count:3},PickupDelay:32767s}
+entity: minecraft:item 0.6 4.0 0.4 {Item:{id:"minecraft:redstone",count:2},PickupDelay:32767s}
+palette:
+  S minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  SSS
+layer 1:
+  HCd
