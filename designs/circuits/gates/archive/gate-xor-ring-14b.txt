@@ -1,5 +1,5 @@
-# archived 2026-10-20T03:12Z from designs/circuits/gates/tracks/gates/gate-xor-ring-14b.txt by mctas circuit archive
-# CIRCUIT: gate-xor-ring-14b gate xor function xor, latency 0 gt, class instant, 14 blocks, 3x2x3, robust
+# archived 2026-10-20T15:32Z from designs/circuits/gates/tracks/gates/gate-xor-ring-14b.txt by mctas circuit archive
+# CIRCUIT: gate-xor-ring-14b gate xor function xor, latency 0 gt, class instant, tileable every 5 (0 0 5), 14 blocks, 3x2x3, robust
 # XOR gate, instant and update-correct (track gates): a ring of dusts with two ends pointing into
 # the output cell, P_a from the west and P_b from the north. Input a sits beside P_b and input b
 # beside P_a. Either input powers the whole ring (power flows to every adjacent dust, whatever its
@@ -9,6 +9,7 @@
 # 0 gt.
 name: gate-xor-ring-14b
 circuit: gate xor
+tile: 0 0 5
 port input.a: 3 1 1
 port input.b: 1 1 3
 port output: 2 1 2

@@ -185,7 +185,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
 fn tiles(c: &Circuit, k: &Kind) -> bool {
     // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
     // checker: study 1's pulse circuits and the sequential kinds tile the same way
-    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory")
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies

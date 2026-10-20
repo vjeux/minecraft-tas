@@ -758,7 +758,8 @@ impl Circuit {
         // check runs on copy 0's names (`<name>` and `<name>.t<k>`, `copies` of each)
         let copies = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok());
         let base: Vec<&str> = match copies {
-            Some(_) => names.iter().filter(|n| !n.contains(".t")).copied().collect(),
+            // copy k's port is `<name>.t<k>`, so the default-named input becomes `t<k>`
+            Some(_) => names.iter().filter(|n| crate::shulker::group_of(n) == 0).copied().collect(),
             None => names.clone(),
         };
         match k.inputs_needed() {
@@ -782,11 +783,16 @@ impl Circuit {
                         bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
                     }
                 }
-                Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
+                Kind::Gate(_) if base.len() == 1 || base.len() == 2 => {
+                    // a tiled run ([`tiled`]): `copies` copies of the gate's 1 or 2 inputs
+                    if copies.is_some_and(|c| names.len() != base.len() * c) {
+                        bail!("gate: a tiled run needs each input on every copy, has {names:?}");
+                    }
+                }
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
                 // a tiled run ([`tiled`]) of a tileable design: one input per copy
-                _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -823,8 +829,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory") {
-            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential kinds (tff, memory) are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");

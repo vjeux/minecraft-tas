@@ -3,6 +3,7 @@
 # torch and input b both touch the output cell (OR b).
 name: gate-imply-torch-3b
 circuit: gate imply
+tile: 0 0 3
 port input.a: 1 1 0
 port input.b: 0 1 0
 port output: 0 0 0
