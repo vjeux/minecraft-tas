@@ -47,42 +47,74 @@ fn dir_name(d: P) -> &'static str {
 /// Which cells the input fires, given dust cells next to it.
 struct Layout {
     dust: Vec<P>,
+    /// Stones a dust points into: powered, they fire their own neighbours (relays).
+    relays: Vec<P>,
     fired: BTreeSet<P>,
     /// Cells that must be solid (dust floors).
     floors: Vec<P>,
 }
 
+/// Every choice per neighbour of the input below or beside it: nothing (a dropper may go there),
+/// a dust (its floor and the cell beyond fire), or a dust pointing into a relay stone (beside
+/// only: the stone's neighbours fire).
 fn layouts(max_dust: usize) -> Vec<Layout> {
     let spots: Vec<P> = DIRS.iter().copied().filter(|d| *d != UP).collect();
+    let opts = |p: P| if p == [0, -1, 0] { 2 } else { 3 };
     let mut out = Vec::new();
-    for mask in 0u32..(1 << spots.len()) {
-        if mask.count_ones() as usize > max_dust {
-            continue;
-        }
-        let dust: Vec<P> = (0..spots.len()).filter(|i| mask >> i & 1 == 1).map(|i| spots[i]).collect();
-        let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !dust.contains(d)).collect();
-        let mut floors = Vec::new();
-        for &h in &dust {
-            let below = add(h, [0, -1, 0]);
-            floors.push(below);
-            fired.insert(below);
-            if h == [0, -1, 0] {
-                // under the input: a dot, powering its four sides
-                for d in HORIZ {
-                    fired.insert(add(h, d));
+    let mut idx = vec![0usize; spots.len()];
+    loop {
+        let dust: Vec<P> = (0..spots.len()).filter(|&i| idx[i] > 0).map(|i| spots[i]).collect();
+        if dust.len() <= max_dust {
+            let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !dust.contains(d)).collect();
+            let mut floors = Vec::new();
+            let mut relays = Vec::new();
+            for i in 0..spots.len() {
+                let h = spots[i];
+                if idx[i] == 0 {
+                    continue;
                 }
-            } else {
-                // next to the input: a line pointing away from it
-                fired.insert(add(h, sub(h, X)));
+                let below = add(h, [0, -1, 0]);
+                floors.push(below);
+                fired.insert(below);
+                if h == [0, -1, 0] {
+                    // under the input: a cross, powering its four sides
+                    for d in HORIZ {
+                        fired.insert(add(h, d));
+                    }
+                } else if idx[i] == 2 {
+                    // next to the input, pointing into a relay stone
+                    let s = add(h, sub(h, X));
+                    relays.push(s);
+                    for d in DIRS {
+                        let q = add(s, d);
+                        if q != h {
+                            fired.insert(q);
+                        }
+                    }
+                } else {
+                    // next to the input: a line pointing away from it
+                    fired.insert(add(h, sub(h, X)));
+                }
             }
+            fired.remove(&X);
+            for d in dust.iter().chain(relays.iter()) {
+                fired.remove(d);
+            }
+            out.push(Layout { dust, relays, fired, floors });
         }
-        fired.remove(&X);
-        for d in &dust {
-            fired.remove(d);
+        let mut i = 0;
+        loop {
+            if i == spots.len() {
+                return out;
+            }
+            idx[i] += 1;
+            if idx[i] < opts(spots[i]) {
+                break;
+            }
+            idx[i] = 0;
+            i += 1;
         }
-        out.push(Layout { dust, fired, floors });
     }
-    out
 }
 
 /// One counter: the ring (dropper, hopper) pairs in flow order, the dust, stone floors, and the
@@ -167,7 +199,7 @@ pub fn search(n: usize, max_dust: usize, keep: usize, bulbs: usize) -> Vec<Ring>
         if f.len() < n {
             continue;
         }
-        let blocked: BTreeSet<P> = lay.dust.iter().copied().chain(std::iter::once(X)).collect();
+        let blocked: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
         // dropper graph: pairs two apart with a free common neighbour (the hopper cells)
         let links = |a: P, b: P| -> Vec<P> {
             if dist(a, b) != 2 {
@@ -241,7 +273,7 @@ fn cycles(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mu
 fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
     let n = ds.len();
     let containers: BTreeSet<P> = ds.iter().chain(hs.iter()).copied().collect();
-    if hs.iter().any(|h| ds.contains(h) || lay.dust.contains(h) || *h == X) {
+    if hs.iter().any(|h| ds.contains(h) || lay.dust.contains(h) || lay.relays.contains(h) || *h == X) {
         return None;
     }
     for i in 0..n {
@@ -253,11 +285,12 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
             return None;
         }
     }
-    let mut stone: Vec<P> = lay.floors.iter().copied().filter(|p| !containers.contains(p)).collect();
+    let mut stone: Vec<P> = lay.floors.iter().copied().filter(|p| !containers.contains(p)).chain(lay.relays.iter().copied()).collect();
     stone.sort();
     stone.dedup();
     let used: BTreeSet<P> = containers.iter().chain(lay.dust.iter()).chain(stone.iter()).copied().chain(std::iter::once(X)).collect();
-    let emitters: BTreeSet<P> = lay.dust.iter().copied().chain(std::iter::once(X)).collect();
+    // what may power a cell next to it: the input, dust, relay stones
+    let emitters: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
     let mut best: Option<Ring> = None;
     for &d in ds {
         'dir: for u in HORIZ {
@@ -317,7 +350,8 @@ pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, out: &Path)
             continue;
         }
         for (i, r) in rings.iter().enumerate() {
-            let name = format!("counter{total}-ring{n}{}-{}b-{i}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() }, r.blocks());
+            let base = format!("counter{total}-ring{n}{}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() });
+            let name = if rings.len() == 1 { base } else { format!("{base}-{i}") };
             std::fs::write(out.join(format!("{name}.txt")), r.design(&name))?;
             println!("counter {total}: {} blocks ({} dust) -> {name}", r.blocks(), r.dust.len());
         }
