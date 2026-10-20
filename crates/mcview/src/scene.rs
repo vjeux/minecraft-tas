@@ -288,15 +288,18 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
         }
     }
-    // a tiny build: framed as if MIN_VIEW_W blocks across and MIN_VIEW_H high, around its middle
+    // a tiny build (smaller than MIN_VIEW_W in every direction): framed as if MIN_VIEW_W blocks
+    // across and MIN_VIEW_H high, around its middle (a thin tower is not tiny: no padding)
     if !pts.is_empty() {
         let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
         let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
-        let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
-        let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
-        let c = [(lo[0] + hi[0]) / 2.0, lo[1], (lo[2] + hi[2]) / 2.0];
-        for k in 0..8 {
-            pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { 0.0 } else { 2.0 * hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
+        if (0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
+            let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
+            let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
+            let c = [(lo[0] + hi[0]) / 2.0, lo[1], (lo[2] + hi[2]) / 2.0];
+            for k in 0..8 {
+                pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { 0.0 } else { 2.0 * hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
+            }
         }
     }
     pts

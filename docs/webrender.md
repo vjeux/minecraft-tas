@@ -140,8 +140,10 @@ each build's page.
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
-  the bar and the badges in a live viewer (`LIVE_WINDOW`), centred in a thumbnail
-  (`THUMB_WINDOW`). The grass reaches 200 blocks around (past the fog's end: no edge shows); near
+  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
+  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
+  5 blocks across and 3 high is framed as if it were that big (a 4-block clock stands in some
+  grass, its OUT box clear of the controls). The grass reaches 200 blocks around (past the fog's end: no edge shows); near
   the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
   the four air cells around it in the layer between the grass and the build (a covered column
   gets its neighbours' light less one), through the game's brightness curve at the default
@@ -155,8 +157,9 @@ each build's page.
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
   and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
   with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
-  chests that stand together share one tag (ITEMS over the three chests a-c, their contents
-  summed: `circuit::port_groups`); named outputs read `OUT A`, `OUT B`. Tags and labels are laid
+  chests that stand together share one tag with their letters (ITEMS A–C over the three chests
+  a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
+  `OUT B`. Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
