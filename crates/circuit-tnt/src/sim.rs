@@ -38,16 +38,21 @@ impl TntRun {
         let first = self.tnt.first().copied().unwrap_or(0);
         let min = self.tnt.iter().copied().min().unwrap_or(0);
         let last = self.tnt.last().copied().unwrap_or(0);
+        // the TNT blocks standing over the last period (a moved copy is in flight for 2 gt)
+        let settled = match self.period {
+            Some((_, p)) => self.tnt.iter().rev().take(p as usize + 1).copied().max().unwrap_or(0),
+            None => last,
+        };
         let verdict = if self.primes.is_empty() {
             "NOTHING"
-        } else if last >= first && min >= first.saturating_sub(1) && self.period.is_some() {
+        } else if settled >= first && self.period.is_some() && self.per_period().unwrap_or(0) > 0 {
             "DUPES"
-        } else if last >= first {
+        } else if settled >= first {
             "PRIMES"
         } else {
             "CONSUMES"
         };
-        let mut s = format!("{verdict}: {} primed in {} gt, TNT blocks {first} -> {last} (min {min})", self.primes.len(), self.ticks);
+        let mut s = format!("{verdict}: {} primed in {} gt, TNT blocks {first} -> {settled} (min {min})", self.primes.len(), self.ticks);
         if let Some((start, p)) = self.period {
             s += &format!(", periodic from gt {start} with period {p}");
             if let Some(n) = self.per_period() {
@@ -123,9 +128,9 @@ fn tnt_count(w: &World) -> usize {
     w.blocks().iter().filter(|(_, b)| matches!(b, Block::Tnt { .. })).count()
 }
 
-/// Run `ticks` gt (stops early once a period is found and run 2 more periods). `trace`: print
-/// every cell change of the first N ticks.
-pub fn run(c: &Clock, ticks: u32, margin: i32, trace: u32) -> TntRun {
+/// Run `ticks` gt (unless `full`, stops once a period is found and run 2 more periods). `trace`:
+/// print every cell change of the first N ticks.
+pub fn run(c: &Clock, ticks: u32, margin: i32, trace: u32, full: bool) -> TntRun {
     let mut out = TntRun::default();
     let mut w = match build(c, margin) {
         Ok(w) => w,
@@ -180,7 +185,9 @@ pub fn run(c: &Clock, ticks: u32, margin: i32, trace: u32) -> TntRun {
             let key = w.state_key();
             if let Some(&first) = seen.get(&key) {
                 out.period = Some((first, t + 1 - first));
-                stop_at = (t + 1 + 2 * (t + 1 - first)).min(ticks);
+                if !full {
+                    stop_at = (t + 1 + 2 * (t + 1 - first)).min(ticks);
+                }
             } else {
                 seen.insert(key, t + 1);
             }

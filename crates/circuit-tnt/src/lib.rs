@@ -3,6 +3,7 @@
 //! dispatches here.
 
 pub mod game;
+pub mod search;
 pub mod sim;
 
 use anyhow::Result;
@@ -43,6 +44,45 @@ enum Cmd {
         #[arg(long)]
         spawns: bool,
     },
+    /// Seeded random search for dupers on redsim: the seed design stays, each sample adds k
+    /// palette blocks in the box; keeps the ones that dupe (periodic, primes every period, no TNT
+    /// block lost). Writes DIR/found.tsv and DIR/designs/.
+    Search {
+        #[arg(long)]
+        seed: PathBuf,
+        /// Search box `x0,y0,z0,x1,y1,z1` (inclusive, the seed's coordinates).
+        #[arg(long = "box")]
+        bx: String,
+        /// Comma list: slime, honey, stone, obsidian, tnt, fan, wallfan, dust, rblock, observer,
+        /// piston, sticky, or block states.
+        #[arg(long, default_value = "slime,stone,obsidian,tnt,fan,wallfan,dust,rblock")]
+        palette: String,
+        #[arg(long, default_value_t = 6)]
+        k: usize,
+        #[arg(long, default_value_t = 3)]
+        kmin: usize,
+        #[arg(long, default_value = "tnt,fan,dust")]
+        require: String,
+        #[arg(long, default_value_t = 1_000_000)]
+        samples: usize,
+        #[arg(long, default_value_t = 120)]
+        ticks: u32,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Shrink dupers on redsim: drop blocks one at a time (never a TNT) while they still dupe at
+    /// least as fast; writes each distinct result to DIR (name: tnt-p<P>-x<per>-<blocks>b-...).
+    Shrink {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 120)]
+        ticks: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -51,7 +91,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Sim { designs, ticks, margin, trace } => {
             for d in &designs {
                 let c = clock::Clock::load(d)?;
-                let r = sim::run(&c, ticks, margin, trace);
+                let r = sim::run(&c, ticks, margin, trace, false);
                 println!("{}: {}", d.display(), r.line());
             }
         }
@@ -66,12 +106,61 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         println!("  gt {}: pos {:?} motion {:?}", s.tick, s.pos, s.motion);
                     }
                 }
-                let r = sim::run(&c, ticks, margin, 0);
-                // over the ticks both runs saw (each stops 2 periods after its own period check)
+                let r = sim::run(&c, ticks, margin, 0, true);
+                // over the ticks both runs saw; primes by tick, cells within 1 (the game sees a
+                // primed TNT one tick after it spawned, possibly already pushed by the machine)
                 let n = r.ticks.min(g.run.ticks);
-                let pr = |v: &[(u32, redsim::BlockPos)]| v.iter().filter(|(t, _)| *t <= n).copied().collect::<Vec<_>>();
-                let same = pr(&r.primes) == pr(&g.run.primes) && r.tnt[..=n as usize] == g.run.tnt[..=n as usize];
-                println!("  redsim: {} [{}]", r.line(), if same { format!("primes and TNT counts identical over {n} gt") } else { "DIFFERS".into() });
+                let ticks_of = |v: &[(u32, redsim::BlockPos)]| v.iter().filter(|(t, _)| *t <= n).map(|(t, _)| *t).collect::<Vec<_>>();
+                let near = r.primes.iter().zip(&g.run.primes).all(|((_, a), (_, b))| (a.x - b.x).abs() <= 1 && (a.y - b.y).abs() <= 1 && (a.z - b.z).abs() <= 1);
+                let same = ticks_of(&r.primes) == ticks_of(&g.run.primes) && near && r.tnt[..=n as usize] == g.run.tnt[..=n as usize];
+                println!("  redsim: {} [{}]", r.line(), if same { format!("prime ticks and TNT counts identical over {n} gt") } else { "DIFFERS".into() });
+            }
+        }
+        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, out } => {
+            let v: Vec<i32> = bx.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 6, "--box x0,y0,z0,x1,y1,z1");
+            let list = |s: &str| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect::<Vec<_>>();
+            let o = search::SearchOptions {
+                seed,
+                lo: [v[0], v[1], v[2]],
+                hi: [v[3], v[4], v[5]],
+                palette: list(&palette),
+                k,
+                kmin: kmin.min(k),
+                require: list(&require),
+                samples,
+                ticks,
+                rng,
+                workers,
+                out: out.clone(),
+            };
+            let t = std::time::Instant::now();
+            let n = search::search(&o)?;
+            println!("{n} distinct dupers in {samples} samples ({:.0} s): {}", t.elapsed().as_secs_f64(), out.join("found.tsv").display());
+        }
+        Cmd::Shrink { designs, ticks, out } => {
+            std::fs::create_dir_all(&out)?;
+            let mut seen: std::collections::HashSet<Vec<(clock::Pos, String)>> = std::collections::HashSet::new();
+            for d in &designs {
+                let c = clock::Clock::load(d)?;
+                let n0 = c.design.blocks.len();
+                match search::shrink(&c, ticks) {
+                    None => println!("{}: does not dupe on redsim", d.display()),
+                    Some((blocks, p, per)) => {
+                        // the same block set up to translation is one result
+                        let lo = blocks.keys().fold([i32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
+                        let key: Vec<(clock::Pos, String)> = blocks.iter().map(|(p, s)| ([p[0] - lo[0], p[1] - lo[1], p[2] - lo[2]], s.clone())).collect();
+                        let fresh = seen.insert(key);
+                        let name = format!("tnt-p{p}-x{per}-{}b-{}", blocks.len(), seen.len());
+                        if fresh {
+                            let mut dd = c.design.clone();
+                            dd.name = name.clone();
+                            dd.blocks = blocks.clone();
+                            std::fs::write(out.join(format!("{name}.txt")), dd.to_text())?;
+                        }
+                        println!("{}: {n0} -> {} blocks, period {p}, {per} per period{}", d.display(), blocks.len(), if fresh { format!(" -> {name}") } else { " (seen)".into() });
+                    }
+                }
             }
         }
     }

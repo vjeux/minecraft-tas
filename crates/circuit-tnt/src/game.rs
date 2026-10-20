@@ -8,7 +8,7 @@ use anyhow::Result;
 use clock::{Clock, Pos};
 use mctas::sim::{SandboxOptions, Worker};
 use redsim::BlockPos;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// One primed TNT as the game spawned it.
 #[derive(Clone, Debug)]
@@ -45,10 +45,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, ticks: u32, from: Pos, to: Pos) ->
     let mut out = TntRun::default();
     let mut spawns: Vec<Spawn> = Vec::new();
     let mut seen_tnt: HashSet<String> = HashSet::new();
-    let mut seen_frames: HashMap<Vec<(Pos, String)>, u32> = HashMap::new();
+    // block frames only (moving blocks' progress is not in them): the period is read at the end,
+    // from frames that repeat through the whole second half of the run
+    let mut frames: Vec<u64> = Vec::new();
     let count = |f: &mctas::sim::Region| f.iter().filter(|(_, s)| s.starts_with("minecraft:tnt")).count();
     out.tnt.push(count(&w.get_region(sb, from, to)?));
-    let mut stop_at = ticks;
     for t in 0..ticks {
         while actions.first().is_some_and(|(at, _)| *at == t) {
             let (_, a) = actions.remove(0);
@@ -67,19 +68,31 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, ticks: u32, from: Pos, to: Pos) ->
         }
         let f = w.get_region(sb, from, to)?;
         out.tnt.push(count(&f));
-        if out.period.is_none() && t + 1 > last_action {
-            let mut key: Vec<(Pos, String)> = f.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| (p, s.to_string())).collect();
-            key.sort();
-            if let Some(&first) = seen_frames.get(&key) {
-                out.period = Some((first, t + 1 - first));
-                stop_at = (t + 1 + 2 * (t + 1 - first)).min(ticks);
-            } else {
-                seen_frames.insert(key, t + 1);
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for (p, s) in f.iter() {
+            if !mctas::blockstate::is_air(s) {
+                std::hash::Hash::hash(&(p, s), &mut h);
             }
         }
-        if t + 1 >= stop_at {
-            break;
+        frames.push(std::hash::Hasher::finish(&h));
+    }
+    out.period = frame_period(&frames, last_action);
+    Ok(GameRun { run: out, spawns })
+}
+
+/// The smallest period p (and the first tick from which frames repeat with it) such that every
+/// frame of the run's second half equals the one p ticks later; frames[i] = after tick i + 1.
+pub fn frame_period(frames: &[u64], last_action: u32) -> Option<(u32, u32)> {
+    let n = frames.len();
+    let half = (n / 2).max(last_action as usize);
+    for p in 1..=(n.saturating_sub(half)) / 2 {
+        if (half..n - p).all(|i| frames[i] == frames[i + p]) {
+            let mut start = half;
+            while start > last_action as usize && frames[start - 1] == frames[start - 1 + p] {
+                start -= 1;
+            }
+            return Some((start as u32 + 1, p as u32));
         }
     }
-    Ok(GameRun { run: out, spawns })
+    None
 }
