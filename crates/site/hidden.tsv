@@ -38,3 +38,9 @@ memory/counter4-ring9	3 blocks bigger than counter4-bulb2, same counter, only av
 memory/counter12-ring3-ring4	4 blocks bigger than counter12-ring3-bulb2, same counter, only avoids copper bulbs
 memory/counter16-ring4-ring4	8 blocks bigger than counter16-bulb4, same counter, only avoids copper bulbs
 memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same counter, only avoids copper bulbs
+# 2026-10-20 13:19Z, the coordinator: TEMPORARY, until their owners re-judge them
+tnt/tnt-launch-14b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+tnt/tnt-drop-16b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+tnt/tnt-lever-launch-15b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+pulse/pulse-*-sculk-*	temporary: a real lever's own vibration or ambient vibrations may trigger these sculk pulse circuits; until clk-obs's vibration test passes
+pulse/pulse-fall-trapdoor-cal-L10	temporary: a real lever's own vibration or ambient vibrations may trigger it; until clk-obs's vibration test passes

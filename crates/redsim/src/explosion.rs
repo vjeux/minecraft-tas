@@ -614,6 +614,18 @@ pub struct Blast {
     pub destroyed: Vec<(BlockPos, Block)>,
 }
 
+/// A world where TNT lives and explodes like in a bridge sandbox seeded `seed` with the forced
+/// chunk range `chunks`: TNT entities (`tnt_kick`, their kicks from the level random), the level
+/// random mirrored, drops seeded like the bridge's (`drop_seed`), nothing removed before it
+/// explodes, the game's rolls. The viewer runs TNT designs this way (and `web check` its reference).
+pub fn explode_on(w: &mut World, seed: i64, chunks: [i32; 4]) {
+    w.tnt_kick = Some(0.0);
+    w.mirror_level_random(seed, chunks);
+    w.drop_seed = Some(seed);
+    w.remove_primed = false;
+    w.explosion_rolls = Rolls::Level;
+}
+
 /// `ServerLevel.explode(source, .., center, radius, fire = false, TNT)` -> `ServerExplosion.explode`
 /// (see the module doc). `source`: the exploding entity's id (excluded from the entities hit).
 pub fn explode(w: &mut World, source: Option<u32>, center: Vec3, radius: f32) {

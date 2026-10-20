@@ -17,6 +17,7 @@ pub mod doors;
 pub mod explain;
 pub mod generate;
 pub mod pages;
+pub mod plain;
 pub mod serve;
 pub mod web;
 pub mod webkit;
@@ -32,10 +33,9 @@ pub enum SiteCmd {
     Build(BuildArgs),
     /// Publish a generated folder as the gh-pages branch (GitHub Pages), one orphan commit.
     Deploy(DeployArgs),
-    /// Build, smoke-test (a headless Chrome is required: `mctas site chrome`) and deploy, in one
-    /// command: what to run after merging into main.
+    /// Build and deploy, in one command: what to run after merging into main.
     Publish(BuildArgs),
-    /// Download Chrome for Testing's headless shell into ~/.cache/mctas (for smoke and publish).
+    /// Download Chrome for Testing's headless shell into ~/.cache/mctas (for the optional smoke).
     Chrome,
     /// The circuits a builder has no reason to pick: another design of the same kind and main
     /// value is smaller and at least as fast, and the listed one only avoids a material (slime,
@@ -126,7 +126,7 @@ pub struct BuildArgs {
     /// `origin/gh-pages`, the last deploy: for a box without the wasm32 target or wasm-bindgen).
     #[arg(long, conflicts_with = "pkg")]
     pub pkg_ref: Option<String>,
-    /// Skip the filtering UI (no WebAssembly build; the index then only links to all.html).
+    /// Skip the filtering UI (no WebAssembly build; the index then only links to the circuits).
     #[arg(long)]
     pub no_wasm: bool,
     /// GitHub release whose `<stem>.mp4` assets are the doors' videos (`gh`); empty: no links.
@@ -144,9 +144,9 @@ pub struct BuildArgs {
     /// `publish` only: wait for GitHub's Pages build budget instead of failing.
     #[arg(long)]
     pub wait: bool,
-    /// `publish` only: deploy without the smoke test (it needs a headless Chrome: `mctas site
-    /// chrome` downloads one); never for a new viewer bundle.
-    #[arg(long)]
+    /// Accepted for old command lines: `publish` never runs the browser smoke any more (vjeux
+    /// 2026-10-20 14:20Z: "Please remove the e2e tests"); `mctas site smoke` stays a dev tool.
+    #[arg(long, hide = true)]
     pub no_smoke: bool,
 }
 
@@ -179,19 +179,9 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Build(a) => generate::build(&a),
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Publish(a) => {
+            // build and deploy; no browser end-to-end gate (vjeux 14:20Z: "I think we're
+            // overreacting to a single bug we had. Please remove the e2e tests")
             generate::build(&a)?;
-            // the smoke gates every deploy: a black or broken viewer bundle never goes out
-            // (the viewer probes count the colors of a rendered door and clock)
-            if a.no_smoke {
-                println!("smoke: skipped (--no-smoke)");
-            } else {
-                match serve::smoke(&a.out, None, 20_000, None) {
-                    Ok(0) => println!("smoke: all checks passed"),
-                    Ok(n) => bail!("{n} smoke check(s) failed: not deployed"),
-                    Err(e) if format!("{e}").contains("no headless Chrome") => bail!("{e}: not deployed (or pass --no-smoke to deploy unchecked)"),
-                    Err(e) => return Err(e),
-                }
-            }
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),

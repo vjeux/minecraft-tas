@@ -1,0 +1,44 @@
+# archived 2026-10-20T14:16Z from designs/circuits/memory/tracks/memory/counter25-items.txt by mctas circuit archive
+# CIRCUIT: counter25-items counter 25 N 25, output toggles every 25 pulses, 39 blocks, 5x3x6, robust
+# Item counter, 25 items, 39 blocks (track memory, `mctas circuit memory items --n 25`): the one counter whose size does not depend on N. Droppers A and B face each other and hold 25 items between them; each pulse fires exactly one of them, so the pile walks from A to B and back and each dropper runs empty once every 25 pulses. Comparators a and b read them (level 0 only when empty), so the wall torches on their output blocks are lit exactly when their own dropper is empty, and both torches power the copper bulb W above them: W toggles once every 25 pulses and is the output. W is also the phase. Comparator C reads it and its dust line powers the stone south of A, which holds A; the wall torch on that stone is lit only when the line is off, and its line holds B through the stone east of it. A held dropper is one kept continuously powered: it sees no rising edge, so a pulse fires only the other one. The pulse is the dust on the two lids, since a dropper fires on a signal at its own cell or at the cell above it.
+name: counter25-items
+circuit: counter 25
+group: item-pair
+group title: Item counter (counter N, any N)
+group note: two droppers facing each other hold N items; each pulse fires only the one the copper bulb phase does not hold, so each runs empty once every N pulses - 39 blocks for every N up to 576 (`mctas circuit memory items --n N`)
+port input: 0 3 0
+port output: -2 1 1
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:25}]}
+origin: -2 0 -3
+palette:
+  A minecraft:dropper[facing=east,triggered=false]
+  B minecraft:dropper[facing=west,triggered=false]
+  a minecraft:comparator[facing=south,mode=compare,powered=false]
+  b minecraft:comparator[facing=south,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  t minecraft:redstone_wall_torch[facing=north,lit=true]
+  w minecraft:redstone_wall_torch[facing=south,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  SS...
+  S....
+  S.SS.
+  S....
+  SS..S
+  ...SS
+layer 1:
+  SStt.
+  r.SS.
+  r.ab.
+  r.ABS
+  rrS.r
+  ..wrr
+layer 2:
+  rCWS.
+  .....
+  .....
+  ..rr.
+  .....
+  .....
