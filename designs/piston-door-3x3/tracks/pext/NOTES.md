@@ -67,6 +67,18 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   cost), `--levels`, `--fix`/`--drop`/`--observe`, real levers (`use` at t0) handled like
   lever-held inputs, plan variables, the open target from the plan's own timing, batched
   parallel expansion (3M pairs in ~45 s with `--threads 32`).
+* Fixed 01:05: a pulse could overwrite a mechanism block standing in an input cell (the block then
+  vanished when the pulse cleared): moves that set over or clear a mechanism block are refused
+  now; earlier "1 cell off" near-misses were that artifact. Snapshots cover the whole simulated
+  world (a block pushed past the watch box no longer vanishes on a rebuild).
+* c70b's 7x7 u0 / u2 (every receiver touches a free feed, statics as stone): no train with zero
+  one-edge pulses (2 cells off), but with `--edge-cost 16` a train of 21 shared pulses + ONE
+  one-edge pulse: `u0-train-e16.ideal` (close-only (-1,-3), open 39 / close 39) and
+  `u2-train-e16.ideal` (open-only (-3,1), open 42 / close 29), redsim 32x3 + game. satwire
+  (pockets3's u0 recipe): cores u0 open (1,-2), u2 close (-1,-2). clk-misc: u0/u2's 16 free cells
+  are 5 islands with no electrical path; each must start from an event it can see, and with the
+  lever on top two islands never start (u0-l2 moves the lever). A search that tracks island starts
+  (which islands have seen a change) would prune unwirable trains; not built.
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,
