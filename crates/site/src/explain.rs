@@ -461,21 +461,28 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             }
             let badges = metric(c, "badges");
             let sorts = badges.split('+').any(|b| b == "filter");
-            let items_s = metric(c, "items/s").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v > 0.0);
             let supply = if loader {
                 "The view runs it the way the judge does, without end: the chests at the cells tagged ITEMS and BOXES are kept full (items, empty shulker boxes) and the one at OUT is emptied as boxes arrive"
             } else {
                 "The view runs it the way the judge does, without end: the chest at the cell tagged BOXES is kept full of full shulker boxes, and the chests at ITEMS and OUT are emptied as the items and the empty boxes arrive"
             };
-            let what = if sorts {
-                " (with the one kind of item it packs).".to_string()
-            } else {
-                match items_s {
-                    Some(r) => format!(". The items are unstackable (27 fill a box), so at its {r:.2} items per second a box goes out about every {:.0} s.", (27.0 / r).max(1.0)),
-                    None => ". The items are unstackable (27 fill a box).".to_string(),
-                }
+            let what = if sorts { " (with the one kind of item it packs, 64 to a stack)." } else { ". The items are unstackable (27 fill a box)." };
+            // the numbers of the view's own run (the viewer's session, run at build time)
+            let gt = |t: f64| -> String {
+                let n = t.round().max(0.0) as u32;
+                format!("{n} gt ({})", real_time(n))
             };
-            s.push_str(&format!("<p><b>The machine runs in the view.</b> {supply}{what} The numbers over each chest, hopper and dispenser show what it holds. Speed it up with the bar's speed button (up to 100x).</p>"));
+            let timing = match c.view_run.as_ref().map(|v| (v.first, v.cycle)) {
+                Some((Some(f), Some(cy))) => format!(
+                    " In the view the first box goes out {} after the machine starts, then one every {}{}.",
+                    gt(f as f64),
+                    gt(cy),
+                    if cy >= 1200.0 { format!(", or one every {:.0} s at 100× speed", cy / 2000.0) } else { String::new() }
+                ),
+                Some((Some(f), None)) => format!(" In the view the first box goes out {} after the machine starts.", gt(f as f64)),
+                _ => String::new(),
+            };
+            s.push_str(&format!("<p><b>The machine runs in the view.</b> {supply}{what}{timing} The numbers over each chest, hopper and dispenser show what it holds. Speed it up with the bar's speed button (up to 100×).</p>"));
             // the start lever is the visitor's (the judge flips it at its start); the combo's
             // mode lever switches loading and unloading
             let mut levers: Vec<String> = Vec::new();

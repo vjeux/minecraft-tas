@@ -19,5 +19,7 @@ clock = { path = "../clock" }
 circuit = { path = "../circuit" }
 site-model = { path = "../site-model" }
 litematic = { path = "../litematic" }
-# the viewer's own session (webrender): whether the 3D view can run a design or shows it as built
+# the viewer's own session (webrender): whether the 3D view can run a design or shows it as built,
+# and a shulker machine run the way the view runs it (the boxes it sends out)
 mcview = { path = "../mcview" }
+redsim = { path = "../redsim" }
