@@ -5,6 +5,7 @@
 //!   on track tff's census engine (`circuit_tff::census`).
 //! * [`ring`]: dropper-ring counters around the input cell (`circuit memory ring --n N`).
 
+pub mod items;
 pub mod ring;
 pub mod specs;
 pub mod stamp;
@@ -22,6 +23,16 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// The item counter: two droppers facing each other hold N items, each pulse fires only the
+    /// one the copper bulb phase does not hold, so each runs empty once every N pulses. 39 blocks
+    /// for every N up to 576 - the only counter whose size does not grow with N.
+    Items {
+        /// Counter sizes, comma-separated (2..=576).
+        #[arg(long, value_delimiter = ',')]
+        n: Vec<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Dropper-ring counters: the smallest cycles dropper -> hopper -> ... whose droppers the
     /// input cell fires (directly or through dust next to it), one design per ring (`--keep`).
     Ring {
@@ -99,6 +110,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
+        Cmd::Items { n, out } => items::run(&n, &out)?,
         Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, &out)?,
         Cmd::StampGroups { dry_run, files } => stamp::run(&files, dry_run)?,
         Cmd::Check { design, gap } => {
