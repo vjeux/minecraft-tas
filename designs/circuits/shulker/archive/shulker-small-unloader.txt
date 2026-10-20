@@ -1,8 +1,8 @@
-# archived 2026-10-20T06:43Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
-# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 31 redstone, 1 slime, 42 blocks, 5x5x7, robust
-# Smallest always-on shulker unloader so far, 42 blocks (track shulker-speed, clk-item): clk-rt's
+# archived 2026-10-20T06:46Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
+# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 31 redstone, 1 slime, 41 blocks, 5x5x7, robust
+# Smallest always-on shulker unloader so far, 41 blocks (track shulker-speed, clk-item): clk-rt's
 # always-on unloader without the hopper lock (its repeater, dust, stone and two floors) and without
-# the two walls south of the box cell and the drop cell: the unloading hopper is still on its 8 gt
+# the drop cell's side walls and the wall south of the box cell: the unloading hopper is still on its 8 gt
 # cooldown from the box's last item when the piston breaks the box, and the moving stone pushes
 # the drop out of its reach in time (16 builds with 16 different drop draws). The dispenser
 # above the box cell places full boxes, the hopper under it empties them; a squared comparator
@@ -57,7 +57,7 @@ layer 1:
   ...rV.
   ...Wrr
   ...C.r
-  ..SS.r
+  ...S.r
   .S..SP
   ......
 layer 2:
