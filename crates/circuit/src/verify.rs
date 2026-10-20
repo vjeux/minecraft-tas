@@ -98,7 +98,9 @@ fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
-    Ok((check::stimulus(c, &kind, &Sizing { gap }), Some(kind)))
+    let mut s = check::stimulus(c, &kind, &Sizing { gap });
+    let _ = &mut s;
+    Ok((s, Some(kind)))
 }
 
 /// Result of [`sim`].
@@ -147,6 +149,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             Some(crate::bud::tile_check(c, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| Ok(run::sim_trace(tc, ts, o.margin)))?)
         }
         (out, _) => out,
+    };
+    // a sculk design: the device and ambient runs (crate::vibration)
+    let outcome = match (outcome, &kind, &trace) {
+        (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
+        (out, _, _) => out,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
@@ -359,6 +366,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(tl) = c.tile
         {
             out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        // a sculk design: the device and ambient runs in this build (crate::vibration)
+        if out.pass
+            && rc.has_sculk()
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });

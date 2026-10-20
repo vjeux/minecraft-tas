@@ -1,11 +1,17 @@
-# archived 2026-10-20T13:04Z from designs/circuits/tracks/pulse/wr/pulse-limiter-sculk-cal-L10.txt by mctas circuit archive
-# CIRCUIT: pulse-limiter-sculk-cal-L10 pulse-limiter L 10 gt, delay 1 gt, min-pulse 1 gt, 2 blocks, 2x1x2, robust
+# archived 2026-10-20T13:33Z from designs/circuits/tracks/pulse/wr/pulse-limiter-sculk-cal-L10.txt by mctas circuit archive
+# CIRCUIT: pulse-limiter-sculk-cal-L10 pulse-limiter L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar), 2 blocks, 2x1x2, robust
 name: pulse-limiter-sculk-cal-L10
 circuit: pulse-limiter
-# A rising-edge detector of 10 gt in 2 blocks: the input powers a note block, which plays only when
-# it becomes powered (game event note_block_play); a CALIBRATED sculk sensor hears it and stays
-# ACTIVE for CalibratedSculkSensorBlock.getActiveTicks() = 10 gt (its back reads nothing: every
-# frequency is heard). Diagonal to the note block so its own power never re-plays the note.
+input-device: far
+# Cuts any input down to exactly 10 ticks (half a second), from just 2 blocks, for quiet builds: the
+# input makes a note block play, and a sound sensor (calibrated sculk sensor) that hears it
+# switches on for exactly 10 ticks. It hears every other sound within 16 blocks too, so it only
+# works where nobody walks or drops items nearby and where the input arrives by a long line, not
+# from a lever next to it (the 5-block filtered version has neither limit). The smallest 10 gt
+# pulse limiter; shorter inputs come out as 10 ticks too.
+# Detail: the note block plays only when it becomes powered (note_block_play); the sensor sits
+# diagonal to it (its own power never replays the note), active 10 gt
+# (CalibratedSculkSensorBlock.getActiveTicks); nothing at its back, so every frequency is heard.
 origin: 0 0 0
 port input: 0 0 0
 port output: 3 0 1

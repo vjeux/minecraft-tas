@@ -286,6 +286,9 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
                 let src = s.world.get(bp(pos)).kind();
                 s.world.update_neighbors_at(bp(pos), src);
             }
+            Action::GameEvent { pos, event } => {
+                s.world.game_event(event, bp(pos));
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {

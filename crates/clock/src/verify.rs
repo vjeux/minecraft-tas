@@ -238,6 +238,9 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         Action::Update { pos } => {
             w.update(sb, &[*pos], "neighbors")?;
         }
+        Action::GameEvent { pos, event } => {
+            w.game_event_at(sb, event, &[*pos], true)?;
+        }
     }
     Ok(())
 }

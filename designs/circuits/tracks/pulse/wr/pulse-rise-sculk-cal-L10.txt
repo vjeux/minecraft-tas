@@ -1,9 +1,15 @@
 name: pulse-rise-sculk-cal-L10
 circuit: rising-edge
-# A rising-edge detector of 10 gt in 2 blocks: the input powers a note block, which plays only when
-# it becomes powered (game event note_block_play); a CALIBRATED sculk sensor hears it and stays
-# ACTIVE for CalibratedSculkSensorBlock.getActiveTicks() = 10 gt (its back reads nothing: every
-# frequency is heard). Diagonal to the note block so its own power never re-plays the note.
+input-device: far
+# One 10-tick pulse (half a second) every time the input turns on, from just 2 blocks, for quiet
+# builds: the input makes a note block play, and a sound sensor (calibrated sculk sensor) that
+# hears it switches on for exactly 10 ticks. It hears every other sound within 16 blocks too, so it
+# only works where nobody walks or drops items nearby and where the input arrives by a long line,
+# not from a lever next to it (the 5-block filtered version has neither limit). The smallest 10 gt
+# rising-edge detector, and it sees 1-tick inputs.
+# Detail: the note block plays only when it becomes powered (note_block_play); the sensor sits
+# diagonal to it (its own power never replays the note), active 10 gt
+# (CalibratedSculkSensorBlock.getActiveTicks); nothing at its back, so every frequency is heard.
 origin: 0 0 0
 port input: 0 0 0
 port output: 3 0 1

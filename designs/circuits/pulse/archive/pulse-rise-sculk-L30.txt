@@ -1,12 +1,16 @@
-# archived 2026-10-20T13:04Z from designs/circuits/tracks/pulse/wr/pulse-rise-sculk-L30.txt by mctas circuit archive
-# CIRCUIT: pulse-rise-sculk-L30 rising-edge L 30 gt, delay 1 gt, min-pulse 1 gt, 2 blocks, 2x1x2, robust
+# archived 2026-10-20T13:34Z from designs/circuits/tracks/pulse/wr/pulse-rise-sculk-L30.txt by mctas circuit archive
+# CIRCUIT: pulse-rise-sculk-L30 rising-edge L 30 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar), 2 blocks, 2x1x2, robust
 name: pulse-rise-sculk-L30
 circuit: rising-edge
-# A rising-edge detector of 30 gt in 2 blocks: the input powers a note block, which plays only when
-# it becomes powered (NoteBlock.neighborChanged -> playNote -> game event note_block_play); a sculk
-# sensor 1.4 blocks away hears it (travel floor(distance) = 1 gt) and stays ACTIVE for
-# SculkSensorBlock.ACTIVE_TICKS = 30 gt whatever the input does. The sensor sits diagonal to the
-# note block so its own power never re-plays the note.
+input-device: far
+# One 30-tick pulse (1.5 seconds) every time the input turns on, from just 2 blocks, for quiet
+# builds: the input makes a note block play, and a sound sensor (sculk sensor) that hears it
+# switches on for exactly 30 ticks. It hears every other sound too, so it only works where nobody
+# walks or drops items within 8 blocks and where the input arrives by a long line, not from a lever
+# next to it. The smallest 30 gt rising-edge detector, and it sees 1-tick inputs.
+# Detail: the note block plays only when it becomes powered (note_block_play); the sensor is 1.4
+# blocks away (diagonal, so its own power never replays the note) and stays active 30 gt
+# (SculkSensorBlock.ACTIVE_TICKS).
 origin: 0 0 0
 port input: 0 0 0
 port output: 3 0 1
