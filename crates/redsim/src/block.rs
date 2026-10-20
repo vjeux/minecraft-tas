@@ -488,6 +488,11 @@ pub enum Block {
     ChiseledBookshelf { facing: Dir, slots: u8 },
     /// Daylight detector (`daylight.rs`): its power from the sky light every 20 gt.
     DaylightDetector { inverted: bool, power: u8 },
+    /// Powder snow (placed and picked up by dispensers' buckets): no collision without an
+    /// entity, not solid, not a conductor.
+    PowderSnow,
+    /// Jukebox: `has_record`; its record and song live in the block entity (`container.rs`).
+    Jukebox { has_record: bool },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -559,6 +564,8 @@ pub enum Kind {
     BigDripleaf,
     ChiseledBookshelf,
     DaylightDetector,
+    PowderSnow,
+    Jukebox,
     Water,
     BubbleColumn,
 }
@@ -620,6 +627,8 @@ impl Block {
             Block::BigDripleaf { .. } => Kind::BigDripleaf,
             Block::ChiseledBookshelf { .. } => Kind::ChiseledBookshelf,
             Block::DaylightDetector { .. } => Kind::DaylightDetector,
+            Block::PowderSnow => Kind::PowderSnow,
+            Block::Jukebox { .. } => Kind::Jukebox,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
@@ -813,6 +822,8 @@ impl Block {
                 Block::ChiseledBookshelf { facing: hdir_of("facing", Dir::North)?, slots }
             }
             "daylight_detector" => Block::DaylightDetector { inverted: bool_of("inverted", false)?, power: int_of("power", 0, 0, 15)? },
+            "powder_snow" => Block::PowderSnow,
+            "jukebox" => Block::Jukebox { has_record: bool_of("has_record", false)? },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -1100,6 +1111,8 @@ impl fmt::Display for Block {
                 write!(f, "]")
             }
             Block::DaylightDetector { inverted, power } => write!(f, "minecraft:daylight_detector[inverted={},power={power}]", b(inverted)),
+            Block::PowderSnow => write!(f, "minecraft:powder_snow"),
+            Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }

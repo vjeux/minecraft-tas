@@ -59,12 +59,19 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
   its auto output (the log cell) by the cell's own states (on 7/10), while the judge carries that cell as a declared
   port and measures the power it receives (on 0/10). (An earlier "76 of 78" here was miscounted by a shell diff.)
   `circuit sim` prints the judge's lines for tff-crafter and rs-crafter (and `circuit verify` agrees, robust).
+  2026-10-20, the whole archive (`redsim-fuzz archive-check`, report in `archive-check.txt`): every one of the 3229
+  archived clocks and 262 circuits runs on redsim to a line; 3349 print the judge's own line. Left: 137 designs
+  without `port output` (clock sim reads the auto-picked cell by its own states, the judge as a declared port:
+  clockinfra's call, docs/clocks.md) and 5 clk-item hopper/dropper rings whose warmup the judge counts differently
+  (block states tick-identical; already noted in their archive headers).
+  clk-misc-leaf-p10-4b got `port output: 0 0 1` (re-judged, re-archived, line unchanged) so both read the same cell.
 - Mine: `redsim/src/entity/{collide,kinds,boat,minecart,armor_stand}.rs` (Entity.move / collide / step-up / movement
   recording, checkInsideBlocks, baseTick, AbstractBoat, AbstractMinecart + OldMinecartBehavior, LivingEntity.travel for
   a stand), `react.rs` (plates, tripwire, hooks, bubble-column entity effect, big dripleaf), `rails.rs` (RailState for
   every rail kind, plain and detector rails), the containers in `redstone/container.rs` (CRef: block entities or
   container entities; chest boats, hopper minecarts, the chiseled bookshelf, crafters with `redstone/crafting.rs` and
-  the generated `recipes_gen.rs`), `daylight.rs` (daylight detectors, the sky light's fixed point, the day timeline),
+  the generated `recipes_gen.rs`; jukeboxes; dispensers' powder snow buckets), `daylight.rs` (daylight detectors, the
+  sky light's fixed point, the day timeline),
   `redsim-fuzz/src/{trace_compare,archive_check,recipes_gen}.rs`, the circuit judge's sizing extension
   (`circuit/src/verify.rs`: a slow path of the kind's own stimulus lengthens the gap).
   clockinfra's: fluids (`fluid/`), fluid pushing, waterlogging hooks, item entities, entity spawn / clock sim wiring,
