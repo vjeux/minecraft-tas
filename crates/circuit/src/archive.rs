@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 7] = [
+pub const STUDIES: [(&str, &str); 8] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -26,6 +26,7 @@ pub const STUDIES: [(&str, &str); 7] = [
     ("memory", "Memory"),
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
+    ("shulker", "Shulker loaders and unloaders"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -261,6 +262,9 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        // the item class: the gallery's rows; speed and size are the columns
+        Kind::ShulkerLoader(s) => format!("load {s}-stack"),
+        Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
     }
 }
 
