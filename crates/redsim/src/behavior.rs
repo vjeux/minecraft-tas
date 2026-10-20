@@ -60,6 +60,7 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Piston { extended, .. } => !extended,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
+        Block::ChiseledBookshelf { .. } => true,
         _ => false,
     }
 }
@@ -111,6 +112,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
+        Block::ChiseledBookshelf { .. } => true,
         _ => false,
     }
 }
@@ -177,6 +179,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
+        Block::ChiseledBookshelf { .. } => true,
         _ => false,
     }
 }
@@ -302,7 +305,7 @@ pub fn instrument(s: &Block) -> Instrument {
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } => Instrument::Bass,
+        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
@@ -353,7 +356,7 @@ pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
-    ) || matches!(s, Block::WallBanner { .. }) // ---- entity-reacting blocks (clk-misc) ----
+    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
