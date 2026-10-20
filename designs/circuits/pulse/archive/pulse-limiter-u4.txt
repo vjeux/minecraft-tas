@@ -12,6 +12,7 @@ extend blocks: 10 + 4n
 extend rule: lengthen the U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long pulse limiter: a comparator and a loop of repeaters
+extend group note: Lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the 7-block hopper item timer, smaller from 23 ticks on; this loop of repeaters gives 16, 32, 48... ticks exactly, which the hopper timer can't.
 extend base: 0
 extend generator: mctas circuit pulse family limiter-u4 --n {n} --out {out}
 origin: 0 0 -1

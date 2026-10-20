@@ -916,9 +916,12 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let val = |f: &Family, n: i64| format!("{label} = {}{u}", f.period.eval(n));
         if card.members.len() == 1 {
-            // its human title (`extend group title:`), else its id
+            // its human title (`extend group title:`), else its id; its note (why a builder picks it)
             let title = f.group_title.clone().unwrap_or_else(|| f.id.clone());
             md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), title, r.file, f.blocks.text(), r.kind));
+            if let Some(n) = &f.group_note {
+                md.push_str(&format!("{n}\n\n"));
+            }
             let ns: Vec<i64> = [f.n_lo, f.n_lo + 1].into_iter().filter(|n| *n <= f.n_hi).collect();
             md.push_str(&ns.iter().map(|n| format!("n = {n}: {}, {} blocks", val(f, *n), f.blocks.eval(*n))).collect::<Vec<_>>().join(" · "));
             let j = judged(f);
@@ -941,12 +944,32 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
                 }
             }
             let heading = fs.iter().find_map(|g| g.group_period.clone()).unwrap_or_else(|| texts.join(" · "));
-            let title = fs.iter().find_map(|g| g.group_title.clone()).or_else(|| card.group.clone()).unwrap_or_else(|| format!("{} (one block swapped: {} versions)", f.id, fs.len()));
-            let note = fs.iter().find_map(|g| g.group_note.clone()).map(|n| format!(" · {n}")).unwrap_or_default();
+            // an explicit group (`extend group:`) takes its title and note from the first member
+            // carrying them; a card of families grouped by their block kinds keeps a member's title
+            // only when they all share it (else each row shows its own) and shows each distinct note
+            let title = if card.group.is_some() {
+                fs.iter().find_map(|g| g.group_title.clone()).or_else(|| card.group.clone()).unwrap_or_default()
+            } else {
+                match &fs[0].group_title {
+                    Some(t) if fs.iter().all(|g| g.group_title.as_ref() == Some(t)) => t.clone(),
+                    _ => format!("{} versions of one layout (one block swapped)", fs.len()),
+                }
+            };
+            let mut notes: Vec<String> = Vec::new();
+            for g in &fs {
+                if let Some(n) = &g.group_note
+                    && !notes.contains(n)
+                    && (card.group.is_none() || notes.is_empty())
+                {
+                    notes.push(n.clone());
+                }
+            }
+            let note = if notes.is_empty() { String::new() } else { format!("\n\n{}", notes.join(" ")) };
             md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged n |\n|---|---|---|---|---|\n", fs.len()));
             for &i in &card.members {
                 let (mr, mf, _) = &fams[i];
-                md.push_str(&format!("| [{}](archive/{}) | {} | {} | {}..{} ({} .. {}) | {} |\n", mf.id, mr.file, mf.period.text(), mf.blocks.text(), mf.n_lo, mf.n_hi, mf.period.eval(mf.n_lo), mf.period.eval(mf.n_hi), judged(mf)));
+                let name = mf.group_title.clone().filter(|_| card.group.is_none()).unwrap_or_else(|| mf.id.clone());
+                md.push_str(&format!("| [{}](archive/{}) | {} | {} | {}..{} ({} .. {}) | {} |\n", name, mr.file, mf.period.text(), mf.blocks.text(), mf.n_lo, mf.n_hi, mf.period.eval(mf.n_lo), mf.period.eval(mf.n_hi), judged(mf)));
             }
         }
     }

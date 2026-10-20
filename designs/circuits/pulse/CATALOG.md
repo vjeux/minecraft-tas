@@ -8,16 +8,20 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 ### L = 13 + 16n gt
 
-**odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters** · 2 families
+**2 versions of one layout (one block swapped)** · 2 families
+
+Odd lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the smaller 7-block hopper item timer; this chain gives the odd lengths it can't (13, 29, 45... ticks).
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
-| [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..10 (13 .. 173) | 0, 1, 2, 5, 10 |
-| [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..2 (13 .. 45) | 0, 1, 2 |
+| [odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..10 (13 .. 173) | 0, 1, 2, 5, 10 |
+| [odd-length rising-edge pulse: a piston-moved redstone block and a loop of repeaters](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..2 (13 .. 45) | 0, 1, 2 |
 
 ### L = 15 + 16n gt
 
 **odd-length falling-edge pulse: a piston-moved redstone block and a loop of repeaters** ([base design](archive/pulse-fall-psub-u4.txt)) · 22 + 4n blocks · falling-edge
+
+Why a chain of repeaters: the pulse starts when the input turns off, so the input can't keep a timer counting (the smaller 7-block hopper item timer only counts while its input stays on); and its lengths are odd, which the copper bulb one-shots (18, 34, 50... ticks) can't make.
 
 n = 0: L = 15 gt, 22 blocks · n = 1: L = 31 gt, 26 blocks
 
@@ -27,32 +31,40 @@ Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone)
 
 **long pulse limiter: a comparator and a loop of repeaters** ([base design](archive/pulse-limiter-u4.txt)) · 10 + 4n blocks · pulse-limiter
 
+Lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the 7-block hopper item timer, smaller from 23 ticks on; this loop of repeaters gives 16, 32, 48... ticks exactly, which the hopper timer can't.
+
 n = 0: L = 16 gt, 10 blocks · n = 1: L = 32 gt, 14 blocks
 
 Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each column. n = 0..10 (L = 16 gt .. L = 176 gt); judged in the game: n = 0, 1, 2, 5, 10.
 
 ### L = 18 + 16n gt
 
-**long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters** · 2 families
+**2 versions of one layout (one block swapped)** · 2 families
+
+Why a chain of repeaters: the pulse must run its full length after the input has ended, so the circuit has to remember it (a copper bulb) and switch itself off after a delay; the smaller 7-block hopper item timer only counts while its input stays on, so it can't. No constant-size version exists yet (a copper bulb holding a hopper timer open would be one).
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
-| [pulse-oneshot-bulb-rise](archive/pulse-oneshot-bulb-rise.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [pulse-oneshot-bulb-ext](archive/pulse-oneshot-bulb-ext.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-rise.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long pulse extender that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-ext.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
 
 ### L = 18 + 16n gt
 
-**long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters** · 3 families
+**3 versions of one layout (one block swapped)** · 3 families
+
+Why a chain of repeaters: the pulse must run its full length after the input has ended, so the circuit has to remember it (a copper bulb) and switch itself off after a delay; the smaller 7-block hopper item timer only counts while its input stays on, so it can't. No constant-size version exists yet (a copper bulb holding a hopper timer open would be one).
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
-| [pulse-oneshot-fall](archive/pulse-oneshot-fall.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [pulse-oneshot-ext](archive/pulse-oneshot-ext.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [pulse-oneshot-rise](archive/pulse-oneshot-rise.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-fall.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long pulse extender: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-ext.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long rising-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-rise.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
 
 ### L = 30 + 16n gt
 
 **long pulse on both edges: an observer, two copper bulbs and a loop of repeaters** ([base design](archive/pulse-dual-edge-reset.txt)) · 32 + 4n blocks · dual-edge
+
+Why a chain of repeaters: each change of the input must give the full pulse whatever the input does next, so the circuit has to remember it (the copper bulbs) and switch itself off after a delay; the smaller 7-block hopper item timer only counts while its input stays on, so it can't.
 
 n = 0: L = 30 gt, 32 blocks · n = 1: L = 46 gt, 36 blocks
 
