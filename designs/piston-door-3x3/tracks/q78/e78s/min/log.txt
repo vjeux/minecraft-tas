@@ -1,0 +1,17 @@
+16 workers; moves all; judge 32 positions
+[    6.4s] the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)
+[   12.5s] start: 45 blocks, open 44 close 15 ticks, passes the judge (32 positions x 3 cycles)
+[   13.9s]   349035 swaps (two blocks out, one block in nearby)
+[   13.9s] 45 blocks: 1328 removals, 0 reroutes (+0 neutral), 2267 compounds, 246 neutral edits
+[   48.7s]   352630 candidates: 294280 seen, 58350 screened in 29.2s, 26 passed the screen, 16 judged, 1 passed the judge (34.6s)
+[   48.8s]   accepted: move (-1,4,0) observer[facing=east,powered=false] -> (-1,3,0) -(-2,4,0) stone -> 44 blocks
+[   51.3s] improved: 44 blocks (move (-1,4,0) observer[facing=east,powered=false] -> (-1,3,0) -(-2,4,0) stone), written to designs/piston-door-3x3/tracks/q78/e78s/min/h2-min.txt
+[   52.8s]   340417 swaps (two blocks out, one block in nearby)
+[   52.8s] 44 blocks: 1280 removals, 0 reroutes (+0 neutral), 2191 compounds, 235 neutral edits
+[   68.8s]   343888 candidates: 287542 seen, 56346 screened in 15.7s, 20 passed the screen, 20 judged, 0 passed the judge (15.9s)
+[   69.0s]   no improving move; plateau: judging 36982 neutral edits
+[  102.0s]   36982 candidates: 31378 seen, 5604 screened in 2.0s, 231 passed the screen, 231 judged, 27 passed the judge (33.0s)
+[  105.8s]   plateau: routing took 3.8s
+[  105.8s]   plateau: 27 verified neutral designs, 918 removals and 0 reroutes after them
+[  106.5s]   918 candidates: 231 seen, 687 screened in 0.3s, 70 passed the screen, 70 judged, 0 passed the judge (0.7s)
+45 -> 44 blocks, written to designs/piston-door-3x3/tracks/q78/e78s/min/h2-min.txt

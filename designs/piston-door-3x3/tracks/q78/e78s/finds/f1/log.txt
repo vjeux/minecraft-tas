@@ -1,0 +1,4 @@
+fill designs/piston-door-3x3/tracks/q78/e78s/s2nob.txt: 5 region cells (5 free, 0 fixed), base 40 blocks (design 40), k 0..=5, global palette 36 states, gaps allowed
+27 subsets pass the connectivity rule; 69294672 fillings to screen in 53472 work items
+[    60s] 10437535 screened (173836/s), 53727556 pruned, item 49545/53472, 0 pass the 1-position screen, 0 finds
+done in 69 s: 11959847 screened, 57334825 pruned, 0 passed the screen, 0 finds

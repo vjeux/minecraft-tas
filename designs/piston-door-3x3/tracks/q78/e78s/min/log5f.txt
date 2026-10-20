@@ -1,0 +1,7 @@
+16 workers; moves all; judge 32 positions
+[    6.6s] the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)
+[   12.5s] start: 41 blocks, open 36 close 19 ticks, passes the judge (32 positions x 3 cycles)
+[   14.5s]   266301 swaps (two blocks out, one block in nearby)
+[   14.6s] 41 blocks: 1000 removals, 0 reroutes (+0 neutral), 1803 compounds, 219 neutral edits
+[  288.2s]   269323 candidates: 222730 seen, 46593 screened in 272.1s, 0 passed the screen, 0 judged, 0 passed the judge (272.1s)
+41 -> 41 blocks, written to designs/piston-door-3x3/tracks/q78/e78s/min/h5-fast.txt

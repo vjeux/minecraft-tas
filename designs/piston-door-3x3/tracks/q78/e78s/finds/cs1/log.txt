@@ -1,0 +1,44 @@
+assist designs/piston-door-3x3/tracks/q78/e78s/s2nob.ideal: 1 input cells off the plane ([(1, -3)]), 4 / 4 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/q78/e78s/s2nob.txt: 40 blocks in the box, screen 79/79
+box x -2..4, y -3..4 (7x8 = 56), 9 free cells, palette 56 states, 48 threads, 2400 s
+[  120s] 7517207 screens (62630/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=65798 assist=6735 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  240s] 13579035 screens (56567/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=118462 assist=12022 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  360s] 19047604 screens (52893/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=166415 assist=16904 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  480s] 24687646 screens (51416/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=215633 assist=21846 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  600s] 31379847 screens (52284/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=274240 assist=27790 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  720s] 38748643 screens (53802/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=338632 assist=34324 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  840s] 45464556 screens (54109/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=396978 assist=40332 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[  960s] 52133182 screens (54290/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=454986 assist=46220 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1080s] 59264376 screens (54860/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=517130 assist=52520 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1200s] 66154840 screens (55114/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=577302 assist=58663 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1320s] 73232267 screens (55465/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=639112 assist=64934 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1440s] 80428608 screens (55839/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=702235 assist=71406 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1560s] 87459436 screens (56049/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=763882 assist=77679 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1680s] 94858331 screens (56449/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=828867 assist=84345 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1800s] 101905652 screens (56600/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=889907 assist=90639 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 1920s] 107973875 screens (56222/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=942755 assist=95941 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 2040s] 113159638 screens (55470/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=987807 assist=100425 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 2160s] 118747143 screens (54974/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1037059 assist=105375 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 2280s] 124359767 screens (54542/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1085954 assist=110232 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+[ 2400s] 129224080 screens (53840/s), 0 perfect screens, 0 redsim judge runs, 0 finds; improvements by move cell=1128456 assist=114505 lever=0 update-piston=0; best 
+        best full-points partial: 1 assisted [1,-3] drive 0.00 (40 blocks)
+129224139 screens in 2400 s; 0 finds

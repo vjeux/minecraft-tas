@@ -1,0 +1,16 @@
+16 workers; moves all; judge 32 positions
+[    6.4s] the start design is rotation-safe: candidates must stay rotation-safe (--any-rotation to allow others)
+[   11.9s] start: 42 blocks, open 29 close 15 ticks, passes the judge (32 positions x 3 cycles)
+[   13.5s]   288541 swaps (two blocks out, one block in nearby)
+[   13.5s] 42 blocks: 1104 removals, 0 reroutes (+0 neutral), 2054 compounds, 237 neutral edits
+[   45.8s]   291699 candidates: 241898 seen, 49801 screened in 32.0s, 15 passed the screen, 15 judged, 0 passed the judge (32.1s)
+[   46.1s]   no improving move; plateau: judging 34956 neutral edits
+[   57.2s]   34956 candidates: 29406 seen, 5550 screened in 2.5s, 209 passed the screen, 209 judged, 6 passed the judge (11.2s)
+[   59.4s]   plateau: routing took 2.2s
+[   59.4s]   plateau: 6 verified neutral designs, 3168 removals and 0 reroutes after them
+[   60.6s]   3168 candidates: 244 seen, 2924 screened in 1.0s, 30 passed the screen, 30 judged, 0 passed the judge (1.1s)
+[   60.6s]   plateau level 2: judging 1420 neutral edits of the level-1 designs
+[   93.9s]   1420 candidates: 362 seen, 1058 screened in 0.5s, 65 passed the screen, 65 judged, 11 passed the judge (33.3s)
+[   93.9s]   plateau level 2: 11 verified designs, 352 removals after them
+[   94.2s]   352 candidates: 111 seen, 241 screened in 0.1s, 24 passed the screen, 24 judged, 0 passed the judge (0.2s)
+42 -> 42 blocks, written to designs/piston-door-3x3/tracks/q78/e78s/min/h6-min.txt
