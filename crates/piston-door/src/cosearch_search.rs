@@ -2501,17 +2501,21 @@ fn measure_windows(p: &Problem, seed: &Grid, groups: &mut [PGroup], win: i32, th
 /// input must fall in the window of one of that input's groups (one real pulse per group, width
 /// within tolerance); a real edge no group explains rejects the filling (None). Returns the
 /// covered groups (bit = index in `groups`).
-/// Per plan input: the pockets touching its piston directly or through the cell above it.
-fn pocket_feeders(p: &Problem, pockets: &[Vec<(i32, i32)>]) -> Vec<Vec<usize>> {
+/// Per plan input: the pockets touching its piston directly or through the cell above it, also
+/// through a static conductor next to the piston / that cell (a pocket powers the block).
+fn pocket_feeders(p: &Problem, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)]) -> Vec<Vec<usize>> {
     let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
     p.assist_pistons
         .iter()
         .map(|&(px, py)| {
-            let mut v: Vec<usize> = n4(px, py)
-                .into_iter()
-                .chain(n4(px, py + 1).into_iter().filter(|c| *c != (px, py)))
-                .filter_map(|c| pockets.iter().position(|pk| pk.contains(&c)))
-                .collect();
+            let mut v: Vec<usize> = Vec::new();
+            for c in n4(px, py).into_iter().chain(n4(px, py + 1).into_iter().filter(|c| *c != (px, py))) {
+                if let Some(i) = pockets.iter().position(|pk| pk.contains(&c)) {
+                    v.push(i);
+                } else if statics.contains(&c) {
+                    v.extend(n4(c.0, c.1).into_iter().filter_map(|d| pockets.iter().position(|pk| pk.contains(&d))));
+                }
+            }
             v.sort();
             v.dedup();
             v
@@ -2524,8 +2528,8 @@ fn pocket_feeders(p: &Problem, pockets: &[Vec<(i32, i32)>]) -> Vec<Vec<usize>> {
 /// load; inputs it can share with another pocket are listed apart. A filling sees only its own
 /// neighbourhood, so every distinct pulse tick of its load needs its own event source: a 1-3-cell
 /// pocket with 6 forced ticks is a wall before any search runs (the sub-56 screens, 10-20).
-fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup], names: &[String]) {
-    let feeders = pocket_feeders(p, pockets);
+fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], names: &[String]) {
+    let feeders = pocket_feeders(p, pockets, statics);
     let ticks = |ks: &[usize]| -> (Vec<u32>, Vec<u32>) {
         let mut t: [Vec<u32>; 2] = [Vec::new(), Vec::new()];
         for g in groups.iter().filter(|g| ks.contains(&g.k)) {
@@ -2596,8 +2600,8 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos]) -> Option<[Vec<Vec<Bl
 /// inputs; the lever's pocket starts at the flip. Optimistic on purpose (no observer delay, a
 /// change no single input explains counts as available), so a NEVER is a wall: printed per lever
 /// pocket (u0/u2-7x7: the right pockets see only their own pistons).
-fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], groups: &[PGroup]) {
-    let feeders = pocket_feeders(p, pockets);
+fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup]) {
+    let feeders = pocket_feeders(p, pockets, statics);
     // lever-time inputs (every pulse at the flip, both edges: a lever-held piston's level) are the
     // lever's own: available from the flip, no pocket's load (the lever may hang outside the box)
     let lever_time: Vec<bool> = (0..feeders.len()).map(|k| groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k)).collect();
@@ -3094,6 +3098,9 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     // cells whose block kind changes at some tick (a piston, a block moved through): no lever
     // support
     let mut moved: HashSet<(i32, i32)> = HashSet::new();
+    // static conductors (occupied at rest, never changing kind, no door cell, no piston): a pocket
+    // powering one feeds the pistons next to it, or quasi-connected through it
+    let mut statics: Vec<(i32, i32)> = Vec::new();
     {
         let list = seed.blocks();
         let (wlo, whi) = cs::watch_box(&list, &prob.spec);
@@ -3123,6 +3130,13 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                     }
                 }
             });
+        }
+        for q in &cells {
+            let c = (q.x, q.y);
+            let b = w.get(*q);
+            if rest_occ.contains(&c) && !moved.contains(&c) && !prob.door_cells.contains(&c) && !matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. }) && redsim::behavior::conductor_of(&b) {
+                statics.push(c);
+            }
         }
     }
     let ring: HashSet<(i32, i32)> = prob.ring.iter().copied().collect();
@@ -3223,14 +3237,21 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             for c in cells {
                 if let Some(i) = pockets.iter().position(|pk| pk.contains(&c)) {
                     feeds.push(format!("{tag} ({},{}) pocket {i}", c.0 - dx, c.1 - dy));
+                } else if statics.contains(&c) {
+                    for d in n4(c.0, c.1) {
+                        if let Some(i) = pockets.iter().position(|pk| pk.contains(&d)) {
+                            feeds.push(format!("{tag} through the static ({},{}) from pocket {i}", c.0 - dx, c.1 - dy));
+                        }
+                    }
                 }
             }
         }
-        let what = if feeds.is_empty() { "NO FREE CELL (only through blocks or a moving source)".to_string() } else { feeds.join(", ") };
+        feeds.dedup();
+        let what = if feeds.is_empty() { "NO FREE CELL (only through door blocks or a moving source)".to_string() } else { feeds.join(", ") };
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
-    pocket_load_report(&prob, &pockets, &groups, &names);
-    island_start_report(&prob, &seed, &pockets, &groups);
+    pocket_load_report(&prob, &pockets, &statics, &groups, &names);
+    island_start_report(&prob, &seed, &pockets, &statics, &groups);
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {
