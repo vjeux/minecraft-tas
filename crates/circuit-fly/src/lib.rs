@@ -178,7 +178,8 @@ enum Cmd {
         family: String,
         #[arg(long)]
         base: PathBuf,
-        #[arg(long)]
+        /// (payload) the machine block the first column grows from.
+        #[arg(long, default_value = "0,0,0")]
         from: String,
         #[arg(long, default_value = "up")]
         dir: String,
@@ -437,7 +438,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             let m = match family.as_str() {
                 "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, n, &block)?,
-                f => bail!("unknown family {f:?} (payload)"),
+                "train" => family::train(&base, n)?,
+                f => bail!("unknown family {f:?} (payload, train)"),
             };
             std::fs::write(&out, m.to_text())?;
         }
