@@ -45,7 +45,7 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
-    match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt) {
+    match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
             let ended = match d.stopped {
                 None => None,
@@ -109,6 +109,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut primed: Vec<crate::trace::Primed> = Vec::new();
     let mut seen_tnt: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut tnt_index: HashMap<String, usize> = HashMap::new();
+    let explode = tnt && c.explodes();
+    let mut burning: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut exploded = 0u32;
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -144,14 +147,27 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         signals.extend(st.signals.iter().map(|v| best_of(v)));
         if tnt {
             // every primed TNT is followed to fuse 1 (its position there: the precision) and
-            // removed then, before it can explode
-            for e in w.entities(sb)? {
+            // removed then, before it can explode (with `explode: on`: left to explode; a TNT seen
+            // before and gone now has exploded)
+            let ents = w.entities(sb)?;
+            let alive: std::collections::HashSet<&str> = ents.iter().filter(|e| e.kind.trim_start_matches("minecraft:") == "tnt").map(|e| e.uuid.as_str()).collect();
+            burning.retain(|u| {
+                let gone = !alive.contains(u.as_str());
+                if gone {
+                    exploded += 1;
+                }
+                !gone
+            });
+            for e in ents {
                 if e.kind.trim_start_matches("minecraft:") != "tnt" {
                     continue;
                 }
                 if seen_tnt.insert(e.uuid.clone()) {
                     tnt_index.insert(e.uuid.clone(), primed.len());
                     primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
+                    if explode {
+                        burning.insert(e.uuid.clone());
+                    }
                 }
                 let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok());
                 let Some(fuse) = fuse else {
@@ -173,7 +189,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     if let Some(&k) = tnt_index.get(&e.uuid) {
                         primed[k].end = Some((e.pos, e.motion));
                     }
-                    w.exec(sb, &format!("kill {}", e.uuid))?;
+                    if !explode {
+                        w.exec(sb, &format!("kill {}", e.uuid))?;
+                    }
                 }
             }
         }
@@ -214,5 +232,6 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut t = Trace::new(c, cells, signals);
     t.ended = ended.map(|k| format!("reached the corridor end at frame {k}"));
     t.primed = primed;
+    t.exploded = exploded;
     Ok(Ok(t))
 }

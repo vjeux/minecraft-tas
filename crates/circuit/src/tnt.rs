@@ -210,6 +210,9 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if t.primed.is_empty() {
         return Outcome { pass: false, why: "no primed TNT".into(), metrics: Vec::new(), table };
     }
+    if c.explodes() && t.exploded == 0 {
+        return Outcome { pass: false, why: "explode: on, but no primed TNT exploded during the run (the real game judges it; redsim does not model explosions)".into(), metrics: Vec::new(), table };
+    }
     let Some((start, p)) = period(t, from) else {
         return Outcome { pass: false, why: format!("not periodic within {} gt", s.ticks), metrics: Vec::new(), table };
     };
@@ -252,7 +255,20 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         ("per period".to_string(), per[0].to_string()),
         ("latency".to_string(), format!("{} gt", first.saturating_sub(from))),
     ];
-    Outcome { pass: true, why: precise_flag(t, start), metrics, table }
+    Outcome { pass: true, why: flags(c, t, start), metrics, table }
+}
+
+/// The variation flags of a passing self-running duper: PRECISE and SURVIVABLE.
+fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
+    let mut v: Vec<String> = Vec::new();
+    let p = precise_flag(t, start);
+    if !p.is_empty() {
+        v.push(p);
+    }
+    if c.explodes() {
+        v.push(format!("survives its own explosions: {} exploded, design intact", t.exploded));
+    }
+    v.join("; ")
 }
 
 /// The PRECISE variation (the real game only: each TNT followed to fuse 1): every TNT of the
