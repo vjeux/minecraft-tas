@@ -53,6 +53,7 @@ pub mod rowsfire;
 pub mod satsweep;
 pub mod satwire;
 pub mod boxproof;
+pub mod macrosat;
 pub mod cosearch;
 pub mod cosearch_search;
 pub mod search;
