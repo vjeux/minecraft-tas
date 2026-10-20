@@ -1,0 +1,30 @@
+name: pocket1-set2
+covers: (-2,1)o0 (-2,2)o0 (-2,1)c0 (-2,2)c0
+port door: 0 0 0
+port lever: -3 3 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ....A
+layer -1:
+  ..s..D
+layer 0:
+  .CPDDD.B
+layer 1:
+  .CPDDD.B
+layer 2:
+  .CPDDDD
+layer 3:
+  LD.D
+layer 4:
+  ....SS
+layer 5:
+  ....S

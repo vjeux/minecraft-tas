@@ -393,10 +393,16 @@ fn wait_for(path: &Path, secs: u64) -> bool {
     true
 }
 
-/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
-/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
-/// failed checks.
-pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+/// What both the smoke and the film need: the site's data, its base URL (served locally with
+/// the console recorder, or the deployed site), and an X display of our own.
+struct Rig {
+    site: site_model::Site,
+    base: String,
+    display: String,
+    _xvfb: Xvfb,
+}
+
+fn rig(dir: &Path, remote: Option<&str>) -> Result<Rig> {
     if !Path::new(MINIBROWSER).is_file() {
         bail!("no {MINIBROWSER}: dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb");
     }
@@ -422,10 +428,59 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
     // a display of our own
     let n = free_display().context("no free X display in :90..:99")?;
     let display = format!(":{n}");
-    let _xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
+    let xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
     if !wait_for(Path::new(&format!("/tmp/.X11-unix/X{n}")), 10) {
         bail!("Xvfb {display} did not start");
     }
+    Ok(Rig { site, base, display, _xvfb: xvfb })
+}
+
+/// Film pages in WebKit (`site smoke --engine webkit --page <path>`): `frames` screenshots of
+/// each page's first 3D view, `interval` ms apart, desktop and phone, saved as
+/// `<page>-<desktop|phone>-<k>.png` in $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots),
+/// with each frame's colors and brightness and the page's console.
+pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64) -> Result<()> {
+    let r = rig(dir, remote)?;
+    let out = std::env::var_os("MCTAS_WEBKIT_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/mctas-webkit-shots"));
+    std::fs::create_dir_all(&out)?;
+    for phone in [false, true] {
+        let tag = if phone { "phone" } else { "desktop" };
+        let s = Session::start(&r.display, phone)?;
+        for page in pages {
+            let sel = if page.starts_with("index.html") { ".thumb[data-mcview]" } else { "[data-mcview=\"full\"]" };
+            match check_page(&s, &r.base, page, sel) {
+                Ok(d) => println!("{tag} {page}: ready, {d}"),
+                Err(e) => println!("{tag} {page}: {e:#}"),
+            }
+            let stem = page.trim_end_matches(".html").replace(['/', '#', '?', '&', '='], "_");
+            for k in 1..=frames {
+                std::thread::sleep(Duration::from_millis(interval));
+                let shot = s.screenshot()?;
+                let png = out.join(format!("{stem}-{tag}-{k}.png"));
+                let v = http(s.port, "GET", &format!("/session/{}/screenshot", s.id), None)?;
+                if let Some(b64) = v["value"].as_str() {
+                    use base64::Engine as _;
+                    std::fs::write(&png, base64::engine::general_purpose::STANDARD.decode(b64)?)?;
+                }
+                let (colors, luma, black) = picture_stats(&shot, 0.0, 0.0, shot.0 as f64, shot.1 as f64);
+                println!("  frame {k}: {} ({colors} colors, mean luma {luma:.0}, {:.0}% black)", png.display(), black * 100.0);
+            }
+            if let Some(lines) = console_lines(&s) {
+                for l in lines.iter().take(30) {
+                    println!("  console: {}", l.chars().take(200).collect::<String>());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
+/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
+/// failed checks.
+pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+    let r = rig(dir, remote)?;
+    let (site, base, display) = (&r.site, r.base.clone(), r.display.clone());
     let pick = |kind: &str| site.builds.iter().find(|b| b.kind == kind && b.trace.is_none()).map(|b| b.page.clone());
     let mut pages: Vec<(String, String, &str)> = vec![("index".into(), "index.html#kind=clock".into(), ".thumb[data-mcview]")];
     for kind in ["door", "clock", "circuit"] {
@@ -442,6 +497,13 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         if let Some(b) = site.builds.iter().find(|b| b.name == name) {
             pages.push((format!("entity clock {name}"), b.page.clone(), "[data-mcview=\"full\"]"));
             entity += 1;
+        }
+    }
+    // the machines' studies: TNT and dead coral fans, shulker loaders (dispensers, hoppers, the
+    // judge's chests), BUD switches
+    for study in ["tnt", "shulker", "bud"] {
+        if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.study == study && c.host.is_none() && c.layout_of.is_none())) {
+            pages.push((format!("{study} machine {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
         }
     }
     if entity == 0 {

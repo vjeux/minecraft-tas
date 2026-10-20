@@ -132,6 +132,9 @@ pub struct World {
     /// The caller removes every primed TNT before it explodes (the TNT judge): no explosion
     /// error (`tick`).
     pub remove_primed: bool,
+    /// Primed TNT become entities (`entity::primed_tnt`) with this value in place of the game's
+    /// random `nextDouble()` for their kick; `None`: primes are records only (the judge's screen).
+    pub tnt_kick: Option<f64>,
 }
 
 impl World {
@@ -166,6 +169,7 @@ impl World {
             errors: Vec::new(),
             primed: Vec::new(),
             remove_primed: false,
+            tnt_kick: None,
         }
     }
 
@@ -589,8 +593,9 @@ impl World {
         self.handling_tick = true;
         self.time += 1;
         // a primed TNT explodes after its 80 gt fuse (it ticks from the tick it spawns in): not
-        // modeled, unless the caller removes primed TNT before that (the TNT judge does)
-        if !self.remove_primed {
+        // modeled, unless the caller removes primed TNT before that (the TNT judge does); TNT
+        // entities (`tnt_kick`) count their own fuse
+        if !self.remove_primed && self.tnt_kick.is_none() {
             if let Some(&(t, p)) = self.primed.iter().find(|(t, _)| self.time >= *t + 79) {
                 if !self.errors.iter().any(|e| e.starts_with("explosion")) {
                     self.errors.push(format!("explosion not modeled: the TNT primed at gt {t} ({p}) explodes"));

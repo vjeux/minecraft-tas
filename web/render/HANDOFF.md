@@ -22,8 +22,9 @@ is the short version for whoever picks the work up.
   `mctas web check -q --wasm web/viewer/mcview_bg.wasm designs/clocks/archive/*.txt
   designs/clocks/calibration/*.txt designs/circuits/fly/archive/*.txt` (today: 4016 clocks + 85
   flying machines agree native and wasm, 0 parse-only, 0 failures) and over
-  `designs/circuits/*/archive/*.txt` (283 circuits agree frame by frame with circuit sim under
-  their judge's stimulus, the judge's consumer lamps included); after a UI change
+  `designs/circuits/*/archive/*.txt` (325 circuits agree frame by frame with circuit sim under
+  their judge's stimulus and events (BUD switches), the judge's consumer lamps included; the
+  shulker designs and redsim-unmodeled ones parse-only); after a UI change
   `mctas web demo ... -o /tmp/demo`, `mctas web serve /tmp/demo --port 8765`, then
   `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`,
   and `--hold` on circuits), `mctas web layout <url> --window 390,844 --scale 2` (needs
@@ -52,8 +53,11 @@ is the short version for whoever picks the work up.
 - Texture array layers must never be a multiple of 6: wgpu's WebGL2 backend then takes the
   array for a cube-map array and every block samples BLACK (f141e8417, 180 tiles; the atlas
   pads and asserts). `mctas web luma --url` catches that class; the native renderer does not.
-- Circuits: the contract with site (data-stimulus / data-phases / data-input-mode, inputs driven
-  like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay).
+- Circuits: the contract with site (data-stimulus / data-phases / data-input-mode / data-events,
+  inputs driven like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay,
+  a BUD switch's target and footprint actions replayed from data-events). TNT dupers run live
+  with primed TNT drawn and moved by the viewer (`mcview::tnt`); shulker designs are shown as
+  built with the judge's chests and a box (redsim models neither).
 - No attribution text in the UI (vjeux): the badge only says what to do.
 - House rules: Rust only (no scripts, no Python), edit with the editor tools, never touch ~/bin
   or dotfiles, never message humans, commit as Christopher Chedeau <vjeuxx@gmail.com>.
