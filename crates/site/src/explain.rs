@@ -352,7 +352,7 @@ pub fn metric_value(v: &str) -> String {
 }
 
 /// The studies, in order: (folder, title, what it collects and how designs are ranked).
-pub const STUDIES: [(&str, &str, &str); 8] = [
+pub const STUDIES: [(&str, &str, &str); 9] = [
     (
         "pulse",
         "Pulse circuits",
@@ -392,6 +392,11 @@ pub const STUDIES: [(&str, &str, &str); 8] = [
         "tnt",
         "TNT dupers",
         "Machines that keep making lit TNT without using up their TNT block. A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every input pulse. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in designs/circuits/tnt/VARIATIONS.md.",
+    ),
+    (
+        "shulker",
+        "Shulker loaders and unloaders",
+        "A loader fills empty shulker boxes from an item stream and hands them out full; an unloader empties full boxes. Only a dispenser can place a box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. The judge puts its own chests on the design's ports (items, empty or full boxes, the output) and runs 3 boxes of cobblestone in the real game, counting every item and box; the axis is load or unload and the item's stack size. Badges say which variations a design also handles (no start lever, other stack sizes, box colours and names, a paused or starved supply, a partial box at the end, mixed items, a filter, no item left on the floor, tileable side by side); the full list and why builds want each is in designs/circuits/shulker/VARIATIONS.md.",
     ),
 ];
 
