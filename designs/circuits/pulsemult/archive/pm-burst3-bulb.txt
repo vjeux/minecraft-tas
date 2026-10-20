@@ -1,5 +1,5 @@
 # archived 2026-10-20T10:58Z from designs/circuits/pulsemult/tracks/pulsemult/pm-burst3-bulb.txt by mctas circuit archive
-# CIRCUIT: pm-burst3-bulb burst 3 N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt, 12 blocks, 7x2x3, robust
+# CIRCUIT: pm-burst3-bulb burst 3 N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt, 12 blocks, 7x2x3, robust
 name: pm-burst3-bulb
 circuit: burst 3
 port input: 0 1 0

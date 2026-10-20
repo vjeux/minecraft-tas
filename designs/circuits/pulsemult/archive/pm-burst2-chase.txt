@@ -1,5 +1,5 @@
 # archived 2026-10-20T11:17Z from designs/circuits/pulsemult/tracks/pulsemult/pm-burst2-chase.txt by mctas circuit archive
-# CIRCUIT: pm-burst2-chase burst 2 N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 1 gt, retrigger mixed, repeat 8 gt, 9 blocks, 5x2x3, robust
+# CIRCUIT: pm-burst2-chase burst 2 N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 8 gt, 9 blocks, 5x2x3, robust
 name: pm-burst2-chase
 circuit: burst 2
 group: pm-burst-chase

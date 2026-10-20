@@ -1,5 +1,5 @@
 # archived 2026-10-19T23:48Z from designs/circuits/tff/tracks/tff/tff-snowdisp-dust.txt by mctas circuit archive
-# CIRCUIT: tff-snowdisp-dust tff latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt, 7 blocks, 4x3x1, robust
+# CIRCUIT: tff-snowdisp-dust tff latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes), 7 blocks, 4x3x1, robust
 # Powder snow dispenser T flip-flop, dust variant, 7 blocks (track tff): the dispenser of tff-snowdisp (each pulse places or picks up powder snow, the dispenser holding a powder snow bucket or an empty bucket); its comparator gives 2 or 1, and two dust decay that to 1 or 0. Latency 6 gt, 1 gt pulses, trains down to 4 gt; rests ON.
 name: tff-snowdisp-dust
 circuit: tff

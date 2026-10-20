@@ -1,5 +1,5 @@
 # archived 2026-10-20T11:15Z from designs/circuits/pulsemult/tracks/pulsemult/pm-train-observers.txt by mctas circuit archive
-# CIRCUIT: pm-train-observers pulse-train P 4 gt, pulse 2 gt, latency 3 gt, stop 5 gt, 3 blocks, 2x1x3, robust
+# CIRCUIT: pm-train-observers pulse-train P 4 gt, pulse 2 gt, latency 2 gt, stop 4 gt, 3 blocks, 2x1x3, robust
 name: pm-train-observers
 circuit: pulse-train
 port input: 3 1 3

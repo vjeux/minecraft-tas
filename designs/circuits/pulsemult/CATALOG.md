@@ -40,8 +40,8 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 2 | 9 | [pm-burst2-chase](archive/pm-burst2-chase.txt) | N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 1 gt, retrigger mixed, repeat 8 gt |
-| 3 | 9 | [pm-burst3-chase](archive/pm-burst3-chase.txt) | N 3, pulse 2 gt, period 4 gt, latency 14 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt |
+| 2 | 9 | [pm-burst2-chase](archive/pm-burst2-chase.txt) | N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 8 gt |
+| 3 | 9 | [pm-burst3-chase](archive/pm-burst3-chase.txt) | N 3, pulse 2 gt, period 4 gt, latency 14 gt, span 24 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt |
 
 ### N = 3, 5, 7 square
 
@@ -94,11 +94,11 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | L | blocks | design | metrics |
 |---|---|---|---|
-| 12 gt | 26 | [mono-retrig-ring-L12](archive/mono-retrig-ring-L12.txt) | L 12 gt, delay 4 gt, retrigger retriggerable, re-arm 16 gt, min-pulse 1 gt |
-| 16 gt | 25 | [mono-retrig-ring-L16](archive/mono-retrig-ring-L16.txt) | L 16 gt, delay 4 gt, retrigger retriggerable, re-arm 20 gt, min-pulse 1 gt |
-| 20 gt | 22 | [mono-retrig-ring-L20](archive/mono-retrig-ring-L20.txt) | L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 1 gt |
-| 32 gt | 21 | [mono-retrig-ring-L32](archive/mono-retrig-ring-L32.txt) | L 32 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 1 gt |
-| 36 gt | 21 | [mono-retrig-ring-L36](archive/mono-retrig-ring-L36.txt) | L 36 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 1 gt |
+| 12 gt | 26 | [mono-retrig-ring-L12](archive/mono-retrig-ring-L12.txt) | L 12 gt, delay 4 gt, retrigger retriggerable, re-arm 16 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 16 gt | 25 | [mono-retrig-ring-L16](archive/mono-retrig-ring-L16.txt) | L 16 gt, delay 4 gt, retrigger retriggerable, re-arm 20 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 20 gt | 22 | [mono-retrig-ring-L20](archive/mono-retrig-ring-L20.txt) | L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 32 gt | 21 | [mono-retrig-ring-L32](archive/mono-retrig-ring-L32.txt) | L 32 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 36 gt | 21 | [mono-retrig-ring-L36](archive/mono-retrig-ring-L36.txt) | L 36 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes) |
 
 ### L = 14..38 gt (step 4: 5 of 7 values)
 
@@ -106,23 +106,23 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | L | blocks | design | metrics |
 |---|---|---|---|
-| 14 gt | 30 | [mono-nonretrig-ring-L14](archive/mono-nonretrig-ring-L14.txt) | L 14 gt, delay 12 gt, retrigger non-retriggerable, re-arm 20 gt, min-pulse 1 gt |
-| 18 gt | 29 | [mono-nonretrig-ring-L18](archive/mono-nonretrig-ring-L18.txt) | L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 1 gt |
-| 22 gt | 26 | [mono-nonretrig-ring-L22](archive/mono-nonretrig-ring-L22.txt) | L 22 gt, delay 12 gt, retrigger non-retriggerable, re-arm 32 gt, min-pulse 1 gt |
-| 34 gt | 25 | [mono-nonretrig-ring-L34](archive/mono-nonretrig-ring-L34.txt) | L 34 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 1 gt |
-| 38 gt | 25 | [mono-nonretrig-ring-L38](archive/mono-nonretrig-ring-L38.txt) | L 38 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 1 gt |
+| 14 gt | 30 | [mono-nonretrig-ring-L14](archive/mono-nonretrig-ring-L14.txt) | L 14 gt, delay 12 gt, retrigger non-retriggerable, re-arm 20 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 18 gt | 29 | [mono-nonretrig-ring-L18](archive/mono-nonretrig-ring-L18.txt) | L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 22 gt | 26 | [mono-nonretrig-ring-L22](archive/mono-nonretrig-ring-L22.txt) | L 22 gt, delay 12 gt, retrigger non-retriggerable, re-arm 32 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 34 gt | 25 | [mono-nonretrig-ring-L34](archive/mono-nonretrig-ring-L34.txt) | L 34 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes) |
+| 38 gt | 25 | [mono-nonretrig-ring-L38](archive/mono-nonretrig-ring-L38.txt) | L 38 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes) |
 
 ## N = 2
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst2-bulb](archive/pm-burst2-bulb.txt) | burst 2 | N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt | 7 | 5x2x1 | robust | One press gives exactly two pulses: a copper bulb notices the press, and a short delay plus a second observer turn that one event into two blips. Detail: the bulb toggles on each rising edge, its comparator changes, an observer makes that a 2 tick pulse, a delay-3 repeater stretches it to 6 ticks, and a second observer pulses on both of the repeater's edges |
+| [pm-burst2-bulb](archive/pm-burst2-bulb.txt) | burst 2 | N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 12 gt | 7 | 5x2x1 | robust | One press gives exactly two pulses: a copper bulb notices the press, and a short delay plus a second observer turn that one event into two blips. Detail: the bulb toggles on each rising edge, its comparator changes, an observer makes that a 2 tick pulse, a delay-3 repeater stretches it to 6 ticks, and a second observer pulses on both of the repeater's edges |
 
 ## N = 3
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst3-bulb](archive/pm-burst3-bulb.txt) | burst 3 | N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt | 12 | 7x2x3 | robust | One press gives exactly three pulses: the two-pulse bulb burst plus one more observer stage that adds a third blip. Detail: bulb, comparator, observer, delay-3 repeater, observer, then an observer watching the second observer toggles a second bulb whose own observers add the third pulse |
+| [pm-burst3-bulb](archive/pm-burst3-bulb.txt) | burst 3 | N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt | 12 | 7x2x3 | robust | One press gives exactly three pulses: the two-pulse bulb burst plus one more observer stage that adds a third blip. Detail: bulb, comparator, observer, delay-3 repeater, observer, then an observer watching the second observer toggles a second bulb whose own observers add the third pulse |
 
 ## N = 3 pulse
 
@@ -134,10 +134,10 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-burst4-taps](archive/pm-burst4-taps.txt) | burst 4 | N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 20 gt | 19 | 7x2x4 | robust | One press gives exactly four pulses: one detected press is split into four copies that arrive at different times, like echoes, all into the same output. Detail: a bulb edge detector (bulb, comparator, observer) whose pulse fans out through observers, a second bulb and a torch into four delayed taps; any input length |
+| [pm-burst4-taps](archive/pm-burst4-taps.txt) | burst 4 | N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 20 gt | 19 | 7x2x4 | robust | One press gives exactly four pulses: one detected press is split into four copies that arrive at different times, like echoes, all into the same output. Detail: a bulb edge detector (bulb, comparator, observer) whose pulse fans out through observers, a second bulb and a torch into four delayed taps; any input length |
 
 ## P = 4 gt
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [pm-train-observers](archive/pm-train-observers.txt) | pulse-train | P 4 gt, pulse 2 gt, latency 3 gt, stop 5 gt | 3 | 2x1x3 | robust | While the input is held on, two observers stare at each other and keep firing, a pulse every 4 ticks; it stops when the input goes off. Detail: 3 blocks: the input extends a sticky piston that pushes one observer face to face with the other (the chase), and retracting it breaks the pair apart |
+| [pm-train-observers](archive/pm-train-observers.txt) | pulse-train | P 4 gt, pulse 2 gt, latency 2 gt, stop 4 gt | 3 | 2x1x3 | robust | While the input is held on, two observers stare at each other and keep firing, a pulse every 4 ticks; it stops when the input goes off. Detail: 3 blocks: the input extends a sticky piston that pushes one observer face to face with the other (the chase), and retracting it breaks the pair apart |

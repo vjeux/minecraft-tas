@@ -1,5 +1,4 @@
-# archived 2026-10-20T01:47Z from designs/circuits/memory/tracks/memory/counter28-ring7-ring4.txt by mctas circuit archive
-# CIRCUIT: counter28-ring7-ring4 counter 28 N 28, output level every 28 pulses, 29 blocks, 8x3x3, robust
+# rejudged (2026-10-20T17:57Z, mctas circuit archive --rejudge): needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input): FAIL: counter28-ring7-ring4 counter 28: input in at [0, 0, 0]: no side of the input cell leads out of the build for the judge's input repeater (a free cell for the repeater, one under it and one beyond it outside the box; a moving design: all outside its swept box). R7: inputs are driven like a real build drives them; move the input to the edge of the build
 # Counter 28, two dropper rings, 29 blocks (track memory, `mctas circuit memory ring --n 7 --then 4`): ring 1 (7 droppers fired by the input, some through 1 dust, hoppers between them) advances its stone one dropper per pulse; its comparator lights once every 7 pulses and strongly powers a stone whose neighbours are ring 2's 4 droppers, so ring 2's stone advances once every 7 pulses; ring 2's comparator is on during one pulse window in 28 (level style). Every transit crosses a hopper, so the firing order never matters.
 name: counter28-ring7-ring4
 circuit: counter 28
