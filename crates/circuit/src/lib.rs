@@ -391,7 +391,9 @@ pub fn tiled(c: &Circuit) -> Result<Circuit> {
         }
         for (name, p) in &base.ports {
             let q = sh(p);
-            if d.blocks.contains_key(&q) || d.ports.values().any(|x| *x == q) {
+            // a port on the design's own block (a BUD's reset input) sits on its copy's block
+            let own = base.blocks.contains_key(p);
+            if (d.blocks.contains_key(&q) && !own) || d.ports.values().any(|x| *x == q) {
                 bail!("tile: copy {k}'s port {name} at {q:?} lands on the other copies");
             }
             let renamed = format!("{name}.t{k}");
@@ -579,7 +581,7 @@ impl Circuit {
             }
         }
         if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
-            bail!("tile: only shulker loaders and unloaders and the study-11 kinds are tiled");
+            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
         }
         Ok(())
     }
@@ -664,8 +666,12 @@ impl Circuit {
 
     /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
     /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    /// TNT dupers explode by default (vjeux 2026-10-20: "this will blow up the machine"): the
+    /// game run lets every primed TNT explode and the design must survive; `explode: off` turns
+    /// that off for analysis only (such a design is not archived as a duper that works).
     pub fn explodes(&self) -> bool {
-        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
+        let tnt = matches!(self.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
+        tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone

@@ -160,7 +160,7 @@ struct Details {
 /// Game ticks a shulker machine is run at most the way its 3D view runs it, until it has sent out
 /// four boxes (a 64-stack filter loader takes ~13800 gt a box).
 const VIEW_RUN: u32 = 60_000;
-/// Boxes the view's run waits for.
+/// Boxes the view's run waits for (per OUT chest).
 const VIEW_BOXES: usize = 4;
 
 /// Run a shulker machine the way the 3D view does (the viewer's own session: the judge's chests
@@ -184,6 +184,8 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
     let mut arrivals: Vec<u32> = Vec::new();
     let mut rejected = 0u32;
     let mut run = ticks;
+    // a machine with several OUT chests (two lines) delivers in bursts: wait for 4 boxes a chest
+    let want = VIEW_BOXES * outs.len().max(1);
     for k in 0..ticks {
         // an OUT chest holds what the last tick delivered until the next visit empties it
         let n: u32 = outs
@@ -192,7 +194,7 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
             .sum();
         arrivals.extend(std::iter::repeat_n(k, n as usize));
         rejected += rejects.iter().map(|p| shulker::chest_stacks(&s.world, *p).iter().map(|st| st.count as u32).sum::<u32>()).sum::<u32>();
-        if arrivals.len() >= VIEW_BOXES {
+        if arrivals.len() >= want {
             run = k;
             break;
         }
@@ -202,7 +204,7 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
         (Some(a), Some(b)) if arrivals.len() >= 2 => Some((b - a) as f64 / (arrivals.len() - 1) as f64),
         _ => None,
     };
-    site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected }
+    site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
 fn details(c: &Design) -> Details {

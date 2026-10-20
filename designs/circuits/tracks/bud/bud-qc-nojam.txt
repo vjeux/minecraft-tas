@@ -1,5 +1,6 @@
 name: bud-qc-nojam
 circuit: bud
+tile: 0 0 3
 # A QC BUD that never jams: two NON-sticky pistons pass a package back and forth (a slime block with
 # the arming redstone block on top and an observer stuck under it). Piston P is armed through
 # quasi-connectivity by the redstone block; a block update reaching it pushes the package east (the

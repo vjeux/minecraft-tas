@@ -1,5 +1,6 @@
 name: bud-latched-qc
 circuit: bud
+tile: 0 2 0
 # The smallest latched BUD (manual reset): a sticky piston armed by quasi-connectivity from the
 # redstone block above the block in front of it. A block update reaching the piston makes it push
 # that block, another redstone block, beside the output; the piston stays out (still powered), so

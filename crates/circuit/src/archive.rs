@@ -151,12 +151,13 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
 /// block palette (vjeux 2026-10-20: palette alone is never a distinction), and a design that is
 /// not robust under a robust one ([`clock::catalog::fold_hosts_robust`]).
 /// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
-/// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. TNT dupers:
-/// precise, survivable, launched, dropped, stationary. Every other kind ([`beats_generic`]): a
-/// lower latency / delay / min-pulse / min-period / re-arm / extend / retract..., a higher speed,
-/// a different value of a metric with no better direction (an edge, a class, an output shape, a
-/// pulse length), no glitches where `a` has some, flat or tileable where `a` is not. Never a
-/// distinction: the materials (slime-free...), a lower box that is not flat.
+/// (lag, fewer). BUD switches: a denser `tileable` pitch (or tileable where the host is not),
+/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. TNT dupers:
+/// precise, launched, dropped, stationary. Every other kind ([`beats_generic`]): a lower latency /
+/// delay / min-pulse / min-period / re-arm / extend / retract..., a higher speed, a denser
+/// `tileable` pitch (or tileable at all), a different value of a metric with no better direction
+/// (an edge, a class, an output shape, a pulse length), no glitches where `a` has some, flat where
+/// `a` is not. Never a distinction: the materials (slime-free...), a lower box that is not flat.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
     let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
@@ -167,6 +168,11 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
             return false;
         }
         let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        // tiles denser (or at all, where the host does not)
+        let tile = |r: &Row| num(r, "tileable every ");
+        if tile(b).is_some_and(|tb| tile(a).is_none_or(|ta| tb < ta)) {
+            return true;
+        }
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
     // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
@@ -174,7 +180,7 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     // material restriction, no distinction: coordinator 2026-10-20)
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
         let has = |r: &Row, k: &str| r.summary.contains(k);
-        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
+        return ["(precise", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return beats_generic(b, a);
@@ -231,6 +237,14 @@ pub fn beats_generic(b: &Row, a: &Row) -> bool {
         let Some(va) = ma.get(k) else { return true };
         if vb == va {
             continue;
+        }
+        // `tileable every N (dx dy dz)`: a denser pitch is better
+        if k == "tileable" {
+            let pitch = |v: &str| v.split_whitespace().nth(1).and_then(|x| x.parse::<i32>().ok());
+            match (pitch(vb), pitch(va)) {
+                (Some(x), Some(y)) if x >= y => continue,
+                _ => return true,
+            }
         }
         match (first(vb), first(va)) {
             (Some(x), Some(y)) if LOWER_BETTER.contains(&k.as_str()) => {
@@ -366,11 +380,16 @@ pub fn tunable_key(c: &Circuit) -> String {
     for t in &c.targets {
         d.blocks.insert(t.pos, "circuit:target".to_string());
     }
-    // a TNT duper judged with explosions on (SURVIVABLE) is not a setting of the same mechanism
-    if c.explodes() {
-        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    // a TNT duper judged with explosions off (`explode: off`, analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
     }
     clock::canon::design_type_key(&d)
+}
+
+/// A TNT duper with explosions turned off (`explode: off`: analysis only).
+fn no_explode(c: &Circuit) -> bool {
+    matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered)) && !c.explodes()
 }
 
 /// A block state with one property set to a value (`delay=3` -> `delay=1`).
@@ -411,9 +430,9 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
-    // a TNT duper judged with explosions on (the SURVIVABLE variation) is its own type
-    if c.explodes() {
-        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    // a TNT duper judged with explosions off (analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
     }
     // a BUD's target cells (where the judge acts) are part of its structure
     for t in &c.targets {
@@ -443,7 +462,6 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
-        Kind::TntDuper if out.why.contains("survives its own") => format!("{} survivable", m("rate")),
         Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
         Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
         Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
@@ -471,11 +489,14 @@ pub struct Archived {
 pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Circuit::load(path)?;
     let kind = c.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", path.display()))?;
+    if no_explode(&c) {
+        bail!("not archived: {} has `explode: off` (analysis only): a TNT duper is archived only when it survives its own explosions", path.display());
+    }
     let dir = archive_dir(root, kind.study());
     let text = std::fs::read_to_string(path)?;
     // the same blocks and ports under another kind (a claim) are another entry; so is a TNT duper
     // judged with explosions on (the SURVIVABLE variation)
-    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if c.explodes() { "-explode" } else { "" });
+    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if no_explode(&c) { "-noexplode" } else { "" });
     let rows = read_rows(&dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });

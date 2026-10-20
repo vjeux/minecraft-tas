@@ -241,8 +241,8 @@ pub fn tiled_schedule(c: &Circuit, tc: &Circuit, s: &Schedule, shift: u32) -> Sc
 /// Judge a tiled run `t` of `tc` (schedule [`tiled_schedule`] with `shift`): each copy k, its own
 /// inputs and outputs (`<name>.t<k>`), against `s` shifted `shift` x k gt; every copy must pass
 /// and measure what the design measures alone (`alone`), else the copies disturb each other.
-/// Passes with `alone`'s metrics plus `tile` (the pitch and the number of copies).
-pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Trace, alone: &Outcome, shift: u32) -> Outcome {
+/// Passes with `alone`'s metrics plus `tileable` (`label`, the design's own step).
+pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Trace, alone: &Outcome, shift: u32, label: &str) -> Outcome {
     let Some(tile) = c.tile else { return alone.clone() };
     let phase = if shift == 0 { "in phase".to_string() } else { format!("{shift} gt apart") };
     for k in 0..tile.copies {
@@ -260,9 +260,9 @@ pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Tra
         }
     }
     let mut o = alone.clone();
-    // the pitch, not the step: the same in every rotation of the build
-    let pitch: i32 = tile.step.iter().map(|x| x.abs()).sum();
-    o.metrics.push(("tile".into(), format!("{pitch} blocks x{}", tile.copies)));
+    // `label`: the design's own step (crate::bud::tile_label of the unturned design), the same in
+    // every build, as BUD switches name it
+    o.metrics.push(("tileable".into(), label.to_string()));
     o
 }
 

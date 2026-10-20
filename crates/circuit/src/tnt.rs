@@ -18,7 +18,7 @@
 use crate::check::Outcome;
 use crate::stimulus::Schedule;
 use crate::trace::Trace;
-use crate::{Circuit, Kind};
+use crate::{Circuit, Kind, Pos};
 
 /// Ticks a self-running duper runs after its kick.
 pub const RUN: u32 = 600;
@@ -38,6 +38,11 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
                 s.pulse(0, t, PULSE);
                 s.phase(t, t + PULSE + gap, format!("pulse {}", k + 1));
                 t += PULSE + gap;
+            }
+            // explosions on: wait for the last pulse's TNT to go off (a fuse is 80 gt)
+            if c.explodes() {
+                s.phase(t, t + EXPLODE_TAIL, "explosions");
+                t += EXPLODE_TAIL;
             }
         }
         _ if !c.inputs.is_empty() => {
@@ -63,6 +68,20 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
 
 /// Each window of the switchable duper's stimulus (gt).
 pub const SWITCH: u32 = 400;
+
+/// The survival flag: how many TNT exploded, how many left out of range (`run::OUT_OF_RANGE`).
+fn survive_flag(t: &Trace) -> String {
+    let oor = if t.out_of_range > 0 { format!(", {} out of range", t.out_of_range) } else { String::new() };
+    format!("survives its own explosions: {} exploded{oor}, design intact", t.exploded)
+}
+
+/// No TNT went off nor left out of range during the run: the explosions were not exercised.
+fn no_explosion(t: &Trace) -> bool {
+    t.exploded + t.out_of_range == 0
+}
+/// With explosions on, the triggered stimulus waits this long after its last window (a fuse is
+/// 80 gt).
+pub const EXPLODE_TAIL: u32 = 100;
 /// A switchable duper must stop within this many gt after the switch; its run is judged from
 /// then on (8+ periods in SWITCH - STOP gt: P <= 45 gt).
 pub const STOP: u32 = 40;
@@ -75,8 +94,45 @@ pub const STOP: u32 = 40;
 /// both run windows must give the same (P, n). Metrics: rate, period, per period, runs (input on /
 /// off), stop and start (the switch to the last spawn of a stopped window / the first of a run).
 pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
-    let _ = c;
-    switched(s, t)
+    let out = switched(s, t);
+    // explosions on: the machine's block frames over one period at the end of every running
+    // window equal those of the first running window's first period (before any explosion), and
+    // the stopped windows end the same; so nothing its explosions did changed it
+    if out.pass && c.explodes() {
+        if no_explosion(t) {
+            return Outcome { pass: false, why: "no primed TNT exploded during the run (explosions are judged in the real game; redsim does not model them)".into(), metrics: Vec::new(), table: out.table };
+        }
+        let m = |k: &str| out.metrics.iter().find(|(a, _)| a == k).map(|(_, b)| b.clone()).unwrap_or_default();
+        let runs_on = m("runs").contains("input on");
+        let p: usize = m("period").split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(1);
+        let n = t.cells.len();
+        let frames = |a: usize, b: usize| -> std::collections::BTreeSet<&Vec<(Pos, u32)>> { (a.min(n)..b.min(n)).map(|f| &t.cells[f]).collect() };
+        let mut first: Option<std::collections::BTreeSet<&Vec<(Pos, u32)>>> = None;
+        let mut rest_end: Option<usize> = None;
+        for (a, b, l) in &s.phases {
+            let (a, b) = (*a as usize, (*b as usize).min(n));
+            if l.starts_with("on") == runs_on {
+                let early = frames(a + STOP as usize, a + STOP as usize + p);
+                let late = frames(b - p, b);
+                let base = first.get_or_insert(early);
+                if late != *base {
+                    return Outcome { pass: false, why: format!("blown up: at the end of {l} (frames {}..{b}) the running machine differs from before its first explosion", b - p), metrics: Vec::new(), table: out.table };
+                }
+            } else {
+                match rest_end {
+                    None => rest_end = Some(b - 1),
+                    Some(e) if t.cells[e] != t.cells[b - 1] => {
+                        return Outcome { pass: false, why: format!("blown up: the stopped machine at the end of {l} (frame {}) differs from the first stop (frame {e})", b - 1), metrics: Vec::new(), table: out.table };
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mut out = out;
+        out.why = survive_flag(t);
+        return out;
+    }
+    out
 }
 
 fn switched(s: &Schedule, t: &Trace) -> Outcome {
@@ -210,12 +266,25 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if t.primed.is_empty() {
         return Outcome { pass: false, why: "no primed TNT".into(), metrics: Vec::new(), table };
     }
-    if c.explodes() && t.exploded == 0 {
+    if c.explodes() && no_explosion(t) {
         return Outcome { pass: false, why: "explode: on, but no primed TNT exploded during the run (the real game judges it; redsim does not model explosions)".into(), metrics: Vec::new(), table };
     }
     let Some((start, p)) = period(t, from) else {
         return Outcome { pass: false, why: format!("not periodic within {} gt", s.ticks), metrics: Vec::new(), table };
     };
+    // explosions on (the default): the block frames repeat with the period from before the first
+    // explosion through the end, so nothing the explosions did changed the machine
+    if c.explodes()
+        && let Some(&x) = t.explosions.iter().min()
+        && start + p > x as usize
+    {
+        return Outcome {
+            pass: false,
+            why: format!("blown up: its first explosion (frame {x}) changes it (periodic only from frame {start}, period {p} gt)"),
+            metrics: Vec::new(),
+            table,
+        };
+    }
     let cycles = (t.cells.len() - start) / p;
     if cycles < CYCLES {
         return Outcome { pass: false, why: format!("period {p} gt repeats only {cycles} times (at least {CYCLES})"), metrics: Vec::new(), table };
@@ -262,9 +331,9 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
 fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
     let mut v: Vec<String> = Vec::new();
     if c.explodes() {
-        // explosions push the TNT around: only the survival is reported
-        v.push(format!("survives its own explosions: {} exploded, design intact", t.exploded));
-        return v.join("; ");
+        // explosions on (the default): the survival, then the other flags as measured with the
+        // explosions (their knockback moves the TNT still burning)
+        v.push(survive_flag(t));
     }
     let p = precise_flag(t, start);
     if !p.is_empty() {
@@ -303,6 +372,20 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
             v.push(format!("dropped: every TNT falls straight down, {fall:.1}+ blocks by fuse 1"));
         }
     }
+    // DROPPED out of range (explosions on): every TNT of the periodic region removed out of range
+    // (the last ones still fall at the end of the run) left 3+ blocks below its first sighting,
+    // falling straight down
+    let gone: Vec<&&crate::trace::Primed> = ps.iter().filter(|q| q.gone.is_some()).collect();
+    let burning_at_end = ps.iter().filter(|q| q.gone.is_none() && q.end.is_none()).count();
+    if gone.len() >= 8 && gone.len() + burning_at_end == ps.len() {
+        let straight = gone.iter().all(|q| {
+            let (p, m) = q.gone.unwrap();
+            m[0].abs() < 0.01 && m[2].abs() < 0.01 && m[1] < 0.0 && q.pos[1] - p[1] >= 3.0
+        });
+        if straight {
+            v.push("dropped: every TNT falls straight down out of range".to_string());
+        }
+    }
     v.join("; ")
 }
 
@@ -338,7 +421,7 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         let hi = starts.get(k + 1).copied().unwrap_or(t.cells.len());
         let qs: Vec<usize> = t.primed.iter().filter(|q| (q.frame as usize) >= lo && (q.frame as usize) < hi).map(|q| q.frame as usize).collect();
         let end = tnt_in(t, hi - 1);
-        table.push(format!("pulse {} at frame {lo}: {} primed{}, TNT blocks at the end {end}", k + 1, qs.len(), qs.first().map(|f| format!(" (first at +{} gt)", f - lo)).unwrap_or_default()));
+        table.push(format!("pulse {} at frame {lo}: {} primed{}, TNT blocks at the end {end}", k + 1, qs.len(), if qs.is_empty() { String::new() } else { format!(" (at +{} gt)", qs.iter().map(|f| (f - lo).to_string()).collect::<Vec<_>>().join(", +")) }));
         if end < n0 {
             return Outcome { pass: false, why: format!("TNT consumed: {end} of {n0} TNT blocks stand after pulse {}", k + 1), metrics: Vec::new(), table };
         }
@@ -349,6 +432,17 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     }
     if per.iter().any(|&n| n != per[0]) || per[0] == 0 {
         return Outcome { pass: false, why: format!("primed TNT per pulse {per:?}: not the same every pulse"), metrics: Vec::new(), table };
+    }
+    // explosions on: every TNT has gone off by the end (the stimulus waits for them) and the
+    // machine is back to its rest state
+    if c.explodes() {
+        if no_explosion(t) {
+            return Outcome { pass: false, why: "no primed TNT exploded during the run (explosions are judged in the real game; redsim does not model them)".into(), metrics: Vec::new(), table };
+        }
+        let last = t.cells.len() - 1;
+        if t.cells[last] != t.cells[starts[0] - 1] {
+            return Outcome { pass: false, why: format!("blown up: after its explosions the machine differs from its rest state (frame {last} vs {})", starts[0] - 1), metrics: Vec::new(), table };
+        }
     }
     let window = |k: usize| (starts[k], starts.get(k + 1).copied().unwrap_or(t.cells.len()));
     let (a0, b0) = window(0);
@@ -370,7 +464,8 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         ("latency".to_string(), format!("{} gt", lat.iter().max().copied().unwrap_or(0))),
         ("gap".to_string(), format!("{gap} gt")),
     ];
-    Outcome { pass: true, why: String::new(), metrics, table }
+    let why = if c.explodes() { survive_flag(t) } else { String::new() };
+    Outcome { pass: true, why, metrics, table }
 }
 
 fn fmt_rate(r: f64) -> String {

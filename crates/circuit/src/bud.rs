@@ -66,11 +66,16 @@ pub fn check_ports(c: &Circuit) -> Result<()> {
     if c.targets.is_empty() {
         bail!("bud: needs a target cell (port target: x y z [state-a state-b])");
     }
-    if c.outputs.len() != 1 {
+    // a tiled run ([`tile_check`]): one target and one output per copy
+    let copies = c.clock.design.meta.get("tiled").and_then(|n| n.parse::<usize>().ok()).unwrap_or(1);
+    if c.outputs.len() != copies || c.targets.len() % copies != 0 {
         bail!("bud: needs exactly one output (port output:), has {}", c.outputs.len());
     }
     if !c.inputs.is_empty() && !latched(c) {
         bail!("bud: takes no input (the judge's updates at its targets are the stimulus), or one reset input (port input.reset:) for a latched design");
+    }
+    if c.inputs.len() > copies {
+        bail!("bud: one reset input per copy, has {}", c.inputs.len());
     }
     for w in &c.bud_claims {
         if !CLASSES.contains(&w.as_str()) {
@@ -102,15 +107,20 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
     let mut s = Schedule::new(c.inputs.len());
     // the reset after an event at `at` (latched designs only)
     let rst = |s: &mut Schedule, at: u32| {
-        if latched {
-            s.pulse(0, at + hold, RESET_LEN);
+        // every copy's reset at once (a tiled run: the copies that did not latch stay off)
+        for i in 0..s.edges.len() {
+            if latched {
+                s.pulse(i, at + hold, RESET_LEN);
+            }
         }
     };
     let mut t = c.clock.free_from() + SETTLE;
     if latched {
         // a latched design may latch as it is built (the placement updates every block): one reset
         // right after, before the rest window
-        s.pulse(0, c.clock.free_from() + 4, RESET_LEN);
+        for i in 0..s.edges.len() {
+            s.pulse(i, c.clock.free_from() + 4, RESET_LEN);
+        }
     }
     s.phase(t, t + 2 * gap, "idle");
     t += 2 * gap;
@@ -215,9 +225,67 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
 /// The reset pulse a latched design gets (gt).
 pub const RESET_LEN: u32 = 4;
 
-/// Whether a BUD design is latched: its output holds until the judge pulses its reset input.
+/// Whether a BUD design is latched: its output holds until the judge pulses its reset input (a
+/// tiled run: one reset per copy, `reset.t<k>`).
 pub fn latched(c: &Circuit) -> bool {
-    c.inputs.len() == 1 && c.inputs[0].name == "r"
+    !c.inputs.is_empty() && c.inputs.iter().all(|i| i.name == "r" || i.name.starts_with("reset.t"))
+}
+
+/// A design's `tile:` claim (study 10; the header and the copies are the shulker study's,
+/// [`crate::shulker::tiled`]): the copies side by side, every update class performed at every
+/// copy's target (the classes part of the stimulus, `gap` frames per event). Each copy's output
+/// must answer its own target exactly as the single design does (`base`: its detected classes,
+/// latency and pulse) and stay silent for the other copies' (no cross-talk). `run` records the
+/// copies' trace (redsim or the game). Returns `base` with a `tileable` metric (`label`: the
+/// step as the design writes it, the same in every build), or why not.
+pub fn tile_check(c: &Circuit, base: &Outcome, gap: u32, label: &str, run: impl FnOnce(&Circuit, &Schedule) -> Result<std::result::Result<Trace, String>>) -> Result<Outcome> {
+    let tc = crate::shulker::tiled(c)?;
+    let s = stimulus_with(&tc, &Sizing { gap }, false);
+    let t = match run(&tc, &s)? {
+        Ok(t) => t,
+        Err(why) => return Ok(Outcome::fail(format!("not tileable: the copies' run: {why}"), Vec::new())),
+    };
+    let copy_of_target: Vec<u32> = tc.targets.iter().map(|tg| crate::shulker::group_of(&tg.name)).collect();
+    let metric = |o: &Outcome, k: &str| o.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
+    let from = (tc.clock.free_from() + SETTLE / 2) as usize;
+    for (oi, o) in tc.outputs.iter().enumerate() {
+        let k = crate::shulker::group_of(&o.name);
+        // this copy's events keep their labels, the other copies' must leave its output alone
+        let mut sk = s.clone();
+        for (_, _, label) in sk.phases.iter_mut() {
+            let last = label.split_whitespace().last().unwrap_or("").to_string();
+            if label.starts_with("idle") {
+                continue;
+            }
+            if let Some(ti) = tc.targets.iter().position(|tg| tg.name == last)
+                && copy_of_target[ti] != k
+            {
+                *label = format!("xtalk {label}");
+            }
+        }
+        let ok = judge_with(&t.out_seq(oi), &sk, from, 1, &[], None, latched(&tc));
+        if !ok.pass {
+            return Ok(Outcome::fail(format!("not tileable ({label}): copy {k}: {}", ok.why), ok.table));
+        }
+        for m in ["detects", "latency", "pulse", "reset"] {
+            if metric(&ok, m) != metric(base, m) {
+                return Ok(Outcome::fail(format!("not tileable ({label}): copy {k} {m} {} where the single design has {}", metric(&ok, m), metric(base, m)), ok.table));
+            }
+        }
+    }
+    let mut out = base.clone();
+    out.metrics.push(("tileable".to_string(), label.to_string()));
+    Ok(out)
+}
+
+/// The frames each event is given in a BUD schedule (its first class phase).
+pub fn gap_of(s: &Schedule) -> u32 {
+    s.phases.iter().find(|p| class_of(&p.2).is_some()).map(|p| p.1 - p.0).unwrap_or(30)
+}
+
+/// A `tile:` step as the metric reads it: `every N (dx dy dz)`, N its length.
+pub fn tile_label(step: Pos) -> String {
+    format!("every {} ({} {} {})", step[0].abs() + step[1].abs() + step[2].abs(), step[0], step[1], step[2])
 }
 
 /// The class an event label belongs to (`place 2 t` -> place; `state 1b t` -> state).
@@ -307,6 +375,12 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
                 }
             }
             Some("setup") => {}
+            Some("xtalk") => {
+                // a tiled run: another copy's event must leave this copy's output alone
+                if let Some((st, _)) = ps.first() {
+                    return Outcome::fail(format!("cross-talk: this copy's output turns on at frame {st} during `{}` (another copy's target)", w[1..].join(" ")), table);
+                }
+            }
             Some("relatch") => {
                 table.push(format!("  {label}: {}", if ps.is_empty() { "no output".to_string() } else { ps.iter().map(|(st, l)| format!("+{} for {l}", *st as i64 - *a as i64)).collect::<Vec<_>>().join(", ") }));
                 relatch.push((*a, ps));

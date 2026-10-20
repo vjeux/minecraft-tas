@@ -1,0 +1,41 @@
+# m79: 9x6 = 54b (x -3..5, y -1..4), Box A, floor = 3 statics, lever ON at rest on top of (1,4) holding the top trio.
+# Built so that column 5 stays FREE (the bottom-right pocket (4,-1),(5,-1) reaches the right region through
+# (5,0),(5,1)) and no left piston needs the bottom-left pocket: the left carriers MB1 (-3,1) and MB0 (-3,0) are
+# stacked and always fire together (QC), carrying U1 and U0 into (-1,1) and (-1,0) together; carried U1 pulls C to
+# (0,1) while carried U0 (QC under it) pushes the whole bottom row right (BR into (3,0)); BR climbs the right wall by
+# W' (3,-1) (fed from the connected pocket) and P3t'; s1 pulls MR in while RP0 (resting at (4,0), QC under s1) pulls BM.
+# m82 = m79 with BR's climb done by the coordinator's idea (1): a down-facing puller P resting at (4,2) carried one
+# cell sideways into the wall top (3,2) by K (5,2) (pulls BR (3,0) -> (3,1)); no W' (3,-1), no M1 (5,1); C's first
+# leftward step comes from the carried U1 (m79's stacked left carriers). 13 pistons.
+# m83 = m82 + obsidian at (4,-1): P resting at (4,2) may then be powered harmlessly (its push of s1 + RP0 down is
+# blocked), so s1 can be fed by QC through (4,2) from the top-right region (4,3) without firing RP0 (RP0's QC cell is
+# s1's cell (4,1), not (4,2)): s1 and RP0 decouple; RP0 is fed from the pocket (5,-1),(5,0),(5,1), which sees K move.
+name: w86-m83
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:obsidian
+layer -1:
+  ...SSS.O
+layer 0:
+  AA.EEE.C
+layer 1:
+  AA.EEE.C
+layer 2:
+  ...EEE.sC
+layer 3:
+  ..sPPPs
+layer 4:
+  ...DDD
+layer 5:
+  ....L

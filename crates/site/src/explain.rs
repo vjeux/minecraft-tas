@@ -472,14 +472,16 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 let n = t.round().max(0.0) as u32;
                 format!("{n} gt ({})", real_time(n))
             };
-            let timing = match c.view_run.as_ref().map(|v| (v.first, v.cycle)) {
-                Some((Some(f), Some(cy))) => format!(
-                    " In the view the first box goes out {} after the machine starts, then one every {}{}.",
+            let timing = match c.view_run.as_ref().map(|v| (v.first, v.cycle, v.lines)) {
+                Some((Some(f), Some(cy), lines)) => format!(
+                    " In the view the first box goes out {} after the machine starts, then {}one every {}{}{}.",
                     gt(f as f64),
+                    if lines > 1 { format!("from its {lines} lines together, ") } else { String::new() },
                     gt(cy),
+                    if lines > 1 { " on average" } else { "" },
                     if cy >= 1200.0 { format!(", or one every {:.0} s at 100× speed", cy / 2000.0) } else { String::new() }
                 ),
-                Some((Some(f), None)) => format!(" In the view the first box goes out {} after the machine starts.", gt(f as f64)),
+                Some((Some(f), None, _)) => format!(" In the view the first box goes out {} after the machine starts.", gt(f as f64)),
                 _ => String::new(),
             };
             s.push_str(&format!("<p><b>The machine runs in the view.</b> {supply}{what}{timing} The numbers over each chest, hopper and dispenser show what it holds. Speed it up with the bar's speed button (up to 100×).</p>"));

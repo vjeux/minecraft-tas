@@ -23,6 +23,9 @@ enum Cmd {
     /// A design aid: run a BUD design's stimulus (classes only) on redsim and print, per frame in
     /// a window, the phase, the output level and the blocks that changed
     Trace(census::TraceArgs),
+    /// The densest tiling of each design on redsim (`tile:` judged with 3 copies, pitch 1..=max
+    /// along x, y and z): the smallest passing pitch per axis
+    Tile(census::TileArgs),
 }
 
 pub fn run(args: Vec<String>) -> anyhow::Result<()> {
@@ -30,5 +33,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Census(a) => census::run(a),
         Cmd::Trace(a) => census::trace(a),
+        Cmd::Tile(a) => census::tile(a),
     }
 }

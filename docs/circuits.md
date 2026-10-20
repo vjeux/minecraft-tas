@@ -223,12 +223,20 @@ kick) before the first input.
   real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
-  With the header `explode: on` (the SURVIVABLE variation) the game run lets every primed TNT
-  explode instead of removing it, and the same check (periodic frames, every TNT block standing
-  again, no item entity at the end) must still pass with at least one explosion; the line ends
-  with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
-  explosions); the archive keeps it apart from the same blocks judged without explosions. The
-  catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  **Explosions are on by default** (vjeux 2026-10-20: "You didn't model tnt explosion. This will
+  blow up the machine"): the game run lets every primed TNT explode, and a TNT 16+ blocks from the
+  design's box (`run::OUT_OF_RANGE`: beyond the reach of its blast, blocks up to about 7, entities
+  up to 8) is removed and counted as out of range (the sandbox is loaded 18 blocks around for
+  them). The duper must survive: a self-running one's block frames repeat with its period from
+  before its first explosion through the end of the run (`blown up: its first explosion (frame F)
+  changes it` otherwise); a triggered one waits 100 gt after its last pulse and must be back in
+  its rest state; a switchable one's running windows end with the same frames as its first
+  period, its stopped windows the same; at least one TNT exploded or left out of range; no item
+  entity at the end (a destroyed block drops one). The line then carries `(survives its own
+  explosions: N exploded, M out of range, design intact)`; redsim reports UNMODELED (no
+  explosions yet). `explode: off` is for analysis only (the measuring calibrations): the archive
+  refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
+  survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
   spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
   horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same
@@ -375,6 +383,17 @@ kick) before the first input.
   latched` otherwise), and hold through a removal while it is on (`not a latch`: a toggle lets
   go). `reset` replaces `pulse`: how long after the reset starts the output goes off; `re-arm`:
   how soon after the reset ends the next event is seen. The axis says `latched (manual reset)`.
+  TILEABLE (`tile: dx dy dz [copies]`, the shulker study's header and copies: `shulker::tiled`):
+  the judge also builds the copies (3 by default) side by side along the step, each copy's ports
+  renamed `<port>.t<k>`, runs every class at every copy's target (the classes part of the
+  stimulus, the same gap) and checks each copy's output: its own copy's events give exactly what
+  the single design gives (detected classes, latency, pulse; latched designs: every copy's reset at
+  once), the other copies' events nothing (`not tileable: ... cross-talk`). The judge's lamp sits
+  in every copy's air output cell, so outputs that touch can cross-talk through the lamps (a lamp
+  strongly powered by an observer or a repeater lights the next one; one lit through a block does
+  not). Metric `tileable every N (dx dy dz)`, N the step's length: targets every N blocks.
+  `mctas circuit bud tile <design>...` finds each design's densest pitch per axis on redsim, and
+  `bud census --tile N` each candidate's.
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
   the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
@@ -383,7 +402,7 @@ kick) before the first input.
   later probes and the re-arm pairs are not measured. The box leaves out the target cells and the
   probe block in the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
-  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
+  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile, tileable.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 * **Study 11 timers** ([crate::pulsemult](../crates/circuit/src/pulsemult.rs); what earlier studies
@@ -497,8 +516,9 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
-| `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest |
+| `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--base D] [--tile N] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest. `--base D`: keep D's blocks and add K blocks in the air cells of its box grown by 1. `--tile N`: each passing design's densest tiling (pitch 1..=N; with `--only`, that class set's only), listed first and written with its `tile:` header |
 | `mctas circuit bud trace <design> [--from F \| --phase <label>] [--frames 40] [--full]` | a BUD design's redsim run, frame by frame: the phase, the output level, the blocks that changed (`--full`: the footprint probes and re-arm pairs too) |
+| `mctas circuit bud tile <design>... [--max 4]` | each BUD design's densest tiling on redsim: the smallest pitch per axis (x, y, z) at which 3 copies pass the judge's tile check |
 
 Tracks: put your designs in `designs/circuits/<study>/tracks/<track>/`; the coordinator archives
 the verified ones.

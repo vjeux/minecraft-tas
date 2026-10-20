@@ -142,6 +142,13 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         _ => None,
     };
+    // a BUD's `tile:` claim: the copies side by side (crate::bud::tile_check)
+    let outcome = match (outcome, c.tile) {
+        (Some(out), Some(tl)) if out.pass && kind == Some(Kind::Bud) && o.stimulus.is_none() => {
+            Some(crate::bud::tile_check(c, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| Ok(run::sim_trace(tc, ts, o.margin)))?)
+        }
+        (out, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
@@ -157,11 +164,12 @@ fn tiled_sim(c: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) 
         Ok(tc) => tc,
         Err(e) => return Outcome::fail(format!("{e}"), alone.table.clone()),
     };
+    let label = c.tile.map(|t| crate::bud::tile_label(t.step)).unwrap_or_default();
     let mut out = alone.clone();
     for shift in crate::pulsemult::TILE_SHIFTS {
         let ts = crate::pulsemult::tiled_schedule(c, &tc, s, shift);
         out = match run::sim_trace(&tc, &ts, margin) {
-            Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone, shift),
+            Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone, shift, &label),
             Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
         };
         if !out.pass {
@@ -172,7 +180,7 @@ fn tiled_sim(c: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) 
 }
 
 /// The tiled runs of a study-11 design in one build of the game (`rc`: the build's circuit).
-fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) -> Result<Outcome> {
+fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome, label: &str) -> Result<Outcome> {
     let tc = match crate::tiled(rc) {
         Ok(tc) => tc,
         Err(e) => return Ok(Outcome::fail(format!("{e}"), alone.table.clone())),
@@ -181,7 +189,7 @@ fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32
     for shift in crate::pulsemult::TILE_SHIFTS {
         let ts = crate::pulsemult::tiled_schedule(rc, &tc, s, shift);
         out = match run::game_trace(w, &tc, &ts, margin)? {
-            Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone, shift),
+            Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone, shift, label),
             Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
         };
         if !out.pass {
@@ -383,23 +391,33 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = run::game_trace(w, &rc, &schedule, o.margin)?;
-        let r = match r {
-            Ok(tr) => {
-                let out = match &kind {
-                    Some(k) => check::check(&rc, k, &schedule, &tr),
-                    None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
-                };
-                // a tiled study-11 design: its copies side by side, each judged on its own
-                let out = match &kind {
-                    Some(k) if out.pass && tiles(&rc, k) => tiled_check(w, &rc, k, &schedule, o.margin, &out)?,
-                    _ => out,
-                };
-                Ok((tr, out))
-            }
-            Err(e) => Err(e),
+        let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
+            Ok(tr) => tr,
+            Err(why) => return Ok(Err(why)),
         };
-        Ok(r.map(|(tr, out)| BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
+        let mut out = match &kind {
+            Some(k) => check::check(&rc, k, &schedule, &tr),
+            None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
+        };
+        // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
+        // the metric names the design's own step (the same in every build)
+        if out.pass
+            && kind == Some(Kind::Bud)
+            && o.stimulus.is_none()
+            && let Some(tl) = c.tile
+        {
+            out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        // a tiled study-11 design: its copies side by side, each judged on its own (the metric
+        // names the design's own step, the same in every build)
+        if out.pass
+            && let Some(k) = &kind
+            && tiles(&rc, k)
+            && let Some(tl) = c.tile
+        {
+            out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
+        Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
     let mut builds = Vec::new();
     for ((t, off), r) in jobs.into_iter().zip(results) {
@@ -461,6 +479,9 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
+    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+        // no build fails but they disagree: name the first build whose metrics differ
+        rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
     rep.pass = true;
     rep
