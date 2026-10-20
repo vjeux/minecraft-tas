@@ -230,6 +230,55 @@ pub struct Circuit {
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
+    /// How each input is driven (parallel to `inputs`): `redstone block`, `lever`, `button`, or
+    /// the custom on-state. Pages only (not exported).
+    #[serde(skip)]
+    pub devices: Vec<String>,
+    /// The judge's stimulus as the design format's `stimulus:` text (per input its edges), for
+    /// the viewer's demo (`data-stimulus`), and its labeled phases (`from-to label; ...`). Pages
+    /// only.
+    #[serde(skip)]
+    pub stimulus: String,
+    #[serde(skip)]
+    pub phases: String,
+    /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
+    #[serde(skip)]
+    pub wave: Option<Wave>,
+    /// The checker's report, one line per test (`pulse 4: out 2 gt after 5 gt`). Pages only.
+    #[serde(skip)]
+    pub table: Vec<String>,
+}
+
+/// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Wave {
+    /// Frames 0..ticks.
+    pub ticks: u32,
+    pub rows: Vec<WaveRow>,
+    /// The checker's labeled spans: (from, to, label).
+    pub phases: Vec<(u32, u32, String)>,
+}
+
+/// One signal of a [`Wave`]: an input (on/off) or an output (its level 0..15), as runs of equal
+/// level: (from frame, level).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct WaveRow {
+    pub name: String,
+    pub input: bool,
+    pub steps: Vec<(u32, u8)>,
+}
+
+impl WaveRow {
+    /// The runs of a per-frame signal.
+    pub fn from_levels(name: &str, input: bool, levels: &[u8]) -> WaveRow {
+        let mut steps: Vec<(u32, u8)> = Vec::new();
+        for (t, l) in levels.iter().enumerate() {
+            if steps.last().is_none_or(|s| s.1 != *l) {
+                steps.push((t as u32, *l));
+            }
+        }
+        WaveRow { name: name.to_string(), input, steps }
+    }
 }
 
 /// A period or block-count formula in n (the clock study's `extend period:`).
