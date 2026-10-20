@@ -12,7 +12,7 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 2 T flip-flops | tff | tff | mechanism family | latency, edge, min-pulse, min-period |
 | 3 delay lines | delay | delay | N | min-pulse, min-gap (one-edge delays flagged) |
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
-| 5 memory | memory | rs-latch, d-latch, counter N | the function (N) | latency, enable polarity, output style |
+| 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
 
@@ -27,7 +27,7 @@ The door/clock design text format (`crates/mctas/src/design.rs`: `name`, `origin
 ```text
 name: sub-rising-4
 circuit: rising-edge             # the kind (+ its argument: `gate xor`, `counter 4`, `piston-extender 3`)
-port input: 0 1 0                # one input; several: port input.<name>: (input.a / input.b, input.s / input.r, input.d / input.e)
+port input: 0 1 0                # one input; several: port input.<name>: (input.a / input.b, input.s / input.r, input.d / input.e, input.t / input.r, input.clk / input.d [/ input.e])
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
 ```
@@ -39,12 +39,31 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   design). `lever`: the design's lever there (off at rest), right-clicked at every edge. `button`:
   the design's button there, right-clicked at every rising edge (its own pulse length). Inputs
   change between ticks: on at frames t..t+L-1 is an L gt pulse. Latch inputs may be spelled
-  `set`/`reset`/`data`/`enable` (= s, r, d, e).
+  `set`/`reset`/`data`/`enable`/`clock`/`toggle` (= s, r, d, e, clk, t).
 * **Outputs** (`port output[.<name>]: x y z`), read every gt: redstone dust gives its power; a
   repeater, torch or observer its own output (15 when on); a comparator its strength; any other
   cell (air, a solid block, a lamp, a piston, a bulb) the best signal INTO it (what a lamp there
   would see). On = level > 0. Put the output where a lamp would go, not on a lamp (a lamp's lit
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
+* **A circuit must drive something** (vjeux/coordinator 2026-10-19): the judge puts a redstone
+  lamp in every AIR output cell (not a design block: not counted, not part of the type; none for
+  kinds read through payloads, piston extenders and flying machines, nor where a piston can move a
+  block in: its head cell or the cell after the row of blocks it pushes, any cell within 13 in
+  front of it when the design has slime or honey) and the lamp must follow the output: lit
+  whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
+  update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
+  like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
+  circuit may be driven. The metrics still come from the level above, so they do not change. An
+  output that changes without a block update fails (`update-less output: ... it drives
+  nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
+  nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
+  dust-redirection gates, track delay's 1 gt line). An output cell is therefore air or holds a
+  redstone component or consumer (dust, repeater, comparator, torch, observer, lamp, piston, copper
+  bulb, note block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell,
+  hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
+  stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
+  input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
   go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload),
@@ -79,7 +98,10 @@ flying machine that flies east-west only). No build passing: `FAIL`. One line:
 milliseconds) and prints the same line ending in `redsim`. Both size the stimulus from redsim's
 recovery time: how long the circuit takes to come back to rest after every input turns on for 40 gt
 and after they turn off, plus 10 gt (at least 20; 100 when redsim does not model the design or it
-never rests; `--gap N` overrides). The circuit stands 40 gt at rest after placement (and after its
+never rests; `--gap N` overrides). When an event of the kind's own stimulus (run on redsim spaced by
+1000 gt) takes longer to settle than that, the gap is that settling plus 10 gt instead (a slow path
+the all-on / all-off pair never takes: a crafter latch's nine ingots coming back through a hopper,
+79 gt). The circuit stands 40 gt at rest after placement (and after its
 kick) before the first input.
 
 ### What each kind is judged on
@@ -130,6 +152,36 @@ kick) before the first input.
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
   each pulse must repeat with period exactly N (`level`, comparator counters).
+* **tff-reset** (inputs r, t; [crate::seq](../crates/circuit/src/seq.rs)): pulses t, t, t, r, r,
+  t, r, t, t, r of 4 gt, then t, r, t, r of 20 gt, each followed by the gap: every t pulse must
+  change q exactly once, every r pulse must leave q off with one change from q = 1 and none from
+  q = 0 (so a reset from 0 and a repeated reset change nothing). Then t pulses of 3, 2, 1 gt (two
+  each) and an r pulse, for the metric only. `latency`: the worst toggle time of the 4 gt t
+  pulses; `reset`: the worst clear time from q = 1; `min-pulse`: the shortest t pulse from which
+  every longer one toggles.
+* **dff** (inputs clk, d): an edge-triggered D flip-flop (a 1-bit register). 8 clock cycles, each
+  4 steps held for the gap: d := a with the clock low, the clock rises, d := b, the clock falls,
+  with (a, b) = 10, 01, 11, 00, 10, 00, 01, 11. The run is compared with an ideal register run on
+  the same schedule (q takes d at each clock edge of its type, holds otherwise), for rising edges,
+  then falling edges: at the end of every step q must equal the ideal's q, steady over the second
+  half of the step, with exactly one change in a step where the ideal changes and none elsewhere
+  (a level latch fails: it follows d while transparent). The type that passes is reported
+  (`edge`). Then setup and hold sweeps, each test a prime clock pulse with d = !v (both types end
+  with q = !v) and then: `setup-r x` d := v x gt before a rising edge (x = 8, 4, 2, 1, 0: 0 = in
+  the edge's own frame), `setup-f x` the same before a falling edge, `hold-r x` / `hold-f x` d := v
+  well before the edge and back to !v x gt after it (x = 8, 4, 2, 1). The other type's tests must
+  match the ideal (d is steady around that type's edges); the own type's give `setup` / `hold`:
+  the smallest tested offset from which every larger one matches (`over 8 gt` when none).
+  `latency`: the worst edge-to-q time. **dff-enable** (inputs clk, d, e): the same main sequence
+  with e set at the start of each cycle, 10 cycles (a, b, e) = 101, 011, 110, 001, 100, 111, 000,
+  011, 110, 101: the ideal loads only when e is on at its edge; metrics `latency`, `edge`.
+* **shift N** (inputs clk, d): a shift register of N cells, q = d as sampled N clock edges ago. N +
+  12 clock cycles as for dff, with (a, b) taken from two offsets of a 31-bit pseudo-random
+  pattern (so each edge type shifts in a different sequence, and a register that samples on one
+  edge and shifts on the other fails); compared with an ideal N-cell register of each type (q
+  unknown, and free to take one value, until N edges have filled its cells). Metrics `N`,
+  `latency`, `edge`. A shift-register cell is judged as a chain of 2 (`shift 2`), so cells that
+  race through each other fail.
 * **piston-extender N** (payload, travel): 3 cycles of the input on for the gap then off for it
   (a button: one press, then 2 gaps). The payload's state must be unique in the design. Per
   cycle: from some frame after the on edge to the off edge (a button: at some frame) the payload
@@ -167,7 +219,8 @@ stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind an
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
 without stone"); the catalog shows them as "also found as". A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
-gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
+gates the function, T flip-flops their family, latches and registers the kind, `counter N`,
+`shift N`, extenders `N = <N>`,
 flying machines their speed (or `two-way`).
 
 `mctas circuit catalog [--root designs/circuits]` (no game) writes, per study,
@@ -192,6 +245,20 @@ value tables, and `designs/circuits/families.tsv` lists the families for the web
 `mctas circuit gen repeater-line --n N --out F` is the judge's own calibration family (n + 1
 delay-1 repeaters: N = 2 + 2n gt).
 
+**Tunable groups** (vjeux 2026-10-19: "we don't need 20 variations of the same design"): designs
+that are ONE mechanism with other repeater delays, comparator modes or a longer repeater line are
+one card. A design joins a group with a `group: <name>` header (optional `group title:` and `group
+note:`, read from the first member carrying them; track generators stamp them, e.g. `mctas circuit
+pulse stamp-group`), or automatically when its TUNABLE key (the type key with every repeater's
+delay and every comparator's mode masked, `archive::tunable_key`) and kind equal another
+design's. A group of two or more designs gets a card under "Tunable groups" (the value range as
+the heading, the two smallest members, a table value -> blocks -> design, and the extendable
+families carrying the same `group:`); its members leave the value tables. **Equivalent layouts**:
+designs with the same kind, value, block count and block kinds as a shown design (the one with the
+smallest box, then archived first) are listed on its row as "also N other layouts". `catalog.tsv`
+has a `group` column (the member's group) and its `variant_of` names a layout's shown design too.
+`mctas circuit catalog` prints, per study, the card count before and after the folds.
+
 ## Commands
 
 | command | what |
@@ -200,6 +267,7 @@ delay-1 repeaters: N = 2 + 2n gt).
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
+| `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
 

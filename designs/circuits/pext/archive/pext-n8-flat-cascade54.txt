@@ -1,0 +1,35 @@
+# archived 2026-10-20T01:23Z from designs/circuits/pext/work/n8-flat-min.txt by mctas circuit archive
+# CIRCUIT: pext-n8-flat-cascade54 piston-extender 8 N 8, extend 87 gt, retract 109 gt, 54 blocks, 24x5x1, robust
+# N=8 FLAT cascade extender (1 wide), minimized in its plane (mctas circuit pext minimize --plane-z 0)
+# from the generated flat cascade: units [slime + sticky piston + carried observer] fire themselves;
+# round-start pulsers two above the line, quasi-connectivity, spine above them.
+name: pext-n8-flat-cascade54
+circuit: piston-extender 8
+travel: 1 0 0
+port input: 23 4 0 lever
+port payload: 16 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=up]
+  D minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O.O...O.O.O.O
+layer 1:
+  sSsSsSsSsSsSsSsG
+layer 2:
+  .....B
+layer 3:
+  C.C.C.C.C.C.C..C..C..CD
+layer 4:
+  rARARARARARAoA.PAAAA.PL

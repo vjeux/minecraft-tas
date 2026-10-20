@@ -180,6 +180,40 @@ pub fn normalized(c: &Circuit) -> Circuit {
     cur
 }
 
+/// The structure's TUNABLE key: the design with every repeater's delay and every comparator's mode
+/// masked, with its input and output cells marked, up to translation, rotation and mirror image.
+/// Designs that differ only by those settings are one tunable mechanism (vjeux 2026-10-19: "we
+/// don't need 20 variations of the same design"): the catalog shows them as one group card.
+pub fn tunable_key(c: &Circuit) -> String {
+    let mut d = c.clock.design.clone();
+    for st in d.blocks.values_mut() {
+        if st.contains("repeater[") {
+            *st = mask_prop(st, "delay", "1");
+        }
+        if st.contains("comparator[") {
+            *st = mask_prop(st, "mode", "compare");
+        }
+    }
+    for i in &c.inputs {
+        d.blocks.insert(i.pos, "circuit:input".to_string());
+        d.block_entities.remove(&i.pos);
+    }
+    for p in &c.outputs {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
+    }
+    clock::canon::design_type_key(&d)
+}
+
+/// A block state with one property set to a value (`delay=3` -> `delay=1`).
+fn mask_prop(state: &str, key: &str, value: &str) -> String {
+    let Some(i) = state.find(&format!("{key}=")) else {
+        return state.to_string();
+    };
+    let start = i + key.len() + 1;
+    let end = state[start..].find([',', ']']).map(|j| start + j).unwrap_or(state.len());
+    format!("{}{value}{}", &state[..start], &state[end..])
+}
+
 /// The structure's type key: the [`normalized`] design up to translation, the 4 rotations and the
 /// mirror image (`clock::canon::design_type_key`), with its input cells marked (whatever drives
 /// them: a lever and a redstone-block input are the same circuit) and its output and payload cells
@@ -219,8 +253,9 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
@@ -342,10 +377,14 @@ fn axis_number(a: &str) -> Option<i64> {
     digits.parse().ok()
 }
 
-/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", "")).
+/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", ""); a flying
+/// machine's `10 gt/block` -> ("speed", "gt/block")).
 fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
+        None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
+        // a counter's axis is its kind, `counter N`
+        None if a.starts_with("counter ") => ("N".to_string(), String::new()),
         None => (String::new(), String::new()),
     }
 }
@@ -412,6 +451,119 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
 }
 
 pub const ALIASES: &str = "aliases.tsv";
+
+/// `mctas circuit archive --rejudge`: judge every archived design again (the current judge, in
+/// the game; family bases with their sampled members) in the given studies (all when empty). A
+/// passing design keeps its row with the new metrics, box, family, robustness and summary (its
+/// `# CIRCUIT:` line rewritten); a failing one leaves the archive (file, verdict row, caption,
+/// its family's extend.tsv rows, aliases it hosts) and is copied back next to the track file it
+/// was archived from, under `update-less/` when it fails for an update-less output (else
+/// `rejudged/`), with a first line saying why.
+pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        if rows.is_empty() {
+            continue;
+        }
+        let mut keep: Vec<Row> = Vec::new();
+        let mut removed: Vec<String> = Vec::new();
+        let mut instances = read_instances(&dir);
+        for row in rows {
+            let path = dir.join(&row.file);
+            if !path.exists() {
+                out.push(format!("MISSING {}: no file, row dropped", path.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let c = Circuit::load(&path)?;
+            let Some(kind) = c.kind.clone() else {
+                keep.push(row);
+                continue;
+            };
+            let rep = verify::verify_in_pool(pool, &c, o)?;
+            let fam = family_of(&c)?;
+            let fam_check = match (&fam, rep.pass) {
+                (Some(f), true) => Some(check_family(pool, &path, f, &kind, o)),
+                _ => None,
+            };
+            let failure = if !rep.pass {
+                Some(rep.summary(&c))
+            } else if let Some(Err(e)) = &fam_check {
+                Some(format!("{e:#}"))
+            } else {
+                None
+            };
+            let text = std::fs::read_to_string(&path)?;
+            if let Some(why) = failure {
+                // back to the track it came from, with why
+                let from = text.lines().find_map(|l| l.strip_prefix("# archived ").and_then(|r| r.split(" from ").nth(1)).map(|r| r.trim_end_matches(" by mctas circuit archive").to_string()));
+                let sub = if why.contains("update-less output") { "update-less" } else { "rejudged" };
+                let back = match from.as_deref().map(Path::new).and_then(|p| p.parent()) {
+                    Some(d) if d.starts_with(root.join(study).join("tracks")) => d.join(sub),
+                    _ => root.join(study).join("tracks").join(sub),
+                };
+                std::fs::create_dir_all(&back)?;
+                let body: String = text.lines().filter(|l| !l.starts_with("# archived ") && !l.starts_with("# CIRCUIT: ")).map(|l| format!("{l}\n")).collect();
+                let copy = back.join(&row.file);
+                std::fs::write(&copy, format!("# {sub} ({}, mctas circuit archive --rejudge): {why}\n{body}", clock::catalog::now_utc()))?;
+                std::fs::remove_file(&path)?;
+                if let Some(f) = &fam {
+                    instances.retain(|i| i.family != f.id);
+                }
+                out.push(format!("REMOVED {}: {why} (copy: {})", path.display(), copy.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let base = rep.base().ok_or_else(|| anyhow!("no passing build"))?.clone();
+            let summary = rep.summary(&c);
+            let [w, h, d] = base.dims;
+            let new = Row {
+                axis: axis(&kind, &base.outcome, &base.family),
+                metrics: base.outcome.metrics_text(),
+                blocks: c.blocks(),
+                dims: format!("{w}x{h}x{d}"),
+                volume: (w * h * d) as i64,
+                family: base.family.clone(),
+                robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
+                summary: summary.clone(),
+                ..row.clone()
+            };
+            let changed = new.metrics != row.metrics || new.robustness != row.robustness || new.dims != row.dims;
+            let header_lines: Vec<String> = text.lines().map(|l| if l.starts_with("# CIRCUIT: ") || l.starts_with("# FAIL: ") { format!("# {summary}") } else { l.to_string() }).collect();
+            std::fs::write(&path, header_lines.join("\n") + "\n")?;
+            if let (Some(f), Some(Ok(inst))) = (&fam, fam_check) {
+                instances.retain(|i| i.family != f.id);
+                instances.extend(inst);
+            }
+            out.push(if changed { format!("UPDATED {}: {} (was: {}, {})", path.display(), summary, row.metrics, row.robustness) } else { format!("KEPT {}: {summary}", path.display()) });
+            keep.push(new);
+        }
+        write_rows(&dir, &keep)?;
+        if !removed.is_empty() {
+            let cp = dir.join(CAPTIONS);
+            if cp.exists() {
+                let caps: String = std::fs::read_to_string(&cp)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cp, caps)?;
+            }
+            let ap = dir.join(ALIASES);
+            if ap.exists() {
+                let al: String = std::fs::read_to_string(&ap)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&ap, al)?;
+            }
+        }
+        let ep = dir.join(EXTEND_TSV);
+        if ep.exists() || !instances.is_empty() {
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(&ep, all)?;
+        }
+    }
+    Ok(out)
+}
 
 /// The aliases of an archive: kept file -> the names of its removed twins (with what they were
 /// built with).
@@ -568,6 +720,96 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
     md
 }
 
+/// A tunable group's name from a member's file: the stem without its trailing value
+/// (`pulse-extender-repeater-L8.txt` -> `pulse-extender-repeater`).
+fn group_label(file: &str) -> String {
+    let stem = file.trim_end_matches(".txt");
+    if let Some((head, tail)) = stem.rsplit_once('-') {
+        let t = tail.trim_start_matches(['L', 'N', 'P', 'n']);
+        if !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()) {
+            return head.to_string();
+        }
+    }
+    stem.to_string()
+}
+
+/// The axis values of a group as a short range: (`4..38`, ` (every 2)`), (`4, 6, 8`, ``).
+fn range_text(vals: &[i64]) -> (String, String) {
+    let mut v: Vec<i64> = vals.to_vec();
+    v.sort();
+    v.dedup();
+    fn gcd(a: i64, b: i64) -> i64 {
+        if b == 0 { a.abs() } else { gcd(b, a % b) }
+    }
+    match v.len() {
+        0 => (String::new(), String::new()),
+        1 => (v[0].to_string(), String::new()),
+        n if n <= 3 => (v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), String::new()),
+        n => {
+            let g = v.windows(2).fold(0, |g, w| gcd(g, w[1] - w[0]));
+            let full = ((v[n - 1] - v[0]) / g.max(1) + 1) as usize;
+            let note = if full == n { format!(" (every {g})") } else { format!(" (step {g}: {n} of {full} values)") };
+            (format!("{}..{}", v[0], v[n - 1]), note)
+        }
+    }
+}
+
+/// The number of family cards on a study page (families of one group share a card).
+fn clock_card_count(fams: &[(Row, clock::extend::Family, BTreeSet<String>)]) -> usize {
+    if fams.is_empty() {
+        return 0;
+    }
+    let items: Vec<clock::catalog::CardItem> = fams
+        .iter()
+        .enumerate()
+        .map(|(i, (r, f, k))| clock::catalog::CardItem { formula: f.period.text(), kinds: k.clone(), size: (f.blocks.eval(f.n_lo), r.volume, i), group: f.group.clone() })
+        .collect();
+    clock::catalog::card_groups(&items).len()
+}
+
+/// The "Tunable groups" section of a study page: one card per group (the value range as the
+/// heading, the two smallest members, a compact table value -> blocks -> design).
+fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<String, Circuit>, fams: &[(Row, clock::extend::Family, BTreeSet<String>)]) -> String {
+    if cards.is_empty() {
+        return String::new();
+    }
+    let mut md = String::from(
+        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.\n",
+    );
+    for (name, kind, members) in cards {
+        let (label, unit) = axis_label(&members[0].axis);
+        let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
+        let vals: Vec<i64> = members.iter().filter_map(|r| axis_number(&r.axis)).collect();
+        let meta = |k: &str| members.iter().find_map(|r| circuits.get(&r.file).and_then(|c| c.clock.design.meta.get(k).cloned()));
+        let title = meta("group title").unwrap_or_else(|| name.clone());
+        let note = meta("group note").unwrap_or_else(|| {
+            if members.iter().any(|r| circuits.get(&r.file).is_some_and(|c| c.clock.design.meta.contains_key("group"))) {
+                "set by the repeater delays and the length of the repeater line".to_string()
+            } else {
+                "the same layout, set by its repeater delays / comparator modes".to_string()
+            }
+        });
+        let mut small: Vec<&&Row> = members.iter().collect();
+        small.sort_by(|a, b| (a.blocks, axis_number(&a.axis), a.volume, &a.file).cmp(&(b.blocks, axis_number(&b.axis), b.volume, &b.file)));
+        let smallest: Vec<String> = small.iter().take(2).map(|r| format!("[{}](archive/{}) ({}, {} blocks)", r.file.trim_end_matches(".txt"), r.file, r.axis, r.blocks)).collect();
+        let (core, rnote) = range_text(&vals);
+        md.push_str(&format!("\n### {label} = {core}{u}{rnote}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
+        let fam: Vec<String> = fams
+            .iter()
+            .filter(|(fr, _, _)| circuits.get(&fr.file).and_then(|c| c.clock.design.meta.get("group")).is_some_and(|g| g == name))
+            .map(|(fr, f, _)| format!("[{}](archive/{}): {label} = {}{u}, {} blocks", f.id, fr.file, f.period.text(), f.blocks.text()))
+            .collect();
+        if !fam.is_empty() {
+            md.push_str(&format!("\nAlso as an extendable family: {}.\n", fam.join("; ")));
+        }
+        md.push_str(&format!("\n| {label} | blocks | design | metrics |\n|---|---|---|---|\n"));
+        for r in members {
+            md.push_str(&format!("| {} | {} | [{}](archive/{}) | {} |\n", axis_number(&r.axis).map(|v| format!("{v}{u}")).unwrap_or_else(|| r.axis.clone()), r.blocks, r.file.trim_end_matches(".txt"), r.file, r.metrics));
+        }
+    }
+    md
+}
+
 /// `mctas circuit catalog`: every study's CATALOG.md and variants.md, the index, catalog.tsv and
 /// families.tsv, from the archives' rows (no game). Returns one line per study.
 pub fn catalog(root: &Path) -> Result<Vec<String>> {
@@ -575,7 +817,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     let mut index = String::from(
         "# Contraption studies\n\nEvery design judged in the real game (`mctas circuit verify`: 4 positions x 4 rotations, [docs/circuits.md](../../docs/circuits.md)), by study; the data the website renders is [catalog.tsv](catalog.tsv). Generated by `mctas circuit catalog`.\n\n| study | designs | shown | variants |\n|---|---|---|---|\n",
     );
-    let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\n");
+    let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\tgroup\n");
     let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\n");
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
@@ -595,10 +837,41 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let instances = read_instances(&dir);
         let member_keys: BTreeSet<&String> = instances.iter().filter(|i| fams.iter().any(|(_, f, _)| f.id == i.family)).map(|i| &i.type_key).collect();
         let in_family = |r: &Row| fams.iter().any(|(fr, _, _)| fr.file == r.file) || member_keys.contains(&r.type_key);
+        // TUNABLE GROUPS (vjeux 2026-10-19): designs that are one mechanism with other repeater
+        // delays, comparator modes or a longer U are ONE card: a `group: <name>` header (stamped by
+        // the generators), else the same tunable key (delays and modes masked) and kind
+        let circuits: BTreeMap<String, Circuit> = rows.iter().filter_map(|r| Circuit::load(&dir.join(&r.file)).ok().map(|c| (r.file.clone(), c))).collect();
+        let mut tgroups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
+        for r in rows.iter().filter(|r| !in_family(r)) {
+            let Some(c) = circuits.get(&r.file) else { continue };
+            let (kind_key, id) = match c.clock.design.meta.get("group") {
+                // an explicit group spans the kind's argument too (`counter N`: one card for
+                // every N of one mechanism)
+                Some(g) => (r.kind.split_whitespace().next().unwrap_or(&r.kind).to_string(), format!("h:{g}")),
+                None => (r.kind.clone(), format!("t:{}", tunable_key(c))),
+            };
+            tgroups.entry((kind_key, id)).or_default().push(r);
+        }
+        tgroups.retain(|_, v| v.len() >= 2);
+        let mut group_of: BTreeMap<String, String> = BTreeMap::new();
+        let mut group_cards: Vec<(String, String, Vec<&Row>)> = Vec::new();
+        for ((kind, id), members) in &mut tgroups {
+            members.sort_by(|a, b| (axis_key(&a.axis), a.blocks, a.volume, &a.file).cmp(&(axis_key(&b.axis), b.blocks, b.volume, &b.file)));
+            let name = match id.strip_prefix("h:") {
+                Some(g) => g.to_string(),
+                None => group_label(&members.iter().min_by_key(|r| (r.blocks, r.volume, r.file.clone())).map(|r| r.file.clone()).unwrap_or_default()),
+            };
+            for m in members.iter() {
+                group_of.insert(m.file.clone(), name.clone());
+            }
+            group_cards.push((name, kind.clone(), members.clone()));
+        }
+        group_cards.sort_by_key(|(n, k, m)| (axis_key(&m[0].axis), k.clone(), n.clone()));
+        let in_group = |r: &Row| group_of.contains_key(&r.file);
         // the dominance fold within one kind and axis value: a design with more blocks that only
         // adds block kinds to a smaller one is its variant
         let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
-        for r in rows.iter().filter(|r| !in_family(r)) {
+        for r in rows.iter().filter(|r| !in_family(r) && !in_group(r)) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         let mut host: BTreeMap<String, String> = BTreeMap::new();
@@ -610,8 +883,29 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
                 }
             }
         }
-        let shown: Vec<&Row> = rows.iter().filter(|r| !host.contains_key(&r.file) && !in_family(r)).collect();
+        // EQUIVALENT LAYOUTS: the same kind, value, block count and block kinds: one shown, the
+        // others listed as "also N other layouts" (catalog.tsv variant_of)
+        let mut layout: BTreeMap<String, String> = BTreeMap::new();
+        let mut layouts_of: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        {
+            let mut eq: BTreeMap<(String, String, usize, String), Vec<&Row>> = BTreeMap::new();
+            for r in rows.iter().filter(|r| !in_family(r) && !in_group(r) && !host.contains_key(&r.file)) {
+                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, r.kinds.clone())).or_default().push(r);
+            }
+            for v in eq.values_mut() {
+                if v.len() < 2 {
+                    continue;
+                }
+                v.sort_by(|a, b| (a.volume, &a.archived, &a.file).cmp(&(b.volume, &b.archived, &b.file)));
+                for o in &v[1..] {
+                    layout.insert(o.file.clone(), v[0].file.clone());
+                    layouts_of.entry(v[0].file.clone()).or_default().push(o.file.clone());
+                }
+            }
+        }
+        let shown: Vec<&Row> = rows.iter().filter(|r| !host.contains_key(&r.file) && !in_family(r) && !in_group(r) && !layout.contains_key(&r.file)).collect();
         let cards_md = family_cards(&fams, &instances, &mut ftsv, study);
+        let groups_md = tunable_cards(&group_cards, &circuits, &fams);
         let sdir = root.join(study);
         if rows.is_empty() {
             index.push_str(&format!("| {title} | 0 | 0 | 0 |\n"));
@@ -624,20 +918,27 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             by_axis.entry(axis_key(&r.axis)).or_default().push(r);
         }
         let mut md = format!(
-            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (more blocks that only add block kinds to a smaller design with the same value: [variants](variants.md)){}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
+            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (more blocks that only add block kinds to a smaller design with the same value: [variants](variants.md)), {} other layouts (same kind, value, size and block kinds as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
             rows.len(),
             shown.len(),
             host.len(),
-            if fams.is_empty() { String::new() } else { format!(", {} extendable famil{} (their members are on the cards)", fams.len(), if fams.len() == 1 { "y" } else { "ies" }) }
+            layout.len(),
+            if fams.is_empty() { String::new() } else { format!(", {} extendable famil{} (their members are on the cards)", fams.len(), if fams.len() == 1 { "y" } else { "ies" }) },
+            if group_cards.is_empty() { String::new() } else { format!(", {} tunable group{} ({} designs on their cards)", group_cards.len(), if group_cards.len() == 1 { "" } else { "s" }, group_of.len()) }
         );
         md.push_str(&cards_md);
+        md.push_str(&groups_md);
         for ((_, ax), rs) in &mut by_axis {
             rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
             md.push_str(&format!("\n## {ax}\n\n| design | kind | metrics | blocks | box | robustness | how it works |\n|---|---|---|---|---|---|---|\n"));
             for r in rs.iter() {
                 let also = aliases.get(&r.file).map(|v| format!(" (also found as {})", v.join(", "))).unwrap_or_default();
+                let others = layouts_of
+                    .get(&r.file)
+                    .map(|v| format!(" (also {} other layout{}: {})", v.len(), if v.len() == 1 { "" } else { "s" }, v.iter().map(|f| format!("[{}](archive/{f})", f.trim_end_matches(".txt"))).collect::<Vec<_>>().join(", ")))
+                    .unwrap_or_default();
                 md.push_str(&format!(
-                    "| [{}](archive/{}){also} | {} | {} | {} | {} | {} | {} |\n",
+                    "| [{}](archive/{}){also}{others} | {} | {} | {} | {} | {} | {} |\n",
                     r.file.trim_end_matches(".txt"),
                     r.file,
                     r.kind,
@@ -680,16 +981,41 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
                     r.dims.clone(),
                     r.family.clone(),
                     r.robustness.clone(),
-                    host.get(&r.file).cloned().unwrap_or_default(),
+                    host.get(&r.file).or_else(|| layout.get(&r.file)).cloned().unwrap_or_default(),
                     caps.get(&r.file).cloned().unwrap_or_default(),
+                    group_of.get(&r.file).cloned().unwrap_or_default(),
                 ]
                 .map(|s| s.replace(['\t', '\n'], " "))
                 .join("\t"),
             );
             tsv.push('\n');
         }
+        let cards = shown.len() + group_cards.len() + clock_card_count(&fams);
+        // the card count without tunable groups and layouts (the fold over every non-family row)
+        let before = {
+            let mut g: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
+            for r in rows.iter().filter(|r| !in_family(r)) {
+                g.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
+            }
+            let mut folded = 0usize;
+            for v in g.values() {
+                let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
+                folded += clock::catalog::fold_hosts(&items).into_iter().filter(|h| h.is_some()).count();
+            }
+            rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
+        };
         index.push_str(&format!("| [{title}]({study}/CATALOG.md) | {} | {} | {} |\n", rows.len(), shown.len(), host.len()));
-        lines.push(format!("{study}: {} designs, {} shown, {} variants, {} families, {} values", rows.len(), shown.len(), host.len(), fams.len(), by_axis.len()));
+        lines.push(format!(
+            "{study}: {} designs, {} shown, {} variants, {} other layouts, {} families, {} tunable groups ({} designs), {} values; cards {before} -> {cards}",
+            rows.len(),
+            shown.len(),
+            host.len(),
+            layout.len(),
+            fams.len(),
+            group_cards.len(),
+            group_of.len(),
+            by_axis.len()
+        ));
     }
     std::fs::create_dir_all(root)?;
     std::fs::write(root.join("CATALOG.md"), index)?;

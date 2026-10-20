@@ -13,9 +13,20 @@ pub struct UnarchiveArgs {
     pub dir: PathBuf,
     /// File names (as in verdicts.tsv) to remove
     pub files: Vec<String>,
+    /// Extendable family ids whose judged members (extend.tsv rows) go too
+    #[arg(long)]
+    pub families: Vec<String>,
 }
 
 pub fn run(a: UnarchiveArgs) -> Result<()> {
+    if !a.families.is_empty() {
+        let path = a.dir.join("extend.tsv");
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            let kept: Vec<&str> = text.lines().filter(|l| !l.split('\t').next().is_some_and(|f| a.families.iter().any(|x| x == f))).collect();
+            println!("extend.tsv: {} -> {} rows", text.lines().count(), kept.len());
+            std::fs::write(&path, kept.join("\n") + "\n")?;
+        }
+    }
     let gone: HashSet<String> = a.files.iter().map(|f| std::path::Path::new(f).file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default()).collect();
     for (table, col) in [("verdicts.tsv", 1usize), ("captions.tsv", 0usize)] {
         let path = a.dir.join(table);

@@ -1,0 +1,23 @@
+# flies up: sticky piston facing back + sticky piston facing forward; observers watching back + forward; 3 slime
+
+# grow of fly-c6-s10-4c4084: 7 blocks, 10 gt per 1 cell(s), first move t2, flies turned 4/4
+name: fly-up-7b-10gt-012898
+circuit: flying-machine
+distance: 24
+travel: 0 1 0
+port start: 0 -1 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  O
+layer 1:
+  SA
+layer 2:
+  sS
+layer 3:
+  oS

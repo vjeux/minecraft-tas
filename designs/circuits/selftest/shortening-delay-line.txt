@@ -3,9 +3,11 @@ name: cal-shortening-delay-line
 # designs/circuits/tracks/pulse/k4/pulse-pulse-limiter-L38-4b-00.txt): a delay line whose output
 # is every input - 2 gt (2 sticky pistons, note block, redstone block) is not a pulse limiter; with
 # its short gap the longest input is 40 gt and the checker once read L 38 from it and passed it.
+# Output: the air cell in front of the pushed redstone block (the judge's lamp there lights while
+# the piston is out).
 circuit: pulse-limiter
 origin: 0 0 0
-port output: 1 0 2
+port output: 1 0 4
 port input: 0 1 1
 palette:
   A minecraft:sticky_piston[extended=false,facing=south]

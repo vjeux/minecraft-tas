@@ -250,6 +250,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             works_with,
             note: fs.iter().find_map(|f| f.group_note.clone()).unwrap_or_default(),
             families,
+            ..Default::default()
         });
     }
     // the builds: one per type (+ every family base design, + composite clocks)
@@ -422,6 +423,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 let base_stem = stem(&r.file);
                 if job.n == f.base { picture(repo, base_stem) } else { picture(repo, &format!("{base_stem}.n{}", job.n)) }
             },
+            axis: String::new(),
         });
     }
     Ok(ClockExport { builds, cards, members, notes })

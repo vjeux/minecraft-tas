@@ -1,0 +1,25 @@
+# archived 2026-10-20T02:16Z from designs/clocks/tracks/clk-obs/families9/p80-lamp-obs-stk-8b-92ac60.txt by mctas clock archive
+# CLOCK: clk-obs-p80-lamp-obs-stk-8b-92ac60 period 80 gt (4 s), on 36/80, edges 18, warmup 5, family observer+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p80-lamp-obs-stk-8b-92ac60
+# clk-obs grow: P=80 (redsim), family observer+redstone_lamp+sticky_piston+stone, kick last 0 0 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 2 last
+palette:
+  A minecraft:redstone_lamp[lit=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:stone
+layer 0:
+  A
+  B
+  C
+layer 1:
+  C
+  D
+  E
+layer 2:
+  B
+  D
+  .

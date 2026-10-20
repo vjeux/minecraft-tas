@@ -1,0 +1,21 @@
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-xor-4b gate xor: update-less output: out is off from frame 200 without a block update (a lamp in its cell stays lit), it drives nothing
+# XOR gate, instant (track gates): one dust on a stone between input a (west) and input b (north),
+# with a stone east of it and a stone south of it, and the output cell touching both stones. a
+# alone makes the dust a west-east line pointing into the east stone, b alone a north-south line
+# pointing into the south stone (either stone powers the output); both bend it into a corner that
+# points into neither. Dust redirection: 0 gt.
+name: gate-xor-4b
+circuit: gate xor
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: 2 1 2
+origin: 1 0 1
+palette:
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:stone
+layer 0:
+  S
+  .
+layer 1:
+  RS
+  S

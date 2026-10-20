@@ -3,6 +3,9 @@
 name: pulse-limiter-u-L26
 # A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to 26 gt; it outputs rear - side, so every input pulse is cut to 26 gt (generator: mctas circuit pulse family limiter-for --l 26).
 circuit: pulse-limiter
+group: pulse-limiter-u
+group title: subtract-comparator limiter
+group note: a subtract comparator whose side gets the input back through a U of repeaters; L set by the repeater delays and the U's length
 origin: 0 0 -1
 port input: 0 1 0
 port output: 2 1 0

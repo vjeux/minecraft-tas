@@ -10,26 +10,14 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 |---|---|---|
 | [pulse-dual-edge-observer-lamp-L2](archive/pulse-dual-edge-observer-lamp-L2.txt) | 2 | redstone_lamp |
 
-**[pulse-fall-repeater-L6](archive/pulse-fall-repeater-L6.txt)** (falling-edge, L = 6 gt; 4 blocks: observer, repeater, sticky_piston, stone):
+**[pulse-limiter-piston-observer-L2](archive/pulse-limiter-piston-observer-L2.txt)** (pulse-limiter, L = 2 gt; 2 blocks: observer, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pulse-oneshot-fall-falling-edge-L6](archive/pulse-oneshot-fall-falling-edge-L6.txt) | 17 | comparator, copper_bulb, redstone_wire |
+| [pulse-limiter-pistons-observer-L2](archive/pulse-limiter-pistons-observer-L2.txt) | 4 | redstone_block |
 
-**[pulse-fall-repeater-L8](archive/pulse-fall-repeater-L8.txt)** (falling-edge, L = 8 gt; 4 blocks: observer, repeater, sticky_piston, stone):
-
-| variant | blocks | adds |
-|---|---|---|
-| [pulse-oneshot-fall-falling-edge-L8](archive/pulse-oneshot-fall-falling-edge-L8.txt) | 17 | comparator, copper_bulb, redstone_wire |
-
-**[pulse-rise-repeater-L6](archive/pulse-rise-repeater-L6.txt)** (rising-edge, L = 6 gt; 4 blocks: observer, repeater, sticky_piston, stone):
+**[pulse-rising-edge-piston-observer-L2](archive/pulse-rising-edge-piston-observer-L2.txt)** (rising-edge, L = 2 gt; 2 blocks: observer, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pulse-oneshot-rising-edge-L6](archive/pulse-oneshot-rising-edge-L6.txt) | 17 | comparator, copper_bulb, redstone_wire |
-
-**[pulse-rise-repeater-L8](archive/pulse-rise-repeater-L8.txt)** (rising-edge, L = 8 gt; 4 blocks: observer, repeater, sticky_piston, stone):
-
-| variant | blocks | adds |
-|---|---|---|
-| [pulse-oneshot-rising-edge-L8](archive/pulse-oneshot-rising-edge-L8.txt) | 17 | comparator, copper_bulb, redstone_wire |
+| [pulse-rise-pistons-observer-L2](archive/pulse-rise-pistons-observer-L2.txt) | 4 | redstone_block |

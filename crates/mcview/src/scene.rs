@@ -69,7 +69,8 @@ pub fn marker_cell(s: &Session, out: Pos) -> Option<Pos> {
 /// The default look of a session: the marker next to its first output, outlines on its inputs
 /// (a door's lever), grass under its lowest block.
 pub fn default_look(s: &Session) -> Look {
-    let marker = s.outputs.first().and_then(|o| marker_cell(s, *o));
+    // a circuit output holding the judge's lamp shows itself (lit when on): no marker there
+    let marker = s.outputs.first().filter(|o| !s.consumers.contains(o)).and_then(|o| marker_cell(s, *o));
     let mut outlines: Vec<Pos> = Vec::new();
     for p in &s.inputs {
         if !outlines.contains(p) {
@@ -77,7 +78,9 @@ pub fn default_look(s: &Session) -> Look {
         }
     }
     let (lo, _) = s.path_box();
-    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32) }
+    // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
+    // under the lowest cell
+    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32 - 1.0) }
 }
 
 /// The frame of a session at `partial` (0..1) after its current tick.
@@ -95,6 +98,10 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         for e in &s.design.entities {
             b.entity(&EntityDraw { kind: e.kind.clone(), pos: [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32], yaw: entity_yaw(e.nbt.as_deref()) });
         }
+    } else {
+        for e in s.entities(partial) {
+            b.entity(&e);
+        }
     }
     if let Some(m) = look.marker {
         b.marker(m, true, [255, 255, 255], look.lit_marker && s.output_on().unwrap_or(false));
@@ -104,9 +111,14 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
-        let (lo, hi) = s.frame_box();
-        // far enough that the fog hides its edge (one quad, the tile repeated)
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, 512.0);
+        // the pictures' floor: `clock shot` fills grass around the batch of clocks (24 blocks
+        // around the batch, whose other clocks push it further; 96 around a lone clock), so the
+        // sky shows beyond its edge like in the real-game pictures (56: the best mean over
+        // `web compare`'s pictures); `door video` fills 110 blocks around a door; a travelling
+        // design's whole path
+        let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
+        let margin = if s.mode.is_door() { 110.0 } else { 56.0 };
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin);
         m.solid.extend_from_slice(&g);
     }
     m
@@ -141,25 +153,13 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
     camera_from(s, look, aspect, CAM_DIR)
 }
 
-/// The pictures' framing from direction `dir` (eye side, from the target).
+/// The pictures' framing from direction `dir` (eye side, from the target): `clock shot`'s camera
+/// exactly (`video::frame_box`: the box at 85% of the game's full 70-degree frame), then its
+/// centre crop (64%): a build may run off the picture's edges like in the real-game pictures.
 pub fn camera_from(s: &Session, look: &Look, aspect: f32, dir: [f32; 3]) -> Camera {
     let (lo, hi) = frame_bounds(s, look);
     let mut cam = Camera::frame(lo, hi, dir, VFOV, aspect, 0.85);
     cam.vfov = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
-    // every block inside the view
-    let (blo, bhi) = s.frame_box();
-    let (blo, bhi) = ([blo[0] as f32, blo[1] as f32, blo[2] as f32], [bhi[0] as f32 + 1.0, bhi[1] as f32 + 1.0, bhi[2] as f32 + 1.0]);
-    let m = cam.view_proj(aspect);
-    let inside = (0..8).all(|i| {
-        let c = [if i & 1 == 0 { blo[0] } else { bhi[0] }, if i & 2 == 0 { blo[1] } else { bhi[1] }, if i & 4 == 0 { blo[2] } else { bhi[2] }, 1.0];
-        let clip: Vec<f32> = (0..4).map(|r| (0..4).map(|k| m[k][r] * c[k]).sum()).collect();
-        clip[3] > 0.0 && (clip[0] / clip[3]).abs() <= 0.97 && (clip[1] / clip[3]).abs() <= 0.97
-    });
-    if !inside {
-        let target = cam.target;
-        cam.fit(blo, bhi, aspect, 0.92);
-        cam.target = target;
-    }
     cam
 }
 
@@ -231,9 +231,9 @@ mod tests {
         let look = default_look(&s);
         assert_eq!(look.marker, Some([-1, 0, 0]));
         let m = build(&atlas, &s, 0.0, &look);
-        // the marker is the only translucent block: its faces against the observer and the
-        // ground are culled (they would z-fight), the other 4 remain
-        assert_eq!(m.translucent.len(), 4);
-        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01 && q.center[1] > 0.01));
+        // the marker is the only translucent block: its face against the observer is culled (it
+        // would z-fight); the floor is one block lower (the pictures' floor), so 5 faces remain
+        assert_eq!(m.translucent.len(), 5);
+        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01));
     }
 }

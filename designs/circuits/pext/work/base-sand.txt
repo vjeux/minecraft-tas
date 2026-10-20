@@ -1,0 +1,16 @@
+# GRAVITY N=2 base for grow: sticky piston A (up), piston B (up), sand payload; no input (grow adds
+# the lever or button as one of the k blocks).
+name: base-sand
+circuit: piston-extender 2
+travel: 0 1 0
+port payload: 0 2 0
+palette:
+  A minecraft:sticky_piston[facing=up]
+  B minecraft:piston[facing=up]
+  X minecraft:sand
+layer 0:
+  A
+layer 1:
+  B
+layer 2:
+  X

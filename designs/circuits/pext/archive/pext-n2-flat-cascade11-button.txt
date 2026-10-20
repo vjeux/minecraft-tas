@@ -1,0 +1,31 @@
+# archived 2026-10-20T01:28Z from designs/circuits/pext/work/n2-flat-button.txt by mctas circuit archive
+# CIRCUIT: pext-n2-flat-cascade11-button piston-extender 2 N 2, extend 15 gt, retract 36 gt (from the press), 11 blocks, 6x5x1, robust
+# N=2 FLAT cascade extender (1 wide), ONE STONE BUTTON PRESS: one unit [slime + sticky piston +
+# carried observer] that fires itself after A moves it; the press and the release start the rounds.
+name: pext-n2-flat-cascade11-button
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 5 4 0 button
+port payload: 4 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=up]
+  C minecraft:stone
+  G minecraft:gold_block
+  L minecraft:stone_button[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O
+layer 1:
+  sSsG
+layer 2:
+  .
+layer 3:
+  B..BC
+layer 4:
+  oA.PL

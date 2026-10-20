@@ -18,6 +18,7 @@ pub mod archive;
 pub mod check;
 pub mod fly;
 pub mod run;
+pub mod seq;
 pub mod stimulus;
 pub mod trace;
 pub mod verify;
@@ -32,6 +33,12 @@ pub use clock::Pos;
 
 /// The default on-state of an input cell: a redstone block written with updates.
 pub const INPUT_ON: &str = "minecraft:redstone_block";
+
+/// The judge's consumer, placed in every air output cell (vjeux/coordinator 2026-10-19: a circuit
+/// must DRIVE something): a redstone lamp. The output's level is still the best signal into the
+/// cell, and the lamp must follow it ([`check::update_less`]): an output that changes without a
+/// block update (a dust redirected without a power change) leaves the lamp stale and fails.
+pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 
 /// How the judge drives an input cell.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,6 +84,15 @@ pub enum Kind {
     DLatch,
     /// Output changes once every N input pulses.
     Counter(u32),
+    /// A T flip-flop with a reset input: each `t` pulse toggles q, an `r` pulse clears it.
+    TffReset,
+    /// An edge-triggered D flip-flop (a 1-bit register): q takes `d` at a `clk` edge (rising or
+    /// falling, reported), holds otherwise.
+    Dff,
+    /// [`Kind::Dff`] with an enable input: loads only when `e` is on at the `clk` edge.
+    DffEnable,
+    /// A shift register of N cells: q is `d` as sampled N `clk` edges ago.
+    Shift(u32),
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
@@ -131,10 +147,20 @@ impl Kind {
             "rs-latch" => Kind::RsLatch,
             "d-latch" => Kind::DLatch,
             "counter" => Kind::Counter(num(1)?),
+            "tff-reset" => Kind::TffReset,
+            "dff" => Kind::Dff,
+            "dff-enable" => Kind::DffEnable,
+            "shift" => {
+                let n = num(1)?;
+                if n == 0 {
+                    bail!("circuit: shift 0: a shift register has at least 1 cell");
+                }
+                Kind::Shift(n)
+            }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, piston-extender N, flying-machine)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine)"
             ),
         })
     }
@@ -154,6 +180,10 @@ impl Kind {
             Kind::RsLatch => "rs-latch".into(),
             Kind::DLatch => "d-latch".into(),
             Kind::Counter(n) => format!("counter {n}"),
+            Kind::TffReset => "tff-reset".into(),
+            Kind::Dff => "dff".into(),
+            Kind::DffEnable => "dff-enable".into(),
+            Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
         }
@@ -166,7 +196,7 @@ impl Kind {
             Kind::Tff => "tff",
             Kind::Delay => "delay",
             Kind::Gate(_) => "gates",
-            Kind::RsLatch | Kind::DLatch | Kind::Counter(_) => "memory",
+            Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
         }
@@ -177,19 +207,24 @@ impl Kind {
         match self {
             Kind::RsLatch => Some(&["r", "s"]),
             Kind::DLatch => Some(&["d", "e"]),
+            Kind::TffReset => Some(&["r", "t"]),
+            Kind::Dff | Kind::Shift(_) => Some(&["clk", "d"]),
+            Kind::DffEnable => Some(&["clk", "d", "e"]),
             _ => None,
         }
     }
 }
 
 /// The canonical input name: long aliases of the latch inputs (`set`, `reset`, `data`, `enable`,
-/// `clock`) map to `s`, `r`, `d`, `e`.
+/// `clock`, `toggle`) map to `s`, `r`, `d`, `e`, `clk`, `t`.
 fn input_alias(name: &str) -> String {
     match name {
         "set" => "s".into(),
         "reset" => "r".into(),
         "data" => "d".into(),
-        "enable" | "clock" | "clk" => "e".into(),
+        "enable" => "e".into(),
+        "clock" => "clk".into(),
+        "toggle" => "t".into(),
         n => n.to_string(),
     }
 }
@@ -326,6 +361,123 @@ impl Circuit {
 
     pub fn name(&self) -> &str {
         &self.clock.design.name
+    }
+
+    /// The output cells that get the judge's consumer ([`CONSUMER`]): air in the design and not
+    /// an input cell, for every kind read through its outputs (piston extenders and flying
+    /// machines are read through their payload and travel), and not where a piston may move a block
+    /// in (the block there is what the output reads): a piston's head cell, or the cell after an
+    /// unbroken row of blocks in front of a piston (up to 12); with slime or honey in the design,
+    /// any cell within 13 in front of a piston.
+    pub fn consumer_cells(&self) -> Vec<Pos> {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+            return Vec::new();
+        }
+        let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
+        let blocks = &self.clock.design.blocks;
+        let sticky_blocks = blocks.values().any(|s| s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block"));
+        let mut lines: BTreeSet<Pos> = BTreeSet::new();
+        for (p, s) in blocks {
+            if !(s.starts_with("minecraft:piston[") || s.starts_with("minecraft:sticky_piston[")) {
+                continue;
+            }
+            let f = match s.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()) {
+                Some("north") => [0, 0, -1],
+                Some("south") => [0, 0, 1],
+                Some("east") => [1, 0, 0],
+                Some("west") => [-1, 0, 0],
+                Some("up") => [0, 1, 0],
+                Some("down") => [0, -1, 0],
+                _ => continue,
+            };
+            let at = |k: i32| [p[0] + k * f[0], p[1] + k * f[1], p[2] + k * f[2]];
+            if sticky_blocks {
+                lines.extend((1..=13).map(at));
+                continue;
+            }
+            // the head cell, then the cell after each block of the row the piston would push
+            lines.insert(at(1));
+            let mut k = 1;
+            while k <= 12 && blocks.contains_key(&at(k)) {
+                lines.insert(at(k + 1));
+                k += 1;
+            }
+        }
+        let mut v: Vec<Pos> = self.outputs.iter().map(|o| o.pos).filter(|p| !ins.contains(p) && !lines.contains(p) && !blocks.contains_key(p)).collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    /// The circuit as the judge builds it: its consumer ([`CONSUMER`]) in every consumer cell
+    /// (not one of the design's blocks: not counted, not part of its type).
+    pub fn with_consumers(&self) -> Result<Circuit> {
+        let cells = self.consumer_cells();
+        if cells.is_empty() {
+            return Ok(self.clone());
+        }
+        let mut d = self.clock.design.clone();
+        for p in cells {
+            d.blocks.insert(p, CONSUMER.to_string());
+        }
+        Circuit::from_design(d)
+    }
+
+    /// The lamps whose lit state must follow an output ([`check::update_less`]): the judge's in
+    /// every consumer cell, and a lamp the design itself puts in an output cell.
+    pub fn watched_lamps(&self) -> Vec<Pos> {
+        let mut v = self.consumer_cells();
+        for o in &self.outputs {
+            if self.clock.design.blocks.get(&o.pos).is_some_and(|s| s.starts_with("minecraft:redstone_lamp")) {
+                v.push(o.pos);
+            }
+        }
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
+    /// block...): its "level" would be read by query alone, so a change without a block update would
+    /// go unseen. An output cell is air (the judge's lamp goes there) or holds a redstone component
+    /// or consumer (dust, repeater, comparator, torch, observer, lamp, piston, copper bulb, note
+    /// block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell, hopper).
+    /// Piston extenders and flying machines are read through payloads.
+    pub fn passive_output(&self) -> Option<(String, Pos, String)> {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+            return None;
+        }
+        const ACTIVE: [&str; 20] = [
+            "redstone_wire",
+            "repeater",
+            "comparator",
+            "redstone_torch",
+            "redstone_wall_torch",
+            "observer",
+            "redstone_lamp",
+            "piston",
+            "sticky_piston",
+            "copper_bulb",
+            "note_block",
+            "door",
+            "trapdoor",
+            "fence_gate",
+            "dispenser",
+            "dropper",
+            "crafter",
+            "rail",
+            "tnt",
+            "bell",
+        ];
+        for o in &self.outputs {
+            let Some(s) = self.clock.design.blocks.get(&o.pos) else { continue };
+            let id = s.split(['[', '{']).next().unwrap_or(s);
+            let id = id.strip_prefix("minecraft:").unwrap_or(id);
+            if !ACTIVE.iter().any(|a| id == *a || id.ends_with(&format!("_{a}"))) && id != "hopper" {
+                return Some((o.name.clone(), o.pos, id.to_string()));
+            }
+        }
+        None
     }
 
     /// The design's blocks, except piston heads (part of their piston) and the blocks in input

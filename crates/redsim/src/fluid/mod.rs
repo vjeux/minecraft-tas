@@ -191,6 +191,7 @@ fn washed_away(b: &Block) -> bool {
             | Block::Tripwire { .. }
             | Block::TripwireHook { .. }
             | Block::BigDripleaf { .. }
+            | Block::PowderSnow
     )
 }
 

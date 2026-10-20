@@ -1,0 +1,26 @@
+# archived 2026-10-20T01:06Z from designs/clocks/tracks/clk-obs/families9/p42-lamp-obs-rb-stk-9b-772581.txt by mctas clock archive
+# CLOCK: clk-obs-p42-lamp-obs-rb-stk-9b-772581 period 42 gt (2.1 s), on 18/42, edges 9, warmup 6, family observer+redstone_block+redstone_lamp+sticky_piston, 9 blocks, 3x3x3, rotation-dependent
+name: clk-obs-p42-lamp-obs-rb-stk-9b-772581
+# clk-obs grow: P=42 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 27.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:redstone_block
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:redstone_lamp[lit=false]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+  G minecraft:observer[facing=west,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  A.I
+  B..
+layer 1:
+  CG.
+  D..
+layer 2:
+  EH.
+  F..

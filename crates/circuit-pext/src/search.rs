@@ -255,6 +255,8 @@ pub fn find_design(p: &Pext, f: &Find, name: &str) -> mctas::design::Design {
 pub struct MinOptions {
     pub palette: Vec<String>,
     pub threads: usize,
+    /// Only place new blocks in this z plane (keeps a flat design flat).
+    pub plane_z: Option<i32>,
 }
 
 /// Greedy shrink: remove any block (not the input or payload) while it still works; then try
@@ -265,9 +267,14 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
     let mut out = Vec::new();
     loop {
         let prep = Prepared::new(&cur, 2).map_err(|e| anyhow::anyhow!("not modeled: {e}"))?;
-        if !rs::judge(&prep, &Params::default(), false).0.works() {
+        let base_report = rs::judge(&prep, &Params::default(), false).0;
+        if !base_report.works() {
             bail!("{} does not work on redsim", cur.name());
         }
+        // the quick screen must outlast this design's own phases (a long extender would fail a
+        // fixed 120 gt screen and hide every candidate)
+        let longest = base_report.cycles.iter().map(|c| c.settle.max(c.retract)).max().unwrap_or(0);
+        let screen = Params { max_phase: Params::screen().max_phase.max(2 * longest + 20), ..Params::screen() };
         let positions: Vec<Pos> = cur.design.blocks.keys().copied().filter(|q| *q != cur.input && *q != cur.payload).collect();
         // 1. a single removal
         let removal = positions.iter().find_map(|q| {
@@ -292,7 +299,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             for z in lo[2] - 1..=hi[2] + 1 {
                 for x in lo[0] - 1..=hi[0] + 1 {
                     let c = [x, y, z];
-                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) {
+                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) && o.plane_z.is_none_or(|pz| pz == z) {
                         empties.push(c);
                     }
                 }
@@ -344,7 +351,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
                         }
                         let Ok(np) = Pext::from_design(d) else { continue };
                         let Ok(pr) = Prepared::new(&np, 2) else { continue };
-                        if screen_ok(&Some(pr.clone())) && rs::judge(&pr, &Params::default(), false).0.works() {
+                        if rs::judge(&pr, &screen, false).0.works() && rs::judge(&pr, &Params::default(), false).0.works() {
                             let mut h = hit.lock().unwrap();
                             if h.as_ref().is_none_or(|(hi, _)| i < *hi) {
                                 *h = Some((i, np));

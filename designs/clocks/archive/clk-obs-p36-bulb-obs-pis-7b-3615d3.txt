@@ -1,0 +1,17 @@
+# archived 2026-10-20T00:54Z from designs/clocks/tracks/clk-obs/families9/p36-bulb-obs-pis-7b-3615d3.txt by mctas clock archive
+# CLOCK: clk-obs-p36-bulb-obs-pis-7b-3615d3 period 36 gt (1.8 s), on 18/36, edges 9, warmup 8, family copper_bulb+observer+piston, 7 blocks, 3x1x3, robust
+name: clk-obs-p36-bulb-obs-pis-7b-3615d3
+# clk-obs grow: P=36 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 0 1, swept volume 9.
+origin: -1 0 0
+port output: -1 0 1
+port start: 0 0 1 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:waxed_copper_bulb[lit=false,powered=false]
+  E minecraft:piston[extended=false,facing=west]
+layer 0:
+  .BD
+  AAC
+  .CE

@@ -28,6 +28,10 @@ impl Gpu {
         config.alpha_mode = caps.alpha_modes.first().copied().unwrap_or(wgpu::CompositeAlphaMode::Auto);
         surface.configure(&device, &config);
         let r = Renderer::new(device, queue, format, atlas, samples);
+        // a failed GPU command is reported (else it only leaves the canvas black)
+        r.device.on_uncaptured_error(std::sync::Arc::new(|e: wgpu::Error| {
+            crate::log(&format!("GPU error: {e}"));
+        }));
         Ok(Gpu { canvas, surface, config, r })
     }
 

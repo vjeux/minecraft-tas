@@ -1,0 +1,34 @@
+# archived 2026-10-20T00:38Z from designs/clocks/tracks/clk-obs/families9/p29-note-obs-rb-stk-8b-ff455c.txt by mctas clock archive
+# CLOCK: clk-obs-p29-note-obs-rb-stk-8b-ff455c period 29 gt (1.45 s), on 10/29, edges 5, warmup 11, family note_block+observer+redstone_block+sticky_piston, 8 blocks, 1x3x5, robust
+name: clk-obs-p29-note-obs-rb-stk-8b-ff455c
+# clk-obs grow: P=29 (redsim), family note_block+observer+redstone_block+sticky_piston, kick last 0 0 0, swept volume 15.
+origin: 0 0 -2
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+  H minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer 0:
+  .
+  A
+  B
+  C
+  .
+layer 1:
+  D
+  .
+  E
+  F
+  G
+layer 2:
+  .
+  .
+  H
+  .
+  .

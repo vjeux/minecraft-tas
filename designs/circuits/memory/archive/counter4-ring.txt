@@ -3,6 +3,9 @@
 # Counter 4, dropper ring around the input, 10 blocks (track memory): the input cell touches four droppers (east, south, west, north); four hoppers in the corners close a ring east -> south -> west -> north -> east (dropper, hopper, dropper, ...). Each pulse fires all four; the dropper holding the stone moves it into its hopper, which delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse. The comparator reads the east dropper: on during one pulse window in four (level style).
 name: counter4-ring
 circuit: counter 4
+group: dropper-ring
+group title: Dropper ring (counter N)
+group note: N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`)
 port input: 0 0 0
 port output: 3 0 0
 nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}

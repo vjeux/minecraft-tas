@@ -6,6 +6,7 @@
 
 pub mod family;
 pub mod screen;
+pub mod stamp;
 pub mod unarchive;
 
 use clap::{Parser, Subcommand};
@@ -29,6 +30,20 @@ enum Cmd {
     Family(family::FamilyArgs),
     /// Remove archived designs (file + verdict and caption rows): instances a family card covers
     Unarchive(unarchive::UnarchiveArgs),
+    /// Put a tunable group's `group:` header on designs (the catalog shows a group as one card)
+    StampGroup(stamp::StampArgs),
+    /// One input pulse tick by tick on redsim: every block that changes and the output level
+    Trace(TraceArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct TraceArgs {
+    design: std::path::PathBuf,
+    /// Input pulse length (gt)
+    #[arg(long, default_value_t = 10)]
+    w: u32,
+    #[arg(long, default_value_t = 40)]
+    ticks: u32,
 }
 
 /// `mctas circuit pulse <args...>`.
@@ -39,5 +54,10 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Census(a) => screen::census(a),
         Cmd::Family(a) => family::run(a),
         Cmd::Unarchive(a) => unarchive::run(a),
+        Cmd::StampGroup(a) => stamp::run(a),
+        Cmd::Trace(a) => {
+            let c = screen::Circuit::load(&a.design)?;
+            screen::trace(&c, a.w, a.ticks).ok_or_else(|| anyhow::anyhow!("empty design"))
+        }
     }
 }

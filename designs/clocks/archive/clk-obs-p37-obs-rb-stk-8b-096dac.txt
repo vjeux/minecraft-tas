@@ -1,0 +1,30 @@
+# archived 2026-10-20T00:56Z from designs/clocks/tracks/clk-obs/families9/p37-obs-rb-stk-8b-096dac.txt by mctas clock archive
+# CLOCK: clk-obs-p37-obs-rb-stk-8b-096dac period 37 gt (1.85 s), on 12/37, edges 6, warmup 10, family observer+redstone_block+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p37-obs-rb-stk-8b-096dac
+# clk-obs grow: P=37 (redsim), family observer+redstone_block+sticky_piston, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+layer -2:
+  A
+  B
+  .
+layer -1:
+  .
+  .
+  C
+layer 0:
+  D
+  C
+  .
+layer 1:
+  E
+  F
+  D

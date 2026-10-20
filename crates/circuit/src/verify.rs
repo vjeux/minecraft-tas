@@ -32,8 +32,9 @@ impl Default for Options {
 }
 
 /// The checkers' test spacing: the time the circuit takes to come back to rest after every input
-/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt;
-/// `None` when redsim does not model it or it never rests.
+/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt,
+/// longer when an event of the kind's own stimulus (run spaced by 1000 gt) takes longer to settle
+/// (then that settling + 10 gt); `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
@@ -64,7 +65,29 @@ pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if r_off + 10 >= hold {
         return None;
     }
-    Some(r_on.max(r_off) + 10)
+    // the kind's own stimulus, spaced by `hold`: the longest settling after any input change (a
+    // slow path the all-on / all-off pair never takes, such as a crafter's nine ingots coming back
+    // one by one through a hopper after the reverse craft)
+    let mut r_stim = 0;
+    if let Some(kind) = &c.kind {
+        let long = check::stimulus(c, kind, &Sizing { gap: hold });
+        let t = run::sim_trace(c, &long, margin).ok()?;
+        let frames = t.cells.len();
+        let changes: Vec<usize> = (1..frames).filter(|&f| t.inputs.iter().any(|i| i[f] != i[f - 1])).collect();
+        for (k, &f) in changes.iter().enumerate() {
+            // the window up to the frame before the next input change (or the end)
+            let end = changes.get(k + 1).map(|&g| g - 1).unwrap_or(frames - 1);
+            let settle = last_change(&t, f as u32, end as u32);
+            if end - f >= hold as usize && settle + 10 >= hold {
+                return None;
+            }
+            r_stim = r_stim.max(settle);
+        }
+    }
+    // kept when every event of the kind's own stimulus settles within it; else the longest
+    // settling + 10 gt
+    let gap = r_on.max(r_off) + 10;
+    Some(if r_stim > gap { r_stim + 10 } else { gap })
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
@@ -118,7 +141,9 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     }
-    let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers are not the circuit's
+    ins.extend(c.consumer_cells());
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
@@ -203,6 +228,8 @@ impl VerifyReport {
 /// a copper bulb; piston heads and moving blocks are their piston's), `+`-joined.
 pub fn family(c: &Circuit, t: &Trace) -> String {
     let mut ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers (lamps in air output cells) are not the circuit's
+    ins.extend(c.consumer_cells());
     // a temporary kick block's cell is the judge's, not the design's
     if let Some(clock::Kick::Place { pos, .. }) = &c.clock.kick {
         ins.insert(*pos);

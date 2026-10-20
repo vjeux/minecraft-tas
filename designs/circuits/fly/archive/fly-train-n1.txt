@@ -1,0 +1,35 @@
+# archived 2026-10-20T02:36Z from designs/circuits/tracks/fly/train/fly-train-n1.txt by mctas circuit archive
+# CIRCUIT: fly-train-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 8 blocks, 5x2x2, robust
+# Train family: the 6-block engine fly-horizontal-6b-10gt-e2cf52 pulling n trailers, 10 gt/block
+# for every n. A sticky piston on the rear slime (facing back, fired with the pusher by the rear
+# observer) reach-pulls trailer 1 each cycle; every trailer but the last carries a sticky piston
+# facing back and a rider observer (it fires into the trailer's slime 2 gt after the trailer
+# lands) that pulls the next trailer, which starts against that piston's face. Each trailer is a
+# piston move of its own (12 blocks at most), so the machine has no size limit: 5 + 3n blocks
+# (a two-part machine moves at most 24).
+name: fly-train-n1
+extend family: fly-train-e2cf52
+extend axis: 10
+extend blocks: 5 + 3n
+extend rule: one more trailer: a sticky piston facing back and a rider observer on the last trailer's slime, and a new slime against that piston's face
+extend n: 1..16
+extend base: 1
+extend generator: mctas circuit fly gen train --base designs/circuits/fly/archive/fly-horizontal-6b-10gt-e2cf52.txt --n {n} --out {out}
+circuit: flying-machine
+distance: 24
+travel: 1 0 0
+port payload: -1 0 1
+port start: -1 0 0 minecraft:stone 1
+origin: -1 0 0
+palette:
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  .oSs
+  S.s
+layer 1:
+  ..PSO
+  .

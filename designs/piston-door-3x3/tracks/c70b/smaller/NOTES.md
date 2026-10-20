@@ -6,15 +6,19 @@ part: per box, run the mechanism generators + macro solvers (defaults and every 
 candidates, clean schedules, or an honest NO naming what the models leave out; then rank
 feedable variants (wiring is the bottleneck).
 
-## Answer so far (mechanism with ideal inputs, macro model; rotating a mechanism by 90 degrees
-keeps it a mechanism, only the wiring changes: quasi-connectivity is "above"-specific)
+## Answer so far (mechanism with ideal inputs; turning a mechanism by 90 degrees is NOT free: a
+machine row becomes a stacked column that quasi-connectivity couples)
 | box | volume | mechanism? | how |
 |---|---|---|---|
-| 7x7 | 49 | YES | c77 w1 (explore/c77 2307edd8 tracks/c77/seven/w1.txt), 13 sticky: column wiggle + ring pistons spat into the bottom corners |
-| 8x6 / 6x8 | 48 | YES | w86 a3r (explore/w86 26c190804 tracks/w86/wip/a3r.txt), 14 sticky; 6x8 = a3r turned 90 degrees |
-| 7x6 / 6x7 | 42 | YES | w86 a3s (explore/w86 ba757d0ea tracks/w86/wip/a3s.txt), 13 sticky; 6x7 = a3s turned |
-| 6x9 / 9x6 | 54 | YES | c78l m69a (explore/s79 tracks/s79/c69/m69a.txt), 12 sticky; 9x6 = m69a turned |
-| 6x6, 7x5, 5xN | 36-35 | open | next |
+| 7x7 | 49 | YES | c77 w1 (explore/c77 2307edd8 tracks/c77/seven/w1.txt), 13 sticky: column wiggle + ring pistons spat into the bottom corners; mechmut mm01 11 pistons (mm-w1/) |
+| 8x6 | 48 | YES | w86 a3r (explore/w86 26c190804 tracks/w86/wip/a3r.txt), 14 sticky |
+| 6x8 | 48 | OPEN | a3r turned fails (QC); 15 macro-model repairs, none valid in redsim |
+| 7x6 | 42 | YES | w86 a3s (explore/w86 ba757d0ea tracks/w86/wip/a3s.txt), 13 sticky; a3s-11 (v7x6/) |
+| 6x7 | 42 | YES | a3s turned + repaired: 9 variants WORK in redsim, 4 in the real game (mm/repairv/mm01..05); not wirable as found |
+| 6x9 | 54 | YES | c78l m69a (explore/s79 tracks/s79/c69/m69a.txt), 12 sticky; m69T / m69V |
+| 9x6 | 54 | YES | m69a turned (turned/m69a-9x6-fm.*, fullmech plan WORKS at 32 positions); w86's m69g / m69g-12 (v9x6/) |
+| 6x6 | 36 | no within two <= 3 | families: two 2 all decided 0; two 3: 0 decided, 208k unresolved at the cap |
+| 10x5, 5x10, 7x5, 5x7 | 50 / 35 | NO in the strip model | below |
 
 ## 10x5 / 5x10 (50) and 7x5 / 5x7 (35): NO within the strip model
 A box 5 tall (y -1..3) has no row above the ceiling ring or below the floor ring, so no sticky
@@ -76,12 +80,14 @@ states each (w1 5M / 35 s / 3.4 GB; a3s, m69a 3M), 5-25x the catalog's 200k cap.
 | families defaults, 8x6 | 0 of 65,768; 14,421 unresolved |
 | families defaults, 7x7 | 0 of the first 740k of 746,836 (stopped in the slow tail) |
 | families --ring-escape --ring-escape-only --feedable P<=12, 7x7 | 223,260 candidates; stopped at 20k (cap 400k: the w1-like ones need ~5M) |
-| families 6x6 two 2, P<=12 | 0 of 9,952, every one decided (no 6x6 mechanism with <= 2 two-move blocks); two 3: 667,646 candidates, running |
+| families 6x6 two 2, P<=12 | 0 of 9,952, every one decided (no 6x6 mechanism with <= 2 two-move blocks); two 3: 0 of 667,646 open+close, 208,025 unresolved at the 200k cap (7734 s) |
 | `door mechmut` 7x6 from a3s (3 rounds) | 91 variants; best 11 pistons, 1 unfed (smaller/mm/seed3-7x6.tsv, v7x6/a3s-11.txt); W fires inside the opening, so its plan needs w86's input trick |
 | `door mechmut` 7x7 from w1 (3 rounds) | 198 variants (mm-w1/w1.tsv); mm01 = 11 pistons (L and BL's puller dropped, Q in the corner (-1,-1)), unfed = P only; mm01..03 WORK in redsim at 32 positions (`ideal-rs --between-ticks`) |
 | `door mechmut` 9x6 from w86's m69g (top trio kept, (3,4) reserved for the crossing observer) | 126 variants; m69g-12 (v9x6/): the only unfed piston is the lever's own SD+(1,4); WORKS in redsim at 32 positions; satwire (w86): UNSAT, core W' (3,-1) (a bottom pocket only row-0 movers touch) |
 | m69a turned 90 degrees = 9x6 | fullmech plan WORKS at 32 positions (turned/m69a-9x6-fm.*), unfed SU(1,-2); pockets3 / c78l / w86 wire the same mechanism (w86's m69t) |
 | `door mechmut --repair` from a3r / a3s turned 90 degrees (6x8 / 6x7; 2 rounds) | the macro model accepts 26 one/two-piston changes (15 in 6x8, 11 in 6x7: breaking the QC-coupled stack, e.g. a3s turned minus SW(4,2)); but all 24 exported plans are BROKEN in redsim (W stays in the opening, or the close leaves blocks out): model artifacts so far, 6x8 / 6x7 still OPEN; fullmech's exact model on the best 6x7 one (statics kept, `--keep-stone`): cap hit at 1M (undecided) |
+| `door mechmut --repair --validate` (redsim must WORK), CW + CCW turns of a3r / a3s, 3 rounds | **6x7 (42b) YES with ideal inputs**: 9 variants WORK in redsim at 32 positions x 2 cycles (mm/repairv/), mm01 / mm02 / mm03 / mm05 also in the real game (`door ideal --between-ticks`, 4 positions x 2 cycles); FULL 12/12: mm01/02/03/05. Not wirable as found (pockets3): 2-4 pistons fire from INSIDE the door square (plan inputs at (1,2) (2,0) (2,1) (2,2) / hallway), the rest from 1-2-cell pockets; satwire UNSAT with one-piston cores (mm01 (1,-2), mm02/03 (3,-1), mm05 (2,2)). 6x8: none validated yet |
+| 6x7 wirability searches (mechmut, redsim-validated): ranked by inside firings (mm/6x7-inside, 6x7-in2), then --rank-unfed, then (0,-2) / (2,-2) forced free (--reserve, --repair) | inside firings 2-4 -> 1, never 0 (structural: the carried piston pulls through (0,1)); best unfed list = (0,1) + (1,-2) (bottom-row middle flanked by two down-pullers; mm/6x7-in2, 5 variants with unfed 1 + the lever adjustment); freeing (0,-2) or (2,-2): 0 of 60 one-change neighbours solve (mechmut has no "add a piston" move, so 2-change repairs are out of its reach). pockets3: besides those two receivers, pistons pulse 3-9 times per edge from 1-2-cell pockets (max_actions now in the TSV); a wirable 6x7 needs ~1-2 actions per piston per edge: a different family, not a repair of a3s |
 
 mechmut's rank (best first): `door connect` WIRABLE, then the pistons no lever-woken free-cell
 region ever feeds (connect's report; w86's metric), then families' per-piston unfed count (a
