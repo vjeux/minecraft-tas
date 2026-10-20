@@ -27,7 +27,8 @@ pub struct Quad {
 }
 
 /// Something to draw besides blocks: an entity (feet position in blocks, yaw in degrees), with
-/// its pitch (a minecart on a slope) and age in ticks (a dropped item's bob and spin).
+/// its pitch (a minecart on a slope), age in ticks (a dropped item's bob and spin) and fuse left
+/// (a primed TNT's flash and swell).
 #[derive(Clone, Debug, Default)]
 pub struct EntityDraw {
     pub kind: String,
@@ -35,6 +36,7 @@ pub struct EntityDraw {
     pub yaw: f32,
     pub pitch: f32,
     pub age: f32,
+    pub fuse: f32,
 }
 
 /// Everything a frame needs.
@@ -132,11 +134,14 @@ pub struct Builder<'a> {
     /// A transform for the block model being drawn as part of an entity (a minecart's hopper, a
     /// dropped block item): its unit cube goes through it.
     xf: Option<crate::entitymodel::M>,
+    /// The block model being drawn flashes white (a primed TNT: `OverlayTexture`'s white at
+    /// u = 15, 75% white): its solid faces carry the mix in their vertex alpha.
+    white: bool,
 }
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
     }
 
     fn occupied(&self, c: Pos) -> bool {
@@ -194,11 +199,43 @@ impl<'a> Builder<'a> {
             } else {
                 it.state
             };
+            // chests and shulker boxes: the game's block-entity models (ChestModel, ShulkerModel)
+            // with its entity textures, once loaded
+            if it.offset == [0.0; 3] && self.block_entity(state, it.cell) {
+                continue;
+            }
             if let Some(m) = self.model_at(state, Some(it.cell)) {
                 let base = [it.cell[0] as f32 + it.offset[0], it.cell[1] as f32 + it.offset[1], it.cell[2] as f32 + it.offset[2]];
                 let still = it.offset == [0.0; 3];
                 self.add_model(&m, base, if still { Some(it.cell) } else { None }, None);
             }
+        }
+    }
+
+    /// A chest or shulker box drawn like the game's block-entity renderers (false: not one, or
+    /// the entity textures are not loaded yet: the viewer's model is drawn).
+    fn block_entity(&mut self, state: &str, cell: Pos) -> bool {
+        let id = base_name(state);
+        if id != "minecraft:chest" && !id.ends_with("shulker_box") {
+            return false;
+        }
+        let Some(g) = self.atlas.game.clone() else { return false };
+        if !g.entities {
+            g.wants_entities.set(true);
+            return false;
+        }
+        match crate::entitymodel::block_entity_triangles(&g, state, cell) {
+            Some(tris) => {
+                for v in &tris {
+                    for k in 0..3 {
+                        self.mesh.lo[k] = self.mesh.lo[k].min(v.pos[k]);
+                        self.mesh.hi[k] = self.mesh.hi[k].max(v.pos[k]);
+                    }
+                }
+                self.mesh.solid.extend_from_slice(&tris);
+                true
+            }
+            None => false,
         }
     }
 
@@ -208,6 +245,19 @@ impl<'a> Builder<'a> {
             // FallingBlockRenderer: the block model, half a block back (the game's or the viewer's)
             if let Some(m) = self.model(state) {
                 self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, None);
+            }
+            return;
+        }
+        if let Some(state) = e.kind.strip_prefix("primed:") {
+            // TntRenderer: the block model centred on the entity, swelling over the last 10
+            // ticks, flashing white every 5 (the white overlay: 75% white)
+            if let Some(m) = self.model(state) {
+                let (scale, white) = crate::tnt::look(e.fuse);
+                self.xf = Some(crate::entitymodel::M::id().translate([e.pos[0], e.pos[1] + 0.5, e.pos[2]]).scale([scale, scale, scale]).translate([-0.5, -0.5, -0.5]));
+                self.white = white;
+                self.add_model(&m, [0.0; 3], None, None);
+                self.xf = None;
+                self.white = false;
             }
             return;
         }
@@ -552,7 +602,8 @@ impl<'a> Builder<'a> {
                 (tile as u32, uv)
             }
         };
-        let alpha = 255u8;
+        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha)
+        let alpha = if self.white && p.layer != Layer::Translucent { 64u8 } else { 255u8 };
         for q in pts.iter_mut() {
             *q = [q[0] + base[0], q[1] + base[1], q[2] + base[2]];
             for k in 0..3 {

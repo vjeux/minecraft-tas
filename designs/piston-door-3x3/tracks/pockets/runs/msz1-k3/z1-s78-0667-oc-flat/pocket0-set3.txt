@@ -1,0 +1,32 @@
+name: pocket0-set3
+covers: (1,-2)o24
+port door: 0 0 0
+port lever: 4 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=east]
+  E minecraft:stone
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:oak_log[axis=y]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  oOAB
+layer -1:
+  .s..E
+layer 0:
+  DPEEE.C
+layer 1:
+  DPEEE.C
+layer 2:
+  DPEEEE
+layer 3:
+  ..E
+layer 4:
+  ...SS
+layer 5:
+  ...S

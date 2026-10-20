@@ -24,6 +24,17 @@ pub fn gravity(w: &World, i: usize) -> f64 {
     }
 }
 
+/// `Entity.getAirDrag()` as the restitution after a bounce reads it: 0.98F; boats 1.0F, minecarts
+/// 0.95F, living entities `computeModifiedFriction(0.98F, 1)` (not an omnidirectional air mover).
+pub fn air_drag(w: &World, i: usize) -> f64 {
+    match w.entities.list[i].kind {
+        EntityKind::Boat(_) => 1.0,
+        EntityKind::Minecart(_) => 0.95f32 as f64,
+        EntityKind::ArmorStand(_) => (1.0f32 - (1.0f32 - 0.98f32) * 1.0f32).clamp(0.0, 1.0) as f64,
+        _ => 0.98f32 as f64,
+    }
+}
+
 /// `checkFallDamage(ya, onGround, onState, pos)` at the end of `Entity.move`.
 pub fn check_fall_damage(w: &mut World, i: usize, ya: f64, on_ground: bool) {
     match w.entities.list[i].kind {

@@ -30,11 +30,18 @@ use crate::world::World;
 /// The dead coral fan kinds (`dead_<kind>_coral_fan`), by `Block::CoralFan::kind`.
 pub const DEAD_CORALS: [&str; 5] = ["tube", "brain", "bubble", "fire", "horn"];
 
-/// `TntBlock.prime(level, pos)` with no source: the primed TNT (recorded; the `PrimedTnt` takes an
-/// entity id when constructed, so later entities keep the game's ids) and `PRIME_FUSE`.
+/// `TntBlock.prime(level, pos)` with no source: the primed TNT and `PRIME_FUSE`. The `PrimedTnt`
+/// is an entity only with `World::tnt_kick` (its random kick replaced by that value); else a
+/// record that still takes its entity id (later entities keep the game's ids).
 fn prime(w: &mut World, p: BlockPos) -> bool {
     w.primed.push((w.time, p));
-    w.entities.next_id += 1;
+    match w.tnt_kick {
+        Some(u) => {
+            let pos = crate::entity::Vec3::new(p.x as f64 + 0.5, p.y as f64, p.z as f64 + 0.5);
+            crate::entity::primed_tnt::spawn(w, pos, u);
+        }
+        None => w.entities.next_id += 1,
+    }
     w.game_event("prime_fuse", p);
     true
 }

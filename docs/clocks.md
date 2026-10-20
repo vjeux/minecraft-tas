@@ -301,7 +301,11 @@ the game's code in its operation order (`Entity.move` / collide / step-up, `chec
 `AbstractBoat`, `AbstractMinecart` + `OldMinecartBehavior`, `LivingEntity.travel`), and the blocks
 they touch: pressure plates, tripwire and hooks, plain and detector rails (`RailState` for every
 rail kind), big dripleaf, wall banners, lanterns, stone slabs, chiseled bookshelves, and
-container entities as hopper sources and targets. Each is gated tick by tick against real-game
+container entities as hopper sources and targets. Entities pushed by moving blocks too (2026-10-20,
+clk-misc: `PistonMovingBlockEntity.moveCollidedEntities` with the slime bounce, `moveStuckEntities`
+for honey, `moveEntityByPiston` with `NOCLIP` and `Entity.limitPistonMovement`, and the collision
+shapes of pistons, heads and moving blocks for entities; gated by the `rt-push-*`, `rt-slime-bounce`
+and `rt-honey-drag` traces in designs/clocks/tracks/clk-misc/redsim-tests/). Each is gated tick by tick against real-game
 traces (`redsim-fuzz trace-compare`, below). Anything else (unwaxed copper, other items' dispenser
 behaviors, multi-stack droppers, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and

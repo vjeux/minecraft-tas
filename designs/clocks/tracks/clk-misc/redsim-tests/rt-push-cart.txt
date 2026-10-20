@@ -1,0 +1,13 @@
+name: rt-push-cart
+# redsim test scene (not a clock): a sticky piston facing east pushes a minecart standing on an
+# east-west rail along +x (moveCollidedEntities), held 6 gt from tick 2, then retracts.
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:minecart 3.3 1.0625 0.5
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=east,extended=false]
+  r minecraft:rail[shape=east_west]
+layer 0:
+  SSSSSSSSS
+layer 1:
+  .P.rrrrrr

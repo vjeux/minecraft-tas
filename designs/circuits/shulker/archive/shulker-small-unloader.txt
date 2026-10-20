@@ -1,5 +1,5 @@
-# archived 2026-10-20T06:46Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
-# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 31 redstone, 1 slime, 41 blocks, 5x5x7, robust
+# archived 2026-10-20T06:49Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
+# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free+tileable(5), bill 16 iron, 5 quartz, 31 redstone, 1 slime, 41 blocks, 5x5x7, robust
 # Smallest always-on shulker unloader so far, 41 blocks (track shulker-speed, clk-item): clk-rt's
 # always-on unloader without the hopper lock (its repeater, dust, stone and two floors) and without
 # the drop cell's side walls and the wall south of the box cell: the unloading hopper is still on its 8 gt
@@ -13,6 +13,7 @@
 # dispenser through the drop cell's roof, watched by an observer, places the first box and
 # restarts after the supply ran out.
 name: shulker-small-unloader
+tile: 5 0 0
 circuit: shulker-unloader
 port items: 0 0 -1
 port boxes: 0 3 -1

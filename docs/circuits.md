@@ -214,7 +214,10 @@ kick) before the first input.
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
   `rate` (the gallery's axis): 1200 n / P TNT per minute; `period`, `per period`, `latency` (the
   kick to the first spawn). The spread of the primed TNT's position and motion (precision: the
-  game's random 0.02 kick) is in the table, not in the metrics the builds are compared on.
+  game's random 0.02 kick) is in the table, not in the metrics the builds are compared on. In the
+  real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
+  that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
+  `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.

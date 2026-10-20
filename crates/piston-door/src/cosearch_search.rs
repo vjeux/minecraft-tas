@@ -294,6 +294,10 @@ pub struct Problem {
     /// Pockets mode: the seed's lever is removed; a candidate without a lever still screens (the
     /// plan drives every input by ticks after the "flip").
     pub no_lever: bool,
+    /// The lever port's cell lies in the box / focus (kept out of `free`: the lever hangs there).
+    /// Pockets without --keep-lever removes the seed's lever and gives the cell back as an
+    /// ordinary wiring cell (a port named only so the plan parses must not cost a pocket a cell).
+    pub lever_cell_free: bool,
     /// Max drive points per input (its plan edges over the screened cycles): a released input
     /// earns them all (the screen checks the door works without it).
     pub drive_max: Vec<i32>,
@@ -1663,10 +1667,11 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         None => None,
     };
     let lever_pos = lever_cell.map(|(x, y)| [x, y, spec0.door[2]]).unwrap_or(spec0.lever);
+    let lever_xy = (lever_pos[0], lever_pos[1]);
     let mut free = Vec::new();
     for x in flo[0]..=fhi[0] {
         for y in flo[1]..=fhi[1] {
-            if in_box_raw(lo, hi, x, y) && !door_cells.contains(&(x, y)) && (x, y) != (lever_pos[0], lever_pos[1]) {
+            if in_box_raw(lo, hi, x, y) && !door_cells.contains(&(x, y)) {
                 free.push((x, y));
             }
         }
@@ -1678,8 +1683,11 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
             anyhow::ensure!(v.len() == 2, "--focus-cells x,y;x,y");
             want.push((v[0] + dx, v[1] + dy));
         }
-        free = want.into_iter().filter(|(x, y)| in_box_raw(lo, hi, *x, *y) && !door_cells.contains(&(*x, *y)) && (*x, *y) != (lever_pos[0], lever_pos[1])).collect();
+        free = want.into_iter().filter(|(x, y)| in_box_raw(lo, hi, *x, *y) && !door_cells.contains(&(*x, *y))).collect();
     }
+    // the lever's own cell is no wiring cell (pockets without --keep-lever gives it back)
+    let lever_cell_free = free.contains(&lever_xy);
+    free.retain(|c| *c != lever_xy);
     let door_block = doors[0].2.blocks.iter().find(|(q, _)| q == &spec0.door).map(|(_, b)| *b).unwrap_or(Block::Simple(Simple::Stone));
     let mut spec = spec0;
     spec.lever = lever_pos;
@@ -1713,6 +1721,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         drive_slack: a.drive_slack,
         drive_max: Vec::new(),
         no_lever: false,
+        lever_cell_free,
         exact_rest: a.exact_rest,
     };
     let mut prob = prob;
@@ -2700,6 +2709,10 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     if !pa.keep_lever {
         prob.no_lever = true;
         seed.remove_lever();
+        let lc = (prob.spec.lever[0], prob.spec.lever[1]);
+        if prob.lever_cell_free && seed.get(lc.0, lc.1).is_air() && !prob.free.contains(&lc) {
+            prob.free.push(lc);
+        }
     }
     if let Some(rc) = &pa.region_cells {
         for t in rc.split(';').map(str::trim).filter(|t| !t.is_empty()) {

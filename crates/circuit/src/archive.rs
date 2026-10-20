@@ -158,6 +158,11 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
+    // TNT dupers (study 9): a PRECISE duper (every TNT at one point at fuse 1) keeps its own
+    // card over a smaller one that is not
+    if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
+        return b.summary.contains("(precise") && !a.summary.contains("(precise");
+    }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
     }

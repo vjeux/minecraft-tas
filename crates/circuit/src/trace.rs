@@ -31,6 +31,9 @@ pub struct Primed {
     pub frame: u32,
     pub pos: [f64; 3],
     pub motion: Option<[f64; 3]>,
+    /// The real game: its position and motion at fuse 1, the tick before it would explode (the
+    /// judge removes it there); `None` when the run ended first, and on redsim.
+    pub end: Option<([f64; 3], [f64; 3])>,
 }
 
 impl Trace {
