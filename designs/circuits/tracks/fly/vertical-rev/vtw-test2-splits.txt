@@ -1,0 +1,28 @@
+# vertical two-way test 2: the reversed 7-block engine (flying down first); bottom station = an
+# obsidian floor + one observer in the cell the rear observer watches, facing it (the two watch
+# each other at the stop); top station = the 2-block one found by the search.
+name: vtw-test2
+circuit: flying-machine
+distance: 8
+travel: 0 -1 0
+port start: -1 1 0 minecraft:redstone_block 2
+station: 0 -5 0 minecraft:obsidian
+station: 2 -4 0 minecraft:observer[facing=west]
+station: 1 5 0 minecraft:obsidian
+station: 2 4 0 minecraft:observer[facing=west]
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  SO
+  A
+layer 1:
+  s
+  S
+layer 2:
+  o
+  S

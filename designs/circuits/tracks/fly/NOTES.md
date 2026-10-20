@@ -111,8 +111,12 @@ track's tracker as `crates/circuit/src/fly.rs`).
   (its back is the floor cell), every observer that can watch a cell the machine enters only at
   the stop points its output away from that piston, and an observer next to a slime's final cell
   is dragged away by the reversal (tried by hand: vtw-test, a lamp in the cell the rear observer
-  watches, broken for that reason). A bottom station needs 5+ blocks (a dust line around the
-  machine): the next thing to build for a vertical two-way.
+  watches, broken for that reason). The 73cdd4 trick (a station observer and the rear observer
+  watching each other, vtw-test2: floor + 1 observer) does reverse the machine, but the observer
+  pair keeps pulsing every 4 gt and the next pulse extends the reversing piston while the other
+  part pulls: the machine splits. A bottom station needs a one-shot pulse there: 4+ blocks (a dust
+  line, or a way to stop the pair after one pulse): the next thing to build for a vertical
+  two-way.
 
 - No other speed than 10 gt/block horizontally at 6 blocks (k <= 7 in 4x2x1, k <= 6 in 14
   boxes, grow +1).
