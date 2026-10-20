@@ -32,6 +32,8 @@ pub struct SearchOptions {
     /// asks for bursts), and at most `max_found` of them.
     pub min_per: usize,
     pub max_found: usize,
+    /// Cells that must stay empty.
+    pub forbid: Vec<Pos>,
     pub ticks: u32,
     pub rng: u64,
     pub workers: usize,
@@ -228,7 +230,7 @@ pub fn search(o: &SearchOptions) -> Result<usize> {
     for y in o.lo[1]..=o.hi[1] {
         for z in o.lo[2]..=o.hi[2] {
             for x in o.lo[0]..=o.hi[0] {
-                if !seed_cells.contains_key(&[x, y, z]) && c.withheld() != Some([x, y, z]) && !matches!(c.kick, Some(clock::Kick::Place { pos, .. }) if pos == [x, y, z]) {
+                if !seed_cells.contains_key(&[x, y, z]) && !o.forbid.contains(&[x, y, z]) && c.withheld() != Some([x, y, z]) && !matches!(c.kick, Some(clock::Kick::Place { pos, .. }) if pos == [x, y, z]) {
                     free.push([x, y, z]);
                 }
             }

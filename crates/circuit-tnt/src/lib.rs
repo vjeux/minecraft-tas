@@ -51,6 +51,9 @@ enum Cmd {
         max_ticks: u32,
         #[arg(long, default_value_t = 8)]
         margin: i32,
+        /// Print every followed TNT (first sighting and fuse 1).
+        #[arg(long)]
+        list: bool,
     },
     /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
     /// TILEABLE variation with `circuit verify`.
@@ -111,6 +114,9 @@ enum Cmd {
         /// Stop recording after this many distinct dupers.
         #[arg(long, default_value_t = 2000)]
         max_found: usize,
+        /// Cells that must stay empty: `x,y,z;x,y,z`.
+        #[arg(long, default_value = "")]
+        forbid: String,
         #[arg(long)]
         out: PathBuf,
     },
@@ -170,7 +176,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{}: {}", d.display(), r.line());
             }
         }
-        Cmd::Precision { designs, n, max_ticks, margin } => {
+        Cmd::Precision { designs, n, max_ticks, margin, list } => {
             let mut w = mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig::default())?;
             for d in &designs {
                 let c = clock::Clock::load(d)?;
@@ -190,6 +196,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{}:", d.display());
                 for l in precision::report(&tr) {
                     println!("  {l}");
+                }
+                if list {
+                    for t in &tr {
+                        let end = t.end.map(|(p, m)| format!("fuse 1 at ({:.4}, {:.4}, {:.4}) motion ({:.4}, {:.4}, {:.4})", p[0], p[1], p[2], m[0], m[1], m[2])).unwrap_or_else(|| "not at fuse 1".into());
+                        println!("    gt {}: first at ({:.4}, {:.4}, {:.4}); {end}", t.first_tick, t.first_pos[0], t.first_pos[1], t.first_pos[2]);
+                    }
                 }
             }
         }
@@ -224,7 +236,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("  redsim: {} [{}]", r.line(), if same { format!("prime ticks and TNT counts identical over {n} gt") } else { "DIFFERS".into() });
             }
         }
-        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, min_per, max_found, out } => {
+        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, min_per, max_found, forbid, out } => {
+            let mut forbid_cells: Vec<clock::Pos> = Vec::new();
+            for c in forbid.split(';').map(str::trim).filter(|c| !c.is_empty()) {
+                let v: Vec<i32> = c.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "--forbid x,y,z;x,y,z");
+                forbid_cells.push([v[0], v[1], v[2]]);
+            }
             let v: Vec<i32> = bx.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
             anyhow::ensure!(v.len() == 6, "--box x0,y0,z0,x1,y1,z1");
             let list = |s: &str| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect::<Vec<_>>();
@@ -239,6 +257,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 samples,
                 min_per,
                 max_found,
+                forbid: forbid_cells,
                 ticks,
                 rng,
                 workers,
