@@ -745,10 +745,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let (output, out_period) = match out_pos {
         Some(op) => {
             let (on, edges, widths) = wave::bool_wave(&out_seq);
+            let gaps = wave::rise_gaps(&out_seq);
             let states = rep.analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
             // a component reports its own state; a plain block or air: the power it receives
             let own = if states.is_empty() { wave::cyclic_period(&out_level) } else { cell_period(op) };
-            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths, gaps } }), own)
         }
         None => {
             let best = rep.analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));

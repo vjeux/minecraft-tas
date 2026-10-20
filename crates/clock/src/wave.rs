@@ -193,6 +193,19 @@ pub fn bool_wave(seq: &[bool]) -> (u32, u32, Vec<u32>) {
     (on, edges, widths)
 }
 
+/// The ticks between consecutive rising edges of a cyclic boolean sequence (one period), from the
+/// first rising edge; they sum to the period. Empty without a rising edge. A builder's period is
+/// the output's: equal gaps = a regular output of period `gaps[0]`; unequal = irregular (a site
+/// critique, 2026-10-20: a 476 gt state period whose output pulses every 40-60 gt).
+pub fn rise_gaps(seq: &[bool]) -> Vec<u32> {
+    let n = seq.len();
+    let rises: Vec<usize> = (0..n).filter(|&i| seq[i] && !seq[(i + n - 1) % n]).collect();
+    if rises.is_empty() {
+        return Vec::new();
+    }
+    (0..rises.len()).map(|k| ((rises[(k + 1) % rises.len()] + n - rises[k] - 1) % n + 1) as u32).collect()
+}
+
 /// The waveform of one cell over one period.
 #[derive(Clone, Debug)]
 pub struct CellWave {
@@ -204,12 +217,28 @@ pub struct CellWave {
     pub on: u32,
     pub edges: u32,
     pub widths: Vec<u32>,
+    /// Ticks between consecutive rising edges ([`rise_gaps`]).
+    pub gaps: Vec<u32>,
 }
 
 impl CellWave {
     /// `on 2/6, 1 edge, pulses 2`.
     pub fn describe(&self, period: u32) -> String {
         format!("on {}/{period}, {} edge{}, pulses {:?}", self.on, self.edges, if self.edges == 1 { "" } else { "s" }, self.widths)
+    }
+
+    /// Several rising edges per period at unequal spacing: (shortest gap, longest gap). Such an
+    /// output has no single period a builder could time with.
+    pub fn irregular(&self) -> Option<(u32, u32)> {
+        let (lo, hi) = (*self.gaps.iter().min()?, *self.gaps.iter().max()?);
+        (self.gaps.len() >= 2 && lo != hi).then_some((lo, hi))
+    }
+
+    /// The output's own period: the gap between rising edges when they are evenly spaced (the
+    /// whole period with one edge), None when irregular or without edges.
+    pub fn output_period(&self) -> Option<u32> {
+        let g0 = *self.gaps.first()?;
+        self.gaps.iter().all(|&g| g == g0).then_some(g0)
     }
 }
 
@@ -276,9 +305,10 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
         cell_moved.retain(|k| !kinds.contains(k));
         let seq: Vec<bool> = states.iter().map(|s| active(block_part(s[i]))).collect();
         let (on, edges, widths) = bool_wave(&seq);
+        let gaps = rise_gaps(&seq);
         fam.extend(kinds.iter().cloned());
         moved.extend(cell_moved);
-        out.cells.push(CellWave { pos: *pos, states: seen, kinds, on, edges, widths });
+        out.cells.push(CellWave { pos: *pos, states: seen, kinds, on, edges, widths, gaps });
     }
     fam.sort();
     fam.dedup();
@@ -417,6 +447,11 @@ mod tests {
         assert_eq!(bool_wave(&[true, false, false, true]), (2, 1, vec![2]));
         assert_eq!(bool_wave(&[true, true]), (2, 0, vec![2]));
         assert_eq!(bool_wave(&[false, false]), (0, 0, vec![]));
+        assert_eq!(rise_gaps(&[true, false, false, true, false, false]), vec![3, 3]);
+        assert_eq!(rise_gaps(&[false, true, false, true, true, false, false]), vec![2, 5]);
+        assert_eq!(rise_gaps(&[true, true, false]), vec![3]);
+        assert_eq!(rise_gaps(&[true, true]), Vec::<u32>::new());
+        assert_eq!(rise_gaps(&[false, false]), Vec::<u32>::new());
     }
 
     #[test]

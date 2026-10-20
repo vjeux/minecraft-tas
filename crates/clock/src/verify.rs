@@ -431,9 +431,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
                 .collect();
             let levels: Vec<u8> = (w0..w0 + p).map(|t| signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0)).collect();
             let (on, edges, widths) = wave::bool_wave(&seq);
+            let gaps = wave::rise_gaps(&seq);
             let states = analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
             let own = if states.is_empty() { wave::cyclic_period(&levels) } else { cell_period(op) };
-            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths, gaps } }), own)
         }
         None => match analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos))) {
             Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),

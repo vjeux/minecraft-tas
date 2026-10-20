@@ -31,6 +31,10 @@ pub enum ClockCmd {
         /// Print every cell change of the first N ticks instead.
         #[arg(long)]
         trace: Option<u32>,
+        /// Only the clocks whose output rises several times per period at unequal spacing (no
+        /// single period a builder could time with), one line each, then a count.
+        #[arg(long)]
+        irregular: bool,
     },
     /// The official judge in the real game: N positions x 4 rotations, kick, run to the horizon,
     /// exact periodicity for >= 3 periods after warmup, the same period/waveform/family everywhere
@@ -312,11 +316,12 @@ pub enum ClockCmd {
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
     match cmd {
-        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace } => {
+        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace, irregular } => {
             if designs.is_empty() {
                 bail!("clock sim <design>...");
             }
             let o = SimOptions { horizon, margin };
+            let (mut clocks, mut odd, mut none) = (0usize, 0usize, 0usize);
             for path in &designs {
                 let c = Clock::load(path)?;
                 if let Some(n) = trace {
@@ -327,6 +332,27 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 let t0 = std::time::Instant::now();
                 let r = simulate(&c, &o);
+                if irregular {
+                    if r.verdict == Verdict::Clock {
+                        clocks += 1;
+                        if let Some(w) = r.output.as_ref().map(|o| &o.wave)
+                            && let Some((lo, hi)) = w.irregular()
+                        {
+                            odd += 1;
+                            // a cell a builder could tap instead: regular, the longest own period
+                            let tap = r.analysis.cells.iter().filter_map(|c| c.output_period().map(|p| (p, c.pos))).max();
+                            if tap.is_none() {
+                                none += 1;
+                            }
+                            let tap = match tap {
+                                Some((p, pos)) => format!("regular tap: {pos:?} every {p} gt"),
+                                None => "no regular cell".into(),
+                            };
+                            println!("IRREGULAR: {} period {} gt, {} rising edges, gaps {:?} ({lo}..{hi} gt); {tap}", c.name(), r.period, w.edges, w.gaps);
+                        }
+                    }
+                    continue;
+                }
                 if json {
                     println!("{}", sim_json(&c, &r));
                 } else if quiet {
@@ -334,6 +360,9 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 } else {
                     print_sim(&c, &r, t0.elapsed().as_secs_f64() * 1000.0);
                 }
+            }
+            if irregular {
+                println!("{odd} of {clocks} clocks (redsim CLOCK verdicts) have an irregular output; {none} of them have no regular cell at all");
             }
         }
         ClockCmd::Verify { designs, positions, no_rotations, horizon, margin, workers, verbose, no_sim, json } => {
@@ -622,7 +651,7 @@ fn sim_json(c: &Clock, r: &SimReport) -> serde_json::Value {
         "dims": r.dims(),
         "volume": r.volume(),
         "start": r.start,
-        "output": r.output.as_ref().map(|o| json!({"pos": o.pos, "auto": o.auto, "on": o.wave.on, "edges": o.wave.edges, "pulses": o.wave.widths})),
+        "output": r.output.as_ref().map(|o| json!({"pos": o.pos, "auto": o.auto, "on": o.wave.on, "edges": o.wave.edges, "pulses": o.wave.widths, "gaps": o.wave.gaps, "irregular": o.wave.irregular(), "output_period": o.wave.output_period()})),
         "cells": r.analysis.cells.iter().map(wave_json).collect::<Vec<_>>(),
         "summary": r.summary(),
     })
