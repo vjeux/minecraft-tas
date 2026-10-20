@@ -4,7 +4,7 @@
 //! GitHub project page under /minecraft-tas/); viewers are `data-mcview` elements that
 //! webrender's bundle (viewer/mcview.js) renders when present.
 
-use site_model::html::{build_card, esc, kind_title, member_href, size_line};
+use site_model::html::{build_card, esc, kind_title, member_href};
 use site_model::{Build, Card, Member, Site, flag_label, gt_time, real_time, status_label};
 use std::collections::BTreeMap;
 
@@ -294,8 +294,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             esc(&b.group.replace('+', " + "))
         ));
     }
-    body.push_str(&format!("<h1>{}</h1>\n", esc(&b.name)));
-    body.push_str(&format!("<p class=\"lede\">{}</p>\n", esc(&lede(b))));
+    body.push_str(&page_heading(b));
     let badges = site_model::html::badges(b);
     if !badges.is_empty() {
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
@@ -352,44 +351,39 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let cards: Vec<String> = list.iter().map(|o| build_card(o, prefix)).collect();
         body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
     }
-    let desc = format!("{}: {}. {}", b.name, lede(b), b.caption.chars().take(160).collect::<String>());
-    shell_full(&b.name, &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
+    let p = site_model::html::props(b);
+    let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
+    shell_full(&page_title(b), &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
 }
 
-/// One line under a build's title.
-fn lede(b: &Build) -> String {
-    match b.kind.as_str() {
-        "door" => {
-            let mut s = format!("3x3 piston door, {}, {}", b.group, size_line(b));
-            if let Some(d) = &b.door {
-                if let (Some(o), Some(c)) = (d.open, d.close) {
-                    s.push_str(&format!(", opens in {o} gt, closes in {c} gt"));
-                }
-            }
-            s
-        }
-        "clock" => {
-            let c = b.clock.as_ref();
-            format!("Clock, period {}, {} blocks, family {}", c.map(|c| gt_time(c.period)).unwrap_or_default(), b.blocks, b.group.replace('+', " + "))
-        }
-        _ => match &b.circuit {
-            Some(c) => {
-                let mut parts = vec![crate::explain::kind_title(&c.kind)];
-                // the study's axis when it says more than the kind (`L = 2 gt`, `N = 3 gt`)
-                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(&c.axis) && c.axis.contains('=') {
-                    if let Some(a) = site_model::html::axis_shown(&c.kind, &c.axis) {
-                        parts.push(a);
-                    }
-                }
-                parts.push(format!("{} blocks", b.blocks));
-                if let Some(d) = &b.dims {
-                    parts.push(d.clone());
-                }
-                parts.join(" · ")
-            }
-            None => format!("{} blocks", b.blocks),
-        },
+/// A build page's `<title>`: its kind and properties first, the design's name after
+/// (`Piston extender: N = 3 · 19 blocks (pext-n3-flat-cascade19)`).
+pub fn page_title(b: &Build) -> String {
+    let p = site_model::html::props(b);
+    format!("{}: {} ({})", p.kind, p.title, b.name)
+}
+
+/// A build page's heading (vjeux 12:09Z: lead with the properties): its kind (small, above), the
+/// property line as the title, the secondary properties and the box, then the design's name in
+/// small text.
+fn page_heading(b: &Build) -> String {
+    let p = site_model::html::props(b);
+    let mut lede: Vec<String> = Vec::new();
+    if !p.sub.is_empty() {
+        lede.push(p.sub.clone());
     }
+    if b.kind != "door" {
+        if let Some(d) = &b.dims {
+            lede.push(format!("box {}", d.replace('x', "×")));
+        }
+    }
+    format!(
+        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}<p class=\"design-name\">design <code>{}</code></p>\n",
+        esc(&p.kind),
+        esc(&p.title),
+        if lede.is_empty() { String::new() } else { format!("<p class=\"lede\">{}</p>\n", esc(&lede.join(" · "))) },
+        esc(&b.name)
+    )
 }
 
 fn link_build(site: &Site, id: &str, prefix: &str) -> String {
@@ -491,7 +485,7 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &format!("{} (<code>circuit: {}</code>)", esc(&crate::explain::kind_title(&c.kind)), esc(&c.kind))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
         if !c.axis.is_empty() {
             s.push_str(&row("The study's axis", &esc(&c.axis)));
         }
@@ -1114,13 +1108,16 @@ fn pick_min<'a>(v: Vec<&'a Build>, key: &dyn Fn(&Build) -> (i64, i64)) -> Option
 fn best_cell(b: Option<&Build>, prefix: &str, key: &str, unit: &str) -> String {
     match b {
         Some(b) => {
+            // the design's properties lead (vjeux 12:09Z), its name is the small text
             let n = cmetric(b, key);
+            let p = site_model::html::props(b);
             format!(
-                "<a href=\"{prefix}{}\">{}</a><br><span class=\"hint\">{}{}</span>",
+                "<a href=\"{prefix}{}\" title=\"{}\">{}</a><br><span class=\"hint\">{}{}</span>",
                 esc(&b.page),
                 esc(&b.name),
-                esc(&site_model::html::blocks_word(b.blocks)),
-                if n.is_empty() { String::new() } else { format!(" · {}{unit}", esc(n)) }
+                esc(&p.title),
+                esc(&b.name),
+                if n.is_empty() || p.title.contains(n) { String::new() } else { format!(" · {}{unit}", esc(n)) }
             )
         }
         None => "<span class=\"hint\">none yet</span>".to_string(),
@@ -1506,7 +1503,9 @@ mod tests {
         let s = tiny_site();
         let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false, ui: false });
         assert!(p.starts_with("<!DOCTYPE html>"));
-        assert!(p.contains("<title>obs2 · REDSTONEPEDIA</title>"));
+        // the kind and the properties lead, the design's name after
+        assert!(p.contains("<title>Clock: ") && p.contains(" (obs2) · REDSTONEPEDIA</title>"), "{p}");
+        assert!(p.contains("<p class=\"design-name\">design <code>obs2</code></p>"), "{p}");
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("<a class=\"card\" href=\"../clocks/obs3.html\""), "similar builds link to the other clock of the period");
@@ -1514,7 +1513,7 @@ mod tests {
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
         let d = build_page(&s, &s.builds[2], "name: fc2\n", "designs/piston-door-3x3/archive/fc2-40b.txt", Scripts::default());
-        assert!(d.contains("144b (8x9x2)"));
+        assert!(d.contains("<h1>144b (8×9×2) · 40 blocks</h1>"), "{d}");
         assert!(d.contains("14 / 16 gt"));
         assert!(!d.contains("mcview.js"), "no viewer script without the bundle");
     }

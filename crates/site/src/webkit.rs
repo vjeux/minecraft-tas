@@ -315,7 +315,7 @@ fn check_picker_swap(s: &Session, base: &str, page: &str, other_page: &str, othe
     }
     click(s, &format!("nav.picker a.pick[href$=\"{other_page}\"]"))?;
     let js = format!(
-        "const v = document.querySelector('{VIEW}'); return !!v && location.pathname.endsWith('{other_page}') && (v.getAttribute('data-src') || '').endsWith('{other_design}') && document.title.startsWith('{other_name}');"
+        "const v = document.querySelector('{VIEW}'); return !!v && location.pathname.endsWith('{other_page}') && (v.getAttribute('data-src') || '').endsWith('{other_design}') && document.title.includes('{other_name}');"
     );
     if !wait_true(s, &js, 20)? {
         let state = s.script(&format!("const v = document.querySelector('{VIEW}'); return [location.pathname, v ? v.getAttribute('data-src') : 'no viewer', document.title].join(' | ');"))?;

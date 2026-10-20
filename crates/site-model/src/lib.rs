@@ -515,6 +515,8 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "composite (beat)", "clock"),
     ("instant", "instant (0 gt latency)", "circuit"),
+    ("button", "the design's own button as its input", "circuit"),
+    ("lever", "the design's own lever as its input", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
@@ -738,8 +740,11 @@ impl Range {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Sort {
-    /// Fewest blocks, then volume, then name.
+    /// The build's main number, then blocks (vjeux 12:09Z): doors by size, clocks by period,
+    /// circuits by kind, then their value (N, L, P...).
     #[default]
+    Main,
+    /// Fewest blocks, then volume, then name.
     Blocks,
     Volume,
     Period,
@@ -751,7 +756,8 @@ pub enum Sort {
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 7] = [
+    pub const ALL: [(Sort, &'static str, &'static str); 8] = [
+        (Sort::Main, "main", "main number (size, period, N...), then blocks"),
         (Sort::Blocks, "blocks", "fewest blocks"),
         (Sort::Volume, "volume", "smallest volume"),
         (Sort::Period, "period", "shortest period / smallest value"),
@@ -762,7 +768,7 @@ impl Sort {
     ];
 
     pub fn key(self) -> &'static str {
-        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("blocks")
+        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("main")
     }
 
     pub fn from_key(k: &str) -> Sort {
@@ -1044,6 +1050,17 @@ impl Site {
         let big = i64::MAX;
         hits.sort_by(|(ha, a), (hb, b)| {
             let primary = match q.sort {
+                Sort::Main => {
+                    // doors by size, clocks by period, circuits by kind then value; then blocks
+                    let key = |v: &View| -> (u8, String, i64) {
+                        match v.kind {
+                            "door" => (0, String::new(), v.volume.unwrap_or(big)),
+                            "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            _ => (2, v.group.to_string(), v.main.unwrap_or(big)),
+                        }
+                    };
+                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
+                }
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
@@ -1086,7 +1103,7 @@ impl Query {
         if self.variants {
             push("variants", "1");
         }
-        if self.sort != Sort::Blocks {
+        if self.sort != Sort::Main {
             push("sort", self.sort.key());
         }
         parts.join("&")
@@ -1405,8 +1422,10 @@ mod tests {
                 Hit::Member(i) => format!("{}#n{}", s.members[*i].family, s.members[*i].n),
             }).collect()
         };
-        // default: builds, variants hidden, fewest blocks first
-        assert_eq!(ids(&Query::default()), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
+        // default: builds, variants hidden, by the main number (doors by size, clocks by period)
+        assert_eq!(ids(&Query::default()), vec!["doors/fc2-40b", "clocks/obs2", "clocks/obs-ring", "clocks/lamp48"]);
+        // fewest blocks first
+        assert_eq!(ids(&Query { sort: Sort::Blocks, ..Default::default() }), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
         let q = Query { kind: "door".into(), ..Default::default() };
         assert_eq!(ids(&q), vec!["doors/fc2-40b"]);
         let q = Query { kinds_out: ["redstone_lamp".to_string()].into(), kind: "clock".into(), ..Default::default() };

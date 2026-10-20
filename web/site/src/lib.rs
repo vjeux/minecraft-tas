@@ -199,11 +199,10 @@ fn draw_panel() -> Result<(), JsValue> {
             let q = &mut a.q;
             match act.as_str() {
                 "kind" => {
-                    // doors rank by size (the volume) first, as every door board does
-                    if val == "door" && q.sort == Sort::Blocks {
-                        q.sort = Sort::Volume;
-                    } else if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
-                        q.sort = Sort::Blocks;
+                    // the main number of each kind leads (doors: size; clocks: period; circuits:
+                    // kind and value); a sort that only means something for doors falls back to it
+                    if val != "door" && (q.sort == Sort::Volume || q.sort == Sort::Open || q.sort == Sort::Close) {
+                        q.sort = Sort::Main;
                     }
                     q.kind = val;
                     q.groups.clear();

@@ -74,40 +74,36 @@ pub fn truth_table(f: &str, inputs: &[String]) -> String {
 }
 
 /// The kind's name for people (`counter 4` -> `Counter (divide by 4)`).
+/// A kind's name for people, its base only (vjeux 12:15Z: "Circuit kind should be piston
+/// extender, not one per N"): the number (`piston-extender 5`, `divider 3`, `gate and`) is a
+/// property, shown in the property line; a short description in parentheses where it helps.
 pub fn kind_title(kind: &str) -> String {
+    // already a name for people (a circuit's group): as it is
+    if kind.starts_with(|c: char| c.is_uppercase()) {
+        return kind.to_string();
+    }
+    let words = site_model::html::kind_words(kind);
     match base(kind) {
-        "rising-edge" => "Rising-edge detector".into(),
-        "falling-edge" => "Falling-edge detector".into(),
-        "dual-edge" => "Dual-edge detector".into(),
-        "pulse-limiter" => "Pulse limiter".into(),
-        "pulse-extender" => "Pulse extender".into(),
         "tff" => "T flip-flop (toggle)".into(),
-        "delay" => "Delay line".into(),
-        "gate" => match kind.split_whitespace().nth(1) {
-            Some(f) => format!("{} gate", f.to_uppercase()),
-            None => "Logic gate".into(),
-        },
         "rs-latch" => "RS latch (set / reset memory)".into(),
         "d-latch" => "D latch (data latch)".into(),
-        "counter" => format!("Counter (counts to {})", kind_number(kind).unwrap_or(0)),
-        "piston-extender" => format!("Piston extender (reach {})", kind_number(kind).unwrap_or(0)),
-        "flying-machine" => "Flying machine".into(),
-        "shulker-loader" => format!("Shulker box loader ({})", stack_words(kind_number(kind).unwrap_or(64))),
-        "shulker-unloader" => format!("Shulker box unloader ({})", stack_words(kind_number(kind).unwrap_or(64))),
+        "shulker-loader" => "Shulker box loader".into(),
+        "shulker-unloader" => "Shulker box unloader".into(),
         "bud" => "BUD switch (block update detector)".into(),
         "tnt-duper" => "TNT duper (self-running)".into(),
         "tnt-duper-triggered" => "TNT duper (one shot per pulse)".into(),
-        "burst" => format!("Burst of {} (pulse multiplier)", kind_number(kind).unwrap_or(0)),
-        "divider" => format!("Divider by {} (clock divider)", kind_number(kind).unwrap_or(0)),
+        "burst" => "Burst (pulse multiplier)".into(),
+        "divider" => "Divider (clock divider)".into(),
         "monostable" => match kind.split_whitespace().nth(1) {
             Some("retriggerable") => "Retriggerable monostable (one-shot timer)".into(),
             Some("non-retriggerable") => "Non-retriggerable monostable (one-shot timer)".into(),
             _ => "Monostable (one-shot timer)".into(),
         },
-        "off-delay" => "Off-delay timer".into(),
         "on-delay" => "On-delay timer (pulse filter)".into(),
         "pulse-train" => "Gated pulse train (a clock with an on switch)".into(),
-        _ => kind.to_string(),
+        "" => kind.to_string(),
+        _ if words.is_empty() => kind.to_string(),
+        _ => words,
     }
 }
 
