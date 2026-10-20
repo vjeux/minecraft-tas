@@ -448,6 +448,8 @@ pub fn tick_one(w: &mut World, i: usize) {
     }
     let p = w.entities.list[i].pos;
     if !w.entity_ticks_at(p.x, p.z) {
+        let id = w.entities.list[i].id;
+        w.note_frozen(id);
         return;
     }
     common_tick(w, i);
