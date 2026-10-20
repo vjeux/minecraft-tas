@@ -1,0 +1,17 @@
+# archived 2026-10-20T00:41Z from /tmp/gen/arch5/climb2-p305-2.txt by mctas clock archive
+# CLOCK: clk-sculk-climb2-p305-2 period 305 gt (15.25 s), on 70/305, edges 35, warmup 34, family calibrated_sculk_sensor+oak_trapdoor+observer+sculk_sensor+sticky_piston, 7 blocks, 4x2x2, robust
+# Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design (climb from census-p304-calibrated_sculk_sensor-note_block-oak_trapdoor-observer-sculk_sensor-6b (walker 39))
+name: clk-sculk-climb2-p305-2
+# how: climb from census-p304-calibrated_sculk_sensor-note_block-oak_trapdoor-observer-sculk_sensor-6b (walker 39)
+port start: 0 0 0 last
+origin: 0 0 0
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  c minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  CoOc
+  Sos
