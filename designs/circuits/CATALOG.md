@@ -4,10 +4,10 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 
 | study | designs | shown | variants |
 |---|---|---|---|
-| [Pulse circuits](pulse/CATALOG.md) | 115 | 10 | 3 |
+| [Pulse circuits](pulse/CATALOG.md) | 119 | 10 | 3 |
 | [T flip-flops](tff/CATALOG.md) | 12 | 11 | 1 |
 | [Delay lines](delay/CATALOG.md) | 12 | 2 | 0 |
-| [Logic gates](gates/CATALOG.md) | 19 | 16 | 3 |
+| [Logic gates](gates/CATALOG.md) | 21 | 18 | 3 |
 | [Memory](memory/CATALOG.md) | 52 | 42 | 9 |
 | [Piston extenders](pext/CATALOG.md) | 57 | 27 | 9 |
 | [Flying machines](fly/CATALOG.md) | 85 | 9 | 3 |
