@@ -74,6 +74,29 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
     of the box, so the top runs on timers.
   - A moved observer fires on arrival.
   - A powered piston whose push is jammed does nothing, which makes stray pulses harmless.
+* q69m: q69j with B1 pull-type (retracted at rest, (1,-2) empty). O arriving at (0,-2) QC-powers
+  it through the empty (1,-2), and it reaches up and pulls Qv down: the open needs no B1 input.
+  At N's retraction, Qv (powered directly by O) moves first and B1 (QC) is blocked. WORKS 32 x 3.
+* Wiring verdict on q69i/j/m (pockets3: per-edge island check and exhaustive pockets k=4 per
+  area; pext's interleave --islands):
+  - The BOTTOM-RIGHT is isolated. Its only views are B1 (from (2,-3)) and K (from (3,-2)).
+    With D_O at (0,-3), B1 can only be fed from (2,-3), and on close the floor must be cleared
+    by A and K before anything else can move.
+  - Every area needs pulse shapes its cells cannot make (e.g. Qr's single one-edge 6-gt pulse in
+    3 cells). Cheap signals are: a lever level (lever area only), 2-gt observer pulses on visible
+    changes, repeaters, torches.
+  - Toggle semantics fit cheap signals. A sticky piston given 2 gt spits a block it touches and
+    reaches back for a block one cell away, so one pulse train can do open and close:
+    - Pl: spit on open, reach-pull on close.
+    - P_T (pull-type): reach TM / reach C on open; spit C / spit TM+C on close.
+    - Br as a pull-type toggle, plus Qr fed from (3,3) and (3,4): train [Qr3, Qr3, Br, Qr4].
+      On close, Br's spit lowers Qr and TR together.
+    - O returning to (0,-1) at the end fires into Qv; that is harmless only if the column is
+      jammed (P_T extended), or it can do the job of spitting the floor stone at (1,-1) up into
+      (1,0).
+  - Core flaw: the box-edge right column needs bottom pistons (A, K), and they cannot be
+    reached. Next: a right column with no bottom-right pistons, or a centre escape that frees
+    (1,-3) so the bottom becomes one island.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
