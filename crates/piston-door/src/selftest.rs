@@ -532,11 +532,16 @@ fn checks() -> Vec<Check> {
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
     s.push("designs/circuits/selftest/floating-not.txt".into());
+    // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
+    // output refused, a comparator AND kept with its metrics
+    s.push("designs/circuits/selftest/update-less-nor.txt".into());
+    s.push("designs/circuits/selftest/comparator-and.txt".into());
+    s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND and a floating dust refused",
+        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND, a floating dust and an update-less (redirection-only) NOR refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -549,17 +554,22 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim and a floating dust refused"))
+            has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
+            has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
+            has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR and a stone output refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 12 calibration circuits: robust, the same metrics as redsim",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 12 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
-            let mut s = args("circuit verify --positions 2 --workers 8");
+            let mut s = args("?circuit verify --positions 2 --workers 8");
             s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+            s.push("designs/circuits/selftest/update-less-nor.txt".into());
+            s.push("designs/circuits/selftest/comparator-and.txt".into());
             s
         }],
         timeout: 600,
@@ -569,7 +579,9 @@ fn checks() -> Vec<Check> {
                     return Err(format!("{f}: expected `{want}`, robust: {}", tail(&o[0])));
                 }
             }
-            Ok(format!("{} calibration circuits robust, redsim's metrics", circ2.len()))
+            has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
+            has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust")?;
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR refused, the comparator AND robust", circ2.len()))
         }),
     });
     v

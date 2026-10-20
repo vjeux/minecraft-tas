@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-xor-4b.txt by mctas circuit archive
-# CIRCUIT: gate-xor-4b gate xor function xor, latency 0 gt, class instant, 4 blocks, 2x2x2, robust
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-xor-4b gate xor: update-less output: out is off from frame 200 without a block update (a lamp in its cell stays lit), it drives nothing
 # XOR gate, instant (track gates): one dust on a stone between input a (west) and input b (north),
 # with a stone east of it and a stone south of it, and the output cell touching both stones. a
 # alone makes the dust a west-east line pointing into the east stone, b alone a north-south line

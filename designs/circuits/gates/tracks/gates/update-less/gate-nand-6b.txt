@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:58Z from designs/circuits/gates/tracks/gates/gate-nand-6b.txt by mctas circuit archive
-# CIRCUIT: gate-nand-6b gate nand function nand, latency 0 gt, class instant, 6 blocks, 3x2x3, robust
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-nand-6b gate nand: update-less output: out is off from frame 120 without a block update (a lamp in its cell stays lit), it drives nothing
 # NAND gate, instant (track gates): two instant NOTs into one output cell. A dust on a stone powered
 # by a redstone block west of it points east into the output cell; input a (south of it) bends it
 # away. A second dust powered by a redstone block north of it points south into the output cell;
