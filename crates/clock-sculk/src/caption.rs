@@ -98,6 +98,11 @@ pub fn caption(a: &CaptionArgs) -> Result<()> {
         });
         // Drop every leading comment line (old captions, the CLOCK line, the generator line).
         let body: Vec<&str> = text.lines().skip_while(|l| l.starts_with('#')).collect();
+        // A hand-written caption (no generator line, not the generic census one) is kept.
+        let first = text.lines().next().unwrap_or("");
+        if how.is_none() && first.starts_with("# ") && !first.starts_with("# CLOCK") && !first.starts_with("# Found by `mctas clock census`") {
+            continue;
+        }
         let cap = match &how {
             Some(h) => Some(words(h)),
             None => text.lines().find_map(|l| l.strip_prefix("census: ")).map(|c| {
