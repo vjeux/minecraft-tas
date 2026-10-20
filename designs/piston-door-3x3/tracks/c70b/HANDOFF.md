@@ -10,11 +10,16 @@
 - families' model holds 32 pistons; QC is per mechanism (families::with_qc_off); mechsynth's
   plans feed a piston above a retracted one through its above cell (+ glass) for qc-off mechs.
 - Results: the 18 old non-strict SATs give nothing (smaller/msat/r0, r2, q2: m86-a WORKS but
-  fails strict and leaves 8x6; the 7x7s break in redsim). Waiting for clockinfra's `--physics
-  --max-pistons 14` sweep (sat/phys14/, with exports): run
-  `door mechmut <phys14 folder> --cap 2000000 --bfs-cap 1000000 --threads 8 --rounds 2 --beam 10
-  --repair --validate --rank-unfed --out msat/p14.tsv --ideal-out msat/p14` and read the
-  CANDIDATE lines + the TSV (strict_fail 0 and island_start 0 first).
+  fails strict and leaves 8x6; the 7x7s break in redsim). phys14 (`--physics --max-pistons 14`,
+  h6/h8): 17 of 28 instances UNSAT, none SAT. Waiting for phys18 (`--feed --lever --physics
+  --max-pistons 18`, h8 on the 14 boxes, then h10 for the 7x7 placements; clockinfra queued it
+  16:02Z on devvm53196; SAT dumps + exports go to explore/clockinfra tracks/macrosat/sat/phys18/):
+  run
+  `door mechmut <phys18 folder> --cap 2000000 --bfs-cap 1000000 --threads 8 --rounds 2 --beam 10
+  --repair --validate --rank-unfed --out msat/p18.tsv --ideal-out msat/p18` and read the
+  CANDIDATE lines + the TSV (strict_fail 0 and island_start 0 first). If phys18 is all UNSAT,
+  report it to the coordinator as a bounded result (no fed, physical, island-starting mechanism
+  within 18 pistons at h8 in any 48 box or 7x7 placement).
 
 ## 6. Wirable smaller doors (coordinator 2026-10-20 04:00Z: NEW families built for wirability)
 - Bars on every solve (families + mechmut): `--max-actions K` (pulses / level toggles per piston
