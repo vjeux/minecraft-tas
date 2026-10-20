@@ -1,0 +1,25 @@
+name: rt-tnt-floor
+# redsim test scene (not a clock): a TNT on a 7x7 stone floor, primed at tick 2 by a redstone block
+# placed beside it for 6 gt, explodes at ~82: the floor around it is destroyed (exact rays with the
+# level random's jitter, the HashSet order, the shuffle), its cobblestone drops pop as seeded items
+# (merged into stacks of 16).
+port start: 3 1 4 minecraft:redstone_block 6 at 2
+palette:
+  S minecraft:stone
+  T minecraft:tnt[unstable=false]
+layer 0:
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+layer 1:
+  .......
+  .......
+  .......
+  ...T...
+  .......
+  .......
+  .......
