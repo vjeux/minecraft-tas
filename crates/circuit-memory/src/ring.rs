@@ -288,47 +288,164 @@ fn put_ring(d: &mut mctas::design::Design, ds: &[P], hs: &[P]) {
     }
 }
 
-/// A two-stage counter: ring 1 around the input; its comparator powers a stone `s2` whose
-/// neighbours are ring 2's droppers; ring 2's comparator is the output (counter n1 * n2).
+/// One more ring of a chain: its droppers are the neighbours of `center`, a stone the previous
+/// stage's comparator strongly powers.
 #[derive(Clone)]
-pub struct Chain {
-    pub r1: Ring,
-    pub s2: P,
+pub struct Stage {
+    pub center: P,
     pub droppers: Vec<P>,
     pub hoppers: Vec<P>,
     pub comparator: P,
     pub read: P,
-    /// Floors added for ring 2's comparator.
+    /// Floors added for this stage's comparator.
     pub stone: Vec<P>,
+}
+
+/// A multi-stage counter: ring 1 around the input, then rings around the stones the previous
+/// comparators power; the last comparator is the output (counter n1 * n2 * ...).
+#[derive(Clone)]
+pub struct Chain {
+    pub r1: Ring,
+    pub stages: Vec<Stage>,
+    /// Copper bulb T flip-flops after the last comparator (each doubles N), and their floors.
+    pub bulbs: usize,
+    pub bulb_stone: Vec<P>,
 }
 
 impl Chain {
     pub fn blocks(&self) -> usize {
-        self.r1.blocks() + 1 + 2 * self.droppers.len() + 1 + self.stone.len()
+        self.r1.blocks() + self.stages.iter().map(|s| 1 + 2 * s.droppers.len() + 1 + s.stone.len()).sum::<usize>() + 2 * self.bulbs + self.bulb_stone.len()
     }
 
     pub fn n(&self) -> usize {
-        self.r1.droppers.len() * self.droppers.len()
+        (self.r1.droppers.len() * self.stages.iter().map(|s| s.droppers.len()).product::<usize>()) << self.bulbs
+    }
+
+    /// Bulb T flip-flops in a straight line out of the last comparator (bulb, comparator facing
+    /// back at it, its floor), the same checks as a ring's bulbs.
+    fn with_bulbs(&self, lay: &Layout, k: usize) -> Option<Chain> {
+        if k == 0 {
+            return Some(self.clone());
+        }
+        let (cp, rd) = self.last();
+        let u = sub(cp, rd);
+        let side = [u[2], 0, u[0]];
+        let emit = self.emitters(lay);
+        let drops = self.droppers();
+        let mut taken = self.used(lay);
+        let mut stone = Vec::new();
+        let at = |j: i32| add(cp, [u[0] * j, 0, u[2] * j]);
+        for j in 0..k as i32 {
+            // bulb at cp + (2j+1)u, comparator at cp + (2j+2)u, output beyond the last
+            let (b, c) = (at(2 * j + 1), at(2 * j + 2));
+            let fl = add(c, [0, -1, 0]);
+            if taken.contains(&b) || taken.contains(&c) || taken.contains(&at(2 * j + 3)) || emit.contains(&fl) || self.comparators().contains(&fl) {
+                return None;
+            }
+            // nothing else may power the bulb or the comparator's sides
+            if [add(b, side), sub(b, side), add(b, UP), add(b, [0, -1, 0])].iter().any(|q| taken.contains(q) || emit.contains(q)) {
+                return None;
+            }
+            if [add(c, side), sub(c, side)].iter().any(|q| emit.contains(q) || taken.contains(q)) {
+                return None;
+            }
+            taken.insert(b);
+            taken.insert(c);
+            if !taken.contains(&fl) {
+                stone.push(fl);
+                taken.insert(fl);
+            }
+        }
+        let o = at(2 * k as i32 + 1);
+        if DIRS.iter().any(|d| emit.contains(&add(o, *d))) || drops.contains(&add(o, [0, -1, 0])) {
+            return None;
+        }
+        let mut next = self.clone();
+        next.bulbs = k;
+        next.bulb_stone = stone;
+        Some(next)
+    }
+
+    /// The last comparator and the dropper it reads.
+    fn last(&self) -> (P, P) {
+        match self.stages.last() {
+            Some(s) => (s.comparator, s.read),
+            None => (self.r1.comparator, self.r1.read),
+        }
+    }
+
+    fn containers(&self) -> BTreeSet<P> {
+        self.r1.droppers.iter().chain(self.r1.hoppers.iter()).chain(self.stages.iter().flat_map(|s| s.droppers.iter().chain(s.hoppers.iter()))).copied().collect()
+    }
+
+    fn droppers(&self) -> BTreeSet<P> {
+        self.r1.droppers.iter().chain(self.stages.iter().flat_map(|s| s.droppers.iter())).copied().collect()
+    }
+
+    fn hoppers(&self) -> Vec<P> {
+        self.r1.hoppers.iter().chain(self.stages.iter().flat_map(|s| s.hoppers.iter())).copied().collect()
+    }
+
+    /// Comparators (no block may stand on one).
+    fn comparators(&self) -> BTreeSet<P> {
+        std::iter::once(self.r1.comparator).chain(self.stages.iter().map(|s| s.comparator)).collect()
+    }
+
+    fn used(&self, lay: &Layout) -> BTreeSet<P> {
+        let mut u = self.containers();
+        u.extend(lay.dust.iter().copied());
+        u.extend(self.r1.stone.iter().copied());
+        u.insert(X);
+        u.extend(self.comparators());
+        for s in &self.stages {
+            u.insert(s.center);
+            u.extend(s.stone.iter().copied());
+        }
+        u
+    }
+
+    /// What may power a cell next to it: the input, dust, relays, the stage stones.
+    fn emitters(&self, lay: &Layout) -> BTreeSet<P> {
+        lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).chain(self.stages.iter().map(|s| s.center)).collect()
     }
 
     pub fn design(&self, name: &str) -> String {
-        let (n1, n2) = (self.r1.droppers.len(), self.droppers.len());
         let mut d = self.r1.build(name);
         d.meta.insert("circuit".into(), format!("counter {}", self.n()));
-        let face = sub(self.comparator, self.read);
-        d.ports.insert("output".into(), add(self.comparator, face));
-        d.blocks.insert(self.s2, "minecraft:stone".into());
-        put_ring(&mut d, &self.droppers, &self.hoppers);
-        for p in &self.stone {
+        let (cp, rd) = self.last();
+        let u = sub(cp, rd);
+        let at = |j: i32| add(cp, [u[0] * j, 0, u[2] * j]);
+        d.ports.insert("output".into(), at(2 * self.bulbs as i32 + 1));
+        for s in &self.stages {
+            d.blocks.insert(s.center, "minecraft:stone".into());
+            put_ring(&mut d, &s.droppers, &s.hoppers);
+            for p in &s.stone {
+                d.blocks.insert(*p, "minecraft:stone".into());
+            }
+            d.blocks.insert(s.comparator, format!("minecraft:comparator[facing={},mode=compare,powered=false]", dir_name(sub(s.read, s.comparator))));
+            d.block_entities.insert(s.read, "{Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}".into());
+        }
+        for j in 0..self.bulbs as i32 {
+            d.blocks.insert(at(2 * j + 1), "minecraft:waxed_copper_bulb[lit=false,powered=false]".into());
+            d.blocks.insert(at(2 * j + 2), format!("minecraft:comparator[facing={},mode=compare,powered=false]", dir_name([-u[0], 0, -u[2]])));
+        }
+        for p in &self.bulb_stone {
             d.blocks.insert(*p, "minecraft:stone".into());
         }
-        d.blocks.insert(self.comparator, format!("minecraft:comparator[facing={},mode=compare,powered=false]", dir_name(sub(self.read, self.comparator))));
-        d.block_entities.insert(self.read, "{Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}".into());
+        let sizes: Vec<String> = std::iter::once(self.r1.droppers.len()).chain(self.stages.iter().map(|s| s.droppers.len())).map(|k| k.to_string()).collect();
         let caption = format!(
-            "# Counter {}, two dropper rings, {} blocks (track memory, `mctas circuit memory ring --n {n1} --then {n2}`): ring 1 ({n1} droppers fired by the input{}, hoppers between them) advances its stone one dropper per pulse; its comparator lights once every {n1} pulses and strongly powers a stone whose neighbours are ring 2's {n2} droppers, so ring 2's stone advances once every {n1} pulses; ring 2's comparator is on during one pulse window in {} (level style). Every transit crosses a hopper, so the firing order never matters.\n",
+            "# Counter {}, {} chained dropper rings ({}){}, {} blocks (track memory, `mctas circuit memory ring --n {} --then {}{}`): ring 1 ({} droppers fired by the input{}, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one{}; the last comparator is on during one pulse window in {} (level style). Every transit crosses a hopper, so the firing order never matters.\n",
             self.n(),
+            sizes.len(),
+            sizes.join(" x "),
+            if self.bulbs > 0 { format!(" + {} copper bulb{}", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.blocks(),
+            sizes[0],
+            sizes[1..].join(","),
+            if self.bulbs > 0 { format!(" --bulbs {}", self.bulbs) } else { String::new() },
+            sizes[0],
             if self.r1.dust.is_empty() { String::new() } else { format!(", some through {} dust", self.r1.dust.len()) },
+            if self.bulbs > 0 { format!(", and the last ring toggles {} bulb T flip-flop{}, each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.n(),
         );
         format!("{caption}{}", d.to_text())
@@ -365,77 +482,85 @@ fn placements(lay: &Layout, ds: &[P], hs: &[P]) -> Vec<Ring> {
     out
 }
 
-/// Ring 2 around the stone ring 1's comparator powers.
-fn stage2(lay: &Layout, r1: &Ring, n2: usize) -> Option<Chain> {
-    let u = sub(r1.comparator, r1.read);
-    let (c1, s2) = (r1.comparator, add(r1.comparator, u));
-    let cont1: BTreeSet<P> = r1.droppers.iter().chain(r1.hoppers.iter()).copied().collect();
-    let used1: BTreeSet<P> = cont1.iter().chain(lay.dust.iter()).chain(r1.stone.iter()).copied().chain([X, c1]).collect();
-    if used1.contains(&s2) {
+/// The next ring of a chain, around the stone the chain's last comparator powers: the smallest
+/// fit.
+fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
+    let (cp, rd) = ch.last();
+    let s = add(cp, sub(cp, rd));
+    let used = ch.used(lay);
+    if used.contains(&s) {
         return None;
     }
-    // nothing of ring 1 touches S2 but the comparator feeding it (it would fire or lock), no dust
-    if DIRS.iter().map(|d| add(s2, *d)).any(|q| q != c1 && (cont1.contains(&q) || lay.dust.contains(&q))) {
+    let cont = ch.containers();
+    let drops = ch.droppers();
+    // nothing earlier touches S but the comparator feeding it (it would fire or lock), no dust
+    if DIRS.iter().map(|d| add(s, *d)).any(|q| q != cp && (cont.contains(&q) || lay.dust.contains(&q))) {
         return None;
     }
-    // nor sits under a cell next to S2 (S2's signal there would quasi-power it)
-    if DIRS.iter().map(|d| add(add(s2, *d), [0, -1, 0])).any(|q| r1.droppers.contains(&q)) {
+    // nor sits under a cell next to S (S's signal there would quasi-power it)
+    if DIRS.iter().map(|d| add(add(s, *d), [0, -1, 0])).any(|q| drops.contains(&q)) {
         return None;
     }
-    let inputs: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
-    let free = |p: P| !used1.contains(&p) && p != s2 && !DIRS.iter().any(|d| inputs.contains(&add(p, *d)));
-    let f: Vec<P> = DIRS.iter().map(|d| add(s2, *d)).filter(|p| *p != c1 && free(*p)).collect();
-    if f.len() < n2 {
+    let prev = ch.emitters(lay);
+    // a cell an earlier event may power: next to the input, a dust, a relay or an earlier stone
+    let near = |p: P| DIRS.iter().any(|d| prev.contains(&add(p, *d)));
+    let free = |p: P| !used.contains(&p) && p != s && !near(p);
+    // droppers also stay out from under such cells (quasi-power)
+    let f: Vec<P> = DIRS.iter().map(|d| add(s, *d)).filter(|p| *p != cp && free(*p) && !near(add(*p, UP)) && !lay.dust.contains(&add(*p, UP))).collect();
+    if f.len() < n {
         return None;
     }
-    // ring 2's hoppers stay off S2 (it stays powered for a whole window and would lock them)
+    // this ring's hoppers stay off S (it stays powered for a whole window and would lock them)
     let links = |a: P, b: P| -> Vec<P> {
         if dist(a, b) != 2 {
             return Vec::new();
         }
-        DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && free(*c) && dist(*c, s2) != 1).collect()
+        DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && free(*c) && dist(*c, s) != 1).collect()
     };
+    let comparators = ch.comparators();
+    let old_hoppers = ch.hoppers();
     let mut best: Option<Chain> = None;
     let mut path: Vec<P> = Vec::new();
     let mut hops: Vec<P> = Vec::new();
-    for s in 0..f.len() {
+    for st in 0..f.len() {
         path.clear();
         hops.clear();
-        path.push(f[s]);
-        cycles(&f, s, n2, &links, &mut path, &mut hops, &mut |ds: &[P], hs: &[P]| {
+        path.push(f[st]);
+        cycles(&f, st, n, &links, &mut path, &mut hops, &mut |ds: &[P], hs: &[P]| {
             for rev in [false, true] {
-                let (mut ds2, mut hs2) = (ds.to_vec(), hs.to_vec());
+                let (mut dn, mut hn) = (ds.to_vec(), hs.to_vec());
                 if rev {
-                    ds2 = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
-                    hs2 = hs.iter().rev().copied().collect();
+                    dn = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
+                    hn = hs.iter().rev().copied().collect();
                 }
-                let cont: BTreeSet<P> = cont1.iter().chain(ds2.iter()).chain(hs2.iter()).copied().collect();
-                let k = ds2.len();
-                if (0..k).any(|i| sub(ds2[(i + 1) % k], hs2[i]) == UP) {
+                let k = dn.len();
+                if (0..k).any(|i| sub(dn[(i + 1) % k], hn[i]) == UP) {
                     continue;
                 }
-                if r1.hoppers.iter().chain(hs2.iter()).any(|h| cont.contains(&add(*h, UP))) {
+                let all: BTreeSet<P> = cont.iter().chain(dn.iter()).chain(hn.iter()).copied().collect();
+                if old_hoppers.iter().chain(hn.iter()).any(|h| all.contains(&add(*h, UP))) {
                     continue;
                 }
-                let used: BTreeSet<P> = used1.iter().chain(ds2.iter()).chain(hs2.iter()).copied().chain(std::iter::once(s2)).collect();
-                let emit: BTreeSet<P> = inputs.iter().copied().chain(std::iter::once(s2)).collect();
-                for &d2 in &ds2 {
+                let all_drops: BTreeSet<P> = drops.iter().chain(dn.iter()).copied().collect();
+                let used2: BTreeSet<P> = used.iter().chain(dn.iter()).chain(hn.iter()).copied().chain(std::iter::once(s)).collect();
+                let emit: BTreeSet<P> = prev.iter().copied().chain(std::iter::once(s)).collect();
+                for &d2 in &dn {
                     for u2 in HORIZ {
                         let (c2, o2, fl) = (add(d2, u2), add(add(d2, u2), u2), add(add(d2, u2), [0, -1, 0]));
                         let side = [u2[2], 0, u2[0]];
                         // the floor: empty (stone goes there) or a block with a full top
-                        if fl == c1 || used.contains(&c2) || used.contains(&o2) || emit.contains(&fl) || [add(c2, side), sub(c2, side)].iter().any(|q| emit.contains(q)) {
+                        if comparators.contains(&fl) || used2.contains(&c2) || used2.contains(&o2) || emit.contains(&fl) || [add(c2, side), sub(c2, side)].iter().any(|q| emit.contains(q)) {
                             continue;
                         }
-                        // the output cell must not touch the input, a dust or S2, nor sit on a
-                        // dropper (the comparator would quasi-power it)
-                        if DIRS.iter().any(|dd| emit.contains(&add(o2, *dd))) || cont.contains(&add(o2, [0, -1, 0])) {
+                        // the output cell must not touch an emitter nor sit on a dropper
+                        if DIRS.iter().any(|dd| emit.contains(&add(o2, *dd))) || all_drops.contains(&add(o2, [0, -1, 0])) {
                             continue;
                         }
-                        let stone = if used.contains(&fl) { Vec::new() } else { vec![fl] };
-                        let ch = Chain { r1: r1.clone(), s2, droppers: ds2.clone(), hoppers: hs2.clone(), comparator: c2, read: d2, stone };
-                        if best.as_ref().is_none_or(|b| ch.blocks() < b.blocks()) {
-                            best = Some(ch);
+                        let stone = if used2.contains(&fl) { Vec::new() } else { vec![fl] };
+                        let mut next = ch.clone();
+                        next.stages.push(Stage { center: s, droppers: dn.clone(), hoppers: hn.clone(), comparator: c2, read: d2, stone });
+                        if best.as_ref().is_none_or(|b| next.blocks() < b.blocks()) {
+                            best = Some(next);
                         }
                     }
                 }
@@ -445,8 +570,9 @@ fn stage2(lay: &Layout, r1: &Ring, n2: usize) -> Option<Chain> {
     best
 }
 
-/// The smallest two-stage counters n1 x n2.
-pub fn chain_search(n1: usize, n2: usize, max_dust: usize, keep: usize) -> Vec<Chain> {
+/// The smallest chained counters n1 x n2 x ... (`ns` = the ring sizes, input side first).
+pub fn chain_search(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize) -> Vec<Chain> {
+    let n1 = ns[0];
     let mut found: Vec<Chain> = Vec::new();
     for lay in layouts(max_dust) {
         let f: Vec<P> = lay.fired.iter().copied().collect();
@@ -473,9 +599,16 @@ pub fn chain_search(n1: usize, n2: usize, max_dust: usize, keep: usize) -> Vec<C
                         ds1 = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
                         hs1 = hs.iter().rev().copied().collect();
                     }
-                    for r1 in placements(&lay, &ds1, &hs1) {
-                        if let Some(ch) = stage2(&lay, &r1, n2) {
-                            found.push(ch);
+                    'placement: for r1 in placements(&lay, &ds1, &hs1) {
+                        let mut ch = Chain { r1, stages: Vec::new(), bulbs: 0, bulb_stone: Vec::new() };
+                        for &nk in &ns[1..] {
+                            match next_stage(&lay, &ch, nk) {
+                                Some(next) => ch = next,
+                                None => continue 'placement,
+                            }
+                        }
+                        if let Some(b) = ch.with_bulbs(&lay, bulbs) {
+                            found.push(b);
                         }
                     }
                 }
@@ -556,18 +689,23 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
 }
 
 /// `circuit memory ring`: write the smallest rings for each N.
-pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: Option<usize>, divider: bool, out: &Path) -> Result<()> {
+pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: &[usize], divider: bool, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
-    if let Some(n2) = then {
+    if !then.is_empty() {
         for &n in ns {
-            let chains = chain_search(n, n2, max_dust, keep);
-            let total = n * n2;
+            let sizes: Vec<usize> = std::iter::once(n).chain(then.iter().copied()).collect();
+            let chains = chain_search(&sizes, max_dust, keep, bulbs);
+            let total: usize = sizes.iter().product::<usize>() << bulbs;
+            let mut label: Vec<String> = sizes.iter().map(|k| format!("ring{k}")).collect();
+            if bulbs > 0 {
+                label.push(format!("bulb{bulbs}"));
+            }
             if chains.is_empty() {
-                println!("counter {total}: no ring {n} -> ring {n2} chain with at most {max_dust} dust");
+                println!("counter {total}: no {} chain with at most {max_dust} dust", label.join(" -> "));
                 continue;
             }
             for (i, c) in chains.iter().enumerate() {
-                let base = format!("counter{total}-ring{n}-ring{n2}");
+                let base = format!("counter{total}-{}", label.join("-"));
                 let name = if chains.len() == 1 { base } else { format!("{base}-{i}") };
                 std::fs::write(out.join(format!("{name}.txt")), c.design(&name))?;
                 println!("counter {total}: {} blocks -> {name}", c.blocks());

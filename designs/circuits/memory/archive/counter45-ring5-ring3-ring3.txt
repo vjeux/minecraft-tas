@@ -1,0 +1,36 @@
+# archived 2026-10-20T02:54Z from designs/circuits/memory/tracks/memory/counter45-ring5-ring3-ring3.txt by mctas circuit archive
+# CIRCUIT: counter45-ring5-ring3-ring3 counter 45 N 45, output level every 45 pulses, 30 blocks, 10x3x3, robust
+# Counter 45, 3 chained dropper rings (5 x 3 x 3), 30 blocks (track memory, `mctas circuit memory ring --n 5 --then 3,3`): ring 1 (5 droppers fired by the input, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; the last comparator is on during one pulse window in 45 (level style). Every transit crosses a hopper, so the firing order never matters.
+name: counter45-ring5-ring3-ring3
+circuit: counter 45
+port input: 0 0 0
+port output: -9 0 0
+nbt: -7 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: -4 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: -1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -8 0 -1
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  S minecraft:stone
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  S..S..S
+  .
+layer 0:
+  .......hB
+  CBSCBSCd.A
+  .FE.FE.FEI
+layer 1:
+  ........G
+  .hA.hA..DH
+  ..H..H
