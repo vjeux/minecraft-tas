@@ -404,15 +404,29 @@ fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> 
     slots.into_iter().map(|m| m.into_inner().ok().flatten().expect("every item mapped")).collect()
 }
 
-/// The designs the site does not publish (crates/site/hidden.tsv): (study, file pattern, why).
+/// The designs the site does not publish (crates/site/hidden.tsv): (study, file pattern, why);
+/// the `!` exceptions are not in this list ([`hidden_exceptions`]).
 pub fn hidden_rules() -> Vec<(String, String, String)> {
+    hidden_lines().into_iter().filter(|(ex, ..)| !ex).map(|(_, s, p, w)| (s, p, w)).collect()
+}
+
+/// The `!` lines of crates/site/hidden.tsv: designs published whatever the other lines say.
+pub fn hidden_exceptions() -> Vec<(String, String, String)> {
+    hidden_lines().into_iter().filter(|(ex, ..)| *ex).map(|(_, s, p, w)| (s, p, w)).collect()
+}
+
+fn hidden_lines() -> Vec<(bool, String, String, String)> {
     include_str!("../hidden.tsv")
         .lines()
         .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
         .filter_map(|l| {
             let (pat, why) = l.split_once('\t')?;
+            let (exception, pat) = match pat.strip_prefix('!') {
+                Some(p) => (true, p),
+                None => (false, pat),
+            };
             let (study, file) = pat.split_once('/')?;
-            Some((study.to_string(), file.to_string(), why.to_string()))
+            Some((exception, study.to_string(), file.to_string(), why.to_string()))
         })
         .collect()
 }
@@ -441,7 +455,11 @@ pub fn glob(pattern: &str, s: &str) -> bool {
 
 /// Why the site does not publish `study/file` (crates/site/hidden.tsv), if it does not.
 pub fn hidden(study: &str, file: &str) -> Option<String> {
-    hidden_rules().into_iter().find(|(s, p, _)| s == study && (glob(p, file) || glob(&format!("{p}.txt"), file))).map(|(_, _, why)| why)
+    let matches = |s: &str, p: &str| s == study && (glob(p, file) || glob(&format!("{p}.txt"), file));
+    if hidden_exceptions().iter().any(|(s, p, _)| matches(s, p)) {
+        return None;
+    }
+    hidden_rules().into_iter().find(|(s, p, _)| matches(s, p)).map(|(_, _, why)| why)
 }
 
 /// The archived circuits of every study.
@@ -1130,6 +1148,10 @@ mod tests {
         assert!(!glob("pext-*-sf*", "pext-n3-flat-cascade19.txt"));
         assert!(hidden("pext", "pext-n4-sf60.txt").is_some());
         assert!(hidden("pulse", "pext-n4-sf60.txt").is_none());
+        // the `!` exceptions win over the slime-free rule
+        assert!(hidden("pext", "pext-n2-sf8-flat.txt").is_none());
+        assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
+        assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
     }
 
