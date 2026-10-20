@@ -198,3 +198,14 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   quasi-connectivity, its --strict mode models it), 8 hit the 3M-state cap. macrosat's own
   schedules never replay in families' model, for the same reason (a firing piston QC-fires the
   retracted one below it). A repair run (neighbours of every seed, 2 rounds) is in msat/r2*.
+- Repair (2 rounds, families with QC): 97 redsim-WORKING variants, all from m86-a (best unfed
+  1, island start 9). With QC off for macrosat seeds (`Mech::qc` per mechanism; macrosat lists
+  co-fired pistons as actions of their own): 7 of 18 schedules replay and 5 more 7x7 seeds solve,
+  but every 7x7 export is BROKEN in redsim (stacked pistons couple). The non-strict SATs are not
+  physical; the next input is clockinfra's `--physics --max-pistons 14` sweep (sat/phys14/),
+  whose schedules model co-firing and rest QC stability.
+- Limitation to know: mechmut's ideal plans feed every piston DIRECTLY (an input block behind
+  it), which also powers its cell and QC-arms a retracted piston below; macrosat's own exports
+  feed through the cell above where its model chose a QC feed (+ a glass update). So mechmut's
+  redsim verdict is pessimistic for stacked pistons fed by QC (7x7-private / m7-a: clockinfra's
+  export WORKS, mechmut's re-export of the same schedule is BROKEN).
