@@ -97,6 +97,23 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Core flaw: the box-edge right column needs bottom pistons (A, K), and they cannot be
     reached. Next: a right column with no bottom-right pistons, or a centre escape that frees
     (1,-3) so the bottom becomes one island.
+* 6-wide topology, worked out (20:30Z), for anyone trying a 6x9 / 6x8 of this kind:
+  - Only one side can carry the slime structure, which needs the extra column (x=-2). The other
+    wall sits on the box edge, so its door column (x=2) must make a 2-cell vertical move plus one
+    horizontal shift (K at (3,-1) or K' at (3,3)). That costs pistons in a corner area.
+  - Corner areas are blind: an observer at x=3 or in the edge row that watches a mechanism cell
+    always outputs out of the box. The bottom-right can only see B1 from (2,-3), so (2,-3) must
+    stay free and B1 must be fed from (0,-3).
+  - The top (lever area) reaches the bottom-left only through the slime (a dragged rider). On close
+    the slime must therefore return first, so O must leave (0,-1) downwards (D_O at (0,-3)), and
+    that takes B1's feed. These two requirements exclude each other in 6x9.
+  - The top could see the centre column through an observer at (1,4) watching (1,3) (output into
+    (1,5)), but (1,4) is where P_T must sit to pull C up.
+  - The bottom-left could push the slime itself (a piston at (0,-1) pushing the rider W) and the top
+    could watch a rider at (-1,5) from (0,5) (12 blocks moved, exactly the limit). But Qv's only
+    driver cell is (0,-1).
+  - Conclusion: this mechanism family is not wireable in 6x9 without a new idea for the box-edge
+    column or for driving Qv.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
