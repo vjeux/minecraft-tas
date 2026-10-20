@@ -86,6 +86,11 @@ header.top {
    table's last column was cut, links wrapped one word per line) */
 .scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
 .scroll-x > table.list th, .scroll-x > table.list td { white-space: nowrap; }
+/* a kind's table wraps its cells (critique: a 1,150 px "best at" cell pushed the sizes off a
+   1280 px screen) */
+.scroll-x > table.kind-sizes { width: 100%; }
+.scroll-x > table.kind-sizes th, .scroll-x > table.kind-sizes td { white-space: normal; }
+.scroll-x > table.kind-sizes td:first-child { min-width: 14em; }
 .scroll-x > table.list td.def { white-space: normal; min-width: 180px; max-width: 280px; }
 /* on a phone a kind's table stacks: one small block per size / record / period, its numbers under
    its name (no sideways scrolling: critique, cut columns on phones) */
@@ -178,6 +183,11 @@ button { font: inherit; }
 /* cards */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .grid.two { grid-template-columns: repeat(auto-fill, minmax(320px, 420px)); }
+/* a study's kind with its one card: the words beside the card on a wide screen, stacked on a phone */
+.kind-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 380px); gap: 12px 28px; align-items: start; margin: 18px 0; }
+.kind-row .kind-text h2 { margin-top: 0; }
+.grid.one { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 700px) { .kind-row { grid-template-columns: minmax(0, 1fr); } }
 .card {
   display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; color: var(--fg); box-shadow: var(--shadow); transition: transform .08s ease, border-color .08s ease;

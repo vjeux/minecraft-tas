@@ -205,7 +205,7 @@ pub fn kind_words(kind: &str) -> String {
         "d-latch" => "Copy-and-hold memory",
         "dff" => "Clocked memory",
         "dff-enable" => "Clocked memory with enable",
-        "shift" => "Bit conveyor",
+        "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
         "piston-extender" => "Piston extender",
@@ -464,16 +464,16 @@ pub fn lead_words(board: &str) -> String {
     let what = match base {
         "solid" => "stone door",
         "sculk" => "sculk door",
-        "gravity" => "gravity door",
-        "entity" => "entity door",
+        "gravity" => "gravity door (its doorway blocks are sand or gravel)",
+        "entity" => "door that uses entities (a minecart or the like) as moving parts",
         "slime-free" => "door with no slime",
         "flat" => "1-block-thick door",
         "flat, no slime or honey" => "1-block-thick door with no slime",
         "seamless" => "hidden door",
         "seamless, flat, no slime or honey" => "hidden 1-block-thick door",
         "wall" => "door in a 3-thick wall",
-        "ground" => "door with nothing below it",
-        "entities" => "entity door",
+        "ground" => "door that stands on flat ground (no digging below it)",
+        "entities" => "door that uses entities (a minecart or the like) as moving parts",
         other => return format!("best: {other}{tail}"),
     };
     format!("most compact {what}{tail}")
@@ -701,7 +701,17 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // by their badges); the items it is timed with go in the second line (critique: "first
             // box after 11 min" with nothing saying 64-stack items take 1728 to fill a box)
             let rate = cm(c, "items/s");
-            let first = cm(c, "first box").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("first box after {}", crate::real_time(g)));
+            // (the time to fill one box, to the half minute: critique, "first box after 11 min
+            // 33.75 s" said nothing of what it measured)
+            let first = cm(c, "first box").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| {
+                let secs = g as f64 / 20.0;
+                if secs < 90.0 {
+                    format!("fills a box in about {} s", secs.round())
+                } else {
+                    let halves = (secs / 30.0).round() as u64;
+                    format!("fills a box in about {}{} min", halves / 2, if halves % 2 == 1 { "½" } else { "" })
+                }
+            });
             let lead = if c.lead.is_empty() { String::new() } else { format!("{} · ", badge_words(&c.lead)) };
             let stack = c.axis.split_whitespace().find_map(|w| w.strip_suffix("-stack")).unwrap_or(k1);
             let items = match stack {
@@ -785,7 +795,12 @@ pub fn props(b: &Build) -> Props {
                 }
             }
             let timing = b.door.as_ref().and_then(|d| Some(format!("opens in {} · closes in {}", crate::real_time(d.open?), crate::real_time(d.close?))));
-            let sub = timing.unwrap_or_default();
+            let mut sub = timing.unwrap_or_default();
+            // the one door card says what sits behind it (critique: the lone card never said 11
+            // records are on its page)
+            if let Some(n) = b.door.as_ref().map(|d| d.records).filter(|n| *n > 1) {
+                sub = format!("the best of {n} records (smallest, fastest, hidden, sculk…): pick one on its page · {sub}");
+            }
             let cat = door_category(&b.group);
             // one block count (critique: "7×8×1 · 38 blocks" next to "56 blocks of space" read as
             // two counts): the blocks, in their space
@@ -833,7 +848,15 @@ pub fn props(b: &Build) -> Props {
             }
             // the one clock card: the periods its page's table covers (vjeux 21:47Z)
             if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
-                return Props { kind: "Clock".into(), title: format!("a clock for every period: {range}"), sub: format!("smallest: {period}, {}", blocks_word(b.blocks)), chips: Vec::new() };
+                let (span, tested) = range.split_once(':').unwrap_or((range.as_str(), ""));
+                let (lo, hi) = span.split_once('-').unwrap_or((span, span));
+                let hi_words = hi.parse::<u32>().map(crate::real_time).unwrap_or_else(|_| format!("{hi} ticks"));
+                return Props {
+                    kind: "Clock".into(),
+                    title: format!("a clock for any period from {lo} ticks to {hi_words}"),
+                    sub: format!("{tested} periods tested in the game, the ones in between built step by step · pictured: {period}, {}", blocks_word(b.blocks)),
+                    chips: Vec::new(),
+                };
             }
             Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips }
         }
@@ -871,7 +894,7 @@ pub fn props(b: &Build) -> Props {
                 if let Some(d) = &b.dims {
                     let n: Vec<u32> = d.split('x').filter_map(|v| v.trim().parse().ok()).collect();
                     if n.len() == 3 && !chips.iter().any(|c| c == "1 block thick") {
-                        if n[1] == 1 {
+                        if n[1] == 1 && !c.ports_off_layers {
                             chips.push(if watches { "1 block high, plus the block it watches".into() } else { "lies flat (1 block high)".into() });
                         } else if n[0] == 1 || n[2] == 1 {
                             chips.push("1 block wide".into());
@@ -913,6 +936,9 @@ pub fn props(b: &Build) -> Props {
                 } else {
                     (title, sub)
                 };
+                // why it is the one on the site leads its second line (critique: "cards don't say
+                // why they're the best"; not a chip: the shared chips fold into a section's line)
+                let sub = if c.claim.is_empty() { sub } else { std::iter::once(c.claim.clone()).chain(sub).collect() };
                 Props { kind: if b.group.is_empty() { kind_words(&c.kind) } else { b.group.clone() }, title, sub: sub.join(" · "), chips }
             }
             None => Props { kind: b.group.clone(), title: blocks_word(b.blocks), sub: String::new(), chips: flags(&["slime-free", "flat"]) },
@@ -964,6 +990,16 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
         // (what the group adds over the smaller ones of its kind, when it says: "adds 18, 34 ticks")
         let lead = b.circuit.as_ref().filter(|c| !c.lead.is_empty() && !c.kind.starts_with("shulker-") && !c.kind.starts_with("piston-extender")).map(|c| format!(" · {}", c.lead)).unwrap_or_default();
         p.title = format!("{r}{lead} · {size}");
+        // a kind's card: its facts are the pictured size's, so they say which (critique: "reach 2
+        // to 12" beside the reach-2 design's "out in 9 ticks, fits in 5×3×1")
+        if let Some(c) = b.circuit.as_ref().filter(|c| c.tunable.starts_with("kind:") && !p.sub.is_empty()) {
+            let which = if c.kind.starts_with("flying-machine") { c.variant_label.clone() } else { value_words(&c.kind, &c.axis) };
+            if !which.is_empty() {
+                // (the kind's claim first, then the pictured size's facts)
+                let rest = if c.claim.is_empty() { p.sub.clone() } else { p.sub.strip_prefix(&format!("{} · ", c.claim)).map(String::from).unwrap_or_else(|| p.sub.clone()) };
+                p.sub = if c.claim.is_empty() || rest == p.sub { format!("pictured, {which}: {rest}") } else { format!("{} · pictured, {which}: {rest}", c.claim) };
+            }
+        }
     }
     let mut chips: Vec<String> = p
         .chips
