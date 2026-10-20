@@ -25,7 +25,7 @@ fences: redsim doesn't model them).
 | presence, smallest | 2 blocks | bud-fence-observer (footprint 3) | holds; the k = 2 census (no fences) has no other |
 | presence, footprint 1 | 3 blocks | bud-torch-dropper / bud-torch-lamp (silent), both tile every 1 reading the observer | k = 2 census: only observer-class sets; needs a fence case analysis |
 | presence, tileable every 1 | 2 blocks | bud-fence-observer, output read from the observer: copies stack every block up a column | **record** (was bud-fence-stone, 3 blocks: folded) |
-| place only / remove only | 4 blocks | bud-place-only, bud-remove-only (latency 5, tile every 1) | k = 3 census: neither set exists in 3 (no fences); target: lower latency |
+| place only / remove only | 4 blocks | bud-place-only (footprint 1, tiles every 2), bud-remove-only (footprint 2, tiles every 3), latency 5: the observer now fires into a fixed output cell beside it (it used to be read in the cell it was lifted into or pulled back to, a hole the output rule closes) | k = 3 census: neither set exists in 3 (no fences); target: lower latency |
 | classic BUD, smallest | 3 blocks | bud-slime-qc (jams on 2 gt pairs) | **record** (k <= 2 census: none) |
 | classic BUD, never jams | 5 blocks | bud-qc-nojam (latency 3, re-arm 8) | target 4: the k = 4 census covered sticky pistons only (686 designs, all jam) |
 | classic BUD, latched | 2 blocks | bud-latched-qc | **record** (one block can't latch) |
