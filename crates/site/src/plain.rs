@@ -136,8 +136,8 @@ pub fn one_liner(c: &Circuit) -> String {
         "piston-extender" => {
             let (e, r) = (ticks(m(c, "extend")), ticks(m(c, "retract")));
             format!(
-                "Turn the input on and a block is pushed {n} blocks out; turn it off and the block comes back exactly where it was{}.",
-                if e.is_empty() { String::new() } else { format!(" (out in {e}, back in {r})") }
+                "Turn the input on and a block is pushed {n} blocks out; turn it off and the block comes back exactly where it was.{}",
+                if e.is_empty() { String::new() } else { format!(" It goes out in {e} and comes back in {r}.") }
             )
         }
         "flying-machine" => {
@@ -271,6 +271,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
         "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
+        "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: set the speed to 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
         "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
         "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
@@ -351,13 +352,19 @@ pub fn warning(b: &Build) -> Option<String> {
 pub fn door(b: &Build) -> (String, String, String) {
     let d = b.door.as_ref();
     let timing = d.and_then(|d| Some(format!(" It opens in {} and closes in {}.", ticks(&format!("{} gt", d.open?)), ticks(&format!("{} gt", d.close?))))).unwrap_or_default();
-    let what = format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}");
+    // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
+    // the lever's click")
+    let what = if b.group == "sculk" {
+        format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    } else {
+        format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    };
     let seamless = d.is_some_and(|d| !d.seamless.is_empty());
     let why = match b.group.as_str() {
-        "sculk" => "a hidden 3×3 entrance for a base; it listens with a sculk sensor, so keep noisy mobs and footsteps away from it.".to_string(),
+        "sculk" => "a hidden 3×3 entrance for a base.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
-        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", flush with the wall when closed" } else { "" }),
+        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
     };
     (what, first_cap(&why), "Flip the lever (tap it in the view, or the flip button under it) and watch the door open; flip it again to close it.".to_string())
 }
@@ -366,38 +373,49 @@ pub fn door(b: &Build) -> (String, String, String) {
 pub fn clock(b: &Build) -> (String, String, String) {
     let c = b.clock.as_ref();
     let period = c.map(|c| ticks(&format!("{} gt", c.period))).unwrap_or_default();
-    let start = c.map(|c| if c.start.is_empty() || c.start.starts_with("self") { " It starts on its own once built." } else { " It needs one kick to start." }).unwrap_or("");
+    let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
+    let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Pulses by itself every {period}, forever.{start}"),
+        format!("Its output pulses by itself every {period}, forever.{start}"),
         "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
-        "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it.".to_string(),
+        if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
 
-/// The "What it does" box at the top of a build page: one sentence, why, how to try it, and how
-/// this design does it (its plain mechanism).
+/// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
+/// mechanism); what it does and why build it are in the heading, on the first screen.
 pub fn intro_box(b: &Build, has_viewer: bool) -> String {
-    let (what, why, try_line) = match (&b.circuit, b.kind.as_str()) {
-        (Some(c), _) => (one_liner(c), why_build(c), try_it(c, has_viewer)),
-        (None, "door") => door(b),
-        (None, "clock") => clock(b),
-        _ => (String::new(), String::new(), String::new()),
+    let try_line = match (&b.circuit, b.kind.as_str()) {
+        (Some(c), _) => try_it(c, has_viewer),
+        (None, "door") => door(b).2,
+        (None, "clock") => clock(b).2,
+        _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
     let how = first_sentence(&how);
-    let mut s = String::from("<section class=\"what plain\"><h2>Why build it</h2>");
-    if !why.is_empty() {
-        s.push_str(&format!("<p>{}</p>", esc(&why)));
+    if try_line.is_empty() && how.is_empty() {
+        return String::new();
     }
-    let _ = what;
+    let mut s = String::from("<section class=\"what plain\"><h2>Try it</h2>");
     if !try_line.is_empty() {
-        s.push_str(&format!("<p><b>Try it:</b> {}</p>", esc(&try_line)));
+        s.push_str(&format!("<p>{}</p>", esc(&try_line)));
     }
     if !how.is_empty() {
         s.push_str(&format!("<p class=\"howdesign\"><b>How this design does it:</b> {how}</p>"));
     }
     s.push_str("</section>\n");
     s
+}
+
+/// Why you would build it, for any build (the heading's second line).
+pub fn why_any(b: &Build) -> String {
+    match (&b.circuit, b.kind.as_str()) {
+        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor: a block of sand that rises and falls back with one lever.".to_string(),
+        (Some(c), _) => why_build(c),
+        (None, "door") => door(b).1,
+        (None, "clock") => clock(b).1,
+        _ => String::new(),
+    }
 }
 
 /// The first sentence of an (escaped) text: up to the first ". " that is not an abbreviation.
@@ -431,7 +449,7 @@ mod tests {
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");
         let ext = circuit("piston-extender 3", &[("extend", "27 gt"), ("retract", "56 gt (from the press)")]);
-        assert!(one_liner(&ext).contains("pushed 3 blocks out") && one_liner(&ext).contains("back in 56 ticks"), "{}", one_liner(&ext));
+        assert!(one_liner(&ext).contains("pushed 3 blocks out") && one_liner(&ext).contains("comes back in 56 ticks"), "{}", one_liner(&ext));
         let gate = circuit("gate and", &[("function", "and"), ("latency", "0 gt")]);
         assert!(one_liner(&gate).contains("both inputs") && one_liner(&gate).contains("instant"));
     }

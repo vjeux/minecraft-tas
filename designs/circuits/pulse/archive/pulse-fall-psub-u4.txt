@@ -9,6 +9,7 @@ extend axis: 15 + 16n
 extend blocks: 22 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..2
+extend group title: odd-length falling-edge pulse: a piston-moved redstone block and a loop of repeaters
 extend base: 0
 extend generator: mctas circuit pulse family fall-psub-u4 --n {n} --out {out}
 origin: -2 0 -1

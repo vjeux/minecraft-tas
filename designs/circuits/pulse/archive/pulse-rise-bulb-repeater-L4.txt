@@ -2,6 +2,8 @@
 # CIRCUIT: pulse-rise-bulb-repeater-L4 rising-edge L 4 gt, delay 8 gt, min-pulse 1 gt, tileable every 1 (0 0 1), 6 blocks, 4x2x1, robust
 name: pulse-rise-bulb-repeater-L4
 circuit: rising-edge
+group: pulse-rise-bulb-repeater
+group title: rising-edge pulse for 1-tick inputs: a copper bulb, an observer and a repeater
 tile: 0 0 1
 port input: 0 1 0
 port output: 4 1 0

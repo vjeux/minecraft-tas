@@ -587,11 +587,14 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 }
             }
             let id = id_of(r);
+            let basics = (study == "gates" && flags.iter().any(|f| f == "lever")) || (r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand"));
             let kinds = parsed.as_ref().map(|p| p.kinds.clone()).unwrap_or_else(|| r.kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect());
             out.push(Build {
                 id: id.clone(),
                 kind: "circuit".into(),
-                group: site_model::html::kind_words(&r.kind),
+                // a piston extender that lifts sand and lets it fall back is its own thing (critique:
+                // "SAND ONLY, UPWARD ONLY ... not a general extender")
+                group: if r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand") { "Sand elevator".to_string() } else { site_model::html::kind_words(&r.kind) },
                 name: r.file.trim_end_matches(".txt").to_string(),
                 page: format!("{id}.html"),
                 design: format!("designs/circuits/{study}/{}", r.file),
@@ -603,6 +606,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 flags,
                 circuit: Some(Circuit {
                     study: study.to_string(),
+                    // its study's place, the basics last (the gates with their own levers: the
+                    // coordinator's decision (c); the sand elevators)
+                    order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
                     value: number(&r.axis),
@@ -626,6 +632,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
+                    // (only for designs that hold items: the same blocks with other contents)
+                    layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else { String::new() },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -698,13 +706,17 @@ fn read_catalog(root: &Path) -> BTreeMap<String, (String, String)> {
 /// versions for the same value (critique C27).
 fn fold_same_builds(root: &Path, builds: &mut [Build]) {
     // the structure: every cell with its block state, plus the port cells (the same blocks with
-    // other ports is another machine)
+    // other ports is another machine), plus what the blocks hold (the item counters are one set
+    // of blocks with other items in the dropper: other machines, not twins)
     let key_of = |b: &Build| -> Option<String> {
         b.circuit.as_ref()?;
-        let d = Design::load(&root.join(repo_path_rel(b))).ok()?;
+        let path = root.join(repo_path_rel(b));
+        let d = Design::load(&path).ok()?;
         let blocks: Vec<String> = d.clock.design.blocks.iter().map(|(p, s)| format!("{p:?}={s}")).collect();
         let ports: Vec<String> = d.inputs.iter().map(|i| format!("i{:?}", i.pos)).chain(d.outputs.iter().map(|o| format!("o{:?}", o.pos))).collect();
-        Some(format!("{}|{}", blocks.join(";"), ports.join(";")))
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let contents: String = text.lines().filter(|l| !l.trim_start().starts_with('#')).filter(|l| l.contains('{')).map(|l| l.split_once('{').map(|(_, r)| r).unwrap_or("")).collect::<Vec<_>>().join(";");
+        Some(format!("{}|{}|{contents}", blocks.join(";"), ports.join(";")))
     };
     let mut same: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (i, b) in builds.iter().enumerate() {
@@ -767,6 +779,27 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 b.flags.push("variant".into());
             }
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
+        }
+    }
+    // one build with other items preloaded (the item counters: counter17-items ... counter576-
+    // items, the critique's "NINE separate cards"): one tunable group, unless the catalog groups
+    // them already
+    let mut same: BTreeMap<(String, String, String), Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(c) = &b.circuit {
+            if c.tunable.is_empty() && !c.layout_key.is_empty() && c.host.is_none() && c.layout_of.is_none() {
+                same.entry((c.study.clone(), c.kind.split_whitespace().next().unwrap_or("").to_string(), c.layout_key.clone())).or_default().push(i);
+            }
+        }
+    }
+    for members in same.values().filter(|m| m.len() > 1) {
+        let id = format!("same-build:{}", builds[members[0]].name);
+        notes.push(format!("{}: {} designs are one build with other contents, one group", builds[members[0]].name, members.len()));
+        for &i in members {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.tunable = id.clone();
+                c.group_differs = "the items it holds (the count it reacts on)".into();
+            }
         }
     }
     // tunable groups: the smallest shown design stands for the group
@@ -861,6 +894,22 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
 /// A circuit build's design path relative to designs/circuits.
 fn repo_path_rel(b: &Build) -> String {
     repo_path(b).trim_start_matches(&format!("{ROOT}/")).to_string()
+}
+
+/// A verdict's type key without the blocks' contents (`dropper[facing=west]{Items:[...]}` ->
+/// `dropper[facing=west]`).
+fn strip_contents(key: &str) -> String {
+    let mut out = String::with_capacity(key.len());
+    let mut depth = 0u32;
+    for ch in key.chars() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => out.push(ch),
+            _ => {}
+        }
+    }
+    out
 }
 
 /// What can differ between the members of a tunable group, read from one member's design.

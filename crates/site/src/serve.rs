@@ -354,10 +354,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<p class=\"oneliner\">", "<h2>Why build it</h2>", "<b>Try it:</b>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: one plain sentence, why build it, try it; our test and the measurements in the details", ok, b.page.clone());
-        // the redstone first (vjeux): the live view comes before the explanation
-        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Why build it</h2>")).is_some_and(|(v, w)| v < w);
+        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // the redstone first (vjeux): the live view comes before the explanation (the heading's
+        // two sentences aside)
+        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
         check("circuit page: the live 3D view before the explanation", first, b.page.clone());
     }
     let c = site.builds.iter().find(|b| b.kind == "clock" && b.page.ends_with("clk-obs-p4-obs-4b.html")).or_else(|| site.builds.iter().find(|b| b.kind == "clock"));
@@ -382,7 +383,9 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
     check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
     let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
-    let reaches: Vec<u32> = pext_page.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
+    // the general extenders (the sand elevators have their own section after them)
+    let general = pext_page.split("Sand elevator:").next().unwrap_or(&pext_page);
+    let reaches: Vec<u32> = general.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
     check(
         "study cards: the property line leads, sorted by the main number, no design names",
         reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && !pext_page.contains("class=\"name\"") && !pext_page.contains(">pext-n"),
