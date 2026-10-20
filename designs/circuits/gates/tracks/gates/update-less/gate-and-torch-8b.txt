@@ -1,0 +1,29 @@
+# update-less (2026-10-19, the real game): FAIL, the torch never relights: its stone is powered by
+# dusts that are only redirected (no power change, no block update), so the torch is never told.
+# This is the test that showed the judge had to read outputs through a consumer.
+# AND gate, 2 gt (track gates): an instant NAND (two dusts powered by redstone blocks, each bent
+# away by one input, both pointing into one stone) and a torch on that stone: the stone is powered
+# unless both inputs are on, so the torch is lit only when both are. 2 gt (the torch).
+name: gate-and-torch-8b
+circuit: gate and
+port input.a: 1 1 3
+port input.b: 3 1 1
+port output: 2 2 2
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  S minecraft:stone
+  T minecraft:redstone_torch[lit=true]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  ...
+  ..S
+  .S.
+layer 1:
+  ..R
+  ..r
+  RrS
+layer 2:
+  ...
+  ...
+  ..T

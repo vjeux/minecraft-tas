@@ -248,10 +248,48 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
+    // the extendable circuit families: every member generated and screened in redsim
+    let fo = circuits::FamilyOptions { members_dir: (!a.no_members).then(|| out.join("designs/circuits/members")), threads: a.threads };
+    let (ccards, cmembers, fnotes) = circuits::families(&repo, &circuit_builds, &ce.cards, &fo);
+    eprintln!(
+        "circuit families: {} cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
+        ccards.len(),
+        cmembers.len(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
+        t0.elapsed().as_secs_f64()
+    );
+    for n in &fnotes {
+        eprintln!("  note: {n}");
+    }
+    // one card per family in the grids: the card's first base design stands for it
+    let mut circuit_builds = circuit_builds;
+    for card in &ccards {
+        for (fi, f) in card.families.iter().enumerate() {
+            if let Some(b) = circuit_builds.iter_mut().find(|b| b.id == f.build) {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.card = card.id.clone();
+                    c.card_member = fi > 0;
+                }
+                if fi == 0 && !b.flags.iter().any(|x| x == "extendable") {
+                    b.flags.push("extendable".into());
+                }
+            }
+        }
+    }
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
-    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards: ce.cards, members: ce.members };
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
+    let mut cards = ce.cards;
+    cards.extend(ccards);
+    let mut members = ce.members;
+    members.extend(cmembers);
+    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();
     for b in &mut slim.builds {
@@ -303,13 +341,22 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             }
         }
     };
-    let scripts = Scripts { viewer, app: false };
+    let scripts = Scripts { viewer, app: false, ui: app };
     // pages
     write(&out.join("style.css"), STYLE)?;
     write(&out.join("favicon.svg"), FAVICON)?;
+    // cache-busting: the pages load every bundle, the CSS and the data by a content hash
+    pages::set_versions(pages::Versions {
+        css: pages::bytes_hash(STYLE.as_bytes()),
+        viewer_js: pages::file_hash(&out.join("viewer/mcview.js")),
+        viewer_wasm: pages::file_hash(&out.join("viewer/mcview_bg.wasm")),
+        ui_js: pages::file_hash(&out.join(format!("pkg/{}.js", web::UI_NAME))),
+        ui_wasm: pages::file_hash(&out.join(format!("pkg/{}_bg.wasm", web::UI_NAME))),
+        data: pages::file_hash(&out.join("data/site.json")),
+    });
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
-    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
+    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
     write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
     write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;

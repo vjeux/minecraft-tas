@@ -3,6 +3,9 @@
 # Counter 2, one copper bulb, 3 blocks (track memory): the copper bulb T flip-flop seen as a counter: the input toggles the bulb, its comparator's level alternates every pulse (level style, period 2).
 name: counter2-bulb
 circuit: counter 2
+group: bulb-chain
+group title: Copper bulb chain (counter 2^K)
+group note: K copper bulb T flip-flops in a line, each read by a comparator that toggles the next bulb: 3K blocks
 port input: -1 1 0
 port output: 2 1 0
 origin: 0 0 0

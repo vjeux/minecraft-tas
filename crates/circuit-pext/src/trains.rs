@@ -294,6 +294,160 @@ pub fn report_bfs(n: usize, shift: i32, max: usize) -> Result<()> {
     Ok(())
 }
 
+/// The most general static schedule: a sequence of single-cell pulses, each firing on BOTH edges
+/// (whatever piston stands on that cell on each edge acts; an empty cell or the payload does
+/// nothing). Breadth-first over the pair (on-edge state, off-edge state) from (rest, all-spat) to
+/// (all-spat, rest). Returns the cells (abstract positions) in order.
+pub fn cell_schedule(n: usize, max: usize) -> Option<Vec<i32>> {
+    use std::collections::{HashMap, VecDeque};
+    let rest: State = (1..=n as i32).collect();
+    let ext: State = (1..=n as i32).map(|i| 2 * i).collect();
+    let fire = |s: &State, c: i32| -> State {
+        if c == 0 {
+            return pulse(s, 0).unwrap_or_else(|| s.clone());
+        }
+        match s.iter().position(|&x| x == c) {
+            Some(i) if i + 1 < n => pulse(s, i + 1).unwrap_or_else(|| s.clone()),
+            _ => s.clone(),
+        }
+    };
+    let start = (rest.clone(), ext.clone());
+    let goal = (ext.clone(), rest.clone());
+    let mut prev: HashMap<(State, State), ((State, State), i32)> = HashMap::new();
+    let mut depth: HashMap<(State, State), usize> = HashMap::new();
+    depth.insert(start.clone(), 0);
+    let mut q = VecDeque::new();
+    q.push_back(start);
+    let bound = 2 * n as i32;
+    while let Some(cur) = q.pop_front() {
+        if cur == goal {
+            let mut out = Vec::new();
+            let mut c = cur;
+            while let Some((p, cell)) = prev.get(&c) {
+                out.push(*cell);
+                c = p.clone();
+            }
+            out.reverse();
+            return Some(out);
+        }
+        let d = depth[&cur];
+        if d >= max {
+            continue;
+        }
+        for c in 0..bound {
+            let a = fire(&cur.0, c);
+            let b = fire(&cur.1, c);
+            if a == cur.0 && b == cur.1 {
+                continue;
+            }
+            if a.iter().chain(b.iter()).any(|&x| x > bound) {
+                continue;
+            }
+            let next = (a, b);
+            if !depth.contains_key(&next) {
+                depth.insert(next.clone(), d + 1);
+                prev.insert(next.clone(), (cur.clone(), c));
+                q.push_back(next);
+            }
+        }
+    }
+    None
+}
+
+pub fn report_cells(n: usize, max: usize) -> Result<()> {
+    match cell_schedule(n, max) {
+        None => println!("no single-cell schedule for n = {n} up to {max} pulses"),
+        Some(cells) => {
+            let s: Vec<String> = cells.iter().map(|c| format!("x{c}")).collect();
+            println!("shortest single-cell schedule for n = {n}: {} pulses: {}", cells.len(), s.join(" "));
+        }
+    }
+    Ok(())
+}
+
+/// Interleaved delivery (the cascade's trick for a plain stack): every static pulse fires on both
+/// edges at the same time, but the on-edge's steps and the off-edge's steps may come at DIFFERENT
+/// times: a pulse at cell c is the on-edge's next step when the on-edge's acting piston stands at
+/// c, the off-edge's next step when the off-edge's does, or both; otherwise it must hit nothing
+/// that moves on that edge (an empty cell, the payload, or a piston whose pulse moves nothing).
+/// Returns the pulse cells in order (with which edge each serves), if some order works.
+pub fn interleave(n: usize, train: &[usize]) -> Option<Vec<(i32, bool, bool)>> {
+    use std::collections::{HashMap, VecDeque};
+    let rest: State = (1..=n as i32).collect();
+    let (e, on) = run(&rest, train)?;
+    let (_, off) = run(&e, train)?;
+    let l = train.len();
+    // states after i steps
+    let st_on = |i: usize| -> State { if i < l { on[i].clone() } else { e.clone() } };
+    let st_off = |j: usize| -> State { if j < l { off[j].clone() } else { rest.clone() } };
+    let cell = |s: &State, k: usize| -> i32 { if k == 0 { 0 } else { s[k - 1] } };
+    let harmless = |s: &State, c: i32| -> bool {
+        match occupied(s, c) {
+            None => true,
+            Some(usize::MAX) => pulse(s, 0).is_none(),
+            Some(i) if i + 1 == n => true, // the payload
+            Some(i) => pulse(s, i + 1).is_none(),
+        }
+    };
+    let mut prev: HashMap<(usize, usize), ((usize, usize), (i32, bool, bool))> = HashMap::new();
+    let mut q = VecDeque::new();
+    q.push_back((0usize, 0usize));
+    let mut seen = std::collections::HashSet::new();
+    seen.insert((0, 0));
+    while let Some((i, j)) = q.pop_front() {
+        if (i, j) == (l, l) {
+            let mut out = Vec::new();
+            let mut c = (i, j);
+            while let Some((p, step)) = prev.get(&c) {
+                out.push(*step);
+                c = *p;
+            }
+            out.reverse();
+            return Some(out);
+        }
+        let (so, sf) = (st_on(i), st_off(j));
+        let mut next = Vec::new();
+        if i < l && j < l && cell(&so, train[i]) == cell(&sf, train[j]) {
+            next.push(((i + 1, j + 1), (cell(&so, train[i]), true, true)));
+        }
+        if i < l {
+            let c = cell(&so, train[i]);
+            if harmless(&sf, c) {
+                next.push(((i + 1, j), (c, true, false)));
+            }
+        }
+        if j < l {
+            let c = cell(&sf, train[j]);
+            if harmless(&so, c) {
+                next.push(((i, j + 1), (c, false, true)));
+            }
+        }
+        for (nx, step) in next {
+            if seen.insert(nx) {
+                prev.insert(nx, ((i, j), step));
+                q.push_back(nx);
+            }
+        }
+    }
+    None
+}
+
+pub fn report_interleave(n: usize, max: usize, show: usize) -> Result<()> {
+    let all = trains(n, max);
+    let mut found: Vec<(Vec<usize>, Vec<(i32, bool, bool)>)> = all.iter().filter_map(|(t, _)| interleave(n, t).map(|p| (t.clone(), p))).collect();
+    found.sort_by_key(|(t, p)| (p.len(), t.len()));
+    println!("{} of {} trains for n = {n} have an interleaved static delivery", found.len(), all.len());
+    for (t, p) in found.iter().take(show) {
+        let word: String = t.iter().map(|&k| name(k)).collect();
+        let seq: Vec<String> = p
+            .iter()
+            .map(|(c, a, b)| format!("x{c}{}", match (a, b) { (true, true) => "", (true, false) => "(on)", _ => "(off)" }))
+            .collect();
+        println!("train {word}: {} pulses: {}", p.len(), seq.join(" "));
+    }
+    Ok(())
+}
+
 pub fn report(n: usize, max: usize, show: usize, shift: i32) -> Result<()> {
     let rest: State = (1..=n as i32).collect();
     let all = trains(n, max);

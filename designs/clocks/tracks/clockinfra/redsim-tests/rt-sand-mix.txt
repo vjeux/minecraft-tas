@@ -1,0 +1,17 @@
+name: rt-sand-mix
+# redsim test scene (not a clock): falling blocks and other entities tick together in spawn order
+# (one entity id counter): summoned falling sand and gravel between summoned items; both land on
+# stone and become blocks (a falling block breaking into an item would drop it with the level's
+# random motion, which redsim does not model).
+entity: minecraft:item 0.5 3.0 0.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767s}
+entity: minecraft:falling_block 2.5 6.0 0.5 {BlockState:"minecraft:sand",Time:1}
+entity: minecraft:item 4.5 4.0 0.5 {Item:{id:"minecraft:redstone",count:2},PickupDelay:32767s}
+entity: minecraft:falling_block 3.5 9.0 1.5 {BlockState:{id:"minecraft:gravel"}}
+palette:
+  S minecraft:stone
+layer 0:
+  SSSSS
+  SSSSS
+layer 1:
+  .....
+  ...S.

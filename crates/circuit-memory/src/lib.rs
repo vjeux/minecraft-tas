@@ -7,6 +7,7 @@
 
 pub mod ring;
 pub mod specs;
+pub mod stamp;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
@@ -36,16 +37,28 @@ enum Cmd {
         /// Copper bulb T flip-flops chained after the comparator (counter N * 2^bulbs).
         #[arg(long, default_value_t = 0)]
         bulbs: usize,
-        /// A second ring of this many droppers around a stone the first ring's comparator powers
-        /// (counter N * THEN).
+        /// More rings, each around a stone the previous ring's comparator powers (comma-separated
+        /// sizes: counter N * THEN1 * THEN2 ...).
+        #[arg(long, value_delimiter = ',')]
+        then: Vec<usize>,
+        /// With --bulbs: judge as a divider (the last comparator toggles once every N * 2^(K-1)
+        /// pulses) instead of a level counter N * 2^K.
         #[arg(long)]
-        then: Option<usize>,
+        divider: bool,
         #[arg(long)]
         out: PathBuf,
     },
     /// Run a design under this track's census spec for its kind (`circuit:` header) and print the
     /// output's rest state, change frames, samples and the spec's verdict (debugging the census).
     Check { design: PathBuf, #[arg(long, default_value_t = 40)] gap: u32 },
+    /// Stamp the tunable-group headers (`group:`, `group title:`, `group note:`) on counter
+    /// designs by their name: bulb-chain, dropper-ring, ring-bulbs, ring-chain, ring-divider (the
+    /// catalog shows each group as one card). The ring generator stamps its own designs.
+    StampGroups {
+        #[arg(long)]
+        dry_run: bool,
+        files: Vec<PathBuf>,
+    },
     /// Census: every filling of k cells of a box (x 0..A, y 0..B, z 0..C) with palette states,
     /// the named inputs redstone blocks in air cells (`--inputs 'r=-1,0,0;s=3,0,0'`), judged on
     /// redsim with the kind's stimulus (`rs-latch`, `d-latch`, `counter N`); designs + summary.tsv.
@@ -86,7 +99,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
-        Cmd::Ring { n, max_dust, keep, bulbs, then, out } => ring::run(&n, max_dust, keep, bulbs, then, &out)?,
+        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, &out)?,
+        Cmd::StampGroups { dry_run, files } => stamp::run(&files, dry_run)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
@@ -95,7 +109,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ["rs-latch"] => Box::new(specs::RsSpec { gap }),
                 ["d-latch"] => Box::new(specs::DSpec { gap }),
                 ["counter", n] => Box::new(specs::CounterSpec { n: n.parse().context("counter N")?, gap }),
-                _ => bail!("kind {words:?}: rs-latch | d-latch | counter N"),
+                ["dff"] => Box::new(specs::DffSpec { gap }),
+                ["tff-reset"] => Box::new(specs::TffResetSpec { gap }),
+                _ => bail!("kind {words:?}: rs-latch | d-latch | counter N | dff | tff-reset"),
             };
             let mut inputs = c.inputs.clone();
             inputs.sort_by(|a, b| a.name.cmp(&b.name));
@@ -153,11 +169,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ["rs-latch"] => Box::new(specs::RsSpec { gap }),
                 ["d-latch"] => Box::new(specs::DSpec { gap }),
                 ["counter", n] => Box::new(specs::CounterSpec { n: n.parse().context("counter N")?, gap }),
-                _ => bail!("--kind rs-latch | d-latch | counter N"),
+                ["dff"] => Box::new(specs::DffSpec { gap }),
+                ["tff-reset"] => Box::new(specs::TffResetSpec { gap }),
+                _ => bail!("--kind rs-latch | d-latch | counter N | dff | tff-reset"),
             };
             let want_inputs = match words[0] {
                 "rs-latch" => vec!["r", "s"],
                 "d-latch" => vec!["d", "e"],
+                "dff" => vec!["clk", "d"],
+                "tff-reset" => vec!["r", "t"],
                 _ => vec![""],
             };
             let names: Vec<&str> = named.iter().map(|(n, _)| n.as_str()).collect();

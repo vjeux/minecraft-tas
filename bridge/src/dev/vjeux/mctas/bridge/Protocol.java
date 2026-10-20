@@ -164,8 +164,10 @@ public final class Protocol {
             case "exec" -> exec(r);
             case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
+            case "random_state" -> randomState(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
+            case "viewer_mode" -> viewerMode(r);
             case "view" -> view(r);
             case "play" -> play(r);
             case "hold" -> hold(r);
@@ -229,6 +231,8 @@ public final class Protocol {
         return switch (mode.getAsString()) {
             case "raw" -> Sandbox.RAW_FLAGS;
             case "update" -> Block.UPDATE_ALL;
+            // shape updates only, no block update to the neighbors (how crops grow): the BUD judge
+            case "shape" -> Block.UPDATE_CLIENTS;
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         };
     }
@@ -309,6 +313,14 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         o.add("positions", out);
         o.add("random", random);
+        return o;
+    }
+
+    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}). */
+    private JsonObject randomState(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonObject o = new JsonObject();
+        o.addProperty("seed", sb.randomState());
         return o;
     }
 
@@ -557,6 +569,10 @@ public final class Protocol {
         a.add(p.z);
         j.add("pos", a);
         j.addProperty("uuid", e.getStringUUID());
+        // the network id within the sandbox: Entity.getId() - Sandbox#entityIdBase (the bridge
+        // numbers each sandbox's entities from 0 in the order they enter; some ticks read it:
+        // ItemEntity's 1-in-4 rest moves)
+        j.addProperty("net_id", e.getId() - sb.entityIdBase());
         Vec3 m = e.getDeltaMovement();
         JsonArray mv = new JsonArray();
         mv.add(m.x);
@@ -768,6 +784,33 @@ public final class Protocol {
         }
         o.addProperty("count", names.size());
         o.add("names", names);
+        return o;
+    }
+
+    /**
+     * Every connected viewer's game mode ({@code mode}: creative, spectator, survival, adventure)
+     * and, with {@code operator}, operator status (a client mod that pastes with commands, such as
+     * Litematica, needs both: `mctas litematic verify-ingame`).
+     */
+    private JsonObject viewerMode(JsonObject r) {
+        net.minecraft.world.level.GameType type = net.minecraft.world.level.GameType.byName(r.has("mode") ? r.get("mode").getAsString() : "spectator", net.minecraft.world.level.GameType.SPECTATOR);
+        boolean op = r.has("operator") && r.get("operator").getAsBoolean();
+        int n = 0;
+        for (net.minecraft.server.level.ServerPlayer player : this.server.getPlayerList().getPlayers()) {
+            if (op) {
+                // explicit permissions: this server's default operator level is ALL (0)
+                this.server.getPlayerList().op(player.nameAndId(), java.util.Optional.of(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER), java.util.Optional.empty());
+            }
+            player.setGameMode(type);
+            if (type == net.minecraft.world.level.GameType.CREATIVE) {
+                // flying: the player stays where the camera put it (no fall onto the builds)
+                player.getAbilities().flying = true;
+                player.onUpdateAbilities();
+            }
+            n++;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("changed", n);
         return o;
     }
 

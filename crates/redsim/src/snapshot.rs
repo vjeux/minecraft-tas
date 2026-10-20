@@ -89,6 +89,10 @@ impl World {
         comps.sort();
         comps.hash(h);
         self.containers.key_into(now, h);
+        // daylight detectors read only when the game time is a multiple of 20
+        if self.watch_light {
+            (0xd1u8, now.rem_euclid(20)).hash(h);
+        }
         let toggles: Vec<_> = self.torch_toggles.iter().filter(|(_, when)| now - when <= TORCH_WINDOW).map(|(p, when)| (*p, now - when)).collect();
         toggles.hash(h);
         self.piston.key_into(now, h);
@@ -107,5 +111,13 @@ impl World {
         self.sculk.key_into(now, h);
         (self.drops.len() as u32).hash(h);
         (self.errors.len() as u32).hash(h);
+        // TNT primed in the tick just run (only when there are any: designs without TNT keep
+        // their keys). Not the running count: a duper primes every period and its key must
+        // repeat; the primed TNT themselves are gone (the judge removes them).
+        if self.primed.last().is_some_and(|(t, _)| *t == now) {
+            0x7au8.hash(h);
+            let recent: Vec<crate::pos::BlockPos> = self.primed.iter().filter(|(t, _)| *t == now).map(|(_, p)| *p).collect();
+            recent.hash(h);
+        }
     }
 }

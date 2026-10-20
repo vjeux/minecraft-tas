@@ -8,8 +8,9 @@
 //!   neighbors every 2 ticks while moving between cells (40 at rest), age, a second
 //!   `updateFluidInteraction`, despawn at 6000.
 //! * Not reproducible in the game itself, so not modeled (a model note): an item stuck inside a
-//!   block (`moveTowardsClosestSpace` draws from the entity's own unseeded random), drops (the
-//!   level random places them), hoppers sucking items, stack sizes other than 64.
+//!   block (`moveTowardsClosestSpace` draws from the entity's own unseeded random) and drops (the
+//!   level random places them). Hoppers (blocks and minecarts) pull item entities
+//!   (`redstone::container::item_entities_above`); stack sizes come from the container item list.
 
 use crate::entity::{EntityKind, MoverType, Vec3, collide, mth};
 use crate::world::World;
@@ -19,7 +20,7 @@ pub const WIDTH: f32 = 0.25;
 pub const HEIGHT: f32 = 0.25;
 
 /// The item entity's own state.
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Default)]
 pub struct ItemState {
     /// The stack's item id (`minecraft:...`; empty = no item: discarded at its next tick).
     pub item: String,
@@ -28,12 +29,26 @@ pub struct ItemState {
     pub pickup_delay: i32,
     /// `age` (-32768 = never ages).
     pub age: i32,
+    /// A shulker box item's contents (`redstone::container::Stack::payload`; clk-rt): 0 = none.
+    pub payload: u16,
+}
+
+impl std::fmt::Debug for ItemState {
+    /// As derived, without a zero payload (so states without one print as before it existed).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("ItemState");
+        d.field("item", &self.item).field("count", &self.count).field("pickup_delay", &self.pickup_delay).field("age", &self.age);
+        if self.payload != 0 {
+            d.field("payload", &self.payload);
+        }
+        d.finish()
+    }
 }
 
 impl ItemState {
     /// From the summon NBT: `Item:{id:"..",count:N}`, `PickupDelay:Ns`, `Age:Ns`.
     pub fn from_nbt(nbt: Option<&str>) -> ItemState {
-        let mut s = ItemState { item: String::new(), count: 1, pickup_delay: 0, age: 0 };
+        let mut s = ItemState { item: String::new(), count: 1, pickup_delay: 0, age: 0, payload: 0 };
         let Some(n) = nbt else { return s };
         if let Some(i) = n.find("id:\"") {
             s.item = n[i + 4..].split('"').next().unwrap_or("").to_string();
@@ -67,9 +82,9 @@ fn set_state(w: &mut World, i: usize, s: ItemState) {
     w.entities.list[i].kind = EntityKind::Item(s);
 }
 
-/// `ItemEntity.isMergable` (every stack is taken to stack to 64).
+/// `ItemEntity.isMergable`.
 fn mergable(e: &crate::entity::Entity, s: &ItemState) -> bool {
-    !e.removed && s.pickup_delay != 32767 && s.age != -32768 && s.age < 6000 && s.count < 64
+    !e.removed && s.pickup_delay != 32767 && s.age != -32768 && s.age < 6000 && s.count < crate::redstone::container::max_stack_of(&s.item)
 }
 
 /// `ItemEntity.mergeWithNeighbours` / `tryToMerge` / `merge`: the smaller stack moves into the
@@ -88,13 +103,15 @@ fn merge_with_neighbours(w: &mut World, i: usize) {
         if !mergable(&w.entities.list[j], &b) {
             continue;
         }
-        if a.item != b.item || a.count as u32 + b.count as u32 > 64 {
+        let max = crate::redstone::container::max_stack_of(&a.item) as u32;
+        if a.item != b.item || a.count as u32 + b.count as u32 > max {
             continue;
         }
         // tryToMerge: into this one unless the other is at least as large
         let (to, from) = if b.count < a.count { (i, j) } else { (j, i) };
         let (mut ts, mut fs) = (state(w, to), state(w, from));
-        let delta = (64 - ts.count as i32).min(fs.count as i32).max(0);
+        // merge(toStack, fromStack, 64): min(min(maxStack, 64) - count, from count)
+        let delta = ((max.min(64)) as i32 - ts.count as i32).min(fs.count as i32).max(0);
         ts.count = (ts.count as i32 + delta) as u8;
         fs.count = (fs.count as i32 - delta) as u8;
         ts.pickup_delay = ts.pickup_delay.max(fs.pickup_delay);

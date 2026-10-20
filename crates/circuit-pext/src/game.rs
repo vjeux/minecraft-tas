@@ -24,7 +24,7 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Options { positions: 4, rotations: true, cycles: 3, max_phase: 400, margin: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
+        Options { positions: 4, rotations: true, cycles: 3, max_phase: 2000, margin: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
     }
 }
 

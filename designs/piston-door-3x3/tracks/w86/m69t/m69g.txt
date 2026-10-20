@@ -1,0 +1,31 @@
+# m69g: m69f with the top trio LEVER-HELD (the 7x8 doors' trick): sticky pistons (0..2,4) facing down EXTENDED at
+# rest (heads in the ceiling cells), the lever ON at rest standing on TOP of the middle one at (1,5) (outside the
+# volume): it powers (1,4) directly and (0,4)/(2,4) by QC. Lever off = the top row goes up at t1; lever on = back.
+name: w86-m69g
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:obsidian
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -1:
+  ...QQQU..
+layer 0:
+  .E.QQQ.TT
+layer 1:
+  EE.QQQ.T.
+layer 2:
+  ...QQQ...
+layer 3:
+  ..DHHHD..
+layer 4:
+  ...XXXO..
+layer 5:
+  ....L

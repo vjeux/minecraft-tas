@@ -1,0 +1,16 @@
+name: cal-stone-output-nimply
+circuit: gate nimply
+# A NIMPLY by dust redirection whose output cell holds a stone (found by track gates' census once
+# air outputs got the judge's lamp): a stone drives nothing by itself and its "level" could only be
+# read by query, so the judge must refuse a passive block in an output cell (selftest).
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: 2 1 1
+origin: 1 0 1
+palette:
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  RS

@@ -159,9 +159,15 @@ pub fn resonance_event(freq: u8) -> &'static str {
     R[(freq.clamp(1, 15) - 1) as usize]
 }
 
-/// `#minecraft:wool` (the modeled wool colors).
+/// `#minecraft:wool` (all 16 colours).
 pub fn is_wool(s: &Block) -> bool {
-    matches!(s, Block::Simple(Simple::WhiteWool | Simple::OrangeWool | Simple::BlackWool))
+    use Simple::*;
+    matches!(
+        s,
+        Block::Simple(
+            WhiteWool | OrangeWool | MagentaWool | LightBlueWool | YellowWool | LimeWool | PinkWool | GrayWool | LightGrayWool | CyanWool | PurpleWool | BlueWool | BrownWool | GreenWool | RedWool | BlackWool
+        )
+    )
 }
 
 /// `occludes_vibration_signals` = `#wool`.
@@ -408,6 +414,9 @@ fn activate(w: &mut World, pos: BlockPos, s: Block, power: u8, freq: u8) {
     }
     // the sensor's own `sculk_sensor_tendrils_clicking` is no vibration (frequency 0)
     w.game_event("sculk_sensor_tendrils_clicking", pos);
+    // playSound(SCULK_CLICKING, pitch level.getRandom().nextFloat() * 0.2F + 0.8F) (never
+    // waterlogged here)
+    w.draw_sound_pitch();
 }
 
 /// The scheduled tick (`SculkSensorBlock.tick`): ACTIVE -> COOLDOWN (`deactivate`), COOLDOWN ->
@@ -422,6 +431,8 @@ pub fn tick(w: &mut World, s: Block, pos: BlockPos) {
     } else if phase == COOLDOWN {
         let Block::Sculk { power, .. } = s else { return };
         w.set_block_and_update(pos, with(s, INACTIVE, power));
+        // playSound(SCULK_CLICKING_STOP, a level-random pitch)
+        w.draw_sound_pitch();
     }
 }
 

@@ -10,6 +10,11 @@ use crate::json::Json;
 /// The atlas of the judge's version (`mctas setup`'s 26.3) on misode/mcmeta.
 pub const ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png";
 pub const INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/data.min.json";
+/// The entity and item atlases (loaded when a page draws an entity).
+pub const ENTITY_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/atlas.png";
+pub const ENTITY_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/data.min.json";
+pub const ITEM_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/atlas.png";
+pub const ITEM_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/data.min.json";
 
 /// How a game texture becomes a tile.
 #[derive(Clone, Copy, Debug)]
@@ -147,6 +152,7 @@ const MAP: &[(&str, &str, Op)] = &[
     ("oak_door_top", "oak_door_top", Op::Plain),
     ("oak_door_bottom", "oak_door_bottom", Op::Plain),
     ("rail", "rail", Op::Plain),
+    ("rail_corner", "rail_corner", Op::Plain),
     ("powered_rail", "powered_rail", Op::Plain),
     ("powered_rail_on", "powered_rail_on", Op::Plain),
     ("activator_rail", "activator_rail", Op::Plain),
@@ -156,6 +162,8 @@ const MAP: &[(&str, &str, Op)] = &[
     ("furnace_top", "furnace_top", Op::Plain),
     ("dispenser_front", "dispenser_front", Op::Plain),
     ("dropper_front", "dropper_front", Op::Plain),
+    ("dispenser_front_vertical", "dispenser_front_vertical", Op::Plain),
+    ("dropper_front_vertical", "dropper_front_vertical", Op::Plain),
     ("crafter_top", "crafter_top", Op::Plain),
     ("crafter_side", "crafter_east", Op::Plain),
     ("crafter_front", "crafter_north", Op::Plain),

@@ -1,0 +1,15 @@
+[package]
+name = "circuit-timer"
+description = "Contraption study 11, track timer (mctas circuit timer ...): monostables, off-delays and on-delays (pulse filters); see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

@@ -1,0 +1,26 @@
+name: mm07
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=true,facing=up]
+  D minecraft:stone
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:smooth_stone
+  p minecraft:piston_head[facing=up,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  AB.CB
+layer -1:
+  .B.p
+layer 0:
+  ..DDDS
+layer 1:
+  A.DDDS
+layer 2:
+  .ADDDS
+layer 3:
+  P
+layer 4:
+  .s.ss

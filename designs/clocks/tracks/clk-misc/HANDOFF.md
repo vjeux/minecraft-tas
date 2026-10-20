@@ -38,13 +38,57 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
 - `clock misc ring --relay R --n N [--check K]`: relay rings.
 - `clock misc crafter-loop --n N`, `clock misc cart-pingpong --n N [--bare|--short|--track S/P/D/L...]`,
   `clock misc cart-loop --n N [--three|--long-only]`, `clock misc boat-ring --a A --b B`,
-  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf] [--chest N]`: generators (judge with `clock verify`: redsim models
-  neither crafting nor entities).
+  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf] [--chest N]`: generators (judge with `clock verify`;
+  `clock sim` runs them on redsim since the fluids + entities port, crafting excepted).
 - `clock misc trace <design> [--ticks N] [--every K] [--only prefixes]`: built like the judge, prints every entity's
   position / motion and the changed cells per tick (how the boat rings were found).
-- `clock misc trace-export <archived designs>`: real-game traces for the in-browser viewer (webrender), JSON Lines in
-  designs/clocks/traces/ (format: designs/clocks/traces/README.md). Re-export after re-archiving an entity / fluid clock,
-  and tell site (6df38b98) and webrender (084de54f) about new traces or new block kinds.
+- `clock misc trace-export <archived designs> [--exact] [--ticks N]`: real-game traces for the in-browser viewer
+  (webrender), JSON Lines in designs/clocks/traces/ (format: designs/clocks/traces/README.md). Re-export after re-archiving
+  an entity / fluid clock, and tell site (6df38b98) and webrender (084de54f) about new traces or new block kinds.
+  `--exact` (designs/clocks/traces/exact/) is redsim's gate: re-export those too, then
+  `redsim-fuzz trace-compare designs/clocks/traces/exact/*.trace` must say OK for every trace.
+
+## The redsim fluids + entities port (2026-10-19, with clockinfra d650ed4f)
+- Gate: all 50 exact traces tick-identical (`redsim-fuzz trace-compare`), plus the test scenes in
+  `redsim-tests/` (`--ticks` traces of hand-made scenes: boat fall / slide / ice / slow, a 300-tick dripleaf stand;
+  `rt-boat-airx` is UNMODELED: the long-fall raycast). Bit-identity for designs without entities: full selftest, and
+  the tracked censuses re-run byte-identical (`minimal.tsv`, `summary.md`: 2x1x1-k2, 2x2x1-k4, 2x2x2-k4, 3x1x2-k4,
+  3x1x3-k4, 3x2x1-k4, 3x3x1-k4, 3x3x2-k3, 3x2x2-k4 at 5d3b47467). `redsim-fuzz archive-check` (after the crafter and
+  daylight detector models): `clock sim` prints the judge's CLOCK line for 77 of the 78 archived clk-misc clocks; the
+  78th, clk-misc-leaf-p10-4b, is tick-identical to the game (exact trace) but has no `port output`: `clock sim` reports
+  its auto output (the log cell) by the cell's own states (on 7/10), while the judge carries that cell as a declared
+  port and measures the power it receives (on 0/10). (An earlier "76 of 78" here was miscounted by a shell diff.)
+  `circuit sim` prints the judge's lines for tff-crafter and rs-crafter (and `circuit verify` agrees, robust).
+  2026-10-20, the whole archive (`redsim-fuzz archive-check`, report in `archive-check.txt`): every one of the 3229
+  archived clocks and 262 circuits runs on redsim to a line; 3485 print the judge's own line. The 137 port-less
+  clocks whose `on`/`edges` differed (clock sim read the auto-picked cell by its own states, the judge as a declared
+  port) went through `clock misc declare-output --write` (log: `declare-output.txt`): 135 got `port output` at the
+  judge's cell, re-judged in the game with their line unchanged, rewritten in place (verdict row: hash only).
+  The other two had archived lines older than the judge's current auto-output rule (today's judge, with or without
+  the port, prints clock sim's line): census-p12-copper_bulb-redstone_block-sticky_piston-4b was re-archived with
+  today's line (coordinator, from `rearchive/` with the port declared); census-p12-copper_bulb-observer-3b could not
+  be: `clock archive` refuses it as the same type and period as clk-obs-divider (the divider family's base, n = 0,
+  which prints today's line; dedupe keeps both), so its entry was restored unchanged. Also left: 5 clk-item
+  hopper/dropper rings whose warmup the judge counts differently (block states tick-identical; already noted in
+  their archive headers).
+  clk-misc-leaf-p10-4b got `port output: 0 0 1` (re-judged, re-archived, line unchanged) so both read the same cell.
+  Browser: on webrender's branch merged with this one, `mctas web check --wasm` (native and wasm viewers vs clock
+  sim / circuit fly sim): 3696 clocks and 74 flying machines agree, 0 failures (the wasm built with rustup stable +
+  wasm-bindgen 0.2.129 in ~/.cargo on devvm59208).
+- Mine: `redsim/src/entity/{collide,kinds,boat,minecart,armor_stand}.rs` (Entity.move / collide / step-up / movement
+  recording, checkInsideBlocks, baseTick, AbstractBoat, AbstractMinecart + OldMinecartBehavior, LivingEntity.travel for
+  a stand), `react.rs` (plates, tripwire, hooks, bubble-column entity effect, big dripleaf), `rails.rs` (RailState for
+  every rail kind, plain and detector rails), the containers in `redstone/container.rs` (CRef: block entities or
+  container entities; chest boats, hopper minecarts, the chiseled bookshelf, crafters with `redstone/crafting.rs` and
+  the generated `recipes_gen.rs`; jukeboxes; dispensers' powder snow buckets), `daylight.rs` (daylight detectors, the
+  sky light's fixed point, the day timeline),
+  `redsim-fuzz/src/{trace_compare,archive_check,recipes_gen}.rs`, the circuit judge's sizing extension
+  (`circuit/src/verify.rs`: a slow path of the kind's own stimulus lengthens the gap).
+  clockinfra's: fluids (`fluid/`), fluid pushing, waterlogging hooks, item entities, entity spawn / clock sim wiring,
+  the rail-shape fuzz gate.
+- Known gaps (noted in the code): per-box collideX when an entity already overlaps a multi-box shape, the long-fall
+  raycast, entities pushing each other, a hopper minecart's item-entity pulls (clockinfra's hook), random container
+  picks among several container entities.
 - `clock misc unarchive FILES`: design + verdict / caption rows + the family's extend rows out of the archive, to
   re-archive a rebuilt clock under its name. `clock misc rename --prefix P FILES`: rename other tracks' picks.
 - Searches: `clock obs census --k K --palette "obs,sticky,stone,<raw states>" --require X --out-dir D` (clk-obs) and

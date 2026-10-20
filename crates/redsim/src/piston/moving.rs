@@ -199,7 +199,7 @@ pub fn tick_all(w: &mut World) {
     w.piston.ticking = false;
 }
 
-/// `PistonMovingBlockEntity.tick` (entities pushed by pistons are not modeled).
+/// `PistonMovingBlockEntity.tick` (the entities it moves: `entity::piston_push`).
 fn tick_one(w: &mut World, id: u32) {
     let Some(&(p, _, _)) = w.piston.bes.iter().find(|(_, i, _)| *i == id) else { return };
     // BoundTickingBlockEntity: the type must be valid for the cell's current state
@@ -226,6 +226,11 @@ fn tick_one(w: &mut World, id: u32) {
             }
         }
     } else {
-        be.progress = (be.progress + 1).min(2);
+        // entities in the way move first (`moveCollidedEntities`, `moveStuckEntities`: clk-misc)
+        let be = *be;
+        crate::entity::piston_push::tick(w, p, be);
+        if let Some(be) = w.piston.be_by_id_mut(id) {
+            be.progress = (be.progress + 1).min(2);
+        }
     }
 }

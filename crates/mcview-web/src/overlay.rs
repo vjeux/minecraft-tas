@@ -14,6 +14,8 @@ pub struct Overlays {
     layer: HtmlElement,
     /// (tag, the world point it hangs at).
     tags: Vec<(HtmlElement, [f32; 3])>,
+    /// The input tags (input index, tag): pressing one presses its input.
+    pub input_tags: Vec<(usize, HtmlElement)>,
     boxes: HashMap<Pos, (HtmlElement, String)>,
     /// Container contents shown (the bar's toggle).
     pub containers_on: bool,
@@ -43,7 +45,7 @@ impl Overlays {
     pub fn new(parent: &HtmlElement) -> Overlays {
         let layer = div("position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;overflow:hidden;z-index:1;font:600 11px system-ui,sans-serif");
         let _ = parent.append_child(&layer);
-        Overlays { layer, tags: Vec::new(), boxes: HashMap::new(), containers_on: true, history: None }
+        Overlays { layer, tags: Vec::new(), input_tags: Vec::new(), boxes: HashMap::new(), containers_on: true, history: None }
     }
 
     /// The tags and the history strip of a (new) player.
@@ -51,23 +53,29 @@ impl Overlays {
         for (t, _) in self.tags.drain(..) {
             t.remove();
         }
+        self.input_tags.clear();
         let tag = |text: &str, color: &str| {
-            let t = div(&format!("position:absolute;transform:translate(-50%,-100%);padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;letter-spacing:0.5px"));
+            let t = div(&format!("position:absolute;transform:translate(-50%,-100%);padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
             t.set_text_content(Some(text));
             t
         };
-        for ci in &p.session.circuit_inputs {
+        for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name: String = ci.name.to_uppercase().chars().take(3).collect();
             let t = tag(&name, "#a6f05a");
+            // pressing the tag presses its input (a tap or a hold)
+            let s = t.style();
+            let _ = s.set_property("pointer-events", "auto");
+            let _ = s.set_property("cursor", "pointer");
+            let _ = s.set_property("touch-action", "none");
             let _ = self.layer.append_child(&t);
-            self.tags.push((t, [ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 1.05, ci.pos[2] as f32 + 0.5]));
+            self.tags.push((t.clone(), [ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 1.05, ci.pos[2] as f32 + 0.5]));
+            self.input_tags.push((i, t));
         }
-        if !p.session.circuit_inputs.is_empty() {
-            for (label, pos) in mcview::circuit::outputs(&p.session.design) {
-                let t = tag(&label, "#ffb04a");
-                let _ = self.layer.append_child(&t);
-                self.tags.push((t, [pos[0] as f32 + 0.5, pos[1] as f32 + 1.05, pos[2] as f32 + 0.5]));
-            }
+        // a circuit's other ports: its outputs, a shulker design's chests, a BUD switch's target
+        for (label, pos, colour) in mcview::circuit::port_tags(&p.session.design) {
+            let t = tag(&label, colour);
+            let _ = self.layer.append_child(&t);
+            self.tags.push((t, [pos[0] as f32 + 0.5, pos[1] as f32 + 1.05, pos[2] as f32 + 0.5]));
         }
         if let Some((c, _)) = self.history.take() {
             c.remove();

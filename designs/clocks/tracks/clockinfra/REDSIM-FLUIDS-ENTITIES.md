@@ -46,3 +46,19 @@ plates ~250; TripWire(Hook) ~400; Entity (4330: move/collide/fluid pushing/check
 ## Progress log
 - 17:00 notes written; reading FlowingFluid (getFlow, spread, getNewLiquid, getSpread,
   getSlopeDistance (SpreadContext caches: holes/states keyed by relative xz), tick).
+- 17:25 M2 API skeleton pushed (56289d28c), agreed with clk-misc (who then took M3 boats, M4
+  minecarts/rails/containers AND filled the M2 core: collide.rs, kinds.rs, base_tick...).
+- 17:45 M1 water + bubble columns (2be1b9201): redsim-fuzz --gen basin, 6000 cases = game.
+- 17:49 fluid pushing (fluid_push.rs, EntityFluidInteraction) (751add30c): 0 delta divergence.
+- 17:55 waterlogging hooks (c93a8cda6): fluid::waterlogged / set_waterlogged for variants that
+  carry the property (clk-misc's dripleaf, lantern, stone slab); redsim's older waterloggables
+  stay dry (model note).
+- 18:20 M5: clock sim spawns entities (redsim::entity::spawn, also trace-compare's), the state key
+  hashes entities, and entity clocks' period comes from the BLOCKS by the judge's rule
+  (bde472e1a). Item entities (item.rs) + hoppers pulling them (6b3485076).
+- 18:36 rail-shape fuzz gate (palette plainrail / detrail): powered rails onto rails::RailState,
+  LevelChunk's BaseRailBlock condition (19bc712a6): 314/2000 -> 0 over 13000.
+- 18:48 GATE MET: 50/50 traced entity/fluid clocks give redsim CLOCK lines identical to the game's;
+  59/60 exact traces tick-identical (the 60th: clk-misc's long-fall raycast scene).
+- Open: falling blocks still in gravity.rs's own list (order vs other entities only matters for a
+  design mixing both); item drops and items stuck in blocks are random in the game itself.

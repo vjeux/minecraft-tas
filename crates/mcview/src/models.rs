@@ -46,12 +46,14 @@ pub const SOUTH: usize = 3;
 pub const WEST: usize = 4;
 pub const EAST: usize = 5;
 
-/// A rotated part: axis (0 x, 1 y, 2 z), angle in degrees, origin in pixels.
+/// A rotated part: axis (0 x, 1 y, 2 z), angle in degrees, origin in pixels; `rescale` stretches
+/// it back across the other axes by 1 / cos(angle) (the game's crossed plants).
 #[derive(Clone, Copy, Debug)]
 pub struct PartRot {
     pub axis: u8,
     pub angle: f32,
     pub origin: [f32; 3],
+    pub rescale: bool,
 }
 
 /// One cuboid ("element").
@@ -64,11 +66,16 @@ pub struct Part {
     pub layer: Layer,
     /// Shade faces by direction (false: flat, e.g. cross-shaped plants).
     pub shade: bool,
+    /// This part's own quarter turns (a multipart model's parts each have theirs), instead of
+    /// the model's.
+    pub qrot: Option<(u8, u8)>,
+    /// The game's uvlock: textures keep the world's orientation through the quarter turns.
+    pub uvlock: bool,
 }
 
 impl Part {
     pub fn new(from: [f32; 3], to: [f32; 3]) -> Part {
-        Part { from, to, faces: Default::default(), rot: None, layer: Layer::Opaque, shade: true }
+        Part { from, to, faces: Default::default(), rot: None, layer: Layer::Opaque, shade: true, qrot: None, uvlock: false }
     }
     /// The same tile on every face.
     pub fn all(mut self, tile: &'static str) -> Part {
@@ -120,7 +127,7 @@ impl Part {
         self
     }
     pub fn rotated(mut self, axis: u8, angle: f32, origin: [f32; 3]) -> Part {
-        self.rot = Some(PartRot { axis, angle, origin });
+        self.rot = Some(PartRot { axis, angle, origin, rescale: false });
         self
     }
     pub fn flat(mut self) -> Part {
@@ -141,7 +148,7 @@ pub struct Model {
 }
 
 impl Model {
-    fn one(p: Part) -> Model {
+    pub fn one(p: Part) -> Model {
         Model { parts: vec![p], ..Default::default() }
     }
     fn cube(p: Part) -> Model {
@@ -247,7 +254,7 @@ pub fn dust_color(power: i32) -> [u8; 3] {
 }
 
 /// A stable pastel color for a name (unknown blocks).
-fn name_color(name: &str) -> [u8; 3] {
+pub fn name_color(name: &str) -> [u8; 3] {
     let mut h: u32 = 2166136261;
     for b in name.bytes() {
         h = (h ^ b as u32).wrapping_mul(16777619);
@@ -255,8 +262,27 @@ fn name_color(name: &str) -> [u8; 3] {
     [100 + (h & 0x7f) as u8, 100 + ((h >> 8) & 0x7f) as u8, 100 + ((h >> 16) & 0x7f) as u8]
 }
 
-/// The model of a block state (`None` for air and invisible blocks).
+/// The model of a block state (`None` for air and invisible blocks): the game's own model when
+/// its models are loaded (`atlas.game`), else the viewer's.
 pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
+    model_at(state, atlas, None)
+}
+
+/// [`model_for`] for a block at `pos` (the game draws some blocks as one of several variants
+/// picked from their position: stone, grass, dirt...).
+pub fn model_at(state: &str, atlas: &Atlas, pos: Option<[i32; 3]>) -> Option<Model> {
+    let st = St::parse(state);
+    if let Some(g) = &atlas.game
+        && !matches!(st.name, "air" | "cave_air" | "void_air" | "moving_piston" | "barrier" | "light" | "structure_void" | "water" | "lava" | "bubble_column")
+        && let Some(m) = g.models.model(state, pos)
+    {
+        return Some(m);
+    }
+    hand_model(state, atlas)
+}
+
+/// The viewer's own model of a block state.
+pub fn hand_model(state: &str, atlas: &Atlas) -> Option<Model> {
     let st = St::parse(state);
     let name = st.name;
     let m = match name {
@@ -304,8 +330,15 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
         "oak_fence_gate" => fence_gate(&st),
         "powered_rail" | "activator_rail" | "rail" | "detector_rail" => rail(&st),
         "dispenser" | "dropper" => {
+            let facing = st.dir("facing", Dir::North);
+            if matches!(facing, Dir::Up | Dir::Down) {
+                // the game's orientable_vertical: the hole on the facing side, furnace top all around
+                let front = if name == "dropper" { "dropper_front_vertical" } else { "dispenser_front_vertical" };
+                let (f, back) = if facing == Dir::Up { (UP, DOWN) } else { (DOWN, UP) };
+                return Some(Model::cube(Part::new(FULL.0, FULL.1).all("furnace_top").face(f, front).face(back, "furnace_top")));
+            }
             let front = if name == "dropper" { "dropper_front" } else { "dispenser_front" };
-            Model::cube(Part::new(FULL.0, FULL.1).all("furnace_side").face(UP, "furnace_top").face(DOWN, "furnace_top").face(NORTH, front)).rotated(rot_north(st.dir("facing", Dir::North)))
+            Model::cube(Part::new(FULL.0, FULL.1).all("furnace_side").face(UP, "furnace_top").face(DOWN, "furnace_top").face(NORTH, front)).rotated(rot_north(facing))
         }
         "crafter" => {
             let on = st.b("triggered", false) || st.b("crafting", false);
@@ -421,11 +454,13 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
             m
         }
         "water" | "lava" | "bubble_column" => {
+            // the game's fluid heights: a source 8/9 of a block, flowing water (8 - level)/9, a
+            // falling column (level 8+) and a bubble column full (the builder also fills a cell
+            // under another water cell)
             let level = st.i("level", 0);
-            let h = if name == "bubble_column" || level == 0 || level >= 8 { if name == "bubble_column" { 16.0 } else { 14.0 } } else { (16.0 - level as f32 * 1.75).max(2.0) };
+            let h = if name == "bubble_column" || level >= 8 { 16.0 } else if level == 0 { 16.0 * 8.0 / 9.0 } else { (16.0 * (8 - level.min(7)) as f32 / 9.0).max(1.0) };
             let tint = if name == "lava" { [255, 120, 30] } else { [255, 255, 255] };
-            let tile = if name == "bubble_column" { "bubbles" } else { "water" };
-            Model::one(Part::new([0.0, 0.0, 0.0], [16.0, h, 16.0]).all(tile).tint(tint).layer(Layer::Translucent))
+            Model::one(Part::new([0.0, 0.0, 0.0], [16.0, h, 16.0]).all("water").tint(tint).layer(Layer::Translucent))
         }
         "magma_block" => {
             let mut m = cube_all("magma");
@@ -792,6 +827,16 @@ fn rail(st: &St) -> Model {
             }
             Model::one(p)
         }
+        "south_east" | "south_west" | "north_west" | "north_east" if st.name == "rail" => {
+            // the game's rail_curved model (rail_corner joins the south and east edges), turned
+            let rot = match shape {
+                "south_east" => 0,
+                "south_west" => 3,
+                "north_west" => 2,
+                _ => 1,
+            };
+            Model::one(Part::new([0.0, 1.0, 0.0], [16.0, 1.0, 16.0]).face(UP, "rail_corner").face(DOWN, "rail_corner").rot_uv(UP, rot).rot_uv(DOWN, rot).nocull().layer(Layer::Cutout))
+        }
         "south_east" | "south_west" | "north_west" | "north_east" => flat(0),
         _ => flat(0),
     }
@@ -886,14 +931,26 @@ pub fn entity_model(kind: &str) -> Option<Model> {
         return Some(Model { parts, ..Default::default() });
     }
     if k.contains("boat") || k.contains("raft") {
-        let wood = "oak_planks";
-        let parts = vec![
-            Part::new([-7.0, 0.0, -11.0], [7.0, 1.0, 11.0]).all(wood),
-            Part::new([-8.0, 0.0, -11.0], [-7.0, 6.0, 11.0]).all(wood),
-            Part::new([7.0, 0.0, -11.0], [8.0, 6.0, 11.0]).all(wood),
-            Part::new([-7.0, 0.0, -12.0], [7.0, 6.0, -11.0]).all(wood),
-            Part::new([-7.0, 0.0, 11.0], [7.0, 6.0, 12.0]).all(wood),
+        // the boat's wood when the tiles have it
+        let wood = match k.split('_').next().unwrap_or("oak") {
+            "spruce" => "spruce_planks",
+            _ => "oak_planks",
+        };
+        let mut parts = vec![
+            // the hull: its floor a little above the entity's position, its rim well above the
+            // water line like the game's boat model
+            Part::new([-7.0, 2.0, -11.0], [7.0, 3.0, 11.0]).all(wood),
+            Part::new([-8.0, 2.0, -11.0], [-7.0, 9.0, 11.0]).all(wood),
+            Part::new([7.0, 2.0, -11.0], [8.0, 9.0, 11.0]).all(wood),
+            Part::new([-7.0, 2.0, -12.0], [7.0, 9.0, -11.0]).all(wood),
+            Part::new([-7.0, 2.0, 11.0], [7.0, 9.0, 12.0]).all(wood),
         ];
+        if k.contains("chest") {
+            // the chest at the stern, its lid line and latch
+            parts.push(Part::new([-6.0, 3.0, 1.0], [6.0, 14.0, 10.0]).all("oak_planks").tint([200, 150, 90]));
+            parts.push(Part::new([-6.2, 10.0, 0.8], [6.2, 10.6, 10.2]).all("oak_log").tint([90, 60, 30]));
+            parts.push(Part::new([-1.0, 8.0, 0.5], [1.0, 11.0, 1.0]).all("iron_block"));
+        }
         return Some(Model { parts: parts.into_iter().map(|p| p.nocull()).collect(), ..Default::default() });
     }
     if k.contains("armor_stand") {

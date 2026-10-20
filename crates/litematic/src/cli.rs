@@ -39,6 +39,31 @@ pub enum LitematicCmd {
         #[arg(long, short)]
         quiet: bool,
     },
+    /// In the REAL client: Fabric + MaLiLib + Litematica (from Modrinth) + the repository's probe
+    /// mod paste each design's .litematic with Litematica's own code (placement + paste, as a
+    /// creative operator on the bridge's server), then the world is compared with the design
+    /// block for block, block entities and entities. Designs: files or folders. Uses an X display
+    /// (Xvfb). Exits 1 on any difference.
+    VerifyIngame {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = mctas::DEFAULT_VERSION)]
+        version: String,
+        /// Seconds to wait for one paste.
+        #[arg(long, default_value_t = 180)]
+        timeout: u64,
+        /// Litematica's pasteNbtRestoreBehavior: none (its default; on a server block entities
+        /// paste empty), place_data_modify, place_clone.
+        #[arg(long, default_value = "place_data_modify")]
+        nbt: String,
+        /// Where Litematica pastes: server (the bridge's server: its command paste), single (a
+        /// singleplayer world: its direct paste) or both.
+        #[arg(long, default_value = "both")]
+        world: String,
+        /// Litematica's deduplicateSchematicEntities (Litematica's default is false: entities may
+        /// be summoned twice on a server).
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        dedupe: bool,
+    },
 }
 
 fn load(p: &Path) -> Result<(Design, String)> {
@@ -119,6 +144,35 @@ pub fn run(cmd: LitematicCmd) -> Result<()> {
                 if design {
                     print!("{}", region_design(r, &r.name).to_text());
                 }
+            }
+        }
+        LitematicCmd::VerifyIngame { designs, version, timeout, nbt, world, dedupe } => {
+            use crate::ingame::World;
+            let worlds = match world.as_str() {
+                "server" => vec![World::Server],
+                "single" | "singleplayer" => vec![World::Single],
+                "both" => vec![World::Server, World::Single],
+                other => anyhow::bail!("--world: server, single or both, not {other:?}"),
+            };
+            let paths = crate::ingame::collect(&designs)?;
+            let o = crate::ingame::IngameOptions { version, timeout_s: timeout, nbt, worlds, dedupe, ..Default::default() };
+            let verdicts = crate::ingame::verify_ingame(&paths, &o, &|s| eprintln!("{s}"))?;
+            let mut bad = 0;
+            for v in &verdicts {
+                match &v.result {
+                    Ok(s) => println!("OK   {} [{}]: {s}", v.name, v.world.name()),
+                    Err(diffs) => {
+                        bad += 1;
+                        println!("DIFF {} [{}]: {} differences", v.name, v.world.name(), diffs.len());
+                        for d in diffs.iter().take(12) {
+                            println!("       {d}");
+                        }
+                    }
+                }
+            }
+            println!("{} of {} pastes by Litematica in the real client are identical to their design", verdicts.len() - bad, verdicts.len());
+            if bad > 0 {
+                std::process::exit(1);
             }
         }
         LitematicCmd::Check { designs, quiet } => {

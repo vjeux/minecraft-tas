@@ -1,0 +1,14 @@
+name: rt-push-up
+# redsim test scene (not a clock): a sticky piston facing up lifts a stone with an armor stand
+# standing on it (moveCollidedEntities, vertical), held 6 gt from tick 2, then pulls it back.
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:armor_stand 1.5 3.0 0.5
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=up,extended=false]
+layer 0:
+  SSSS
+layer 1:
+  .P..
+layer 2:
+  .S..

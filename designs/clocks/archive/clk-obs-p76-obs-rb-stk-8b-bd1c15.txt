@@ -1,0 +1,31 @@
+# archived 2026-10-20T02:11Z from designs/clocks/tracks/clk-obs/families9/p76-obs-rb-stk-8b-bd1c15.txt by mctas clock archive
+# CLOCK: clk-obs-p76-obs-rb-stk-8b-bd1c15 period 76 gt (3.8 s), on 36/76, edges 18, warmup 9, family observer+redstone_block+sticky_piston, 8 blocks, 1x3x5, robust
+name: clk-obs-p76-obs-rb-stk-8b-bd1c15
+# clk-obs grow: P=76 (redsim), family observer+redstone_block+sticky_piston+stone, kick last 0 0 0, swept volume 15.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=north]
+  B minecraft:stone
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:redstone_block
+layer -1:
+  .
+  .
+  A
+  .
+layer 0:
+  B
+  C
+  D
+  .
+layer 1:
+  E
+  F
+  G
+  H

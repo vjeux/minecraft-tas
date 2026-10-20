@@ -19,11 +19,15 @@ pub struct ShotOptions {
     /// Camera yaw / pitch in degrees (default: the real-game pictures' direction).
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
+    /// As the game pictures it: without the viewer's own marks (the lime outlines on the inputs).
+    pub picture: bool,
+    /// The ground's reach around the build (default: the viewer's).
+    pub floor_margin: Option<f32>,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None }
     }
 }
 
@@ -50,7 +54,11 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         }
     }
     let aspect = o.width as f32 / o.height as f32;
-    let look = scene::default_look(&s);
+    let mut look = scene::default_look(&s);
+    if o.picture {
+        look.outlines.clear();
+    }
+    look.floor_margin = o.floor_margin;
     // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
     let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
     if o.yaw.is_some() || o.pitch.is_some() {
@@ -82,10 +90,14 @@ pub struct Comparison {
     pub height: u32,
     pub pixel_diff: f64,
     pub coarse_diff: f64,
+    /// The pixel diff of the bottom eighth (usually grass only: the textures' noise floor) and of
+    /// the top eighth (the horizon, the sky band).
+    pub bottom_diff: f64,
+    pub top_diff: f64,
     pub note: String,
 }
 
-pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Result<Comparison, String> {
+pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>) -> Result<Comparison, String> {
     let mut dec = jpeg_decoder::Decoder::new(jpg);
     let px = dec.decode().map_err(|e| format!("jpeg: {e}"))?;
     let info = dec.info().ok_or("jpeg: no info")?;
@@ -95,9 +107,15 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
         jpeg_decoder::PixelFormat::L8 => px.iter().map(|v| [*v, *v, *v]).collect(),
         f => return Err(format!("jpeg: unsupported pixel format {f:?}")),
     };
-    let (mine, note) = shot(off, atlas, text, &ShotOptions { width: w, height: h, ..Default::default() })?;
+    // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
+    // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
+    let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
+    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, floor_margin, ..Default::default() })?;
+    let mine = lanczos_resize(&big, bw, bh, w, h);
     let mut out = vec![0u8; (2 * w * h * 4) as usize];
     let mut diff = 0f64;
+    let (mut bottom, mut top) = (0f64, 0f64);
+    let band = (h / 8).max(1) as usize;
     for y in 0..h as usize {
         for x in 0..w as usize {
             let r = real[y * w as usize + x];
@@ -106,7 +124,14 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
             out[o..o + 4].copy_from_slice(&[r[0], r[1], r[2], 255]);
             let o = (y * 2 * w as usize + w as usize + x) * 4;
             out[o..o + 4].copy_from_slice(&[m[0], m[1], m[2], 255]);
-            diff += (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
+            let d = (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
+            diff += d;
+            if y >= h as usize - band {
+                bottom += d;
+            }
+            if y < band {
+                top += d;
+            }
         }
     }
     let (gw, gh) = (32usize, 18usize);
@@ -130,7 +155,7 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
             coarse += (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
         }
     }
-    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, note })
+    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, bottom_diff: bottom / (band * w as usize) as f64, top_diff: top / (band * w as usize) as f64, note })
 }
 
 /// A camera variant tried by [`fit`]: zoom (tan of the half field of view divided by it), pitch
@@ -218,6 +243,74 @@ pub fn fit(off: &mut Offscreen, atlas: &Atlas, cases: &[(String, Vec<u8>)], w: u
     Ok(out)
 }
 
+/// Resize RGBA with a separable Lanczos-3 filter (ffmpeg's `flags=lanczos` downscale).
+pub fn lanczos_resize(src: &[u8], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u8> {
+    fn weights(src_n: u32, dst_n: u32) -> Vec<(usize, Vec<f32>)> {
+        let scale = src_n as f32 / dst_n as f32;
+        let support = 3.0 * scale.max(1.0);
+        let lanczos = |x: f32| -> f32 {
+            if x.abs() < 1e-6 {
+                1.0
+            } else if x.abs() >= 3.0 {
+                0.0
+            } else {
+                let px = std::f32::consts::PI * x;
+                3.0 * px.sin() * (px / 3.0).sin() / (px * px)
+            }
+        };
+        (0..dst_n)
+            .map(|i| {
+                let center = (i as f32 + 0.5) * scale;
+                let a = ((center - support).floor() as i64).max(0) as usize;
+                let b = ((center + support).ceil() as i64).min(src_n as i64) as usize;
+                let mut ws: Vec<f32> = (a..b).map(|j| lanczos((j as f32 + 0.5 - center) / scale.max(1.0))).collect();
+                let s: f32 = ws.iter().sum();
+                if s.abs() > 1e-6 {
+                    for v in &mut ws {
+                        *v /= s;
+                    }
+                }
+                (a, ws)
+            })
+            .collect()
+    }
+    let wx = weights(sw, dw);
+    let wy = weights(sh, dh);
+    // horizontal pass
+    let mut tmp = vec![0f32; (dw * sh * 4) as usize];
+    for y in 0..sh as usize {
+        for (x, (a, ws)) in wx.iter().enumerate() {
+            let mut acc = [0f32; 4];
+            for (k, w) in ws.iter().enumerate() {
+                let s = (y * sw as usize + a + k) * 4;
+                for c in 0..4 {
+                    acc[c] += src[s + c] as f32 * w;
+                }
+            }
+            let d = (y * dw as usize + x) * 4;
+            tmp[d..d + 4].copy_from_slice(&acc);
+        }
+    }
+    // vertical pass
+    let mut out = vec![0u8; (dw * dh * 4) as usize];
+    for (y, (a, ws)) in wy.iter().enumerate() {
+        for x in 0..dw as usize {
+            let mut acc = [0f32; 4];
+            for (k, w) in ws.iter().enumerate() {
+                let s = ((a + k) * dw as usize + x) * 4;
+                for c in 0..4 {
+                    acc[c] += tmp[s + c] * w;
+                }
+            }
+            let d = (y * dw as usize + x) * 4;
+            for c in 0..4 {
+                out[d + c] = acc[c].round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
+}
+
 /// A grid of frames over time (the animation the browser plays): a door from its lever flip, a
 /// clock from its still moment; `step` game ticks between frames (fractions show moving blocks
 /// mid-way). Returns the grid's RGBA and its size.
@@ -273,10 +366,17 @@ pub fn decode_image(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
 
 pub use crate::atlas::vanilla::decode_png;
 
-/// The game's block atlas of misode/mcmeta (`atlas::vanilla`), downloaded once into mctas's cache
-/// (LOCAL use: comparisons with the real-game pictures; the browser fetches it itself): the PNG
-/// bytes and the index text.
+/// The game's block atlas of misode/mcmeta (`atlas::vanilla`) and its block definitions and
+/// models (`gamemodel`), downloaded once into mctas's cache (LOCAL use: comparisons with the
+/// real-game pictures; the browser fetches them itself): the PNG bytes, the atlas index, the
+/// definitions and the models.
 pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
+    let (png, index, _, _) = vanilla_assets()?;
+    Ok((png, index))
+}
+
+/// [`vanilla_atlas`] with the block definitions and models.
+pub fn vanilla_assets() -> Result<(Vec<u8>, String, String, String), String> {
     let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
@@ -290,9 +390,34 @@ pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
         }
         std::fs::read(&p).map_err(|e| e.to_string())
     };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
     let png = get(crate::atlas::vanilla::ATLAS_URL, "atlas.png")?;
-    let index = String::from_utf8(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?).map_err(|e| e.to_string())?;
-    Ok((png, index))
+    let index = text(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?)?;
+    let defs = text(get(crate::gamemodel::DEFS_URL, "block_definition.min.json")?)?;
+    let models = text(get(crate::gamemodel::MODELS_URL, "model.min.json")?)?;
+    Ok((png, index, defs, models))
+}
+
+/// The game's entity and item atlases (PNG bytes, index), cached like [`vanilla_assets`].
+pub fn vanilla_entity_assets() -> Result<((Vec<u8>, String), (Vec<u8>, String)), String> {
+    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
+    let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
+        let p = dir.join(name);
+        if !p.exists() {
+            let out = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(url).output().map_err(|e| format!("curl: {e}"))?;
+            if !out.status.success() {
+                let _ = std::fs::remove_file(&p);
+                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&out.stderr)));
+            }
+        }
+        std::fs::read(&p).map_err(|e| e.to_string())
+    };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    use crate::atlas::vanilla::*;
+    Ok((
+        (get(ENTITY_ATLAS_URL, "entities.png")?, text(get(ENTITY_INDEX_URL, "entities.min.json")?)?),
+        (get(ITEM_ATLAS_URL, "items.png")?, text(get(ITEM_INDEX_URL, "items.min.json")?)?),
+    ))
 }
 
 /// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the

@@ -86,3 +86,19 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   base is still a moving block, so its pull fails), 12 pulsers on one observer spine that sweeps the
   line five times (rails behind, in front, below, above; `pext spine` builds a chain along a path),
   62 blocks, minimized to 43 without slime in the palette.
+
+## Slime-free stacks for any N: `pext trains --cells` + `pext stack --cells`
+* The most general static schedule: a sequence of SINGLE-CELL pulses, each firing on both edges
+  (whatever piston stands on that cell acts, on each edge). Breadth-first over the pair (on-edge
+  state, off-edge state) finds the shortest for every N, a clean sweep pattern (abstract cells, A =
+  x0): N=2 `x2 x0 x1 x2`; N=3 `x4 x2 x0 x3 x1 x2 x4`; N=4 12 pulses; N=5 17; N=6 24; N=7 31.
+* `pext stack --cells` places one observer pulser per pulse beside its cell (sides, top, bottom, two
+  quasi-connectivity slots above-beside, A's back) and routes one spine from the lever through the
+  watched cells in order (BFS over (cell, entry direction): an observer emits STRAIGHT THROUGH, so
+  at a turn its back points ahead, never into the line or the cell above it; future targets keep
+  their neighbours free). Generated: N=4 96, N=5 136, N=6 214, N=7 276 blocks; minimized: N=3 38,
+  N=4 60. N=8 boxes the router in (one cell needs 5 pulsers there).
+  With each cell's preferred sides alternating with its parity (fewer crowded bands): N=6 192, N=7
+  254, N=8 356 (N=9 still boxes in); minimized N=5 105.
+* `pext trains --interleave` (the cascade's per-edge reuse for a fixed train) also works but needs
+  more pulses (16 for N=4).

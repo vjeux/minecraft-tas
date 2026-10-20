@@ -1,0 +1,73 @@
+# archived 2026-10-20T02:30Z from designs/circuits/pext/work/n5-sf105.txt by mctas circuit archive
+# CIRCUIT: pext-n5-sf105 piston-extender 5 N 5, extend 149 gt, retract 147 gt, 105 blocks, 13x5x7, robust
+# N=5 SLIME-FREE extender, minimized (no slime in the palette) from the single-cell-schedule stack
+# (mctas circuit pext stack --n 5 --cells, 136 blocks): five sticky pistons in a line, fixed pulsers
+# beside them, one observer spine.
+name: pext-n5-sf105
+circuit: piston-extender 5
+travel: 1 0 0
+port input: 11 1 2 lever
+port payload: 6 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=east]
+  C minecraft:observer[facing=north]
+  D minecraft:observer[facing=south]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=up]
+  G minecraft:gold_block
+  H minecraft:observer[facing=west,powered=false]
+  I minecraft:observer[facing=west]
+  J minecraft:piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=false,facing=south]
+  L minecraft:lever[face=floor,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=down]
+  p minecraft:piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer -1:
+  .
+  ......BBF
+  .
+  .
+  .
+  ......p
+  .
+layer 0:
+  .
+  ......oDF
+  ....EIS
+  .
+  pBBBE
+  ...pAF.AF...Q
+  .
+layer 1:
+  .....KBD
+  ....F.ooF
+  ....CC.CC
+  DINNNNNG
+  ...DDDDDDDD
+  ....FDoD.F.JL
+  .....F.BBC
+layer 2:
+  ......OI
+  ....F.o.D
+  .....FIII
+  ......F.FH
+  ....OIIIII
+  ...oF.MoPCo
+  .....BBC
+layer 3:
+  .......o
+  ....BBoC
+  ....DIBC
+  ....D.CHI
+  ....I
+  ...sBB...Bo
+  .

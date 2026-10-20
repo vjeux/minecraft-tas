@@ -1,0 +1,41 @@
+OK   b38h-obs7-45b [server]: 45 blocks, 0 block entities, 0 entities identical
+OK   b38h-bus8-52b [server]: 52 blocks, 0 block entities, 0 entities identical
+OK   observer-pair [server]: 2 blocks, 0 block entities, 0 entities identical
+OK   hopper-pair [server]: 4 blocks, 1 block entities, 0 entities identical
+OK   comparator-subtract [server]: 9 blocks, 0 block entities, 0 entities identical
+OK   sculk-piston [server]: 6 blocks, 0 block entities, 0 entities identical
+OK   torch-repeater [server]: 14 blocks, 0 block entities, 0 entities identical
+OK   clk-misc-boat-ring-2x3 [server]: 84 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-cart-loop-n0 [server]: 28 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-bookshelf-cart [server]: 19 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-hopper-cart [server]: 16 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-boat-lift-l3h2-chest1 [server]: 96 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-dripleaf-stand [server]: 7 blocks, 0 block entities, 1 entities identical (entity data not pasted on a server)
+OK   clk-misc-water-channel [server]: 24 blocks, 0 block entities, 0 entities identical
+OK   clk-misc-bubble-flip [server]: 12 blocks, 0 block entities, 0 entities identical
+OK   observer-dual-edge [server]: 1 blocks, 0 block entities, 0 entities identical
+OK   repeater-dlatch [server]: 4 blocks, 0 block entities, 0 entities identical
+OK   sticky-extender [server]: 2 blocks, 0 block entities, 0 entities identical
+OK   flying-machine [server]: 7 blocks, 0 block entities, 0 entities identical
+OK   bulb-tff [server]: 3 blocks, 0 block entities, 0 entities identical
+OK   b38h-obs7-45b [singleplayer]: 45 blocks, 0 block entities, 0 entities identical
+OK   b38h-bus8-52b [singleplayer]: 52 blocks, 0 block entities, 0 entities identical
+OK   observer-pair [singleplayer]: 2 blocks, 0 block entities, 0 entities identical
+OK   hopper-pair [singleplayer]: 4 blocks, 1 block entities, 0 entities identical
+OK   comparator-subtract [singleplayer]: 9 blocks, 0 block entities, 0 entities identical
+OK   sculk-piston [singleplayer]: 6 blocks, 0 block entities, 0 entities identical
+OK   torch-repeater [singleplayer]: 14 blocks, 0 block entities, 0 entities identical
+OK   clk-misc-boat-ring-2x3 [singleplayer]: 84 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-cart-loop-n0 [singleplayer]: 28 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-bookshelf-cart [singleplayer]: 19 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-hopper-cart [singleplayer]: 16 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-boat-lift-l3h2-chest1 [singleplayer]: 96 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-dripleaf-stand [singleplayer]: 7 blocks, 0 block entities, 1 entities identical
+OK   clk-misc-water-channel [singleplayer]: 24 blocks, 0 block entities, 0 entities identical
+OK   clk-misc-bubble-flip [singleplayer]: 12 blocks, 0 block entities, 0 entities identical
+OK   observer-dual-edge [singleplayer]: 1 blocks, 0 block entities, 0 entities identical
+OK   repeater-dlatch [singleplayer]: 4 blocks, 0 block entities, 0 entities identical
+OK   sticky-extender [singleplayer]: 2 blocks, 0 block entities, 0 entities identical
+OK   flying-machine [singleplayer]: 7 blocks, 0 block entities, 0 entities identical
+OK   bulb-tff [singleplayer]: 3 blocks, 0 block entities, 0 entities identical
+40 of 40 pastes by Litematica in the real client are identical to their design

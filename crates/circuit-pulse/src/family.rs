@@ -108,6 +108,54 @@ pub const FAMILIES: &[Family] = &[
         how: "the bulb-triggered one-shot (oneshot-bulb-rise) judged as an extender",
     },
     Family {
+        name: "rise-psub-u4",
+        kind: "rising-edge",
+        l: "13 + 16n",
+        blocks: "25 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "the piston-subtract limiter (limiter-psub-u4) judged as a rising-edge detector",
+    },
+    Family {
+        name: "fall-psub-u4",
+        kind: "falling-edge",
+        l: "15 + 16n",
+        blocks: "22 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (an odd delay: the block lands in the block-entity phase); the comparator's side gets the input inverted by a redstone torch and delayed by a U of delay-4 repeaters (an even delay), so after the falling edge the output is on for an odd number of ticks",
+    },
+    Family {
+        name: "limiter-psub-u4",
+        kind: "pulse-limiter",
+        l: "13 + 16n",
+        blocks: "25 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston pushes a redstone block behind a subtract comparator (an odd delay: the piston moves in the tick after the input, the block lands in the block-entity phase); the input reaches the comparator's side through a U of delay-4 repeaters (an even delay), so the output is on for an odd number of ticks",
+    },
+    Family {
+        name: "limiter-psub-u1",
+        kind: "pulse-limiter",
+        l: "?",
+        blocks: "?",
+        rule: "lengthen the repeater U by one row: one more delay-1 repeater (on stone) in each column",
+        how: "limiter-psub-u4 with delay-1 repeaters",
+    },
+    Family {
+        name: "dual-edge-reset",
+        kind: "dual-edge",
+        l: "30 + 16n",
+        blocks: "32 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "an observer watching the input fires on both edges through a repeater into a copper bulb (locked by a comparator reading the bulb while it is lit); the comparator also feeds a U of delay-4 repeaters into a second bulb, read by a comparator that an observer watches: its back faces the first bulb, so each loop sends one 2 gt reset pulse that turns the bulb off",
+    },
+    Family {
+        name: "dual-edge-reset1",
+        kind: "dual-edge",
+        l: "?",
+        blocks: "?",
+        rule: "lengthen the repeater U by one row: one more delay-1 repeater (on stone) in each column",
+        how: "dual-edge-reset with delay-1 repeaters",
+    },
+    Family {
         name: "dual-lock",
         kind: "dual-edge",
         l: "?",
@@ -417,6 +465,126 @@ pub fn oneshot_bulb_text(name: &str, kind: &str, delays: &[u8]) -> String {
     )
 }
 
+/// The locked dual-edge one-shot with an EDGE reset (min-pulse about L): as `dual_lock_text`, but
+/// the repeater U ends in a second copper bulb read by a comparator that an observer watches; the
+/// observer's back faces the main bulb, so the bulb gets a 2 gt reset pulse once per loop (the
+/// loop's rising edge toggles the second bulb, its falling edge does nothing) instead of staying
+/// powered by the loop: the falling edge's trigger is answered as soon as the lock lets it go.
+pub fn dual_lock2_text(name: &str, k: usize, d: u8) -> String {
+    // x from 0 to 4; z from -(k+2) to 3 (rows listed from the smallest z)
+    let zmin = -(k as i32 + 2);
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in zmin..=3 {
+        let (r0, r1) = match z {
+            3 => (".....", "....."),
+            2 => (".....", "..V.."),
+            1 => ("..SSS", "..TLW"),
+            0 => ("S..SS", "KOBCW"),
+            -1 => ("....S", "A...M"),
+            z if z == zmin => ("SSSSS", "WWWWW"),
+            _ => ("S...S", "N...M"),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: dual-edge\norigin: 0 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=west,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
+/// Odd pulses by overlap: two detectors 1 gt apart, each through a delay-`d` repeater into one
+/// dust, give 2d + 1 gt. `mode` rise: a bulb edge (+4) and a pushed observer (+5); fall: a pulled
+/// observer (+5) and a torch-relit bulb edge (+6); 12 / 16 blocks.
+pub fn odd_text(name: &str, kind: &str, mode: &str, d: u8) -> String {
+    let l = 2 * d as u32 + 1;
+    let how = match mode {
+        "fall" => "two falling-edge detectors 1 gt apart: a sticky piston pulls back an observer that fires 2 gt after it lands (5 gt after the edge), and a redstone torch the input turns off (through dust into its block) lights again 2 gt after the edge and toggles a copper bulb, read by a comparator an observer watches (6 gt after the edge)",
+        _ => "two rising-edge detectors 1 gt apart: a copper bulb the input toggles on every rising edge, read by a comparator an observer watches (fires 4 gt after the edge), and a sticky piston pushing an observer that fires 2 gt after it lands (5 gt after the edge; pulled back on the falling edge it fires into an empty cell)",
+    };
+    let head = format!(
+        "name: {name}\ncircuit: {kind}\n# Odd pulses ({kind}, L = {l} gt): {how}; each feeds a delay-{d} repeater ({} gt pulses) into one dust, where the two pulses overlap into {} + 1 = {l} gt.\n",
+        2 * d,
+        2 * d
+    );
+    let pal = format!(
+        "palette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  V minecraft:observer[facing=west,powered=false]\n  O minecraft:observer[facing=north,powered=false]\n  P minecraft:sticky_piston[extended=false,facing=east]\n  R minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  Q minecraft:repeater[delay={d},facing=west,locked=false,powered=false]\n"
+    );
+    match mode {
+        "fall" => format!("{head}origin: -2 0 -1\nport input: 0 1 -1\nport output: 1 1 2\n{pal}layer 0:\n  .S...\n  .....\n  ...S.\n  S.SS.\nlayer 1:\n  SW...\n  T.PO.\n  A..R.\n  KVQW.\n"),
+        _ => format!("{head}origin: -1 0 0\nport input: 0 1 1\nport output: 2 1 2\n{pal}layer 0:\n  ....\n  ...S\n  S.SS\nlayer 1:\n  .PO.\n  A..R\n  KVQW\n"),
+    }
+}
+
+/// The piston-subtract odd limiter: a subtract comparator's rear gets a redstone block a sticky
+/// piston pushes behind it (an odd delay: the piston moves the tick after the input, the block
+/// lands in the block-entity phase), its side the input through two repeaters (delays d1, d2):
+/// L = 2 (d1 + d2) - 3.
+pub fn limiter_piston_text(name: &str, kind: &str, d1: u8, d2: u8) -> String {
+    let l = 2 * (d1 as i32 + d2 as i32) - 3;
+    format!(
+        "name: {name}\ncircuit: {kind}\n# Odd pulses ({kind}, L = {l} gt): a subtract comparator's rear gets a redstone block that a sticky piston pushes behind it (the piston moves in the tick after the input changes and the block lands in the block-entity phase: an odd delay), its side gets the input through two repeaters (delays {d1} and {d2}: an even delay); the output is on from the rear's arrival until the side's: L = 2 x ({d1} + {d2}) - 3 = {l} gt. An observer watching the input holds the piston through dust for 2 gt more, so a 1 gt input cannot make it leave its block behind the comparator (its retraction is cancelled until the block has landed).\norigin: -2 0 0\nport input: 0 1 0\nport output: 4 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  O minecraft:observer[facing=east,powered=false]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=false]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=false]\nlayer 0:\n  S..SSS.\n  SS...S.\nlayer 1:\n  WO.QUW.\n  WWAB.C.\n"
+    )
+}
+
+/// The piston-subtract limiter with a repeater U on the side (an extendable odd family): the input
+/// pushes a redstone block behind a subtract comparator with a sticky piston (odd delay) and
+/// reaches the comparator's side through a U of k rows of delay-`d` repeaters (even delay).
+pub fn limiter_psub_u_text(name: &str, kind: &str, k: usize, d: u8) -> String {
+    // x from -2 to 4 (x = 4: the output; x = -2, -1: the observer hold); z from -1 to k + 1
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in -1..=(k as i32 + 1) {
+        let (r0, r1) = match z {
+            -1 => ("SS...S.", "WWAB.C."),
+            0 => ("S....S.", "WO...W."),
+            z if z == k as i32 + 1 => ("..SSSS.", "..WWWW."),
+            _ => ("..S..S.", "..N..M."),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: {kind}\norigin: -2 0 -1\nport input: 0 1 0\nport output: 4 1 -1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  O minecraft:observer[facing=east,powered=false]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
+/// The falling-edge piston-subtract: a sticky piston the input powers pushes a redstone block out
+/// from behind a subtract comparator and pulls it back on the falling edge (it lands in the
+/// block-entity phase: odd delay); the side gets the input inverted by a torch (through dust into
+/// its block) and delayed by two repeaters: L = 2 (d1 + d2) - 1.
+pub fn fall_psub_text(name: &str, d1: u8, d2: u8) -> String {
+    let l = 2 * (d1 as i32 + d2 as i32) - 1;
+    format!(
+        "name: {name}\ncircuit: falling-edge\n# Odd falling-edge pulses (L = {l} gt): a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (the piston moves the tick after the input, the block lands in the block-entity phase: an odd delay); the comparator's side gets the input inverted by a redstone torch (through dust into its block) and delayed by two repeaters ({d1} and {d2}: an even delay), so after the falling edge the output is on from the block's return until the torch's signal arrives: L = 2 x ({d1} + {d2}) - 1 = {l} gt.\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=true]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=true]\nlayer 0:\n  .S...\n  .SSSS\nlayer 1:\n  SW.AB\n  TQUWC\n"
+    )
+}
+
+/// The falling-edge piston-subtract with a repeater U after the torch (an extendable odd family).
+pub fn fall_psub_u_text(name: &str, k: usize, d: u8) -> String {
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in -1..=(k as i32 + 1) {
+        let (r0, r1) = match z {
+            -1 => (".S...", "SW.AB"),
+            0 => ("...SS", "T..WC"),
+            z if z == k as i32 + 1 => ("SSSS.", "WWWW."),
+            _ => ("S..S.", "N..M."),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: falling-edge\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=true]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=true]\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
@@ -427,6 +595,12 @@ pub fn instance_text(name: &str, n: u32) -> Option<String> {
         "oneshot-ext" => Some(oneshot_text(&format!("pulse-oneshot-ext-n{n}"), "pulse-extender", "rise", &vec![4; 2 * k])),
         "oneshot-fall" => Some(oneshot_text(&format!("pulse-oneshot-fall-n{n}"), "falling-edge", "fall", &vec![4; 2 * k])),
         "dual-lock" => Some(dual_lock_text(&format!("pulse-dual-lock-n{n}"), k, 4)),
+        "dual-edge-reset" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset-n{n}"), k, 4)),
+        "limiter-psub-u4" => Some(limiter_psub_u_text(&format!("pulse-limiter-psub-u4-n{n}"), "pulse-limiter", k, 4)),
+        "rise-psub-u4" => Some(limiter_psub_u_text(&format!("pulse-rise-psub-u4-n{n}"), "rising-edge", k, 4)),
+        "fall-psub-u4" => Some(fall_psub_u_text(&format!("pulse-fall-psub-u4-n{n}"), k, 4)),
+        "limiter-psub-u1" => Some(limiter_psub_u_text(&format!("pulse-limiter-psub-u1-n{n}"), "pulse-limiter", k, 1)),
+        "dual-edge-reset1" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset1-n{n}"), k, 1)),
         "oneshot-bulb-rise" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-rise-n{n}"), "rising-edge", &vec![4; 2 * k])),
         "oneshot-bulb-ext" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-ext-n{n}"), "pulse-extender", &vec![4; 2 * k])),
         "dual-lock1" => Some(dual_lock_text(&format!("pulse-dual-lock1-n{n}"), k, 1)),
@@ -469,6 +643,10 @@ pub fn group_of(family: &str, kind: &str) -> &'static str {
         ("oneshot-fall" | "oneshot-mode-fall", _) => "pulse-oneshot-fall",
         ("oneshot-mode-dual", _) => "pulse-oneshot-dual",
         ("dual-lock" | "dual-lock1", _) => "pulse-dual-lock",
+        ("dual-edge-reset" | "dual-edge-reset1", _) => "pulse-dual-edge-reset",
+        ("limiter-psub-u4" | "limiter-psub-u1", _) => "pulse-limiter-psub",
+        ("rise-psub-u4", _) => "pulse-rise-psub",
+        ("fall-psub-u4", _) => "pulse-fall-psub",
         ("oneshot-bulb-rise", _) => "pulse-oneshot-bulb-rise",
         ("oneshot-bulb-ext", _) => "pulse-oneshot-bulb-ext",
         _ => "pulse-other",
@@ -501,6 +679,46 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): {how}; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode {} --kind {} --l-range {l}..{l}.\n", a.kind, a.mode, a.kind));
             let text = crate::stamp::stamp(&text, group_of(&format!("oneshot-mode-{}", a.mode), &a.kind), None, None);
+            std::fs::write(dir.join(format!("{name}.txt")), text)?;
+        }
+        return Ok(());
+    }
+    if a.name == "odd" {
+        // odd L by overlap, L = 3, 5, 7, 9 (repeater delay 1..4): --mode rise|fall --kind K
+        let Some(dir) = &a.out_dir else { bail!("odd needs --mode rise|fall|piston --kind K --out-dir D") };
+        std::fs::create_dir_all(dir)?;
+        if a.mode == "piston" {
+            // the piston-subtract limiter: L = 2 (d1 + d2) - 3 = 1, 3, ..., 13
+            let short = if a.kind == "rising-edge" { "rise-psub" } else { "limiter-psub" };
+            if a.kind == "falling-edge" {
+                // the falling-edge version: L = 2 (d1 + d2) - 1 = 3, ..., 15
+                for s in 2..=8u8 {
+                    let (d1, d2) = (s / 2, s - s / 2);
+                    let name = format!("pulse-fall-psub-L{}", 2 * s as i32 - 1);
+                    let text = crate::stamp::stamp(&fall_psub_text(&name, d1, d2), "pulse-fall-psub", None, None);
+                    std::fs::write(dir.join(format!("{name}.txt")), text)?;
+                }
+                return Ok(());
+            }
+            for s in 2..=8u8 {
+                let (d1, d2) = (s / 2, s - s / 2);
+                let name = format!("pulse-{short}-L{}", 2 * s as i32 - 3);
+                let text = limiter_piston_text(&name, &a.kind, d1, d2);
+                let text = crate::stamp::stamp(&text, &format!("pulse-{short}"), None, None);
+                std::fs::write(dir.join(format!("{name}.txt")), text)?;
+            }
+            return Ok(());
+        }
+        let short = match (a.mode.as_str(), a.kind.as_str()) {
+            ("fall", _) => "fall-odd2",
+            (_, "pulse-limiter") => "limiter-odd2",
+            (_, "pulse-extender") => "ext-odd2",
+            _ => "rise-odd2",
+        };
+        for d in 1..=4u8 {
+            let name = format!("pulse-{short}-L{}", 2 * d + 1);
+            let text = odd_text(&name, &a.kind, &a.mode, d);
+            let text = crate::stamp::stamp(&text, &format!("pulse-{short}"), None, None);
             std::fs::write(dir.join(format!("{name}.txt")), text)?;
         }
         return Ok(());

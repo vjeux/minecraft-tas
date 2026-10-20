@@ -19,6 +19,32 @@ pub struct Trace {
     pub cells: Vec<Vec<(Pos, u32)>>,
     /// The run ended early on purpose: a flying machine reached the far end of its corridor.
     pub ended: Option<String>,
+    /// Primed TNT spawned during the run (TNT dupers; the judge removes each one before it can
+    /// explode), in spawn order.
+    pub primed: Vec<Primed>,
+    /// TNT dupers with `explode: on` (the SURVIVABLE variation, real game only): how many primed TNT
+    /// exploded during the run.
+    pub exploded: u32,
+}
+
+/// One primed TNT: the frame it first appears in, and where it is and how it moves there (the
+/// real game: one tick after it spawned; redsim: its spawn point, no motion).
+#[derive(Clone, Debug, Default)]
+pub struct Primed {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub motion: Option<[f64; 3]>,
+    /// The real game: its position and motion at fuse 1, the tick before it would explode (the
+    /// judge removes it there); `None` when the run ended first, and on redsim.
+    pub end: Option<([f64; 3], [f64; 3])>,
+    /// The real game: its motion when its horizontal speed was largest, if that reached 0.4
+    /// blocks per gt (a launch: the LAUNCHED direction).
+    pub launch: Option<[f64; 3]>,
+    /// The real game: the last frame its position changed (at rest since then).
+    pub moved: u32,
+    pub last_pos: [f64; 3],
+    /// The frame `end` was recorded at.
+    pub end_frame: u32,
 }
 
 impl Trace {
@@ -100,6 +126,11 @@ impl Trace {
         }
         out
     }
+}
+
+/// Whether a recorded state is a lit redstone lamp (the judge's consumer, [`crate::CONSUMER`]).
+pub fn lamp_lit(state: Option<&str>) -> bool {
+    state.is_some_and(|s| s.starts_with("minecraft:redstone_lamp") && s.contains("lit=true"))
 }
 
 /// The level of an output cell holding `state` (`None`: air) with `best` the best signal its

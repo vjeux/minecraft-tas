@@ -9,14 +9,14 @@ commands: `mctas circuit delay ...` (crates/circuit-delay).
 
 | N (gt) | blocks | design | how | min-pulse / min-gap |
 |---|---|---|---|---|
-| 1 | 4 | delay-piston-1 | dust bent by a pushed redstone block (below) | 3 / 3 |
-| 2 | 2 | delay-rep-1, delay-cmp-1 | one repeater (delay 1) / one comparator on a stone | 2 / 2 |
+| 1 | 6 | delay-piston-qc-1 | update-correct: power-bumped dust + quasi-connected piston (below) | 3 / 3 |
+| 2 | 2 | card delay-rep2 (n=0), card delay-cmp (n=0) | one repeater (delay 1) / one comparator on a stone | 2 / 2 |
 | 3 | 9 | delay-piston-or-3 | sticky piston's 3/1 copy OR'ed with itself 2 gt later | 4 / 3 |
-| 4 | 2 | delay-rep-2 (delay-cmp-2: 4b, 3/3) | repeater delay 2 | 4 / 4 |
-| 5, 7, 9, 11 | 13 | delay-piston-or-N | N=3 design, the OR on a dust, repeater tail | 4..8 |
-| 6 | 2 | delay-rep-3 (delay-torch-2: 6b, 3/3) | repeater delay 3 | 6 / 6 |
-| 8 | 2 | delay-rep-4 | repeater delay 4 | 8 / 8 |
-| 10..16 | 4 | delay-rep-41..44 | two repeaters | 8 / 8..10 |
+| 4, 6, 8 | 2 | cards delay-rep4/6/8 (n=0) | one repeater, delay 2/3/4 | N / N |
+| 5, 7, 9, 11 (+8n) | 13 + 2n | cards delay-piston-or5/7/9/11 | N=3 design, the OR on a dust, repeater tail | 4..8 |
+| 2 + 8n ... 8 + 8n | 2 + 2n | cards delay-rep2/4/6/8 (group: N = 2 x sum of delays) | repeater line | 8 / 8..10 |
+| 2 + 2n | 2 + 2n | card delay-cmp | comparator line | 2-3 / 2-3 |
+| 6 + 4n | 6 + 4n | card delay-torch | torch tower | 3 / 3 |
 
 Even N: a repeater line, N = 2 x the sum of its delays, 2 blocks (repeater + stone) per started 8
 gt: blocks = 2 x ceil(N / 8). Comparator lines (2 gt per comparator, 2 blocks each) keep shorter
@@ -40,11 +40,19 @@ Combining: OR takes the earlier rise and the later fall, AND the later rise and 
 * N = 3: OR(3/1, 3/1 delayed 2 = 5/3) = 3/3 (delay-piston-or-3). The OR needs the output cell
   next to the block's new cell and a 2 gt copy fed back to the same cell: a repeater behind the
   block's new cell cannot reach a cell next to it in fewer than three hops (stone + two dusts).
-* N = 1: AND(1/3, OR(input, 3/1)) = AND(1/3, 0/1) = 1/1. The AND is free with dust redirection:
-  the dust is powered by the input and bent by the redstone block at rest (the block also powers
-  it, but bent it does not point into the output); when the block leaves (1 gt after the rise) the
-  dust straightens; the block's arrival next to the output (3/1) covers the gt after the fall.
-  Four blocks: dust, its stone, sticky piston, redstone block.
+* N = 1: AND(1/3, OR(input, 3/1)) = AND(1/3, 0/1) = 1/1. delay-piston-1 (4 blocks) did the AND by
+  dust redirection: the dust is powered by the input and bent by the redstone block at rest (the
+  block also powers it); when the block leaves (1 gt after the rise) the dust straightens; the
+  block's arrival next to the output covers the gt after the fall. The judge accepted it until it
+  learned that a circuit must drive something: straightening a dust whose power stays 15 sends no
+  block update, so a lamp at the output only lights when the block lands (3 gt): update-less,
+  removed by `circuit archive --rejudge` (file in `update-less/`). The update-correct version,
+  delay-piston-qc-1 (6 blocks, robust): the input cell sits ABOVE a dust E (a redstone block above a
+  dust powers it without a connection), E feeds the output dust D at 14 while the redstone block at
+  rest gives D 15, so when the block leaves D's power drops 15 -> 14 (a power change: the output
+  cell gets its update); and the piston beside E is powered by quasi-connectivity (the input touches
+  the cell above the piston; E's power change updates the piston, so it still acts 1 gt after the
+  rise). Update-correct odd delays: N = 1 (6 blocks), 3 (9), 5+ (13 + 2n).
 
 ## Things that fail the judge (and why)
 

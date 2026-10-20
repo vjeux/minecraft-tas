@@ -1,6 +1,9 @@
 # Counter 2 as a divider, two copper bulbs, 6 blocks (track memory): the input toggles bulb 1, its comparator toggles bulb 2 on every second pulse; bulb 2's comparator changes state once every two pulses and holds between (toggles style).
 name: counter2-bulb2
 circuit: counter 2
+group: bulb-chain
+group title: Copper bulb chain (counter 2^K)
+group note: K copper bulb T flip-flops in a line, each read by a comparator that toggles the next bulb: 3K blocks
 port input: -1 1 0
 port output: 4 1 0
 origin: 0 0 0

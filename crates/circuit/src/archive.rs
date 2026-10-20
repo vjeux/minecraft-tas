@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 7] = [
+pub const STUDIES: [(&str, &str); 11] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -26,6 +26,10 @@ pub const STUDIES: [(&str, &str); 7] = [
     ("memory", "Memory"),
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
+    ("shulker", "Shulker loaders and unloaders"),
+    ("tnt", "TNT dupers"),
+    ("bud", "BUD switches"),
+    ("pulsemult", "Pulse multipliers, dividers and monostables"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -140,6 +144,105 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
+/// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
+/// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
+/// (lag, fewer). BUD switches: a denser `tileable` pitch (or tileable where the host is not),
+/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. Other kinds
+/// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
+/// carry adds that metric here.
+pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
+    // where the host does (study 10)
+    if b.kind == "bud" && a.kind == "bud" {
+        if get(b, "fragile ").is_some() {
+            return false;
+        }
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        // tiles denser (or at all, where the host does not)
+        let tile = |r: &Row| num(r, "tileable every ");
+        if tile(b).is_some_and(|tb| tile(a).is_none_or(|ta| tb < ta)) {
+            return true;
+        }
+        return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
+    }
+    // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
+    // under its own explosions) keeps its own card over a smaller one that is not
+    if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
+        let has = |r: &Row, k: &str| r.summary.contains(k);
+        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
+    }
+    // study 11: a burst that repeats faster or takes shorter inputs, a divider that follows a
+    // faster clock, a timer with a shorter latency or re-arm keeps its own card
+    let pm = ["burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train"];
+    if pm.iter().any(|k| b.kind.starts_with(k)) && pm.iter().any(|k| a.kind.starts_with(k)) {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("repeat ") || less("min-pulse ") || less("min-period ") || less("latency ") || less("re-arm ");
+    }
+    if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
+        return false;
+    }
+    if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
+        if fb > fa * 1.01 {
+            return true;
+        }
+    }
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
+/// newest, as [`read_rows`] reads them; `rows` without the `stale` ones) and one caption per file
+/// (the last; none for a stale file), written back when anything changes.
+fn tidy(dir: &Path, rows: &[Row], stale: &[String]) -> Result<()> {
+    let text = std::fs::read_to_string(dir.join(VERDICTS)).unwrap_or_default();
+    if text.lines().skip(1).filter(|l| !l.trim().is_empty()).count() != rows.len() {
+        write_rows(dir, rows)?;
+    }
+    let caps = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_default();
+    let mut order: Vec<String> = Vec::new();
+    let mut last: BTreeMap<String, String> = BTreeMap::new();
+    for l in caps.lines().skip(1) {
+        if let Some((f, c)) = l.split_once('\t') {
+            if !last.contains_key(f) {
+                order.push(f.to_string());
+            }
+            last.insert(f.to_string(), c.to_string());
+        }
+    }
+    let n = order.len();
+    order.retain(|f| !stale.contains(f));
+    if order.len() != n || n != caps.lines().skip(1).filter(|l| l.contains('\t')).count() {
+        let mut out = String::from("file\tcaption\n");
+        for f in &order {
+            out.push_str(&format!("{f}\t{}\n", last[f]));
+        }
+        std::fs::write(dir.join(CAPTIONS), out)?;
+    }
+    Ok(())
+}
+
+/// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
+/// dominates): the file, its verdict row and its caption.
+pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
+    let (study, file) = spec.split_once('/').ok_or_else(|| anyhow::anyhow!("--remove {spec}: want <study>/<file>"))?;
+    let dir = archive_dir(root, study);
+    let rows = read_rows(&dir)?;
+    if !rows.iter().any(|r| r.file == file) {
+        anyhow::bail!("--remove {spec}: no such row in {}", dir.join(VERDICTS).display());
+    }
+    write_rows(&dir, &rows.into_iter().filter(|r| r.file != file).collect::<Vec<_>>())?;
+    let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| l.split('\t').next() != Some(file)).map(|l| format!("{l}\n")).collect();
+    std::fs::write(dir.join(CAPTIONS), caps)?;
+    let _ = std::fs::remove_file(dir.join(file));
+    Ok(format!("REMOVED {}", dir.join(file).display()))
+}
+
 /// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
 /// stone: `clock::ident`) whose run on redsim under the kind's stimulus is identical modulo the swap
 /// (every cell's full state at every frame); the circuit itself when redsim does not model it.
@@ -201,6 +304,13 @@ pub fn tunable_key(c: &Circuit) -> String {
     for p in &c.outputs {
         d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
     }
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
+    // a TNT duper judged with explosions on (SURVIVABLE) is not a setting of the same mechanism
+    if c.explodes() {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -242,6 +352,14 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
+    // a TNT duper judged with explosions on (the SURVIVABLE variation) is its own type
+    if c.explodes() {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:explode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
+    // a BUD's target cells (where the judge acts) are part of its structure
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -253,13 +371,32 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
+        // the item class: the gallery's rows; speed and size are the columns
+        Kind::ShulkerLoader(s) => format!("load {s}-stack"),
+        Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper if out.why.contains("survives its own") => format!("{} survivable", m("rate")),
+        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
+        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
+        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
+        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
+        Kind::TntDuper => m("rate"),
+        Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
+        Kind::Burst(n) => format!("N = {n}"),
+        Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
+        Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
+        Kind::OffDelay => format!("off L = {}", m("L")),
+        Kind::OnDelay => format!("on T = {}", m("T")),
+        Kind::PulseTrain => format!("P = {}", m("P")),
     }
 }
 
@@ -277,8 +414,9 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
     let kind = c.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", path.display()))?;
     let dir = archive_dir(root, kind.study());
     let text = std::fs::read_to_string(path)?;
-    // the same blocks and ports under another kind (a claim) are another entry
-    let hash = format!("{}-{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"));
+    // the same blocks and ports under another kind (a claim) are another entry; so is a TNT duper
+    // judged with explosions on (the SURVIVABLE variation)
+    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if c.explodes() { "-explode" } else { "" });
     let rows = read_rows(&dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
@@ -382,6 +520,8 @@ fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
+        // a counter's axis is its kind, `counter N`
+        None if a.starts_with("counter ") => ("N".to_string(), String::new()),
         None => (String::new(), String::new()),
     }
 }
@@ -449,6 +589,119 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
 
 pub const ALIASES: &str = "aliases.tsv";
 
+/// `mctas circuit archive --rejudge`: judge every archived design again (the current judge, in
+/// the game; family bases with their sampled members) in the given studies (all when empty). A
+/// passing design keeps its row with the new metrics, box, family, robustness and summary (its
+/// `# CIRCUIT:` line rewritten); a failing one leaves the archive (file, verdict row, caption,
+/// its family's extend.tsv rows, aliases it hosts) and is copied back next to the track file it
+/// was archived from, under `update-less/` when it fails for an update-less output (else
+/// `rejudged/`), with a first line saying why.
+pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        if rows.is_empty() {
+            continue;
+        }
+        let mut keep: Vec<Row> = Vec::new();
+        let mut removed: Vec<String> = Vec::new();
+        let mut instances = read_instances(&dir);
+        for row in rows {
+            let path = dir.join(&row.file);
+            if !path.exists() {
+                out.push(format!("MISSING {}: no file, row dropped", path.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let c = Circuit::load(&path)?;
+            let Some(kind) = c.kind.clone() else {
+                keep.push(row);
+                continue;
+            };
+            let rep = verify::verify_in_pool(pool, &c, o)?;
+            let fam = family_of(&c)?;
+            let fam_check = match (&fam, rep.pass) {
+                (Some(f), true) => Some(check_family(pool, &path, f, &kind, o)),
+                _ => None,
+            };
+            let failure = if !rep.pass {
+                Some(rep.summary(&c))
+            } else if let Some(Err(e)) = &fam_check {
+                Some(format!("{e:#}"))
+            } else {
+                None
+            };
+            let text = std::fs::read_to_string(&path)?;
+            if let Some(why) = failure {
+                // back to the track it came from, with why
+                let from = text.lines().find_map(|l| l.strip_prefix("# archived ").and_then(|r| r.split(" from ").nth(1)).map(|r| r.trim_end_matches(" by mctas circuit archive").to_string()));
+                let sub = if why.contains("update-less output") { "update-less" } else { "rejudged" };
+                let back = match from.as_deref().map(Path::new).and_then(|p| p.parent()) {
+                    Some(d) if d.starts_with(root.join(study).join("tracks")) => d.join(sub),
+                    _ => root.join(study).join("tracks").join(sub),
+                };
+                std::fs::create_dir_all(&back)?;
+                let body: String = text.lines().filter(|l| !l.starts_with("# archived ") && !l.starts_with("# CIRCUIT: ")).map(|l| format!("{l}\n")).collect();
+                let copy = back.join(&row.file);
+                std::fs::write(&copy, format!("# {sub} ({}, mctas circuit archive --rejudge): {why}\n{body}", clock::catalog::now_utc()))?;
+                std::fs::remove_file(&path)?;
+                if let Some(f) = &fam {
+                    instances.retain(|i| i.family != f.id);
+                }
+                out.push(format!("REMOVED {}: {why} (copy: {})", path.display(), copy.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let base = rep.base().ok_or_else(|| anyhow!("no passing build"))?.clone();
+            let summary = rep.summary(&c);
+            let [w, h, d] = base.dims;
+            let new = Row {
+                axis: axis(&kind, &base.outcome, &base.family),
+                metrics: base.outcome.metrics_text(),
+                blocks: c.blocks(),
+                dims: format!("{w}x{h}x{d}"),
+                volume: (w * h * d) as i64,
+                family: base.family.clone(),
+                robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
+                summary: summary.clone(),
+                ..row.clone()
+            };
+            let changed = new.metrics != row.metrics || new.robustness != row.robustness || new.dims != row.dims;
+            let header_lines: Vec<String> = text.lines().map(|l| if l.starts_with("# CIRCUIT: ") || l.starts_with("# FAIL: ") { format!("# {summary}") } else { l.to_string() }).collect();
+            std::fs::write(&path, header_lines.join("\n") + "\n")?;
+            if let (Some(f), Some(Ok(inst))) = (&fam, fam_check) {
+                instances.retain(|i| i.family != f.id);
+                instances.extend(inst);
+            }
+            out.push(if changed { format!("UPDATED {}: {} (was: {}, {})", path.display(), summary, row.metrics, row.robustness) } else { format!("KEPT {}: {summary}", path.display()) });
+            keep.push(new);
+        }
+        write_rows(&dir, &keep)?;
+        if !removed.is_empty() {
+            let cp = dir.join(CAPTIONS);
+            if cp.exists() {
+                let caps: String = std::fs::read_to_string(&cp)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cp, caps)?;
+            }
+            let ap = dir.join(ALIASES);
+            if ap.exists() {
+                let al: String = std::fs::read_to_string(&ap)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&ap, al)?;
+            }
+        }
+        let ep = dir.join(EXTEND_TSV);
+        if ep.exists() || !instances.is_empty() {
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(&ep, all)?;
+        }
+    }
+    Ok(out)
+}
+
 /// The aliases of an archive: kept file -> the names of its removed twins (with what they were
 /// built with).
 fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
@@ -474,6 +727,14 @@ pub fn dedupe(root: &Path) -> Result<Vec<String>> {
         if rows.is_empty() {
             continue;
         }
+        // a row whose design file is gone (removed on one side of a merge, brought back by a
+        // union of the TSVs): out, with its caption
+        let stale: Vec<String> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.clone()).collect();
+        for f in &stale {
+            lines.push(format!("REMOVED {study}/{f}: a verdict row without its design file (stale)"));
+        }
+        rows.retain(|r| !stale.contains(&r.file));
+        tidy(&dir, &rows, &stale)?;
         rows.sort_by(|a, b| (&a.archived, &a.file).cmp(&(&b.archived, &b.file)));
         let mut kept: BTreeMap<(String, String), String> = BTreeMap::new();
         let mut gone: Vec<(String, String, String)> = Vec::new();
@@ -658,10 +919,11 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         return String::new();
     }
     let mut md = String::from(
-        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.\n",
+        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.\n",
     );
     for (name, kind, members) in cards {
         let (label, unit) = axis_label(&members[0].axis);
+        let label = if label.is_empty() { "value".to_string() } else { label };
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let vals: Vec<i64> = members.iter().filter_map(|r| axis_number(&r.axis)).collect();
         let meta = |k: &str| members.iter().find_map(|r| circuits.get(&r.file).and_then(|c| c.clock.design.meta.get(k).cloned()));
@@ -677,7 +939,16 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         small.sort_by(|a, b| (a.blocks, axis_number(&a.axis), a.volume, &a.file).cmp(&(b.blocks, axis_number(&b.axis), b.volume, &b.file)));
         let smallest: Vec<String> = small.iter().take(2).map(|r| format!("[{}](archive/{}) ({}, {} blocks)", r.file.trim_end_matches(".txt"), r.file, r.axis, r.blocks)).collect();
         let (core, rnote) = range_text(&vals);
-        md.push_str(&format!("\n### {label} = {core}{u}{rnote}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
+        // a non-numeric axis (a BUD's detected classes): the members' values themselves
+        let heading = if vals.is_empty() {
+            let mut v: Vec<&str> = members.iter().map(|r| r.axis.as_str()).collect();
+            v.sort();
+            v.dedup();
+            v.join(" / ")
+        } else {
+            format!("{label} = {core}{u}{rnote}")
+        };
+        md.push_str(&format!("\n### {heading}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
         let fam: Vec<String> = fams
             .iter()
             .filter(|(fr, _, _)| circuits.get(&fr.file).and_then(|c| c.clock.design.meta.get("group")).is_some_and(|g| g == name))
@@ -706,6 +977,10 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
+        let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();
+        if !stale.is_empty() {
+            bail!("{study}: verdict rows without their design file: {} (a removal undone by a merge of the TSVs? `mctas circuit archive --dedupe` drops them)", stale.join(", "));
+        }
         let caps = read_captions(&dir);
         let aliases = read_aliases(&dir);
         // extendable families (bases with `extend` headers) and their judged members: one card
@@ -728,11 +1003,13 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let mut tgroups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r)) {
             let Some(c) = circuits.get(&r.file) else { continue };
-            let id = match c.clock.design.meta.get("group") {
-                Some(g) => format!("h:{g}"),
-                None => format!("t:{}", tunable_key(c)),
+            let (kind_key, id) = match c.clock.design.meta.get("group") {
+                // an explicit group spans the kind's argument too (`counter N`: one card for
+                // every N of one mechanism)
+                Some(g) => (r.kind.split_whitespace().next().unwrap_or(&r.kind).to_string(), format!("h:{g}")),
+                None => (r.kind.clone(), format!("t:{}", tunable_key(c))),
             };
-            tgroups.entry((r.kind.clone(), id)).or_default().push(r);
+            tgroups.entry((kind_key, id)).or_default().push(r);
         }
         tgroups.retain(|_, v| v.len() >= 2);
         let mut group_of: BTreeMap<String, String> = BTreeMap::new();
@@ -760,7 +1037,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
             for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
-                if let Some(h) = h {
+                // a design better than its host on a variation metric (shulker: flow, badges,
+                // lag) is its own card, never a variant
+                if let Some(h) = h.filter(|h| !beats_on_variation(g[i], g[*h])) {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
@@ -882,7 +1161,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             let mut folded = 0usize;
             for v in g.values() {
                 let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-                folded += clock::catalog::fold_hosts(&items).into_iter().filter(|h| h.is_some()).count();
+                folded += clock::catalog::fold_hosts(&items).into_iter().enumerate().filter(|(i, h)| h.is_some_and(|h| !beats_on_variation(v[*i], v[h]))).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };

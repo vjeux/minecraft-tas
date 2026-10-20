@@ -20,6 +20,8 @@ pub mod item;
 pub mod kinds;
 pub mod minecart;
 pub mod mth;
+pub mod piston_push;
+pub mod primed_tnt;
 pub mod vec3;
 
 use crate::block::Block;
@@ -44,6 +46,8 @@ pub enum EntityKind {
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
     ArmorStand(armor_stand::ArmorStandState),
+    /// Track tnt: a primed TNT (`primed_tnt.rs`), only with `World::tnt_kick`.
+    PrimedTnt(primed_tnt::PrimedTntState),
 }
 
 impl EntityKind {
@@ -54,6 +58,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
             EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+            EntityKind::PrimedTnt(_) => (primed_tnt::WIDTH, primed_tnt::HEIGHT),
         }
     }
 
@@ -64,6 +69,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
             EntityKind::Item(_) => 0.2125,
             EntityKind::ArmorStand(_) => 1.7775,
+            EntityKind::PrimedTnt(_) => primed_tnt::EYE_HEIGHT,
         }
     }
 }
@@ -126,6 +132,11 @@ pub struct Entity {
     pub network_id: i32,
     /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
     pub fluid: fluid_push::FluidInteraction,
+    // ---- piston pushing (piston_push.rs, clk-misc) ----
+    /// `pistonDeltas` (how far pistons moved it per axis this game tick, each within +-0.51)
+    /// and `pistonDeltasGameTime`.
+    pub piston_deltas: [f64; 3],
+    pub piston_deltas_time: i64,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -178,6 +189,8 @@ impl Entity {
             invulnerable_time: 0,
             network_id: id as i32,
             fluid: Default::default(),
+            piston_deltas: [0.0; 3],
+            piston_deltas_time: 0,
         }
     }
 
@@ -199,6 +212,9 @@ impl Entity {
 pub struct Entities {
     pub list: Vec<Entity>,
     pub next_id: u32,
+    /// `PistonMovingBlockEntity.NOCLIP`: the direction of the piston move under way (set only
+    /// inside `piston_push::move_entity_by_piston`, None between calls).
+    pub noclip: Option<crate::pos::Dir>,
 }
 
 /// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
@@ -244,6 +260,9 @@ fn snbt_keys(nbt: &str) -> Vec<String> {
 /// redsim does not model (container contents...) is refused.
 pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
     let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    if id == "falling_block" {
+        return spawn_falling_block(w, pos, nbt);
+    }
     // (clk-misc) container entities: their contents (Items) and size
     let container_size = match id {
         "hopper_minecart" => Some(5),
@@ -318,6 +337,77 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
     Ok(id)
 }
 
+/// `summon falling_block x y z {BlockState:"<block>" or {id:"<block>", properties:{...}}, Time:n,
+/// Motion:[0d, y, 0d]}` (26.3's `BlockState.CODEC`: a block name or `{id, properties}`; the old
+/// `{Name, Properties}` fails to decode in the game, which then falls back to sand, so it is
+/// refused): a [`crate::gravity::FallingBlock`] at that exact position, taking the next entity id.
+/// Other keys (DropItem, HurtEntities...) and horizontal motion are refused.
+fn spawn_falling_block(w: &mut World, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
+    let n = nbt.ok_or("entity falling_block needs its BlockState")?;
+    if let Some(k) = snbt_keys(n).into_iter().find(|k| !["BlockState", "Time", "Motion"].contains(&k.as_str())) {
+        return Err(format!("entity falling_block with {k} in its data ({n}) is not modeled by redsim"));
+    }
+    let bs = n.find("BlockState:").map(|i| n[i + "BlockState:".len()..].trim_start()).ok_or("falling_block: no BlockState")?;
+    let quoted = |s: &str| -> Option<String> {
+        let s = s.trim_start();
+        let s = s.strip_prefix('"').or_else(|| s.strip_prefix('\''))?;
+        Some(s[..s.find(['"', '\''])?].to_string())
+    };
+    let text = if bs.starts_with('{') {
+        // the compound: up to its matching brace
+        let mut depth = 0;
+        let mut end = bs.len();
+        for (k, ch) in bs.char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = k + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let bs = &bs[..end];
+        if bs.contains("Name:") {
+            return Err(format!("falling_block: BlockState {bs} is the old format; 26.3 reads \"<block>\" or {{id:\"<block>\",properties:{{...}}}} (the old one decodes to sand)"));
+        }
+        let name = bs.find("id:").and_then(|i| quoted(&bs[i + 3..])).ok_or("falling_block: BlockState without id")?;
+        let mut props = Vec::new();
+        if let Some(i) = bs.find("properties:{") {
+            let inner = bs[i + "properties:{".len()..].split('}').next().unwrap_or("");
+            for kv in inner.split(',').filter(|s| !s.trim().is_empty()) {
+                let (k, v) = kv.split_once(':').ok_or("falling_block: bad properties")?;
+                props.push(format!("{}={}", k.trim().trim_matches(['"', '\'']), quoted(v).unwrap_or_else(|| v.trim().to_string())));
+            }
+        }
+        if props.is_empty() { name } else { format!("{name}[{}]", props.join(",")) }
+    } else {
+        quoted(bs).ok_or("falling_block: BlockState is neither a block name nor {id, properties}")?
+    };
+    let block = crate::block::Block::parse(&text).map_err(|e| format!("falling_block: {text}: {e}"))?;
+    let time = n
+        .find("Time:")
+        .map(|i| n[i + 5..].chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect::<String>())
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(0);
+    let mut vy = 0.0;
+    if let Some(i) = n.find("Motion:[") {
+        let inner = n[i + "Motion:[".len()..].split(']').next().unwrap_or("");
+        let v: Vec<f64> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['d', 'D', 'f', 'F']).parse().ok()).collect();
+        if v.len() != 3 || v[0] != 0.0 || v[2] != 0.0 {
+            return Err(format!("falling_block: horizontal motion is not modeled ({inner})"));
+        }
+        vy = v[1];
+    }
+    let id = w.entities.next_id;
+    w.entities.next_id += 1;
+    w.gravity.entities.push(crate::gravity::FallingBlock::new(block, pos[0], pos[1], pos[2], vy, time, id));
+    Ok(id)
+}
+
 impl Entities {
     /// `addFreshEntity`: appended (ticked after every older entity). Returns its id.
     pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
@@ -340,17 +430,50 @@ pub fn tick_all(w: &mut World) {
     }
     let n = w.entities.list.len();
     for i in 0..n {
-        if w.entities.list[i].removed {
-            continue;
-        }
-        common_tick(w, i);
-        match w.entities.list[i].kind {
-            EntityKind::Boat(_) => boat::tick(w, i),
-            EntityKind::Minecart(_) => minecart::tick(w, i),
-            EntityKind::Item(_) => item::tick(w, i),
-            EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        tick_one(w, i);
+    }
+    w.entities.list.retain(|e| !e.removed);
+}
+
+/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards).
+pub fn tick_one(w: &mut World, i: usize) {
+    if w.entities.list[i].removed {
+        return;
+    }
+    common_tick(w, i);
+    match w.entities.list[i].kind {
+        EntityKind::Boat(_) => boat::tick(w, i),
+        EntityKind::Minecart(_) => minecart::tick(w, i),
+        EntityKind::Item(_) => item::tick(w, i),
+        EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
+    }
+}
+
+/// The entity phase (`ServerLevel.tick` over `entityTickList`): every entity in the order it
+/// joined, falling blocks ([`crate::gravity`]) and the rest together (they share one id counter, so
+/// id order is spawn order); an entity spawned during the phase ticks from the next tick on.
+pub fn tick_phase(w: &mut World) {
+    if w.entities.list.is_empty() {
+        crate::gravity::tick_entities(w);
+        return;
+    }
+    if w.gravity.entities.is_empty() {
+        tick_all(w);
+        return;
+    }
+    let (ng, ne) = (w.gravity.entities.len(), w.entities.list.len());
+    let (mut i, mut j) = (0, 0);
+    while i < ng || j < ne {
+        if j >= ne || (i < ng && w.gravity.entities[i].id < w.entities.list[j].id) {
+            crate::gravity::tick_one(w, i);
+            i += 1;
+        } else {
+            tick_one(w, j);
+            j += 1;
         }
     }
+    w.gravity.entities.retain(|e| !e.removed);
     w.entities.list.retain(|e| !e.removed);
 }
 
