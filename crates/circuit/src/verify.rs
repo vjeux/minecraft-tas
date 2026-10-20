@@ -132,10 +132,41 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     let (schedule, kind) = schedule(c, o)?;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
-        (Ok(t), Some(k)) => Some(check::check(c, k, &schedule, t)),
+        (Ok(t), Some(k)) => {
+            let out = check::check(c, k, &schedule, t);
+            match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Some(Outcome::fail(why, out.table)),
+                _ => Some(out),
+            }
+        }
         _ => None,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
+}
+
+/// The judge's consumer lamps observe the outputs, never take part in the circuit (clockinfra
+/// 2026-10-20): run again on redsim with every consumer cell left as AIR; every output in such a
+/// cell must see the same signal in every frame, else the lamp closes a loop or feeds a block (it
+/// is a conductor) and the design would not run with another consumer.
+pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option<String> {
+    let cells = c.consumer_cells();
+    if cells.is_empty() {
+        return None;
+    }
+    let bare = run::sim_trace_with(c, s, margin, false).ok()?;
+    for (k, o) in c.outputs.iter().enumerate() {
+        if !cells.contains(&o.pos) {
+            continue;
+        }
+        let (a, b) = (with.levels.get(k)?, bare.levels.get(k)?);
+        if let Some(f) = (0..a.len().min(b.len())).find(|&f| a[f] != b[f]) {
+            return Some(format!(
+                "the judge's lamp is part of the circuit: with output {} left as air its signal differs from frame {f} ({} with the lamp, {} without)",
+                o.name, a[f], b[f]
+            ));
+        }
+    }
+    None
 }
 
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
@@ -319,7 +350,17 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    Ok(verdict(VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() }))
+    let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
+    if rep.pass
+        && kind.is_some()
+        && let Ok(t) = run::sim_trace(c, &schedule, o.margin)
+        && let Some(why) = lamp_part(c, &schedule, o.margin, &t)
+    {
+        rep.pass = false;
+        rep.verdict = why;
+    }
+    Ok(rep)
 }
 
 /// The verdict of a report's builds: no passing build fails it; builds that disagree (other

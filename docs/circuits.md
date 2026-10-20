@@ -59,7 +59,11 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
   update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
   like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
-  circuit may be driven. The metrics still come from the level above, so they do not change. An
+  circuit may be driven. The metrics still come from the level above, so they do not change. The
+  judge's lamp only observes (clockinfra 2026-10-20): redsim runs the stimulus once more with every
+  such cell left as AIR, and the output must see the same signal in every frame, else the design
+  fails with `the judge's lamp is part of the circuit` (a lamp is a conductor: a comparator's
+  feedback loop closing through it would not run with another consumer). An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
