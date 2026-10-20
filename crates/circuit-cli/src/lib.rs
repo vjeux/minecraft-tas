@@ -2,6 +2,8 @@
 //! only; the judge is crates/circuit, each track's own commands are its crate
 //! (`mctas circuit <track> <args...>` -> `circuit_<track>::run`).
 
+pub mod shrink;
+
 use anyhow::Result;
 use circuit::Circuit;
 use circuit::verify::Options;
@@ -55,6 +57,25 @@ pub enum CircuitCmd {
         /// Print the base build's checker table.
         #[arg(long)]
         table: bool,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// Greedy block removal judged in the real game: each round tries removing every block and
+    /// keeps the first removal whose verdict still passes with the SAME metrics. Ends with the
+    /// smaller design written beside the original (or `--out`).
+    Shrink {
+        design: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Also try removing the blocks at the port cells (an input's receiving block, an output lamp cell).
+        #[arg(long)]
+        free_ports: bool,
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long)]
+        no_rotations: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
@@ -272,6 +293,14 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
                 println!("{}", r.summary(&c));
             }
+        }
+        CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string() };
+            let out = out.unwrap_or_else(|| {
+                let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                design.with_file_name(format!("{stem}-shrunk.txt"))
+            });
+            shrink::shrink(&design, &out, !free_ports, &o)?;
         }
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
             let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string() };
