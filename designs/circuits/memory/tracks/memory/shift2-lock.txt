@@ -1,0 +1,35 @@
+# 2-bit shift register: two repeater-lock master-slave stages in series, the first stage output feeding the second stage data, both clocked from one dust line. Each stage is a pair of repeaters on the data line whose lock repeaters sit beside them: the master lock reads the clock straight (so it follows d while the clock is low) and the slave lock reads it through a wall torch (so it follows while the clock is high), which makes q take d one clock edge later, and two stages make it two.
+name: shift2-lock
+circuit: shift 2
+port input.d: -1 1 0
+port input.clk: 3 2 3
+port output: 4 1 0
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  C minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  D minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  L minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  P minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  M minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  N minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  T minecraft:redstone_wall_torch[facing=north,lit=true]
+  U minecraft:redstone_wall_torch[facing=north,lit=true]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  .SSSSSS
+  .SSSSSS
+  .SSSSSS
+  .SSSSSS
+layer 1:
+  .ABCD..
+  .LPMN..
+  .STSU..
+  .SSSSSS
+layer 2:
+  .......
+  .......
+  .r.r...
+  .rrrrrS
