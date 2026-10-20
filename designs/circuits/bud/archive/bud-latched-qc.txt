@@ -1,7 +1,8 @@
-# archived 2026-10-20T09:43Z from designs/circuits/tracks/bud/bud-latched-qc.txt by mctas circuit archive
-# CIRCUIT: bud-latched-qc bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1, robust
+# archived 2026-10-20T11:03Z from designs/circuits/tracks/bud/bud-latched-qc.txt by mctas circuit archive
+# CIRCUIT: bud-latched-qc bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, tileable every 2 (0 2 0), 2 blocks, 3x1x1, robust
 name: bud-latched-qc
 circuit: bud
+tile: 0 2 0
 # The smallest latched BUD (manual reset): a sticky piston armed by quasi-connectivity from the
 # redstone block above the block in front of it. A block update reaching the piston makes it push
 # that block, another redstone block, beside the output; the piston stays out (still powered), so

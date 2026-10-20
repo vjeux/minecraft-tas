@@ -1,5 +1,6 @@
 name: bud-all-five
 circuit: bud
+tile: 0 0 4
 # Detects all five: the fast slime QC BUD (a stone on the slime block cuts the step between two
 # dusts; the piston, armed by quasi-connectivity, takes it off the step in the tick after a block
 # update) with its low dust standing on an observer that watches the target below the piston. A

@@ -1,5 +1,6 @@
 name: bud-place-only
 circuit: bud
+tile: 0 0 1
 # A place-only detector: the redstone torch under the target powers a solid block placed there,
 # which powers the sticky piston beside it; the piston lifts its observer into the output cell,
 # where the observer fires (a 2 gt pulse, 5 gt after the placement). On removal the piston pulls

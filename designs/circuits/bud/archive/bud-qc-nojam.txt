@@ -1,7 +1,8 @@
-# archived 2026-10-20T10:34Z from designs/circuits/tracks/bud/bud-qc-nojam.txt by mctas circuit archive
-# CIRCUIT: bud-qc-nojam bud detects place remove state update, latency 3 gt, pulse 2 gt, re-arm 8 gt, footprint 5 cells, 5 blocks, 4x3x1, robust
+# archived 2026-10-20T11:04Z from designs/circuits/tracks/bud/bud-qc-nojam.txt by mctas circuit archive
+# CIRCUIT: bud-qc-nojam bud detects place remove state update, latency 3 gt, pulse 2 gt, re-arm 8 gt, footprint 5 cells, tileable every 3 (0 0 3), 5 blocks, 4x3x1, robust
 name: bud-qc-nojam
 circuit: bud
+tile: 0 0 3
 # A QC BUD that never jams: two NON-sticky pistons pass a package back and forth (a slime block with
 # the arming redstone block on top and an observer stuck under it). Piston P is armed through
 # quasi-connectivity by the redstone block; a block update reaching it pushes the package east (the

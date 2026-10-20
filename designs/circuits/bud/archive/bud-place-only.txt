@@ -1,7 +1,8 @@
-# archived 2026-10-20T09:23Z from designs/circuits/tracks/bud/bud-place-only.txt by mctas circuit archive
-# CIRCUIT: bud-place-only bud detects place, latency 5 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 4 blocks, 2x4x1, robust
+# archived 2026-10-20T11:04Z from designs/circuits/tracks/bud/bud-place-only.txt by mctas circuit archive
+# CIRCUIT: bud-place-only bud detects place, latency 5 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 4 blocks, 2x4x1, robust
 name: bud-place-only
 circuit: bud
+tile: 0 0 1
 # A place-only detector: the redstone torch under the target powers a solid block placed there,
 # which powers the sticky piston beside it; the piston lifts its observer into the output cell,
 # where the observer fires (a 2 gt pulse, 5 gt after the placement). On removal the piston pulls

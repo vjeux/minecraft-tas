@@ -82,26 +82,40 @@ archived as one group).
   over the two pistons + 1 block (18 QC structures; 2 blocks: 3,217 jam-free intact ones out of
   6,922, all latency 3, re-arm 8). What ruled out the other routes is kept below.
 
+* Remove only: bud-remove-only (4 blocks), place-only's mirror: the observer is pulled back into
+  the output cell on a removal; facing down it watches only its own piston (footprint 1). The k=3
+  census over 50 states has no place-only or remove-only design: 4 blocks is the minimum.
+
+## Tileable (coordinator 10:40Z)
+
+Judge: a `tile:` claim builds 3 copies along the step and runs every class at every copy's target;
+each copy must answer its own target exactly as the single design and stay silent for the
+others' (docs/circuits.md). `mctas circuit bud tile` finds a design's densest pitch per axis,
+`bud census --tile N` every candidate's. Every archived BUD carries its densest `tile:`.
+
+| class set | densest | smallest design at that pitch | why not denser / smaller |
+|---|---|---|---|
+| place remove state shape | every 1 | bud-observer-stone (2) | the 1-block observer tiles every 2: its lamp, strongly powered, lights the next (census k=1 --tile 3) |
+| place remove state update | every 2 | bud-slime-qc (3) | every 1 is impossible with armed pistons: a piston's move updates its neighbors, so the next copy's armed piston fires (census k=3 qc --tile 2: densest 2; k=4 sticky --tile 1: see below) |
+| place remove | every 1 (stacked) | bud-fence-stone (3) | 2-block presence designs (observer + fence, wall, pane or bars) tile every 2 (census k=2 --tile 2); the torch version needs 4 blocks to tile every 1 in a row |
+| place | every 1 | bud-place-only (4) | no 3-block place-only design |
+| remove | every 1 | bud-remove-only (4) | no 3-block remove-only design |
+| all five | every 4 | bud-all-five (13) | the only one |
+| latched (manual reset) | every 2 (stacked) | bud-latched-qc (2) | armed piston |
+
+The rest: bud-observer, the torch group, bud-fence-observer every 2; bud-qc-nojam every 3;
+bud-slime-qc-fast, bud-latched-qc-fast every 4.
+
+## Dead ends of the jam fix (kept)
+
+* The piston must still be powered at the block-event phase of t+3 (the retraction queued by the
+  second update runs there, before the moving blocks land); every QC-power cell is beside the
+  slime block (dragged) or in its column (pushed); no observer cell both watches a moved cell and
+  powers the piston; every gate made of moving blocks opens again on the way back, re-firing the
+  piston as it finishes retracting. `bud census --base` over the latched BUD + 2 blocks (267,258
+  structures) finds no automatic reset. The non-sticky loop (bud-qc-nojam) avoids all of this.
+
 ## Open
 
-* (none of the coordinator's list.) Notes on the jam fix's dead ends: the piston must still be powered at the block-event phase of t+3 (the retraction queued by the second update runs there, before the moving blocks land in the block-entity phase); every
-  QC-power cell is beside the slime block (dragged) or in its column (pushed), so in the vertical
-  design no static source can hold it; an observer watching anything that moves at t+1 fires at
-  t+3 early enough, but no observer cell both watches a moved cell and powers the piston (its back
-  is 2 cells from what it watches); a hold driven by the open dust step (on at t+1) cannot end
-  before the stone comes back, and every gate made of moving blocks opens again on the way back
-  (the return mirrors the push), re-firing the piston as it finishes retracting (its onPlace
-  checks power). The promising route: a latched QC BUD (no jam) with an automatic reset: the
-  pushed redstone block, landing at t+3, must take the arming block off its cell (beside the head
-  cell, so its departure updates the piston) without dropping it above the piston, and a sticky
-  piston must bring it back later; the cells line up badly (the only reset piston cell beside the
-  landing spot pushes the arming block onto the piston's top). `bud census --base` over the latched
-  BUD + 2 blocks (17 states, 267,258 structures) finds no automatic reset.
-* The other route: two NON-sticky pistons in a loop. A non-sticky piston that retracts during its
-  own push leaves exactly what a late retraction leaves (it never pulls), so the second update
-  cannot jam it. P (east) pushes a slime block carrying the arming redstone block; Q (west), armed
-  by that redstone block's pushed cell through quasi-connectivity, must push the package back, but
-  only once P's head has left the cell (about t+7): Q needs an update at that time. A repeater
-  (delay 4 gt) behind the pushed redstone block turns on at t+7 but switches with flags 2 (no
-  block update to Q below it) and needs a support that does not move; an observer chain (2 gt per
-  observer) or a repeater whose front block neighbors Q is next to try.
+* A faster jam-free BUD (bud-qc-nojam: latency 3, re-arm 8): the loop censuses found none faster.
+* An all-five BUD that tiles denser than every 4.

@@ -31,9 +31,13 @@ Owner so far: clk-obs (branch explore/clk-obs). Coordinator f1a42990.
 
 ## Open (NOTES.md has the details)
 
-* Nothing from the coordinator's list: all five (bud-all-five), latency 1 (bud-slime-qc-fast),
-  place only (bud-place-only), manual reset (judge latched mode, bud-latched-qc / -fast), the
-  jam fix (bud-qc-nojam: two non-sticky pistons), the catalog's beats_on_variation knows bud's
-  metrics (latency, re-arm, footprint, jams; fragile never wins).
-* Possible next: a remove-only detector (presence level + falling-edge detector), a faster
-  jam-free one (bud-qc-nojam has latency 3, re-arm 8), tileability measured by the judge.
+* Nothing from the coordinator's lists: all five (bud-all-five), latency 1 (bud-slime-qc-fast),
+  place only (bud-place-only), remove only (bud-remove-only), manual reset (judge latched mode,
+  bud-latched-qc / -fast), the jam fix (bud-qc-nojam: two non-sticky pistons), tileability (the
+  judge's `tile:` check for BUDs, every archived BUD with its densest `tile:`, the smallest per
+  class set in NOTES.md "Tileable"); the catalog's beats_on_variation knows bud's metrics
+  (tileable pitch, latency, re-arm, footprint, jams; fragile never wins). 14 designs archived.
+* Possible next: a faster jam-free BUD (bud-qc-nojam: latency 3, re-arm 8), an all-five BUD that
+  tiles denser than every 4.
+* Tools: `mctas circuit bud census` (`--base`, `--tile`, `--only`, `--keep`), `bud trace`,
+  `bud tile`; all documented in docs/circuits.md (Commands).

@@ -135,6 +135,13 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Ok(t), Some(k)) => Some(check::check(c, k, &schedule, t)),
         _ => None,
     };
+    // a BUD's `tile:` claim: the copies side by side (crate::bud::tile_check)
+    let outcome = match (outcome, c.tile) {
+        (Some(out), Some(tl)) if out.pass && kind == Some(Kind::Bud) && o.stimulus.is_none() => {
+            Some(crate::bud::tile_check(c, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| Ok(run::sim_trace(tc, ts, o.margin)))?)
+        }
+        (out, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
@@ -305,14 +312,24 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = run::game_trace(w, &rc, &schedule, o.margin)?;
-        Ok(r.map(|tr| {
-            let out = match &kind {
-                Some(k) => check::check(&rc, k, &schedule, &tr),
-                None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
-            };
-            BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }
-        }))
+        let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
+            Ok(tr) => tr,
+            Err(why) => return Ok(Err(why)),
+        };
+        let mut out = match &kind {
+            Some(k) => check::check(&rc, k, &schedule, &tr),
+            None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
+        };
+        // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
+        // the metric names the design's own step (the same in every build)
+        if out.pass
+            && kind == Some(Kind::Bud)
+            && o.stimulus.is_none()
+            && let Some(tl) = c.tile
+        {
+            out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
     let mut builds = Vec::new();
     for ((t, off), r) in jobs.into_iter().zip(results) {

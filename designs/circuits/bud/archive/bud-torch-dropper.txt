@@ -1,7 +1,8 @@
-# archived 2026-10-20T07:55Z from designs/circuits/tracks/bud/bud-torch-dropper.txt by mctas circuit archive
-# CIRCUIT: bud-torch-dropper bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 3 blocks, 2x2x1, robust
+# archived 2026-10-20T11:05Z from designs/circuits/tracks/bud/bud-torch-dropper.txt by mctas circuit archive
+# CIRCUIT: bud-torch-dropper bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 2 (0 0 2), 3 blocks, 2x2x1, robust
 name: bud-torch-dropper
 circuit: bud
+tile: 0 0 2
 group: torch-presence
 group title: Torch presence detector
 group note: a redstone torch under the target powers a solid block placed there; that block powers a follower beside it (a dropper or a lamp) that an observer watches; only the target cell senses (footprint 1)
