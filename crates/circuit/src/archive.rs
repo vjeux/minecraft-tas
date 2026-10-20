@@ -388,8 +388,8 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Burst(n) => format!("N = {n}"),
         Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
         Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
-        Kind::OffDelay => format!("L = {}", m("L")),
-        Kind::OnDelay => format!("T = {}", m("T")),
+        Kind::OffDelay => format!("off L = {}", m("L")),
+        Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
     }
 }

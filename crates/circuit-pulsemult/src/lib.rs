@@ -88,6 +88,10 @@ enum Cmd {
         rng: u64,
         #[arg(long, default_value_t = 16)]
         workers: usize,
+        /// Metrics to reach first (then fewer blocks): `retrigger ignores`, `repeat <= 8`... (each
+        /// matches when the metric's value starts with the text, or is at most the number).
+        #[arg(long)]
+        want: Vec<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -127,10 +131,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{}", search::square_divider(k, max_dust, &out)?);
             }
         }
-        Cmd::Improve { designs, palette, grow, iterations, rng, workers, out } => {
+        Cmd::Improve { designs, palette, grow, iterations, rng, workers, want, out } => {
             let pal: Vec<String> = palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             for d in &designs {
-                let r = search::improve(d, &pal, grow, iterations, rng, workers, &out)?;
+                let r = search::improve(d, &pal, grow, iterations, rng, workers, &want, &out)?;
                 println!("{r}");
             }
         }
