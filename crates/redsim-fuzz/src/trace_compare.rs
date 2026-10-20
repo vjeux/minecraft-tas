@@ -283,6 +283,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let mut sim_tnt_seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
     let mut primed_seen = 0usize;
     let mut chain_seen = 0usize;
+    // redsim's level-random draws per frame (the last few, for a drift report)
+    let mut sim_rng: Vec<(usize, String)> = Vec::new();
+    let mut sim_rng_prev: Option<i64> = None;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -365,11 +368,31 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         entity_diffs(ents, &entities_of(&w), &mut ed);
         // the level random after this frame (exact traces with `rng`): a drift shows on the tick
-        // it starts, not later through behavior
+        // it starts, not later through behavior; with it, the draws of the last frames on both
+        // sides and redsim's explosions so far
         if let (Some(game), Some(r)) = (trace.rng.get(t).copied().flatten(), w.level_random.as_ref()) {
             if let Some(d) = redsim::rng::state_diff(game, r.state()) {
                 ed.push(d);
+                let draws = |a: Option<i64>, b: i64| a.and_then(|a| redsim::rng::lcg_steps(a, b, 100_000)).map(|k| k.to_string()).unwrap_or("?".into());
+                let lo = t.saturating_sub(6);
+                let game_draws: Vec<String> = (lo.max(1)..=t).map(|k| format!("t{k}: {}", draws(trace.rng.get(k - 1).copied().flatten(), trace.rng.get(k).copied().flatten().unwrap_or(0)))).collect();
+                ed.push(format!("game draws per frame: {}", game_draws.join(", ")));
+                let sim_draws: Vec<String> = sim_rng.iter().filter(|(k, _)| *k >= lo.max(1)).map(|(k, n)| format!("t{k}: {n}")).collect();
+                ed.push(format!("redsim draws per frame: {}, then {} at t{t}", sim_draws.join(", "), draws(sim_rng_prev, r.state())));
+                for b in &w.explosions {
+                    ed.push(format!("redsim explosion at game time {} center ({:.4}, {:.4}, {:.4}): {} positions, {} destroyed {:?}", b.time, b.center.x, b.center.y, b.center.z, b.positions, b.destroyed.len(), b.destroyed.iter().take(6).map(|(p, s)| format!("{p} {s}")).collect::<Vec<_>>()));
+                }
             }
+        }
+        if let Some(r) = w.level_random.as_ref() {
+            let s = r.state();
+            if let Some(prev) = sim_rng_prev {
+                sim_rng.push((t, redsim::rng::lcg_steps(prev, s, 100_000).map(|k| k.to_string()).unwrap_or("?".into())));
+                if sim_rng.len() > 8 {
+                    sim_rng.remove(0);
+                }
+            }
+            sim_rng_prev = Some(s);
         }
         n_diff += ed.len();
         for d in ed {
