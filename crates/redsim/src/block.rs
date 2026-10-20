@@ -221,10 +221,12 @@ pub enum Simple {
     Mud,
     // ---- pistmodel ----
     CryingObsidian,
+    // ---- entity-reacting blocks (clk-misc) ----
+    Dirt,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 61] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -291,6 +293,8 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
     (Simple::Mud, "mud", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- pistmodel ----
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
+    // ---- entity-reacting blocks (clk-misc) ----
+    (Simple::Dirt, "dirt", true, true, Instrument::Harp, PushReaction::PushPull),
 ];
 
 impl Simple {
@@ -441,6 +445,21 @@ pub enum Block {
     /// its back, the frequency input, at `facing.opposite()`; a plain sensor keeps North).
     /// `phase`: 0 inactive, 1 active, 2 cooldown (`SculkSensorPhase`).
     Sculk { calibrated: bool, facing: Dir, phase: u8, power: u8 },
+    // ---- entity-reacting blocks (clk-misc) ----
+    /// Pressure plate (`react::plate`): `kind` 0 oak, 1 stone (`powered`: power 0 or 15), 2 light /
+    /// 3 heavy weighted (`power` 0-15).
+    Plate { kind: u8, power: u8 },
+    /// Tripwire string (`react::tripwire`).
+    Tripwire { powered: bool, attached: bool, disarmed: bool, north: bool, east: bool, south: bool, west: bool },
+    /// Tripwire hook (`react::hook`), hung on the block at `facing.opposite()`.
+    TripwireHook { facing: Dir, powered: bool, attached: bool },
+    /// White wall banner, hung on the block at `facing.opposite()`: no collision, solid (water
+    /// cannot enter it).
+    WallBanner { facing: Dir },
+    /// Lantern, hanging from the block above or standing.
+    Lantern { hanging: bool },
+    /// Stone slab: 0 bottom, 1 top, 2 double (the shapes of `Slab`).
+    StoneSlab { kind: u8 },
 }
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
@@ -492,6 +511,14 @@ pub enum Kind {
     Falling(u8),
     /// Sculk sensor (true: calibrated).
     Sculk(bool),
+    // ---- entity-reacting blocks (clk-misc) ----
+    /// Pressure plate, by `Block::Plate::kind`.
+    Plate(u8),
+    Tripwire,
+    TripwireHook,
+    WallBanner,
+    Lantern,
+    StoneSlab,
 }
 
 fn b(s: bool) -> &'static str {
@@ -539,6 +566,13 @@ impl Block {
             Block::MovingPiston { .. } => Kind::MovingPiston,
             Block::Falling { id } => Kind::Falling(id),
             Block::Sculk { calibrated, .. } => Kind::Sculk(calibrated),
+            // ---- entity-reacting blocks (clk-misc) ----
+            Block::Plate { kind, .. } => Kind::Plate(kind),
+            Block::Tripwire { .. } => Kind::Tripwire,
+            Block::TripwireHook { .. } => Kind::TripwireHook,
+            Block::WallBanner { .. } => Kind::WallBanner,
+            Block::Lantern { .. } => Kind::Lantern,
+            Block::StoneSlab { .. } => Kind::StoneSlab,
         }
     }
 
@@ -793,6 +827,39 @@ impl Block {
                     power: int_of("power", 0, 0, 15)?,
                 }
             }
+            // ---- entity-reacting blocks (clk-misc) ----
+            "oak_pressure_plate" | "stone_pressure_plate" => {
+                Block::Plate { kind: if name == "oak_pressure_plate" { 0 } else { 1 }, power: if bool_of("powered", false)? { 15 } else { 0 } }
+            }
+            "light_weighted_pressure_plate" | "heavy_weighted_pressure_plate" => {
+                Block::Plate { kind: if name == "light_weighted_pressure_plate" { 2 } else { 3 }, power: int_of("power", 0, 0, 15)? }
+            }
+            "tripwire" => Block::Tripwire {
+                powered: bool_of("powered", false)?,
+                attached: bool_of("attached", false)?,
+                disarmed: bool_of("disarmed", false)?,
+                north: bool_of("north", false)?,
+                east: bool_of("east", false)?,
+                south: bool_of("south", false)?,
+                west: bool_of("west", false)?,
+            },
+            "tripwire_hook" => Block::TripwireHook { facing: hdir_of("facing", Dir::North)?, powered: bool_of("powered", false)?, attached: bool_of("attached", false)? },
+            "white_wall_banner" => Block::WallBanner { facing: hdir_of("facing", Dir::North)? },
+            "lantern" => {
+                waterlogged_ok()?;
+                Block::Lantern { hanging: bool_of("hanging", false)? }
+            }
+            "stone_slab" => {
+                waterlogged_ok()?;
+                Block::StoneSlab {
+                    kind: match get("type") {
+                        None | Some("bottom") => 0,
+                        Some("top") => 1,
+                        Some("double") => 2,
+                        Some(v) => return Err(format!("bad type={v}")),
+                    },
+                }
+            }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -902,6 +969,28 @@ impl fmt::Display for Block {
                 facing.name(),
                 SCULK_PHASES[phase as usize]
             ),
+            // ---- entity-reacting blocks (clk-misc) ----
+            Block::Plate { kind, power } => {
+                let name = crate::react::plate::NAMES[kind as usize];
+                if kind < 2 { write!(f, "minecraft:{name}[powered={}]", b(power > 0)) } else { write!(f, "minecraft:{name}[power={power}]") }
+            }
+            Block::Tripwire { powered, attached, disarmed, north, east, south, west } => write!(
+                f,
+                "minecraft:tripwire[attached={},disarmed={},east={},north={},powered={},south={},west={}]",
+                b(attached),
+                b(disarmed),
+                b(east),
+                b(north),
+                b(powered),
+                b(south),
+                b(west)
+            ),
+            Block::TripwireHook { facing, powered, attached } => {
+                write!(f, "minecraft:tripwire_hook[attached={},facing={},powered={}]", b(attached), facing.name(), b(powered))
+            }
+            Block::WallBanner { facing } => write!(f, "minecraft:white_wall_banner[facing={}]", facing.name()),
+            Block::Lantern { hanging } => write!(f, "minecraft:lantern[hanging={},waterlogged=false]", b(hanging)),
+            Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
         }
     }
 }

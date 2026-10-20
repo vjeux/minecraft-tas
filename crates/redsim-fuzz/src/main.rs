@@ -99,6 +99,15 @@ enum Cmd {
         #[arg(long, default_value = "")]
         note: String,
     },
+    /// Replay exact real-game traces (designs/clocks/traces/exact/*.trace, from `mctas clock misc
+    /// trace-export --exact`) in redsim, every cell and entity compared every tick: the gate of
+    /// the fluids + entities port. One line per trace (OK, the first divergence, or UNMODELED).
+    TraceCompare {
+        traces: Vec<PathBuf>,
+        /// Differences shown at the first diverging tick.
+        #[arg(long, default_value_t = 6)]
+        max: usize,
+    },
 }
 
 fn main() -> Result<()> {
@@ -291,6 +300,10 @@ fn main() -> Result<()> {
                 std::fs::write(&path, text)?;
                 eprintln!("fixture written to {}", path.display());
             }
+        }
+        Cmd::TraceCompare { traces, max } => {
+            anyhow::ensure!(!traces.is_empty(), "trace-compare <exact traces>... (designs/clocks/traces/exact/*.trace)");
+            redsim_fuzz::trace_compare::run(&traces, max)?;
         }
     }
     Ok(())
