@@ -358,10 +358,17 @@ pub fn decode_image(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
 
 pub use crate::atlas::vanilla::decode_png;
 
-/// The game's block atlas of misode/mcmeta (`atlas::vanilla`), downloaded once into mctas's cache
-/// (LOCAL use: comparisons with the real-game pictures; the browser fetches it itself): the PNG
-/// bytes and the index text.
+/// The game's block atlas of misode/mcmeta (`atlas::vanilla`) and its block definitions and
+/// models (`gamemodel`), downloaded once into mctas's cache (LOCAL use: comparisons with the
+/// real-game pictures; the browser fetches them itself): the PNG bytes, the atlas index, the
+/// definitions and the models.
 pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
+    let (png, index, _, _) = vanilla_assets()?;
+    Ok((png, index))
+}
+
+/// [`vanilla_atlas`] with the block definitions and models.
+pub fn vanilla_assets() -> Result<(Vec<u8>, String, String, String), String> {
     let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
@@ -375,9 +382,12 @@ pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
         }
         std::fs::read(&p).map_err(|e| e.to_string())
     };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
     let png = get(crate::atlas::vanilla::ATLAS_URL, "atlas.png")?;
-    let index = String::from_utf8(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?).map_err(|e| e.to_string())?;
-    Ok((png, index))
+    let index = text(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?)?;
+    let defs = text(get(crate::gamemodel::DEFS_URL, "block_definition.min.json")?)?;
+    let models = text(get(crate::gamemodel::MODELS_URL, "model.min.json")?)?;
+    Ok((png, index, defs, models))
 }
 
 /// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the

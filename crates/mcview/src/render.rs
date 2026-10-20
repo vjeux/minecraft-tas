@@ -20,6 +20,16 @@ struct U {
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(1) var tex: texture_2d_array<f32>;
 @group(0) @binding(2) var samp: sampler;
+// the game's block atlas (faces of the game's own models: layer 65535)
+@group(0) @binding(3) var gtex: texture_2d<f32>;
+
+fn texel(uv: vec2<f32>, layer: u32) -> vec4<f32> {
+    let game = layer == 65535u;
+    // both sampled (uniform control flow), one kept
+    let a = textureSample(tex, samp, uv, select(layer, 0u, game));
+    let b = textureSample(gtex, samp, uv);
+    return select(a, b, game);
+}
 
 struct VOut {
     @builtin(position) pos: vec4<f32>,
@@ -48,7 +58,7 @@ fn fogged(c: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
-    let t = textureSample(tex, samp, i.uv, i.layer);
+    let t = texel(i.uv, i.layer);
     if (t.a < 0.5) {
         discard;
     }
@@ -66,7 +76,7 @@ fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
 
 @fragment
 fn fs_blend(i: VOut) -> @location(0) vec4<f32> {
-    let t = textureSample(tex, samp, i.uv, i.layer);
+    let t = texel(i.uv, i.layer);
     return vec4<f32>(fogged(t.rgb * i.color.rgb, i.world), t.a * i.color.a);
 }
 
@@ -131,6 +141,40 @@ pub struct Renderer {
     vbuf: Option<(wgpu::Buffer, u64)>,
     /// The tiles' texture array.
     tiles: wgpu::Texture,
+    tiles_view: wgpu::TextureView,
+    bgl: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
+    /// The game texture and which game assets it holds (their address; 0 = none yet).
+    game_tex: wgpu::Texture,
+    game_of: usize,
+}
+
+/// The game texture of an atlas (its game assets' mip levels), or a 1x1 placeholder.
+fn game_texture(device: &wgpu::Device, queue: &wgpu::Queue, atlas: &Atlas) -> (wgpu::Texture, usize) {
+    let (w, h, mips, of): (u32, u32, Vec<&[u8]>, usize) = match &atlas.game {
+        Some(g) => (g.width, g.height, g.mips.iter().map(|m| m.as_slice()).collect(), std::rc::Rc::as_ptr(g) as usize),
+        None => (1, 1, vec![&[255u8, 255, 255, 255][..]], 0),
+    };
+    let tex = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("game"),
+        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        mip_level_count: mips.len() as u32,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    for (k, data) in mips.iter().enumerate() {
+        let (lw, lh) = ((w >> k).max(1), (h >> k).max(1));
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: k as u32, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            data,
+            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * lw), rows_per_image: Some(lh) },
+            wgpu::Extent3d { width: lw, height: lh, depth_or_array_layers: 1 },
+        );
+    }
+    (tex, of)
 }
 
 /// 4x4 inverse (general; the view-projection is always invertible here).
@@ -206,17 +250,11 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::VERTEX_FRAGMENT, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+                wgpu::BindGroupLayoutEntry { binding: 3, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
             ],
         });
-        let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("mcview"),
-            layout: &bgl,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniforms.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&view) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(&sampler) },
-            ],
-        });
+        let (game_tex, game_of) = game_texture(&device, &queue, atlas);
+        let bind = Self::bind_group(&device, &bgl, &uniforms, &view, &sampler, &game_tex);
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("mcview"), bind_group_layouts: &[Some(&bgl)], immediate_size: 0 });
         let vlayout = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as u64,
@@ -277,11 +315,26 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex }
+        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex, tiles_view: view, bgl, sampler, game_tex, game_of }
     }
 
-    /// Upload the atlas's pixels again (its layers changed: the game's textures arrived).
-    pub fn upload_atlas(&self, atlas: &Atlas) {
+    fn bind_group(device: &wgpu::Device, bgl: &wgpu::BindGroupLayout, uniforms: &wgpu::Buffer, tiles: &wgpu::TextureView, sampler: &wgpu::Sampler, game: &wgpu::Texture) -> wgpu::BindGroup {
+        let gview = game.create_view(&Default::default());
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("mcview"),
+            layout: bgl,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: uniforms.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(tiles) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(sampler) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&gview) },
+            ],
+        })
+    }
+
+    /// Upload the atlas's pixels again (its layers changed: the game's textures arrived), and the
+    /// game texture when its game assets are new.
+    pub fn upload_atlas(&mut self, atlas: &Atlas) {
         let tile = TILE as u32;
         for (k, data) in atlas.mips.iter().enumerate() {
             let s = (tile >> k).max(1);
@@ -291,6 +344,13 @@ impl Renderer {
                 wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * s), rows_per_image: Some(s) },
                 wgpu::Extent3d { width: s, height: s, depth_or_array_layers: atlas.layers as u32 },
             );
+        }
+        let of = atlas.game.as_ref().map(|g| std::rc::Rc::as_ptr(g) as usize).unwrap_or(0);
+        if of != self.game_of {
+            let (t, of) = game_texture(&self.device, &self.queue, atlas);
+            self.bind = Self::bind_group(&self.device, &self.bgl, &self.uniforms, &self.tiles_view, &self.sampler, &t);
+            self.game_tex = t;
+            self.game_of = of;
         }
     }
 

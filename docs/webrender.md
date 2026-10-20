@@ -122,10 +122,21 @@ each build's page.
   texture, tinting the gray grass, leaves and water): nothing Mojang-owned is in the repository
   or the site. Thumbnails wait up to 4 s for them; without them (offline, blocked, or
   `data-mcview-textures="none"` on the page's root element, which can also point to another
-  directory holding `atlas.png` + `data.min.json`) the hand-drawn tiles of `atlas::art` (colors
+  directory holding `atlas.png` + `data.min.json` + `block_definition.min.json` +
+  `model.min.json`) the hand-drawn tiles of `atlas::art` (colors
   measured from the game, shapes after its layout) and procedural ones are used. Native tools
   (`shot`, `compare`, `strip`) download the same atlas once into `~/.cache/mctas` (`--procedural`:
   the hand-drawn tiles).
+* `mcview::gamemodel`: the game's own block GEOMETRY, from misode/mcmeta's summary of every
+  block definition and model of 26.3 (fetched with the atlas, cached): variants by properties,
+  multipart conditions (`OR`/`AND`, `a|b`), weighted variants picked from the block's position
+  like the game (`Mth.getSeed` + Java `Random.nextInt`), model parents, `#texture` variables
+  (26.3's `{sprite}` objects too), elements with their rotations (and rescale), faces with uv,
+  rotation, cullface and tint (redstone power, plains grass and foliage), quarter turns and
+  uvlock. Their faces sample the game's block atlas uploaded as one 2D texture beside the tile
+  array (vertex layer 65535). Blocks without game geometry (block-entity renderers: chests,
+  signs, banners, skulls...) and water keep the viewer's own models (`MCVIEW_NO_GAME_MODELS=1`
+  natively: the viewer's models everywhere).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's

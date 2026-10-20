@@ -983,9 +983,67 @@ pub struct Atlas {
     pub layers: usize,
     /// `mips[k]`: every layer's (TILE >> k)^2 RGBA pixels, layer after layer.
     pub mips: Vec<Vec<u8>>,
+    /// The game's block models and textures, once loaded (`gamemodel`): faces that name a game
+    /// texture (`block/...`) sample [`GameAssets`]'s 2D texture (vertex layer [`GAME_LAYER`]).
+    pub game: Option<std::rc::Rc<GameAssets>>,
+}
+
+/// A vertex `layer` that samples the game texture instead of the tile array.
+pub const GAME_LAYER: u32 = 65535;
+
+/// The game's models with its block atlas as one 2D texture and that texture's mip levels.
+pub struct GameAssets {
+    pub models: crate::gamemodel::GameModels,
+    pub width: u32,
+    pub height: u32,
+    /// `mips[k]`: the (width >> k) x (height >> k) RGBA level (sprites sit on a 16-pixel grid:
+    /// [`MIPS`] levels never mix two sprites).
+    pub mips: Vec<Vec<u8>>,
+}
+
+/// Mip levels of an RGBA image (box filter, premultiplied alpha).
+pub fn image_mips(rgba: &[u8], w: u32, h: u32, levels: usize) -> Vec<Vec<u8>> {
+    let mut out = vec![rgba.to_vec()];
+    let (mut cw, mut ch) = (w as usize, h as usize);
+    for _ in 1..levels {
+        let prev = out.last().unwrap();
+        let (nw, nh) = ((cw / 2).max(1), (ch / 2).max(1));
+        let mut next = vec![0u8; nw * nh * 4];
+        for y in 0..nh {
+            for x in 0..nw {
+                let mut s = [0f32; 4];
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let (sx, sy) = ((2 * x + dx).min(cw - 1), (2 * y + dy).min(ch - 1));
+                    let o = (sy * cw + sx) * 4;
+                    let a = prev[o + 3] as f32 / 255.0;
+                    for c in 0..3 {
+                        s[c] += prev[o + c] as f32 * a / 4.0;
+                    }
+                    s[3] += a / 4.0;
+                }
+                let o = (y * nw + x) * 4;
+                for c in 0..3 {
+                    next[o + c] = if s[3] > 0.0 { (s[c] / s[3]).round().clamp(0.0, 255.0) as u8 } else { 0 };
+                }
+                next[o + 3] = (s[3] * 255.0).round() as u8;
+            }
+        }
+        out.push(next);
+        cw = nw;
+        ch = nh;
+    }
+    out
 }
 
 impl Atlas {
+    /// Take the game's block models (misode/mcmeta's summary) with its block atlas.
+    pub fn set_game(&mut self, rgba: &[u8], w: u32, h: u32, index: &str, defs: &str, models: &str) -> Result<usize, String> {
+        let m = crate::gamemodel::GameModels::parse(defs, models, index, rgba, w, h)?;
+        let n = m.tex.len();
+        self.game = Some(std::rc::Rc::new(GameAssets { models: m, width: w, height: h, mips: image_mips(rgba, w, h, MIPS) }));
+        Ok(n)
+    }
+
     pub fn build() -> Atlas {
         let mut tiles = paint_all();
         // wgpu's WebGL2 backend guesses a texture's view kind from its layer count: a multiple of
@@ -1004,7 +1062,7 @@ impl Atlas {
                 mips[k].extend_from_slice(&level);
             }
         }
-        Atlas { names, layers: tiles.len(), mips }
+        Atlas { names, layers: tiles.len(), mips, game: None }
     }
 
     /// Replace one layer's pixels (16x16 RGBA) and its mip levels.

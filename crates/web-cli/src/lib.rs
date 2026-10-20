@@ -277,12 +277,26 @@ pub enum WebCmd {
 }
 
 /// The tiles: the game's textures over the hand-drawn ones (misode/mcmeta's atlas, cached
-/// locally), or the hand-drawn ones only.
+/// locally) and the game's own block models (`--procedural`: the hand-drawn tiles and the
+/// viewer's own models only; `MCVIEW_NO_GAME_MODELS=1`: the game's textures on the viewer's
+/// models).
 fn atlas(procedural: bool) -> mcview::atlas::Atlas {
     let mut a = mcview::atlas::Atlas::build();
     if !procedural {
-        match mcview::tools::vanilla_atlas().and_then(|(png, idx)| a.apply_vanilla_png(&png, &idx)) {
-            Ok(n) => eprintln!("the game's textures on {n} tiles"),
+        match mcview::tools::vanilla_assets() {
+            Ok((png, idx, defs, models)) => {
+                match a.apply_vanilla_png(&png, &idx) {
+                    Ok(n) => eprintln!("the game's textures on {n} tiles"),
+                    Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
+                }
+                if std::env::var_os("MCVIEW_NO_GAME_MODELS").is_none() {
+                    let r = mcview::tools::decode_png(&png).and_then(|(rgba, w, h)| a.set_game(&rgba, w, h, &idx, &defs, &models));
+                    match r {
+                        Ok(n) => eprintln!("the game's block models ({n} textures)"),
+                        Err(e) => eprintln!("the game's block models unavailable ({e}): the viewer's models"),
+                    }
+                }
+            }
             Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
         }
     }

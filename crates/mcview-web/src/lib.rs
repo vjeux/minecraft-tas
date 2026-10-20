@@ -130,15 +130,19 @@ pub(crate) struct App {
 /// Where the game's block atlas comes from: `data-mcview-textures` on the page's root element
 /// (`none` = the hand-drawn tiles only; else the directory of `atlas.png` and `data.min.json`),
 /// by default misode/mcmeta's atlas of the judge's version.
-fn texture_urls() -> Option<(String, String)> {
+/// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
+/// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
+/// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default misode/mcmeta's
+/// block atlas, block definitions and models of the judge's version.
+fn texture_urls() -> Option<[String; 4]> {
     let root = document().document_element()?;
     match root.get_attribute("data-mcview-textures") {
         Some(v) if v.trim() == "none" => None,
         Some(v) if !v.trim().is_empty() => {
             let base = v.trim().trim_end_matches('/').to_string();
-            Some((format!("{base}/atlas.png"), format!("{base}/data.min.json")))
+            Some([format!("{base}/atlas.png"), format!("{base}/data.min.json"), format!("{base}/block_definition.min.json"), format!("{base}/model.min.json")])
         }
-        _ => Some((mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string())),
+        _ => Some([mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string(), mcview::gamemodel::DEFS_URL.to_string(), mcview::gamemodel::MODELS_URL.to_string()]),
     }
 }
 
@@ -179,25 +183,38 @@ async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
 
 /// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
 async fn load_textures() {
-    let Some((png_url, index_url)) = texture_urls() else {
+    let Some([png_url, index_url, defs_url, models_url]) = texture_urls() else {
         with_app(|a| a.textures_pending = false);
         ensure_frame();
         return;
     };
-    let got = async {
-        let png = fetch_cached(&png_url).await?;
-        let index = String::from_utf8(fetch_cached(&index_url).await?).map_err(|e| e.to_string())?;
-        Ok::<_, String>((png, index))
-    }
-    .await;
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    // all four at once
+    let (png, index, defs, models) = futures_join4(fetch_cached(&png_url), fetch_cached(&index_url), fetch_cached(&defs_url), fetch_cached(&models_url)).await;
+    let got = (|| Ok::<_, String>((png?, text(index?)?)))();
+    let game_text = (|| Ok::<_, String>((text(defs?)?, text(models?)?)))();
     with_app(|a| {
         match got {
             Ok((png, index)) => {
                 let mut atlas = (*a.atlas).clone();
-                match atlas.apply_vanilla_png(&png, &index) {
-                    Ok(n) => {
-                        if debug() {
-                            log(&format!("the game's textures on {n} tiles"));
+                match mcview::atlas::vanilla::decode_png(&png) {
+                    Ok((rgba, w, h)) => {
+                        match atlas.apply_vanilla(&rgba, w, h, &index) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's textures on {n} tiles"));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                        }
+                        // the game's own block models (the viewer's when they cannot be read)
+                        match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's block models ({n} textures)"));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
                         }
                         a.set_atlas(atlas);
                     }
@@ -209,6 +226,35 @@ async fn load_textures() {
         a.textures_pending = false;
     });
     ensure_frame();
+}
+
+/// Four futures driven together (no executor crate: a small poll loop over pinned futures).
+async fn futures_join4<A: std::future::Future, B: std::future::Future, C: std::future::Future, D: std::future::Future>(a: A, b: B, c: C, d: D) -> (A::Output, B::Output, C::Output, D::Output) {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::Poll;
+    let (mut a, mut b, mut c, mut d) = (Box::pin(a), Box::pin(b), Box::pin(c), Box::pin(d));
+    let (mut ra, mut rb, mut rc, mut rd) = (None, None, None, None);
+    std::future::poll_fn(move |cx| {
+        if ra.is_none() && let Poll::Ready(v) = Pin::new(&mut a).poll(cx) {
+            ra = Some(v);
+        }
+        if rb.is_none() && let Poll::Ready(v) = Pin::new(&mut b).poll(cx) {
+            rb = Some(v);
+        }
+        if rc.is_none() && let Poll::Ready(v) = Pin::new(&mut c).poll(cx) {
+            rc = Some(v);
+        }
+        if rd.is_none() && let Poll::Ready(v) = Pin::new(&mut d).poll(cx) {
+            rd = Some(v);
+        }
+        if ra.is_some() && rb.is_some() && rc.is_some() && rd.is_some() {
+            Poll::Ready((ra.take().unwrap(), rb.take().unwrap(), rc.take().unwrap(), rd.take().unwrap()))
+        } else {
+            Poll::Pending
+        }
+    })
+    .await
 }
 
 #[wasm_bindgen(start)]
@@ -505,7 +551,7 @@ impl App {
     /// drawn again.
     fn set_atlas(&mut self, atlas: Atlas) {
         self.atlas = Rc::new(atlas);
-        if let ThumbGpu::Ready(g) = &self.thumb {
+        if let ThumbGpu::Ready(g) = &mut self.thumb {
             g.r.upload_atlas(&self.atlas);
         }
         self.cache.clear();
