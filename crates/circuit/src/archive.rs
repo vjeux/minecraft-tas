@@ -143,6 +143,29 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
+/// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
+/// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
+/// (lag, fewer). Other kinds fold on blocks alone: a study whose designs trade blocks against a
+/// metric its axis does not carry adds that metric here.
+pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
+        return false;
+    }
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
+        if fb > fa * 1.01 {
+            return true;
+        }
+    }
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
 /// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
 /// dominates): the file, its verdict row and its caption.
 pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
@@ -910,7 +933,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
             for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
-                if let Some(h) = h {
+                // a design better than its host on a variation metric (shulker: flow, badges,
+                // lag) is its own card, never a variant
+                if let Some(h) = h.filter(|h| !beats_on_variation(g[i], g[*h])) {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
@@ -1032,7 +1057,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             let mut folded = 0usize;
             for v in g.values() {
                 let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-                folded += clock::catalog::fold_hosts(&items).into_iter().filter(|h| h.is_some()).count();
+                folded += clock::catalog::fold_hosts(&items).into_iter().enumerate().filter(|(i, h)| h.is_some_and(|h| !beats_on_variation(v[*i], v[h]))).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };
