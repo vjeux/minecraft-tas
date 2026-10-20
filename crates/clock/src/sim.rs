@@ -689,6 +689,9 @@ pub struct TntDriven {
     /// Every explosion: its frame, its center, the blocks it destroyed inside `machine_box` (the
     /// design box when unset) and elsewhere.
     pub blasts: Vec<(u32, [f64; 3], usize, usize)>,
+    /// Every explosion (as `blasts`): whether its center's cell holds a fluid (it destroys
+    /// nothing) and how many blocks it would destroy on open ground (`redsim::explosion::open_ground`).
+    pub blast_use: Vec<(bool, usize)>,
     /// The first burning TNT that went past `TntOptions::escape`: its frame and position.
     pub escaped: Option<(u32, [f64; 3])>,
 }
@@ -722,7 +725,7 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
     }
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), escaped: None };
+    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), blast_use: Vec::new(), escaped: None };
     let mut index: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
     let mut blasts_seen = 0usize;
     let (mut primed_seen, mut chain_seen) = (0usize, 0usize);
@@ -735,6 +738,7 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             out.explosions.push(t);
             let mine = b.destroyed.iter().filter(|(p, _)| o.machine_box.is_none() || inside(p)).count();
             out.blasts.push((t, [b.center.x, b.center.y, b.center.z], mine, b.destroyed.len() - mine));
+            out.blast_use.push((b.in_fluid, b.open_ground));
             if let Some((p, blk)) = b.destroyed.iter().find(|(p, _)| o.machine_box.is_none() || inside(p)) {
                 out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t}", p)));
             }

@@ -37,7 +37,7 @@ on the ground.
 | FAST (200/min) self-running | tnt-launch-15b, 15 blocks, safe drop 8 | **safe drop 0** at 200/min: the pile must form where its blasts cannot throw a TNT back within 7 blocks. Tried: (a) a water channel exit (the precise aligner) at full rate: knocked TNT leave the channel; (b) a roofed channel: they leave by its open end; (c) a magma bubble-column shaft 4 and 8 deep under the stop wall: the first 8-14 TNT explode harmlessly in it, then blasts at the bottom throw the next ones up and out of the top (explodes at y 6, 3.5 blocks from the machine). Next: a bent shaft (no line of sight from the bottom to the entry), or a steeper launch (a vertical slime push) landing 30+ blocks away | open |
 | TRIGGERED, safe on the ground | 16 blocks (tnt-triggered-launch-16b: active-low input, obsidian foot) | 15: without the foot the slime frame drags the grass; a design whose moving slimes never rest on the ground could save it | record |
 | lever (switchable) | tnt-lever-launch-15b, safe drop 6 | safe drop 0: same as the fast one | open |
-| PRECISE | 43 blocks, safe on the ground (tnt-precise-slow-43b) | about 30: the aligner on the slow launcher | open |
+| PRECISE | tnt-airburst, 75 blocks, safe on the ground (tnt-precise-slow-43b removed 2026-10-20: its TNT explode in its water, useless) | smaller: the aligner right at the duper, one launch straight up | open |
 | dropped | tnt-drop-16b, safe drop 31 (works over a deep pit only) | lower drop | open |
 | tileable | 4 copies, pitch 4 (explosions off) | judged on the ground | open |
 | slime-free | none | a honey frame cannot fling; the TNT must drop clear | open |

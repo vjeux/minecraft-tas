@@ -57,25 +57,27 @@ pub fn mark_faster(builds: &mut [Build]) -> usize {
         if smaller.is_empty() {
             continue;
         }
-        // strictly better than each smaller design on one speed metric, never worse on another
+        // strictly better than each smaller design on the study's first speed metric (a shulker
+        // machine's items a second, an extender's time out...), never worse on another (critique:
+        // "faster than smaller versions" at the same 2.50 items a second, only its first box sooner)
         let beats = |y: &Build| {
-            let mut better = false;
-            for (m, higher) in metrics {
+            let mut primary_better = false;
+            for (n, (m, higher)) in metrics.iter().enumerate() {
                 match (number(x, m), number(y, m)) {
                     (Some(a), Some(b)) => {
                         let (a, b) = if *higher { (-a, -b) } else { (a, b) };
                         if a > b {
                             return false;
                         }
-                        if a < b {
-                            better = true;
+                        if n == 0 && a < b {
+                            primary_better = true;
                         }
                     }
                     (None, Some(_)) => return false,
                     _ => {}
                 }
             }
-            better
+            primary_better
         };
         if smaller.iter().all(|y| beats(y)) {
             marked.push(i);
@@ -104,12 +106,16 @@ const MATERIALS: [(&str, &[&str]); 5] = [
 /// extendable family, one button, 1 wide...) and its categorical metrics (a counter's output, a
 /// flip-flop's edge, a burst's re-trigger class), the bookkeeping and the material ones aside.
 fn properties(b: &Build) -> BTreeSet<String> {
-    let mut s: BTreeSet<String> = site_model::html::props(b).chips.into_iter().filter(|c| !c.starts_with("tunable") && !c.starts_with('+') && !matches!(c.as_str(), "variant" | "layout")).collect();
+    let mut s: BTreeSet<String> = site_model::html::props(b).chips.into_iter().filter(|c| !c.starts_with("tunable") && !c.starts_with('+') && !matches!(c.as_str(), "variant" | "a bigger version" | "another layout" | "layout")).collect();
     s.extend(b.flags.iter().filter(|f| !matches!(f.as_str(), "variant" | "layout" | "tunable")).cloned());
     if let Some(c) = &b.circuit {
         // the base design of an extendable family grows by one unit per n: a builder's property
         if c.extends {
             s.insert("extendable".into());
+        }
+        // what its card leads with is a property too (its chips leave out what the lead says)
+        for part in c.lead.split([',', '+', '·']).map(str::trim).filter(|p| !p.is_empty()) {
+            s.insert(part.to_string());
         }
         // what a machine carries or pulls (a flying machine's cargo) is its own property
         if !c.feature.is_empty() {

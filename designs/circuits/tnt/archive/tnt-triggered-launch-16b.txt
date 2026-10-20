@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:02Z from designs/circuits/tracks/tnt/tnt-triggered-launch-16b.txt by mctas circuit archive
-# CIRCUIT: tnt-triggered-launch-16b tnt-duper-triggered per pulse 1, latency 4 gt, gap 100 gt, safe drop 0 blocks (on the ground), 16 blocks, 3x4x4, robust (survives its own explosions: 6 exploded, design intact)
+# CIRCUIT: tnt-triggered-launch-16b tnt-duper-triggered per pulse 1, latency 4 gt, gap 100 gt, safe drop 0 blocks (on the ground), 16 blocks, 3x4x4, robust (survives its own explosions: 6 exploded, design intact; useful: every blast clear of fluids, each destroys blocks on open ground)
 name: tnt-triggered-launch-16b
 circuit: tnt-duper-triggered
 port input: 0 0 1 minecraft:air minecraft:redstone_block
