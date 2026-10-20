@@ -204,6 +204,13 @@ impl<'a> Builder<'a> {
 
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        if let Some(state) = e.kind.strip_prefix("falling:") {
+            // FallingBlockRenderer: the block model, half a block back (the game's or the viewer's)
+            if let Some(m) = self.model(state) {
+                self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, None);
+            }
+            return;
+        }
         let game = self.atlas.game.clone();
         if let Some(g) = &game {
             if !g.entities {
@@ -243,13 +250,6 @@ impl<'a> Builder<'a> {
             }
             b.mesh.solid.extend_from_slice(&tris);
         };
-        if let Some(state) = e.kind.strip_prefix("falling:") {
-            // FallingBlockRenderer: the block model, half a block back
-            if let Some(m) = self.model(state) {
-                self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, None);
-            }
-            return true;
-        }
         if let Some(id) = e.kind.strip_prefix("item:") {
             let name = id.strip_prefix("minecraft:").unwrap_or(id);
             if g.tex.contains_key(&format!("item/{name}")) {

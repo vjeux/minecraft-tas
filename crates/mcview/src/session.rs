@@ -1419,6 +1419,26 @@ mod tests {
         assert!(moved > 0.5, "the boat moves with the current: {:?} -> {:?}", start[0].pos, later[0].pos);
     }
 
+    /// A falling block (redsim's gravity entities) is drawn: its block model where it is, from
+    /// where it was last tick.
+    #[test]
+    fn falling_blocks_are_drawn() {
+        let mut s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        let sand = redsim::Block::parse("minecraft:sand").unwrap();
+        s.world.gravity.entities.push(redsim::gravity::FallingBlock { block: sand, x: 4.5, y: 3.0, z: 0.5, vy: -0.5, time: 3, removed: false });
+        let e = s.entities(0.5);
+        let f = e.iter().find(|e| e.kind.starts_with("falling:")).expect("the falling block");
+        assert!(f.kind.contains("sand"), "{}", f.kind);
+        assert!((f.pos[1] - 3.25).abs() < 1e-4, "half way from 3.5 to 3.0: {:?}", f.pos);
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = crate::mesh::Builder::new(&atlas);
+        b.entity(f);
+        assert!(!b.mesh.solid.is_empty(), "a falling block draws its block model");
+        // a full block, half a block back from its position (FallingBlockRenderer)
+        let lo = (0..3).map(|k| b.mesh.solid.iter().map(|v| v.pos[k]).fold(f32::MAX, f32::min)).collect::<Vec<_>>();
+        assert!((lo[0] - 4.0).abs() < 1e-4 && (lo[1] - 3.25).abs() < 1e-4 && lo[2].abs() < 1e-4, "{lo:?}");
+    }
+
     #[test]
     fn auto_output_is_the_clock_judges() {
         let s = Session::new(BULB_CLOCK, &Options::default()).unwrap();

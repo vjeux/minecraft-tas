@@ -238,6 +238,8 @@ async fn load_textures() {
     let got = (|| Ok::<_, String>((png?, text(index?)?)))();
     let game_text = (|| Ok::<_, String>((text(defs?)?, text(models?)?)))();
     with_app(|a| {
+        let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let t0 = now();
         match got {
             Ok((png, index)) => {
                 let mut atlas = (*a.atlas).clone();
@@ -246,16 +248,17 @@ async fn load_textures() {
                         match atlas.apply_vanilla(&rgba, w, h, &index) {
                             Ok(n) => {
                                 if debug() {
-                                    log(&format!("the game's textures on {n} tiles"));
+                                    log(&format!("the game's textures on {n} tiles ({:.0} ms)", now() - t0));
                                 }
                             }
                             Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
                         }
                         // the game's own block models (the viewer's when they cannot be read)
+                        let t1 = now();
                         match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
                             Ok(n) => {
                                 if debug() {
-                                    log(&format!("the game's block models ({n} textures)"));
+                                    log(&format!("the game's block models ({n} textures, {:.0} ms)", now() - t1));
                                 }
                             }
                             Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
