@@ -1859,9 +1859,15 @@ pub struct CliOpts {
     pub replay_ideal: Option<std::path::PathBuf>,
 }
 
+/// `fullmech --check --keep-stone`: keep the design's plain stones / obsidian as pieces (static
+/// frame stones of an ideal-input design: without them the solver may push door blocks into the
+/// frame cells they hold).
+pub static KEEP_STONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
     let d = crate::cli::load_design(path)?;
     let w = crate::mechsynth::world_of_design(&d)?;
+    let keep = KEEP_STONE.load(std::sync::atomic::Ordering::Relaxed);
     let mut pieces = Vec::new();
     for (p, k) in &w.b {
         if p[2] != 0 {
@@ -1869,6 +1875,8 @@ fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
         }
         use crate::mechsynth::Kind;
         let k = match k {
+            Kind::Stone if keep => FK::Stone,
+            Kind::Obsidian if keep => FK::Obsidian,
             Kind::Door | Kind::Stone | Kind::Obsidian => continue,
             Kind::Piston { sticky, f, ext } => FK::Piston { sticky: *sticky, f: *f, ext: *ext },
             k => anyhow::bail!("unsupported block {k:?}"),
