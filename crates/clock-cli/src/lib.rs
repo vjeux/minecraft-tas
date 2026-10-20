@@ -92,8 +92,9 @@ pub enum ClockCmd {
         no_sim: bool,
         #[arg(long)]
         json: bool,
-        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods):
-        /// the period must hold across it (a clock must survive a chunk reload).
+        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods): the
+        /// clock must run at the same state period afterwards, a short glitch allowed (a clock must
+        /// survive a chunk reload).
         #[arg(long)]
         reload: bool,
     },

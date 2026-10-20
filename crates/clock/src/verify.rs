@@ -31,8 +31,8 @@ pub struct VerifyOptions {
     pub workers: usize,
     pub version: String,
     /// Save, unload and load again the sandbox's chunks mid-run, after the warmup and 2 periods
-    /// (coordinator 2026-10-20: a clock must survive a chunk reload): the period must hold
-    /// across it.
+    /// (coordinator 2026-10-20: a clock must survive a chunk reload): it must run at the same
+    /// state period afterwards (a short glitch right after the reload is allowed).
     pub reload: bool,
     /// The tick of that reload (set by `verify_in_pool` from redsim's warmup and period).
     pub reload_at: Option<u32>,
