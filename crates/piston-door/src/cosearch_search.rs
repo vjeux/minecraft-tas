@@ -298,6 +298,9 @@ pub struct Problem {
     /// Pockets without --keep-lever removes the seed's lever and gives the cell back as an
     /// ordinary wiring cell (a port named only so the plan parses must not cost a pocket a cell).
     pub lever_cell_free: bool,
+    /// The door's volume (`--focus`, else the box): what "outside the box" means for a lever that
+    /// is excluded from the volume (the box may be wider to hold plan inputs).
+    pub vol: ([i32; 2], [i32; 2]),
     /// Max drive points per input (its plan edges over the screened cycles): a released input
     /// earns them all (the screen checks the door works without it).
     pub drive_max: Vec<i32>,
@@ -1722,6 +1725,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         drive_max: Vec::new(),
         no_lever: false,
         lever_cell_free,
+        vol: (flo, fhi),
         exact_rest: a.exact_rest,
     };
     let mut prob = prob;
@@ -3290,6 +3294,27 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             }
         }
         feeds.dedup();
+        // gadget (fly 10-20): a lever OUTSIDE the box on the back face of a never-moving piston
+        // holds that piston, and the piston below it by QC (flip-time levels only)
+        let lever_back = |x: i32, y: i32| -> Option<(i32, i32)> {
+            let Block::Piston { facing, .. } = seed.get(x, y) else { return None };
+            let s = facing.step();
+            let b = (x - s[0], y - s[1]);
+            let (vl, vh) = prob.vol;
+            let outside = b.0 < vl[0] || b.0 > vh[0] || b.1 < vl[1] || b.1 > vh[1];
+            if s[2] != 0 || !outside || !seed.get(b.0, b.1).is_air() {
+                return None;
+            }
+            // never moved: its cell holds the base (a retracting base is a moving piston) all along
+            let r = replay_cells(&prob, &seed, &[BlockPos::new(x, y, seed.z)], None)?;
+            r.iter().flatten().all(|v| matches!(v[0], Block::Piston { .. } | Block::MovingPiston { .. })).then_some(b)
+        };
+        if let Some(b) = lever_back(px, py) {
+            feeds.push(format!("a lever outside the box at ({},{}) on its back (flip-time level)", b.0 - dx, b.1 - dy));
+        }
+        if let Some(b) = lever_back(px, py + 1) {
+            feeds.push(format!("QC from a lever outside the box at ({},{}) on the back of the piston above (flip-time level)", b.0 - dx, b.1 - dy));
+        }
         let what = if feeds.is_empty() { "NO FREE CELL (only through door blocks or a moving source)".to_string() } else { feeds.join(", ") };
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
