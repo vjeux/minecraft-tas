@@ -60,7 +60,7 @@ Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone)
 
 ## Tunable groups
 
-Each card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.
+Each card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.
 
 ### L = 2..8 gt (every 2)
 

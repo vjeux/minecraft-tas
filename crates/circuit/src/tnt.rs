@@ -40,6 +40,18 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
                 t += PULSE + gap;
             }
         }
+        _ if !c.inputs.is_empty() => {
+            // a switchable duper (the lever on/off variation): off, on, off, on, each window SWITCH
+            // gt long; it must dupe in one input state and stop in the other
+            t = c.clock.free_from() + 20;
+            for k in 0..4 {
+                if k % 2 == 1 {
+                    s.pulse(0, t, SWITCH);
+                }
+                s.phase(t, t + SWITCH, if k % 2 == 1 { format!("on {}", k / 2 + 1) } else { format!("off {}", k / 2 + 1) });
+                t += SWITCH;
+            }
+        }
         _ => {
             t = c.clock.free_from() + RUN;
             s.phase(0, t, "run");
@@ -47,6 +59,74 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
     }
     s.ticks = t;
     s
+}
+
+/// Each window of the switchable duper's stimulus (gt).
+pub const SWITCH: u32 = 300;
+/// A switchable duper must stop within this many gt after the switch.
+pub const STOP: u32 = 40;
+
+/// `tnt-duper` with an input (lever on/off): dupes periodically while the input is in one state
+/// (both such windows: the same rate, TNT intact), spawns nothing in the other state from `STOP`
+/// gt after the switch on. Metrics: rate, period, per period, runs (input on / off), stop and
+/// start (the switch to the last / first spawn).
+pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let _ = c;
+    let n0 = tnt_in(t, 0);
+    let mut table = Vec::new();
+    let windows: Vec<(u32, u32, bool)> = s.phases.iter().map(|(a, b, l)| (*a, *b, l.starts_with("on"))).collect();
+    if windows.len() != 4 || n0 == 0 {
+        return Outcome { pass: false, why: "no TNT block, or not the switchable stimulus".into(), metrics: Vec::new(), table };
+    }
+    let spawns_in = |a: u32, b: u32| t.primed.iter().filter(|q| q.frame >= a && q.frame < b).map(|q| q.frame).collect::<Vec<u32>>();
+    let mut run_state: Option<bool> = None;
+    let mut rates: Vec<(u32, usize)> = Vec::new();
+    let (mut stop, mut start) = (0u32, 0u32);
+    for (k, &(a, b, on)) in windows.iter().enumerate() {
+        let sp = spawns_in(a, b);
+        let quiet = spawns_in(a + STOP, b).is_empty();
+        table.push(format!("{} window {}..{}: {} primed", if on { "on" } else { "off" }, a, b, sp.len()));
+        let _ = k;
+        if quiet {
+            if let Some(last) = sp.last() {
+                stop = stop.max(last - a);
+            }
+            continue;
+        }
+        match run_state {
+            None => run_state = Some(on),
+            Some(r) if r != on => return Outcome { pass: false, why: format!("dupes with the input both on and off (window {}..{})", a, b), metrics: Vec::new(), table },
+            _ => {}
+        }
+        // the run window: periodic spawns from the first one on, TNT intact at its end
+        if let Some(first) = sp.first() {
+            start = start.max(first - a);
+        }
+        let gaps: Vec<u32> = sp.windows(2).map(|w| w[1] - w[0]).collect();
+        let p = gaps.iter().copied().max().unwrap_or(0);
+        if sp.len() < 8 || gaps.iter().any(|&g| g != p) {
+            return Outcome { pass: false, why: format!("window {}..{}: {} primed, not periodic (gaps {:?})", a, b, sp.len(), &gaps[..gaps.len().min(8)]), metrics: Vec::new(), table };
+        }
+        rates.push((p, 1));
+        if tnt_in(t, (b as usize).min(t.cells.len() - 1)) < n0 && (b as usize - 1..(b as usize + 4).min(t.cells.len())).all(|f| tnt_in(t, f) < n0) {
+            return Outcome { pass: false, why: format!("TNT consumed in window {}..{}", a, b), metrics: Vec::new(), table };
+        }
+    }
+    let Some(on) = run_state else {
+        return Outcome { pass: false, why: "never dupes".into(), metrics: Vec::new(), table };
+    };
+    if rates.len() != 2 || rates[0] != rates[1] {
+        return Outcome { pass: false, why: format!("the two run windows differ: {rates:?}"), metrics: Vec::new(), table };
+    }
+    let p = rates[0].0;
+    let metrics = vec![
+        ("rate".to_string(), format!("{} TNT/min", fmt_rate(1200.0 / p as f64))),
+        ("period".to_string(), format!("{p} gt")),
+        ("runs".to_string(), if on { "input on".to_string() } else { "input off".to_string() }),
+        ("stop".to_string(), format!("{stop} gt")),
+        ("start".to_string(), format!("{start} gt")),
+    ];
+    Outcome { pass: true, why: String::new(), metrics, table }
 }
 
 /// TNT blocks standing in a frame.
