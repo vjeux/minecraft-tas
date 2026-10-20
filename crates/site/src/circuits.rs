@@ -761,8 +761,14 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
                 }
                 None
             };
+            // the metric it wins comes before shared badges (critique: the 96-block speed loader
+            // led with the 31-block auto loader's badges; what it adds is 3× the speed)
+            let max_smaller = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name)).map(|j| rate(&builds[j])).fold(0.0f64, f64::max);
+            let speedup = if max_smaller > 0.0 { rate(&builds[i]) / max_smaller } else { 0.0 };
             let lead = if Some(i) == fastest {
                 Some("fastest".to_string())
+            } else if speedup >= 1.5 {
+                Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
             } else if !new.is_empty() {
                 Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
             } else if let Some(p) = pair() {
