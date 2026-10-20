@@ -220,6 +220,8 @@ fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, trai
 struct Limits {
     pocket_of: Vec<Option<usize>>,
     budgets: Vec<usize>,
+    /// Threads simulating a batch of expansions.
+    threads: usize,
 }
 
 /// `--search`: weighted A* over pairs of idle worlds (the closed door opening, the open door
@@ -258,32 +260,50 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
     seen.insert(key(&sa0, &sb0, &used0));
     let mut best = h0;
     let mut best_id = 0usize;
-    while let Some((_, id)) = heap.pop() {
-        let (a, b, _, _, g, used) = nodes[id].clone();
-        if a == target_open && b == target_rest {
-            let mut out = Vec::new();
-            let mut c = id;
-            while let Some(p) = nodes[c].2 {
-                out.push(moves[nodes[c].3].clone());
-                c = p;
+    // expand up to `batch` best nodes at once, their children simulated in parallel
+    let batch = if limits.threads > 1 { limits.threads * 2 } else { 1 };
+    loop {
+        let mut ids: Vec<usize> = Vec::new();
+        while ids.len() < batch {
+            let Some((_, id)) = heap.pop() else { break };
+            let (a, b) = (&nodes[id].0, &nodes[id].1);
+            if *a == target_open && *b == target_rest {
+                let mut out = Vec::new();
+                let mut c = id;
+                while let Some(p) = nodes[c].2 {
+                    out.push(moves[nodes[c].3].clone());
+                    c = p;
+                }
+                out.reverse();
+                return (Some(out), nodes.len(), 0);
             }
-            out.reverse();
-            return (Some(out), nodes.len(), 0);
+            ids.push(id);
         }
-        if nodes.len() >= cap {
+        if ids.is_empty() || nodes.len() >= cap {
             break;
         }
-        let (wa, wb) = (sim.rebuild(&a), sim.rebuild(&b));
-        for (mi, st) in moves.iter().enumerate() {
-            let mut used2 = used.clone();
-            if let Some(Some(p)) = limits.pocket_of.get(mi) {
-                if used2[*p] as usize >= limits.budgets[*p] {
-                    continue;
+        let mut jobs: Vec<(usize, usize, Vec<u8>)> = Vec::new();
+        for &id in &ids {
+            for mi in 0..moves.len() {
+                let mut used2 = nodes[id].5.clone();
+                if let Some(Some(p)) = limits.pocket_of.get(mi) {
+                    if used2[*p] as usize >= limits.budgets[*p] {
+                        continue;
+                    }
+                    used2[*p] += 1;
                 }
-                used2[*p] += 1;
+                jobs.push((id, mi, used2));
             }
-            let (Ok(a2), Ok(b2)) = (sim.apply(&wa, st), sim.apply(&wb, st)) else { continue };
-            let (sa, sb) = (sim.sparse(&a2), sim.sparse(&b2));
+        }
+        let res = cs::par_map(&jobs, limits.threads.max(1), |(id, mi, _)| {
+            let (wa, wb) = (sim.rebuild(&nodes[*id].0), sim.rebuild(&nodes[*id].1));
+            match (sim.apply(&wa, &moves[*mi]), sim.apply(&wb, &moves[*mi])) {
+                (Ok(a2), Ok(b2)) => Some((sim.sparse(&a2), sim.sparse(&b2))),
+                _ => None,
+            }
+        });
+        for ((id, mi, used2), r) in jobs.into_iter().zip(res) {
+            let Some((sa, sb)) = r else { continue };
             let k = key(&sa, &sb, &used2);
             if !seen.insert(k) {
                 continue;
@@ -293,7 +313,7 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
                 best_id = nodes.len();
             }
             best = best.min(h2);
-            let g2 = g + costs.get(mi).copied().unwrap_or(1);
+            let g2 = nodes[id].4 + costs.get(mi).copied().unwrap_or(1);
             nodes.push((sa, sb, Some(id), mi, g2, used2));
             heap.push((std::cmp::Reverse(g2 + h2 * weight), nodes.len() - 1));
         }
@@ -353,6 +373,8 @@ pub struct Options {
     pub drop: Vec<Pos>,
     /// `--search` also offers level moves (an input switched on, later off): holds.
     pub levels: bool,
+    /// Threads simulating each batch of the search's expansions (1 in batch mode).
+    pub search_threads: usize,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -777,7 +799,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         }
         // a move's cost: 1, or the largest `--cost` of the cells it pulses
         let costs: Vec<usize> = moves.iter().map(|m| m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1)).collect();
-        let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect() };
+        let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect(), threads: o.search_threads };
         let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, &limits, cap, o.weight);
         return match found {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
