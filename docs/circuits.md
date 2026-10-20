@@ -15,6 +15,7 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
+| 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -47,12 +48,13 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
 * **A circuit must drive something** (vjeux/coordinator 2026-10-19): the judge puts a redstone
   lamp in every AIR output cell (not a design block: not counted, not part of the type; none for
-  kinds read through payloads, piston extenders and flying machines, nor in a cell on a piston's
-  line, where a moved block may land) and the lamp must follow the output: lit whenever the output
-  is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the update that tells
-  it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick, like two inputs
-  placed in the same tick, is a glitch, not a failure), from the first frame the circuit may be
-  driven. The metrics still come from the level above, so they do not change. An
+  kinds read through payloads, piston extenders and flying machines, nor where a piston can move a
+  block in: its head cell or the cell after the row of blocks it pushes, any cell within 13 in
+  front of it when the design has slime or honey) and the lamp must follow the output: lit
+  whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
+  update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
+  like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
+  circuit may be driven. The metrics still come from the level above, so they do not change. An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
@@ -97,7 +99,10 @@ flying machine that flies east-west only). No build passing: `FAIL`. One line:
 milliseconds) and prints the same line ending in `redsim`. Both size the stimulus from redsim's
 recovery time: how long the circuit takes to come back to rest after every input turns on for 40 gt
 and after they turn off, plus 10 gt (at least 20; 100 when redsim does not model the design or it
-never rests; `--gap N` overrides). The circuit stands 40 gt at rest after placement (and after its
+never rests; `--gap N` overrides). When an event of the kind's own stimulus (run on redsim spaced by
+1000 gt) takes longer to settle than that, the gap is that settling plus 10 gt instead (a slow path
+the all-on / all-off pair never takes: a crafter latch's nine ingots coming back through a hopper,
+79 gt). The circuit stands 40 gt at rest after placement (and after its
 kick) before the first input.
 
 ### What each kind is judged on
@@ -112,9 +117,13 @@ kick) before the first input.
     nothing on the falling edge; `falling-edge`: the same after the falling edge; `dual-edge`: one
     pulse after each edge (L and delay per edge when they differ);
   * `pulse-limiter`: one pulse from the rising edge, length L for every input >= L (shorter inputs
-    may pass shorter); L must be shorter than the longest input;
+    may pass shorter); L must be shorter than the longest input, and at least two inputs longer
+    than L must come out exactly L (one would not tell a limiter from a delay line that shortens
+    every pulse by a fixed amount; a longer gap or a `stimulus:` hint adds longer inputs);
   * `pulse-extender`: one pulse from the rising edge, length L for every input shorter than L and
-    never shorter than L; at least one input shorter than L must be handled.
+    never shorter than L; at least two inputs shorter than L (every tested one when fewer exist,
+    as for L 2) must come out exactly L inside the handled inputs (from the min-pulse up), so a
+    stretcher that adds a fixed amount to every pulse fails.
   * `min-pulse`: the shortest input from which every longer one is handled (at least the 3 longest
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
@@ -193,6 +202,29 @@ kick) before the first input.
   trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
   trip's period and the positions it stands intact at; `latency`: the kick to the first change;
   the box is the design's own.
+* **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
+  crates/circuit/src/shulker.rs; the variations and how each is measured:
+  designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:
+  cobblestone (the default), snowballs, iron shovels. These kinds are not judged by the waveform.
+  The design declares air cells `port items[.k]:`, `port boxes[.k]:` and `port output[.k]:`, and
+  the judge puts a single chest on each (not counted, not part of the type). A loader's `items`
+  chest is a source the judge keeps topped up between ticks until 3 boxes' worth is supplied; its
+  `boxes` chest holds 4 empty boxes. An unloader's `boxes` chest holds 3 full boxes, and its
+  `items` chest is a sink the judge empties and counts. The judge empties the `output` chests and
+  records every box that arrives (the gt, colour, name, contents) from per-gt block-entity frames.
+  An optional `port input: x y z lever` is turned on once at the start; without it the design is
+  always on. The design is placed and left 40 gt, then the chests are filled. Pass:
+  * a loader delivers 3 boxes, each holding 27 full stacks of the item;
+  * an unloader delivers 3 empty boxes, and every item reaches `items`;
+  * nothing else reaches an output, no item or box is left in the machine, no entity is alive at
+    the end, and the design stands still for 400 gt (it gets up to 5 windows to settle).
+  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `boxes/min`, `items/s` and
+  `cycle` over the first to the last box, and `first box` (the gt from the start). A piston drops
+  the box at a random offset with a random drift, which can shift a pickup by a gt. Builds within
+  4 gt of the base build are the same circuit (`robust`), and the reported times are the builds'
+  medians. `circuit sim` reports UNMODELED until redsim models shulker boxes and chests.
+  `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
+  snapshots of a..b) add what changed to `--table`: a design aid.
 
 ## Archive and catalog
 

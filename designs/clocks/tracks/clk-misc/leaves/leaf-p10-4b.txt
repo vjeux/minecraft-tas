@@ -2,7 +2,10 @@ name: clk-misc-leaf-p10-4b
 # A leaf clock in 4 blocks: a sticky piston toggles a log under one persistent oak leaf; an observer beside the log watches the
 # leaf and quasi-powers the piston through the air above it. Each 2 gt observer pulse makes the sticky piston spit the log one
 # cell further (under the leaf: distance 1) or pull it back (distance 7, one 1 gt leaf tick later).
+# The output is declared at the log's first cell, the cell the judge measured when this clock had no port (the power it
+# receives: none, so on 0/10; clock sim and the judge now read the same cell the same way).
 port start: 0 1 2 last
+port output: 0 0 1
 palette:
   A minecraft:sticky_piston[extended=false,facing=south]
   B minecraft:oak_log[axis=y]

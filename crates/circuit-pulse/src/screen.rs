@@ -31,7 +31,9 @@ use redsim::{Block, BlockPos, World};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const WIDTHS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+/// The judge's input pulse lengths (docs/circuits.md), plus 60 and 80 gt: two inputs longer than a
+/// limiter's L up to 58 (the judge adds them for long limiters: adaptive lengths)
+pub const WIDTHS: [u32; 14] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40, 60, 80];
 
 /// A pulse-circuit design: the clock-format blocks, the input cell, an optional output cell.
 #[derive(Clone, Debug)]
@@ -133,6 +135,47 @@ fn pulses_of(levels: &[i32]) -> Vec<Pulse> {
 }
 
 /// Run the stimulus. None when the design does not settle, keeps state, or touches the margin.
+/// Print one input pulse of `wd` gt tick by tick: every block that changes (redsim) and the output
+/// level (for captions: how a design works).
+pub fn trace(c: &Circuit, wd: u32, ticks: u32) -> Option<()> {
+    let margin = 3;
+    let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();
+    all.push(c.input);
+    let lo = BlockPos::new(all.iter().map(|p| p.x).min()?, all.iter().map(|p| p.y).min()?, all.iter().map(|p| p.z).min()?);
+    let hi = BlockPos::new(all.iter().map(|p| p.x).max()?, all.iter().map(|p| p.y).max()?, all.iter().map(|p| p.z).max()?);
+    let min = lo.offset(-margin, -margin, -margin);
+    let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
+    let mut w = World::new(min, size);
+    w.place_like_judge(&c.blocks);
+    w.run_until_idle(400);
+    let out = c.output;
+    let show = |w: &World| out.map(|o| level_at(w, o)).unwrap_or(-1);
+    let mut prev: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+    println!("rest: output {}; blocks: {}", show(&w), prev.iter().map(|(p, b)| format!("{p:?}={b}")).collect::<Vec<_>>().join(" "));
+    w.set_block(c.input, Block::RedstoneBlock, flags::ALL);
+    for t in 0..ticks {
+        if t == wd {
+            w.set_block(c.input, Block::Air, flags::ALL);
+        }
+        w.tick();
+        let now: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+        let mut changes: Vec<String> = Vec::new();
+        for (p, b) in &now {
+            if prev.get(p) != Some(b) {
+                changes.push(format!("{p:?} {} -> {b}", prev.get(p).cloned().unwrap_or_else(|| "air".into())));
+            }
+        }
+        for p in prev.keys() {
+            if !now.contains_key(p) {
+                changes.push(format!("{p:?} {} -> air", prev[p]));
+            }
+        }
+        println!("t{:>3} in={} out={:>2} {}", t + 1, u8::from(t < wd), show(&w), changes.join("; "));
+        prev = now;
+    }
+    Some(())
+}
+
 pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
     let margin = 3;
     let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();
@@ -259,15 +302,19 @@ fn kinds_from(per_w: &[Vec<Pulse>], widths: &[u32]) -> Vec<String> {
         if s_const {
             let wmax = widths.iter().copied().max().unwrap_or(0);
             for big_l in 1..wmax {
-                // limiter: L for every input >= L (shorter inputs pass shorter, up to L)
-                if widths.iter().any(|w| *w > big_l) && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
+                // limiter: L for every input >= L (shorter inputs pass shorter, up to L); limiting
+                // witnessed by two inputs longer than L (the judge's rule since clockinfra 8b52997d8)
+                let longer = widths.iter().filter(|w| **w > big_l).count();
+                if longer >= 2 && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
                     out.push(format!("pulse-limiter L={big_l} delay={}", s[0]));
                     break;
                 }
             }
             for big_l in 2..=wmax + 20 {
-                // extender: L for every input shorter than L, never shorter than L
-                if widths.iter().any(|w| *w < big_l) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
+                // extender: L for every input shorter than L, never shorter than L; witnessed by two
+                // inputs shorter than L (or every tested one when fewer exist)
+                let shorter = widths.iter().filter(|w| **w < big_l).count();
+                if shorter >= 1 && (shorter >= 2 || big_l <= 2) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
                     out.push(format!("pulse-extender L={big_l} delay={}", s[0]));
                     break;
                 }

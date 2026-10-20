@@ -43,6 +43,14 @@ pub struct Live {
     /// When the last tap ended (ms), for double taps.
     last_tap: f64,
     last_ts: Option<f64>,
+    /// A press that began on a circuit input (its cell, device or tag): (input, when, pointer):
+    /// held past [`HOLD_MS`] it holds the input on until released; it never orbits the camera.
+    press: Option<(usize, f64, i32)>,
+    /// The input held on by a long press.
+    holding: Option<usize>,
+    /// The design being swapped in place (`data-src` changed): the previous camera (kept when
+    /// `keep`) and whether it was playing.
+    prev: Option<(mcview::camera::Camera, bool, bool)>,
     redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
@@ -55,6 +63,13 @@ pub struct Live {
 
 /// Speeds the speed button cycles through: label, game ticks per second.
 const SPEEDS: [(&str, f32); 7] = [("1×", 20.0), ("2×", 40.0), ("5×", 100.0), ("20×", 400.0), ("100×", 2000.0), ("¼×", 5.0), ("½×", 10.0)];
+
+/// A press on an input longer than this (ms) holds it on (shorter: a tap).
+const HOLD_MS: f64 = 250.0;
+
+fn now_ms() -> f64 {
+    crate::window().performance().map(|p| p.now()).unwrap_or(0.0)
+}
 
 fn el(tag: &str) -> HtmlElement {
     document().create_element(tag).unwrap().dyn_into().unwrap()
@@ -106,11 +121,15 @@ fn button(content: &str, title: &str) -> HtmlButtonElement {
             ("font", "600 18px/1 system-ui, sans-serif"),
             ("cursor", "pointer"),
             ("pointer-events", "auto"),
-            ("touch-action", "manipulation"),
+            // a long press (holding an input) never selects, zooms or opens the iOS callout
+            ("touch-action", "none"),
             ("-webkit-tap-highlight-color", "transparent"),
             ("user-select", "none"),
+            ("-webkit-user-select", "none"),
+            ("-webkit-touch-callout", "none"),
         ],
     );
+    on(&b, "contextmenu", |e: web_sys::Event| e.prevent_default());
     b
 }
 
@@ -150,6 +169,12 @@ pub fn start(app: &mut App, id: u32) {
     let root = v.el.clone();
     let _ = root.set_attribute("tabindex", "0");
     let _ = root.style().set_property("outline", "none");
+    // nothing in a viewer selects on a long press (labels, tags, badges) or opens a callout
+    for (k, val) in [("user-select", "none"), ("-webkit-user-select", "none"), ("-webkit-touch-callout", "none"), ("-webkit-tap-highlight-color", "transparent")] {
+        let _ = root.style().set_property(k, val);
+    }
+    on(&root, "contextmenu", |e: web_sys::Event| e.prevent_default());
+    on(&root, "selectstart", |e: web_sys::Event| e.prevent_default());
     let bar = el("div");
     style(
         &bar,
@@ -256,6 +281,9 @@ pub fn start(app: &mut App, id: u32) {
         pinch: None,
         last_tap: -1e9,
         last_ts: None,
+        press: None,
+        holding: None,
+        prev: None,
         redraw: true,
         overlays: crate::overlay::Overlays::new(&root),
         inputs: Vec::new(),
@@ -273,12 +301,21 @@ pub fn start(app: &mut App, id: u32) {
     on_click(&containers, id, |l| l.toggle_containers());
     // gestures
     on(&canvas, "pointerdown", move |e: PointerEvent| {
-        with_live(id, |l, _, v| {
-            l.pointer_down(&e);
+        let started = with_live(id, |l, atlas, v| {
+            l.pointer_down(&e, atlas, v);
             let _ = v.canvas.set_pointer_capture(e.pointer_id());
             let _ = v.el.focus();
+            l.press.is_some()
         });
         e.prevent_default();
+        if started == Some(true) {
+            // a press on an input: held long enough, it holds the input on
+            let cb = Closure::once_into_js(move || {
+                with_live(id, |l, _, _| l.check_hold());
+                ensure_frame();
+            });
+            let _ = crate::window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), HOLD_MS as i32 + 10);
+        }
     });
     on(&canvas, "pointermove", move |e: PointerEvent| {
         with_live(id, |l, _, v| l.pointer_move(&e, v));
@@ -322,6 +359,30 @@ pub fn start(app: &mut App, id: u32) {
     });
     // the context, then the design
     let atlas = app.atlas.clone();
+    // a lost WebGL context (iOS drops the oldest when a page holds too many; a GPU reset) comes
+    // back: the viewer makes a new one on the restored canvas and draws again
+    on(&canvas, "webglcontextlost", move |e: web_sys::Event| {
+        e.prevent_default();
+        with_live(id, |l, _, _| l.gpu = None);
+        log("a viewer's WebGL context was lost; waiting for it to come back");
+    });
+    on(&canvas, "webglcontextrestored", move |_: web_sys::Event| {
+        let got = with_app(|a| a.views.get(&id).map(|v| (v.canvas.clone(), a.atlas.clone()))).flatten();
+        if let Some((canvas, atlas)) = got {
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Ok(g) = Gpu::new(canvas, &atlas).await {
+                    with_live(id, |l, _, _| {
+                        l.gpu = Some(g);
+                        if let Some(p) = l.player.as_mut() {
+                            p.invalidate();
+                        }
+                        l.redraw = true;
+                    });
+                    ensure_frame();
+                }
+            });
+        }
+    });
     wasm_bindgen_futures::spawn_local(async move {
         match Gpu::new(canvas, &atlas).await {
             Ok(g) => {
@@ -468,6 +529,36 @@ pub fn load(app: &mut App, id: u32) {
                 let _ = l.containers.style().set_property("color", "#ffd27a");
             }
             l.overlays.setup(&p);
+            // pressing an input's tag presses the input: a tap, or a hold while pressed
+            for (i, t) in l.overlays.input_tags.clone() {
+                on(&t, "pointerdown", move |e: PointerEvent| {
+                    e.prevent_default();
+                    e.stop_propagation();
+                    if let Some(target) = e.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) {
+                        let _ = target.set_pointer_capture(e.pointer_id());
+                    }
+                    with_live(id, |l, _, _| {
+                        l.press = Some((i, now_ms(), e.pointer_id()));
+                        l.touches.clear();
+                        l.touches.push(Touch { id: e.pointer_id(), x: e.client_x() as f64, y: e.client_y() as f64, sx: e.client_x() as f64, sy: e.client_y() as f64 });
+                    });
+                    let cb = Closure::once_into_js(move || {
+                        with_live(id, |l, _, _| l.check_hold());
+                        ensure_frame();
+                    });
+                    let _ = crate::window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), HOLD_MS as i32 + 10);
+                });
+                for (kind, up) in [("pointerup", true), ("pointercancel", false)] {
+                    on(&t, kind, move |e: PointerEvent| {
+                        e.stop_propagation();
+                        with_live(id, |l, _, _| {
+                            l.touches.retain(|t| t.id != e.pointer_id());
+                            l.end_press(&e, up);
+                        });
+                        ensure_frame();
+                    });
+                }
+            }
             l.base_status = match (&trace_note, &p.session.unsimulated) {
                 (Some(n), _) => n.clone(),
                 (None, Some(why)) => {
@@ -483,9 +574,24 @@ pub fn load(app: &mut App, id: u32) {
             l.player = Some(p);
             l.redraw = true;
             l.sync_status();
-            if v.autoplay {
+            // swapped in place: the person's camera (unless the new build is out of it), play
+            // state and speed stay
+            let mut playing = v.autoplay;
+            if let Some((cam, was_playing, keep)) = l.prev.take() {
+                let p = l.player.as_mut().unwrap();
+                if keep && camera_sees(&cam, &p.session, &p.look, aspect) {
+                    p.camera = cam;
+                }
+                playing |= was_playing;
+            }
+            if let Some(p) = l.player.as_mut() {
+                p.tps = SPEEDS[l.speed_i].1;
+            }
+            l.play.set_inner_html(&icon(ICON_PLAY));
+            if playing {
                 l.toggle_play();
             }
+            let _ = v.el.class_list().add_1("mcview-live-src");
         }
         Err(e) => {
             let el = v.el.clone();
@@ -495,6 +601,19 @@ pub fn load(app: &mut App, id: u32) {
     if let Some(v) = app.views.get_mut(&id) {
         v.done = true;
     }
+}
+
+/// Does a camera still show a session's build (its frame box's centre inside the view)?
+fn camera_sees(cam: &mcview::camera::Camera, s: &mcview::session::Session, look: &mcview::scene::Look, aspect: f32) -> bool {
+    let (lo, hi) = mcview::scene::frame_bounds(s, look);
+    let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
+    let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+    let z = dot(f);
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    z > 0.1 && (dot(r) / (z * t * aspect)).abs() < 1.2 && (dot(u) / (z * t)).abs() < 1.2
 }
 
 /// Advance and draw one frame; true while it needs more frames (playing, dragging).
@@ -522,7 +641,7 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     let b = e.get_bounding_client_rect();
                     format!("{:.1},{:.1},{:.1},{:.1}", b.x(), b.y(), b.width(), b.height())
                 };
-                log(&format!("layout view {id} tick {} el {} bar {} label {} status {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status)));
+                log(&format!("layout view {id} tick {} el {} bar {} label {} status {} cam {:?} {} {} {} vfov {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status), p.camera.target, p.camera.yaw, p.camera.pitch, p.camera.dist, p.camera.vfov));
                 // for `mctas web click`: where a click uses each input (fractions of the canvas),
                 // and what the sim shows
                 let cr = v.canvas.get_bounding_client_rect();
@@ -542,7 +661,9 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     .collect();
                 let door = p.session.door_blocks().map(|n| n.to_string()).unwrap_or_else(|| "-".into());
                 let active = p.session.design.blocks.keys().filter(|c| !p.session.inputs.contains(c) && p.session.is_on(**c)).count();
-                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
+                let c = &p.camera;
+                let cam = format!("{:.4},{:.4},{:.4},{:.4},{:.4},{:.4}", c.yaw, c.pitch, c.dist, c.target[0], c.target[1], c.target[2]);
+                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} cam={cam} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
             l.overlays.update(p, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
         }
@@ -700,7 +821,7 @@ impl Live {
 
     /// The tiles changed (the game's textures arrived): upload them, draw again.
     pub fn atlas_changed(&mut self, atlas: &mcview::atlas::Atlas) {
-        if let Some(g) = &self.gpu {
+        if let Some(g) = &mut self.gpu {
             g.r.upload_atlas(atlas);
         }
         if let Some(p) = self.player.as_mut() {
@@ -709,7 +830,30 @@ impl Live {
         self.redraw = true;
     }
 
-    fn pointer_down(&mut self, e: &PointerEvent) {
+    pub fn has_player(&self) -> bool {
+        self.player.is_some()
+    }
+
+    /// Before another design loads in place: drop the player (remembering its camera and play
+    /// state), its input buttons and per-design controls; the canvas keeps its last frame.
+    pub fn begin_reload(&mut self, keep_camera: bool) {
+        if let Some(p) = self.player.take() {
+            self.prev = Some((p.camera, p.playing, keep_camera));
+        }
+        for (b, _) in self.inputs.drain(..) {
+            b.remove();
+        }
+        let _ = self.flip.style().set_property("display", "none");
+        let _ = self.containers.style().set_property("display", "none");
+        self.play.set_disabled(false);
+        let _ = self.play.style().set_property("opacity", "1");
+        let _ = self.status.remove_attribute("title");
+        self.press = None;
+        self.holding = None;
+        self.redraw = true;
+    }
+
+    fn pointer_down(&mut self, e: &PointerEvent, atlas: &mcview::atlas::Atlas, v: &crate::View) {
         let (x, y) = (e.client_x() as f64, e.client_y() as f64);
         self.touches.retain(|t| t.id != e.pointer_id());
         self.touches.push(Touch { id: e.pointer_id(), x, y, sx: x, sy: y });
@@ -718,13 +862,69 @@ impl Live {
                 self.moved = false;
                 self.pan_button = e.button() != 0 || e.shift_key();
                 self.pinch = None;
+                // a press that begins on a circuit input (its cell or device) is the input's:
+                // a tap or a hold, never an orbit
+                self.press = None;
+                if !self.pan_button
+                    && let Some(p) = &self.player
+                {
+                    let r = v.canvas.get_bounding_client_rect();
+                    let fx = ((x - r.left()) / r.width().max(1.0) * 2.0 - 1.0) as f32;
+                    let fy = (1.0 - (y - r.top()) / r.height().max(1.0) * 2.0) as f32;
+                    let aspect = (r.width() / r.height().max(1.0)) as f32;
+                    if let Some(i) = p.input_at(atlas, fx, fy, aspect) {
+                        self.press = Some((i, now_ms(), e.pointer_id()));
+                    }
+                }
             }
             _ => {
                 // two fingers: pinch and pan, never a tap
                 self.moved = true;
+                self.press = None;
                 self.pinch = Some(self.two_finger());
             }
         }
+    }
+
+    /// A press on an input lasting [`HOLD_MS`] holds it on (until the pointer lifts).
+    pub fn check_hold(&mut self) {
+        let Some((i, t0, _)) = self.press else { return };
+        if self.holding.is_some() || self.touches.len() != 1 || now_ms() - t0 < HOLD_MS - 1.0 {
+            return;
+        }
+        if let Some(p) = self.player.as_mut()
+            && p.hold_input(i, true)
+        {
+            self.holding = Some(i);
+            self.redraw = true;
+            self.play_after_input();
+        }
+    }
+
+    /// The pointer of a press lifted or cancelled: a held input goes off; a short press is a tap.
+    /// Returns whether the press was an input's (then nothing else happens).
+    fn end_press(&mut self, e: &PointerEvent, up: bool) -> bool {
+        let Some((i, _, pid)) = self.press else { return false };
+        if pid != e.pointer_id() {
+            return false;
+        }
+        self.press = None;
+        if let Some(h) = self.holding.take() {
+            if let Some(p) = self.player.as_mut() {
+                p.hold_input(h, false);
+            }
+            self.redraw = true;
+            return true;
+        }
+        if up
+            && let Some(p) = self.player.as_mut()
+            && p.tap_input(i)
+        {
+            // a tap on the input: today's pulse or flip
+            self.redraw = true;
+            self.play_after_input();
+        }
+        true
     }
 
     /// The first two pointers' distance and midpoint.
@@ -740,6 +940,10 @@ impl Live {
         self.touches[i].x = x;
         self.touches[i].y = y;
         let h = v.el.get_bounding_client_rect().height().max(1.0);
+        // a press on an input never moves the camera
+        if self.press.is_some() && self.touches.len() < 2 {
+            return;
+        }
         let Some(p) = self.player.as_mut() else { return };
         if self.touches.len() >= 2 {
             let (d0, mx0, my0) = self.pinch.unwrap_or((1.0, x, y));
@@ -773,6 +977,9 @@ impl Live {
         self.touches.retain(|t| t.id != e.pointer_id());
         if self.touches.len() == 1 {
             self.pinch = None;
+        }
+        if self.end_press(e, up) {
+            return;
         }
         if !up || !was_single || self.moved {
             return;

@@ -135,25 +135,48 @@ fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
 /// The live entities of redsim's world, in tick order.
 fn entities_of(w: &World) -> Vec<TraceEntity> {
     use redsim::entity::EntityKind;
-    w.entities
+    // every entity in id (spawn) order: falling blocks ([`redsim::gravity`]) share the id counter
+    let mut out: Vec<(u32, TraceEntity)> = w
+        .entities
         .list
         .iter()
         .filter(|e| !e.removed)
-        .map(|e| TraceEntity {
-            id: e.id as u64,
-            kind: match &e.kind {
-                EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
-                EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
-                EntityKind::Item(_) => "minecraft:item".to_string(),
-                EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
-            },
-            pos: [e.pos.x, e.pos.y, e.pos.z],
-            motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
-            yaw: e.y_rot,
-            pitch: e.x_rot,
-            net_id: Some(e.network_id),
+        .map(|e| {
+            (
+                e.id,
+                TraceEntity {
+                    id: e.id as u64,
+                    kind: match &e.kind {
+                        EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
+                        EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
+                        EntityKind::Item(_) => "minecraft:item".to_string(),
+                        EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                    },
+                    pos: [e.pos.x, e.pos.y, e.pos.z],
+                    motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
+                    yaw: e.y_rot,
+                    pitch: e.x_rot,
+                    net_id: Some(e.network_id),
+                },
+            )
         })
-        .collect()
+        .collect();
+    out.extend(w.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+        (
+            f.id,
+            TraceEntity {
+                id: f.id as u64,
+                kind: "minecraft:falling_block".to_string(),
+                pos: [f.x, f.y, f.z],
+                motion: [0.0, f.vy, 0.0],
+                yaw: 0.0,
+                pitch: 0.0,
+                net_id: None,
+            },
+        )
+    }));
+    out.sort_by_key(|(id, _)| *id);
+    out.into_iter().map(|(_, e)| e).collect()
 }
 
 fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String>) {
@@ -220,12 +243,14 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         return Ok(Outcome::Unmodeled(e));
     }
     // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
-    // first frame, in the summon order
+    // first frame, in the summon order (falling blocks carry no network id here)
     if let Some((_, ents)) = trace.frames.first() {
-        for (k, te) in ents.iter().enumerate() {
+        let mut k = 0;
+        for te in ents.iter().filter(|te| te.kind != "minecraft:falling_block") {
             if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
                 e.network_id = n;
             }
+            k += 1;
         }
     }
     let mut actions = c.actions();
@@ -286,6 +311,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         if n_diff > 0 {
             let shown = diffs.len();
+            if let Some(e) = w.errors.first() {
+                diffs.push(format!("(redsim's model note this tick: {e})"));
+            }
             return Ok(Outcome::Diverges { tick: t, diffs, more: n_diff - shown });
         }
         if let Some(e) = w.errors.first() {

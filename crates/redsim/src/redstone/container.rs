@@ -24,8 +24,48 @@ use std::collections::{BTreeMap, HashMap};
 
 /// Items with their max stack sizes (the fuzzer picks among these).
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
-/// More items (ids from 6 on), for the entity clocks' contents (clk-misc).
-pub const MORE_ITEMS: [(&str, u8); 2] = [("book", 64), ("cobblestone", 64)];
+/// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc).
+pub const MORE_ITEMS: [(&str, u8); 15] = [
+    ("book", 64),
+    ("cobblestone", 64),
+    ("slime_ball", 64),
+    ("slime_block", 64),
+    ("iron_ingot", 64),
+    ("iron_block", 64),
+    ("iron_nugget", 64),
+    ("heavy_weighted_pressure_plate", 64),
+    ("iron_bars", 64),
+    ("bucket", 16),
+    ("powder_snow_bucket", 1),
+    ("music_disc_11", 1),
+    ("music_disc_blocks", 1),
+    ("music_disc_precipice", 1),
+    ("music_disc_ward", 1),
+];
+
+/// A disc's `JukeboxSong` (`data/minecraft/jukebox_song`): `lengthInTicks` = ceil(seconds * 20)
+/// and its comparator output.
+fn song_of(item: u8) -> Option<(i64, i32)> {
+    let (seconds, comparator) = match item_name(item) {
+        "music_disc_11" => (71.0f32, 11),
+        "music_disc_blocks" => (345.0, 3),
+        "music_disc_precipice" => (299.0, 13),
+        "music_disc_ward" => (251.0, 10),
+        _ => return None,
+    };
+    Some(((seconds * 20.0f32).ceil() as i64, comparator))
+}
+
+/// Every item redsim knows, in id order.
+pub fn all_items() -> impl Iterator<Item = &'static str> {
+    ITEMS.iter().chain(MORE_ITEMS.iter()).map(|(n, _)| *n)
+}
+
+/// Damageable items (tools): the repair recipe (`crafting_special_repairitem`, code-defined) can
+/// take two of them.
+pub fn is_damageable(id: u8) -> bool {
+    matches!(item_name(id), "wooden_shovel" | "diamond_sword")
+}
 
 fn item_entry(id: u8) -> (&'static str, u8) {
     let i = id as usize;
@@ -75,18 +115,50 @@ pub struct ContainerBe {
     pub bookshelf: bool,
     /// Its `lastInteractedSlot` (-1 at first).
     pub last_slot: i32,
+    /// A crafter (`CrafterBlockEntity`): its disabled slots (bit per slot) and
+    /// `craftingTicksRemaining`.
+    pub crafter: bool,
+    pub disabled: u16,
+    pub crafting_ticks: i32,
+    /// A jukebox (`JukeboxBlockEntity`): the disc whose song plays (`JukeboxSongPlayer.song`) and
+    /// `ticksSinceSongStarted`.
+    pub jukebox: bool,
+    pub song: Option<u8>,
+    pub song_ticks: i64,
 }
 
 impl ContainerBe {
     fn new(hopper: bool) -> ContainerBe {
-        ContainerBe { slots: vec![None; if hopper { 5 } else { 9 }], cooldown: -1, ticked: 0, hopper, bookshelf: false, last_slot: -1 }
+        ContainerBe {
+            slots: vec![None; if hopper { 5 } else { 9 }],
+            cooldown: -1,
+            ticked: 0,
+            hopper,
+            bookshelf: false,
+            last_slot: -1,
+            crafter: false,
+            disabled: 0,
+            crafting_ticks: 0,
+            jukebox: false,
+            song: None,
+            song_ticks: 0,
+        }
+    }
+    fn jukebox() -> ContainerBe {
+        ContainerBe { slots: vec![None; 1], jukebox: true, ..ContainerBe::new(false) }
     }
     fn bookshelf() -> ContainerBe {
-        ContainerBe { slots: vec![None; 6], cooldown: -1, ticked: 0, hopper: false, bookshelf: true, last_slot: -1 }
+        ContainerBe { slots: vec![None; 6], bookshelf: true, ..ContainerBe::new(false) }
+    }
+    fn crafter() -> ContainerBe {
+        ContainerBe { crafter: true, ..ContainerBe::new(false) }
     }
     /// A container entity's contents (chest boat: 27 slots, hopper minecart: 5).
     pub fn entity(size: usize) -> ContainerBe {
-        ContainerBe { slots: vec![None; size], cooldown: -1, ticked: 0, hopper: false, bookshelf: false, last_slot: -1 }
+        ContainerBe { slots: vec![None; size], ..ContainerBe::new(false) }
+    }
+    fn slot_disabled(&self, slot: usize) -> bool {
+        self.crafter && self.disabled & (1 << slot) != 0
     }
     pub fn is_empty(&self) -> bool {
         self.slots.iter().all(|s| s.is_none())
@@ -141,6 +213,12 @@ impl Containers {
             if c.bookshelf {
                 c.last_slot.hash(h);
             }
+            if c.crafter {
+                (c.disabled, c.crafting_ticks).hash(h);
+            }
+            if c.jukebox {
+                (c.song, c.song_ticks).hash(h);
+            }
         }
         0xfeu8.hash(h);
         let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
@@ -156,10 +234,12 @@ impl Containers {
 
 /// Blocks whose block entity is a container we model.
 pub fn is_container_block(s: &Block) -> bool {
-    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. })
+    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. } | Block::Crafter { .. } | Block::Jukebox { .. })
 }
 
-/// The block entity appears (`LevelChunk.setBlockState` creating it).
+/// The block entity appears (`LevelChunk.setBlockState` creating it). Hoppers and crafters tick
+/// (`blockEntityTickers`, in creation order); a jukebox ticks while it holds a record
+/// ([`jukebox_update_ticker`]).
 pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
     if w.containers.map.contains_key(&pos) {
         return;
@@ -168,9 +248,14 @@ pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
         w.containers.map.insert(pos, ContainerBe::bookshelf());
         return;
     }
+    if let Block::Jukebox { .. } = s {
+        w.containers.map.insert(pos, ContainerBe::jukebox());
+        return;
+    }
     let hopper = matches!(s, Block::Hopper { .. });
-    w.containers.map.insert(pos, ContainerBe::new(hopper));
-    if hopper {
+    let crafter = matches!(s, Block::Crafter { .. });
+    w.containers.map.insert(pos, if crafter { ContainerBe::crafter() } else { ContainerBe::new(hopper) });
+    if hopper || crafter {
         let c = &mut w.containers;
         if c.ticking { c.pending.push((pos, true)) } else { c.tickers.push((pos, true)) }
     }
@@ -209,7 +294,94 @@ pub fn analog_output(w: &World, pos: BlockPos) -> i32 {
     if c.bookshelf {
         return c.last_slot + 1;
     }
+    if c.crafter {
+        // CrafterBlockEntity.getRedstoneSignal: filled or disabled slots
+        return (0..9).filter(|&i| c.slots[i].is_some() || c.slot_disabled(i)).count() as i32;
+    }
+    if c.jukebox {
+        // JukeboxBlockEntity.getComparatorOutput: the disc's song's
+        return c.slots[0].and_then(|s| song_of(s.item)).map(|(_, out)| out).unwrap_or(0);
+    }
     signal_of(c)
+}
+
+/// `JukeboxBlock.ownSignal`: 15 while a song plays.
+pub fn jukebox_signal(w: &World, pos: BlockPos) -> i32 {
+    if w.containers.map.get(&pos).is_some_and(|c| c.song.is_some()) { 15 } else { 0 }
+}
+
+/// `LevelChunk.updateBlockEntityTicker` of a jukebox: a ticker only with a record; one added
+/// again (a record put back) goes to the end of the tickers.
+pub fn jukebox_update_ticker(w: &mut World, pos: BlockPos, s: &Block) {
+    match s {
+        Block::Jukebox { has_record: true } => add_ticker(w, pos),
+        Block::Jukebox { has_record: false } => remove_ticker(w, pos),
+        _ => {}
+    }
+}
+
+/// `JukeboxBlockEntity.onSongChanged`: neighbor updates and `setChanged`.
+fn jukebox_song_changed(w: &mut World, pos: BlockPos) {
+    w.update_neighbors_at(pos, Kind::Jukebox);
+    set_changed(w, pos);
+}
+
+/// `JukeboxSongPlayer.stop`.
+fn jukebox_stop(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    if c.song.is_some() {
+        c.song = None;
+        c.song_ticks = 0;
+        let s = w.get(pos);
+        w.game_event_state("jukebox_stop_play", pos, s);
+        jukebox_song_changed(w, pos);
+    }
+}
+
+/// `JukeboxBlockEntity.setTheItem`: `has_record` follows (flags 2, BLOCK_CHANGE), then the song
+/// plays from the start (`play`) or stops.
+fn jukebox_set_the_item(w: &mut World, pos: BlockPos, st: Option<Stack>) {
+    if let Some(c) = w.containers.map.get_mut(&pos) {
+        c.slots[0] = st;
+    }
+    let inserted = st.is_some();
+    // notifyItemChangedInJukebox (the block entity's state is the world's)
+    if let Block::Jukebox { .. } = w.get(pos) {
+        let ns = Block::Jukebox { has_record: inserted };
+        w.set_block(pos, ns, crate::world::flags::CLIENTS);
+        w.game_event_state("block_change", pos, ns);
+    }
+    match st.filter(|s| song_of(s.item).is_some()) {
+        Some(s) => {
+            if let Some(c) = w.containers.map.get_mut(&pos) {
+                c.song = Some(s.item);
+                c.song_ticks = 0;
+            }
+            // levelEvent 1010 (the song), then onSongChanged
+            jukebox_song_changed(w, pos);
+        }
+        None => jukebox_stop(w, pos),
+    }
+}
+
+/// `JukeboxBlockEntity.tick` (`JukeboxSongPlayer.tick`): the song ends 20 gt after its length;
+/// JUKEBOX_PLAY every 20 gt while it plays.
+fn jukebox_tick(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get(&pos) else { return };
+    let Some(disc) = c.song else { return };
+    let ticks = c.song_ticks;
+    let (length, _) = song_of(disc).unwrap_or((0, 0));
+    if ticks >= length + 20 {
+        jukebox_stop(w, pos);
+    } else {
+        if ticks % 20 == 0 {
+            let s = w.get(pos);
+            w.game_event_state("jukebox_play", pos, s);
+        }
+        if let Some(c) = w.containers.map.get_mut(&pos) {
+            c.song_ticks += 1;
+        }
+    }
 }
 
 /// `AbstractContainerMenu.getRedstoneSignalFromContainer` of any container's contents.
@@ -232,7 +404,7 @@ fn container_at(w: &mut World, p: BlockPos) -> Option<CRef> {
 fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
     let s = w.get(p);
     match s {
-        Block::Composter { .. } | Block::Crafter { .. } => {
+        Block::Composter { .. } => {
             w.errors.push(format!("item transfer into {s} at {p} is not modeled"));
             None
         }
@@ -280,6 +452,15 @@ fn bookshelf_update_state(w: &mut World, pos: BlockPos, slot: usize) {
 /// bookshelf takes books only and updates its state; a container entity just stores it.
 fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
     if let CRef::Block(pos) = r
+        && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
+    {
+        // ContainerSingleItem.setItem -> JukeboxBlockEntity.setTheItem
+        if slot == 0 {
+            jukebox_set_the_item(w, pos, st);
+        }
+        return;
+    }
+    if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.bookshelf)
     {
         match st {
@@ -295,6 +476,13 @@ fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
         return;
     }
     let mut hopper = false;
+    if let Some(c) = w.containers.get_mut(r) {
+        if c.slot_disabled(slot) {
+            // CrafterBlockEntity.setItem: a disabled slot is enabled first (setSlotState: setChanged)
+            c.disabled &= !(1 << slot);
+            changed(w, r);
+        }
+    }
     if let Some(c) = w.containers.get_mut(r) {
         c.slots[slot] = st;
         hopper = c.hopper;
@@ -318,6 +506,16 @@ fn bookshelf_remove(w: &mut World, pos: BlockPos, slot: usize) -> Option<Stack> 
 /// dropper notifies, a hopper's override does not, a bookshelf gives its whole slot.
 fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
     if let CRef::Block(pos) = r
+        && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
+    {
+        // JukeboxBlockEntity.splitTheItem: the whole item, then setTheItem(EMPTY)
+        let got = w.containers.map[&pos].slots[0];
+        if got.is_some() {
+            jukebox_set_the_item(w, pos, None);
+        }
+        return got;
+    }
+    if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.bookshelf)
     {
         return bookshelf_remove(w, pos, slot);
@@ -334,8 +532,9 @@ fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
 /// The item taken out by [`remove_one`] did not fit: `itemStack.setCount(originalCount)` on the
 /// stack still in the slot (a bookshelf's left the slot), then `setItem` when it was a single item.
 fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
-    let bookshelf = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf));
-    if !bookshelf && let Some(c) = w.containers.get_mut(r) {
+    // a bookshelf's or jukebox's item left the slot: only setItem puts it back
+    let left = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf || c.jukebox));
+    if !left && let Some(c) = w.containers.get_mut(r) {
         c.slots[slot] = Some(Stack { item: st.item, count: original });
     }
     if original == 1 {
@@ -343,16 +542,36 @@ fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
     }
 }
 
-/// `canPlaceItem`: a bookshelf takes a book into an empty slot; the others anything.
+/// `canPlaceItem`: a bookshelf takes a book into an empty slot; a crafter fills its slots evenly
+/// (`CrafterBlockEntity.canPlaceItem`: never a disabled slot, never a full stack, and not a slot
+/// while a later enabled slot is empty or holds a smaller stack of the same item); the others
+/// anything.
 fn can_place_item(w: &World, r: CRef, slot: usize, st: Stack) -> bool {
     match w.containers.get(r) {
         Some(c) if c.bookshelf => is_book(st.item) && c.slots[slot].is_none(),
+        // JukeboxBlockEntity.canPlaceItem: a playable disc into the empty jukebox
+        Some(c) if c.jukebox => song_of(st.item).is_some() && c.slots[slot].is_none(),
+        Some(c) if c.crafter => {
+            if c.slot_disabled(slot) {
+                return false;
+            }
+            let Some(cur) = c.slots[slot] else { return true };
+            if cur.count >= max_stack(cur.item) {
+                return false;
+            }
+            // smallerStackExist(count, stack, slot)
+            !(slot + 1..9).any(|i| !c.slot_disabled(i) && c.slots[i].is_none_or(|s| s.count < cur.count && s.item == cur.item))
+        }
         _ => true,
     }
 }
 
 /// `canTakeItem(into, slot, stack)`: a bookshelf only gives an item that `into` can hold.
 fn can_take_item(w: &World, from: CRef, into: CRef, st: Stack) -> bool {
+    if w.containers.get(from).is_some_and(|c| c.jukebox) {
+        // JukeboxBlockEntity.canTakeItem: the target has an empty slot
+        return w.containers.get(into).is_some_and(|c| c.slots.iter().any(|t| t.is_none()));
+    }
     let bookshelf = w.containers.get(from).is_some_and(|c| c.bookshelf);
     if !bookshelf {
         return true;
@@ -449,14 +668,49 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     set_item(w, me, slot, remaining);
 }
 
-/// A dispenser (not a dropper) firing with items: its dispense behaviors spawn entities.
+/// A dispenser (not a dropper) firing (`DispenserBlock.dispenseFrom`): empty, a click and
+/// BLOCK_ACTIVATE; a powder snow bucket places powder snow on the air in front (FLUID_PLACE) and
+/// becomes a bucket; a bucket picks powder snow up (FLUID_PICKUP) and becomes a powder snow bucket.
+/// Anything else (or a bucket that cannot act: it would fly out as an item entity) is noted.
 pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
-    if w.containers.map.get(&pos).is_some_and(|c| !c.is_empty()) {
-        w.errors.push(format!("dispenser at {pos} dispenses an item (entities, not modeled)"));
-    } else if w.containers.map.contains_key(&pos) {
-        // DispenserBlock.dispenseFrom with no item: levelEvent 1001 and BLOCK_ACTIVATE
+    let Some(c) = w.containers.map.get(&pos) else { return };
+    let filled: Vec<usize> = c.slots.iter().enumerate().filter(|(_, s)| s.is_some()).map(|(i, _)| i).collect();
+    if filled.is_empty() {
+        // levelEvent 1001 and BLOCK_ACTIVATE
         let s = w.get(pos);
         w.game_event_state("block_activate", pos, s);
+        return;
+    }
+    if filled.len() > 1 {
+        w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+        return;
+    }
+    let slot = filled[0];
+    let st = c.slots[slot].unwrap();
+    let Block::Dispenser { facing, .. } = w.get(pos) else { return };
+    let target = pos.rel(facing);
+    let me = CRef::Block(pos);
+    match item_name(st.item) {
+        // the filled-bucket behavior: SolidBucketItem.emptyContents on air, then consumeWithRemainder
+        "powder_snow_bucket" if w.get(target).is_air() => {
+            w.set_block_and_update(target, Block::PowderSnow);
+            w.game_event("fluid_place", target);
+            set_item(w, me, slot, Some(Stack { item: item_id("bucket").unwrap(), count: 1 }));
+        }
+        // the empty-bucket behavior: PowderSnowBlock.pickupBlock (setBlock air, flags 11)
+        "bucket" if matches!(w.get(target), Block::PowderSnow) => {
+            w.set_block(target, Block::Air, crate::world::flags::NEIGHBORS | crate::world::flags::CLIENTS | crate::world::flags::IMMEDIATE);
+            w.game_event("fluid_pickup", target);
+            let filled = Stack { item: item_id("powder_snow_bucket").unwrap(), count: 1 };
+            // consumeWithRemainder: the stack shrinks; an emptied stack takes the remainder
+            let rest = if st.count > 1 { Some(Stack { item: st.item, count: st.count - 1 }) } else { None };
+            if rest.is_some() {
+                w.errors.push(format!("dispenser at {pos}: a stack of buckets fills one (insertItem of the remainder not modeled)"));
+                return;
+            }
+            set_item(w, me, slot, Some(filled));
+        }
+        name => w.errors.push(format!("dispenser at {pos} dispenses {name} (its behavior or the item entity it throws is not modeled)")),
     }
 }
 
@@ -473,12 +727,122 @@ pub fn tick_hoppers(w: &mut World) {
             w.containers.tickers.remove(i);
             continue;
         }
-        if matches!(w.get(p), Block::Hopper { .. }) {
-            push_items_tick(w, p);
+        match w.get(p) {
+            Block::Hopper { .. } => push_items_tick(w, p),
+            Block::Crafter { .. } => crafter_server_tick(w, p),
+            Block::DaylightDetector { .. } => crate::daylight::tick(w, p),
+            Block::Jukebox { .. } => jukebox_tick(w, p),
+            _ => {}
         }
         i += 1;
     }
     w.containers.ticking = false;
+}
+
+/// A block entity without contents that ticks (a daylight detector) joins the tickers.
+pub fn add_ticker(w: &mut World, pos: BlockPos) {
+    let c = &mut w.containers;
+    if c.tickers.iter().chain(c.pending.iter()).any(|&(p, live)| p == pos && live) {
+        return;
+    }
+    if c.ticking { c.pending.push((pos, true)) } else { c.tickers.push((pos, true)) }
+}
+
+/// Its block entity goes: the ticker is dead.
+pub fn remove_ticker(w: &mut World, pos: BlockPos) {
+    for t in w.containers.tickers.iter_mut().chain(w.containers.pending.iter_mut()) {
+        if t.0 == pos {
+            t.1 = false;
+        }
+    }
+}
+
+/// `CrafterBlockEntity.serverTick`: the crafting flag goes off 6 gt after a craft (with block
+/// updates: `setBlockAndUpdate`).
+fn crafter_server_tick(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    let left = c.crafting_ticks - 1;
+    if left >= 0 {
+        c.crafting_ticks = left;
+        if left == 0
+            && let Block::Crafter { orientation, triggered, .. } = w.get(pos)
+        {
+            w.set_block_and_update(pos, Block::Crafter { orientation, triggered, crafting: false });
+        }
+    }
+}
+
+/// The front of a crafter's `orientation` (redsim's index into `block::ORIENTATIONS`, the
+/// game's `FrontAndTop` order).
+fn crafter_front(orientation: u8) -> Dir {
+    // FrontAndTop order: down_east, down_north, down_south, down_west, up_east, up_north,
+    // up_south, up_west, west_up, east_up, north_up, south_up
+    match orientation {
+        0..=3 => Dir::Down,
+        4..=7 => Dir::Up,
+        8 => Dir::West,
+        9 => Dir::East,
+        10 => Dir::North,
+        _ => Dir::South,
+    }
+}
+
+/// `CrafterBlock.dispenseFrom` (its 4 gt tick): the grid's recipe crafts (crafting flag on for
+/// 6 gt), the result goes into the container in front (one item at a time into a crafter or
+/// when it does not fit in one stack, else the whole stack), then every filled slot loses one
+/// item. No recipe: nothing changes (a sound).
+pub fn crafter_dispense(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get(&pos) else { return };
+    let grid = c.slots.clone();
+    let (item, count) = match super::crafting::find(&grid) {
+        Ok(Some(r)) => r,
+        Ok(None) => return, // levelEvent 1050 (a click)
+        Err(e) => {
+            w.errors.push(format!("crafter at {pos}: {e}"));
+            return;
+        }
+    };
+    let Block::Crafter { orientation, triggered, .. } = w.get(pos) else { return };
+    w.containers.map.get_mut(&pos).unwrap().crafting_ticks = 6;
+    w.set_block(pos, Block::Crafter { orientation, triggered, crafting: true }, crate::world::flags::CLIENTS);
+    // dispenseItem
+    let front = crafter_front(orientation);
+    let me = CRef::Block(pos);
+    let mut remaining = count;
+    if let Some(into) = container_at(w, pos.rel(front)) {
+        let into_crafter = w.containers.get(into).is_some_and(|c| c.crafter);
+        if into_crafter || count > max_stack(item).min(99) {
+            while remaining > 0 {
+                if add_item(w, Some(me), into, Stack { item, count: 1 }).is_some() {
+                    break;
+                }
+                remaining -= 1;
+            }
+        } else {
+            while remaining > 0 {
+                let old = remaining;
+                remaining = add_item(w, Some(me), into, Stack { item, count: remaining }).map(|s| s.count).unwrap_or(0);
+                if old == remaining {
+                    break;
+                }
+            }
+        }
+    }
+    if remaining > 0 {
+        w.errors.push(format!("crafter at {pos} spits {remaining} {} into the world (an item entity with a random motion: not modeled)", item_name(item)));
+    }
+    // (no recipe of redsim's items leaves a crafting remainder)
+    if let Some(c) = w.containers.map.get_mut(&pos) {
+        for s in c.slots.iter_mut() {
+            if let Some(st) = s {
+                st.count -= 1;
+                if st.count == 0 {
+                    *s = None;
+                }
+            }
+        }
+    }
+    set_changed(w, pos);
 }
 
 /// `HopperBlockEntity.pushItemsTick`.
@@ -762,6 +1126,11 @@ pub fn parse_snbt(s: &str) -> Result<Snbt, String> {
                 }
                 Some(b'[') => {
                     self.i += 1;
+                    // a typed array (`[I; 1, 2]`, `[B; ...]`, `[L; ...]`): a list of integers
+                    self.ws();
+                    if self.b.len() > self.i + 1 && matches!(self.b[self.i], b'I' | b'B' | b'L') && self.b[self.i + 1] == b';' {
+                        self.i += 2;
+                    }
                     let mut out = Vec::new();
                     if self.eat(b']') {
                         return Ok(Snbt::List(out));
@@ -816,7 +1185,7 @@ fn snbt_items(v: &Snbt) -> Result<Vec<(usize, Stack)>, String> {
         }
         let slot = slot.ok_or("an Items entry has no Slot")?;
         let name = id.ok_or("an Items entry has no id")?;
-        let item = item_id(&name).ok_or_else(|| format!("item {name} is not modeled (redsim knows {:?})", ITEMS.map(|i| i.0)))?;
+        let item = item_id(&name).ok_or_else(|| format!("item {name} is not modeled (redsim knows {})", all_items().collect::<Vec<_>>().join(", ")))?;
         if !(1..=max_stack(item) as i64).contains(&count) || !(0..=255).contains(&slot) {
             return Err(format!("bad Items entry: slot {slot}, {count} {name}"));
         }
@@ -837,6 +1206,10 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let mut slots = c.slots.clone();
     let mut cooldown = c.cooldown;
     let mut last_slot = c.last_slot;
+    let mut disabled = c.disabled;
+    let mut crafting_ticks = c.crafting_ticks;
+    let mut disabled_given = None;
+    let mut song_ticks: Option<i64> = None;
     for (k, v) in &fields {
         match (k.as_str(), v) {
             ("Items", v) => {
@@ -849,15 +1222,61 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
             }
             ("TransferCooldown", Snbt::Int(n)) if c.hopper => cooldown = *n as i32,
             ("last_interacted_slot", Snbt::Int(n)) if c.bookshelf => last_slot = *n as i32,
+            ("crafting_ticks_remaining", Snbt::Int(n)) if c.crafter => crafting_ticks = *n as i32,
+            ("disabled_slots", Snbt::List(l)) if c.crafter => {
+                let mut bits = 0u16;
+                for x in l {
+                    let Snbt::Int(i) = x else { return Err(format!("nbt at {pos}: disabled_slots holds {x:?}")) };
+                    if (0..9).contains(i) {
+                        bits |= 1 << i;
+                    }
+                }
+                disabled_given = Some(bits);
+            }
+            // the menu's copy of the triggered flag: nothing reads it
+            ("triggered", Snbt::Int(_)) if c.crafter => {}
+            // JukeboxBlockEntity.loadAdditional: the record, and the song's progress
+            // (setSongWithoutPlaying: no notification)
+            ("RecordItem", Snbt::Compound(f)) if c.jukebox => {
+                let id = f.iter().find_map(|(k, v)| match (k.as_str(), v) {
+                    ("id", Snbt::Str(s) | Snbt::Word(s)) => Some(s.clone()),
+                    _ => None,
+                });
+                let name = id.ok_or_else(|| format!("nbt at {pos}: RecordItem without an id"))?;
+                let item = item_id(&name).ok_or_else(|| format!("nbt at {pos}: item {name} is not modeled"))?;
+                slots = vec![Some(Stack { item, count: 1 })];
+            }
+            ("ticks_since_song_started", Snbt::Int(n)) if c.jukebox => song_ticks = Some(*n),
             (other, _) => return Err(format!("nbt at {pos}: key {other} is not modeled here")),
         }
     }
-    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot;
+    if c.jukebox {
+        if c.slots[0].is_some() && c.slots[0].map(|s| s.item) != slots[0].map(|s| s.item) {
+            return Err(format!("nbt at {pos}: replacing a playing record is not modeled"));
+        }
+        if let (Some(t), Some(st)) = (song_ticks, slots[0])
+            && let Some((length, _)) = song_of(st.item)
+            && t < length + 20
+        {
+            let jc = w.containers.map.get_mut(&pos).unwrap();
+            jc.song = Some(st.item);
+            jc.song_ticks = t;
+        }
+    }
+    let c = &w.containers.map[&pos];
+    if c.crafter {
+        // loadAdditional: the disabled slots (given or kept) that are empty after the load
+        let bits = disabled_given.unwrap_or(disabled);
+        disabled = (0..9).filter(|&i| bits & (1 << i) != 0 && slots[i].is_none()).fold(0u16, |b, i| b | (1 << i));
+    }
+    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot || disabled != c.disabled || crafting_ticks != c.crafting_ticks;
     if changed {
         let c = w.containers.map.get_mut(&pos).unwrap();
         c.slots = slots;
         c.cooldown = cooldown;
         c.last_slot = last_slot;
+        c.disabled = disabled;
+        c.crafting_ticks = crafting_ticks;
         set_changed(w, pos);
     }
     Ok(changed)
@@ -873,7 +1292,7 @@ pub fn apply_block_entities<'a>(w: &mut World, lines: impl IntoIterator<Item = (
 }
 
 pub fn kind_is_container(k: Kind) -> bool {
-    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf)
+    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox)
 }
 
 #[cfg(test)]

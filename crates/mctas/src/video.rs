@@ -195,6 +195,14 @@ pub struct Client {
 
 impl Client {
     pub fn launch(build: &ClientBuild, display: &Display, port: u16, width: u32, height: u32, game_dir: &Path) -> Result<Client> {
+        Client::launch_main(build, display, Some(port), width, height, game_dir, "dev.vjeux.mctas.client.ClientMain", &[], &[])
+    }
+
+    /// [`Client::launch`] with another main class, JVM arguments and classpath entries put before
+    /// the client's (the Fabric loader: `fabric::launch`); without a port the client stays on its
+    /// title screen (a mod may open a world).
+    #[allow(clippy::too_many_arguments)]
+    pub fn launch_main(build: &ClientBuild, display: &Display, port: Option<u16>, width: u32, height: u32, game_dir: &Path, main: &str, jvm: &[String], cp_first: &[PathBuf]) -> Result<Client> {
         std::fs::create_dir_all(game_dir)?;
         // First-launch screens and distractions off; small render distance (the scene is small).
         std::fs::write(
@@ -206,15 +214,18 @@ impl Client {
         let natives = game_dir.join("natives");
         std::fs::create_dir_all(&natives)?;
         let log = game_dir.join("client.log");
+        let mut cp: Vec<String> = cp_first.iter().map(|p| p.display().to_string()).collect();
+        cp.push(build.classpath());
         let child = Command::new(&build.install.java)
             .arg("-Xmx3g")
             .arg("--enable-native-access=ALL-UNNAMED")
             .arg("--sun-misc-unsafe-memory-access=allow")
             .arg(format!("-Djava.library.path={}", natives.display()))
             .arg(format!("-Dorg.lwjgl.system.SharedLibraryExtractPath={}", natives.display()))
+            .args(jvm)
             .arg("-cp")
-            .arg(build.classpath())
-            .arg("dev.vjeux.mctas.client.ClientMain")
+            .arg(cp.join(":"))
+            .arg(main)
             .args(["--username", "mctas", "--version", &build.install.version])
             .arg("--gameDir")
             .arg(game_dir)
@@ -223,7 +234,10 @@ impl Client {
             .args(["--assetIndex", &build.install.asset_index])
             .args(["--uuid", "8d2b3e4f-0000-4000-8000-00000000c0de", "--accessToken", "0", "--versionType", "release"])
             .args(["--width", &width.to_string(), "--height", &height.to_string()])
-            .args(["--quickPlayMultiplayer", &format!("127.0.0.1:{port}")])
+            .args(match port {
+                Some(port) => vec!["--quickPlayMultiplayer".to_string(), format!("127.0.0.1:{port}")],
+                None => Vec::new(),
+            })
             .env("DISPLAY", display.name())
             // Software Vulkan (llvmpipe) would start one thread per CPU; several clients share a box.
             .env("LP_NUM_THREADS", std::env::var("LP_NUM_THREADS").unwrap_or_else(|_| "12".into()))

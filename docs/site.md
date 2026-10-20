@@ -17,7 +17,9 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site publish` | THE command after merging into main: `build` (all defaults) + `smoke` (when a headless Chrome is found; a failure stops the deploy) + `deploy` |
 | `mctas site build --out site/` | exports `site/data/site.json`, one page per build (`doors/<stem>.html`, `clocks/<stem>.html`, `circuits/<study>/<stem>.html`) and per extendable family (`families/<card>.html`), the boards page, the design files (`designs/...`) with a Litematica schematic next to each (`<stem>.litematic`, [litematic.md](litematic.md); one that cannot be written fails the build), generates every family member with the family's own `extend generator` and checks it in redsim, builds the UI into `pkg/`, copies webrender's 3D viewer (`web/viewer/` of the checkout by default; `--viewer <dir>`, `--viewer-ref <git ref>`, `--no-viewer`) into `viewer/`; `--pkg-ref origin/gh-pages` reuses the deployed UI instead of building it, only when its `pkg/SOURCE` fingerprint matches the checkout's `web/site` + `crates/site-model` (else the build fails: rebuild with the wasm32 target and wasm-bindgen-cli 0.2.129) |
 | `mctas site serve --dir site/ [--port 8000]` | local preview (static server on 127.0.0.1) |
-| `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site |
+| `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site. `mctas site publish` refuses to deploy without it (`--no-smoke` overrides) |
+| `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit and a family page must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black). It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
+| `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
@@ -48,8 +50,9 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   default), cards from `card_groups`, judged members from `extend.tsv`, real-game traces
   (`designs/clocks/traces/<stem>.trace`) passed to the viewer as `data-trace`.
 - Circuits: each study's `designs/circuits/<study>/archive/verdicts.tsv` rows and `captions.tsv`,
-  variants folded like `circuit catalog` (same kind and axis value), plus the judge's calibration
-  designs (`designs/circuits/calibration/`, metrics from the redsim screen at build time). Every
+  variants folded like `circuit catalog` (same kind and axis value); the judge's calibration and
+  selftest designs (`designs/circuits/calibration/`, `selftest/`) are not published (vjeux: "not
+  useful to people"; smoke checks it). Every
   circuit is also run through `circuit::verify::sim` at build time: the judge's own stimulus
   becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`) and the page's
   timing diagram (inputs and outputs per gt) with the checker's report; the page's plain-language
@@ -79,11 +82,29 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`) is rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`,
-copied from the checkout's `web/viewer/`, loaded with `import init from "./viewer/mcview.js";
-init();`): lazily when visible, one shared WebGL context, thumbnails cached by (src, size), new
-elements picked up by a MutationObserver. It adds `mcview-ready` (the site's CSS then hides the
-element's fallback: the interim picture or a text card) or `mcview-error`.
+`data-pitch`; circuits: `data-stimulus`, `data-phases`, `data-input-mode`, `data-circuit`) is
+rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the
+checkout's `web/viewer/`): lazily when visible, one shared WebGL context for the thumbnails,
+thumbnails cached by (src, size), new elements picked up by a MutationObserver. It adds
+`mcview-ready` (the site's CSS then hides the element's fallback: the interim picture or a text
+card) or `mcview-error`.
+
+Cache-busting (GitHub Pages serves everything with max-age=600, and phones kept a broken viewer
+after a hotfix): every page loads the bundles by content hash, `import init from
+"./viewer/mcview.js?v=<hash>"; init({module_or_path: "./viewer/mcview_bg.wasm?v=<hash>"})` (the
+wasm by its own URL: its default URL would drop the query, and a cached wasm must never meet a
+new glue), the same for `pkg/redstonepedia*`, `style.css?v=` and `data/site.json?v=` (the index's
+`#filters` carries it in `data-src`). The hashes are FNV-1a of the files, computed at build time
+(`pages::set_versions`).
+
+In-place swaps (vjeux: "Don't reload the page when clicking on variants, update inline and keep
+the current camera"): a viewer that reloads its design when `data-src` changes marks itself with
+the class `mcview-live-src` (webrender). On such a ready viewer, a build page's tunable-group
+picker fetches the member's page and swaps everything around the viewer (`web/site/src/swap.rs`):
+the viewer element stays in place, its `data-*` attributes are updated, then `data-keep-camera`,
+then `data-src` last; `history.pushState` keeps the member's URL (popstate swaps back). A family
+page has one full viewer (`#member-view`) whose design each member row (`a.view[data-src]`) swaps
+the same way. Without `mcview-live-src` the links simply navigate.
 
 ## The UI
 

@@ -6,7 +6,7 @@ enforces are in [rules.md](rules.md); how the simulator, the bridge and the vide
 [internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
 judge and its design format are in [clocks.md](clocks.md). The website of every build
 (`mctas site build | publish | serve | smoke | deploy`) is in [site.md](site.md); Litematica
-schematics of any design (`mctas litematic export | read | check`) in [litematic.md](litematic.md).
+schematics of any design (`mctas litematic export | read | check | verify-ingame`) in [litematic.md](litematic.md).
 
 ## The workflow behind the records
 
@@ -28,6 +28,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `mctas setup` | once per machine: installs Java 25, the 26.3 server jar and libraries, and compiles the bridge (everything lives in `$MCTAS_HOME`, default `~/.cache/mctas`) |
 | `mctas src decompile` | once: readable game source in `$MCTAS_HOME` (Vineflower) |
 | `mctas src grep\|find\|show\|path` | to read the ground truth for a mechanic: `src grep 'class PistonBaseBlock'`, `src show PistonBaseBlock --grep getNeighborSignal -C 12` |
+| `mctas src --client decompile\|grep\|find\|show` | the CLIENT jar's source (models, renderers: `src --client show BoatModel`), decompiled once from the client jar already downloaded (`versions/<v>/client.jar`) |
 | `mctas sim repl` / `sim place` | talk to a simulator in JSON lines ([internals.md](internals.md#bridge-protocol)) / place a design and show what is pending |
 | `mctas bench` | measure throughput and memory with many workers and sandboxes |
 

@@ -46,12 +46,14 @@ pub const SOUTH: usize = 3;
 pub const WEST: usize = 4;
 pub const EAST: usize = 5;
 
-/// A rotated part: axis (0 x, 1 y, 2 z), angle in degrees, origin in pixels.
+/// A rotated part: axis (0 x, 1 y, 2 z), angle in degrees, origin in pixels; `rescale` stretches
+/// it back across the other axes by 1 / cos(angle) (the game's crossed plants).
 #[derive(Clone, Copy, Debug)]
 pub struct PartRot {
     pub axis: u8,
     pub angle: f32,
     pub origin: [f32; 3],
+    pub rescale: bool,
 }
 
 /// One cuboid ("element").
@@ -64,11 +66,16 @@ pub struct Part {
     pub layer: Layer,
     /// Shade faces by direction (false: flat, e.g. cross-shaped plants).
     pub shade: bool,
+    /// This part's own quarter turns (a multipart model's parts each have theirs), instead of
+    /// the model's.
+    pub qrot: Option<(u8, u8)>,
+    /// The game's uvlock: textures keep the world's orientation through the quarter turns.
+    pub uvlock: bool,
 }
 
 impl Part {
     pub fn new(from: [f32; 3], to: [f32; 3]) -> Part {
-        Part { from, to, faces: Default::default(), rot: None, layer: Layer::Opaque, shade: true }
+        Part { from, to, faces: Default::default(), rot: None, layer: Layer::Opaque, shade: true, qrot: None, uvlock: false }
     }
     /// The same tile on every face.
     pub fn all(mut self, tile: &'static str) -> Part {
@@ -120,7 +127,7 @@ impl Part {
         self
     }
     pub fn rotated(mut self, axis: u8, angle: f32, origin: [f32; 3]) -> Part {
-        self.rot = Some(PartRot { axis, angle, origin });
+        self.rot = Some(PartRot { axis, angle, origin, rescale: false });
         self
     }
     pub fn flat(mut self) -> Part {
@@ -255,8 +262,27 @@ pub fn name_color(name: &str) -> [u8; 3] {
     [100 + (h & 0x7f) as u8, 100 + ((h >> 8) & 0x7f) as u8, 100 + ((h >> 16) & 0x7f) as u8]
 }
 
-/// The model of a block state (`None` for air and invisible blocks).
+/// The model of a block state (`None` for air and invisible blocks): the game's own model when
+/// its models are loaded (`atlas.game`), else the viewer's.
 pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
+    model_at(state, atlas, None)
+}
+
+/// [`model_for`] for a block at `pos` (the game draws some blocks as one of several variants
+/// picked from their position: stone, grass, dirt...).
+pub fn model_at(state: &str, atlas: &Atlas, pos: Option<[i32; 3]>) -> Option<Model> {
+    let st = St::parse(state);
+    if let Some(g) = &atlas.game
+        && !matches!(st.name, "air" | "cave_air" | "void_air" | "moving_piston" | "barrier" | "light" | "structure_void" | "water" | "lava" | "bubble_column")
+        && let Some(m) = g.models.model(state, pos)
+    {
+        return Some(m);
+    }
+    hand_model(state, atlas)
+}
+
+/// The viewer's own model of a block state.
+pub fn hand_model(state: &str, atlas: &Atlas) -> Option<Model> {
     let st = St::parse(state);
     let name = st.name;
     let m = match name {

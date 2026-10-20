@@ -50,16 +50,31 @@ pub struct MechmutArgs {
     /// quasi-connectivity could feed it).
     #[arg(long)]
     outside_only: bool,
+    /// Pistons the lever drives (space- or ';'-separated, e.g. "SW+(4,0) SW+(4,1)"): their levels
+    /// flip first on both edges and they get no other event (a lever-held stack); also kept fixed.
+    #[arg(long)]
+    lever_held: Option<String>,
+    /// Rank by unfed pistons (no free feed cell) right after the redsim verdict, before inside
+    /// firings and door connect.
+    #[arg(long)]
+    rank_unfed: bool,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed } = args;
     crate::mechmut::VALIDATE.store(validate, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::OUTSIDE_ONLY.store(outside_only, std::sync::atomic::Ordering::Relaxed);
-    let keep: Vec<crate::families::Pc> = match keep {
+    crate::mechmut::RANK_UNFED.store(rank_unfed, std::sync::atomic::Ordering::Relaxed);
+    let held: Vec<crate::families::Pc> = match lever_held {
         Some(s) => s.split(|c: char| c == ';' || c.is_whitespace()).map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
         None => Vec::new(),
     };
+    let _ = crate::mechmut::LEVER_HELD.set(held.clone());
+    let mut keep: Vec<crate::families::Pc> = match keep {
+        Some(s) => s.split(|c: char| c == ';' || c.is_whitespace()).map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
+        None => Vec::new(),
+    };
+    keep.extend(held.iter().copied());
     let reserve: Vec<(i8, i8)> = match reserve {
         Some(s) => s
             .split(';')

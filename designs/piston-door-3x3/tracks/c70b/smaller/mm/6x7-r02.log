@@ -1,0 +1,7 @@
+[mechmut] seed does not solve within the cap (or no FULL frame): SE(-2,1) SE(-2,3) SU(-1,-1) SE(-1,2) SD(-1,4) SU(0,-2) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) stone(3,0) stone(3,1) stone(3,2) Bx { x0: -2, y0: -2, w: 6, h: 7 }
+[mechmut] seed does not solve within the cap (or no FULL frame): SW(-2,-2) SE(-2,1) SE(-2,3) SU(-1,-1) SE(-1,2) SD(-1,4) SU(0,-2) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) stone(3,0) stone(3,1) stone(3,2) Bx { x0: -2, y0: -2, w: 6, h: 7 }
+[mechmut] seed does not solve within the cap (or no FULL frame): SU(-2,-2) SE(-2,1) SE(-2,3) SU(-1,-1) SE(-1,2) SD(-1,4) SU(0,-2) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) stone(3,0) stone(3,1) stone(3,2) Bx { x0: -2, y0: -2, w: 6, h: 7 }
+[mechmut] seed does not solve within the cap (or no FULL frame): SD(-2,-2) SE(-2,1) SE(-2,3) SU(-1,-1) SE(-1,2) SD(-1,4) SU(0,-2) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) stone(3,0) stone(3,1) stone(3,2) Bx { x0: -2, y0: -2, w: 6, h: 7 }
+[mechmut] seed does not solve within the cap (or no FULL frame): NE(-2,-2) SE(-2,1) SE(-2,3) SU(-1,-1) SE(-1,2) SD(-1,4) SU(0,-2) SU(1,-2) SD(1,4) SU(2,-2) SD(2,4) stone(3,0) stone(3,1) stone(3,2) Bx { x0: -2, y0: -2, w: 6, h: 7 }
+[mechmut] round 1: 60 neighbours, 0 kept (0 by replay) (221s)
+[mechmut] 0 variants kept

@@ -231,6 +231,10 @@ pub struct Circuit {
     /// count and block kinds: "also N other layouts" on that design's page).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout_of: Option<String>,
+    /// A machine's travel direction in words (`horizontal`, `up`, `down`: its `travel:` header),
+    /// part of a flying machine's place on its study's axis.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub direction: String,
     /// The tunable group it belongs to (one mechanism with other repeater delays, comparator modes
     /// or a longer line: the catalog's `group` column), and on the group's shown design (the
     /// smallest) the group's span (`L 6-40 gt, 16 values`); the other members are hidden by
@@ -244,6 +248,13 @@ pub struct Circuit {
     pub group_title: String,
     #[serde(skip)]
     pub group_note: String,
+    /// What the group's members differ in (`the input device`, `the repeater delays`...), and
+    /// this member's own value of it (`stone button`, `delays 4+4+2`), computed from the members'
+    /// designs. Pages only.
+    #[serde(skip)]
+    pub group_differs: String,
+    #[serde(skip)]
+    pub variant_label: String,
     /// The extendable family card it is a base design of (`families/<card>.html`); a card with
     /// several families shows its first base only (`card_member` on the others: hidden like a
     /// tunable group's members).
@@ -271,6 +282,10 @@ pub struct Circuit {
     /// The checker's report, one line per test (`pulse 4: out 2 gt after 5 gt`). Pages only.
     #[serde(skip)]
     pub table: Vec<String>,
+    /// Every output cell holds the judge's lamp in the 3D view (`circuit::Circuit::consumer_cells`:
+    /// air output cells), so the lamp shows the output; else the orange marker does. Pages only.
+    #[serde(skip)]
+    pub output_lamp: bool,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
@@ -283,13 +298,20 @@ pub struct Wave {
     pub phases: Vec<(u32, u32, String)>,
 }
 
-/// One signal of a [`Wave`]: an input (on/off) or an output (its level 0..15), as runs of equal
-/// level: (from frame, level).
+/// One signal of a [`Wave`]: an input (on/off), an output (its level 0..15), or a position track
+/// (`scale` > 0: a piston extender's payload, 0 = home .. N = extended; a flying machine's
+/// displacement along its travel), as runs of equal value: (from frame, value).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WaveRow {
     pub name: String,
     pub input: bool,
     pub steps: Vec<(u32, u8)>,
+    /// A position track's full scale (0: a signal, 0..15).
+    pub scale: u32,
+    /// The value it must reach (an extender's N), drawn as a dashed line.
+    pub target: Option<u32>,
+    /// A short annotation (`extends in 9 gt, back in 9 gt`).
+    pub note: String,
 }
 
 impl WaveRow {
@@ -301,7 +323,7 @@ impl WaveRow {
                 steps.push((t as u32, *l));
             }
         }
-        WaveRow { name: name.to_string(), input, steps }
+        WaveRow { name: name.to_string(), input, steps, ..Default::default() }
     }
 }
 
@@ -456,7 +478,6 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "composite (beat)", "clock"),
-    ("calibration", "judge calibration design", "circuit"),
     ("instant", "instant (0 gt latency)", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];

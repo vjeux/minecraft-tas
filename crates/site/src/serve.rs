@@ -24,7 +24,7 @@ fn content_type(p: &Path) -> &'static str {
     }
 }
 
-fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>) -> Result<()> {
+fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>, inject: &str) -> Result<()> {
     let mut reader = BufReader::new(s.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -60,7 +60,15 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         file = file.join("index.html");
     }
     match std::fs::read(&file) {
-        Ok(body) => {
+        Ok(mut body) => {
+            if !inject.is_empty() && content_type(&file).starts_with("text/html") {
+                let text = String::from_utf8_lossy(&body).to_string();
+                body = match text.find("<head>") {
+                    Some(i) => format!("{}{inject}{}", &text[..i + 6], &text[i + 6..]),
+                    None => format!("{inject}{text}"),
+                }
+                .into_bytes();
+            }
             write!(s, "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", content_type(&file), body.len())?;
             s.write_all(&body)?;
         }
@@ -80,12 +88,20 @@ pub fn serve_on(listener: TcpListener, root: PathBuf) {
 }
 
 pub fn serve_with(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>) {
+    serve_injecting(listener, root, extra, String::new())
+}
+
+/// [`serve_with`], with `inject` inserted right after `<head>` in every HTML file served (the
+/// WebKit smoke's console recorder: it must run before the page's own scripts).
+pub fn serve_injecting(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>, inject: String) {
     let extra = std::sync::Arc::new(extra);
+    let inject = std::sync::Arc::new(inject);
     for s in listener.incoming().flatten() {
         let root = root.clone();
         let extra = extra.clone();
+        let inject = inject.clone();
         std::thread::spawn(move || {
-            let _ = respond(s, &root, &extra);
+            let _ = respond(s, &root, &extra, &inject);
         });
     }
 }
@@ -106,12 +122,51 @@ fn chrome(given: Option<&Path>) -> Result<PathBuf> {
     if let Some(p) = std::env::var_os("CHROME") {
         return Ok(PathBuf::from(p));
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = PathBuf::from(home).join("tools/chrome-headless-shell-linux64/chrome-headless-shell");
-    if p.is_file() {
-        return Ok(p);
+    for p in [chrome_cache_dir().join("chrome-headless-shell-linux64/chrome-headless-shell"), PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("tools/chrome-headless-shell-linux64/chrome-headless-shell")] {
+        if p.is_file() {
+            return Ok(p);
+        }
     }
-    bail!("no headless Chrome: pass --chrome, set CHROME, or unpack Chrome for Testing's chrome-headless-shell-linux64.zip into ~/tools")
+    bail!("no headless Chrome: run `mctas site chrome` (downloads Chrome for Testing's chrome-headless-shell into ~/.cache/mctas), pass --chrome, or set CHROME")
+}
+
+/// Where `mctas site chrome` puts the headless Chrome.
+fn chrome_cache_dir() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/mctas")
+}
+
+/// Download Chrome for Testing's chrome-headless-shell (linux64, the stable channel) into
+/// ~/.cache/mctas, for `site smoke` and `site publish`. Returns the binary.
+pub fn install_chrome() -> Result<PathBuf> {
+    let dir = chrome_cache_dir();
+    std::fs::create_dir_all(&dir)?;
+    let json = Command::new("curl").args(["-fsSL", "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"]).output().context("running curl")?;
+    if !json.status.success() {
+        bail!("downloading the Chrome for Testing index failed: {}", String::from_utf8_lossy(&json.stderr).trim());
+    }
+    let v: serde_json::Value = serde_json::from_slice(&json.stdout).context("the Chrome for Testing index")?;
+    let url = v["channels"]["Stable"]["downloads"]["chrome-headless-shell"]
+        .as_array()
+        .and_then(|a| a.iter().find(|d| d["platform"] == "linux64"))
+        .and_then(|d| d["url"].as_str())
+        .context("no linux64 chrome-headless-shell in the Chrome for Testing index")?
+        .to_string();
+    let zip = dir.join("chrome-headless-shell-linux64.zip");
+    println!("downloading {url}");
+    let st = Command::new("curl").args(["-fsSL", "-o"]).arg(&zip).arg(&url).status().context("running curl")?;
+    if !st.success() {
+        bail!("downloading {url} failed");
+    }
+    let _ = std::fs::remove_dir_all(dir.join("chrome-headless-shell-linux64"));
+    let st = Command::new("unzip").args(["-q", "-o"]).arg(&zip).arg("-d").arg(&dir).status().context("running unzip")?;
+    if !st.success() {
+        bail!("unzipping {} failed", zip.display());
+    }
+    let _ = std::fs::remove_file(&zip);
+    let bin = dir.join("chrome-headless-shell-linux64/chrome-headless-shell");
+    let o = Command::new(&bin).arg("--version").output().with_context(|| format!("running {}", bin.display()))?;
+    println!("{}: {}", bin.display(), String::from_utf8_lossy(&o.stdout).trim());
+    Ok(bin)
 }
 
 /// The DOM of `url` after its scripts ran (`--dump-dom` with a virtual time budget).
@@ -307,6 +362,30 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
+    // different sizes, not others of size 1"): every card there has another value
+    if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let mine = b.circuit.as_ref().and_then(|c| c.value);
+        let section = page.split("<h2>Piston extenders of other reaches").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+        let values: Vec<Option<i64>> = section
+            .split("href=\"")
+            .skip(1)
+            .filter_map(|s| s.split('"').next())
+            .filter_map(|h| site.builds.iter().find(|o| h.ends_with(&o.page)))
+            .map(|o| o.circuit.as_ref().and_then(|c| c.value))
+            .collect();
+        let distinct: std::collections::BTreeSet<Option<i64>> = values.iter().copied().collect();
+        check(
+            "circuit page: the related list walks the axis (other reaches, one each)",
+            values.len() >= 2 && !values.contains(&mine) && distinct.len() == values.len(),
+            format!("{}: N = {:?}", b.page, values.iter().map(|v| v.unwrap_or(-1)).collect::<Vec<_>>()),
+        );
+    }
+    // the judge's calibration / selftest designs are not published (vjeux 02:40Z)
+    let calib = site.builds.iter().filter(|b| b.page.starts_with("circuits/calibration/") || b.page.starts_with("circuits/selftest/")).count();
+    let calib_dir = dir.join("circuits/calibration").exists() || dir.join("circuits/selftest").exists() || dir.join("designs/circuits/calibration").exists();
+    check("no calibration or selftest circuit published", calib == 0 && !calib_dir, format!("{calib} builds, folders: {calib_dir}"));
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
     let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();

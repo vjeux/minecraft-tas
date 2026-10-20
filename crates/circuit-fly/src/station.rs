@@ -21,7 +21,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// faces against `travel` (the first free side cell touching no other piston), `travel` reversed.
 /// None when it has no such piston or no free cell for the kick.
 pub fn reversed(m: &Machine) -> Option<Machine> {
-    let t = m.travel?;
+    reversed_all(m).into_iter().next()
+}
+
+/// Every way to kick the machine from its other end: a 2 gt redstone block in each free side cell
+/// of the back-facing sticky piston (cells touching another piston last).
+pub fn reversed_all(m: &Machine) -> Vec<Machine> {
+    let Some(t) = m.travel else {
+        return Vec::new();
+    };
     let back = [-t[0], -t[1], -t[2]];
     let face = |d: Pos| match d {
         [-1, 0, 0] => "west",
@@ -34,19 +42,29 @@ pub fn reversed(m: &Machine) -> Option<Machine> {
     let want = format!("facing={}", face(back));
     let blocks = &m.design().blocks;
     let pistons: Vec<Pos> = blocks.iter().filter(|(_, s)| s.contains("piston[") && !s.contains("piston_head")).map(|(p, _)| *p).collect();
-    let s = *blocks.iter().find(|(_, st)| st.starts_with("minecraft:sticky_piston[") && st.contains(&want) && !st.contains("extended=true"))?.0;
+    let Some(s) = blocks.iter().find(|(_, st)| st.starts_with("minecraft:sticky_piston[") && st.contains(&want) && !st.contains("extended=true")).map(|(p, _)| *p) else {
+        return Vec::new();
+    };
     let sides: [Pos; 6] = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
     let near = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
-    let cell = sides.iter().map(|d| add(s, *d)).find(|c| *c != add(s, back) && !blocks.contains_key(c) && !m.stops.iter().any(|(q, _)| q == c) && pistons.iter().all(|p| *p == s || !near(*p, *c)))?;
-    let mut d = m.design().clone();
-    d.name = format!("rev-{}", m.name());
-    d.ports.insert("start".into(), cell);
-    d.meta.insert("port start".into(), "minecraft:redstone_block 2".into());
-    d.meta.insert("travel".into(), format!("{} {} {}", back[0], back[1], back[2]));
-    let mut mm = m.clone();
-    mm.clock = clock::Clock::from_design(d).ok()?;
-    mm.travel = Some(back);
-    Some(mm)
+    let mut cells: Vec<Pos> = sides.iter().map(|d| add(s, *d)).filter(|c| *c != add(s, back) && !blocks.contains_key(c) && !m.stops.iter().any(|(q, _)| q == c)).collect();
+    cells.sort_by_key(|c| pistons.iter().any(|p| *p != s && near(*p, *c)));
+    let mut out = Vec::new();
+    for cell in cells {
+        let mut d = m.design().clone();
+        d.name = format!("rev-{}", m.name());
+        d.ports.insert("start".into(), cell);
+        d.meta.insert("port start".into(), "minecraft:redstone_block 2".into());
+        d.meta.insert("travel".into(), format!("{} {} {}", back[0], back[1], back[2]));
+        let mut mm = m.clone();
+        let Ok(c) = clock::Clock::from_design(d) else {
+            continue;
+        };
+        mm.clock = c;
+        mm.travel = Some(back);
+        out.push(mm);
+    }
+    out
 }
 
 #[derive(Clone, Debug)]

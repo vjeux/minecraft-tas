@@ -528,6 +528,54 @@ fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, 
     Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).map(|(w, p)| (w as u32, p as u32)))
 }
 
+/// A quick screen for entity-kit candidates (`clock kit`): run `ticks` gt; false when the design
+/// comes to rest (nothing pending and every entity still for 3 ticks in a row), when no cell of the
+/// world box changes in the last two thirds of the run (no clock with a period that fits), or on an
+/// invalid or unmodeled run.
+pub fn entity_screen(c: &Clock, margin: i32, ticks: u32) -> bool {
+    let Ok(blocks) = parse_blocks(c) else { return false };
+    let Ok(mut s) = start(c, &blocks, margin) else { return false };
+    let wmin = s.world.min;
+    let size = s.world.size;
+    let cells: Vec<BlockPos> = (0..size[1])
+        .flat_map(|y| (0..size[2]).flat_map(move |z| (0..size[0]).map(move |x| BlockPos::new(wmin.x + x, wmin.y + y, wmin.z + z))))
+        .collect();
+    let digest = |w: &World| -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for q in &cells {
+            w.get(*q).hash(&mut h);
+        }
+        h.finish()
+    };
+    let mut prev = digest(&s.world);
+    let mut changed_late = false;
+    let mut still_run = 0;
+    for t in 0..ticks {
+        if between_ticks(&mut s, t).is_err() {
+            return false;
+        }
+        s.world.tick();
+        let d = digest(&s.world);
+        if d != prev {
+            if t >= ticks / 3 {
+                changed_late = true;
+            }
+            prev = d;
+        }
+        let still = s.world.idle()
+            && s.world.entities.list.iter().all(|e| {
+                let v = e.delta_movement;
+                v.x == 0.0 && v.y == 0.0 && v.z == 0.0 && e.pos.x == e.xo && e.pos.y == e.yo && e.pos.z == e.zo
+            });
+        still_run = if still { still_run + 1 } else { 0 };
+        if still_run >= 3 {
+            return false;
+        }
+    }
+    changed_late && s.world.errors.is_empty() && s.world.drops.is_empty()
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let blocks = match parse_blocks(c) {

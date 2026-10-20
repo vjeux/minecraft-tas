@@ -1,0 +1,31 @@
+# archived 2026-10-20T01:54Z from designs/clocks/tracks/clk-obs/families9/p62-note-obs-stk-8b-a82ad8.txt by mctas clock archive
+# CLOCK: clk-obs-p62-note-obs-stk-8b-a82ad8 period 62 gt (3.1 s), on 26/62, edges 13, warmup 8, family note_block+observer+sticky_piston, 8 blocks, 2x4x3, robust
+name: clk-obs-p62-note-obs-stk-8b-a82ad8
+# clk-obs grow: P=62 (redsim), family note_block+observer+sticky_piston, kick last 0 0 0, swept volume 24.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  G minecraft:observer[facing=south,powered=false]
+layer -1:
+  A.
+  ..
+  ..
+layer 0:
+  BB
+  CG
+  D.
+layer 1:
+  ..
+  ..
+  E.
+layer 2:
+  ..
+  ..
+  F.

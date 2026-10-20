@@ -297,9 +297,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     }
     let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
     if !outs.is_empty() {
+        // webrender bbe3bf7ba: the judge's own lamp stands in every air output cell and shows the
+        // output; an output cell that holds a block of the design gets the orange marker instead
+        let shows = if c.output_lamp {
+            format!(
+                "the output is tagged <span class=\"tag-out\">{}</span>: the <b>redstone lamp</b> in that cell (the lamp the judge itself adds to read the output) <b>lights while the output is on</b>",
+                esc(&outs.join(", "))
+            )
+        } else {
+            format!("the output is tagged <span class=\"tag-out\">{}</span>: the orange glass marker next to it <b>glows while the output is on</b>", esc(&outs.join(", ")))
+        };
         s.push_str(&format!(
-            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; the output is the <span class=\"tag-out\">orange</span> glass tagged <b>{}</b>, which <b>glows while the output is on</b> (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>",
-            esc(&outs.join(", "))
+            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; {shows} (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>"
         ));
     }
     s
@@ -390,7 +399,7 @@ pub fn glossary() -> String {
     let items: [(&str, &str); 15] = [
         ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
         ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
-        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime, the output is orange glass that glows while the output is on."),
+        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime and outputs in orange; the redstone lamp the judge adds in an output cell lights while the output is on (an orange marker glows instead where the output cell holds a block of the design)."),
         ("pulse", "the input (or output) on for a while, then off again; its length in gt."),
         ("edge", "the moment a signal changes: rising edge = it turns on, falling edge = it turns off."),
         ("L", "the length of an output pulse (pulse circuits)."),
@@ -454,11 +463,12 @@ fn first_cap(s: &str) -> String {
 pub fn wave_svg(w: &Wave) -> String {
     let ticks = w.ticks.max(1) as f64;
     let px = (960.0 / ticks).clamp(0.6, 12.0);
-    let label_w = 56.0;
-    let row_h = 34.0;
+    let label_w = 64.0;
     let top = 22.0;
+    // a position track is taller (its values 0..N each get a step)
+    let height_of = |r: &site_model::WaveRow| if r.scale > 0 { 70.0 } else { 34.0 };
     let width = label_w + ticks * px + 8.0;
-    let height = top + row_h * w.rows.len() as f64 + 22.0;
+    let height = top + w.rows.iter().map(height_of).sum::<f64>() + 22.0;
     let x = |t: f64| label_w + t * px;
     let mut s = format!(
         "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
@@ -471,18 +481,45 @@ pub fn wave_svg(w: &Wave) -> String {
             s.push_str(&format!("<text class=\"phl\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", a + 3.0, top - 8.0, esc(label)));
         }
     }
-    for (i, r) in w.rows.iter().enumerate() {
-        let y0 = top + row_h * i as f64 + row_h - 8.0; // baseline
+    let mut row_top = top;
+    for r in &w.rows {
+        let row_h = height_of(r);
+        let y0 = row_top + row_h - 8.0; // baseline
         let hmax = row_h - 14.0;
-        s.push_str(&format!("<text class=\"wl\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - 2.0, esc(&if r.input { r.name.to_uppercase() } else if r.name == "out" { "OUT".into() } else { r.name.to_uppercase() })));
+        row_top += row_h;
+        let name = if r.name == "out" { "OUT".to_string() } else { r.name.to_uppercase() };
+        s.push_str(&format!("<text class=\"wl\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - 2.0, esc(&name)));
         s.push_str(&format!("<line class=\"base\" x1=\"{:.1}\" y1=\"{y0:.1}\" x2=\"{:.1}\" y2=\"{y0:.1}\"/>", x(0.0), x(ticks)));
+        let level_y = |l: u8| -> f64 {
+            if r.scale > 0 {
+                y0 - hmax * (l as f64 / r.scale as f64).min(1.0)
+            } else {
+                // any signal shows: a weak comparator output (strength 1) still stands 40% tall
+                let frac = if l == 0 { 0.0 } else { 0.4 + 0.6 * (l as f64 / 15.0) };
+                y0 - hmax * frac
+            }
+        };
+        if r.scale > 0 {
+            // a position track: its scale on the left, the target as a dashed line, a step line
+            s.push_str(&format!("<text class=\"ax\" x=\"4\" y=\"{:.1}\">{}</text>", y0 - hmax + 4.0, r.scale));
+            if let Some(n) = r.target {
+                let yt = level_y(n.min(255) as u8);
+                s.push_str(&format!("<line class=\"tgt\" x1=\"{:.1}\" y1=\"{yt:.1}\" x2=\"{:.1}\" y2=\"{yt:.1}\"/><text class=\"tgtl\" x=\"{:.1}\" y=\"{:.1}\">N = {n}</text>", x(0.0), x(ticks), x(ticks) - 34.0, yt - 3.0));
+            }
+            let mut d = String::new();
+            for (k, (t, l)) in r.steps.iter().enumerate() {
+                let end = r.steps.get(k + 1).map(|n| n.0 as f64).unwrap_or(ticks);
+                let y = level_y(*l);
+                d.push_str(&format!("{}{:.1},{y:.1} L{:.1},{y:.1} ", if k == 0 { "M" } else { "L" }, x(*t as f64), x(end)));
+            }
+            s.push_str(&format!("<path class=\"wpos\" d=\"{}\"/>", d.trim_end()));
+            continue;
+        }
         // the step outline as a filled polygon
         let mut pts: Vec<String> = vec![format!("{:.1},{y0:.1}", x(0.0))];
         for (k, (t, l)) in r.steps.iter().enumerate() {
             let end = r.steps.get(k + 1).map(|n| n.0 as f64).unwrap_or(ticks);
-            // any signal shows: a weak comparator output (strength 1) still stands 40% tall
-            let frac = if *l == 0 { 0.0 } else { 0.4 + 0.6 * (*l as f64 / 15.0) };
-            let y = y0 - hmax * frac;
+            let y = level_y(*l);
             pts.push(format!("{:.1},{y:.1}", x(*t as f64)));
             pts.push(format!("{:.1},{y:.1}", x(end)));
         }
@@ -559,6 +596,11 @@ mod tests {
         g.devices = vec!["lever".into(), "redstone block".into()];
         let h = how_to_try(&g, true);
         assert!(h.contains("click the <b>lever</b> tagged <b>A</b>") && h.contains("tap the <b>B</b> button"), "{h}");
+        // the output: the judge's lamp when every output cell gets one, else the orange marker
+        assert!(h.contains("orange glass marker"), "{h}");
+        g.output_lamp = true;
+        let h = how_to_try(&g, true);
+        assert!(h.contains("<b>redstone lamp</b>") && !h.contains("orange glass"), "{h}");
     }
 
     #[test]

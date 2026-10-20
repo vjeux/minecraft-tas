@@ -16,6 +16,16 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | rising-edge | 6..40 (every even L) | 17-25 | BULB ONE-SHOT: the pushed observer lights a copper bulb; a comparator reads the bulb into a U of repeaters back into the bulb, which turns it off a loop later (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing) |
 | rising-edge | 18 + 16n | 17 + 4n | card `pulse-oneshot-rise` (n 0..10) |
 | falling-edge | 2 | 3 | observer between two sticky pistons (census; another layout: min-pulse 2, rotation-dependent) |
+| falling-edge | 1 | 4 | QC RE-EXTENSION (4-block census): a sticky piston pulls a note block back beside the output just as an observer fires into it; the note block lands powered, conducts to the output and quasi-powers the sticky piston, which pushes it away the next tick: 1 gt (the first odd L) |
+| dual-edge | 3 | 4 | two observers 1 gt apart (one watches the input, one a piston the input moves: a piston's block event runs a tick later): their 2 gt pulses overlap into 3 gt |
+| dual-edge | 1 / 2, 2 / 1, 4 / 2 (rising / falling) | 4 | asymmetric pulses from observer + piston layouts (census) |
+| rising-edge, pulse-limiter | 2 | 4 | two sticky pistons + redstone block + observer: the input pushes the block away, the second piston pulls the observer in, it fires on landing and re-fires the first piston, which brings the block home: min-pulse 1 |
+| dual-edge | 5, 7, 9 | 11 | ODD BY OVERLAP: the two observers 1 gt apart (input / piston), each through a delay-d repeater into one dust line: 2d + 1 |
+| rising-edge, pulse-limiter | 3, 5, 7, 9 | 12 | odd by overlap from two rising-edge detectors 1 gt apart (bulb edge at +4, pushed observer at +5), each through a delay-d repeater into one dust: 2d + 1 (`family odd --mode rise`) |
+| falling-edge | 3, 5, 7, 9 | 16 | odd by overlap from two falling-edge detectors 1 gt apart (pulled observer at +5; a torch the input turns off through dust relights 2 gt after the edge and toggles a bulb read by comparator + observer: +6) (`family odd --mode fall`) |
+| pulse-limiter, rising-edge | 3, 5, ..., 13 | 17 | PISTON-SUBTRACT: a sticky piston pushes a redstone block behind a subtract comparator (odd delay: the piston moves the tick after the input, the block lands in the block-entity phase), the side gets the input through two repeaters (even delay): L = 2 (d1 + d2) - 3 (`family odd --mode piston`). An observer watching the input holds the piston through dust 2 gt longer, so a 1 gt input cannot 0-tick it and leave the block behind the comparator (the 10-block first version latched that way: unarchived, clockinfra's every-gap rule) |
+| pulse-limiter | 13 + 16n | 25 + 4n | card `pulse-limiter-psub-u4` (n 0..10, L up to 173): the piston-subtract limiter with a repeater U on the side: odd L of any length; as a rising-edge detector: card `pulse-rise-psub-u4` (n 0..2) |
+| falling-edge | 3, 5, ..., 15 | 14 | FALLING PISTON-SUBTRACT: the input's sticky piston pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (odd delay); the side gets the input inverted by a torch and delayed by two repeaters: L = 2 (d1 + d2) - 1; card `pulse-fall-psub-u4` L = 15 + 16n (22 + 4n blocks, n 0..2: the min-pulse grows with L) |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
@@ -49,9 +59,27 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 
 ## Open
 
-* Odd L: every design so far has even L (observers, repeaters, comparators work in 2 gt units). A
-  redstone block that LANDS (block-entity phase) next to the output and is pushed away the next
-  tick by a piston it powers would give a 1 gt pulse (L = 1 + 2d with a repeater on the way).
+* Odd L: every design so far has even L. Why: observers, repeaters, comparators and torches change
+  in the scheduled-tick phase, at even offsets from the input's frame, so every pulse they shape
+  is even. An odd length needs an output read directly from a block that a piston moves, mixing a
+  piston event driven by the input itself (its block event runs in the tick after the input's
+  frame: tick 1; a pushed redstone block lands in tick 3's block-entity phase) with one driven by
+  a scheduled component (a repeater line of 2d gt moves the block away in tick 2d): L = 2d - 3.
+  The hard part is bringing the redstone block back each pulse without a second pulse (a sticky
+  piston pulls it back into place, a normal one leaves it behind): a loop of 3-4 pistons, not
+  built yet. The 4-block census found the other way: a block a piston pulls back lands powered
+  in the block-entity phase and quasi-powers that piston, which pushes it away the next tick
+  (1 gt), and two observers offset by a piston's next-tick event overlap into 3 gt. Overlap is
+  the general trick: two pulses of 2d gt offset by an odd k <= 2d give 2d + k; done for dual-edge
+  (5..9), rising-edge / limiters (3..9) and falling-edge (3..9: the second fall source is a torch
+  the input turns off, relit 2 gt after the edge, toggling a bulb). Odd L of any length: the
+  piston-subtract limiter (a piston-moved redstone block on the comparator's rear, odd, and a
+  repeater line or U on its side, even: L = side - 3; card 13 + 16n). Open: odd long rising /
+  falling / dual-edge cards (a one-shot whose loop holds a double piston stage would do it).
+* Judge leniency reported to clockinfra (19:43): a shortening delay line (out = in - 2) passes as
+  "pulse-limiter L 38" when its longest input is 40, and a +4 gt stretcher passes as "pulse-extender
+  L 5" (L read below the min-pulse): `k4/pulse-pulse-limiter-L38-4b-00.txt`,
+  `k4/pulse-pulse-extender-L14-4b-00.txt`, not archived.
 * Min-pulse 1 falling-edge detectors (the best has min-pulse 2): a bulb needs a rising edge, so
   the input must be inverted first, and torches and comparators miss 1 gt inputs.
 * The 4-block census (running) for smaller designs per (kind, L).

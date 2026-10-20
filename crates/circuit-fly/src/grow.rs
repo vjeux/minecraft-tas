@@ -22,6 +22,11 @@ pub struct GrowOptions {
     pub workers: usize,
     /// Keep only the candidates FASTER than their base.
     pub faster: bool,
+    /// Take this many blocks out first (0 or 1): every one-block-smaller variant is grown.
+    pub remove: usize,
+    /// Keep the candidates that fly both ways (forward with the design's kick, backward kicked
+    /// from the other end) instead of the ones at another speed.
+    pub both_ways: bool,
 }
 
 /// A grown machine that flies differently from its base.
@@ -105,6 +110,20 @@ fn fly(cells: &[(Pos, Block)], kick: Kick, o: &CensusOptions) -> Option<(u8, u32
     first.map(|(p, d, f)| (mask, p, d, f))
 }
 
+/// Does the grown machine also fly BACKWARD when kicked from its other end (a 2 gt redstone block
+/// beside its back-facing sticky piston, every free side tried; full redsim run)?
+fn flies_back(c: &[(Pos, Block)], k: Kick, p: u32, d: Pos, f: u32, mask: u8) -> bool {
+    let g = Grown { base: String::new(), cells: c.to_vec(), kick: k, period: p, d, first: f, mask };
+    let Ok(m) = Machine::parse(&design_text(&g, "both-ways")) else {
+        return false;
+    };
+    let back = m.travel.map(|t| [-t[0], -t[1], -t[2]]);
+    crate::station::reversed_all(&m).iter().any(|rev| {
+        let r = crate::sim::simulate(rev, &crate::sim::SimOptions { distance: 8, horizon: 160, ..Default::default() });
+        r.verdict == crate::report::Verdict::Flies && r.direction() == back
+    })
+}
+
 /// Grow every design; the candidates that fly at a new (speed, class).
 pub fn grow(designs: &[Machine], o: &GrowOptions) -> Result<Vec<Grown>> {
     let mut pal: Vec<Block> = Vec::new();
@@ -156,20 +175,39 @@ pub fn grow(designs: &[Machine], o: &GrowOptions) -> Result<Vec<Grown>> {
         let kp = match kick {
             Kick::Last(p) | Kick::Temp(p) => p,
         };
-        let taken: std::collections::HashSet<Pos> = cells.iter().map(|(p, _)| *p).collect();
-        let mut free = Vec::new();
-        let hi = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).max().unwrap());
-        for x in -1..=hi[0] + 1 {
-            for y in -1..=hi[1] + 1 {
-                for z in -1..=hi[2] + 1 {
-                    let q = [x, y, z];
-                    let near = cells.iter().any(|(p, _)| (0..3).map(|i| (p[i] - q[i]).abs()).sum::<i32>() == 1);
-                    if near && !taken.contains(&q) && q != kp {
-                        free.push(q);
+        let free_of = |cells: &[(Pos, Block)]| -> Vec<Pos> {
+            let taken: std::collections::HashSet<Pos> = cells.iter().map(|(p, _)| *p).collect();
+            let mut free = Vec::new();
+            let hi = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).max().unwrap());
+            let lo = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).min().unwrap());
+            for x in lo[0] - 1..=hi[0] + 1 {
+                for y in lo[1] - 1..=hi[1] + 1 {
+                    for z in lo[2] - 1..=hi[2] + 1 {
+                        let q = [x, y, z];
+                        let near = cells.iter().any(|(p, _)| (0..3).map(|i| (p[i] - q[i]).abs()).sum::<i32>() == 1);
+                        if near && !taken.contains(&q) && q != kp {
+                            free.push(q);
+                        }
                     }
                 }
             }
+            free
+        };
+        // `remove`: every variant with one of its blocks taken out (not the kick's own block),
+        // grown from there and compared with the whole machine's speed
+        if o.remove > 0 {
+            for i in 0..cells.len() {
+                if matches!(kick, Kick::Last(p) if p == cells[i].0) {
+                    continue;
+                }
+                let mut c2 = cells.clone();
+                c2.remove(i);
+                let free = free_of(&c2);
+                bases.push(Base { name: format!("{}-minus{i}", m.name()), cells: c2, kick, speed: (p, n), free });
+            }
+            continue;
         }
+        let free = free_of(&cells);
         bases.push(Base { name: m.name().to_string(), cells, kick, speed: (p, n), free });
     }
     // jobs: (base, first added cell, its state)
@@ -211,9 +249,15 @@ pub fn grow(designs: &[Machine], o: &GrowOptions) -> Result<Vec<Grown>> {
                         let (c, k) = normalized(&cells, b.kick);
                         if let Some((mask, p, d, f)) = fly(&c, k, &co) {
                             let n = d.iter().map(|x| x.abs()).sum::<i32>().max(1) as u32;
-                            // a new speed: P/n differs from the base's
-                            let (new, old) = ((p as u64) * (b.speed.1 as u64), (b.speed.0 as u64) * (n as u64));
-                            if if o.faster { new < old } else { new != old } {
+                            let keep = if o.both_ways {
+                                // it must also fly backward, kicked from its other end
+                                flies_back(&c, k, p, d, f, mask)
+                            } else {
+                                // a new speed: P/n differs from the base's
+                                let (new, old) = ((p as u64) * (b.speed.1 as u64), (b.speed.0 as u64) * (n as u64));
+                                if o.faster { new < old } else { new != old }
+                            };
+                            if keep {
                                 found.lock().unwrap().push(Grown { base: b.name.clone(), cells: c, kick: k, period: p, d, first: f, mask });
                             }
                         }

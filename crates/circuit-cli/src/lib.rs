@@ -196,9 +196,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             for p in &designs {
                 let c = Circuit::load(p)?;
                 let rep = circuit::verify::verify_in_pool(&pool, &c, &o)?;
-                if table && let Some(b) = rep.base() {
-                    for l in &b.outcome.table {
+                if table {
+                    // the base build's table, else (nothing passes) the first build's: why it fails
+                    let b = rep.base().or_else(|| rep.builds.first().and_then(|b| b.result.as_ref().ok()));
+                    for l in b.map(|b| b.outcome.table.as_slice()).unwrap_or(&[]) {
                         println!("  {l}");
+                    }
+                    // and the first failing build's, when some pass
+                    if rep.base().is_some()
+                        && let Some(f) = rep.builds.iter().find(|b| b.result.as_ref().is_ok_and(|b| !b.outcome.pass))
+                        && let Ok(fo) = &f.result
+                    {
+                        println!("  == failing build: rotation {} at {:?}", f.turns, f.offset);
+                        for l in &fo.outcome.table {
+                            println!("  {l}");
+                        }
                     }
                 }
                 if !rep.pass {

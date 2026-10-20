@@ -66,6 +66,8 @@ header.top {
   .tab-top { padding: 4px 6px; font-size: 13.5px; }
   .tab-top .count { display: none; }
   .hsearch { flex-basis: 100%; max-width: none; margin-left: 0; }
+  /* wide tables scroll inside themselves instead of widening the page */
+  table.list, table.props, table.metrics { display: block; overflow-x: auto; max-width: 100%; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .intro { margin: 2px 0 14px; font-size: 14px; }
@@ -209,6 +211,7 @@ table.truth td.on { background: var(--warn-soft); color: var(--warn); font-weigh
 table.truth td.off { color: var(--muted); }
 .tag-in { color: #4f9a1a; font-weight: 700; }
 .tag-out { color: #d9700f; font-weight: 700; }
+.tag-pos { color: #2d5b85; font-weight: 700; }
 .wave-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 6px; }
 svg.wave { display: block; font: 11px system-ui, sans-serif; }
 svg.wave .win { fill: #8fd14f; stroke: #4f9a1a; stroke-width: 1; }
@@ -217,6 +220,11 @@ svg.wave .base { stroke: var(--line); stroke-width: 1; }
 svg.wave .ph { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
 svg.wave .phl, svg.wave .ax { fill: var(--muted); }
 svg.wave .wl { fill: var(--fg); font-weight: 700; }
+svg.wave .wpos { fill: none; stroke: #2d5b85; stroke-width: 2; }
+svg.wave .tgt { stroke: #2d5b85; stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; }
+svg.wave .tgtl { fill: #2d5b85; font-weight: 700; }
+svg.wave .note { fill: #2d5b85; }
+p.wave-note { margin: 6px 0 0; font-size: 14px; }
 table.metrics th { width: 120px; }
 table.metrics td.def { color: var(--muted); font-size: 13px; }
 h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; }
@@ -234,3 +242,5 @@ a.pick span { font-size: 11px; color: var(--muted); }
 a.pick.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 a.pick.on span { color: #fff; opacity: .85; }
 details.layouts summary { font-weight: 600; }
+tr.showing { background: var(--accent-soft); }
+a.view { font-weight: 700; }

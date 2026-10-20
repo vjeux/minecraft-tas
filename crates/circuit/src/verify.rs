@@ -32,8 +32,9 @@ impl Default for Options {
 }
 
 /// The checkers' test spacing: the time the circuit takes to come back to rest after every input
-/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt;
-/// `None` when redsim does not model it or it never rests.
+/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt,
+/// longer when an event of the kind's own stimulus (run spaced by 1000 gt) takes longer to settle
+/// (then that settling + 10 gt); `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
@@ -64,7 +65,29 @@ pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if r_off + 10 >= hold {
         return None;
     }
-    Some(r_on.max(r_off) + 10)
+    // the kind's own stimulus, spaced by `hold`: the longest settling after any input change (a
+    // slow path the all-on / all-off pair never takes, such as a crafter's nine ingots coming back
+    // one by one through a hopper after the reverse craft)
+    let mut r_stim = 0;
+    if let Some(kind) = &c.kind {
+        let long = check::stimulus(c, kind, &Sizing { gap: hold });
+        let t = run::sim_trace(c, &long, margin).ok()?;
+        let frames = t.cells.len();
+        let changes: Vec<usize> = (1..frames).filter(|&f| t.inputs.iter().any(|i| i[f] != i[f - 1])).collect();
+        for (k, &f) in changes.iter().enumerate() {
+            // the window up to the frame before the next input change (or the end)
+            let end = changes.get(k + 1).map(|&g| g - 1).unwrap_or(frames - 1);
+            let settle = last_change(&t, f as u32, end as u32);
+            if end - f >= hold as usize && settle + 10 >= hold {
+                return None;
+            }
+            r_stim = r_stim.max(settle);
+        }
+    }
+    // kept when every event of the kind's own stimulus settles within it; else the longest
+    // settling + 10 gt
+    let gap = r_on.max(r_off) + 10;
+    Some(if r_stim > gap { r_stim + 10 } else { gap })
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
@@ -101,6 +124,11 @@ impl SimReport {
 
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not model shulker boxes and chests yet (study 8: judged in the game only, `mctas circuit verify`)".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
@@ -260,6 +288,9 @@ pub fn spawn_pool(o: &Options) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        return crate::shulker::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
@@ -280,7 +311,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() };
+    Ok(verdict(VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() }))
+}
+
+/// The verdict of a report's builds: no passing build fails it; builds that disagree (other
+/// metrics, or failing) make it position- or rotation-dependent (allowed, flagged, as for clocks;
+/// the failing builds are listed in `note`), else `robust`.
+pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|b| b.outcome.pass)).count();
     if ok_count == 0 {
         let b = &rep.builds[0];
@@ -288,7 +325,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             Ok(b) => b.outcome.why.clone(),
             Err(e) => e.clone(),
         };
-        return Ok(rep);
+        return rep;
     }
     // as for clocks: builds that disagree (other metrics, or failing) make the circuit position-
     // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`)
@@ -321,5 +358,5 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
     }
     rep.pass = true;
-    Ok(rep)
+    rep
 }

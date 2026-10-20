@@ -56,6 +56,55 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
     v
 }
 
+/// The judge's consumer (`circuit::CONSUMER`): a lamp in every air output cell.
+pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
+
+/// The output cells that get the judge's consumer (`circuit::Circuit::consumer_cells`): air in
+/// the design and not an input cell, for every kind read through its outputs (not piston
+/// extenders and flying machines), and not where a piston may move a block in: a piston's head
+/// cell, or the cell after an unbroken row of blocks in front of a piston (up to 12); with slime
+/// or honey in the design, any cell within 13 in front of a piston.
+pub fn consumer_cells(d: &Design) -> Vec<Pos> {
+    let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
+    let kind = kind.split_whitespace().next().unwrap_or("");
+    if kind == "piston-extender" || kind == "flying-machine" {
+        return Vec::new();
+    }
+    let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
+    let blocks = &d.blocks;
+    let sticky_blocks = blocks.values().any(|s| s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block"));
+    let mut lines: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
+    for (p, s) in blocks {
+        if !(s.starts_with("minecraft:piston[") || s.starts_with("minecraft:sticky_piston[")) {
+            continue;
+        }
+        let f = match s.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()) {
+            Some("north") => [0, 0, -1],
+            Some("south") => [0, 0, 1],
+            Some("east") => [1, 0, 0],
+            Some("west") => [-1, 0, 0],
+            Some("up") => [0, 1, 0],
+            Some("down") => [0, -1, 0],
+            _ => continue,
+        };
+        let at = |k: i32| [p[0] + k * f[0], p[1] + k * f[1], p[2] + k * f[2]];
+        if sticky_blocks {
+            lines.extend((1..=13).map(at));
+            continue;
+        }
+        lines.insert(at(1));
+        let mut k = 1;
+        while k <= 12 && blocks.contains_key(&at(k)) {
+            lines.insert(at(k + 1));
+            k += 1;
+        }
+    }
+    let mut v: Vec<Pos> = outputs(d).into_iter().map(|(_, p)| p).filter(|p| !ins.contains(p) && !lines.contains(p) && !blocks.contains_key(p)).collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
 /// The outputs of a circuit (`port output[.<name>]`): (label, cell), `OUT` for a bare one.
 pub fn outputs(d: &Design) -> Vec<(String, Pos)> {
     let mut v: Vec<(String, Pos)> = d
