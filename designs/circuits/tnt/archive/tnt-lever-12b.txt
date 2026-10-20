@@ -1,5 +1,5 @@
 # archived 2026-10-20T07:56Z from designs/circuits/tracks/tnt/tnt-lever-12b.txt by mctas circuit archive
-# CIRCUIT: tnt-lever-12b tnt-duper rate 200 TNT/min, period 6 gt, runs input off, stop 0 gt, start 5 gt, 12 blocks, 3x2x4, robust
+# CIRCUIT: tnt-lever-12b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt, 12 blocks, 3x2x4, robust
 name: tnt-lever-12b
 circuit: tnt-duper
 port input: 0 0 1

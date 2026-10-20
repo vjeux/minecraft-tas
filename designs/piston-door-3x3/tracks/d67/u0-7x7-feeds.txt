@@ -1,0 +1,47 @@
+# door feeds 70 (box x -2..4, y -2..4; 33 firings)
+# free all cycle: 16 cells in 5 regions: A2 B4 C1 D5 E4
+# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M
+# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)
+# timing of a clean option (an observer there): @ = the cell it watches changes the tick before the firing (fires with the plan), ~ = it changes only at other ticks; none = a free cell (other wiring drives it)
+open t6 input (2,4,0) -> SD (1,4) [direct, the plan's input cell is free]: feed; direct: (2,4)D5; qc: -
+open t6 input (2,-3,0) -> SU (2,-2) [direct]: feed; direct: (3,-2)E4; qc: -
+open t12 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t12 input (-3,1,0) -> SE (-2,0) [qc]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t12 input (-3,1,0) -> SE (-2,1) [direct]: feed; direct: (-2,2)B4; qc: (-2,3)B4
+open t18 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t18 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: (0,-2)C1~; qc: via (0,-1)<-(0,-2)C1!
+open t24 input (4,-1,0) -> SW (3,-1) [direct, the plan's input cell is free]: weak; direct: (4,-1)E4! (3,-2)E4! via (3,0)<-(4,0)E4!; qc: (4,0)E4!
+open t30 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: (-2,-2)A2! (0,-2)C1~; qc: (-2,-1)A2! via (0,-1)<-(0,-2)C1!
+open t36 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t36 input (-1,1,1) -> SE (-1,1) [direct]: weak; direct: via (-1,2)<-(-2,2)B4!; qc: (-2,2)B4!
+open t42 input (-1,3,1) -> SD (-1,3) [direct]: weak; direct: (-2,3)B4! (-1,4)B4!; qc: (-2,4)B4!
+open t48 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: (-2,-2)A2! (0,-2)C1~; qc: (-2,-1)A2! via (0,-1)<-(0,-2)C1!
+open t48 input (-1,3,1) -> SD (-1,3) [direct]: weak; direct: (-2,3)B4! (-1,4)B4!; qc: (-2,4)B4!
+open t54 input (-3,1,0) -> SE (-2,0) [qc]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t54 input (-3,1,0) -> SE (-2,1) [direct]: feed; direct: (-2,2)B4; qc: (-2,3)B4
+open t54 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+open t54 input (2,-3,0) -> SU (2,-2) [direct]: feed; direct: (3,-2)E4; qc: -
+open t54 input (5,2,0) -> SW (4,1) [qc]: feed; direct: (4,0)E4; qc: (4,3)D5
+open t54 input (5,2,0) -> SW (4,2) [direct]: feed; direct: (4,3)D5; qc: (4,4)D5! (3,3)D5?
+open t54 input (5,1,0) -> SW (4,1) [direct]: feed; direct: (4,0)E4; qc: (4,3)D5
+close t0 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (-1,4)B4; qc: -
+close t6 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+close t6 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: (0,-2)C1~; qc: via (0,-1)<-(0,-2)C1!
+close t12 input (-1,-1,1) -> SU (-1,-2) [qc]: feed; direct: (-2,-2)A2! (0,-2)C1@; qc: (-2,-1)A2! via (0,-1)<-(0,-2)C1!
+close t12 input (-1,-1,1) -> SE (-1,-1) [direct]: weak; direct: (-2,-1)A2!; qc: -
+close t18 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: (0,-2)C1~; qc: -
+close t18 input (-1,3,1) -> SD (-1,3) [direct]: weak; direct: (-2,3)B4! (-1,4)B4!; qc: (-2,4)B4!
+close t24 input (-3,1,0) -> SE (-2,0) [qc]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+close t24 input (-3,1,0) -> SE (-2,1) [direct]: feed; direct: (-2,2)B4; qc: (-2,3)B4
+close t24 input (-3,0,0) -> SE (-2,0) [direct]: feed; direct: (-2,-1)A2; qc: (-2,2)B4
+close t30 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: (-2,-2)A2! (0,-2)C1~; qc: (-2,-1)A2!
+close t30 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: (0,-2)C1~; qc: -
+close t30 input (2,4,0) -> SD (1,4) [direct, the plan's input cell is free]: feed; direct: (2,4)D5; qc: -
+close t36 input (4,-1,0) -> SW (3,-1) [direct, the plan's input cell is free]: weak; direct: (4,-1)E4! (3,-2)E4! via (3,0)<-(4,0)E4!; qc: (4,0)E4!
+close t42 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: (0,-2)C1~; qc: via (0,-1)<-(0,-2)C1!
+close t42 input (5,2,0) -> SW (4,1) [qc]: feed; direct: (4,0)E4; qc: (4,3)D5 via (3,2)<-(3,3)D5
+close t42 input (5,2,0) -> SW (4,2) [direct]: feed; direct: (4,3)D5; qc: (4,4)D5! (3,3)D5?
+close t42 input (5,1,0) -> SW (4,1) [direct]: feed; direct: (4,0)E4; qc: (4,3)D5 via (3,2)<-(3,3)D5
+# no feed at all: none
+# only flagged options (weak): open t24 SW(3,-1), open t36 SE(-1,1), open t42 SD(-1,3), open t48 SD(-1,3), close t12 SE(-1,-1), close t18 SD(-1,3), close t36 SW(3,-1)
+# one cell, several targets (its one component cannot feed them all): (0,-2): open t18 SU(1,-2) -> (1,-2), open t30 SU(-1,-2) -> (-1,-2), open t48 SU(-1,-2) -> (-1,-2), close t6 SU(1,-2) -> (1,-2), close t12 SU(-1,-2) -> (-1,-2), close t18 SU(1,-2) -> (1,-2), close t30 SU(-1,-2) -> (-1,-2), close t30 SU(1,-2) -> (1,-2), close t42 SU(1,-2) -> (1,-2)

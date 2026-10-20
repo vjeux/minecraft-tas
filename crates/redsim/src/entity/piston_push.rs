@@ -17,10 +17,12 @@
 //! * `moveStuckEntities`: a moving HONEY block drags, on a horizontal move, the entities standing
 //!   on it (on the ground, supported by it or centered over its box up to 1.5 above).
 //!
-//! Every modeled kind (boats, minecarts, items, non-marker armor stands) is `PUSH_PULL`; they live
-//! in one list whose order stands in for `level.getEntities` (one entity section: insertion order;
-//! entities in several sections would be ordered by section). Falling blocks (`gravity.rs`) are
-//! not pushed yet.
+//! Every modeled kind (boats, minecarts, items, non-marker armor stands, primed TNT) is
+//! `PUSH_PULL`, and falling blocks (`gravity.rs`) are pushed too (a block moved off its column
+//! or given sideways motion by a slime bounce then takes the general move,
+//! `gravity::move_general`); the targets go in id order, which stands in for `level.getEntities`
+//! (one entity section: spawn order; entities in several sections would be ordered by section).
+//! Pushes of different entities do not interact, so only the per-entity order matters.
 
 use super::vec3::{jmax, jmin};
 use super::{Aabb, MoverType, Vec3};
@@ -91,11 +93,50 @@ fn pushable(_e: &super::Entity) -> bool {
 /// The moving block at `p` ticks from `be.progress` to `be.progress + 0.5`: the entities it
 /// moves (`PistonMovingBlockEntity.tick`, before `progress = newProgress`).
 pub fn tick(w: &mut World, p: BlockPos, be: MovingBe) {
-    if w.entities.list.iter().all(|e| e.removed) {
+    if w.entities.list.iter().all(|e| e.removed) && w.gravity.entities.iter().all(|e| e.removed) {
         return;
     }
     move_collided_entities(w, p, be);
     move_stuck_entities(w, p, be);
+}
+
+/// An entity a moving block can move: one of the entity list, or a falling block (`gravity.rs`).
+#[derive(Clone, Copy, Debug)]
+enum Target {
+    Main(usize),
+    Falling(usize),
+}
+
+fn target_bb(w: &World, t: Target) -> Aabb {
+    match t {
+        Target::Main(i) => w.entities.list[i].bb,
+        Target::Falling(j) => w.gravity.entities[j].bb(),
+    }
+}
+
+/// The slime bounce: the motion's component on `axis` set to `v`.
+fn set_axis_motion(w: &mut World, t: Target, axis: usize, v: f64) {
+    match t {
+        Target::Main(i) => {
+            let e = &mut w.entities.list[i];
+            e.delta_movement = e.delta_movement.with_axis(axis, v);
+        }
+        Target::Falling(j) => {
+            let e = &mut w.gravity.entities[j];
+            match axis {
+                0 => e.vx = v,
+                1 => e.vy = v,
+                _ => e.vz = v,
+            }
+        }
+    }
+}
+
+fn move_by_piston(w: &mut World, t: Target, piston_direction: Dir, delta: f64, movement: Dir) {
+    match t {
+        Target::Main(i) => move_entity_by_piston(w, i, piston_direction, delta, movement),
+        Target::Falling(j) => move_falling_by_piston(w, j, piston_direction, delta, movement),
+    }
 }
 
 /// `moveCollidedEntities(level, pos, progress + 0.5, self)`.
@@ -109,30 +150,40 @@ fn move_collided_entities(w: &mut World, p: BlockPos, be: MovingBe) {
     let bounds = shapes.iter().skip(1).fold(shapes[0], |a, b| a.minmax(*b));
     let aabb = move_by_progress(p, bounds, &be);
     let query = movement_area(aabb, movement, delta_progress).minmax(aabb);
-    let found = w.get_entities(query, pushable);
+    // the entities and falling blocks meeting the query box, in id (= spawn) order
+    let mut found: Vec<(u32, Target)> = w.get_entities(query, pushable).into_iter().map(|i| (w.entities.list[i].id, Target::Main(i))).collect();
+    for (j, e) in w.gravity.entities.iter().enumerate() {
+        if !e.removed && e.bb().intersects(query) {
+            found.push((e.id, Target::Falling(j)));
+        }
+    }
     if found.is_empty() {
         return;
     }
+    found.sort_by_key(|(id, _)| *id);
     let bounce = be.moved == Block::Simple(Simple::SlimeBlock);
     let step = movement.step();
-    for i in found {
-        if w.entities.list[i].removed {
+    let axis = match movement {
+        Dir::East | Dir::West => 0,
+        Dir::Up | Dir::Down => 1,
+        Dir::North | Dir::South => 2,
+    };
+    for (_, t) in found {
+        let removed = match t {
+            Target::Main(i) => w.entities.list[i].removed,
+            Target::Falling(j) => w.gravity.entities[j].removed,
+        };
+        if removed {
             continue;
         }
         if bounce {
             // `canSimulateMovement`: server-side entities with no controlling player
-            let e = &mut w.entities.list[i];
-            let axis = match movement {
-                Dir::East | Dir::West => 0,
-                Dir::Up | Dir::Down => 1,
-                Dir::North | Dir::South => 2,
-            };
-            e.delta_movement = e.delta_movement.with_axis(axis, step[axis] as f64);
+            set_axis_motion(w, t, axis, step[axis] as f64);
         }
         let mut delta = 0.0f64;
         for s in &shapes {
             let moving = movement_area(move_by_progress(p, *s, &be), movement, delta_progress);
-            let bb = w.entities.list[i].bb;
+            let bb = target_bb(w, t);
             if moving.intersects(bb) {
                 delta = jmax(delta, get_movement(moving, movement, bb));
                 if delta >= delta_progress {
@@ -142,12 +193,28 @@ fn move_collided_entities(w: &mut World, p: BlockPos, be: MovingBe) {
         }
         if !(delta <= 0.0) {
             let d = jmin(delta, delta_progress) + 0.01;
-            move_entity_by_piston(w, i, movement, d, movement);
+            move_by_piston(w, t, movement, d, movement);
             if !be.extending && be.source {
-                fix_entity_within_piston_base(w, i, p, movement, delta_progress);
+                fix_entity_within_piston_base(w, t, p, movement, delta_progress);
             }
         }
     }
+}
+
+/// `moveEntityByPiston` for a falling block: `Entity.move(PISTON)` = `limitPistonMovement` and
+/// the general move ([`crate::gravity::move_general`]) under `NOCLIP`.
+fn move_falling_by_piston(w: &mut World, j: usize, piston_direction: Dir, delta: f64, movement: Dir) {
+    w.entities.noclip = Some(piston_direction);
+    let st = movement.step();
+    let v = Vec3::new(delta * st[0] as f64, delta * st[1] as f64, delta * st[2] as f64);
+    let time = w.time;
+    let mut e = w.gravity.entities[j];
+    let v = super::collide::limit_piston(&mut e.piston_deltas, &mut e.piston_deltas_time, time, v);
+    if !(v.x == 0.0 && v.y == 0.0 && v.z == 0.0) {
+        crate::gravity::move_general(w, &mut e, v);
+    }
+    w.gravity.entities[j] = e;
+    w.entities.noclip = None;
 }
 
 /// `moveEntityByPiston(pistonDirection, entity, delta, movement)`.
@@ -163,8 +230,8 @@ fn move_entity_by_piston(w: &mut World, i: usize, piston_direction: Dir, delta: 
 }
 
 /// `fixEntityWithinPistonBase(pos, entity, direction, deltaProgress)`.
-fn fix_entity_within_piston_base(w: &mut World, i: usize, p: BlockPos, direction: Dir, delta_progress: f64) {
-    let bb = w.entities.list[i].bb;
+fn fix_entity_within_piston_base(w: &mut World, t: Target, p: BlockPos, direction: Dir, delta_progress: f64) {
+    let bb = target_bb(w, t);
     let cell = Aabb::of_block(p);
     if bb.intersects(cell) {
         let opposite = direction.opposite();
@@ -172,7 +239,7 @@ fn fix_entity_within_piston_base(w: &mut World, i: usize, p: BlockPos, direction
         let delta_intersected = get_movement(cell, opposite, bb.intersect(cell)) + 0.01;
         if (delta - delta_intersected).abs() < 0.01 {
             let d = jmin(delta, delta_progress) + 0.01;
-            move_entity_by_piston(w, i, direction, d, opposite);
+            move_by_piston(w, t, direction, d, opposite);
         }
     }
 }

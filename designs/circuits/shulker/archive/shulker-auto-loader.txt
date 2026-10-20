@@ -1,4 +1,4 @@
-# archived 2026-10-20T06:27Z from designs/circuits/shulker/tracks/shulker/auto-loader.txt by mctas circuit archive
+# archived 2026-10-20T07:52Z from designs/circuits/shulker/tracks/shulker/auto-loader.txt by mctas circuit archive
 # CIRCUIT: shulker-auto-loader shulker-loader boxes/min 0.087, items/s 2.50, first box 13847 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust
 # Always-on shulker loader (track shulker, hand-built). A comparator reads the dispenser through
 # the drop cell's roof; an observer above that comparator fires the dispenser whenever it goes from

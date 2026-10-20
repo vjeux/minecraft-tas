@@ -1518,7 +1518,7 @@ mod tests {
     fn falling_blocks_are_drawn() {
         let mut s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
         let sand = redsim::Block::parse("minecraft:sand").unwrap();
-        s.world.gravity.entities.push(redsim::gravity::FallingBlock { block: sand, x: 4.5, y: 3.0, z: 0.5, vy: -0.5, time: 3, removed: false, id: 0 });
+        s.world.gravity.entities.push(redsim::gravity::FallingBlock::new(sand, 4.5, 3.0, 0.5, -0.5, 3, 0));
         let e = s.entities(0.5);
         let f = e.iter().find(|e| e.kind.starts_with("falling:")).expect("the falling block");
         assert!(f.kind.contains("sand"), "{}", f.kind);

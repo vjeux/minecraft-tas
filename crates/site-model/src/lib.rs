@@ -292,6 +292,10 @@ pub struct Circuit {
     /// update around the cell), positions in the design's coordinates. Pages only.
     #[serde(skip)]
     pub events: String,
+    /// Why the browser's simulator cannot run this design (`block "oak_fence" is not modeled`),
+    /// empty when it can: the 3D view then shows it as built. Pages only.
+    #[serde(skip)]
+    pub unmodeled: String,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.

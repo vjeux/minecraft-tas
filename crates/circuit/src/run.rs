@@ -45,7 +45,7 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
-    match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt) {
+    match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
             let ended = match d.stopped {
                 None => None,
@@ -55,7 +55,7 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
             let mut t = Trace::new(c, d.cells, d.signals);
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
-            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], motion: None, end: None }).collect();
+            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], ..Default::default() }).collect();
             Ok(t)
         }
         Err((_, why)) => Err(why),
@@ -109,6 +109,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut primed: Vec<crate::trace::Primed> = Vec::new();
     let mut seen_tnt: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut tnt_index: HashMap<String, usize> = HashMap::new();
+    let explode = tnt && c.explodes();
+    let mut burning: HashMap<String, i32> = HashMap::new();
+    let mut exploded = 0u32;
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -144,19 +147,54 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         signals.extend(st.signals.iter().map(|v| best_of(v)));
         if tnt {
             // every primed TNT is followed to fuse 1 (its position there: the precision) and
-            // removed then, before it can explode
-            for e in w.entities(sb)? {
+            // removed then, before it can explode (with `explode: on`: left to explode; a TNT seen
+            // before and gone now has exploded)
+            let ents = w.entities(sb)?;
+            let alive: std::collections::HashSet<&str> = ents.iter().filter(|e| e.kind.trim_start_matches("minecraft:") == "tnt").map(|e| e.uuid.as_str()).collect();
+            let mut vanished_early: Option<(String, i32)> = None;
+            burning.retain(|u, last_fuse| {
+                let gone = !alive.contains(u.as_str());
+                if gone {
+                    // an explosion only if its last sighting had fuse <= 1 (clockinfra): a TNT gone
+                    // earlier left the loaded world or was removed otherwise
+                    if *last_fuse <= 1 {
+                        exploded += 1;
+                    } else if vanished_early.is_none() {
+                        vanished_early = Some((u.clone(), *last_fuse));
+                    }
+                }
+                !gone
+            });
+            if let Some((u, f)) = vanished_early {
+                return Ok(Err(format!("frame {next}: a primed TNT ({u}) vanished with fuse {f} left (out of the loaded world?), not an explosion")));
+            }
+            for e in ents {
                 if e.kind.trim_start_matches("minecraft:") != "tnt" {
                     continue;
                 }
                 if seen_tnt.insert(e.uuid.clone()) {
                     tnt_index.insert(e.uuid.clone(), primed.len());
-                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
+                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), moved: next, last_pos: e.pos, ..Default::default() });
+                }
+                // its launch: the largest horizontal speed seen, from 0.4 blocks per gt; and the
+                // last frame it moved
+                if let Some(&k) = tnt_index.get(&e.uuid) {
+                    let h = |m: &[f64; 3]| (m[0] * m[0] + m[2] * m[2]).sqrt();
+                    if h(&e.motion) >= 0.4 && primed[k].launch.is_none_or(|l| h(&e.motion) > h(&l)) {
+                        primed[k].launch = Some(e.motion);
+                    }
+                    if e.pos.iter().zip(&primed[k].last_pos).any(|(a, b)| a.to_bits() != b.to_bits()) {
+                        primed[k].moved = next;
+                        primed[k].last_pos = e.pos;
+                    }
                 }
                 let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok());
                 let Some(fuse) = fuse else {
                     return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
                 };
+                if explode {
+                    burning.insert(e.uuid.clone(), fuse);
+                }
                 // the burning TNT is a real entity in the game only (redsim records primes): an
                 // entity-reacting block it touches would see it in the game and not on redsim
                 let bb = e.bbox;
@@ -172,8 +210,11 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                 if fuse <= 1 {
                     if let Some(&k) = tnt_index.get(&e.uuid) {
                         primed[k].end = Some((e.pos, e.motion));
+                        primed[k].end_frame = next;
                     }
-                    w.exec(sb, &format!("kill {}", e.uuid))?;
+                    if !explode {
+                        w.exec(sb, &format!("kill {}", e.uuid))?;
+                    }
                 }
             }
         }
@@ -214,5 +255,6 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut t = Trace::new(c, cells, signals);
     t.ended = ended.map(|k| format!("reached the corridor end at frame {k}"));
     t.primed = primed;
+    t.exploded = exploded;
     Ok(Ok(t))
 }
