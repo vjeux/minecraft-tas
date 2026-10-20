@@ -7,6 +7,7 @@
 
 pub mod ring;
 pub mod specs;
+pub mod stamp;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand};
@@ -50,6 +51,14 @@ enum Cmd {
     /// Run a design under this track's census spec for its kind (`circuit:` header) and print the
     /// output's rest state, change frames, samples and the spec's verdict (debugging the census).
     Check { design: PathBuf, #[arg(long, default_value_t = 40)] gap: u32 },
+    /// Stamp the tunable-group headers (`group:`, `group title:`, `group note:`) on counter
+    /// designs by their name: bulb-chain, dropper-ring, ring-bulbs, ring-chain, ring-divider (the
+    /// catalog shows each group as one card). The ring generator stamps its own designs.
+    StampGroups {
+        #[arg(long)]
+        dry_run: bool,
+        files: Vec<PathBuf>,
+    },
     /// Census: every filling of k cells of a box (x 0..A, y 0..B, z 0..C) with palette states,
     /// the named inputs redstone blocks in air cells (`--inputs 'r=-1,0,0;s=3,0,0'`), judged on
     /// redsim with the kind's stimulus (`rs-latch`, `d-latch`, `counter N`); designs + summary.tsv.
@@ -91,6 +100,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     };
     match a.cmd {
         Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, &out)?,
+        Cmd::StampGroups { dry_run, files } => stamp::run(&files, dry_run)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();

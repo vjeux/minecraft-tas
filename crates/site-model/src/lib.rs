@@ -282,6 +282,10 @@ pub struct Circuit {
     /// The checker's report, one line per test (`pulse 4: out 2 gt after 5 gt`). Pages only.
     #[serde(skip)]
     pub table: Vec<String>,
+    /// Every output cell holds the judge's lamp in the 3D view (`circuit::Circuit::consumer_cells`:
+    /// air output cells), so the lamp shows the output; else the orange marker does. Pages only.
+    #[serde(skip)]
+    pub output_lamp: bool,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.

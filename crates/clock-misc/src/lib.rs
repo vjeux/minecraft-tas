@@ -15,6 +15,7 @@
 pub mod boat;
 pub mod cart;
 pub mod crafter;
+pub mod declare;
 pub mod rename;
 pub mod ring;
 pub mod trace;
@@ -66,6 +67,10 @@ enum Cmd {
     /// Record real-game traces of archived clocks for the in-browser viewer (JSON Lines, one file
     /// per clock in designs/clocks/traces/; format agreed with webrender).
     TraceExport(trace_export::ExportArgs),
+    /// Give archived clocks with no `port output` one at the cell the judge measures (so `clock
+    /// sim` reads it the same way), judged again in the game; `--write` rewrites those whose line
+    /// is unchanged.
+    DeclareOutput(declare::DeclareArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -89,5 +94,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::BoatRing(r) => boat::run(r),
         Cmd::BoatLift(l) => boat::run_lift(l),
         Cmd::TraceExport(e) => trace_export::run(e),
+        Cmd::DeclareOutput(d) => declare::run(d),
     }
 }

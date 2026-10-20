@@ -24,6 +24,7 @@ pub mod catalog;
 pub mod census;
 pub mod extend;
 pub mod ident;
+pub mod kits;
 pub mod shot;
 pub mod sim;
 pub mod verify;

@@ -247,7 +247,14 @@ impl Ring {
             if self.bulbs > 0 { format!(", and toggles a chain of {} bulb T flip-flop{} (bulb + comparator), each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             if self.divider { format!("the last comparator changes state once every {total} pulses: toggles style") } else { "level style".to_string() },
         );
-        format!("{caption}{}", d.to_text())
+        let group = if self.divider {
+            &crate::stamp::RING_DIVIDER
+        } else if self.bulbs > 0 {
+            &crate::stamp::RING_BULBS
+        } else {
+            &crate::stamp::DROPPER_RING
+        };
+        crate::stamp::stamp(&format!("{caption}{}", d.to_text()), group)
     }
 }
 
@@ -548,7 +555,7 @@ impl Chain {
             if self.bulbs > 0 { format!(", and the last ring toggles {} bulb T flip-flop{}, each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.n(),
         );
-        format!("{caption}{}", d.to_text())
+        crate::stamp::stamp(&format!("{caption}{}", d.to_text()), &crate::stamp::RING_CHAIN)
     }
 }
 

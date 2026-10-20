@@ -18,6 +18,7 @@ pub mod archive;
 pub mod check;
 pub mod fly;
 pub mod run;
+pub mod seq;
 pub mod stimulus;
 pub mod trace;
 pub mod verify;
@@ -83,6 +84,15 @@ pub enum Kind {
     DLatch,
     /// Output changes once every N input pulses.
     Counter(u32),
+    /// A T flip-flop with a reset input: each `t` pulse toggles q, an `r` pulse clears it.
+    TffReset,
+    /// An edge-triggered D flip-flop (a 1-bit register): q takes `d` at a `clk` edge (rising or
+    /// falling, reported), holds otherwise.
+    Dff,
+    /// [`Kind::Dff`] with an enable input: loads only when `e` is on at the `clk` edge.
+    DffEnable,
+    /// A shift register of N cells: q is `d` as sampled N `clk` edges ago.
+    Shift(u32),
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
@@ -137,10 +147,20 @@ impl Kind {
             "rs-latch" => Kind::RsLatch,
             "d-latch" => Kind::DLatch,
             "counter" => Kind::Counter(num(1)?),
+            "tff-reset" => Kind::TffReset,
+            "dff" => Kind::Dff,
+            "dff-enable" => Kind::DffEnable,
+            "shift" => {
+                let n = num(1)?;
+                if n == 0 {
+                    bail!("circuit: shift 0: a shift register has at least 1 cell");
+                }
+                Kind::Shift(n)
+            }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, piston-extender N, flying-machine)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine)"
             ),
         })
     }
@@ -160,6 +180,10 @@ impl Kind {
             Kind::RsLatch => "rs-latch".into(),
             Kind::DLatch => "d-latch".into(),
             Kind::Counter(n) => format!("counter {n}"),
+            Kind::TffReset => "tff-reset".into(),
+            Kind::Dff => "dff".into(),
+            Kind::DffEnable => "dff-enable".into(),
+            Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
         }
@@ -172,7 +196,7 @@ impl Kind {
             Kind::Tff => "tff",
             Kind::Delay => "delay",
             Kind::Gate(_) => "gates",
-            Kind::RsLatch | Kind::DLatch | Kind::Counter(_) => "memory",
+            Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
         }
@@ -183,19 +207,24 @@ impl Kind {
         match self {
             Kind::RsLatch => Some(&["r", "s"]),
             Kind::DLatch => Some(&["d", "e"]),
+            Kind::TffReset => Some(&["r", "t"]),
+            Kind::Dff | Kind::Shift(_) => Some(&["clk", "d"]),
+            Kind::DffEnable => Some(&["clk", "d", "e"]),
             _ => None,
         }
     }
 }
 
 /// The canonical input name: long aliases of the latch inputs (`set`, `reset`, `data`, `enable`,
-/// `clock`) map to `s`, `r`, `d`, `e`.
+/// `clock`, `toggle`) map to `s`, `r`, `d`, `e`, `clk`, `t`.
 fn input_alias(name: &str) -> String {
     match name {
         "set" => "s".into(),
         "reset" => "r".into(),
         "data" => "d".into(),
-        "enable" | "clock" | "clk" => "e".into(),
+        "enable" => "e".into(),
+        "clock" => "clk".into(),
+        "toggle" => "t".into(),
         n => n.to_string(),
     }
 }

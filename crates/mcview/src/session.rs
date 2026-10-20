@@ -93,6 +93,8 @@ pub struct Session {
     releases: Vec<(u32, usize)>,
     /// A clock's picture box (`clock shot`'s frame: the judge's swept box), once known.
     pub picture: Option<(Pos, Pos)>,
+    /// The judge's consumer lamps placed in a circuit's air output cells (they show the output).
+    pub consumers: Vec<Pos>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -249,9 +251,14 @@ impl Session {
     /// Parse, place like the judge, and (doors) settle. A design redsim cannot simulate still
     /// loads: [`Session::unsimulated`] says why and the world holds what it could place.
     pub fn new(text: &str, o: &Options) -> Result<Session, String> {
-        let design = Design::parse(text)?;
+        let mut design = Design::parse(text)?;
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
+        }
+        // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
+        let consumers = crate::circuit::consumer_cells(&design);
+        for p in &consumers {
+            design.blocks.insert(*p, crate::circuit::CONSUMER.to_string());
         }
         let mode = Mode::of(&design)?;
         let (mut lo, mut hi) = design.bounds().ok_or("empty design")?;
@@ -348,6 +355,7 @@ impl Session {
             demo: None,
             releases: Vec::new(),
             picture: None,
+            consumers,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks.
@@ -676,6 +684,26 @@ impl Session {
                 crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
             })
             .collect()
+    }
+
+    /// Every non-air cell of the world box as the judges trace it: (cell, full state = block state
+    /// with the comparator strength / container contents the clock judge adds, `wave::with_extra`).
+    pub fn cell_states(&self) -> Vec<(Pos, String)> {
+        let mut v: Vec<(Pos, String)> = self
+            .world
+            .blocks()
+            .into_iter()
+            .map(|(p, b)| {
+                let s = b.to_string();
+                let full = match be_extra(&self.world, p, &b) {
+                    Some(e) => format!("{s}{e}"),
+                    None => s,
+                };
+                (p.arr(), full)
+            })
+            .collect();
+        v.sort();
+        v
     }
 
     /// The containers redsim models (droppers, dispensers, hoppers) with their stacks: (cell,
@@ -1058,6 +1086,7 @@ impl Session {
             demo: None,
             releases: Vec::new(),
             picture: None,
+            consumers: Vec::new(),
         };
         s.apply_due();
         s

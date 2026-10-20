@@ -1,0 +1,27 @@
+# archived 2026-10-20T04:07Z from designs/circuits/memory/tracks/memory/tffr-dropring.txt by mctas circuit archive
+# CIRCUIT: tffr-dropring tff-reset latency 13 gt, reset 6 gt, min-pulse 1 gt, 8 blocks, 3x3x2, robust
+# T flip-flop with reset, 8 blocks (track memory): the dropper-ring T flip-flop (two droppers, two hoppers between them, a comparator reading dropper B) with a reset input next to dropper B only. A t pulse fires both droppers (A directly, B through the dust line), only the one holding the stone moves it, and the hoppers hand it to the other dropper after both have fired: q toggles. An r pulse fires B alone: a stone in B leaves (q off at once) and lands in A; with the stone in A nothing moves.
+name: tffr-dropring
+circuit: tff-reset
+port input.t: 0 1 0
+port input.r: 1 0 2
+port output: 2 0 1
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  A minecraft:dropper[facing=east,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  B minecraft:dropper[facing=west,triggered=false]
+  g minecraft:hopper[enabled=true,facing=north]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+layer -1:
+  ..
+  ..S
+layer 0:
+  Ah
+  gBC
+layer 1:
+  .
+  rr

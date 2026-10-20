@@ -20,8 +20,10 @@ is the short version for whoever picks the work up.
 - Gates before a push: `cargo test --release -p mcview`; `mctas door selftest --quick` (with
   `https_proxy=http://fwdproxy:8080 MCTAS_MAX_WORKERS=16`); after a sim change
   `mctas web check -q --wasm web/viewer/mcview_bg.wasm designs/clocks/archive/*.txt
-  designs/clocks/calibration/*.txt designs/circuits/fly/archive/*.txt` (today: 3494 clocks + 74
-  flying machines agree native and wasm, 7 parse-only, 0 failures); after a UI change
+  designs/clocks/calibration/*.txt designs/circuits/fly/archive/*.txt` (today: 4016 clocks + 85
+  flying machines agree native and wasm, 0 parse-only, 0 failures) and over
+  `designs/circuits/*/archive/*.txt` (283 circuits agree frame by frame with circuit sim under
+  their judge's stimulus, the judge's consumer lamps included); after a UI change
   `mctas web demo ... -o /tmp/demo`, `mctas web serve /tmp/demo --port 8765`, then
   `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`,
   and `--hold` on circuits), `mctas web layout <url> --window 390,844 --scale 2` (needs

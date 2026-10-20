@@ -253,8 +253,9 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
@@ -382,6 +383,8 @@ fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
+        // a counter's axis is its kind, `counter N`
+        None if a.starts_with("counter ") => ("N".to_string(), String::new()),
         None => (String::new(), String::new()),
     }
 }
@@ -841,11 +844,13 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let mut tgroups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r)) {
             let Some(c) = circuits.get(&r.file) else { continue };
-            let id = match c.clock.design.meta.get("group") {
-                Some(g) => format!("h:{g}"),
-                None => format!("t:{}", tunable_key(c)),
+            let (kind_key, id) = match c.clock.design.meta.get("group") {
+                // an explicit group spans the kind's argument too (`counter N`: one card for
+                // every N of one mechanism)
+                Some(g) => (r.kind.split_whitespace().next().unwrap_or(&r.kind).to_string(), format!("h:{g}")),
+                None => (r.kind.clone(), format!("t:{}", tunable_key(c))),
             };
-            tgroups.entry((r.kind.clone(), id)).or_default().push(r);
+            tgroups.entry((kind_key, id)).or_default().push(r);
         }
         tgroups.retain(|_, v| v.len() >= 2);
         let mut group_of: BTreeMap<String, String> = BTreeMap::new();

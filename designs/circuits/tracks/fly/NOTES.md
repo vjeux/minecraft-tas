@@ -98,10 +98,25 @@ track's tracker as `crates/circuit/src/fly.rs`).
   only; fly-down-7b-10gt-aca731 is now dominated and out of the archive), horizontal 6 blocks 17
   gt/block (dominated); no horizontal 6-block 9 gt/block, nothing below 9 gt/block.
 
-## Vertical two-way: none
+## Vertical two-way
 - Every orientation of the 7 reversible horizontal engines (`orient --all`, then `two-way
   --reversible-only` trying every kick cell): vertically only DOWN flies, both ways never; the up
   flyers with two sticky pistons (6 census types) break when kicked from the other end.
+- `grow --add 2 --both-ways` on those 6 up flyers: 7-block engines that fly up AND down (3 types,
+  tracks/fly/vertical-rev, robust both ways in the real game): the 6-block up flyer 4c4084 (or
+  a62c63) plus one slime on the top part beside its observer. Return stations: at the top 2 blocks
+  are enough (an obsidian ceiling + one observer); at the bottom none with k <= 3 (radius 1:
+  obsidian/observer/dust, then + stone, repeaters, redstone block; radius 2, k <= 2, + torches),
+  on every reversible orientation. Why the bottom is hard: the reversing sticky piston faces up
+  (its back is the floor cell), every observer that can watch a cell the machine enters only at
+  the stop points its output away from that piston, and an observer next to a slime's final cell
+  is dragged away by the reversal (tried by hand: vtw-test, a lamp in the cell the rear observer
+  watches, broken for that reason). The 73cdd4 trick (a station observer and the rear observer
+  watching each other, vtw-test2: floor + 1 observer) does reverse the machine, but the observer
+  pair keeps pulsing every 4 gt and the next pulse extends the reversing piston while the other
+  part pulls: the machine splits. A bottom station needs a one-shot pulse there: 4+ blocks (a dust
+  line, or a way to stop the pair after one pulse): the next thing to build for a vertical
+  two-way.
 
 - No other speed than 10 gt/block horizontally at 6 blocks (k <= 7 in 4x2x1, k <= 6 in 14
   boxes, grow +1).
@@ -158,5 +173,7 @@ track's tracker as `crates/circuit/src/fly.rs`).
 - `two-way` on all 7 reversible engines (01ce95, 02a7fb, 67f769, 73cdd4, 873917, 91737e, 964ac6):
   no station of a wall + 2 blocks within TWO cells of the stop (palette obsidian, stone,
   observers, repeaters, cross dust, redstone block, torches), so 4 station blocks is the minimum;
-  k = 3 (radius 1, obsidian/observer/dust): 01ce95 only so far (02a7fb none; the others were
-  running at the end of the session).
+  k = 3 (radius 1, obsidian/observer/dust): 01ce95 and 73cdd4 get both stations
+  (fly-two-way-14b-73cdd4: a station observer facing down meets the front observer facing up at
+  the stop, they watch each other and their pulses work the engine back; round trip 200 gt over
+  9 positions, robust); 91737e and 964ac6 only a station ahead; 02a7fb, 67f769, 873917 none.

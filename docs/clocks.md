@@ -25,9 +25,14 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   other block or air, the power it receives. Known difference (for clockinfra): with no `port
   output`, `clock sim` reports the auto-picked cell by its own state changes, while `clock verify`
   carries that cell into the game as a declared port and reads it the declared way, so their `on` /
-  `edges` can differ (2026-10-20: 139 archived clocks without a port, mostly census picks; the
-  states agree). Declare the output to make both read the same (clk-misc-leaf-p10-4b got
-  `port output: 0 0 1`, its judge line unchanged).
+  `edges` can differ. Declare the output to make both read the same: `mctas clock misc
+  declare-output <archived designs> [--write]` adds `port output` at the cell the judge measures,
+  judges each again in the game and rewrites only those whose line is unchanged (2026-10-20: 136
+  archived clocks, mostly census picks, now declare it, lines unchanged;
+  census-p12-copper_bulb-redstone_block-sticky_piston-4b, archived before the current auto-output
+  rule, was re-archived with today's line; census-p12-copper_bulb-observer-3b keeps its older line,
+  since `clock archive` refuses it again: same type and period as clk-obs-divider, the divider
+  family's base, which prints today's line).
 * **Composite** (coordinator's ruling, 2026-10-19): when the output repeats faster than the whole
   structure AND the changing cells split into independent groups (cells linked when at most 2
   apart, or within a sculk sensor's range), the design is independent sub-clocks side by side
@@ -199,6 +204,7 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | `mctas clock catalog` | (coordinator) from the archive's verdicts (no game): `designs/clocks/CATALOG.md` = the INDEX (a one-line intro and legend, the "Extendable clocks" cards: one per row, one per family or [group](#extendable-clocks-extend-headers-vjeux-2026-10-19), the period formula as a heading `### P = 8 + 4n gt`, the two smallest members side by side (`img/<base stem>.jpg` and `img/<base stem>.n<k>.jpg`, labelled with n, period and blocks), then the seconds and blocks formulas, the rule and the judged n range; then a table of period ranges with their clock types linking to the gallery pages, and one link to the variants page); `designs/clocks/gallery/p<lo>-<hi>.md` = the pictures by period (ascending; consecutive periods while a page stays under 120 KB and 300 pictures, a period never split; stale pages removed), per period a 3-wide grid of every distinct type's picture (linked to its design) with one caption line (`20 gt (1 s) · observer+piston · 6 blocks`, "also found as" aliases; "(picture pending)" without a picture) and "Also reachable by: <family> (n = k)"; `gallery/variants.md` the variants of the dominance fold; `gallery/composite.md` the composite (beat) clocks; `designs/clocks/coverage.md` (the period x family matrix of the types shown, mirrored on the board's `minecraft-tas/clocks/coverage.md`); pictures of designs no longer archived are pruned (a family member's `<stem>.n<k>.jpg` stays with its base). The periods a family cannot reach stay data in `designs/clocks/impossible.tsv` (family, periods, why). `clock shot` of a family base also pictures its two smallest members, built with the family's generator |
 | `mctas clock group --id <id> [--title T] [--period P] [--note N] <designs>... \| --clear` | set (or clear) the `extend group` headers of family base designs (after their `extend family:` line): the catalog renders one card per group |
 | `mctas clock census --box AxBxC --k N [--kmin 1] [--palette core] [--max-period 500] [--margin 2] [--no-kick] [--workers W] --out DIR` | the exhaustive census on redsim: every filling of the box with kmin..=k blocks of the palette (every facing of every component: shorthands `core` = stone, glass, rblock, dust, torch (standing + 4 wall), repeater (4 facings x 4 delays), comparator (4 x 2 modes), observer (6), piston (6), sticky (6), lamp, bulb, note, target, slime; also sculk, csculk, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, honey, wool, obsidian, amethyst, or block states), one per class up to translation (it touches the box's low faces) and the 4 rotations (smallest encoding among the rotations that fit), only fillings with a delay element (torch, repeater, comparator, observer, piston, lamp, sculk, hopper, dropper...); judged self-starting, then with each block placed last; a found clock gets the full `clock sim` analysis and a MINIMAL flag (no single block can go with its period kept). Writes `DIR/clocks.tsv` (every clock: period, whole-state period, warmup, family, blocks, box, duty, edges, pulses, start, type key, canonical encoding, minimal), `minimal.tsv`, `designs/` (the smallest clock of each (period, family)), `summary.md`. Resumable: `DIR/parts/` holds one file per finished chunk (a cell set and its first cell's state); a rerun skips them |
+| `mctas clock kit <shuttle\|bouncer\|dripleaf> [--max-len 7] [--screen 1000] [--workers W] --out DIR` | structured census of ENTITY clocks on redsim ([kits](#entity-clock-kits-redsim-clock-kit)): one mechanism's design space in its own coordinates, one candidate per mirror class, screened (`sim::entity_screen`: comes to rest, or no block change late in the run) then judged by `clock sim` (the real-game judge's rule for designs with entities); one representative per type (blocks + entity kinds; an entity at rest first, then the shortest warmup); per period and entity kind the smallest clock is shrunk to minimal (blocks removed while period and family stay). Writes `DIR/clocks.tsv` (every type), `summary.md`, `designs/` (`kit-<kit>-<entity>-p<P>-<n>b.txt`, with a caption) |
 | `mctas clock misc trace-export <archived design>... [--exact] [--ticks N] [--out-dir D] [--margin 3]` | real-game traces (JSON Lines, one file per clock: a header, then every tick's changed block states and every entity) for the in-browser viewer (`designs/clocks/traces/`, rounded) or, with `--exact`, for redsim's gate (`designs/clocks/traces/exact/`: the game's own doubles and floats, each entity's motion and network id); `--ticks N` records any design for N ticks (a redsim test scene) |
 | `redsim-fuzz trace-compare <trace>... [--max 6]` | redsim against the real game, tick by tick: builds the trace's design like `clock sim`, applies its inputs, and compares every cell of the watched box and every entity (position, motion, yaw, pitch, bit for bit) after every tick. One line per trace: `OK` (N ticks identical), `DIVERGES` at the first differing tick (up to `--max` differences), or `UNMODELED` (what redsim lacks) |
 | `redsim-fuzz archive-check <archived designs>... [--problems]` | every archived clock / circuit run on redsim (`clock sim` / `circuit sim`) and its line compared with the real-game judge's line in its header (the last field aside): `OK`, `DIFF` with both lines, or redsim's verdict and why; then the totals and the problems grouped by reason |
@@ -252,6 +258,30 @@ is ONE type; it is `chiral` when the mirror image is not a rotation of it). The 
 archive` (refuses a design of an archived type: `SAME TYPE`) and `clock catalog` (each type once,
 gallery included, the other designs of the type listed as "also found as") all use it.
 
+## Entity clock kits (redsim, `clock kit`)
+
+The smallest entity clocks have 8 to 20 pieces, out of reach of a filling census (k <= 4-5), so
+each kit enumerates one mechanism's space (`crates/clock/src/kits.rs`; 2026-10-19, coordinator's
+P2). Every design written is shrunk to minimal, re-judged `robust` in the game by `clock archive`
+(16 builds) and has an exact trace in `designs/clocks/traces/exact/` that redsim replays
+tick-identically. Results in `designs/clocks/tracks/clockinfra/kits/<kit>/` (`clocks.tsv`: every
+type; `summary.md`; `designs/`), archived as `kit-<kit>-<entity>-p<P>-<n>b`.
+
+| kit | space | candidates, run | clock types | archived (the smallest per period and entity) |
+|---|---|---|---|---|
+| K1 `shuttle` | straight track of 2-7 rails (plain, powered, detector) on stone or (powered rails) redstone blocks, stone bumper or nothing at each end, a minecart on a rail at rest or at 0.4 b/t either way | 27.4 M, 70 s on 28 threads | 1289 | 28 periods from 25 to 197 gt: 11 pieces (P25, P30: `S P P D P S`), 13 (P28, 29, 33, 40, 66), 15, 17 |
+| K2 `bouncer` | an oak boat (2x2 pool), item or armor stand on a 1-2 deep bubble column over soul sand or magma, walled; a tripwire across at height 1-4 (either axis, either row), an optional cap (stone, slabs, trapdoor, lantern) 1-2 above it | 5 k, 60 s | 343 | 13: boats P72, 73, 74, 77, 81 (19 pieces), P82 (18, one less than clk-misc-boat-bouncer), P134; items P26, P133, P621 (11 pieces), P12, P887, P991 |
+| K3 `dripleaf` | a big dripleaf on dirt with an entity on its leaf (armor stand, item, oak boat), an observer watching the leaf, and up to 3 dust / stone / repeater or 4 dust / stone in a 5x4x4 box | 15 M, 23 min | 6 | 3: P4, 8 pieces, with each entity (the leaf tilts under any of them) |
+
+The items of the kits carry `Age:-32768s` (else an item despawns after 6000 gt and the clock stops
+after 5 minutes) and `PickupDelay:32767s`.
+
+The fluid census (P1, 2026-10-19: `clock census --palette 'core,minecraft:water[level=0],minecraft:soul_sand,minecraft:magma_block'`,
+59 states) finds NO clock with water or a bubble column in its family in 3x2x1, 3x1x2, 2x2x2,
+3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks: the core clocks again, some
+with soul sand or magma as an inert support): a water clock needs more room than 4 blocks (the
+smallest archived, clk-misc-bubble-flip, has 12).
+
 ## What redsim models exactly
 
 `clock sim` is exact for every block `redsim::Block::parse` accepts ([mechanics.md section
@@ -275,10 +305,12 @@ container entities as hopper sources and targets. Each is gated tick by tick aga
 traces (`redsim-fuzz trace-compare`, below). Anything else (unwaxed copper, other items' dispenser
 behaviors, multi-stack droppers, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and
-circuit archives runs on redsim to a line (2026-10-20, `redsim-fuzz archive-check`: 3349 of 3491 print
-the judge's own line; the 142 others are listed in
-[archive-check.txt](../designs/clocks/tracks/clk-misc/archive-check.txt): auto-output measurements,
-above, and 5 hopper/dropper rings whose warmup the judge counts differently, their states identical).
+circuit archives runs on redsim to a line (2026-10-20, `redsim-fuzz archive-check`: 3485 of 3491 print
+the judge's own line; the 6 others are listed in
+[archive-check.txt](../designs/clocks/tracks/clk-misc/archive-check.txt): the copper-bulb
+census clock of the Output note above, and 5 hopper/dropper rings whose warmup the judge counts
+differently, their states identical). The browser viewer (native and wasm, `mctas web check
+--wasm`) finds the same warmups and periods on the whole archive.
 The bridge and redsim emit no `block_place` vibration for a placement (a sculk clock cannot start
 from a placement sound; kick it with a moving piston or a lever).
 

@@ -69,7 +69,8 @@ pub fn marker_cell(s: &Session, out: Pos) -> Option<Pos> {
 /// The default look of a session: the marker next to its first output, outlines on its inputs
 /// (a door's lever), grass under its lowest block.
 pub fn default_look(s: &Session) -> Look {
-    let marker = s.outputs.first().and_then(|o| marker_cell(s, *o));
+    // a circuit output holding the judge's lamp shows itself (lit when on): no marker there
+    let marker = s.outputs.first().filter(|o| !s.consumers.contains(o)).and_then(|o| marker_cell(s, *o));
     let mut outlines: Vec<Pos> = Vec::new();
     for p in &s.inputs {
         if !outlines.contains(p) {

@@ -15,10 +15,12 @@ rotations) by `mctas circuit archive`. Drafts: designs/circuits/{tff,memory}/tra
 - `circuit memory census --kind rs-latch|d-latch|'counter N' --inputs 'r=..;s=..' ...`: same
   engine with the judge's latch/counter stimuli (specs.rs). `circuit memory check D` prints the
   census view of one design.
-- `circuit memory ring --n N[,N..] [--max-dust k] [--bulbs K | --then N2] --out DIR`: dropper-ring
-  counters around the input cell (cycle search, hopper rules, relays, comparator placement, K bulb
-  stages -> counter N*2^K, or a second ring around a stone the first ring's comparator powers ->
-  counter N*N2). Instant.
+- `circuit memory ring --n N[,N..] [--max-dust k] [--bulbs K] [--then a,b,..] [--divider] --out DIR`:
+  dropper-ring counters around the input cell (cycle search over the cells the input fires
+  directly, through dust, dust relays or repeater relays; hopper rules; comparator placement),
+  K bulb stages (counter N*2^K), more rings around stones the previous comparators power
+  (counter N*a*b..), or a ring + bulbs judged as a toggles-style divider. Parallel over layouts;
+  instant up to N=17, minutes for 19-25 (`--max-dust 3-4`).
 - Palette shorthands: clock census names plus `dropper1`/`hopper1`/`dispenser1` (holding 1 stone)
   and `state{snbt}`.
 
@@ -61,7 +63,9 @@ ring5-bulb2 17 / ring5-ring4 22; 21 ring7-ring3 28; 22 ring11-bulb1 32; 24 ring3
 ring13-bulb1 39; 28 ring7-ring4 29; 32 bulb5 15; then multi-stage chains (`--then a,b`, `--bulbs`
 after a chain): 18 ring3-ring3-bulb1 20, 27 ring3x3x3 26, 30 ring5-ring3-bulb1 24, 33 ring11-ring3
 39, 34 ring17-bulb1 50, 36 ring3-ring3-bulb2 23, 39 ring13-ring3 46, 40 ring5-bulb3 20, 45 ring5x3x3
-30, 48 ring3-bulb4 20; dividers (toggles style) for 3, 5, 7 (ring + one bulb).
+30, 48 ring3-bulb4 20; repeater-relay rings 19 (54), 23 (65), 25 (72), 38 ring19-bulb1 57; dividers
+(toggles style) for 3, 5, 7 (ring + one bulb). Missing up to 40: 29, 31, 35, 37 (no ring of 29/31
+with 4 relays; a ring of 5+ around a chain stone breaks the hopper rules).
 
 Learned: the judge's level style takes any output whose end-of-window level has period N, so a
 TFF is a counter 2 and n bulbs make a counter 2^n. Ring rules: droppers of one ring share a grid

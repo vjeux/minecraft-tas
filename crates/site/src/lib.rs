@@ -163,7 +163,7 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
         SiteCmd::Smoke { dir, chrome, budget, url, engine } => {
             let fails = match engine.as_str() {
-                "webkit" => webkit::smoke(&dir)?,
+                "webkit" => webkit::smoke(&dir, url.as_deref())?,
                 "chrome" => serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?,
                 other => bail!("--engine {other}: chrome or webkit"),
             };

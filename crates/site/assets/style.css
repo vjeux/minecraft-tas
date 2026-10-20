@@ -66,6 +66,8 @@ header.top {
   .tab-top { padding: 4px 6px; font-size: 13.5px; }
   .tab-top .count { display: none; }
   .hsearch { flex-basis: 100%; max-width: none; margin-left: 0; }
+  /* wide tables scroll inside themselves instead of widening the page */
+  table.list, table.props, table.metrics { display: block; overflow-x: auto; max-width: 100%; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .intro { margin: 2px 0 14px; font-size: 14px; }

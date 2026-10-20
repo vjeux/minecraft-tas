@@ -9,12 +9,19 @@ UI, Rust -> WebAssembly; its own cargo workspace).
 ## Rebuild and redeploy (from the repository root, on main)
 
 ```sh
-cargo build --release && ./target/release/mctas site publish --wait
+cargo build --release && ./target/release/mctas site chrome   # once per box: headless Chrome
+./target/release/mctas site publish --wait
+./target/release/mctas site smoke --dir site --engine webkit  # before any new viewer bundle
 ```
 
-`publish` = `site build` + `site smoke` (skipped with a note when no headless Chrome is found; a
-failed check stops the deploy) + `site deploy` (force-pushes gh-pages, retries a rejected push).
-~75 s. Check the live site afterwards: `mctas site smoke --url https://vjeux.github.io/minecraft-tas/`.
+`publish` = `site build` + `site smoke` (REQUIRED: no headless Chrome = no deploy; `--no-smoke`
+overrides; its viewer probes caught the 2026-10-20 black-texture bundle) + `site deploy`
+(force-pushes gh-pages, retries a rejected push). ~75 s. The WebKit smoke (WebKitGTK through
+WebKitWebDriver in Xvfb, desktop + phone; `sudo dnf install -y webkit2gtk3 webkit2gtk3-devel
+xorg-x11-server-Xvfb mesa-libEGL`) also checks the in-place swaps. Check the live site afterwards:
+`mctas site smoke --url https://vjeux.github.io/minecraft-tas/` (and `--engine webkit --url ...`).
+Every page loads the bundles, the CSS and the data by content hash (`?v=`), so a hotfix reaches
+phones at once.
 
 ONE deployer (the coordinator, after merge batches). `site deploy` guards against two accidents
 seen on 2026-10-20: (1) a deploy from a tree that lacks the commit the live site was built from
@@ -30,7 +37,7 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 02:15Z, explore/site 4071bbc5f)
+## State (2026-10-20 03:25Z, explore/site e7a7579bd)
 
 - 5148 builds: 914 doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
   match; `door fill` variants folded under the best filling of their mechanism), clocks (the
@@ -52,7 +59,12 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   a value picker on every member page; equivalent layouts collapse under their shown design; study
   pages (circuits/<study>/) and a circuits overview. No simulator attribution anywhere (vjeux).
 - webrender's viewer renders every thumbnail and build page (contract in docs/site.md: data-src,
-  data-trace, data-autoplay, data-stimulus / data-phases / data-input-mode for circuits).
+  data-trace, data-autoplay, data-stimulus / data-phases / data-input-mode for circuits; a viewer
+  with class `mcview-live-src` reloads on a data-src change keeping the camera: the tunable-group
+  picker and the family pages' member rows swap in place, web/site/src/swap.rs).
+- Related lists walk the study's axis (the smallest design of each other value); the judge's
+  diagram has a position track for piston extenders (payload 0..N) and flying machines.
+- No calibration / selftest circuits on the site.
 
 ## Next
 

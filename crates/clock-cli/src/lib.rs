@@ -90,6 +90,25 @@ pub enum ClockCmd {
     /// period, waveform, family, blocks, box, start, type key, canonical encoding), a design per
     /// smallest clock of each (period, family) in <out>/designs/, <out>/summary.md. Resumable
     /// (<out>/parts/, one file per finished chunk). The ground truth of the small clocks.
+    /// Structured census of ENTITY clocks on redsim (kits.rs): one mechanism's design space in its
+    /// own coordinates, one candidate per mirror class, screened then judged by the real-game
+    /// judge's rule for designs with entities. Kits: `shuttle` (K1: a straight track of plain /
+    /// powered / detector rails over stone or redstone blocks, bumpers, one minecart). Writes
+    /// <out>/clocks.tsv, summary.md, designs/ (every minimal clock).
+    Kit {
+        kit: String,
+        /// The longest track (`shuttle`).
+        #[arg(long, default_value_t = 7)]
+        max_len: usize,
+        /// Ticks of the quick screen (comes to rest / no late block change: dropped).
+        #[arg(long, default_value_t = 1000)]
+        screen: u32,
+        /// Threads (default: every core but 4).
+        #[arg(long)]
+        workers: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Census {
         /// Box as AxBxC (x, y, z).
         #[arg(long = "box")]
@@ -507,6 +526,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Kit { kit, max_len, screen, workers, out } => {
+            let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
+            let o = clock::kits::KitOptions { kit, max_len, workers, out, screen };
+            let t0 = std::time::Instant::now();
+            let all = clock::kits::run(&o, &|done, total, n| eprintln!("  {done}/{total} candidates, {n} clocks, {:.0} s", t0.elapsed().as_secs_f64()))?;
+            let best = clock::kits::best_per_period(&o, &all);
+            let (n, written) = clock::kits::write_outputs(&o, &all, &best)?;
+            println!("kit {}: {n} clock types, {written} designs (the smallest per period) in {:.1} s: {}", o.kit, t0.elapsed().as_secs_f64(), o.out.display());
         }
         ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
