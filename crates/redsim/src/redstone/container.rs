@@ -29,7 +29,7 @@ use std::collections::{BTreeMap, HashMap};
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
 /// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
 /// then the shulker study's (clk-rt; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 17] = [
+pub const MORE_ITEMS: [(&str, u8); 18] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -47,6 +47,7 @@ pub const MORE_ITEMS: [(&str, u8); 17] = [
     ("music_disc_ward", 1),
     ("iron_shovel", 1),
     ("shulker_box", 1),
+    ("paper", 64),
 ];
 
 /// A disc's `JukeboxSong` (`data/minecraft/jukebox_song`): `lengthInTicks` = ceil(seconds * 20)
@@ -778,10 +779,9 @@ pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
             // holds the same stack (item, count and contents: a loader's empty boxes, an unloader's
             // full ones) every pick gives the same world: take the first (clk-rt)
             let first = c.slots[filled[0]].unwrap();
-            let contents = payload_slots(w, first.payload);
             let same = filled.iter().all(|&i| {
                 let s = c.slots[i].unwrap();
-                s.item == first.item && s.count == first.count && (s.payload == first.payload || payload_slots(w, s.payload) == contents)
+                s.item == first.item && s.count == first.count && same_payload(w, s.payload, first.payload)
             });
             if !same {
                 w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
@@ -1277,17 +1277,23 @@ pub fn parse_snbt(s: &str) -> Result<Snbt, String> {
 }
 
 /// The `Items` list of block-entity SNBT: (slot, stack) per entry (`count` defaults to 1, as in
-/// `ItemStack.MAP_CODEC`). A shulker box with contents needs a world ([`snbt_items_full`]).
+/// `ItemStack.MAP_CODEC`). Components need a world ([`snbt_items_full`]).
 fn snbt_items(v: &Snbt) -> Result<Vec<(usize, Stack)>, String> {
     snbt_items_full(v)?
         .into_iter()
-        .map(|(slot, st, contents)| if contents.is_empty() { Ok((slot, st)) } else { Err("a shulker box with contents is only modeled in a block entity".to_string()) })
+        .map(|e| if e.contents.is_empty() && e.name.is_none() { Ok((e.slot, e.stack)) } else { Err("item components are only modeled in a block entity".to_string()) })
         .collect()
 }
 
-/// An `Items` entry: its slot, its stack (no payload yet) and a shulker box item's contents
-/// (`components:{"minecraft:container":[{slot:N,item:{id,count}},..]}`, clk-rt).
-type ItemEntry = (usize, Stack, Vec<(usize, Stack)>);
+/// An `Items` entry (clk-rt): its slot, its stack (no payload yet) and the components redsim
+/// models: a shulker box's contents (`"minecraft:container":[{slot:N,item:{id,count}},..]`) and a
+/// custom name (`"minecraft:custom_name"`, kept as its SNBT text).
+struct ItemEntry {
+    slot: usize,
+    stack: Stack,
+    contents: Vec<(usize, Stack)>,
+    name: Option<String>,
+}
 
 fn snbt_items_full(v: &Snbt) -> Result<Vec<ItemEntry>, String> {
     let Snbt::List(list) = v else { return Err("Items is not a list".into()) };
@@ -1303,45 +1309,48 @@ fn snbt_items_full(v: &Snbt) -> Result<Vec<ItemEntry>, String> {
             }
         }
         let slot = slot.ok_or("an Items entry has no Slot")?;
-        let (st, contents) = snbt_stack(&rest)?;
+        let mut entry = snbt_stack(&rest)?;
         if !(0..=255).contains(&slot) {
-            return Err(format!("bad Items entry: slot {slot}, {} {}", st.count, item_name(st.item)));
+            return Err(format!("bad Items entry: slot {slot}, {} {}", entry.stack.count, item_name(entry.stack.item)));
         }
-        out.push((slot as usize, st, contents));
+        entry.slot = slot as usize;
+        out.push(entry);
     }
     Ok(out)
 }
 
 /// An item compound's fields: `id`, `count` (default 1) and `components` (a shulker box's
-/// `minecraft:container` only): its stack and the box's contents.
-fn snbt_stack(fields: &[(String, Snbt)]) -> Result<(Stack, Vec<(usize, Stack)>), String> {
-    let (mut id, mut count, mut contents) = (None, 1i64, Vec::new());
+/// `minecraft:container`, a `minecraft:custom_name`): its stack and components (slot 0).
+fn snbt_stack(fields: &[(String, Snbt)]) -> Result<ItemEntry, String> {
+    let (mut id, mut count, mut contents, mut label) = (None, 1i64, Vec::new(), None);
     for (k, v) in fields {
         match (k.as_str(), v) {
             ("id", Snbt::Str(s) | Snbt::Word(s)) => id = Some(s.clone()),
             ("count", Snbt::Int(n)) => count = *n,
             ("components", Snbt::Compound(comps)) => {
                 for (ck, cv) in comps {
-                    let Snbt::List(entries) = cv else { return Err(format!("item component {ck} is not modeled")) };
-                    if ck != "minecraft:container" {
-                        return Err(format!("item component {ck} is not modeled"));
-                    }
-                    for x in entries {
-                        let Snbt::Compound(xf) = x else { return Err("a container entry is not a compound".into()) };
-                        let (mut s, mut item) = (None, None);
-                        for (xk, xv) in xf {
-                            match (xk.as_str(), xv) {
-                                ("slot", Snbt::Int(n)) => s = Some(*n),
-                                ("item", Snbt::Compound(i)) => item = Some(i.clone()),
-                                (o, _) => return Err(format!("container entry field {o} is not modeled")),
+                    match (ck.as_str(), cv) {
+                        ("minecraft:custom_name", v) => label = Some(format!("{v:?}")),
+                        ("minecraft:container", Snbt::List(entries)) => {
+                            for x in entries {
+                                let Snbt::Compound(xf) = x else { return Err("a container entry is not a compound".into()) };
+                                let (mut s, mut item) = (None, None);
+                                for (xk, xv) in xf {
+                                    match (xk.as_str(), xv) {
+                                        ("slot", Snbt::Int(n)) => s = Some(*n),
+                                        ("item", Snbt::Compound(i)) => item = Some(i.clone()),
+                                        (o, _) => return Err(format!("container entry field {o} is not modeled")),
+                                    }
+                                }
+                                let inner = snbt_stack(&item.ok_or("a container entry has no item")?)?;
+                                let s = s.ok_or("a container entry has no slot")?;
+                                if !inner.contents.is_empty() || inner.name.is_some() || !(0..27).contains(&s) {
+                                    return Err(format!("bad container entry: slot {s} (a box inside a box, a renamed item in a box: not modeled)"));
+                                }
+                                contents.push((s as usize, inner.stack));
                             }
                         }
-                        let (st, inner) = snbt_stack(&item.ok_or("a container entry has no item")?)?;
-                        let s = s.ok_or("a container entry has no slot")?;
-                        if !inner.is_empty() || !(0..27).contains(&s) {
-                            return Err(format!("bad container entry: slot {s} (a box inside a box is not modeled)"));
-                        }
-                        contents.push((s as usize, st));
+                        (o, _) => return Err(format!("item component {o} is not modeled")),
                     }
                 }
             }
@@ -1356,7 +1365,11 @@ fn snbt_stack(fields: &[(String, Snbt)]) -> Result<(Stack, Vec<(usize, Stack)>),
     if !contents.is_empty() && !is_box_item(item) {
         return Err(format!("{name} with contents is not modeled"));
     }
-    Ok((Stack::new(item, count as u8), contents))
+    if label.is_some() && is_box_item(item) {
+        // its block entity would carry the name through a placement and a break: not modeled
+        return Err(format!("a renamed {name} is not modeled"));
+    }
+    Ok(ItemEntry { slot: 0, stack: Stack::new(item, count as u8), contents, name: label })
 }
 
 /// A shulker box item (any colour).
@@ -1364,9 +1377,23 @@ pub fn is_box_item(id: u8) -> bool {
     item_name(id).ends_with("shulker_box")
 }
 
+/// An item's components redsim models (`World::payloads`, a `Stack::payload` > 0): a shulker
+/// box's contents (27 slots) and a custom name (its SNBT, compared as text; a renamed item stacks
+/// only with the same stack's own items here, not with another stack renamed alike).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Payload {
+    pub slots: Vec<Option<Stack>>,
+    pub name: Option<String>,
+}
+
 /// Register a shulker box item's contents in `World::payloads`: its payload (0 when empty).
 pub fn new_payload(w: &mut World, contents: &[(usize, Stack)]) -> u16 {
-    if contents.is_empty() {
+    new_payload_named(w, contents, None)
+}
+
+/// [`new_payload`] with a custom name (0 when neither).
+pub fn new_payload_named(w: &mut World, contents: &[(usize, Stack)], name: Option<String>) -> u16 {
+    if contents.is_empty() && name.is_none() {
         return 0;
     }
     let mut slots = vec![None; 27];
@@ -1375,13 +1402,19 @@ pub fn new_payload(w: &mut World, contents: &[(usize, Stack)]) -> u16 {
             slots[*s] = Some(*st);
         }
     }
-    w.payloads.push(slots);
+    w.payloads.push(Payload { slots, name });
     w.payloads.len() as u16
 }
 
 /// A payload's 27 slots (all empty for 0).
 pub fn payload_slots(w: &World, payload: u16) -> Vec<Option<Stack>> {
-    if payload == 0 { vec![None; 27] } else { w.payloads[payload as usize - 1].clone() }
+    if payload == 0 { vec![None; 27] } else { w.payloads[payload as usize - 1].slots.clone() }
+}
+
+/// Two payloads with the same components (contents and name).
+pub fn same_payload(w: &World, a: u16, b: u16) -> bool {
+    let get = |p: u16| if p == 0 { Payload { slots: vec![None; 27], name: None } } else { w.payloads[p as usize - 1].clone() };
+    a == b || get(a) == get(b)
 }
 
 /// A design's `nbt:` line on a placed container, exactly as `data merge block x y z <snbt>`
@@ -1401,17 +1434,17 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let mut disabled_given = None;
     let mut song_ticks: Option<i64> = None;
     // shulker box items with contents (clk-rt): their payloads are registered once `c` is done
-    let mut boxes: Vec<(usize, Vec<(usize, Stack)>)> = Vec::new();
+    let mut boxes: Vec<(usize, Vec<(usize, Stack)>, Option<String>)> = Vec::new();
     for (k, v) in &fields {
         match (k.as_str(), v) {
             ("Items", v) => {
                 slots = vec![None; c.slots.len()];
                 boxes.clear();
-                for (slot, st, contents) in snbt_items_full(v).map_err(|e| format!("nbt at {pos}: {e}"))? {
-                    if slot < slots.len() {
-                        slots[slot] = Some(st);
-                        if !contents.is_empty() {
-                            boxes.push((slot, contents));
+                for e in snbt_items_full(v).map_err(|e| format!("nbt at {pos}: {e}"))? {
+                    if e.slot < slots.len() {
+                        slots[e.slot] = Some(e.stack);
+                        if !e.contents.is_empty() || e.name.is_some() {
+                            boxes.push((e.slot, e.contents, e.name));
                         }
                     }
                 }
@@ -1459,8 +1492,8 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
             jc.song_ticks = t;
         }
     }
-    for (slot, contents) in &boxes {
-        let payload = new_payload(w, contents);
+    for (slot, contents, name) in &boxes {
+        let payload = new_payload_named(w, contents, name.clone());
         if let Some(s) = slots[*slot].as_mut() {
             s.payload = payload;
         }
@@ -1501,6 +1534,28 @@ pub fn kind_is_container(k: Kind) -> bool {
 mod tests {
     use super::*;
     use crate::block::Block;
+
+    /// A stack without a payload hashes and prints exactly as the struct did before `payload`
+    /// (a derived `Hash` of `{ item, count }`: the fields in order): state keys and model notes
+    /// of every design without a shulker box stay what they were. Keep the manual impls.
+    #[test]
+    fn stack_without_payload_hashes_as_before() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let s = Stack::new(3, 17);
+        let mut a = DefaultHasher::new();
+        s.hash(&mut a);
+        let mut b = DefaultHasher::new();
+        3u8.hash(&mut b);
+        17u8.hash(&mut b);
+        assert_eq!(a.finish(), b.finish());
+        assert_eq!(format!("{s:?}"), "Stack { item: 3, count: 17 }");
+        let p = Stack { payload: 2, ..s };
+        let mut c = DefaultHasher::new();
+        p.hash(&mut c);
+        assert_ne!(c.finish(), b.finish());
+        assert_eq!(format!("{p:?}"), "Stack { item: 3, count: 17, payload: 2 }");
+    }
 
     #[test]
     fn snbt_items_parse() {

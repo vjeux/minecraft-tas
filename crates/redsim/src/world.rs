@@ -136,8 +136,9 @@ pub struct World {
     /// random `nextDouble()` for their kick; `None`: primes are records only (the judge's screen).
     pub tnt_kick: Option<f64>,
     // ---- shulker study (clk-rt) ----
-    /// Shulker box items' contents (`Stack::payload` - 1 indexes it): 27 slots each.
-    pub payloads: Vec<Vec<Option<crate::redstone::container::Stack>>>,
+    /// Item components (`Stack::payload` - 1 indexes it): a shulker box's 27 slots, an item's
+    /// custom name.
+    pub payloads: Vec<crate::redstone::container::Payload>,
     /// The sandbox seed the bridge draws piston-broken drops from (`rng::Drop`): with one, a
     /// destroyed shulker box drops as an item entity (`drop_count` numbers them); without, its
     /// drop is only recorded in `drops`.
