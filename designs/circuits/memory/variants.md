@@ -4,8 +4,8 @@
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
 
-**[rs-dropper](archive/rs-dropper.txt)** (rs-latch, rs-latch; 4 blocks: comparator, dropper, stone):
+**[d-latch-repeater](archive/d-latch-repeater.txt)** (d-latch, d-latch; 4 blocks: repeater, stone):
 
 | variant | blocks | adds |
 |---|---|---|
-| [rs-crafter](archive/rs-crafter.txt) | 6 | crafter, hopper |
+| [d-latch-high](archive/d-latch-high.txt) | 5 | comparator, redstone_block |
