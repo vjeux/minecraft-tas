@@ -157,6 +157,10 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
+    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table covers
+    /// (`1 to 5118 ticks, 646 periods`); empty on every other clock.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind_range: String,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
@@ -1012,7 +1016,7 @@ impl Site {
                     text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
                     function: b.circuit.as_ref().map(|c| c.kind.as_str()).unwrap_or(""),
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
-                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
+                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member) || b.flags.iter().any(|f| f == "size"),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
@@ -1094,7 +1098,7 @@ impl Site {
                     Some(p) if p >= lo as i64 && p <= hi as i64 => {}
                     _ => return false,
                 }
-            } else if !q.variants && v.member {
+            } else if !q.variants && v.member && time.is_none() {
                 return false;
             }
             if !q.variants && v.variant {

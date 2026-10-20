@@ -1,8 +1,29 @@
 # REDSTONEPEDIA (the website)
 
-REDSTONEPEDIA lists every build of this repository with its properties: the archived 3x3 piston
-doors, the clocks (with their extendable families expanded member by member) and, as they land,
-the circuit studies. Live: https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+REDSTONEPEDIA lists ONE world-best design per kind of build (vjeux 2026-10-20 21:47Z: "I want to
+have ONE world best implementation of each of these instead of a bunch of working but mid
+implementations"): one 3x3 piston door card, one clock card, one card per circuit kind. Live:
+https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+
+## One design per kind (`crates/site/src/kinds.rs`)
+
+- **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
+  restart rule, a two-way flying machine, a sand elevator; else the kind's first word). A
+  non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
+  metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
+  dropped. The coordinator's picks where that rule is ambiguous are `PICKS` / `SIZE_PICKS`
+  (shulker loader: the 1-wide one; TNT duper: tnt-launch-15b; BUD: bud-observer; reach 2: the
+  1-wide flat rider). A parametric kind (reach, count, length, period; flying machines by
+  direction and load) keeps the best design of every size: one card (its smallest design), and on
+  each of their pages a table of every size with the families that build the sizes in between.
+  The base designs of those families stay as generators (a page, no card, no table row).
+- **Doors**: one card, the overall smallest solid door; every board's record keeps its page (no
+  card) and every record's page has the table of records.
+- **Clocks**: one card; the best clock of every period keeps its page (no card, found by the time
+  search); every clock's page has the table of periods and the families of every period between.
+- Everything else is not published at all (no card, page or search hit); the files stay in the
+  repository. `mctas site kinds` prints the plan (every kind, its pick or its rows, how many
+  designs it leaves out).
 
 Everything is Rust: `crates/site` (the generator, `mctas site ...`), `crates/site-model` (the data
 model, the query engine and the card markup, shared by both sides and unit-tested natively) and

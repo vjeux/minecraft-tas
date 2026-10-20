@@ -375,6 +375,13 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
+    // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
+        let detects = c.metrics.iter().find(|(k, _)| k == "detects").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !detects.split_whitespace().any(|w| w == "update") {
+            out.push("It does not notice pure block updates: a neighbour changing while the watched block itself stays the same gives no pulse.".to_string());
+        }
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),

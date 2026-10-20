@@ -353,6 +353,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 // g ticks: the builder's period (clockinfra: "show that as the clock's time")
                 pulse_every: catalog::parse_gaps(&r.gaps).filter(|g| !g.is_empty() && !catalog::uneven(g)).map(|g| g[0]).filter(|g| *g > 0 && *g < r.period),
                 reload: reload_of.get(&r.file).cloned().unwrap_or_default(),
+                kind_range: String::new(),
                 warmup: r.warmup,
                 on: r.on,
                 edges: r.edges,
