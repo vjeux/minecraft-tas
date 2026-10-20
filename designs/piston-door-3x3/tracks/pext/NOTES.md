@@ -79,6 +79,15 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   are 5 islands with no electrical path; each must start from an event it can see, and with the
   lever on top two islands never start (u0-l2 moves the lever). A search that tracks island starts
   (which islands have seen a change) would prune unwirable trains; not built.
+* `--islands` (02:00): the door's free cells (never holding a block in either edge's run, inside
+  the design's box minus input cells) split into 4-connected islands; a pulse needs an island that
+  can feed its piston (a free cell next to it or next to the cell above it) to have seen a change
+  next to it on that edge (per tick, so a piston that extends and comes back counts), or to hold /
+  see the lever. With it: w1-k2, m69T mm02, u0, u0-l2, u0-l4 have no train in 3M pairs; u2 has
+  one (`u2-train-isl.ideal`, 18 pulses + close-only (-1,-3), open 33 / close 33, redsim 32x3 +
+  game). satwire loop on u2 with islands: cores always SU (-1,-2), fed only by the 2-cell
+  bottom-left island and pulsed 4-6 times per edge in every train (priced x8: no train). Also
+  `--prefix a+b@t` (forced first pulses, merged, at a tick) and `--after cell=t`.
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,
