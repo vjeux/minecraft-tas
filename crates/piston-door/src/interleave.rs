@@ -321,6 +321,7 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
     (None, nodes.len(), best)
 }
 
+#[derive(Clone)]
 pub struct Options {
     pub extra_offsets: u32,
     pub cycles: u32,
@@ -350,6 +351,74 @@ pub struct Options {
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
 /// `<stem>-train.ideal` for each plan with a train.
+/// `--sat-loop N`: search a train, wire it with `door satwire <sat-args>`, and while satwire
+/// answers UNSAT, make the inputs next to its core pistons dearer (their search cost doubles) and
+/// search again; stops at the first train satwire wires and judges (`JUDGE OK`).
+pub fn sat_loop(path: &Path, o: &Options, iters: usize, sat_args: &str, dir: &Path) -> Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let exe = std::env::current_exe()?;
+    let mut o = o.clone();
+    o.quiet = true;
+    let text = std::fs::read_to_string(path)?;
+    let s = Schedule::parse(&text)?;
+    let mut cells: Vec<Pos> = Vec::new();
+    for open in [true, false] {
+        for (_, p, st) in s.resolved(open)? {
+            if st.is_some() && !cells.contains(&p) {
+                cells.push(p);
+            }
+        }
+    }
+    for i in 0..iters {
+        let plan = dir.join(format!("loop{i}.ideal"));
+        let summary = run(path, &o, Some(&plan))?;
+        let costs: Vec<String> = o.cost.iter().map(|(c, k)| format!("{},{},{}={k}", c[0], c[1], c[2])).collect();
+        println!("iteration {i} (costs {}): {summary}", costs.join(" "));
+        if !summary.starts_with("ONE TRAIN") {
+            break;
+        }
+        let out_dir = dir.join(format!("sat{i}"));
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.arg("door").arg("satwire").arg(&plan).args(sat_args.split_whitespace()).arg("--out").arg(&out_dir);
+        let res = cmd.output()?;
+        let log = format!("{}{}", String::from_utf8_lossy(&res.stdout), String::from_utf8_lossy(&res.stderr));
+        std::fs::write(dir.join(format!("sat{i}.log")), &log)?;
+        if log.contains("JUDGE OK with --extra-offsets") {
+            println!("  SATWIRE WIRED AND JUDGED IT: {} (plan {})", out_dir.display(), plan.display());
+            return Ok(());
+        }
+        let Some(core) = log.lines().find(|l| l.contains("core (pistons")) else {
+            println!("  satwire gave no core: {}", log.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or(""));
+            break;
+        };
+        println!("  satwire: {}", core.trim());
+        // the core's pistons as (x, y)
+        let mut pistons: Vec<(i32, i32)> = Vec::new();
+        for part in core.split('(').skip(2) {
+            let inner = part.split(')').next().unwrap_or("");
+            let v: Vec<i32> = inner.split(',').filter_map(|t| t.trim().parse::<i32>().ok()).collect();
+            if v.len() == 2 {
+                pistons.push((v[0], v[1]));
+            }
+        }
+        let mut bumped = false;
+        for c in &cells {
+            if pistons.iter().any(|(x, y)| (c[0] - x).abs() + (c[1] - y).abs() <= 1) {
+                match o.cost.iter_mut().find(|(p, _)| p == c) {
+                    Some((_, k)) => *k *= 2,
+                    None => o.cost.push((*c, 2)),
+                }
+                bumped = true;
+            }
+        }
+        if !bumped {
+            println!("  no input next to the core pistons {pistons:?}: stopping");
+            break;
+        }
+    }
+    Ok(())
+}
+
 pub fn batch(paths: &[std::path::PathBuf], o: &Options, out_dir: Option<&Path>, threads: usize) -> Result<()> {
     if let Some(dir) = out_dir {
         std::fs::create_dir_all(dir)?;

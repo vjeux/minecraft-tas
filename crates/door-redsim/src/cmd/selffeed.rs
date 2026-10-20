@@ -111,10 +111,17 @@ pub struct InterleaveArgs {
     /// `x,y,z+x,y,z[+...]=k` (repeatable); any subset of them fires together as one tick.
     #[arg(long)]
     pocket: Vec<String>,
+    /// Search, wire with `door satwire <--sat-args>`, and on UNSAT make the inputs next to the
+    /// core pistons dearer and search again, up to this many rounds (needs --search, --out-dir).
+    #[arg(long)]
+    sat_loop: Option<usize>,
+    /// The satwire arguments for --sat-loop (one string, split on spaces; no --out).
+    #[arg(long, default_value = "")]
+    sat_args: String,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -144,6 +151,11 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
     }
     let quiet = schedule.len() > 1;
     let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets };
+    if let Some(n) = sat_loop {
+        let dir = out_dir.ok_or_else(|| anyhow::anyhow!("--sat-loop needs --out-dir"))?;
+        anyhow::ensure!(search.is_some(), "--sat-loop needs --search");
+        return crate::interleave::sat_loop(&schedule[0], &o, n, &sat_args, &dir);
+    }
     if quiet {
         return crate::interleave::batch(&schedule, &o, out_dir.as_deref(), threads);
     }
