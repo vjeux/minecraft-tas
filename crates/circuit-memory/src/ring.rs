@@ -95,21 +95,34 @@ pub struct Ring {
     pub stone: Vec<P>,
     pub comparator: P,
     pub read: P,
+    /// Copper bulb stages after the comparator (each halves the rate: counter N * 2^bulbs).
+    pub bulbs: usize,
 }
 
 impl Ring {
     pub fn blocks(&self) -> usize {
-        self.droppers.len() + self.hoppers.len() + self.dust.len() + self.stone.len() + 1
+        self.droppers.len() + self.hoppers.len() + self.dust.len() + self.stone.len() + 1 + 2 * self.bulbs
+    }
+
+    /// The counter's N.
+    pub fn n(&self) -> usize {
+        self.droppers.len() << self.bulbs
     }
 
     /// The design text (with a caption line).
     pub fn design(&self, name: &str) -> String {
         let n = self.droppers.len();
+        let total = self.n();
         let mut d = mctas::design::Design { name: name.to_string(), ..Default::default() };
-        d.meta.insert("circuit".into(), format!("counter {n}"));
+        d.meta.insert("circuit".into(), format!("counter {total}"));
         d.ports.insert("input".into(), X);
         let face = sub(self.comparator, self.read);
-        d.ports.insert("output".into(), add(self.comparator, face));
+        let at = |k: i32| add(self.read, [face[0] * k, 0, face[2] * k]);
+        d.ports.insert("output".into(), at(2 * self.bulbs as i32 + 2));
+        for j in 0..self.bulbs as i32 {
+            d.blocks.insert(at(2 * j + 2), "minecraft:waxed_copper_bulb[lit=false,powered=false]".into());
+            d.blocks.insert(at(2 * j + 3), format!("minecraft:comparator[facing={},mode=compare,powered=false]", dir_name([-face[0], 0, -face[2]])));
+        }
         for i in 0..n {
             let (a, h, b) = (self.droppers[i], self.hoppers[i], self.droppers[(i + 1) % n]);
             d.blocks.insert(a, format!("minecraft:dropper[facing={},triggered=false]", dir_name(sub(h, a))));
@@ -133,9 +146,12 @@ impl Ring {
         d.block_entities.insert(self.read, "{Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}".into());
         let direct = self.droppers.iter().filter(|p| dist(**p, X) == 1).count();
         let caption = format!(
-            "# Counter {n}, dropper ring, {} blocks (track memory, `mctas circuit memory ring --n {n}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n} (level style).\n",
+            "# Counter {total}, dropper ring{}, {} blocks (track memory, `mctas circuit memory ring --n {n}{}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n}{} (level style).\n",
+            if self.bulbs > 0 { format!(" + {} copper bulb{}", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.blocks(),
+            if self.bulbs > 0 { format!(" --bulbs {}", self.bulbs) } else { String::new() },
             if self.dust.is_empty() { String::new() } else { format!(", {} through {} dust", n - direct, self.dust.len()) },
+            if self.bulbs > 0 { format!(", and toggles a chain of {} bulb T flip-flop{} (bulb + comparator), each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
         );
         format!("{caption}{}", d.to_text())
     }
@@ -143,7 +159,7 @@ impl Ring {
 
 /// The smallest rings for counter `n`: every cycle over the fired cells with valid hoppers, its
 /// best comparator; sorted by blocks, at most `keep`.
-pub fn search(n: usize, max_dust: usize, keep: usize) -> Vec<Ring> {
+pub fn search(n: usize, max_dust: usize, keep: usize, bulbs: usize) -> Vec<Ring> {
     let mut found: Vec<Ring> = Vec::new();
     let mut seen: BTreeSet<Vec<P>> = BTreeSet::new();
     for lay in layouts(max_dust) {
@@ -173,7 +189,7 @@ pub fn search(n: usize, max_dust: usize, keep: usize) -> Vec<Ring> {
                         ds2 = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
                         hs2 = hs.iter().rev().copied().collect();
                     }
-                    if let Some(r) = finish(&lay, &ds2, &hs2) {
+                    if let Some(r) = finish(&lay, &ds2, &hs2, bulbs) {
                         let mut key: Vec<P> = r.droppers.iter().chain(r.hoppers.iter()).chain(r.dust.iter()).copied().collect();
                         key.sort();
                         if seen.insert(key) {
@@ -222,7 +238,7 @@ fn cycles(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mu
 }
 
 /// Check a cycle's hoppers, add the floors and the best comparator.
-fn finish(lay: &Layout, ds: &[P], hs: &[P]) -> Option<Ring> {
+fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
     let n = ds.len();
     let containers: BTreeSet<P> = ds.iter().chain(hs.iter()).copied().collect();
     if hs.iter().any(|h| ds.contains(h) || lay.dust.contains(h) || *h == X) {
@@ -244,27 +260,41 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P]) -> Option<Ring> {
     let emitters: BTreeSet<P> = lay.dust.iter().copied().chain(std::iter::once(X)).collect();
     let mut best: Option<Ring> = None;
     for &d in ds {
-        for u in HORIZ {
-            let c = add(d, u);
-            let o = add(c, u);
-            let fl = add(c, [0, -1, 0]);
-            if used.contains(&c) || used.contains(&o) || emitters.contains(&fl) {
-                continue;
-            }
+        'dir: for u in HORIZ {
             let side = [u[2], 0, u[0]];
-            if [add(c, side), sub(c, side)].iter().any(|s| emitters.contains(s)) {
-                continue;
-            }
-            // the output cell must not touch the input or a dust (it would read them)
-            if DIRS.iter().any(|dd| emitters.contains(&add(o, *dd))) {
-                continue;
-            }
             let mut st = stone.clone();
-            if !used.contains(&fl) {
-                st.push(fl);
+            let mut taken = used.clone();
+            // comparator j (0 = the ring's) at d + (2j+1)u, bulb j+1 in front of it; the last
+            // comparator's front is the output
+            for j in 0..=bulbs {
+                let c = add(d, [u[0] * (2 * j as i32 + 1), 0, u[2] * (2 * j as i32 + 1)]);
+                let o = add(c, u);
+                let fl = add(c, [0, -1, 0]);
+                if taken.contains(&c) || taken.contains(&o) || emitters.contains(&fl) {
+                    continue 'dir;
+                }
+                if [add(c, side), sub(c, side)].iter().any(|s| emitters.contains(s) || (j > 0 && taken.contains(s))) {
+                    continue 'dir;
+                }
+                // the output cell (or the bulb there) must not touch the input or a dust
+                if DIRS.iter().any(|dd| emitters.contains(&add(o, *dd))) {
+                    continue 'dir;
+                }
+                // a bulb's sides must be free of ring blocks too (nothing else may power it)
+                if j < bulbs && [add(o, side), sub(o, side), add(o, UP), add(o, [0, -1, 0])].iter().any(|s| taken.contains(s)) {
+                    continue 'dir;
+                }
+                taken.insert(c);
+                if !taken.contains(&fl) {
+                    st.push(fl);
+                    taken.insert(fl);
+                }
+                if j < bulbs {
+                    taken.insert(o);
+                }
             }
             // the stone starts in the dropper the comparator reads
-            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), stone: st, comparator: c, read: d };
+            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), stone: st, comparator: add(d, u), read: d, bulbs };
             if best.as_ref().is_none_or(|b| r.blocks() < b.blocks()) {
                 best = Some(r);
             }
@@ -274,21 +304,22 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P]) -> Option<Ring> {
 }
 
 /// `circuit memory ring`: write the smallest rings for each N.
-pub fn run(ns: &[usize], max_dust: usize, keep: usize, out: &Path) -> Result<()> {
+pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     for &n in ns {
         if n < 2 {
             bail!("--n: at least 2");
         }
-        let rings = search(n, max_dust, keep);
+        let rings = search(n, max_dust, keep, bulbs);
+        let total = n << bulbs;
         if rings.is_empty() {
-            println!("counter {n}: no ring with at most {max_dust} dust");
+            println!("counter {total}: no ring of {n} with at most {max_dust} dust and {bulbs} bulbs");
             continue;
         }
         for (i, r) in rings.iter().enumerate() {
-            let name = format!("counter{n}-ring-{}b-{i}", r.blocks());
+            let name = format!("counter{total}-ring{n}{}-{}b-{i}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() }, r.blocks());
             std::fs::write(out.join(format!("{name}.txt")), r.design(&name))?;
-            println!("counter {n}: {} blocks ({} dust) -> {name}", r.blocks(), r.dust.len());
+            println!("counter {total}: {} blocks ({} dust) -> {name}", r.blocks(), r.dust.len());
         }
     }
     Ok(())
