@@ -122,6 +122,11 @@ pub struct LiftArgs {
     /// Land the dropping boat on waterlogged big dripleaves (on dirt) that tilt and let it through.
     #[arg(long)]
     pub dripleaf: bool,
+    /// A chest boat carrying N cobblestone, and a column of hoppers at x = 2 from the upper floor
+    /// down to the lower channel's ceiling: the top one pulls from the boat above it, the bottom one
+    /// pushes into the boat below it (an item loop lifted by the boat).
+    #[arg(long, default_value_t = 0)]
+    pub chest: u32,
     /// Write the design here (else print it).
     #[arg(long)]
     pub out: Option<PathBuf>,
@@ -133,7 +138,7 @@ pub struct LiftArgs {
 /// channel (y = H, over a floor x = 1..=L) fed by the column's top sources, a 2-cell drop gap
 /// (x = L+1..=L+2), a landing plate row at x = L+2 (y = 0), end wall x = L+3, a ceiling 2 above the
 /// upper water over the column. Lanes z = 0..=1.
-pub fn build_lift(l: i32, h: i32, tripwire: bool, dripleaf: bool, name: &str) -> Result<Design> {
+pub fn build_lift(l: i32, h: i32, tripwire: bool, dripleaf: bool, chest: u32, name: &str) -> Result<Design> {
     if !(1..=5).contains(&l) || !(2..=6).contains(&h) {
         bail!("L 1..=5 (the upper current reaches 7 cells), H 2..=6");
     }
@@ -183,6 +188,13 @@ pub fn build_lift(l: i32, h: i32, tripwire: bool, dripleaf: bool, name: &str) ->
         }
     }
     d.ports.insert("output".into(), [0, 0, 0]);
+    if chest > 0 {
+        // hoppers at x = 2, lane z = 0, from the upper floor (y = h - 1, under the upper water) down
+        // to y = 1 (over the lower channel), all facing down
+        for y in 1..h {
+            d.blocks.insert([2, y, 0], "minecraft:hopper[enabled=true,facing=down]".to_string());
+        }
+    }
     if dripleaf {
         // the drop lands on the first gap cell: waterlogged big dripleaves there (on dirt) carry the
         // boat until they tilt (10 + 10 gt), then reset 100 gt later
@@ -206,19 +218,34 @@ pub fn build_lift(l: i32, h: i32, tripwire: bool, dripleaf: bool, name: &str) ->
             );
         }
     }
-    d.entities.push(mctas::design::EntitySpec { kind: "minecraft:oak_boat".into(), pos: [(l as f64 + 2.0) / 2.0 + 0.5, 0.0, 1.0], nbt: None });
+    let (kind, nbt) = if chest > 0 {
+        ("minecraft:oak_chest_boat", Some(format!("{{Items:[{{Slot:0b,id:\"minecraft:cobblestone\",count:{chest}}}]}}")))
+    } else {
+        ("minecraft:oak_boat", None)
+    };
+    d.entities.push(mctas::design::EntitySpec { kind: kind.into(), pos: [(l as f64 + 2.0) / 2.0 + 0.5, 0.0, 1.0], nbt });
     Ok(d)
 }
 
 pub fn run_lift(a: LiftArgs) -> Result<()> {
-    let suffix = format!("{}{}", if a.tripwire { "-tripwire" } else { "" }, if a.dripleaf { "-dripleaf" } else { "" });
+    let suffix = format!(
+        "{}{}{}",
+        if a.tripwire { "-tripwire" } else { "" },
+        if a.dripleaf { "-dripleaf" } else { "" },
+        if a.chest > 0 { format!("-chest{}", a.chest) } else { String::new() }
+    );
     let name = a.name.clone().unwrap_or_else(|| format!("clk-misc-boat-lift-l{}h{}{suffix}", a.l, a.h));
-    let d = build_lift(a.l, a.h, a.tripwire, a.dripleaf, &name)?;
+    let d = build_lift(a.l, a.h, a.tripwire, a.dripleaf, a.chest, &name)?;
     let trip = format!(
-        "{}{}",
+        "{}{}{}",
         if a.tripwire { "\n# A tripwire string hangs across the boat's flight just above the column: the boat trips it going up and coming down." } else { "" },
         if a.dripleaf {
             "\n# The boat drops onto waterlogged big dripleaves: they tilt under it (unstable 10 gt, partial 10 gt, full) and let it fall into\n# the channel, and spring back 100 gt later."
+        } else {
+            ""
+        },
+        if a.chest > 0 {
+            "\n# The boat is a chest boat carrying cobblestone: a hopper in the upper floor pulls an item out as it floats over, hoppers drop\n# it down, and the bottom hopper (over the lower channel) pushes it back in as the boat passes under: an item loop lifted by\n# the boat."
         } else {
             ""
         }

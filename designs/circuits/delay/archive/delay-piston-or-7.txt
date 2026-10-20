@@ -1,0 +1,29 @@
+# archived 2026-10-20T00:04Z from designs/circuits/delay/tracks/delay/delay-piston-or-7.txt by mctas circuit archive
+# CIRCUIT: delay-piston-or-7 delay N 7 gt, min-pulse 4 gt, min-gap 4 gt, 13 blocks, 4x2x4, robust
+# Delay line N = 7 gt (track delay): a sticky piston pushes a redstone block one cell (it arrives 3
+# gt after the input rises and leaves 1 gt after it falls); the output touches the block's new cell,
+# and a repeater behind that cell feeds the output again 2 gt later through a stone and two dusts:
+# the OR of the 3/1 and 5/3 copies is a 3/3 delay; the OR lands on a dust and 1 repeater(s) (delays
+# [2]) add 4 gt
+name: delay-piston-or-7
+circuit: delay
+port input: 0 1 -3
+port output: -1 1 1
+origin: -1 0 -2
+palette:
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  B minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=south]
+  r minecraft:redstone_wire
+  s minecraft:stone
+layer 0:
+  .
+  .
+  ..s
+  ssss
+layer 1:
+  .S
+  .R
+  ..As
+  Brrr

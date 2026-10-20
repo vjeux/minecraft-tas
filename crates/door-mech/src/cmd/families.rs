@@ -42,10 +42,15 @@ pub struct MechmutArgs {
     /// Cells no piece may cover and the cycle may never occupy, "x,y;x,y" (room for an observer).
     #[arg(long)]
     reserve: Option<String>,
+    /// Keep a variant only when its schedule, as a `door ideal` plan, WORKS in redsim (4
+    /// positions, between-ticks inputs): the macro model accepts moves the game refuses.
+    #[arg(long)]
+    validate: bool,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate } = args;
+    crate::mechmut::VALIDATE.store(validate, std::sync::atomic::Ordering::Relaxed);
     let keep: Vec<crate::families::Pc> = match keep {
         Some(s) => s.split(|c: char| c == ';' || c.is_whitespace()).map(str::trim).filter(|t| !t.is_empty()).map(crate::mechspace::parse_piece).collect::<Result<_>>()?,
         None => Vec::new(),

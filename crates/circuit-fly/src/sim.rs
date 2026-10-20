@@ -70,13 +70,10 @@ pub fn simulate(m: &Machine, o: &SimOptions) -> FlyReport {
     simulate_logged(m, o, &mut log)
 }
 
-/// [`simulate`], with the trace lines (`o.trace`) appended to `log`.
-pub fn simulate_logged(m: &Machine, o: &SimOptions, log: &mut Vec<String>) -> FlyReport {
-    let mut rec = Recorder::new(&m.design().blocks, &m.stops, kick_window(m));
-    let (blocks, stops) = match parse(m) {
-        Ok(v) => v,
-        Err(e) => return report::classify(m, &rec, End::Error(0, format!("not modeled by redsim: {e}"))),
-    };
+/// The corridor world with the stop blocks and the machine placed (a `last` kick's block
+/// withheld), and the corridor's box; or why redsim cannot run it.
+pub fn build(m: &Machine, o: &SimOptions) -> Result<(World, (Pos, Pos)), String> {
+    let (blocks, stops) = parse(m).map_err(|e| format!("not modeled by redsim: {e}"))?;
     let (lo, hi) = m.corridor(o.distance, o.margin);
     let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     let mut w = World::new(bp(lo), size);
@@ -99,6 +96,55 @@ pub fn simulate_logged(m: &Machine, o: &SimOptions, log: &mut Vec<String>) -> Fl
             }
         }
     }
+    Ok((w, (lo, hi)))
+}
+
+/// Apply the kick's inputs due at tick `t` (between ticks).
+pub fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Result<(), String> {
+    while actions.first().is_some_and(|(at, _)| *at == t) {
+        let (_, a) = actions.remove(0);
+        match a {
+            Action::Place { pos, state, .. } => {
+                let b = Block::parse(&state).map_err(|e| format!("kick block not modeled: {e}"))?;
+                w.set_block(bp(pos), b, flags::ALL);
+            }
+            Action::Use { pos } => {
+                if !w.use_block(bp(pos)) {
+                    return Err(format!("a right-click on {} is not modeled", w.get(bp(pos))));
+                }
+            }
+            Action::Clear { pos } => {
+                w.set_block(bp(pos), Block::Air, flags::ALL);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The machine's every frame (non-air cells, stops included) for ticks 0..=ticks, or why it
+/// cannot run (the type identity compares runs with these).
+pub fn frames(m: &Machine, o: &SimOptions, ticks: u32) -> Result<Vec<Vec<(BlockPos, Block)>>, String> {
+    let (mut w, _) = build(m, o)?;
+    let mut actions = m.clock.actions();
+    let mut out = Vec::new();
+    for t in 0..=ticks {
+        apply_due(&mut w, &mut actions, t)?;
+        out.push(w.blocks());
+        if !w.drops.is_empty() || !w.errors.is_empty() {
+            break;
+        }
+        w.tick();
+    }
+    Ok(out)
+}
+
+/// [`simulate`], with the trace lines (`o.trace`) appended to `log`.
+pub fn simulate_logged(m: &Machine, o: &SimOptions, log: &mut Vec<String>) -> FlyReport {
+    let mut rec = Recorder::new(&m.design().blocks, &m.stops, kick_window(m));
+    let (mut w, (lo, hi)) = match build(m, o) {
+        Ok(v) => v,
+        Err(e) => return report::classify(m, &rec, End::Error(0, e)),
+    };
     let k = m.distance.unwrap_or(o.distance).max(1) as u32;
     let horizon = if o.horizon > 0 { o.horizon } else { 200 + 60 * k };
     let mut actions = m.clock.actions();
@@ -106,25 +152,9 @@ pub fn simulate_logged(m: &Machine, o: &SimOptions, log: &mut Vec<String>) -> Fl
     let mut prev: Vec<(BlockPos, Block)> = Vec::new();
     let mut idle_since: Option<u32> = None;
     let mut t = 0u32;
-    let end = 'run: loop {
-        while actions.first().is_some_and(|(at, _)| *at == t) {
-            let (_, a) = actions.remove(0);
-            match a {
-                Action::Place { pos, state, .. } => match Block::parse(&state) {
-                    Ok(b) => {
-                        w.set_block(bp(pos), b, flags::ALL);
-                    }
-                    Err(e) => break 'run End::Error(t, format!("kick block not modeled: {e}")),
-                },
-                Action::Use { pos } => {
-                    if !w.use_block(bp(pos)) {
-                        break 'run End::Error(t, format!("a right-click on {} is not modeled", w.get(bp(pos))));
-                    }
-                }
-                Action::Clear { pos } => {
-                    w.set_block(bp(pos), Block::Air, flags::ALL);
-                }
-            }
+    let end = loop {
+        if let Err(e) = apply_due(&mut w, &mut actions, t) {
+            break End::Error(t, e);
         }
         let now = w.blocks();
         let strings: Vec<(Pos, String)> = now.iter().map(|(p, b)| (p.arr(), b.to_string())).collect();

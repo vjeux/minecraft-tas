@@ -1,0 +1,19 @@
+# Dropper T flip-flop: two droppers facing each other hold one stone; the input above A powers A and the dust on B (which powers B): each pulse fires both, the stone changes side; a comparator reads B.
+name: tff-dropper2
+circuit: tff
+port input: 0 1 0
+port output: 2 0 0
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  A minecraft:dropper[facing=east,triggered=false]
+  B minecraft:dropper[facing=west,triggered=false]
+  D minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=side]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+layer -1:
+  ..S
+layer 0:
+  ABC
+layer 1:
+  .D

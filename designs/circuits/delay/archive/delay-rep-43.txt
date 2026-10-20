@@ -1,0 +1,17 @@
+# archived 2026-10-19T23:51Z from designs/circuits/delay/tracks/delay/delay-rep-43.txt by mctas circuit archive
+# CIRCUIT: delay-rep-43 delay N 14 gt, min-pulse 8 gt, min-gap 8 gt, 4 blocks, 2x2x1, robust
+# Repeater line (track delay): 2 repeater(s) with delays 4,3 redstone ticks in a row, each reading
+# the one before: N = 2 x sum = 14 gt
+name: delay-rep-43
+circuit: delay
+port input: 0 1 0
+port output: 2 1 0
+origin: 1 0 0
+palette:
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:stone
+  r minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+layer 0:
+  SS
+layer 1:
+  rR

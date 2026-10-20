@@ -1,0 +1,23 @@
+# slime-free DPE base (T3a): lever south of B's extended cell powers B there; a delay-2 repeater
+# reading the lever powers A through P (4 gt late on both edges). Missing: B's rest pulse.
+name: base-sf1
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 3 1 2 lever
+port payload: 3 1 1
+palette:
+  A minecraft:sticky_piston[facing=east]
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  R minecraft:repeater[delay=2,facing=east]
+  P minecraft:stone
+  S minecraft:stone
+layer 0:
+  ......
+  ......
+  ..SS..
+layer 1:
+  ......
+  .ABG..
+  .PRL..

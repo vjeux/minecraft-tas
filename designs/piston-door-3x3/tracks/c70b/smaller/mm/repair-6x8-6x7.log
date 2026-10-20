@@ -1,0 +1,13 @@
+[mechmut] seed does not solve within the cap (or no FULL frame): stone(-1,0) stone(-1,1) stone(-1,2) SU(0,-2) SD(0,4) SU(1,-2) SD(1,4) SD(2,3) SD(2,4) SU(3,-3) SU(3,-1) SW(3,1) SW(4,-1) SW(4,0) SW(4,1) SW(4,2) SW(4,3) Bx { x0: -1, y0: -3, w: 6, h: 8 }
+[mechmut] seed does not solve within the cap (or no FULL frame): stone(-1,0) stone(-1,1) stone(-1,2) SU(0,-2) SD(0,4) SU(1,-2) SD(1,4) SD(2,3) SD(2,4) SU(3,-2) SW(3,1) SW(4,-1) SW(4,0) SW(4,1) SW(4,2) SW(4,3) Bx { x0: -1, y0: -2, w: 6, h: 7 }
+[mechmut] round 1: 198 neighbours, 3 kept (0 by replay) (680s)
+[mechmut]   best: connect no: UNDECIDED (cap hit somewhere): lever K0: no open state reachable (regions ever awake 0b1; pistons never fed from an awake region: Sdown@(0,4) Sup@(1,-2) Sdown@(1,4) Sdown@(2,3) Sdown@(2,4) Sup@(3,-2) Swest@(3,1) Swest@(4,-1) Swest@(4,0) Swest@(4,1) Swest@(4,3)) never-fed 11 unfed 1 class X pistons 12 events 35: 6 7 -1 -2 stone(-1,0) stone(-1,1) stone(-1,2) SU(0,-2) SD(0,4) SU(1,-2) SD(1,4) SD(2,3) SD(2,4) SU(3,-2) SW(3,1) SW(4,-1) SW(4,0) SW(4,1) SW(4,3)
+[mechmut] round 2: 275 neighbours, 23 kept (9 by replay) (863s)
+[mechmut]   best: connect no: NOT wirable: lever K0: no open state reachable (regions ever awake 0b1001; pistons never fed from an awake region: Sdown@(0,4) Sdown@(1,4) Sdown@(2,4) Swest@(3,1) Swest@(4,0) Swest@(4,1) Swest@(4,3)) never-fed 7 unfed 2 class X pistons 12 events 34: 6 8 -1 -3 stone(-1,0) stone(-1,1) stone(-1,2) SU(0,-2) SD(0,4) SU(1,-2) SD(1,4) SD(2,4) SU(3,-3) SU(3,-1) SW(3,1) SW(4,-1) SW(4,0) SW(4,1) SW(4,3)
+[mechmut] export 1: no input cell for pulse PSwest@(2,1,0)
+[mechmut] export 2: no input cell for pulse PSwest@(2,1,0)
+[mechmut] export 3: no input cell for pulse PSwest@(2,1,0)
+[mechmut] export 4: no input cell for pulse PSwest@(2,1,0)
+[mechmut] export 5: no input cell for pulse PSwest@(2,1,0)
+[mechmut] export 6: no input cell for pulse PSwest@(2,1,0)
+[mechmut] 26 variants kept
