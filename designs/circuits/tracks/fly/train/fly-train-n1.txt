@@ -12,7 +12,7 @@ extend blocks: 5 + 3n
 extend rule: one more trailer: a sticky piston facing back and a rider observer on the last trailer's slime, and a new slime against that piston's face
 extend n: 1..16
 extend base: 1
-extend generator: mctas circuit fly gen train --base designs/circuits/fly/archive/fly-horizontal-6b-10gt-e2cf52.txt --n {n} --out {out}
+extend generator: mctas circuit fly gen train --base designs/circuits/tracks/fly/layouts/fly-horizontal-6b-10gt-e2cf52.txt --n {n} --out {out}
 circuit: flying-machine
 distance: 24
 travel: 1 0 0
