@@ -854,10 +854,11 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         return String::new();
     }
     let mut md = String::from(
-        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.\n",
+        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.\n",
     );
     for (name, kind, members) in cards {
         let (label, unit) = axis_label(&members[0].axis);
+        let label = if label.is_empty() { "value".to_string() } else { label };
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let vals: Vec<i64> = members.iter().filter_map(|r| axis_number(&r.axis)).collect();
         let meta = |k: &str| members.iter().find_map(|r| circuits.get(&r.file).and_then(|c| c.clock.design.meta.get(k).cloned()));
@@ -873,7 +874,16 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         small.sort_by(|a, b| (a.blocks, axis_number(&a.axis), a.volume, &a.file).cmp(&(b.blocks, axis_number(&b.axis), b.volume, &b.file)));
         let smallest: Vec<String> = small.iter().take(2).map(|r| format!("[{}](archive/{}) ({}, {} blocks)", r.file.trim_end_matches(".txt"), r.file, r.axis, r.blocks)).collect();
         let (core, rnote) = range_text(&vals);
-        md.push_str(&format!("\n### {label} = {core}{u}{rnote}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
+        // a non-numeric axis (a BUD's detected classes): the members' values themselves
+        let heading = if vals.is_empty() {
+            let mut v: Vec<&str> = members.iter().map(|r| r.axis.as_str()).collect();
+            v.sort();
+            v.dedup();
+            v.join(" / ")
+        } else {
+            format!("{label} = {core}{u}{rnote}")
+        };
+        md.push_str(&format!("\n### {heading}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
         let fam: Vec<String> = fams
             .iter()
             .filter(|(fr, _, _)| circuits.get(&fr.file).and_then(|c| c.clock.design.meta.get("group")).is_some_and(|g| g == name))

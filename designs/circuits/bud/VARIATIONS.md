@@ -95,8 +95,28 @@ failed.
 3. Dropper / dispenser QC BUD: `TRIGGERED` on the first block update, fires 4 gt later; output
    through an observer watching it (the `TRIGGERED` change is a flags-2 shape update) or a
    comparator; re-arms only when unpowered and updated again.
-4. Hybrids: an observer watching a QC sensor (an update-only detector that outputs a clean 2 gt
-   pulse), or a QC sensor fed by an observer.
+4. Hybrids: an observer watching a QC sensor (the QC sensor's classes with an observer's clean
+   2 gt pulse), or a QC sensor fed by an observer.
 5. Relay footprints: blocks whose shape follows their neighbors (redstone wire, fences, walls,
    panes, stairs) let an observer see changes at cells it does not face (a wire's connection
    changes when T changes: an observer facing the wire detects T).
+
+## 6. Which class sets can exist (from the channels above)
+
+* `shape` only, `state` only, `update` only: impossible. A placement, a removal or a flags-3 change
+  sends both channels to the same 6 neighbors; a sensor that sees a shape-only change (an
+  observer: a real state change of the cell it faces) also sees every placement, removal and
+  flags-3 change of that cell, and a sensor that sees a pure update (a QC sensor: any block update
+  at its own cell) also sees every placement, removal and flags-3 change beside it. A shape change
+  never becomes a block update by itself (`Level.setBlock` passes shape updates on without
+  `UPDATE_NEIGHBORS`), except by breaking a block that needs support: one use only.
+* `place remove state shape`: an observer (1 block, the smallest possible BUD).
+* `place remove state update`: a QC sensor (the census finds no observer-free one under 3 blocks).
+* `place remove`: an observer behind a relay whose shape follows the PRESENCE of a solid block, not
+  its state (a fence: 2 blocks).
+* all five: two sensors (an observer for shape-only changes, a QC sensor for pure updates) with
+  their outputs merged. An observer's back is 2 cells from the cell it watches, never beside a
+  piston that is beside that cell, so it cannot trigger that piston directly: the merge takes a
+  dust run (the union of two archived designs, not built).
+* `place` only or `remove` only: a presence LEVEL (a solid block at T conducting power) and an
+  edge detector (study 1) behind it (a composition, not built).
