@@ -44,19 +44,21 @@ pub struct Var {
     pub real: Option<bool>,
     /// Piston actions fired from inside the 3x3 (carried pistons; only door blocks / QC feed them).
     pub inside: usize,
+    /// Receivers (piston at a firing cell) whose largest feeding free region has < 3 cells.
+    pub weak: usize,
     pub so: Sched,
     pub sc: Sched,
 }
 
 impl Var {
-    pub fn key(&self) -> (bool, usize, bool, usize, usize, usize, u8, usize) {
+    pub fn key(&self) -> (bool, usize, bool, usize, usize, usize, usize, u8, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
             'C' => 2,
             _ => 3,
         };
-        (self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.unfed, self.pistons, cr, self.events)
+        (self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -261,6 +263,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         never,
         real,
         inside,
+        weak: w.weak,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
     })
@@ -359,7 +362,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, so: Vec::new(), sc: Vec::new() });
+                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, so: Vec::new(), sc: Vec::new() });
                 }
             }
         }
@@ -438,14 +441,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,
