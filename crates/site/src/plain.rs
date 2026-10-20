@@ -113,7 +113,9 @@ pub fn one_liner(c: &Circuit) -> String {
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
             let instant = m(c, "class") == "instant" || m(c, "latency") == "0 gt";
-            format!("{}{}.", gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
+            // two-input gates introduce their inputs (critique: "A and B are never introduced")
+            let two = !matches!(f, "not" | "buffer");
+            format!("{}{}{}.", if two { "It has two inputs, A and B. " } else { "" }, gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
         }
         "rs-latch" => "Press S and the output turns on and stays on; press R and it turns off and stays off.".to_string(),
         "d-latch" => "While E is on, the output copies D; when E turns off, the output keeps the last value.".to_string(),
@@ -163,11 +165,14 @@ pub fn one_liner(c: &Circuit) -> String {
                 "place" => "placed",
                 "remove" => "removed",
                 "state" => "changed",
-                "shape" => "grows (a shape-only change)",
+                "shape" => "grows (like a crop)",
                 "update" => "updated with nothing changing",
                 other => other,
             }).collect();
-            format!("Fires its output when a block next to it (the TARGET cell) is {}, even though nothing powers it.", if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") })
+            format!(
+                "Fires its output when the block next to it (the cell marked TARGET in the 3D view) is {}, without any redstone signal reaching it: a block update detector (BUD).",
+                if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") }
+            )
         }
         "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { m(c, "rate").to_string() }),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
@@ -271,7 +276,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
         "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
-        "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: set the speed to 100× and watch OUT change", number(&c.kind)),
+        "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: press the speed button until it shows 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
         "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
         "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
@@ -386,6 +391,15 @@ pub fn clock(b: &Build) -> (String, String, String) {
 /// mechanism); what it does and why build it are in the heading, on the first screen.
 pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     let try_line = match (&b.circuit, b.kind.as_str()) {
+        (Some(c), _) if b.group == "Sand elevator" && has_viewer => format!(
+            "Flip the lever marked IN (or tap IN under the view): the sand rises {} blocks; flip it back and it falls into place.",
+            number(&c.kind)
+        ),
+        // the item counters: what sets the count (critique: "nothing says HOW to load the items")
+        (Some(c), _) if !c.layout_key.is_empty() && base(&c.kind) == "counter" => format!(
+            "{} Its count is the number of items in its dropper: load another number of items (stone here) to make it react on that count.",
+            try_it(c, has_viewer)
+        ),
         (Some(c), _) => try_it(c, has_viewer),
         (None, "door") => door(b).2,
         (None, "clock") => clock(b).2,
@@ -410,7 +424,7 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
 /// Why you would build it, for any build (the heading's second line).
 pub fn why_any(b: &Build) -> String {
     match (&b.circuit, b.kind.as_str()) {
-        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor: a block of sand that rises and falls back with one lever.".to_string(),
+        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor that rises and falls back with one lever.".to_string(),
         (Some(c), _) => why_build(c),
         (None, "door") => door(b).1,
         (None, "clock") => clock(b).1,
