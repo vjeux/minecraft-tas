@@ -1,32 +1,33 @@
 name: pulse-rise-psub-u4
-# Extendable family rise-psub-u4 (n = 0): rising-edge with L = 13 + 16n gt, 18 + 4n blocks. the piston-subtract limiter (limiter-psub-u4) judged as a rising-edge detector. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family rise-psub-u4 --n N --out FILE.
+# Extendable family rise-psub-u4 (n = 0): rising-edge with L = 13 + 16n gt, 25 + 4n blocks. the piston-subtract limiter (limiter-psub-u4) judged as a rising-edge detector. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family rise-psub-u4 --n N --out FILE.
 circuit: rising-edge
 group: pulse-rise-psub
 extend family: pulse-rise-psub-u4
 extend axis: 13 + 16n
-extend blocks: 18 + 4n
+extend blocks: 25 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..2
 extend base: 0
 extend generator: mctas circuit pulse family rise-psub-u4 --n {n} --out {out}
-origin: 0 0 -1
+origin: -2 0 -1
 port input: 0 1 0
 port output: 4 1 -1
 palette:
   S minecraft:stone
   W minecraft:redstone_wire
+  O minecraft:observer[facing=east,powered=false]
   A minecraft:sticky_piston[extended=false,facing=east]
   B minecraft:redstone_block
   C minecraft:comparator[facing=west,mode=subtract,powered=false]
   N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
   M minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
 layer 0:
-  ...S.
-  ...S.
-  S..S.
-  SSSS.
+  SS...S.
+  S....S.
+  ..S..S.
+  ..SSSS.
 layer 1:
-  AB.C.
-  ...W.
-  N..M.
-  WWWW.
+  WWAB.C.
+  WO...W.
+  ..N..M.
+  ..WWWW.

@@ -1,32 +1,33 @@
 name: pulse-limiter-psub-u4
-# Extendable family limiter-psub-u4 (n = 0): pulse-limiter with L = 13 + 16n gt, 18 + 4n blocks. a sticky piston pushes a redstone block behind a subtract comparator (an odd delay: the piston moves in the tick after the input, the block lands in the block-entity phase); the input reaches the comparator's side through a U of delay-4 repeaters (an even delay), so the output is on for an odd number of ticks. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family limiter-psub-u4 --n N --out FILE.
+# Extendable family limiter-psub-u4 (n = 0): pulse-limiter with L = 13 + 16n gt, 25 + 4n blocks. a sticky piston pushes a redstone block behind a subtract comparator (an odd delay: the piston moves in the tick after the input, the block lands in the block-entity phase); the input reaches the comparator's side through a U of delay-4 repeaters (an even delay), so the output is on for an odd number of ticks. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family limiter-psub-u4 --n N --out FILE.
 circuit: pulse-limiter
 group: pulse-limiter-psub
 extend family: pulse-limiter-psub-u4
 extend axis: 13 + 16n
-extend blocks: 18 + 4n
+extend blocks: 25 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend base: 0
 extend generator: mctas circuit pulse family limiter-psub-u4 --n {n} --out {out}
-origin: 0 0 -1
+origin: -2 0 -1
 port input: 0 1 0
 port output: 4 1 -1
 palette:
   S minecraft:stone
   W minecraft:redstone_wire
+  O minecraft:observer[facing=east,powered=false]
   A minecraft:sticky_piston[extended=false,facing=east]
   B minecraft:redstone_block
   C minecraft:comparator[facing=west,mode=subtract,powered=false]
   N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
   M minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
 layer 0:
-  ...S.
-  ...S.
-  S..S.
-  SSSS.
+  SS...S.
+  S....S.
+  ..S..S.
+  ..SSSS.
 layer 1:
-  AB.C.
-  ...W.
-  N..M.
-  WWWW.
+  WWAB.C.
+  WO...W.
+  ..N..M.
+  ..WWWW.

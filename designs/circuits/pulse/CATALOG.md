@@ -12,8 +12,8 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
-| [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 18 + 4n | 0..10 (13 .. 173) | 0, 1, 2, 5, 10 |
-| [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 18 + 4n | 0..2 (13 .. 45) | 0, 1, 2 |
+| [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..10 (13 .. 173) | 0, 1, 2, 5, 10 |
+| [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..2 (13 .. 45) | 0, 1, 2 |
 
 ### L = 15 + 16n gt
 
@@ -113,18 +113,18 @@ Also as an extendable family: [pulse-fall-psub-u4](archive/pulse-fall-psub-u4.tx
 
 ### L = 3..13 gt (every 2)
 
-**pulse-limiter-psub** · pulse-limiter · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) (L = 3 gt, 10 blocks), [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) (L = 5 gt, 10 blocks).
+**pulse-limiter-psub** · pulse-limiter · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) (L = 5 gt, 17 blocks).
 
-Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt): L = 13 + 16n gt, 18 + 4n blocks.
+Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt): L = 13 + 16n gt, 25 + 4n blocks.
 
 | L | blocks | design | metrics |
 |---|---|---|---|
-| 3 gt | 10 | [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) | L 3 gt, delay 5 gt, min-pulse 5 gt |
-| 5 gt | 10 | [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) | L 5 gt, delay 5 gt, min-pulse 8 gt |
-| 7 gt | 10 | [pulse-limiter-psub-L7](archive/pulse-limiter-psub-L7.txt) | L 7 gt, delay 5 gt, min-pulse 10 gt |
-| 9 gt | 10 | [pulse-limiter-psub-L9](archive/pulse-limiter-psub-L9.txt) | L 9 gt, delay 5 gt, min-pulse 15 gt |
-| 11 gt | 10 | [pulse-limiter-psub-L11](archive/pulse-limiter-psub-L11.txt) | L 11 gt, delay 5 gt, min-pulse 4 gt |
-| 13 gt | 10 | [pulse-limiter-psub-L13](archive/pulse-limiter-psub-L13.txt) | L 13 gt, delay 5 gt, min-pulse 4 gt |
+| 3 gt | 17 | [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) | L 3 gt, delay 5 gt, min-pulse 5 gt |
+| 5 gt | 17 | [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) | L 5 gt, delay 5 gt, min-pulse 8 gt |
+| 7 gt | 17 | [pulse-limiter-psub-L7](archive/pulse-limiter-psub-L7.txt) | L 7 gt, delay 5 gt, min-pulse 10 gt |
+| 9 gt | 17 | [pulse-limiter-psub-L9](archive/pulse-limiter-psub-L9.txt) | L 9 gt, delay 5 gt, min-pulse 15 gt |
+| 11 gt | 17 | [pulse-limiter-psub-L11](archive/pulse-limiter-psub-L11.txt) | L 11 gt, delay 5 gt, min-pulse 4 gt |
+| 13 gt | 17 | [pulse-limiter-psub-L13](archive/pulse-limiter-psub-L13.txt) | L 13 gt, delay 5 gt, min-pulse 4 gt |
 
 ### L = 3..9 gt (every 2)
 
@@ -139,18 +139,18 @@ Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub
 
 ### L = 3..13 gt (every 2)
 
-**pulse-rise-psub** · rising-edge · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) (L = 3 gt, 10 blocks), [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) (L = 5 gt, 10 blocks).
+**pulse-rise-psub** · rising-edge · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) (L = 5 gt, 17 blocks).
 
-Also as an extendable family: [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt): L = 13 + 16n gt, 18 + 4n blocks.
+Also as an extendable family: [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt): L = 13 + 16n gt, 25 + 4n blocks.
 
 | L | blocks | design | metrics |
 |---|---|---|---|
-| 3 gt | 10 | [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) | L 3 gt, delay 5 gt, min-pulse 5 gt |
-| 5 gt | 10 | [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) | L 5 gt, delay 5 gt, min-pulse 8 gt |
-| 7 gt | 10 | [pulse-rise-psub-L7](archive/pulse-rise-psub-L7.txt) | L 7 gt, delay 5 gt, min-pulse 10 gt |
-| 9 gt | 10 | [pulse-rise-psub-L9](archive/pulse-rise-psub-L9.txt) | L 9 gt, delay 5 gt, min-pulse 15 gt |
-| 11 gt | 10 | [pulse-rise-psub-L11](archive/pulse-rise-psub-L11.txt) | L 11 gt, delay 5 gt, min-pulse 15 gt |
-| 13 gt | 10 | [pulse-rise-psub-L13](archive/pulse-rise-psub-L13.txt) | L 13 gt, delay 5 gt, min-pulse 15 gt |
+| 3 gt | 17 | [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) | L 3 gt, delay 5 gt, min-pulse 5 gt |
+| 5 gt | 17 | [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) | L 5 gt, delay 5 gt, min-pulse 8 gt |
+| 7 gt | 17 | [pulse-rise-psub-L7](archive/pulse-rise-psub-L7.txt) | L 7 gt, delay 5 gt, min-pulse 10 gt |
+| 9 gt | 17 | [pulse-rise-psub-L9](archive/pulse-rise-psub-L9.txt) | L 9 gt, delay 5 gt, min-pulse 15 gt |
+| 11 gt | 17 | [pulse-rise-psub-L11](archive/pulse-rise-psub-L11.txt) | L 11 gt, delay 5 gt, min-pulse 15 gt |
+| 13 gt | 17 | [pulse-rise-psub-L13](archive/pulse-rise-psub-L13.txt) | L 13 gt, delay 5 gt, min-pulse 15 gt |
 
 ### L = 4, 6, 8 gt
 
