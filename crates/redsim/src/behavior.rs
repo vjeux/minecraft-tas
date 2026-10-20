@@ -88,6 +88,8 @@ pub fn is_solid(s: &Block) -> bool {
         // no collision and not forced solid (plates, wall banners and lanterns are forceSolidOn)
         Block::Tripwire { .. } | Block::TripwireHook { .. } => false,
         Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
+        // forceSolidOff
+        Block::BigDripleaf { .. } => false,
         _ => true,
     }
 }
@@ -330,7 +332,7 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
         // ---- entity-reacting blocks (clk-misc) ----
         // (wall banners: NORMAL, but a block entity makes them immovable)
-        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } => PushReaction::Popped,
+        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } | Block::BigDripleaf { .. } => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -460,6 +462,7 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => vec![],
         Block::PlainRail { .. } | Block::DetectorRail { .. } => vec![],
+        Block::BigDripleaf { .. } => crate::react::dripleaf::collision_boxes(s),
         // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
         Block::Lantern { hanging } => {
             let h = hanging as i32;
@@ -491,6 +494,7 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Plate { .. } => crate::react::plate::can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::can_survive(w, p),
         Block::WallBanner { facing } => is_solid(&w.get(p.rel(facing.opposite()))),
         // canSupportCenter of the block above (hanging) or below
         Block::Lantern { hanging } => {
@@ -516,6 +520,7 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Rail { .. } => rail::neighbor_changed(w, s, p, moved),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::neighbor_changed(w, s, p, src, moved),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::neighbor_changed(w, s, p),
         Block::Dispenser { .. } | Block::Crafter { .. } => dispenser::neighbor_changed(w, s, p),
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
@@ -554,6 +559,7 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::Plate { .. } => crate::react::plate::update_shape(w, s, p, d),
         Block::Tripwire { .. } => crate::react::tripwire::update_shape(s, d, &ns),
         Block::TripwireHook { .. } => crate::react::hook::update_shape(w, s, p, d),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::update_shape(w, s, p, d, &ns),
         Block::WallBanner { facing } => {
             if d == facing.opposite() && !can_survive(w, &s, p) {
                 Block::Air
@@ -662,6 +668,7 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Tripwire { .. } => crate::react::tripwire::tick(w, p),
         Block::TripwireHook { .. } => crate::react::hook::tick(w, s, p),
         Block::DetectorRail { .. } => crate::rails::detector::tick(w, s, p),
+        Block::BigDripleaf { .. } => crate::react::dripleaf::tick(w, s, p),
         Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
         Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
         _ => {}
