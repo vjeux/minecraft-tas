@@ -93,6 +93,10 @@ enum Cmd {
         /// Print the first TNT's state every tick for this kick (and nothing else).
         #[arg(long)]
         follow: Option<f64>,
+        /// Print every kick's fuse-1 position of the Nth TNT (which kicks fall out of the main
+        /// group).
+        #[arg(long)]
+        each: bool,
     },
     /// One strict redsim judge run of a TNT duper (explosions, no removal): at --drop air blocks
     /// above --ground, every TNT kicked by --kick; prints the verdict and its table.
@@ -363,7 +367,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::PreciseSim { designs, ticks, nth, follow } => {
+        Cmd::PreciseSim { designs, ticks, nth, follow, each } => {
             let kicks = precise::default_kicks();
             for d in &designs {
                 let c = clock::Clock::load(d)?;
@@ -371,6 +375,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     let r = precise::ends_traced(&c, u, ticks, true);
                     println!("{}: kick {u}: {:?}", d.display(), r.map(|v| v.first().copied()));
                     continue;
+                }
+                if each {
+                    for &u in &kicks {
+                        match precise::ends(&c, u, ticks) {
+                            Ok(v) if v.len() > nth => println!("  kick {u:.4}: ({:.9}, {:.9}, {:.9})", v[nth].1[0], v[nth].1[1], v[nth].1[2]),
+                            Ok(v) => println!("  kick {u:.4}: only {} TNT reached fuse 1", v.len()),
+                            Err(e) => println!("  kick {u:.4}: {e}"),
+                        }
+                    }
                 }
                 let (g, bad) = precise::groups(&c, &kicks, ticks, nth);
                 let n: usize = g.iter().map(|x| x.1).sum();
