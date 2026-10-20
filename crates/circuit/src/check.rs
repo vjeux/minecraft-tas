@@ -188,6 +188,8 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
         }
+        // judged by crate::shulker's own runner (judge chests), not by a stimulus
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
     }
     s.ticks = t;
     s
@@ -215,6 +217,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
     }
 }
 
