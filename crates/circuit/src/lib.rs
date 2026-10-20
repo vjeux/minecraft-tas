@@ -326,16 +326,19 @@ impl Circuit {
 
     /// The output cells that get the judge's consumer ([`CONSUMER`]): air in the design and not
     /// an input cell, for every kind read through its outputs (piston extenders and flying
-    /// machines are read through their payload and travel), and not on a piston's line (within 13
-    /// cells in front of any piston: a pushed or pulled block may move into the cell, and the
-    /// block there is what the output reads).
+    /// machines are read through their payload and travel), and not where a piston may move a block
+    /// in (the block there is what the output reads): a piston's head cell, or the cell after an
+    /// unbroken row of blocks in front of a piston (up to 12); with slime or honey in the design,
+    /// any cell within 13 in front of a piston.
     pub fn consumer_cells(&self) -> Vec<Pos> {
         if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
             return Vec::new();
         }
         let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
+        let blocks = &self.clock.design.blocks;
+        let sticky_blocks = blocks.values().any(|s| s.starts_with("minecraft:slime_block") || s.starts_with("minecraft:honey_block"));
         let mut lines: BTreeSet<Pos> = BTreeSet::new();
-        for (p, s) in &self.clock.design.blocks {
+        for (p, s) in blocks {
             if !(s.starts_with("minecraft:piston[") || s.starts_with("minecraft:sticky_piston[")) {
                 continue;
             }
@@ -348,11 +351,20 @@ impl Circuit {
                 Some("down") => [0, -1, 0],
                 _ => continue,
             };
-            for k in 1..=13 {
-                lines.insert([p[0] + k * f[0], p[1] + k * f[1], p[2] + k * f[2]]);
+            let at = |k: i32| [p[0] + k * f[0], p[1] + k * f[1], p[2] + k * f[2]];
+            if sticky_blocks {
+                lines.extend((1..=13).map(at));
+                continue;
+            }
+            // the head cell, then the cell after each block of the row the piston would push
+            lines.insert(at(1));
+            let mut k = 1;
+            while k <= 12 && blocks.contains_key(&at(k)) {
+                lines.insert(at(k + 1));
+                k += 1;
             }
         }
-        let mut v: Vec<Pos> = self.outputs.iter().map(|o| o.pos).filter(|p| !ins.contains(p) && !lines.contains(p) && !self.clock.design.blocks.contains_key(p)).collect();
+        let mut v: Vec<Pos> = self.outputs.iter().map(|o| o.pos).filter(|p| !ins.contains(p) && !lines.contains(p) && !blocks.contains_key(p)).collect();
         v.sort();
         v.dedup();
         v
