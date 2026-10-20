@@ -250,14 +250,20 @@ pub fn common_tick(w: &mut World, i: usize) {
     e.tick_count += 1;
 }
 
+/// `Entity.computeSpeed`: `lastKnownSpeed` from the position since the last call.
+pub fn compute_speed(w: &mut World, i: usize) {
+    let e = &mut w.entities.list[i];
+    let last = *e.last_known_position.get_or_insert(e.pos);
+    e.last_known_speed = e.pos.subtract_v(last);
+    e.last_known_position = Some(e.pos);
+}
+
 /// `Entity.baseTick` (no passengers, portals, fire or lava in the modeled worlds):
 /// `computeSpeed`, `wasEyeInWater`, `updateFluidInteraction`, `checkBelowWorld`, `firstTick`.
 pub fn base_tick(w: &mut World, i: usize) {
+    compute_speed(w, i);
     {
         let e = &mut w.entities.list[i];
-        let last = *e.last_known_position.get_or_insert(e.pos);
-        e.last_known_speed = e.pos.subtract_v(last);
-        e.last_known_position = Some(e.pos);
         // the previous tick's trackers
         e.was_eye_in_water = e.fluid.eye_in_water();
     }
