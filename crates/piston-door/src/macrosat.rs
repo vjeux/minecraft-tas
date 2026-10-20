@@ -171,6 +171,8 @@ struct Opts {
     static_cond: bool,
     /// `--frame3`: exactly 3 frame cells hold stone at rest.
     frame3: bool,
+    /// `--max-pistons N`: at most N pistons (c70b: leaner seeds).
+    max_pistons: Option<usize>,
 }
 
 struct Model {
@@ -672,6 +674,35 @@ struct Filters {
     stat: Option<Vec<Lit>>,
 }
 
+/// At most `k` of `xs`, Sinz's sequential counter (n·k auxiliaries; any k).
+fn at_most_k_seq(sat: &mut Sat, xs: &[Lit], k: usize) {
+    let n = xs.len();
+    if n <= k {
+        return;
+    }
+    if k == 0 {
+        for &x in xs {
+            sat.add(&[!x]);
+        }
+        return;
+    }
+    // r[i][j]: at least j+1 of xs[0..=i] are true
+    let r: Vec<Vec<Lit>> = (0..n).map(|_| (0..k).map(|_| sat.var()).collect()).collect();
+    sat.add(&[!xs[0], r[0][0]]);
+    for j in 1..k {
+        sat.add(&[!r[0][j]]);
+    }
+    for i in 1..n {
+        sat.add(&[!xs[i], r[i][0]]);
+        sat.add(&[!r[i - 1][0], r[i][0]]);
+        for j in 1..k {
+            sat.add(&[!xs[i], !r[i - 1][j - 1], r[i][j]]);
+            sat.add(&[!r[i - 1][j], r[i][j]]);
+        }
+        sat.add(&[!xs[i], !r[i - 1][k - 1]]);
+    }
+}
+
 /// At most `k` of `xs` (every k+1-subset has a false one; for the small counts used here).
 fn at_most_k(sat: &mut Sat, xs: &[Lit], k: usize) {
     fn rec(sat: &mut Sat, xs: &[Lit], k: usize, start: usize, pick: &mut Vec<Lit>) {
@@ -1005,6 +1036,23 @@ fn build(g: Grid, o: &Opts) -> Model {
                 at_most_k(&mut sat, &xs, k);
             }
         }
+    }
+    if let Some(k) = o.max_pistons {
+        // --max-pistons N (c70b: lean seeds for mechmut): at most N pistons at rest
+        let ps: Vec<Lit> = (0..n)
+            .map(|c| {
+                let v = sat.var();
+                for st in [false, true] {
+                    for d in 0..4 {
+                        for ext in [false, true] {
+                            sat.add(&[!ty[0][c][piston(st, d, ext)], v]);
+                        }
+                    }
+                }
+                v
+            })
+            .collect();
+        at_most_k_seq(&mut sat, &ps, k);
     }
     if o.frame3 {
         // --frame3 (w86's strict reading): exactly 3 of the 12 frame cells hold stone at rest (the
@@ -1546,6 +1594,7 @@ fn opts_of(a: &Args) -> Result<Opts> {
         budget: a.s("budget").and_then(|v| v.parse().ok()).or(if strict { Some(2) } else { None }),
         static_cond: a.has("static-cond") || strict,
         frame3: a.has("frame3") || strict,
+        max_pistons: a.s("max-pistons").and_then(|v| v.parse().ok()),
     })
 }
 
