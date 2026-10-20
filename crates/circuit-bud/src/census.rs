@@ -317,3 +317,52 @@ pub fn run(a: CensusArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(clap::Args, Debug)]
+pub struct TraceArgs {
+    pub design: PathBuf,
+    /// First frame shown (default: the first event).
+    #[arg(long)]
+    pub from: Option<u32>,
+    /// Frames shown.
+    #[arg(long, default_value_t = 40)]
+    pub frames: u32,
+    /// The frames each event is given.
+    #[arg(long, default_value_t = 30)]
+    pub gap: u32,
+}
+
+/// Print a BUD design's run on redsim, frame by frame, in a window.
+pub fn trace(a: TraceArgs) -> Result<()> {
+    let c = Circuit::load(&a.design)?;
+    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, false);
+    let actions = c.actions(&s);
+    let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let (from, to) = circuit::run::watch_box(&c, 2);
+    let run = clock::sim::drive(&c.clock, &actions, s.ticks, &probes, from, to).map_err(|(_, why)| anyhow::anyhow!(why))?;
+    if let Some((t, why)) = &run.stopped {
+        println!("stopped at frame {t}: {why}");
+    }
+    let start = a.from.unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
+    let end = (start + a.frames as usize).min(run.cells.len());
+    let mut prev: BTreeMap<Pos, String> = run.cells.get(start.saturating_sub(1)).map(|f| f.iter().cloned().collect()).unwrap_or_default();
+    for f in start..end {
+        let now: BTreeMap<Pos, String> = run.cells[f].iter().cloned().collect();
+        let mut diff: Vec<String> = Vec::new();
+        for (p, st) in &now {
+            if prev.get(p) != Some(st) {
+                diff.push(format!("{p:?}={}", clock::short(st)));
+            }
+        }
+        for p in prev.keys() {
+            if !now.contains_key(p) {
+                diff.push(format!("{p:?}=air"));
+            }
+        }
+        let phase = s.phases.iter().rev().find(|(a0, _, _)| *a0 as usize <= f).map(|(a0, _, l)| format!("{l} +{}", f - *a0 as usize)).unwrap_or_default();
+        let lvl = run.signals.get(f).and_then(|v| v.first()).copied().unwrap_or(0);
+        println!("{f:5} out {lvl:2} [{phase}] {}", diff.join(" "));
+        prev = now;
+    }
+    Ok(())
+}
