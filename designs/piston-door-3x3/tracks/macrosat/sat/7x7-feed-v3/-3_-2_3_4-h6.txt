@@ -1,0 +1,73 @@
+macrosat: box 7x7 at (-3,-2), h 6 per edge, feed true, lever true, parallel steps, fix false: 220075 vars, 1579487 clauses, built in 2.1 s
+SAT in 189.0 s: a mechanism with every firing fed within 6 steps per edge
+rest:
+  4 w  O  D  D  D  D* w  
+  3 E* }  D  .  #  v  W  
+  2 E  E  .  #  #  #  #  
+  1 E  E  .  #  #  #  #  
+  0 O  w  .  #  #  #  #  
+ -1 E* }  E  E  .  U  .  
+ -2 w  O  U  U  w  U  w  
+lever on the block at (0, 4) (its front/back face, or its outer face at the box edge)
+open  step  0: PULSE (-1, -2) up line 1  [fed from (-2, -2)]
+open  step  0: PULSE-PULL (0, -2) up line 4  [fed from (1, -2)]
+open  step  0: RETRACT (-3, 3) east (pulls)  [fed from (-2, 4)]
+open  step  0: PULSE-PULL (1, 4) down line 4  [fed from (0, 4)]
+open  step  0: RETRACT (2, 4) down (pulls)  [fed from (3, 4)]
+open  step  1: RETRACT (-3, -1) east  [fed from (-2, 0)]
+open  step  1: EXTEND (2, -1) up line 2  [fed from (1, -1)]
+open  step  1: PULSE-PULL (-1, 0) east line 0 (pulls)  [fed from (-2, 0)]
+open  step  1: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-2, 0)]
+open  step  1: PULSE (-3, 2) east line 1  [fed from (-3, 4)]
+open  step  1: EXTEND (3, 3) west line 3  [fed from (3, 4)]
+open  step  2: RETRACT (2, -1) up (pulls)  [fed from (1, -1)]
+open  step  2: PULSE-PULL (-2, 3) down line 0 (pulls)  [fed from (-3, 4)]
+open  step  2: RETRACT (3, 3) west (pulls)  [fed from (3, 4)]
+open  step  2: PULSE-PULL (-1, 4) down line 4  [fed from (0, 4)]
+open  step  3: PULSE-PULL (-3, -1) east line 0 (pulls)  [fed from (-2, 0)]
+open  step  3: PULSE-PULL (0, -1) east line 2  [fed from (-1, 0)]
+open  step  3: EXTEND (-3, 1) east line 0  [fed from (-3, 0)]
+open  step  3: PULSE-PULL (-1, 1) east line 0 (pulls)  [fed from (-1, 0)]
+open  step  3: EXTEND (-2, 2) east line 0  [fed from (-2, 4)]
+open  step  3: PULSE (-3, 3) east line 3  [fed from (-2, 4)]
+open  step  4: PULSE-PULL (-2, -1) east line 0 (pulls)  [fed from (-3, 0)]
+open  step  4: RETRACT (-3, 1) east (pulls)  [fed from (-3, 0)]
+open  step  4: PULSE (3, 3) west line 4  [fed from (3, 4)]
+open  step  5: PULSE-PULL (0, -2) up line 0 (pulls)  [fed from (1, -2)]
+open  step  5: PULSE-PULL (2, -2) up line 0 (pulls)  [fed from (1, -1)]
+open  step  5: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-2, 0)]
+open  step  5: RETRACT (-2, 2) east (pulls)  [fed from (-2, 4)]
+open  step  5: PULSE-PULL (2, 4) down line 0 (pulls)  [fed from (3, 4)]
+close step  6: PULSE (0, -2) up line 1  [fed from (1, -2)]
+close step  6: EXTEND (-3, 1) east line 2  [fed from (-3, 0)]
+close step  6: EXTEND (-2, 2) east line 1  [fed from (-2, 4)]
+close step  6: PULSE (1, 4) down line 1  [fed from (0, 4)]
+close step  7: PULSE (2, -2) up line 1  [fed from (3, -2)]
+close step  7: PULSE (-3, -1) east line 2  [fed from (-2, 0)]
+close step  7: RETRACT (-3, 1) east (pulls)  [fed from (-3, 0)]
+close step  7: RETRACT (-2, 2) east (pulls)  [fed from (-2, 4)]
+close step  7: PULSE (3, 3) west line 1  [fed from (3, 4)]
+close step  8: EXTEND (-3, -1) east line 0  [fed from (-2, 0)]
+close step  8: PULSE (-1, -1) east line 2  [fed from (-2, 0)]
+close step  8: PULSE-PULL (3, 3) west line 0 (pulls)  [fed from (3, 4)]
+close step  8: PULSE-PULL (-1, 4) down line 2  [fed from (0, 4)]
+close step  9: PULSE (2, -2) up line 2  [fed from (1, -2)]
+close step  9: PULSE-PULL (-2, 1) east line 2  [fed from (-2, 0)]
+close step  9: PULSE (-3, 3) east line 3  [fed from (-2, 4)]
+close step 10: PULSE-PULL (-1, -2) up line 3  [fed from (-2, -2)]
+close step 10: PULSE-PULL (1, -1) east line 0 (pulls)  [fed from (1, -2)]
+close step 10: PULSE (0, 4) down line 1  [fed from (0, 4)]
+close step 10: PULSE-PULL (1, 4) down line 3  [fed from (0, 4)]
+close step 11: PULSE-PULL (-1, -1) east line 0 (pulls)  [fed from (-2, 0)]
+close step 11: PULSE (-2, 1) east line 1  [fed from (-2, 0)]
+close step 11: PULSE (-2, 2) east line 2  [fed from (-2, 4)]
+close step 11: EXTEND (-3, 3) east line 0  [fed from (-2, 4)]
+close step 11: EXTEND (2, 4) down line 1  [fed from (3, 4)]
+open:
+  4 w  O  D  D  D  D  w  
+  3 E  D  #  #  #  #  W  
+  2 E  E  #  .  .  .  #  
+  1 E  E  #  .  .  .  #  
+  0 O  w  #  .  .  .  #  
+ -1 E  E  E  #  #  #  U  
+ -2 w  O  U  U  w  U  w  

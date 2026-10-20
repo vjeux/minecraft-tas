@@ -1,0 +1,43 @@
+name: c--1_-2_4_5-h6
+# macrosat (h 6 per edge, every firing fed): wiring cells (left as air) [(-1, -2), (1, -2), (4, -1), (4, 2), (4, 3), (4, 4), (-1, 5), (2, 5), (3, 5)]; pistons extended at rest hold a redstone block at z = 1
+port door: 0 0 0
+origin: -1 0 0
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=true,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:piston[extended=false,facing=east]
+  F minecraft:piston_head[facing=up,short=false,type=sticky]
+  G minecraft:stone
+  H minecraft:piston_head[facing=west,short=false,type=sticky]
+  I minecraft:sticky_piston[extended=true,facing=west]
+  J minecraft:sticky_piston[extended=false,facing=east]
+  K minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:obsidian
+  M minecraft:piston_head[facing=down,short=false,type=sticky]
+  N minecraft:sticky_piston[extended=true,facing=down]
+layer -2:
+  .B..CD
+  .A....
+layer -1:
+  EF..D.
+  ......
+layer 0:
+  GGGGHI
+  .....A
+layer 1:
+  GGGG.D
+  ......
+layer 2:
+  GGGG..
+  ......
+layer 3:
+  J.K.K.
+  ......
+layer 4:
+  LMKKK.
+  ......
+layer 5:
+  .NG..L
+  .A....

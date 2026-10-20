@@ -98,7 +98,9 @@ pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kin
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
-    Ok((check::stimulus(c, &kind, &Sizing { gap }), Some(kind)))
+    let mut s = check::stimulus(c, &kind, &Sizing { gap });
+    let _ = &mut s;
+    Ok((s, Some(kind)))
 }
 
 /// Result of [`sim`].
@@ -149,6 +151,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         (out, _) => out,
     };
+    // a sculk design: the device and ambient runs (crate::vibration)
+    let outcome = match (outcome, &kind, &trace) {
+        (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
+        (out, _, _) => out,
+    };
     // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
     let outcome = match (outcome, &kind, c.slice) {
         (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
@@ -163,7 +170,9 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
 
 /// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
 fn tiles(c: &Circuit, k: &Kind) -> bool {
-    c.tile.is_some() && k.study() == "pulsemult"
+    // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
+    // checker: study 1's pulse circuits tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
@@ -433,6 +442,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(tl) = c.tile
         {
             out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
+        // a sculk design: the device and ambient runs in this build (crate::vibration)
+        if out.pass
+            && rc.has_sculk()
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });

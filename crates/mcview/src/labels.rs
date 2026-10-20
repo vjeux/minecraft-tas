@@ -31,6 +31,38 @@ pub struct Summary {
     pub anchor: [f32; 3],
     /// Shulker boxes first, then items by count (largest first), then by name. Never empty.
     pub entries: Vec<Entry>,
+    /// A placed shulker box (the box being filled or emptied: labelled by default).
+    pub shulker_box: bool,
+}
+
+/// Several containers' entries as one (a group of same-kind port chests): items summed by kind,
+/// boxes summed.
+pub fn merge<'a>(lists: impl IntoIterator<Item = &'a [Entry]>) -> Vec<Entry> {
+    let mut items: Vec<(&'static str, u32)> = Vec::new();
+    let mut boxes: Option<(&'static str, u32, u32, u32)> = None;
+    for list in lists {
+        for e in list {
+            match e {
+                Entry::Items { id, count } => match items.iter_mut().find(|(i, _)| i == id) {
+                    Some(x) => x.1 += count,
+                    None => items.push((id, *count)),
+                },
+                Entry::Boxes { id, n, used, slots } => {
+                    let b = boxes.get_or_insert((id, 0, 0, 0));
+                    b.1 += n;
+                    b.2 += used;
+                    b.3 += slots;
+                }
+            }
+        }
+    }
+    items.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let mut v = Vec::new();
+    if let Some((id, n, used, slots)) = boxes {
+        v.push(Entry::Boxes { id, n, used, slots });
+    }
+    v.extend(items.into_iter().map(|(id, count)| Entry::Items { id, count }));
+    v
 }
 
 /// A container's slots summed by kind (shulker boxes first, then items by count).
@@ -79,7 +111,8 @@ pub fn summaries(s: &Session, partial: f32) -> Vec<Summary> {
         .iter()
         .filter_map(|(p, c)| {
             let entries = summarize(w, &c.slots);
-            (!entries.is_empty()).then(|| Summary { key: Key::Block(p.arr()), anchor: [p.x as f32 + 0.5, p.y as f32 + 1.0, p.z as f32 + 0.5], entries })
+            let shulker_box = matches!(w.get(*p), redsim::Block::ShulkerBox { .. });
+            (!entries.is_empty()).then(|| Summary { key: Key::Block(p.arr()), anchor: [p.x as f32 + 0.5, p.y as f32 + 1.0, p.z as f32 + 0.5], entries, shulker_box })
         })
         .collect();
     let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
@@ -90,7 +123,7 @@ pub fn summaries(s: &Session, partial: f32) -> Vec<Summary> {
             continue;
         }
         let height = e.kind.dims().1;
-        v.push(Summary { key: Key::Entity(*id), anchor: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y) + height, lerp(e.zo, e.pos.z)], entries });
+        v.push(Summary { key: Key::Entity(*id), anchor: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y) + height, lerp(e.zo, e.pos.z)], entries, shulker_box: false });
     }
     v.sort_by_key(|s| s.key);
     v
@@ -179,23 +212,89 @@ impl Rect {
 /// else higher up, else beside (the cheapest free spot: a row up costs 1, a column aside 2.5),
 /// never over `placed`, within `safe`. The flag says it moved (a leader line ties it back).
 pub fn spot(placed: &[Rect], safe: &Rect, ax: f64, ay: f64, w: f64, h: f64, rows: usize) -> Option<(Rect, bool)> {
-    const GAP: f64 = 2.0;
-    let mut cands: Vec<(f64, usize, i32)> = Vec::new();
-    for k in 0..rows {
-        for c in [-1i32, 0, 1] {
-            cands.push((k as f64 + 2.5 * c.abs() as f64, k, c));
+    let mut l = Layout { obstacles: placed.to_vec(), ..Default::default() };
+    l.place(safe, ax, ay, w, h, rows)
+}
+
+/// Where a leader line from the cell's point (ax, ay) meets a moved box: the nearest point of
+/// its edge facing the point.
+pub fn leader_end(ax: f64, ay: f64, r: &Rect) -> (f64, f64) {
+    let x = ax.clamp(r.x0 + 3.0, (r.x1 - 3.0).max(r.x0 + 3.0));
+    let y = if ay >= r.y1 { r.y1 } else if ay <= r.y0 { r.y0 } else { ay };
+    (x, y)
+}
+
+/// Does the segment a-b cross the box (its inside, 1 px in from the edges)?
+pub fn seg_hits(a: (f64, f64), b: (f64, f64), r: &Rect) -> bool {
+    let (x0, y0, x1, y1) = (r.x0 + 1.0, r.y0 + 1.0, r.x1 - 1.0, r.y1 - 1.0);
+    if x0 >= x1 || y0 >= y1 {
+        return false;
+    }
+    // Liang-Barsky
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let (mut t0, mut t1) = (0.0f64, 1.0f64);
+    for (p, q) in [(-dx, a.0 - x0), (dx, x1 - a.0), (-dy, a.1 - y0), (dy, y1 - a.1)] {
+        if p == 0.0 {
+            if q < 0.0 {
+                return false;
+            }
+        } else {
+            let t = q / p;
+            if p < 0.0 {
+                t0 = t0.max(t);
+            } else {
+                t1 = t1.min(t);
+            }
+            if t0 > t1 {
+                return false;
+            }
         }
     }
-    cands.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
-    for (_, k, c) in cands {
-        let y1 = ay - GAP - k as f64 * (h + GAP);
-        let x0 = ax - w / 2.0 + c as f64 * (w + 4.0);
-        let r = Rect { x0, y0: y1 - h, x1: x0 + w, y1 };
-        if r.inside(safe) && placed.iter().all(|p| !p.overlaps(&r)) {
-            return Some((r, k > 0 || c != 0));
+    true
+}
+
+/// The overlay's layout of one frame: what is placed so far (boxes nothing may cover: outlined
+/// cells, the history strip; the tags and labels; their leader lines).
+#[derive(Clone, Debug, Default)]
+pub struct Layout {
+    pub obstacles: Vec<Rect>,
+    pub texts: Vec<Rect>,
+    pub lines: Vec<((f64, f64), (f64, f64))>,
+}
+
+impl Layout {
+    /// A free spot for a `w` x `h` box hanging above (ax, ay) (see [`spot`]): it covers no
+    /// obstacle, tag or label, no leader line crosses it, and its own leader line (when it moved)
+    /// crosses no tag or label. Placed and recorded; None when nothing fits.
+    pub fn place(&mut self, safe: &Rect, ax: f64, ay: f64, w: f64, h: f64, rows: usize) -> Option<(Rect, bool)> {
+        const GAP: f64 = 2.0;
+        let mut cands: Vec<(f64, usize, i32)> = Vec::new();
+        for k in 0..rows {
+            for c in [-1i32, 0, 1] {
+                cands.push((k as f64 + 2.5 * c.abs() as f64, k, c));
+            }
         }
+        cands.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
+        for (_, k, c) in cands {
+            let y1 = ay - GAP - k as f64 * (h + GAP);
+            let x0 = ax - w / 2.0 + c as f64 * (w + 4.0);
+            let r = Rect { x0, y0: y1 - h, x1: x0 + w, y1 };
+            if !r.inside(safe) || self.obstacles.iter().chain(self.texts.iter()).any(|p| p.overlaps(&r)) || self.lines.iter().any(|(a, b)| seg_hits(*a, *b, &r)) {
+                continue;
+            }
+            let moved = k > 0 || c != 0;
+            if moved {
+                let end = leader_end(ax, ay, &r);
+                if self.texts.iter().any(|t| seg_hits((ax, ay), end, t)) {
+                    continue;
+                }
+                self.lines.push(((ax, ay), end));
+            }
+            self.texts.push(r);
+            return Some((r, moved));
+        }
+        None
     }
-    None
 }
 
 #[cfg(test)]
@@ -220,6 +319,35 @@ mod tests {
         assert_eq!(placed[1].x0, placed[0].x0);
         // nothing fits outside the safe area
         assert!(spot(&[], &safe, 200.0, 10.0, 50.0, 16.0, 6).is_none());
+    }
+
+    /// A moved label's leader line never crosses another label, and no label covers a line.
+    #[test]
+    fn leaders_never_cross_labels() {
+        let safe = Rect { x0: 0.0, y0: 0.0, x1: 390.0, y1: 400.0 };
+        let mut l = Layout::default();
+        // a label above (200, 300), then a second one for the same point: it goes up a row and
+        // its leader would cross the first one, so it goes aside instead
+        let (a, _) = l.place(&safe, 200.0, 300.0, 50.0, 16.0, 6).unwrap();
+        let (b, moved) = l.place(&safe, 200.0, 300.0, 50.0, 16.0, 6).unwrap();
+        assert!(moved);
+        assert!(!seg_hits((200.0, 300.0), leader_end(200.0, 300.0, &b), &a), "{a:?} {b:?}");
+        // a third box for a point under the second one's leader is not put across that line
+        let (line_a, line_b) = l.lines[0];
+        let mid = ((line_a.0 + line_b.0) / 2.0, (line_a.1 + line_b.1) / 2.0);
+        if let Some((c, _)) = l.place(&safe, mid.0, mid.1 + 9.0, 30.0, 16.0, 6) {
+            assert!(!seg_hits(line_a, line_b, &c), "{c:?} crosses {line_a:?}-{line_b:?}");
+        }
+        assert!(seg_hits((0.0, 0.0), (10.0, 10.0), &Rect { x0: 2.0, y0: 2.0, x1: 8.0, y1: 8.0 }));
+        assert!(!seg_hits((0.0, 0.0), (10.0, 0.0), &Rect { x0: 2.0, y0: 2.0, x1: 8.0, y1: 8.0 }));
+    }
+
+    #[test]
+    fn groups_merge() {
+        let a = [Entry::Items { id: "iron_shovel", count: 27 }];
+        let b = [Entry::Items { id: "iron_shovel", count: 5 }, Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }];
+        let m = merge([&a[..], &b[..]]);
+        assert_eq!(m, vec![Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }, Entry::Items { id: "iron_shovel", count: 32 }]);
     }
 
     #[test]

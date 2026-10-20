@@ -6,7 +6,7 @@ name: cal-observer-piston
 # stone back -> the observer sees it and fires again. (An observer cannot close the loop on a
 # piston by itself: its face and back are opposite, and a piston ignores power into its front.)
 # Kick: the lifted stone is placed last (the observer sees it appear).
-port output: 1 2 0
+port output: 1 -1 0
 port start: 0 2 0 last
 palette:
   S minecraft:stone

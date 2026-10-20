@@ -128,6 +128,9 @@ fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Result<
                 let src = w.get(bp(pos)).kind();
                 w.update_neighbors_at(bp(pos), src);
             }
+            Action::GameEvent { pos, event } => {
+                w.game_event(event, bp(pos));
+            }
         }
     }
     Ok(())

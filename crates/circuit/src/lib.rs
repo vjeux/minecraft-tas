@@ -28,6 +28,7 @@ pub mod stimulus;
 pub mod tnt;
 pub mod trace;
 pub mod verify;
+pub mod vibration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clock::{Action, Clock};
@@ -574,8 +575,8 @@ impl Circuit {
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
-                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
-                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                // a tiled run ([`tiled`]) of a study-1 or study-11 design: one input per copy
+                _ if matches!(k.study(), "pulsemult" | "pulse") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -612,8 +613,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
-            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits and the study-11 kinds are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
@@ -851,17 +852,41 @@ impl Circuit {
                     Some(p) => *p,
                     None => continue,
                 },
+                stimulus::EventAt::Input(i) => match self.inputs.get(*i) {
+                    Some(inp) => inp.pos,
+                    None => continue,
+                },
+                stimulus::EventAt::Cell(p) => *p,
             };
             let a = match op {
                 stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
                 stimulus::TargetOp::Clear => Action::Clear { pos },
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
+                stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
             };
             v.push((*t, a));
         }
         v.sort_by_key(|(t, _)| *t);
         v
+    }
+
+    /// Whether the design holds a sculk sensor (plain or calibrated): it hears game events, so
+    /// the judge adds the vibration test ([`vibration`]).
+    pub fn has_sculk(&self) -> bool {
+        self.clock.design.blocks.values().any(|s| s.contains("sculk_sensor"))
+    }
+
+    /// The design declares that its input arrives by a line from beyond any sensor's reach
+    /// (`input-device: far`): the vibration test emits no input-device events.
+    pub fn input_far(&self) -> bool {
+        self.clock.design.meta.get("input-device").is_some_and(|v| v.trim() == "far")
+    }
+
+    /// The design claims it is vibration-proof (`vibration: proof`): the vibration test refuses it
+    /// when ambient game events change it ([`vibration`]).
+    pub fn claims_vibration_proof(&self) -> bool {
+        self.clock.design.meta.get("vibration").is_some_and(|v| v.trim() == "proof")
     }
 
     /// The air cells next to the design (face neighbors of its blocks) that are no port of it, in

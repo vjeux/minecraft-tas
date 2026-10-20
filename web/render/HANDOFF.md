@@ -28,7 +28,8 @@ is the short version for whoever picks the work up.
   `mctas web demo ... -o /tmp/demo`, `mctas web serve /tmp/demo --port 8765`, then
   `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`,
   and `--hold` on circuits), `mctas web layout <url> --window 390,844 --scale 2` (needs
-  `data-autoplay` viewers), `mctas web swap <url> --to <src>` (in-place swap keeps the camera),
+  `data-autoplay` viewers), `mctas web swap <url> --to <src>` (in-place swap keeps the camera's
+  direction, re-fitted only when the new build does not fit),
   `mctas web lose <url>` (WebGL context loss); `mctas web snap <url> -o x.png --seconds 6` to
   look at a page (prints its console). EVERY bundle: `mctas web luma --url <page>` over a page of
   many designs (a demo page of every 20th door, all circuits, every 25th clock: ~550 viewers,
@@ -55,9 +56,13 @@ is the short version for whoever picks the work up.
   pads and asserts). `mctas web luma --url` catches that class; the native renderer does not.
 - Circuits: the contract with site (data-stimulus / data-phases / data-input-mode / data-events,
   inputs driven like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay,
-  a BUD switch's target and footprint actions replayed from data-events). TNT dupers run live
-  with primed TNT drawn and moved by the viewer (`mcview::tnt`); shulker designs are shown as
-  built with the judge's chests and a box (redsim models neither).
+  a BUD switch's target and footprint actions replayed from data-events). TNT designs run live
+  with redsim's own TNT entities and exact explosions (clk-misc); shulker designs run live with
+  the judge's chests (redsim's driver).
+- vjeux (2026-10-20): the view shows ONLY what redsim simulates exactly; anything else is shown
+  as built with `not simulated: <reason>`, never animated by viewer-side logic.
+  `Session::drawn_matches_simulation` (run by `web check` on every tick) enforces it; the audit
+  and what the client's own rendering may add are in docs/webrender.md#only-what-redsim-simulates.
 - No attribution text in the UI (vjeux): the badge only says what to do.
 - House rules: Rust only (no scripts, no Python), edit with the editor tools, never touch ~/bin
   or dotfiles, never message humans, commit as Christopher Chedeau <vjeuxx@gmail.com>.

@@ -32,6 +32,11 @@ pub enum EventAt {
     Target(usize),
     /// The k-th cell around the design (`Circuit::probe_cells`): the BUD footprint probes.
     Probe(usize),
+    /// The i-th input's cell (`Circuit::inputs`): where its device sits (the vibration test).
+    Input(usize),
+    /// A cell of the circuit as built (the vibration test's ambient game events, placed per build
+    /// by [`crate::vibration::with_ambient`]).
+    Cell([i32; 3]),
 }
 
 /// What the judge does at a target cell ([`Schedule::events`]).
@@ -45,6 +50,9 @@ pub enum TargetOp {
     Shape(String),
     /// A pure block update around the cell.
     Update,
+    /// A game event at the cell's center (`Level.gameEvent`, no entity, no affected state): what
+    /// sculk sensors hear (the vibration test, [`crate::vibration`]).
+    GameEvent(&'static str),
 }
 
 impl Schedule {

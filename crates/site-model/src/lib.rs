@@ -310,6 +310,10 @@ pub struct Circuit {
     /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
     #[serde(skip)]
     pub extends: bool,
+    /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
+    /// only.
+    #[serde(skip)]
+    pub counter_on: Option<(u32, u32)>,
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
@@ -514,18 +518,18 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock,circuit"),
-    ("self-starting", "self-starting", "clock"),
-    ("kicked", "needs a start kick", "clock"),
-    ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock,circuit"),
+    ("robust", "works in any direction, anywhere", "clock,circuit"),
+    ("self-starting", "starts by itself", "clock"),
+    ("kicked", "needs one kick to start", "clock"),
+    ("chiral", "mirror image is a different design", "clock"),
+    ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
-    ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
+    ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
-    ("composite", "composite (beat)", "clock"),
-    ("instant", "instant (0 gt latency)", "circuit"),
-    ("button", "the design's own button as its input", "circuit"),
-    ("lever", "the design's own lever as its input", "circuit"),
+    ("composite", "several clocks in one", "clock"),
+    ("instant", "instant (reacts in the same tick)", "circuit"),
+    ("button", "its own button as the input", "circuit"),
+    ("lever", "its own lever as the input", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
@@ -759,21 +763,18 @@ pub enum Sort {
     Period,
     Open,
     Close,
-    /// Most recently archived first.
-    Newest,
-    Name,
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 8] = [
-        (Sort::Main, "main", "main number (size, period, N...), then blocks"),
+    /// The sorts the index offers (vjeux 13:35Z deleted "newest"; names are not shown any more,
+    /// so no sort by name): an old URL's `sort=newest` or `sort=name` falls back to the default.
+    pub const ALL: [(Sort, &'static str, &'static str); 6] = [
+        (Sort::Main, "main", "the main number (size, period, reach...), then blocks"),
         (Sort::Blocks, "blocks", "fewest blocks"),
         (Sort::Volume, "volume", "smallest volume"),
         (Sort::Period, "period", "shortest period / smallest value"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
-        (Sort::Newest, "newest", "newest first"),
-        (Sort::Name, "name", "name"),
     ];
 
     pub fn key(self) -> &'static str {
@@ -846,7 +847,6 @@ struct View<'a> {
     kind: &'a str,
     group: &'a str,
     name: &'a str,
-    archived: &'a str,
     blocks: i64,
     volume: Option<i64>,
     period: Option<i64>,
@@ -909,7 +909,6 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     name: &b.name,
-                    archived: &b.archived,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
                     period: b.clock.as_ref().map(|c| c.period as i64),
@@ -936,7 +935,6 @@ impl Site {
                     kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     name: &m.family,
-                    archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
                     period: (!circuit).then_some(m.period as i64),
@@ -1060,10 +1058,17 @@ impl Site {
         hits.sort_by(|(ha, a), (hb, b)| {
             let primary = match q.sort {
                 Sort::Main => {
-                    // doors by size, clocks by period, circuits by kind then value; then blocks
+                    // doors: the solid ones first (the community's main ranking; sculk doors can
+                    // be set off by footsteps: critique, coordinator 13:54Z), then by size; clocks
+                    // by period; circuits by kind then value; then blocks
+                    let door_rank = |g: &str| match g {
+                        "solid" => "0",
+                        "sculk" => "2",
+                        _ => "1",
+                    };
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
-                            "door" => (0, String::new(), v.volume.unwrap_or(big)),
+                            "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
                             "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
                             _ => (2, v.group.to_string(), v.main.unwrap_or(big)),
                         }
@@ -1075,8 +1080,6 @@ impl Site {
                 Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
-                Sort::Newest => b.archived.cmp(a.archived),
-                Sort::Name => std::cmp::Ordering::Equal,
             };
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
         });

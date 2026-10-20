@@ -446,6 +446,13 @@ impl Worker {
         Ok(())
     }
 
+    /// Save, unload and load again every chunk of a sandbox without ticking it (a player walking
+    /// away and back, a server restart): `Sandbox.reload`.
+    pub fn reload(&mut self, sandbox: u32) -> Result<()> {
+        self.call(json!({"op": "reload", "sandbox": sandbox}))?;
+        Ok(())
+    }
+
     /// Destroy a sandbox (prefer [`Worker::clear`] to reuse one).
     pub fn drop_sandbox(&mut self, sandbox: u32) -> Result<()> {
         self.call(json!({"op": "drop", "sandbox": sandbox}))?;
@@ -668,6 +675,13 @@ impl Worker {
     /// source entity (sculk sensors in range hear it). Returns how many were emitted.
     pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<u32> {
         let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
+    }
+
+    /// [`Worker::game_event`] at each cell's CENTER when `center` (where `Level.gameEvent(.., BlockPos)`
+    /// posts a block's own events: a lever's `block_activate`), else at its bottom center.
+    pub fn game_event_at(&mut self, sandbox: u32, event: &str, positions: &[Pos], center: bool) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions, "at": if center { "center" } else { "feet" }}))?;
         Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
     }
 
