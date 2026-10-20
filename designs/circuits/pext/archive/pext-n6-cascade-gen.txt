@@ -1,0 +1,43 @@
+# archived 2026-10-20T00:51Z from designs/circuits/pext/work/n6-cascade-gen.txt by mctas circuit archive
+# CIRCUIT: pext-n6-cascade-gen piston-extender 6 N 6, extend 78 gt, retract 88 gt, 63 blocks, 18x5x4, robust
+name: pext-n6-cascade-gen
+circuit: piston-extender 6
+travel: 1 0 0
+port input: 16 3 3 lever
+port payload: 12 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:observer[facing=up]
+  C minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O.O.O.O.O
+  .
+  .
+  .
+layer 1:
+  sSsSsSsSsSsG
+  .
+  .
+  .
+layer 2:
+  B
+  ..AAA.A.AAA.A..A
+  ..BBB.B.BBB.B..B
+  ...............C
+layer 3:
+  A
+  A
+  ooBoBoBoBooooooA
+  ...............L
+layer 4:
+  .
+  .
+  ..oOoOoOoO
+  .

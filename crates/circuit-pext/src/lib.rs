@@ -9,6 +9,7 @@
 //! * `trace <design>`: every cell change, tick by tick, through placement and the first cycle.
 //! * `verify <designs...>`: the real game at 4 positions x 4 rotations ([`game`]).
 
+pub mod cascade;
 pub mod game;
 pub mod rs;
 pub mod search;
@@ -94,6 +95,17 @@ enum Cmd {
     /// Pulse-toggle trains for a stack of n sticky pistons (abstract 1D model): every pulse
     /// sequence that extends by n on one edge and retracts on the other, with each step's
     /// positions on both edges.
+    /// Generate a CASCADE extender of reach N (units + one observer spine of round starts) and
+    /// check it on redsim.
+    Cascade {
+        #[arg(long)]
+        n: usize,
+        /// Minimum gap between consecutive round starts of one edge (gt).
+        #[arg(long, default_value_t = 6)]
+        gap: i32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     Trains {
         #[arg(long, default_value_t = 3)]
         n: usize,
@@ -149,6 +161,25 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
+        }
+        Cmd::Cascade { n, gap, out } => {
+            let (d, log) = cascade::generate(&cascade::CascadeOptions { n, gap })?;
+            for l in &log {
+                println!("  {l}");
+            }
+            let p = Pext::from_design(d.clone())?;
+            match rs::Prepared::new(&p, 2) {
+                Ok(prep) => {
+                    let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
+                    println!("{}", summary(&p, &r));
+                }
+                Err(e) => println!("not modeled: {e}"),
+            }
+            if let Some(out) = out {
+                d.save(&out)?;
+                println!("wrote {}", out.display());
+            }
+            Ok(())
         }
         Cmd::Trains { n, max, show, shift, bfs } => {
             if bfs {
