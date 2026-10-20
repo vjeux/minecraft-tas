@@ -524,6 +524,12 @@ pub fn placement_problem<'a>(op: Pos, swept: (Pos, Pos), first: &str, mut below:
 /// neighbours, a side over a top over a bottom position, then the position. The run: `ticks` gt
 /// (warmup + period at least), its period read from tick `w`.
 pub fn exterior_outputs(c: &Clock, w: u32, period: u32, swept: (Pos, Pos), occupied: &[Pos]) -> Vec<(Pos, CellWave)> {
+    exterior_scan(c, w, period, swept, occupied, false)
+}
+
+/// [`exterior_outputs`], with `all`: also the candidate cells whose pulses are uneven (a report of
+/// why a clock has no output: `clock sim --exterior-debug`).
+pub fn exterior_scan(c: &Clock, w: u32, period: u32, swept: (Pos, Pos), occupied: &[Pos], all: bool) -> Vec<(Pos, CellWave)> {
     let (slo, shi) = swept;
     let inside = |q: Pos| (0..3).all(|k| q[k] >= slo[k] && q[k] <= shi[k]);
     let mut cand: Vec<Pos> = Vec::new();
@@ -585,7 +591,7 @@ pub fn exterior_outputs(c: &Clock, w: u32, period: u32, swept: (Pos, Pos), occup
         let seq: Vec<bool> = (w..w + period).map(|t| d.signals[t as usize][i] > 0).collect();
         let gaps = wave::rise_gaps(&seq);
         let Some(&g0) = gaps.first() else { continue };
-        if gaps.iter().any(|&g| g != g0) {
+        if !all && gaps.iter().any(|&g| g != g0) {
             continue;
         }
         let (on, edges, widths) = wave::bool_wave(&seq);

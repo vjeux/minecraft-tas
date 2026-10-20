@@ -428,6 +428,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     let mut d = c.design.clone();
                     d.ports.remove("output");
                     let free = Clock::from_design(d)?;
+                    if quiet {
+                        // (with -q: every exterior candidate that gets power, even or not)
+                        let base = simulate(&free, &o);
+                        println!("{}: {}", c.name(), base.summary());
+                        for (q, w) in clock::sim::exterior_scan(&free, base.state_warmup, base.period, base.swept, &base.occupied, true) {
+                            println!("  candidate {q:?}: on {}/{}, gaps {:?}{}", w.on, base.period, w.gaps, if w.irregular().is_some() { " (uneven)" } else { "" });
+                        }
+                    }
                     match clock::sim::lamp_outputs(&free, 1).into_iter().next() {
                         Some((q, r)) => println!("EXTERIOR: {} port output: {} {} {}: {}", c.name(), q[0], q[1], q[2], r.summary()),
                         None => println!("NO EXTERIOR: {}", c.name()),
