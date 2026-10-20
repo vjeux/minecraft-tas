@@ -124,6 +124,28 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - (3) corner cells that can watch the mechanism.
   - Rule check: docs/rules.md says the 3 extra blocks must be in place in BOTH rest states, so an
     empty right frame column at rest is not allowed.
+* Direction analysis (20:30Z-21:00Z), with clk-obs measuring on q68f:
+  - Close order (q68f-type bottom): bottom actions -> P_T first spit (must END before the slime
+    leaves) -> slime return -> P_T second spit. clk-obs: the slime cannot return first with
+    q68f's bottom (0 of 3751 timings). q69i/m reverse it (O pulled down by D_O): top first.
+  - The top's only eyes are (-2,4) facing down (the slime at (-2,3)) and (3,4) facing down
+    ((3,3)). So the bottom can only signal the top through the slime, or through the x=3 static
+    column used as a BUS: pushed up by one ((3,2) into (3,3)), then pushed back down from above
+    (a sticky retraction brings back only one block). A bus pusher must sit under (3,0), which is
+    K's cell, and K has no feed if it rides on the bus. Unresolved.
+  - Every 6-wide assignment of the 9 blocks needs one 2-cell move (an elevator) for the centre
+    column and one for the box-edge column, plus one horizontal shift (K or K'). An elevator needs
+    2 rows beyond the frame, so the possible 6x9 row splits are:
+    - y -3..5: centre elevator at the bottom, Qr + lifter at the top. The lifter sits in row 5,
+      so the top has no wiring row and splits into two areas.
+    - y -2..6: wiring row 6, but only 1 row at the bottom, which leaves no room for a centre
+      elevator.
+    - y -4..4: both elevators and a wiring row at the bottom, but the top row (Pl, P_T) has no
+      feed. An outside lever on P_TR's back face (2,5) holds P_T (QC) and P_TR, but then P_T's
+      head at (1,3) blocks the slime's return.
+  - Every one of these gaps has a structural cause. The hand-design space of this family looks
+    exhausted for 6x9; the next step is a search with island/feed checks inside the mechanism
+    search, not after it.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
