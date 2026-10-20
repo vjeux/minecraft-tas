@@ -1,0 +1,14 @@
+name: rt-honey-drag
+# redsim test scene (not a clock): a piston facing east pushes a honey block (air under it, so it
+# drags no floor) with an armor stand standing on it: the stand is dragged along
+# (moveStuckEntities).
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:armor_stand 2.5 1.9375 0.5
+palette:
+  S minecraft:stone
+  P minecraft:piston[facing=east,extended=false]
+  H minecraft:honey_block
+layer 0:
+  SS.SSSSS
+layer 1:
+  .PH.....

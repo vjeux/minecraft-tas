@@ -105,11 +105,17 @@ fn has_large_collision_shape(s: &Block) -> bool {
     matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. })
 }
 
-/// One block's collision boxes moved to `p`.
-fn boxes_at(s: &Block, p: BlockPos) -> Vec<Aabb> {
+/// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
+/// `piston::shape`; a moving block under `NOCLIP` keeps only a retracting base's box).
+fn boxes_at(w: &World, s: &Block, p: BlockPos) -> Vec<Aabb> {
     let f = |v: i32| v as f64 / 16.0;
     let (x, y, z) = (p.x as f64, p.y as f64, p.z as f64);
-    crate::behavior::collision_boxes(s).iter().map(|c| Aabb::new(x + f(c[0]), y + f(c[2]), z + f(c[4]), x + f(c[1]), y + f(c[3]), z + f(c[5]))).collect()
+    let raw: Vec<[i32; 6]> = match s {
+        Block::Piston { .. } | Block::PistonHead { .. } => crate::piston::shape::of(w, *s, p).into_iter().map(|b| b.0).collect(),
+        Block::MovingPiston { .. } => crate::piston::shape::moving_noclip(w, p, w.entities.noclip).into_iter().map(|b| b.0).collect(),
+        _ => crate::behavior::collision_boxes(s),
+    };
+    raw.iter().map(|c| Aabb::new(x + f(c[0]), y + f(c[2]), z + f(c[4]), x + f(c[1]), y + f(c[3]), z + f(c[5]))).collect()
 }
 
 /// `BlockCollisions` over `bb` (the entity collision context): every block shape that meets
@@ -135,7 +141,7 @@ pub fn block_collisions(w: &World, bb: Aabb) -> Vec<(BlockPos, Vec<Aabb>)> {
                 if s.is_air() || (face == 1 && !has_large_collision_shape(&s)) || (face == 2 && !matches!(s, Block::MovingPiston { .. })) {
                     continue;
                 }
-                let boxes = boxes_at(&s, p);
+                let boxes = boxes_at(w, &s, p);
                 if boxes.is_empty() {
                     continue;
                 }
@@ -353,6 +359,36 @@ fn restitute(w: &mut World, i: usize, x_col: bool, z_col: bool, movement: Vec3) 
     }
 }
 
+/// `Entity.limitPistonMovement(vec)`: one axis only (x, else y, else z), and what pistons move it
+/// along that axis in one game tick stays within +-0.51 (`applyPistonMovementRestriction`).
+fn limit_piston_movement(w: &mut World, i: usize, v: Vec3) -> Vec3 {
+    if v.length_sqr() <= 1.0e-7 {
+        return v;
+    }
+    let time = w.time;
+    let e = &mut w.entities.list[i];
+    if time != e.piston_deltas_time {
+        e.piston_deltas = [0.0; 3];
+        e.piston_deltas_time = time;
+    }
+    let (axis, amount) = if v.x != 0.0 {
+        (0, v.x)
+    } else if v.y != 0.0 {
+        (1, v.y)
+    } else if v.z != 0.0 {
+        (2, v.z)
+    } else {
+        return Vec3::ZERO;
+    };
+    let clamped = mth::clamp(amount + e.piston_deltas[axis], -0.51, 0.51);
+    let a = clamped - e.piston_deltas[axis];
+    e.piston_deltas[axis] = clamped;
+    if a.abs() <= 1.0e-5f32 as f64 {
+        return Vec3::ZERO;
+    }
+    Vec3::ZERO.with_axis(axis, a)
+}
+
 /// `Entity.move(moverType, delta)` of entity `i`.
 pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     if w.entities.list[i].no_physics {
@@ -367,12 +403,17 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     }
     let mut delta = delta;
     if mover == MoverType::Piston {
-        w.errors.push("entities pushed by pistons are not modeled yet".into());
-        return;
+        // `limitPistonMovement` (piston pushing, clk-misc)
+        delta = limit_piston_movement(w, i, delta);
+        if delta.x == 0.0 && delta.y == 0.0 && delta.z == 0.0 {
+            return;
+        }
     }
     if w.entities.list[i].stuck_speed.length_sqr() > 1.0e-7 {
         let e = &mut w.entities.list[i];
-        delta = delta.multiply(e.stuck_speed.x, e.stuck_speed.y, e.stuck_speed.z);
+        if mover != MoverType::Piston {
+            delta = delta.multiply(e.stuck_speed.x, e.stuck_speed.y, e.stuck_speed.z);
+        }
         e.stuck_speed = Vec3::ZERO;
         e.delta_movement = Vec3::ZERO;
     }
