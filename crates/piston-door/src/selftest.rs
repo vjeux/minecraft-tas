@@ -627,6 +627,8 @@ fn checks() -> Vec<Check> {
     for f in ["oneshot-retriggered", "repeater-or-off-delay", "bulb-claims-retriggerable", "tile-off-delay-ring", "tile-off-delay-crosstalk"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
+    // the TNT judge's usefulness rule: a duper whose TNT explodes in its own water refused
+    s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -674,7 +676,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused"))
+            has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused"))
         }),
     });
     v.push(Check {
@@ -692,6 +695,8 @@ fn checks() -> Vec<Check> {
             s.push("designs/circuits/selftest/bulb-toggle-bud.txt".into());
             // study 11's `tile:`: three copies 5 apart, each judged against its own input
             s.push("designs/circuits/selftest/tile-off-delay-ring.txt".into());
+            // the TNT judge's usefulness rule in the game: TNT exploding in the duper's own water
+            s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
             s
         }],
         timeout: 600,
@@ -705,6 +710,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 6 gt, glitches 2, 7 blocks, 3x2x2, robust")?;
             has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
             has(&o[0], "FAIL: cal-bulb-toggle-bud bud: latches")?;
+            has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, robust")?;
             Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff and a bulb toggle claiming a latched BUD refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
         }),

@@ -1,5 +1,4 @@
-# archived 2026-10-20T15:05Z from designs/circuits/tracks/tnt/precise/tnt-precise-slow-43b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-slow-43b tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 43 blocks, 8x5x7, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1; launched at (0.0018, 0.1568, -1.0000) blocks/gt, spread (0.0356, 0.0000, 0.0000); stationary: every TNT at rest for 34+ gt before fuse 1)
+# rejudged (2026-10-20T19:18Z, mctas circuit archive --rejudge): FAIL: tnt-precise-slow-43b tnt-duper: useless TNT: a TNT explodes in a fluid (frame 86 at (3.5, -0.9, -1.5)): it destroys nothing, a duper whose TNT explodes in water is useless (20 of 20 blasts)
 name: tnt-precise-slow-43b
 circuit: tnt-duper
 port start: -3 1 2 minecraft:redstone_block 2

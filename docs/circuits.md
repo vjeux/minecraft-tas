@@ -288,7 +288,16 @@ kick) before the first input.
   = 100 gt apart: one TNT's fuse) waits 100 gt after its last pulse and must be back in its rest
   state; a switchable one's running windows end with the same frames as its first period, its
   stopped windows the same; no entity at the end but the craters' items and burning TNT. The line
-  then carries `(survives its own explosions: N exploded, design intact)`. On redsim (clk-misc's
+  then carries `(survives its own explosions: N exploded, design intact)`. **Useful TNT** (vjeux
+  2026-10-20: "a tnt duper that explodes in water is useless"; `tnt::useful`): every TNT must go off
+  where it destroys blocks: never with a fluid in its center's cell (water, lava, a waterlogged
+  block: every ray loses 30 power there), and with something to destroy around it on open ground
+  (`redsim::explosion::open_ground`: stone under the blast's own cell layer, the fluids where they
+  are, the weakest rolls; 0 blocks fails). The game runner takes each blast's center from the TNT's
+  last sighting (fuse 1) plus its last move and the fluids from that frame; redsim records it per
+  explosion (`Blast::in_fluid`, `open_ground`). A passing duper's line adds `useful: every blast
+  clear of fluids, each destroys blocks on open ground`; the table lists where every blast went off.
+  No drop height cures a useless TNT (`robust::safe_drop` reports it at once). On redsim (clk-misc's
   exact explosion port, `clock::sim::drive_tnt`) every primed TNT is kicked by one `d` and every
   ray is at its largest roll (`Rolls::Max`: surviving it is surviving every roll). **All randoms**
   (vjeux 2026-10-20: "pass every possible random number"): the kick's `nextDouble()` swept over
