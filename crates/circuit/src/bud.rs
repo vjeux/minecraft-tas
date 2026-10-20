@@ -183,13 +183,36 @@ fn class_of(label: &str) -> Option<&'static str> {
 
 /// Judge a BUD run.
 pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
-    judge(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims)
+    // the footprint probes must leave the design as it was (every cell as at rest once the probe
+    // block is gone): a design that carries a probe block away or is broken by it cannot be
+    // measured after that (the later probes, the re-arm pairs)
+    let rest = s.phases.first().map(|p| p.0 as usize).unwrap_or(0).saturating_sub(1);
+    let mut broke: Option<usize> = None;
+    if let Some(rest_frame) = t.cells.get(rest) {
+        for (_, b, label) in &s.phases {
+            let w: Vec<&str> = label.split_whitespace().collect();
+            if w.first() == Some(&"probe") && w.get(2) == Some(&"update") {
+                let end = (*b as usize).saturating_sub(1);
+                if t.cells.get(end).is_some_and(|f| f != rest_frame) {
+                    broke = w.get(1).and_then(|k| k.parse().ok());
+                    break;
+                }
+            }
+        }
+    }
+    judge_with(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims, broke)
 }
 
 /// Judge an output sequence (on per frame) against a BUD schedule: `from` is the first frame the
 /// output must be off at rest, `targets` the number of target cells, `claims` the claimed classes.
 /// The census screens every candidate output cell of a design with it.
 pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String]) -> Outcome {
+    judge_with(out, s, from, targets, claims, None)
+}
+
+/// [`judge`]; `broke`: the footprint probe after which the design is no longer as it was (the
+/// later probes and the re-arm pairs are not measured).
+fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String], broke: Option<usize>) -> Outcome {
     let mut table = Vec::new();
     let first = s.phases.first().map(|p| p.0 as usize).unwrap_or(out.len());
     if out[from.min(out.len())..first.min(out.len())].iter().any(|x| *x) {
@@ -339,18 +362,29 @@ pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[
     let len_s = joined(len.iter().map(|(k, l)| (k.to_string(), format!("{l} gt"))).collect());
     let re_s = if re.is_empty() { String::new() } else { joined(re.clone()) };
     let mut metrics = vec![("detects".to_string(), detected.join(" ")), ("latency".to_string(), lat_s), ("pulse".to_string(), len_s)];
-    if !re.is_empty() {
-        metrics.push(("re-arm".to_string(), re_s));
-    }
-    if let Some((fam, g)) = jam {
-        // two updates this close leave it stuck on (it needs a block update to recover)
-        metrics.push(("jams".to_string(), format!("{fam} pair {g} gt apart")));
+    if let Some(k) = broke {
+        // the re-arm pairs ran on a changed design
+        table.push(format!("  footprint probe {k} changed the design (a block placed beside it and removed leaves it different): the later probes and the re-arm pairs are not measured"));
+        metrics.push(("fragile".to_string(), "(a block placed beside it changes it)".to_string()));
+    } else {
+        if !re.is_empty() {
+            metrics.push(("re-arm".to_string(), re_s));
+        }
+        if let Some((fam, g)) = jam {
+            // two updates this close leave it stuck on (it needs a block update to recover)
+            metrics.push(("jams".to_string(), format!("{fam} pair {g} gt apart")));
+        }
     }
     // footprint: the targets plus every cell around the design where a place, a removal or a pure
     // update gives a pulse; counting stops at a probe that leaves the output on
     let mut hit: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
     let mut stuck = false;
     for (k, n, off) in &probes {
+        // a probe after the one that changed the design measures another design
+        if broke.is_some_and(|b| *k > b) {
+            stuck = true;
+            break;
+        }
         if *n > 0 {
             hit.insert(*k);
         }
@@ -361,7 +395,8 @@ pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[
     }
     if !probes.is_empty() {
         let cells = targets + hit.len();
-        table.push(format!("  footprint: {targets} target(s) + probe cells {:?} of {}{}", hit, probes.len() / 3, if stuck { " (a probe jammed it)" } else { "" }));
+        let why = if broke.is_some() { " (a probe changed it)" } else if stuck { " (a probe jammed it)" } else { "" };
+        table.push(format!("  footprint: {targets} target(s) + probe cells {:?} of {}{why}", hit, probes.len() / 3));
         metrics.push(("footprint".to_string(), format!("{}{cells} cell{}", if stuck { ">= " } else { "" }, if cells == 1 { "" } else { "s" })));
     }
     Outcome { pass: true, why: String::new(), metrics, table }

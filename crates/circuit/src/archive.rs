@@ -155,6 +155,9 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
     // where the host does (study 10)
     if b.kind == "bud" && a.kind == "bud" {
+        if get(b, "fragile ").is_some() {
+            return false;
+        }
         let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
