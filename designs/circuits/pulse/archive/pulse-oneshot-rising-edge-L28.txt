@@ -3,6 +3,9 @@
 name: pulse-oneshot-rising-edge-L28
 # One-shot (rising-edge, L = 28 gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range 28..28 --kind rising-edge).
 circuit: rising-edge
+group: pulse-oneshot-rise
+group title: bulb one-shot (piston trigger)
+group note: a pushed observer lights a copper bulb, a repeater U turns it off; L set by the repeater delays and the U's length
 origin: -1 0 0
 port input: -1 1 0
 port output: 3 1 1

@@ -1,0 +1,21 @@
+# archived 2026-10-20T01:11Z from designs/clocks/tracks/clk-obs/families9/p45-bulb-note-obs-stk-8b-2caffd.txt by mctas clock archive
+# CLOCK: clk-obs-p45-bulb-note-obs-stk-8b-2caffd period 45 gt (2.25 s), on 20/45, edges 10, warmup 11, family copper_bulb+note_block+observer+sticky_piston, 8 blocks, 2x1x5, robust
+name: clk-obs-p45-bulb-note-obs-stk-8b-2caffd
+# clk-obs grow: P=45 (redsim), family note_block+observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 10.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=south]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+  G minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A.
+  BE
+  CF
+  DB
+  .G
