@@ -40,7 +40,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nor-r7-3b](archive/gate-nor-r7-3b.txt) | gate nor | function nor, latency 2 gt | 3 | 1x2x2 | robust | NOR with real signal inputs: one dust between the two inputs (either input powers it, that is OR), on a stone whose wall torch is lit only when the dust is off. 2 gt, 3 blocks. |
+| [gate-nor](archive/gate-nor.txt) | gate nor | function nor, latency 2 gt, tileable every 2 (0 0 2) | 2 | 2x1x2 | robust | NOR gate, 2 blocks: a dust lying on input B's block points into input A's block, so A's block is powered whenever A or B is on; the wall torch hanging on A's block is the output, lit only while both are off. |
 
 ## not
 
@@ -52,7 +52,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-or-2b](archive/gate-or-2b.txt) | gate or | function or, latency 0 gt, class instant, tileable every 2 (0 0 2) | 2 | 1x2x1 | robust | OR gate, instant (track gates): one dust on a stone between the two inputs; either input powers the dust, the dust powers the stone under it, and the output cell under the stone sees it. 0 gt. (With the output cell itself between the inputs the OR needs no block at all.) |
+| [gate-or](archive/gate-or.txt) | gate or | function or, latency 0 gt, class instant, tileable every 2 (0 0 2) | 1 | 1x1x1 | robust | OR gate, 1 block, instant: a dust lying on input B's block points into the output, and input A's block sits right beside the output too. Either powered input block lights the output, with no delay. |
 
 ## xnor
 
