@@ -25,6 +25,7 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | falling-edge | 3, 5, 7, 9 | 16 | odd by overlap from two falling-edge detectors 1 gt apart (pulled observer at +5; a torch the input turns off through dust relights 2 gt after the edge and toggles a bulb read by comparator + observer: +6) (`family odd --mode fall`) |
 | pulse-limiter, rising-edge | 3, 5, ..., 13 | 10 | PISTON-SUBTRACT: a sticky piston pushes a redstone block behind a subtract comparator (odd delay: the piston moves the tick after the input, the block lands in the block-entity phase), the side gets the input through two repeaters (even delay): L = 2 (d1 + d2) - 3 (`family odd --mode piston`) |
 | pulse-limiter | 13 + 16n | 18 + 4n | card `pulse-limiter-psub-u4` (n 0..10, L up to 173): the piston-subtract limiter with a repeater U on the side: odd L of any length |
+| falling-edge | 3, 5, ..., 15 | 14 | FALLING PISTON-SUBTRACT: the input's sticky piston pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (odd delay); the side gets the input inverted by a torch and delayed by two repeaters: L = 2 (d1 + d2) - 1; card `pulse-fall-psub-u4` L = 15 + 16n (22 + 4n blocks, n 0..2: the min-pulse grows with L) |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
