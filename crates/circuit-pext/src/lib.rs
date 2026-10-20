@@ -16,7 +16,7 @@ pub mod search;
 pub mod spec;
 pub mod trains;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use clap::{Parser, Subcommand};
 use spec::{Pext, Pos};
 use std::path::PathBuf;
@@ -98,13 +98,34 @@ enum Cmd {
     /// Generate a CASCADE extender of reach N (units + one observer spine of round starts) and
     /// check it on redsim.
     Cascade {
+        /// The reach N; with --base/--step, the family index n (N = base + step * n).
         #[arg(long)]
         n: usize,
+        #[arg(long, default_value_t = 0)]
+        base: usize,
+        #[arg(long, default_value_t = 1)]
+        step: usize,
         /// Minimum gap between consecutive round starts of one edge (gt).
         #[arg(long, default_value_t = 6)]
         gap: i32,
+        /// Write the `extend` headers of this family id (an extendable family base: N = base +
+        /// step * n for n in 0..=--n-max, built by this generator).
+        #[arg(long)]
+        family: Option<String>,
+        #[arg(long, default_value_t = 4)]
+        n_max: usize,
+        /// The `extend group` id (with --family): one catalog card for the residue families.
+        #[arg(long)]
+        group: Option<String>,
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Remove archived designs (now covered by a family card) from designs/circuits/pext/archive:
+    /// the files and their rows in verdicts.tsv and captions.tsv.
+    Drop {
+        files: Vec<String>,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
     },
     Trains {
         #[arg(long, default_value_t = 3)]
@@ -162,8 +183,45 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
         }
-        Cmd::Cascade { n, gap, out } => {
-            let (d, log) = cascade::generate(&cascade::CascadeOptions { n, gap })?;
+        Cmd::Cascade { n, base, step, gap, family, n_max, group, out } => {
+            let reach = base + step * n;
+            let (mut d, log) = cascade::generate(&cascade::CascadeOptions { n: reach, gap })?;
+            if let Some(id) = &family {
+                // blocks(N) is linear along N = base + step*n when step is a multiple of 3 (a
+                // cell shared by two rounds comes every third N); measured, not assumed
+                let count = |k: usize| -> Result<i64> {
+                    let d = cascade::generate(&cascade::CascadeOptions { n: base + step * k, gap })?.0;
+                    Ok(Pext::from_design(d)?.blocks() as i64)
+                };
+                let (b0, b1, b2) = (count(0)?, count(1)?, count(2)?);
+                if b2 - b1 != b1 - b0 || step % 3 != 0 {
+                    bail!("blocks are not linear along N = {base} + {step}n ({b0}, {b1}, {b2}): use a step that is a multiple of 3");
+                }
+                let m = &mut d.meta;
+                m.insert("extend family".into(), id.clone());
+                m.insert("extend axis".into(), format!("{base} + {step}n"));
+                m.insert("extend blocks".into(), format!("{b0} + {}n", b1 - b0));
+                m.insert("extend n".into(), format!("0..{n_max}"));
+                m.insert("extend base".into(), format!("{n}"));
+                m.insert(
+                    "extend rule".into(),
+                    format!("every n adds {step} units (slime + sticky piston + carried observer), their round-start pulsers and {} cells of observer spine", 3 * step),
+                );
+                m.insert(
+                    "extend generator".into(),
+                    format!("mctas circuit pext cascade --base {base} --step {step} --n {{n}} --out {{out}}"),
+                );
+                if let Some(g) = &group {
+                    m.insert("extend group".into(), g.clone());
+                    m.insert("extend group title".into(), "cascade extender (self-triggered units)".into());
+                    m.insert("extend group period".into(), "N = any reach >= 2".into());
+                    m.insert(
+                        "extend group note".into(),
+                        "blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)".into(),
+                    );
+                }
+                d.name = format!("{id}-n{n}");
+            }
             for l in &log {
                 println!("  {l}");
             }
@@ -178,6 +236,32 @@ pub fn run(args: Vec<String>) -> Result<()> {
             if let Some(out) = out {
                 d.save(&out)?;
                 println!("wrote {}", out.display());
+            }
+            Ok(())
+        }
+        Cmd::Drop { files, root } => {
+            let dir = root.join("pext").join("archive");
+            for tsv in ["verdicts.tsv", "captions.tsv"] {
+                let p = dir.join(tsv);
+                let text = std::fs::read_to_string(&p)?;
+                let kept: Vec<&str> = text
+                    .lines()
+                    .filter(|l| {
+                        let cols: Vec<&str> = l.split('\t').collect();
+                        let file = if tsv == "verdicts.tsv" { cols.get(1) } else { cols.first() };
+                        !file.is_some_and(|f| files.iter().any(|x| x == f))
+                    })
+                    .collect();
+                let removed = text.lines().count() - kept.len();
+                std::fs::write(&p, kept.join("\n") + "\n")?;
+                println!("{tsv}: {removed} rows removed");
+            }
+            for f in &files {
+                let p = dir.join(f);
+                if p.exists() {
+                    std::fs::remove_file(&p)?;
+                    println!("removed {}", p.display());
+                }
             }
             Ok(())
         }
