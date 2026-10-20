@@ -1169,7 +1169,9 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths, gaps } }), own)
         }
         None => {
-            let best = rep.analysis.cells.iter().filter(|w| w.tappable() && !ent_cells.contains(&w.pos)).max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));
+            // (no declared output: the changing cell with the longest own period, for the census
+            // and reports; the judge itself picks an exterior air cell, `lamp_outputs`)
+            let best = rep.analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));
             match best {
                 Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),
                 None => (None, full_p),
