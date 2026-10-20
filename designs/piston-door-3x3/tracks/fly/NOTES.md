@@ -97,6 +97,96 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Core flaw: the box-edge right column needs bottom pistons (A, K), and they cannot be
     reached. Next: a right column with no bottom-right pistons, or a centre escape that frees
     (1,-3) so the bottom becomes one island.
+* 6-wide topology, worked out (20:30Z), for anyone trying a 6x9 / 6x8 of this kind:
+  - Only one side can carry the slime structure, which needs the extra column (x=-2). The other
+    wall sits on the box edge, so its door column (x=2) must make a 2-cell vertical move plus one
+    horizontal shift (K at (3,-1) or K' at (3,3)). That costs pistons in a corner area.
+  - Corner areas are blind: an observer at x=3 or in the edge row that watches a mechanism cell
+    always outputs out of the box. The bottom-right can only see B1 from (2,-3), so (2,-3) must
+    stay free and B1 must be fed from (0,-3).
+  - The top (lever area) reaches the bottom-left only through the slime (a dragged rider). On close
+    the slime must therefore return first, so O must leave (0,-1) downwards (D_O at (0,-3)), and
+    that takes B1's feed. These two requirements exclude each other in 6x9.
+  - The top could see the centre column through an observer at (1,4) watching (1,3) (output into
+    (1,5)), but (1,4) is where P_T must sit to pull C up.
+  - The bottom-left could push the slime itself (a piston at (0,-1) pushing the rider W) and the top
+    could watch a rider at (-1,5) from (0,5) (12 blocks moved, exactly the limit). But Qv's only
+    driver cell is (0,-1).
+  - Conclusion: this mechanism family is not wireable in 6x9 without a new idea for the box-edge
+    column or for driving Qv.
+* Next directions (coordinator 20:29Z):
+  - (1) toggle-only top, one island: clk-obs.
+  - (2) the slime moved from the BOTTOM (Pb at (0,-2) facing west, L down to (-1,-2)), so the
+    whole close order (bottom-right -> bottom-left -> slime) lives at the bottom and the top only
+    watches the slime (observer at (-2,4) facing down -> row 5). Open issue: (0,-1) next to L's
+    slime is poisoned (dragged), so Qv's driver must be at (2,-1) (observer facing east watching
+    K) or a rider.
+  - (3) corner cells that can watch the mechanism.
+  - Rule check: docs/rules.md says the 3 extra blocks must be in place in BOTH rest states, so an
+    empty right frame column at rest is not allowed.
+* Direction analysis (20:30Z-21:00Z), with clk-obs measuring on q68f:
+  - Close order (q68f-type bottom): bottom actions -> P_T first spit (must END before the slime
+    leaves) -> slime return -> P_T second spit. clk-obs: the slime cannot return first with
+    q68f's bottom (0 of 3751 timings). q69i/m reverse it (O pulled down by D_O): top first.
+  - The top's only eyes are (-2,4) facing down (the slime at (-2,3)) and (3,4) facing down
+    ((3,3)). So the bottom can only signal the top through the slime, or through the x=3 static
+    column used as a BUS: pushed up by one ((3,2) into (3,3)), then pushed back down from above
+    (a sticky retraction brings back only one block). A bus pusher must sit under (3,0), which is
+    K's cell, and K has no feed if it rides on the bus. Unresolved.
+  - Every 6-wide assignment of the 9 blocks needs one 2-cell move (an elevator) for the centre
+    column and one for the box-edge column, plus one horizontal shift (K or K'). An elevator needs
+    2 rows beyond the frame, so the possible 6x9 row splits are:
+    - y -3..5: centre elevator at the bottom, Qr + lifter at the top. The lifter sits in row 5,
+      so the top has no wiring row and splits into two areas.
+    - y -2..6: wiring row 6, but only 1 row at the bottom, which leaves no room for a centre
+      elevator.
+    - y -4..4: both elevators and a wiring row at the bottom, but the top row (Pl, P_T) has no
+      feed. An outside lever on P_TR's back face (2,5) holds P_T (QC) and P_TR, but then P_T's
+      head at (1,3) blocks the slime's return.
+  - Every one of these gaps has a structural cause. The hand-design space of this family looks
+    exhausted for 6x9; the next step is a search with island/feed checks inside the mechanism
+    search, not after it.
+* New elements (21:10Z), not yet used in a design:
+  - SELF-INVERSE TOGGLE ELEVATOR: a puller Q (sticky, retracted) and a lifter L under/over it,
+    every input a 2 gt pulse. The train L, Q, L, Q moves a block 2 cells on open, and the SAME
+    train undoes it on close (checked by hand). A top elevator for C, P_T (1,4) + M (1,5), with
+    Pl and a pull-type Qv (1,-2), gives the centre train P_T, Pl, M, P_T, M, P_T, Qv, which opens
+    the centre (TM to (0,3) via the slime, C to (1,3), BM to (1,-1)) AND closes it when replayed
+    in the same order. A single train for both edges is exactly what observer dominoes / `door
+    interleave` need.
+  - J-SLIME: L = (-1,-2..2) + (0,-1), pushed by Pb (0,-2) facing west (6 slimes + 4 dragged).
+    The (0,-1) arm drags (1,-1)'s block into the bottom-left corner. It cannot also take the
+    (0,3) corner (13 blocks), so (0,3) becomes a 4th static and one door block must hide.
+  - BOTTOM-ROW SHIFTER: a slime arm at y=-2 under the bottom frame row ((0,-2),(1,-2), pushed
+    from (2,-2)) shifts the row west when L moves: (1,-1) to (0,-1), and (0,-1) to (-1,-1), which
+    hides a block there (7 slimes + 5 dragged = 12).
+  - Invariant obstacle in 6 wide: the box-edge column's middle block MR. Hiding it in the x=2
+    column conflicts with that column's pullers, so it always needs a corner slider (K at
+    (3,-1) or K' at (3,3)).
+* `door selffeed --anywhere` (tool, 49a191c8b5): carried-observer candidates (every free cell
+  and facing). On q69m: 0 of 11 inputs (its inputs are levels and multi-pulse; selffeed needs a
+  2 gt train). `door interleave --search 1M --levels --segments`: no train for q68f / q68g /
+  q69j / q69m (18-20 cells off). Next: toggle-form plans (every input a 2 gt pulse), designed so
+  that the open train replayed closes.
+* r69 (21:20Z, 6x9 = 54b, frame 12/12, 9 pistons): built from the self-inverse toggle idea.
+  - Pieces: top elevator M (1,5) + P_T for C; the slime for the left column and TM; Qv (1,-2)
+    pulls BM; A pulls BR; K pushes BR + BM west; bottom elevator A + B for MR; P_TR pulls TR; G
+    (-1,-1) is a sticky that rides the slime (dragged to (-2,-1) on open, brought home on close)
+    and pushes BM back east on close.
+  - Runs from ONE hand-made train of 15 2-gt pulses, the same on both edges.
+  - WORKS: redsim 32 x 3 and the game 32 x 2, open 87 / close 87.
+  - Unwireable top: P_T (1,4) is boxed by Pl, P_TR and M. Its only feed is QC through (1,5),
+    which also powers M, and M is updated first and pushes P_T away (clk-obs).
+  - Co-firing A with B (A's feed into (2,-2) QCs B) is harmless in redsim.
+* r69a: r69 without M. Qv (1,-1) touches BM at rest (its spit raises the middle column so P_T
+  reaches C), and B1 (1,-3) drops Qv. P_T is fed from (1,5) and the top is one area. 2 gt
+  pulses, with different open and close sequences. WORKS redsim 32 x 3.
+* r69t: `door interleave --search` found ONE train for r69a in 19k pairs.
+  - 17 2-gt pulses, the same ticks on both edges, last pulse t33, open 36 / close 32.
+  - WORKS: redsim 32 x 3 and the game 32 x 2.
+  - Train: P_T 0 9 | P_TR 0 | Pl 5 | Qv@(1,-1) 2 4 | Qv@(1,-2) 0 17 | B1 12 | G 9 24 | K 22 |
+    B 25 29 | A 0 33 | A@(2,-1) 26.
+  - The first single-train sub-56 door. Wiring next: island-aware trains, pockets3 / clk-obs.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.

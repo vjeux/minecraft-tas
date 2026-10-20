@@ -49,6 +49,10 @@ pub struct Options {
     pub align: Option<i64>,
     /// Shifts tried for the rest of the plan on each edge (0 first).
     pub shifts: Vec<i64>,
+    /// Try an observer in EVERY free cell and in-plane facing, not only where it powers the input's
+    /// piston at rest: observers the mechanism carries (a slime rider, a block in a pushed row)
+    /// fire on arrival and power whatever they face at their new cell.
+    pub anywhere: bool,
 }
 
 fn add(a: Pos, b: Pos) -> Pos {
@@ -92,6 +96,8 @@ struct Ctx {
     plane: Vec<(Pos, &'static str)>,
     /// Print why each rejected placement fails.
     why: bool,
+    /// Every free cell and facing is a candidate (carried observers).
+    anywhere: bool,
 }
 
 impl Ctx {
@@ -213,6 +219,13 @@ fn retimed(evs: &[Event], g: Pos, d: [i64; 2]) -> Option<Vec<Event>> {
 fn try_input(ctx: &Ctx, evs: &[Event], edits: &[Edit], g: Pos, screen: &[Pos], threads: usize, shifts: &[i64]) -> Vec<(Sub, Vec<Event>)> {
     let taken: BTreeSet<Pos> = edits.iter().map(|e| e.0).collect();
     let mut cands: Vec<(Pos, &'static str)> = Vec::new();
+    if ctx.anywhere {
+        for c in ctx.free.iter().filter(|c| !taken.contains(*c)) {
+            for (_, f) in &ctx.plane {
+                cands.push((*c, f));
+            }
+        }
+    }
     for p in ctx.fed(g) {
         for c in ctx.placements(p, &taken) {
             if !cands.contains(&c) {
@@ -382,7 +395,7 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let door = *design.ports.get("door").context("design has no door port")?;
     let along_z = design.meta.get("door-axis").is_some_and(|v| v == "z");
     let plane: Vec<(Pos, &'static str)> = DIRS.iter().copied().filter(|(d, _)| if along_z { d[0] == 0 } else { d[2] == 0 }).collect();
-    let ctx = Ctx { free: free_cells(&design, along_z, door, o.margin), design, phase: s.phase, cycles: o.cycles, plane, why: o.why };
+    let ctx = Ctx { free: free_cells(&design, along_z, door, o.margin), design, phase: s.phase, cycles: o.cycles, plane, why: o.why, anywhere: o.anywhere };
     let mut evs = events_of(&s)?;
     let screen = crate::ideal::offsets(0);
     let full = crate::ideal::offsets(o.extra_offsets);
