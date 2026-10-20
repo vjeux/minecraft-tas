@@ -910,7 +910,7 @@ impl App {
             }
             let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect, scene::THUMB_WINDOW);
+            let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
             // a thumbnail is a picture, nothing to press: no outlines over a small build (the
             // live viewer has them, with its tags)
             look.outlines.clear();

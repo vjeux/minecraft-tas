@@ -502,8 +502,8 @@ pub fn load(app: &mut App, id: u32) {
                 }
             }
             // a new design (a swap): the badge sized again from its own texts
-            let _ = l.status.style().remove_property("min-width");
-            let _ = l.status.style().remove_property("min-height");
+            let _ = l.status.style().remove_property("width");
+            let _ = l.status.style().remove_property("height");
             // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
             // actions at cells (data-events: a BUD switch's target and footprint probes)
             if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
@@ -557,9 +557,10 @@ pub fn load(app: &mut App, id: u32) {
                         tallest = tallest.max(l.status.offset_height());
                     }
                     if widest > 0 {
-                        // offset sizes count the paddings (8 px each side, 2 px top and bottom)
-                        let _ = l.status.style().set_property("min-width", &format!("{}px", widest - 16));
-                        let _ = l.status.style().set_property("min-height", &format!("{}px", tallest - 4));
+                        // offset sizes count the paddings (8 px each side, 2 px top and bottom); an
+                        // exact size (not a minimum: a wrapping text's width is fractional)
+                        let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
+                        let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
                     }
                     l.shown_status = String::from("\u{0}");
                 }
