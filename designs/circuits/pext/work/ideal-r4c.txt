@@ -1,0 +1,18 @@
+# N=4 one-frame rider, IDEAL pulses at EVEN ticks (what observer chains from the lever give):
+# 1 {5,6} t6, 2 {4} t12, 3 {5,6} t18, 4 {2,3} t24, 5 x3 t30 + x5 t30 on / t34 off, 6 {4,7} t40.
+name: ideal-r4c
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 5 2 0
+ideal: both 6 set 5 2 1 minecraft:redstone_block; both 6 set 6 2 1 minecraft:redstone_block; both 8 clear 5 2 1; both 8 clear 6 2 1; both 12 set 4 2 1 minecraft:redstone_block; both 14 clear 4 2 1; both 18 set 5 2 1 minecraft:redstone_block; both 18 set 6 2 1 minecraft:redstone_block; both 20 clear 5 2 1; both 20 clear 6 2 1; both 24 set 2 2 1 minecraft:redstone_block; both 24 set 3 2 1 minecraft:redstone_block; both 26 clear 2 2 1; both 26 clear 3 2 1; both 30 set 3 2 1 minecraft:redstone_block; both 32 clear 3 2 1; on 30 set 5 2 1 minecraft:redstone_block; on 32 clear 5 2 1; off 34 set 5 2 1 minecraft:redstone_block; off 36 clear 5 2 1; both 40 set 4 2 1 minecraft:redstone_block; both 40 set 7 2 1 minecraft:redstone_block; both 42 clear 4 2 1; both 42 clear 7 2 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 1:
+  LASSSSSSS
+layer 2:
+  ..BBBG

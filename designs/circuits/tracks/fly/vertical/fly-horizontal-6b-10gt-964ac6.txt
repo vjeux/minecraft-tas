@@ -1,0 +1,19 @@
+# flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching sideways + up; 2 slime
+name: fly-horizontal-6b-10gt-964ac6
+circuit: flying-machine
+distance: 24
+travel: 0 0 -1
+port start: -3 0 1 minecraft:stone 1
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=up,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .AS
+  oSs
+layer 1:
+  ..O
+  .

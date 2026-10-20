@@ -1,0 +1,18 @@
+# XOR fastest gate (track gates census, function xor, latency 0 gt, class instant): stone at 1,0,1;
+# redstone_wire[east=none,north=none,power=0,south=none,west=none] at 1,1,1; stone at 2,1,1; stone
+# at 1,1,2
+name: gate-xor-fastest-4b
+circuit: gate xor
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: 2 1 2
+origin: 1 0 1
+palette:
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:stone
+layer 0:
+  S
+  .
+layer 1:
+  RS
+  S

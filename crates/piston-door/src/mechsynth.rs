@@ -453,6 +453,10 @@ pub struct Graph {
 /// When set, pistons are pulse-driven only (no level events): the cheapest control, one observer
 /// chain from the lever (`--pulses-only`).
 pub static PULSES_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Ideal plans may put an input in the hallway in front of / behind the 3x3 (test only: a piston
+/// firing from inside the opening, as w86's a3s family, has no other input cell; the real door
+/// must power it some other way). `door mechmut --ideal-out` sets it.
+pub static CORRIDOR_INPUTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--seamless-open`: open states must also pass `World::ring_clean`.
 pub static SEAMLESS_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the split symmetric search puts the "edge" pulses: 0 both, 1 start, 2 end (`--edges`).
@@ -1366,7 +1370,7 @@ fn input_cell_avoid(states: &[&World], id: usize, avoid: &[P]) -> Option<P> {
             continue;
         }
         let c = add(pos, D[d as usize]);
-        if in_corridor(c) || avoid.contains(&c) {
+        if (in_corridor(c) && !CORRIDOR_INPUTS.load(std::sync::atomic::Ordering::Relaxed)) || avoid.contains(&c) {
             continue;
         }
         let mut ok = true;

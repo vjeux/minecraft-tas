@@ -1,0 +1,26 @@
+# archived 2026-10-19T22:57Z from designs/clocks/tracks/clk-obs/families9/p110-lamp-obs-stk-9b-e2850e.txt by mctas clock archive
+# CLOCK: clk-obs-p110-lamp-obs-stk-9b-e2850e period 110 gt (5.5 s), on 50/110, edges 25, warmup 8, family observer+redstone_lamp+sticky_piston, 9 blocks, 2x4x3, robust
+name: clk-obs-p110-lamp-obs-stk-9b-e2850e
+# clk-obs grow: P=110 (redsim), family observer+redstone_lamp+sticky_piston+stone, kick last 0 0 2, swept volume 24.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 2 last
+palette:
+  A minecraft:redstone_lamp[lit=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:stone
+  F minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  A.
+  B.
+  C.
+layer 1:
+  C.
+  D.
+  EF
+layer 2:
+  B.
+  D.
+  ..

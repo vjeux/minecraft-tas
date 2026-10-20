@@ -1,0 +1,18 @@
+# flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+name: fly-down-6b-10gt-ae5894
+circuit: flying-machine
+distance: 24
+travel: 0 -1 0
+port start: 0 0 2 minecraft:stone 1
+origin: -1 0 0
+palette:
+  O minecraft:observer[facing=south,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -1:
+  Ss
+  O
+layer 0:
+  PS
+  .O

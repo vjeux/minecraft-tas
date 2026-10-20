@@ -41,6 +41,19 @@ Board files (Space 2034923423883327): `minecraft-tas/board/partials/c78z.md`, `p
 - Lesson: in a 6-wide box the leftmost door column always needs a west pusher (corner, isolated feeds) or a
   reach-2 east puller (collides with the right stack's feeds (4,-1)/(4,3)), next to two elevators whose
   vertical QC couplings eat the remaining feed cells.
+- Second round (21:40-22:20Z), all WORK with ideal inputs (redsim 32 positions tile, JVM door ideal), all
+  satwire UNSAT (cores in NOTES sec 9): `m69L` (R0/R1 lever-held, the lever on R1's back (5,1)), `m69R`/`m69S`
+  (column 0 by a ring pusher P0 (0,-1) + escape puller E0 (0,-3)), `m69T`/`m69U` (column 1 also by a ring
+  pusher RP1 (1,3) + E1 (1,5): no elevators), `m69V` (no top-left corner piston: ring puller Q (2,3) escapes
+  right into (3,3) via QE (4,3); R1/R2 lever-held from (5,2)). The core just moves around the top.
+- satwire patches on this branch (for the coordinator to merge): 246dd898 + f85eff5e = a lever may hang
+  under / behind a mechanism piston whose base never leaves its cell (needed for lever-held pullers).
+
+## 3b. 9x6 helper work for w86 (owner)
+- `c69/m69t.*` (m69 turned), `m69u.ideal` (w86's re-timed plan), `m69v.*` (bottom-middle puller lever-held,
+  lever under it), copies of w86's `m69g` / `m73` (8x6) in `c69/w86/`. satwire cores: m69u open (1,-2);
+  m69v solid close (4,1)+(3,3), sculk the right elevator + corner; m69g (carried s0 ideal) close (5,0)+(3,-1);
+  m73 (8x6) solid open W'' (-1,-1) (bottom-left pocket), sculk RP0 (4,0)/(3,0).
 
 ## 4. Running / helpers
 - Nothing of mine running (all satwire runs ended or were killed).

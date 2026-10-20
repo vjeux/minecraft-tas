@@ -1,0 +1,71 @@
+file	caption
+fly-horizontal-6b-10gt-01ce95.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching down + down; 2 slime
+fly-horizontal-6b-10gt-02a7fb.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + sideways; 2 slime
+fly-horizontal-6b-10gt-040607.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-horizontal-6b-10gt-13c653.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-horizontal-6b-10gt-170a6b.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-horizontal-6b-10gt-21a800.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; 2 slime
+fly-horizontal-6b-10gt-2e9777.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
+fly-horizontal-6b-10gt-32cc00.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; honey + slime
+fly-horizontal-6b-10gt-3ec62d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-horizontal-6b-10gt-5c3d92.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; honey + slime
+fly-horizontal-6b-10gt-73cdd4.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching up + up; 2 slime
+fly-horizontal-6b-10gt-7daa4d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
+fly-horizontal-6b-10gt-933e46.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; 2 slime
+fly-horizontal-6b-10gt-934fee.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + down; 2 slime
+fly-horizontal-6b-10gt-964ac6.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
+fly-horizontal-6b-10gt-9be54d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + up; 2 slime
+fly-horizontal-6b-10gt-a263fd.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
+fly-horizontal-6b-10gt-a4df86.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
+fly-horizontal-6b-10gt-ab9d7f.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-horizontal-6b-10gt-b2d5cf.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-horizontal-6b-10gt-b6959a.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
+fly-horizontal-6b-10gt-da7cfb.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
+fly-horizontal-6b-10gt-e2cf52.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-horizontal-6b-10gt-e66767.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-horizontal-6b-10gt-f41cea.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-horizontal-6b-10gt-f7b224.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-d1.txt	Derived from the piston rules (docs/mechanics.md section 2): the rear part (normal piston X, two slimes, observer A) pushes the front part (observer B, slime, sticky piston Y) one cell east; Y, fired by B when the front lands, reach-pulls the rear slime row (and X, A) one cell east; A, landing, fires X again.
+fly-down-6b-10gt-572d63.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-711a4b.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-882fc3.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-ae5894.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-0dba6a.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-down-6b-10gt-711a4b-c774d9.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-8136e6.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
+fly-down-6b-10gt-926773.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-down-6b-10gt-cae51d.txt	flies down: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-down-6b-10gt-cbc0e3.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
+fly-down-6b-10gt-df01a4.txt	flies down: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
+fly-down-7b-10gt-aca731.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + back; 3 slime
+fly-horizontal-6b-10gt-964ac6-70baf8.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching sideways + up; 2 slime
+fly-up-6b-10gt-2901e6.txt	flies up: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-up-6b-10gt-ca150a.txt	flies up: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
+fly-up-7b-9gt-ff426b.txt	flies up: piston facing forward + sticky piston facing back; observers watching back + back; 3 slime
+fly-down-6b-10gt-304dd9.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; 2 slime
+fly-down-6b-10gt-3a5365.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; honey + slime
+fly-down-6b-10gt-400161.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; 2 slime
+fly-down-6b-10gt-427570.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching back + sideways; 2 slime
+fly-down-6b-10gt-4b41e5.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; honey + slime
+fly-down-6b-10gt-a14d69.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
+fly-horizontal-6b-10gt-2d6cb2.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
+fly-horizontal-6b-10gt-30846b.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
+fly-horizontal-6b-10gt-3966e6.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
+fly-horizontal-6b-10gt-399638.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
+fly-horizontal-6b-10gt-3c7ccd.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching forward + up; honey + slime
+fly-horizontal-6b-10gt-5093a3.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + down; 2 slime
+fly-horizontal-6b-10gt-67f769.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching sideways + sideways; 2 slime
+fly-horizontal-6b-10gt-68f70e.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; 2 slime
+fly-horizontal-6b-10gt-7ab2b1.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
+fly-horizontal-6b-10gt-817d65.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
+fly-horizontal-6b-10gt-873917.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + forward; 2 slime
+fly-horizontal-6b-10gt-91737e.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching down + forward; 2 slime
+fly-horizontal-6b-10gt-93668c.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
+fly-horizontal-6b-10gt-96f587.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
+fly-horizontal-6b-10gt-9a6f4d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
+fly-horizontal-6b-10gt-9f67a3.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + up; 2 slime
+fly-horizontal-6b-10gt-a94576.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
+fly-horizontal-6b-10gt-d0adfc.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; 2 slime
+fly-horizontal-6b-10gt-ee3111.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-horizontal-6b-10gt-fe361f.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
+fly-up-6b-10gt-9e15a0.txt	flies up: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime

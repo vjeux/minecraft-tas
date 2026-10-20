@@ -1,0 +1,11 @@
+[package]
+name = "site-model"
+description = "REDSTONEPEDIA's data model (docs/site.md): the records `mctas site build` exports to site/data/site.json and the browser UI (web/site, Rust compiled to WebAssembly) reads; serde types only, so it builds for both targets"
+# explicit fields (no workspace inheritance): web/site, a separate workspace, depends on this crate by path
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/vjeux/minecraft-tas"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

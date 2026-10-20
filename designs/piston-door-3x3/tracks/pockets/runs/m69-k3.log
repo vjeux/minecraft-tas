@@ -1,0 +1,53 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/c78l-m69b.ideal: 13 input cells off the plane ([(4, 0), (4, 1), (4, 2), (0, -2), (2, -2), (1, 4), (3, 3), (3, -1), (0, 4), (-1, 3), (2, -3), (0, 6), (1, -1)]), 32 / 32 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/c78l-m69a.txt: 26 blocks in the box, screen 79/79
+seed screen 79/79 with 13 inputs assisted
+windows (32 groups, 0.0 s):
+  input (4,0) open  t2 pulse 2 gt: window [-2, +3]
+  input (4,1) open  t2 pulse 2 gt: window [-2, +3]
+  input (4,2) open  t2 pulse 2 gt: window [+0, +3]
+  input (0,-2) open  t2 pulse 2 gt: window [+0, +24]
+  input (2,-2) open  t2 pulse 2 gt: window [-2, +0]
+  input (1,4) open  t2 pulse 2 gt: window [+0, +5]
+  input (3,3) open  t6 pulse 2 gt: window [-6, +3]
+  input (3,-1) open  t6 pulse 2 gt: window [+0, +4]
+  input (0,4) open  t6 pulse 2 gt: window [-4, +2]
+  input (-1,3) open  t12 pulse 2 gt: window [-2, +2]
+  input (2,-3) open  t12 pulse 8 gt: window [+0, +1]
+  input (0,6) open  t16 pulse 8 gt: window [+0, +1]
+  input (1,-1) open  t16 pulse 2 gt: window [-1, +0]
+  input (0,4) open  t20 pulse 2 gt: window [-1, +0]
+  input (2,-2) open  t24 pulse 2 gt: window [-2, +24]
+  input (0,4) open  t28 pulse 2 gt: window [-1, +24]
+  input (2,-2) close t2 pulse 2 gt: window [-2, +3]
+  input (0,4) close t2 pulse 2 gt: window [-2, +0]
+  input (0,-2) close t2 pulse 2 gt: window [+0, +24]
+  input (4,0) close t2 pulse 2 gt: window [-2, +0]
+  input (4,1) close t2 pulse 2 gt: window [-2, +0]
+  input (4,2) close t2 pulse 2 gt: window [+0, +0]
+  input (2,-3) close t6 pulse 8 gt: window [-5, +3]
+  input (0,6) close t6 pulse 8 gt: window [+0, +3]
+  input (2,-2) close t10 pulse 2 gt: window [-3, +5]
+  input (0,4) close t10 pulse 2 gt: window [-3, +0]
+  input (-1,3) close t18 pulse 4 gt: window [-3, +0]
+  input (3,-1) close t18 pulse 2 gt: window [-3, +4]
+  input (2,-2) close t22 pulse 2 gt: window [-4, +24]
+  input (0,4) close t24 pulse 2 gt: window [+0, +24]
+  input (3,3) close t24 pulse 2 gt: window [-1, +3]
+  input (1,4) close t28 pulse 2 gt: window [-3, +24]
+18 pocket cells in 4 pockets; 0 lever candidates in the plane, 0 static front-face supports, polarity [false]; 38 swept cells
+  pocket 0: 4 cells [(-1, -3), (-1, -2), (-1, -1), (0, -3)]
+  pocket 1: 2 cells [(-1, 4), (-1, 5)]
+  pocket 2: 8 cells [(1, 5), (2, 4), (2, 5), (3, 4), (3, 5), (4, 3), (4, 4), (4, 5)]
+  pocket 3: 4 cells [(3, -3), (3, -2), (4, -2), (4, -1)]
+pocket 0: 4 cells, 196 subset/lever items, 426478 fillings to screen
+pocket 0: 481269 screened, 143691 keep the door working, 3.8 s; driven input sets: {(0,-2)o2 (0,-2)c2} x24 (best 2 blocks)
+pocket 1: 2 cells, 3 subset/lever items, 2303 fillings to screen
+pocket 1: 2652 screened, 1120 keep the door working, 1.5 s; driven input sets: none
+pocket 2: 8 cells, 1143 subset/lever items, 2516239 fillings to screen
+pocket 2: 2936382 screened, 961077 keep the door working, 17.8 s; driven input sets: {(1,4)o2 (3,3)o6 (3,3)c24 (1,4)c28} x2 (best 3 blocks), {(3,3)o6} x11 (best 3 blocks)
+pocket 3: 4 cells, 198 subset/lever items, 428734 fillings to screen
+pocket 3: 564337 screened, 124464 keep the door working, 4.8 s; driven input sets: {(4,0)o2 (4,0)c2} x17 (best 2 blocks)
+plan groups no filling drives: (4,1)o2 (4,2)o2 (2,-2)o2 (3,-1)o6 (0,4)o6 (-1,3)o12 (2,-3)o12 (0,6)o16 (1,-1)o16 (0,4)o20 (2,-2)o24 (0,4)o28 (2,-2)c2 (0,4)c2 (4,1)c2 (4,2)c2 (2,-3)c6 (0,6)c6 (2,-2)c10 (0,4)c10 (-1,3)c18 (3,-1)c18 (2,-2)c22 (0,4)c24
+combination 1: true partial, 12 inputs still assisted [4,1 4,2 0,-2 2,-2 1,4 3,3 3,-1 0,4 -1,3 2,-3 0,6 1,-1] (28 blocks)
+combination 26: true partial, 10 inputs still assisted [4,1 4,2 0,-2 2,-2 3,-1 0,4 -1,3 2,-3 0,6 1,-1] (31 blocks)
+6299 combinations verified, 0 finds, 32 s total

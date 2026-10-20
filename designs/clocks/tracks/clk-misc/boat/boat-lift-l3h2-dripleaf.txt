@@ -1,0 +1,50 @@
+name: clk-misc-boat-lift-l3h2-dripleaf
+# A REDSTONE-LESS vertical boat loop with a bubble-column lift (L = 3, H = 2): a boat rides a 2-wide water channel to a row
+# of wooden pressure plates, crosses it into a 2x2 upward bubble column (water sources over soul sand) and is shot up (a ceiling
+# stops it); it falls back on the column's top, whose sources feed an upper channel 2 blocks higher that carries it to a 2-wide
+# gap, where it drops back into the lower channel onto a second plate row (which keeps the landing water flowing back). Wall
+# banners above the first plate row hold the column's water in while the boat rises through them (no collision, water cannot
+# enter them). Stone, soul sand, water, wall banners, 4 oak pressure plates and the boat.
+# The boat drops onto waterlogged big dripleaves: they tilt under it (unstable 10 gt, partial 10 gt, full) and let it fall into
+# the channel, and spring back 100 gt later.
+port output: 0 0 0
+entity: minecraft:oak_boat 3 0 1
+origin: -3 0 -1
+palette:
+  B minecraft:big_dripleaf[facing=west,tilt=none,waterlogged=true]
+  D minecraft:dirt
+  O minecraft:oak_pressure_plate[powered=false]
+  S minecraft:soul_sand
+  W minecraft:water[level=0]
+  s minecraft:stone
+  w minecraft:white_wall_banner[facing=west]
+layer -1:
+  .
+  .SSssssDs
+  .SSssssDs
+  .
+layer 0:
+  .ssssssss
+  sWWO...BOs
+  sWWO...BOs
+  .ssssssss
+layer 1:
+  .ss
+  sWWwsss..s
+  sWWwsss..s
+  .ss
+layer 2:
+  .ssssssss
+  sWW......s
+  sWW......s
+  .ssssssss
+layer 3:
+  .
+  .
+  .
+  .
+layer 4:
+  .
+  .ssss
+  .ssss
+  .

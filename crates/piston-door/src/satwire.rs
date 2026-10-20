@@ -1212,6 +1212,10 @@ pub struct ProbOpts {
     pub blocked_dc: bool,
     pub motion: bool,
     pub clusters: bool,
+    /// Sculk sensors (regular and calibrated) only in these cells (None: wherever the palette
+    /// allows): "solid wiring + a sensor or two in one pocket" questions, at a fraction of the
+    /// full sculk encoding's cost (a restriction can only remove solutions).
+    pub sound_cells: Option<Vec<C2>>,
 }
 
 /// Free cells, palettes per cell, lever candidates.
@@ -1374,7 +1378,12 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
                 hall_fixed.push(c);
                 vec![Kind::Empty, Kind::Block]
             } else {
-                o.palette.iter().copied().filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block)).collect()
+                o.palette
+                    .iter()
+                    .copied()
+                    .filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block))
+                    .filter(|k| !k.sculk() || o.sound_cells.as_ref().is_none_or(|v| v.contains(&c)))
+                    .collect()
             };
             kinds.insert(c, ks);
             free.push(c);

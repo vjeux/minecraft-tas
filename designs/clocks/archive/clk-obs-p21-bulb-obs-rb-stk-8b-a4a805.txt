@@ -1,0 +1,27 @@
+# archived 2026-10-20T00:03Z from designs/clocks/tracks/clk-obs/families9/p21-bulb-obs-rb-stk-8b-a4a805.txt by mctas clock archive
+# CLOCK: clk-obs-p21-bulb-obs-rb-stk-8b-a4a805 period 21 gt (1.05 s), on 8/21, edges 4, warmup 13, family copper_bulb+observer+redstone_block+sticky_piston, 8 blocks, 1x3x6, robust
+name: clk-obs-p21-bulb-obs-rb-stk-8b-a4a805
+# clk-obs grow: P=21 (redsim), family observer+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 1 1, swept volume 18.
+origin: 0 0 0
+port output: 0 1 2
+port start: 0 1 1 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_block
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  G minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  A
+  B
+layer 1:
+  C
+  D
+  E
+layer 2:
+  .
+  F
+  G

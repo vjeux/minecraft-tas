@@ -1,0 +1,85 @@
+# m69u.ideal: c78l's m69t (m69a turned into 9x6) re-timed by w86 for the s0 (4,2) / s1 (4,1) QC coupling:
+# - open: s0's home pulls are LONG (>= 4 gt) and its first pull shares t2 with s1, so every coupled s1 firing is
+#   a full push+pull (net zero) or its own pull; s0 carried to (3,2) is fed at (3,2,-1).
+# - close: s0's first home spit also spits s1: TM -> (2,2) and TR -> (2,1) (TR takes MR's home); s0 carried pushes
+#   TM home; MR goes (3,0) -> (3,1) (P3t) -> (3,2) (W pull) -> (2,2) by M0 pushing the LINE s0+MR, M0 pulls s0 back.
+design designs/piston-door-3x3/tracks/pockets/svc/w86-m69t.txt
+phase tile
+open 0 use -3 -3 0
+# bottom row down
+open 2 set 0 -2 -1 minecraft:redstone_block
+open 6 clear 0 -2 -1
+open 2 set 1 -2 -1 minecraft:redstone_block
+open 6 clear 1 -2 -1
+open 2 set 2 -2 -1 minecraft:redstone_block
+open 6 clear 2 -2 -1
+# left: U0 (TL west) + U1 (ML west) at t2
+open 2 set -2 2 -1 minecraft:redstone_block
+open 6 clear -2 2 -1
+open 2 set -2 0 0 minecraft:redstone_block
+open 6 clear -2 0 0
+# right: s1 (MR east) + s0 (TR east) at t2, long
+open 2 set 4 1 -1 minecraft:redstone_block
+open 6 clear 4 1 -1
+open 2 set 4 2 -1 minecraft:redstone_block
+open 6 clear 4 2 -1
+# corners slide ML / MR down the walls
+open 8 set 3 -1 -1 minecraft:redstone_block
+open 12 clear 3 -1 -1
+open 8 set -1 -1 -1 minecraft:redstone_block
+open 12 clear -1 -1 -1
+# W pushes TR down to (3,1)
+open 14 set 3 3 -1 minecraft:redstone_block
+open 16 clear 3 3 -1
+# left elevator: MB carries U1 into (-1,1) [18,28); U1 pulls C at 22 there, then at 32 from home
+open 18 set -3 0 0 minecraft:redstone_block
+open 22 set -1 1 -1 minecraft:redstone_block
+open 26 clear -1 1 -1
+open 30 clear -3 0 0
+open 34 set -2 0 0 minecraft:redstone_block
+open 38 clear -2 0 0
+# right elevator: M0 carries s0 into (3,2) [18,28); s0 pulls TM at 22 there, then at 32 from home (long)
+open 18 set 5 2 -1 minecraft:redstone_block
+open 22 set 3 2 -1 minecraft:redstone_block
+open 26 clear 3 2 -1
+open 30 clear 5 2 -1
+open 34 set 4 2 -1 minecraft:redstone_block
+open 40 clear 4 2 -1
+# close
+close 0 use -3 -3 0
+close 2 set 0 -2 -1 minecraft:redstone_block
+close 4 clear 0 -2 -1
+close 2 set 1 -2 -1 minecraft:redstone_block
+close 4 clear 1 -2 -1
+close 2 set 2 -2 -1 minecraft:redstone_block
+close 4 clear 2 -2 -1
+# left: U0 spits TL back (QC-spits U1: C (-1,1) -> (0,1))
+close 2 set -2 2 -1 minecraft:redstone_block
+close 4 clear -2 2 -1
+close 2 set -2 0 0 minecraft:redstone_block
+close 4 clear -2 0 0
+# right: s0 spits TM (3,2) -> (2,2); its QC-coupled s1 spits TR (3,1) -> (2,1)
+close 2 set 4 2 -1 minecraft:redstone_block
+close 4 clear 4 2 -1
+# elevators: MB carries U1 [8,16), U1 spits C home at 12; M0 carries s0 [8,16), s0 spits TM home at 12
+close 8 set -3 0 0 minecraft:redstone_block
+close 12 set -1 1 -1 minecraft:redstone_block
+close 14 clear -1 1 -1
+close 18 clear -3 0 0
+close 8 set 5 2 -1 minecraft:redstone_block
+close 12 set 3 2 -1 minecraft:redstone_block
+close 14 clear 3 2 -1
+close 18 clear 5 2 -1
+# corners push ML / MR back up
+close 20 set -1 -1 -1 minecraft:redstone_block
+close 22 clear -1 -1 -1
+close 20 set 3 -1 -1 minecraft:redstone_block
+close 22 clear 3 -1 -1
+# U1 spits ML home; W pulls MR up into (3,2)
+close 26 set -2 0 0 minecraft:redstone_block
+close 28 clear -2 0 0
+close 26 set 3 3 -1 minecraft:redstone_block
+close 30 clear 3 3 -1
+# M0 pushes the line s0 + MR (MR -> (2,2)) and pulls s0 back (long)
+close 34 set 5 2 -1 minecraft:redstone_block
+close 40 clear 5 2 -1

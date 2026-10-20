@@ -36,19 +36,25 @@ pub struct Var {
     pub door_ring: usize,
     /// Found by replaying the parent's schedule (no search).
     pub replayed: bool,
+    /// `door connect`'s verdict in the variant's own box ("WIRABLE" or "no: why").
+    pub connect: String,
+    /// Pistons no lever-woken free-cell region ever feeds (connect; w86's metric).
+    pub never: usize,
+    /// `--validate`: the schedule WORKS in redsim (None = not checked).
+    pub real: Option<bool>,
     pub so: Sched,
     pub sc: Sched,
 }
 
 impl Var {
-    pub fn key(&self) -> (usize, usize, u8, usize) {
+    pub fn key(&self) -> (bool, bool, usize, usize, usize, u8, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
             'C' => 2,
             _ => 3,
         };
-        (self.unfed, self.pistons, cr, self.events)
+        (self.real == Some(false), self.connect != "WIRABLE", self.never, self.unfed, self.pistons, cr, self.events)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -57,6 +63,23 @@ impl Var {
 
 /// A piece change from the parent: (old piece, its replacement or None = dropped).
 pub type Change = Option<(Pc, Option<Pc>)>;
+
+/// `--validate`: keep a variant only when its macro schedule, as a `door ideal` plan (between-
+/// ticks inputs; hallway test inputs allowed), WORKS in redsim at the 4 base positions.
+pub static VALIDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> bool {
+    crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
+    let (wld, map) = fam::to_world(m);
+    for (_, msol) in fam::ideal_solutions(m, rest, sol, &map) {
+        let Ok(p) = crate::mechsynth::ideal_plan(&wld, &msol, false, 6, "validate") else { continue };
+        let s = crate::ideal::Schedule::from_events(p.design, &p.events);
+        if crate::ideal_rs::run(&s, &std::collections::BTreeMap::new(), &crate::ideal::offsets(0), 1, false).is_ok() {
+            return true;
+        }
+    }
+    false
+}
 
 fn to_sched(m: &Mech, seq: &[fam::E]) -> Sched {
     seq.iter().map(|e| (m.pieces[m.pid[e.id as usize]], e.act)).collect()
@@ -135,8 +158,60 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         }
     }
     let sol = fam::Sol { open: open_e.clone(), close: close_e.clone(), sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
+    // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
+    let real = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
     let w = fam::wiring(&m, &rest, &sol);
-    let unfed = w.why.matches("has no free cell to feed it").count();
+    // families' wiring counts only free off-ring cells as feeds; a piston next to (or under, by
+    // quasi-connectivity) a STATIC ring stone that a free off-ring cell can strongly power is fed
+    // too (c77): count only the pistons with neither
+    let swept = |x: i8, y: i8| states.iter().any(|s| at(s, x, y) != fam::AIR && at(s, x, y) != fam::STONE) || pieces.iter().any(|p| p.cells().contains(&(x, y)) && !matches!(p.k, K::Stone));
+    let free_off = |x: i8, y: i8| bx.has(x, y) && !fam::in_t(x, y) && !fam::in_r(x, y) && !swept(x, y);
+    let static_ring = |x: i8, y: i8| fam::in_r(x, y) && !swept(x, y) && fam::F.iter().any(|d| free_off(x + d.0, y + d.1));
+    let unfed_list: Vec<(i8, i8)> = w
+        .why
+        .split("; ")
+        .filter(|s| s.ends_with("has no free cell to feed it"))
+        .filter_map(|s| {
+            // "<code> at (x,y) has no free cell to feed it"
+            let xy = s.split(" at (").nth(1)?.split(')').next()?;
+            let (xs, ys) = xy.split_once(',')?;
+            Some((xs.parse::<i8>().ok()?, ys.parse::<i8>().ok()?))
+        })
+        .filter(|&(x, y)| {
+            let near = fam::F.iter().any(|d| static_ring(x + d.0, y + d.1)) || static_ring(x, y + 1) || fam::F.iter().any(|d| (x + d.0, y + 1 + d.1) != (x, y) && static_ring(x + d.0, y + 1 + d.1));
+            !near
+        })
+        .collect();
+    // the lever stands outside the volume: ONE unfed piston on the box edge (a free outward side
+    // that is not its head) can be the lever's own (w86's m69g: the lever on top of (1,4))
+    let lever_ok = unfed_list.iter().any(|&(x, y)| {
+        let head = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(fam::F[f as usize]) } else { None });
+        fam::F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
+    });
+    let unfed = unfed_list.len() - usize::from(lever_ok);
+    // `door connect` (connect.rs): free-cell regions after the run's footprint, each piston fed
+    // from a region next to it (or its quasi cell, a plain ring stone, a door block), a region
+    // wakes only when it can watch a change, every event order from the lever's region: the
+    // reachability w86 asked for (a pocket only late pistons touch cannot start)
+    let (wld, map) = fam::to_world(&m);
+    crate::mechsynth::SEAMLESS.store(true, std::sync::atomic::Ordering::Relaxed);
+    crate::mechsynth::SEAMLESS_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
+    let msol = crate::mechsynth::Solution { open: fam::ms_seq(&map, &open_e), close: fam::ms_seq(&map, &close_e), sym: None, states: 0 };
+    let conn = crate::connect::check(&wld, &msol, [bx.x0, bx.y0], [bx.x0 + bx.w - 1, bx.y0 + bx.h - 1], 100_000);
+    let connect = if conn.ok { "WIRABLE".to_string() } else { format!("no: {}", conn.report.lines().last().unwrap_or("").trim()) };
+    // pistons no region the lever can wake ever feeds (connect's best failure; 0 when WIRABLE)
+    let never = if conn.ok {
+        0
+    } else {
+        let last = conn.report.lines().last().unwrap_or("");
+        match last.split("never fed").nth(1).and_then(|r| r.split(": ").nth(1)) {
+            Some(list) => {
+                let list = list.trim_end_matches(')').trim();
+                if list == "none" { 0 } else { list.split_whitespace().count() }
+            }
+            None => usize::MAX / 4,
+        }
+    };
     Some(Var {
         bx,
         pieces: m.pieces.clone(),
@@ -148,6 +223,9 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         events: open_e.len() + close_e.len(),
         door_ring,
         replayed,
+        connect,
+        never,
+        real,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
     })
@@ -231,11 +309,12 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
     let mut seen: HashSet<Vec<Pc>> = HashSet::new();
     let mut kept: Vec<Var> = Vec::new();
     let mut beam: Vec<Var> = Vec::new();
-    for (bx, p) in seeds {
+    let seed_res = cs::par_map(seeds, o.threads, |(bx, p)| eval(*bx, p, o.cap, None, &o.reserve));
+    for ((bx, p), res) in seeds.iter().zip(seed_res) {
         seen.insert(p.clone());
-        match eval(*bx, p, o.cap, None, &o.reserve) {
+        match res {
             Some(v) => {
-                eprintln!("[mechmut] seed {}: unfed {} class {} pistons {} events {}", v.line(), v.unfed, v.class, v.pistons, v.events);
+                eprintln!("[mechmut] seed {}: redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}", v.line(), v.real, v.connect, v.never, v.unfed, v.class, v.pistons, v.events);
                 beam.push(v.clone());
                 kept.push(v);
             }
@@ -245,7 +324,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, so: Vec::new(), sc: Vec::new() });
+                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, so: Vec::new(), sc: Vec::new() });
                 }
             }
         }
@@ -278,7 +357,8 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
             break;
         }
         let b = &beam[0];
-        eprintln!("[mechmut]   best: unfed {} class {} pistons {} events {}: {}", b.unfed, b.class, b.pistons, b.events, b.line());
+        let nreal = beam.iter().filter(|v| v.real == Some(true)).count();
+        eprintln!("[mechmut]   best ({nreal} of the beam WORK in redsim): redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}: {}", b.real, b.connect, b.never, b.unfed, b.class, b.pistons, b.events, b.line());
     }
     kept.sort_by_key(|v| v.key());
     kept
@@ -286,8 +366,10 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
 
 /// Write the ideal-input design + plan (open/close schedule) of a variant into `dir`; when the
 /// plan cannot be built (a piston firing from inside the opening has no input cell), the bare
-/// design (`{tag}.txt`) for `door fullmech --check --export`.
+/// design (`{tag}.txt`) for `door fullmech --check --export`. Inputs may sit in the hallway (test
+/// only, see `mechsynth::CORRIDOR_INPUTS`): the plan header says so.
 pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
+    crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
     let (m, rest) = Mech::new(v.bx, &v.pieces).context("pieces overlap")?;
     let (o, c) = (from_sched(&m, &v.so, None), from_sched(&m, &v.sc, None));
     let sol = fam::Sol { open: o, close: c, sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
@@ -300,7 +382,19 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
         let mut dd = p.design.clone();
         dd.name = format!("{tag}-{stag}");
         dd.save(&dpath)?;
-        std::fs::write(dir.join(format!("{tag}-{stag}.ideal")), p.text.replace(&format!("design {tag}.txt"), &format!("design {}", dpath.display())))?;
+        let ipath = dir.join(format!("{tag}-{stag}.ideal"));
+        let text = format!("phase between\n{}", p.text.replace(&format!("design {tag}.txt"), &format!("design {}", dpath.display())));
+        std::fs::write(&ipath, &text)?;
+        // replay it in redsim (between-ticks inputs, 32 positions, 2 cycles): the macro model
+        // and the simulator can disagree (quasi-connectivity, timing)
+        let verdict = match crate::ideal::Schedule::parse(&text) {
+            Ok(s) => match crate::ideal_rs::run(&s, &std::collections::BTreeMap::new(), &crate::ideal::offsets(28), 2, false) {
+                Ok((o, c)) => format!("WORKS in redsim (32 positions x 2 cycles): open after {o} ticks / closed after {c} ticks"),
+                Err(e) => format!("BROKEN in redsim: {}", e.chars().take(160).collect::<String>()),
+            },
+            Err(e) => format!("plan does not parse: {e:#}"),
+        };
+        eprintln!("[mechmut] {}: {verdict}", ipath.display());
     }
     Ok(())
 }
@@ -309,9 +403,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("unfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
+    let mut tsv = String::from("redsim\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
     for v in &kept {
-        tsv.push_str(&format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
+        let rs = match v.real {
+            Some(true) => "WORKS",
+            Some(false) => "BROKEN",
+            None => "-",
+        };
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,

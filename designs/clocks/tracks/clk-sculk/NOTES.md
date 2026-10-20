@@ -95,6 +95,15 @@ fires on its closing (block_close, 9) 2 gt later. S is deaf 40 gt, so it hears e
 cycles of 26 and 24 gt, P = 50 (redsim; the same build without S: P24). Same with a fence gate or
 an iron trapdoor (open 10 / close 9). A note block or a dispenser (10 only) would make C deaf.
 
+## Wool shutter (tried 20:27Z, not a clock of its own yet)
+A sticky piston driven from C through two delay-4 repeaters pushes a wool block into the line from
+an observer-pair trapdoor to C: redsim occludes as the game does (all 6 nudged lines must cross
+wool) and the trapdoor events in the window are lost, but the piston's OWN retraction
+(block_deactivate, 3 from C) is heard first, so the loop is really "C -> repeaters -> piston" and
+the observer pair is an independent passenger (composite: C every 29, whole state 174). A real
+shutter clock needs the piston out of C's range (> 16, powered through a longer line) or itself
+behind wool, and an emitter coupled to C.
+
 ## Extendable families (one catalog card each; extend/README.md)
 `mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14), hairpin (16n + 3,
 n >= 2; plain n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3). Every P >= 21 is reachable:
