@@ -68,6 +68,14 @@ dropper75 plus an east-side hourglass: Tc (500 stone) over Hd, which drains into
   (3) The A observer is no placement detector: comparator level changes 15->13 leave the block state alone, so it fires only on empty<->non-empty.
 - Mixed + restart: a threshold on N cannot separate the two cases. Shovel noise reaches level 12 (4 shovels during a full wait); a mixed jam can plateau at level 9-11 (5 slots of partial stacks of different kinds). It needs a persistence filter (on > ~64 gt). That is either 8 delay-4 repeaters or a hopper integrator. A dropper feeder has the same swap backlog unless the gate opens on box presence.
 
+- The fix for all three items, found on paper (not built yet). It gives the box its first item from a dropper at each placement:
+  - Placement detector: comparator A on D outputs into a DUST. A placement changes D's level (15 -> 13 ...), so the dust's power state changes and an observer on that dust fires. A comparator's own block state doesn't change, so an observer on A itself does not fire.
+  - One-shot: a dot (cross-shaped) dust on top of K, in the drop cell, points west into X. Pulse it for 2 gt by strongly powering the drop-cell wall stone (2,1,0). A repeater or observer pointing into the dust would connect it into a line that no longer points into X.
+  - The dust strongly powers the closed box (a conductor), so every dropper next to X fires once: the bottom one by QC, side ones by conduction. D also fires, harmlessly; K and N lock for 2 gt.
+  - Arrivals also change D's level, so the one-shot fires again then, into a present box; harmless.
+  - The one-shot must reach the droppers >= 2 gt after D's dispense.
+  - This removes the need for a hopper first item: the 10/s two-dropper loader becomes possible, and leftovers stranded in Y get into the flush box.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
