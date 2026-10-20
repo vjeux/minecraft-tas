@@ -45,6 +45,8 @@ pub struct Census {
     pub outputs: Option<Vec<BlockPos>>,
     pub jobs: usize,
     pub margin: i32,
+    /// Put stone under every placed block that stands on one (dust, diodes, torches), counted.
+    pub auto_floor: bool,
 }
 
 /// One candidate's run: per output cell its rest state, on/off change frames and samples.
@@ -121,7 +123,27 @@ fn bounds(cells: impl Iterator<Item = BlockPos>, g: i32) -> (BlockPos, BlockPos)
     (BlockPos::new(lo.x - g, lo.y - g, lo.z - g), BlockPos::new(hi.x + g, hi.y + g, hi.z + g))
 }
 
+/// Does a block stand on the block below it (dust, diodes, standing torches)?
+fn needs_floor(b: &Block) -> bool {
+    matches!(b, Block::Wire { .. } | Block::Repeater { .. } | Block::Comparator { .. } | Block::Torch { .. })
+}
+
 impl Census {
+    /// The fixed blocks, the placed ones and, with `auto_floor`, stone under every placed block
+    /// that stands on one (when that cell is empty).
+    fn with_floors(&self, placed: &[(BlockPos, Block)]) -> Vec<(BlockPos, Block)> {
+        let mut blocks: Vec<(BlockPos, Block)> = self.fixed.clone();
+        blocks.extend(placed.iter().copied());
+        if self.auto_floor {
+            for (p, b) in placed {
+                let below = BlockPos::new(p.x, p.y - 1, p.z);
+                if needs_floor(b) && !blocks.iter().any(|(q, _)| *q == below) {
+                    blocks.push((below, Block::Simple(redsim::block::Simple::Stone)));
+                }
+            }
+        }
+        blocks
+    }
     /// The world box for any candidate (every free cell, fixed block and input, plus margin).
     fn world_box(&self, blocks: &[(BlockPos, Block)]) -> (BlockPos, [i32; 3]) {
         let (lo, hi) = bounds(self.free.iter().chain(self.inputs.iter()).copied().chain(self.fixed.iter().map(|(p, _)| *p)).chain(blocks.iter().map(|(p, _)| *p)), self.margin);
@@ -343,8 +365,8 @@ impl Census {
 
     fn dfs(&self, cells: &[BlockPos], assign: &mut Vec<usize>, spec: &dyn Spec, found: &Mutex<BTreeMap<String, Found>>, judged: &AtomicUsize) {
         if assign.len() == cells.len() {
-            let mut blocks: Vec<(BlockPos, Block)> = self.fixed.clone();
-            blocks.extend(cells.iter().copied().zip(assign.iter().map(|&i| self.palette[i])));
+            let placed: Vec<(BlockPos, Block)> = cells.iter().copied().zip(assign.iter().map(|&i| self.palette[i])).collect();
+            let blocks = self.with_floors(&placed);
             let be: Vec<(BlockPos, String)> = cells.iter().zip(assign.iter()).filter_map(|(p, &i)| self.palette_be.get(i).cloned().flatten().map(|s| (*p, s))).collect();
             // every input must reach something that reacts to it
             if !self.inputs.iter().all(|ip| blocks.iter().any(|(q, b)| face_neighbors(*ip).contains(q) && responsive(b, *q, *ip))) {
@@ -353,10 +375,11 @@ impl Census {
             judged.fetch_add(1, Ordering::Relaxed);
             let Some(outs) = self.simulate(&blocks, &be, spec) else { return };
             let (output, score) = self.best(&blocks, &outs);
-            // irreducible: no single free block can go with the same class of result (score /
-            // 1000: a counter's style, a latch's polarity)
+            // irreducible: no single free block (with its auto floor) can go with the same class
+            // of result (score / 1000: a counter's style, a latch's polarity)
             for i in 0..cells.len() {
-                let fewer: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| *p != cells[i]).copied().collect();
+                let rest: Vec<(BlockPos, Block)> = placed.iter().filter(|(p, _)| *p != cells[i]).copied().collect();
+                let fewer = self.with_floors(&rest);
                 if let Some(o2) = self.simulate(&fewer, &be, spec)
                     && o2.iter().any(|(_, s)| s / 1000 == score / 1000)
                 {
