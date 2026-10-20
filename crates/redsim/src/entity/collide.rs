@@ -83,8 +83,8 @@ fn shapes_collide(a: usize, moving: Aabb, shapes: &[Vec<Aabb>], mut distance: f6
     distance
 }
 
-/// `Entity.collideWithShapes`.
-fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
+/// `Entity.collideWithShapes` (public for entities the viewer moves itself: primed TNT).
+pub fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
     if shapes.is_empty() {
         return movement;
     }
@@ -437,7 +437,23 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     let len = movement.length_sqr();
     if len > 1.0e-7 || delta.length_sqr() - len < 1.0e-7 {
         if w.entities.list[i].fall_distance != 0.0 && len >= 1.0 {
-            w.errors.push("entity: the fall-distance raycast of a long move is not modeled".into());
+            // the raycast of min(|movement|, 8) along the movement against FALL_DAMAGE_RESETTING
+            // blocks (scaffolding among the modeled ones) and water, which resets the fall
+            // distance: nothing to do when no such block lies near the ray (track tnt: flung
+            // TNT), a model note otherwise
+            let pos = w.entities.list[i].pos;
+            let to = pos.add_v(movement.normalize().scale(movement.length().min(8.0)));
+            let f = |a: f64, b: f64| (a.min(b).floor() as i32 - 1, a.max(b).floor() as i32 + 1);
+            let ((x0, x1), (y0, y1), (z0, z1)) = (f(pos.x, to.x), f(pos.y, to.y), f(pos.z, to.z));
+            let near = (x0..=x1).any(|x| {
+                (y0..=y1).any(|y| (z0..=z1).any(|z| {
+                    let b = w.get(BlockPos::new(x, y, z));
+                    matches!(b, Block::Scaffolding { .. } | Block::Water { .. } | Block::BubbleColumn { .. }) || crate::fluid::waterlogged(&b) == Some(true)
+                }))
+            });
+            if near {
+                w.errors.push("entity: the fall-distance raycast of a long move near water or scaffolding is not modeled".into());
+            }
         }
         let e = &mut w.entities.list[i];
         let pos = e.pos;

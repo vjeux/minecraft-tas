@@ -380,6 +380,11 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                     .collect();
                 let line: Vec<String> = mine.iter().map(|(k, p, yaw)| format!("{k} ({:.4}, {:.4}, {:.4}) yaw {yaw:.1}", p[0], p[1], p[2])).collect();
                 println!("t {}: {}", s.tick, line.join("; "));
+                // what the viewer draws besides redsim's entities: falling blocks, primed TNT
+                let extra: Vec<String> = s.entities(1.0).iter().filter(|e| e.kind.starts_with("primed:") || e.kind.starts_with("falling:")).map(|e| format!("{} ({:.3}, {:.3}, {:.3}){}", e.kind.split('[').next().unwrap_or(""), e.pos[0], e.pos[1], e.pos[2], if e.fuse > 0.0 { format!(" fuse {:.0}", e.fuse) } else { String::new() })).collect();
+                if !extra.is_empty() {
+                    println!("  drawn: {}", extra.join("; "));
+                }
                 if let Some(r) = &replay {
                     let theirs = r.entities_at(s.tick);
                     let mut parts = Vec::new();
@@ -740,14 +745,71 @@ fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32,
 fn circuit_attrs(d: &Path) -> String {
     let Ok(c) = circuit::Circuit::load(d) else { return String::new() };
     let Some(kind) = c.kind.clone() else { return String::new() };
-    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+    if matches!(kind, circuit::Kind::FlyingMachine) || kind.is_shulker() {
         return String::new();
     }
     let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
     let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    if c.inputs.is_empty() && s.events.is_empty() {
+        return String::new();
+    }
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     let phases: Vec<String> = s.phases.iter().map(|(a, b, l)| format!("{a}-{b} {l}")).collect();
-    format!(" data-stimulus=\"{}\" data-phases=\"{}\"", html_escape(&s.text(&names)), html_escape(&phases.join("; ")))
+    let mut out = String::new();
+    if !c.inputs.is_empty() {
+        out.push_str(&format!(" data-stimulus=\"{}\"", html_escape(&s.text(&names))));
+    }
+    let events = events_text(&c, &s);
+    if !events.is_empty() {
+        out.push_str(&format!(" data-events=\"{}\"", html_escape(&events)));
+    }
+    out.push_str(&format!(" data-phases=\"{}\"", html_escape(&phases.join("; "))));
+    out
+}
+
+/// A schedule's judge actions at cells (`Schedule::events`: a BUD switch's target and footprint
+/// probes) in design coordinates: (frame, cell, op, state).
+fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u32, [i32; 3], &'static str, Option<String>)> {
+    use circuit::stimulus::{EventAt, TargetOp};
+    let probes = if s.events.iter().any(|e| matches!(e.1, EventAt::Probe(_))) { c.probe_cells() } else { Vec::new() };
+    let mut v = Vec::new();
+    for (t, at, op) in &s.events {
+        let pos = match at {
+            EventAt::Target(i) => match c.targets.get(*i) {
+                Some(tg) => tg.pos,
+                None => continue,
+            },
+            EventAt::Probe(k) => match probes.get(*k) {
+                Some(p) => *p,
+                None => continue,
+            },
+        };
+        let (name, state) = match op {
+            TargetOp::Place(st) => ("place", Some(st.clone())),
+            TargetOp::Clear => ("clear", None),
+            TargetOp::Shape(st) => ("shape", Some(st.clone())),
+            TargetOp::Update => ("update", None),
+        };
+        v.push((*t, pos, name, state));
+    }
+    v
+}
+
+/// `data-events`: `<frame> <op> <x> <y> <z> [<state>]; ...` (the site's format).
+fn events_text(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> String {
+    cell_events(c, s)
+        .iter()
+        .map(|(t, p, op, st)| match st {
+            Some(st) => format!("{t} {op} {} {} {} {st}", p[0], p[1], p[2]),
+            None => format!("{t} {op} {} {} {}", p[0], p[1], p[2]),
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// The same events as the viewer replays them (through its `data-events` parser).
+fn viewer_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u32, [i32; 3], mcview::circuit::EventOp)> {
+    mcview::circuit::parse_events(&events_text(c, s)).unwrap_or_default()
 }
 
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
@@ -899,7 +961,9 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             continue;
         }
         let fly = is_flying_machine(&text);
-        let circ = !fly && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input"));
+        // circuits judged under a stimulus: inputs, BUD targets (data-events), or shulker designs
+        // (judged in the game only: parse-only here)
+        let circ = !fly && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target") || l.starts_with("circuit: shulker-"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
         } else if circ {
@@ -995,14 +1059,23 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     }
     let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
     let Some(kind) = c.kind.clone() else { return Ok(None) };
-    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+    if matches!(kind, circuit::Kind::FlyingMachine) || c.kind.as_ref().is_some_and(|k| k.is_shulker()) {
         return Ok(None);
     }
     let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
     let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    if c.inputs.is_empty() && s.events.is_empty() {
+        return Ok(None);
+    }
     let trace = match circuit::run::sim_trace(&c, &s, 3) {
         Ok(t) => t,
-        Err(why) => return Err(format!("circuit sim: {why}")),
+        Err(why) => {
+            // redsim cannot run it (a block it does not model): the viewer must say so too
+            return match mcview::Session::new(text, &mcview::Options::default()) {
+                Ok(v) if !v.simulated() => Ok(None),
+                _ => Err(format!("circuit sim: {why}")),
+            };
+        }
     };
     let (from, to) = circuit::run::watch_box(&c, 3);
     let inside = |p: &[i32; 3]| (0..3).all(|k| p[k] >= from[k] && p[k] <= to[k]);
@@ -1010,7 +1083,7 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     if !session.simulated() {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
-    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks });
+    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s) });
     let frames = trace.cells.len();
     for (f, cells) in trace.cells.iter().enumerate() {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();

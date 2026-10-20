@@ -231,47 +231,14 @@ pub fn run(a: CensusArgs) -> Result<()> {
     }
     let pal = palette(&a.palette);
     let sets = cell_sets(a.k, a.reach);
-    // every assignment of palette states to the cells, deduplicated by structure
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut designs: Vec<mctas::design::Design> = Vec::new();
-    let mut idx = vec![0usize; a.k];
-    let mut total = 0usize;
-    for cells in &sets {
-        idx.iter_mut().for_each(|i| *i = 0);
-        loop {
-            let states: Vec<&String> = idx.iter().map(|i| &pal[*i]).collect();
-            if states.iter().any(|s| active(s)) {
-                total += 1;
-                let d = design(cells, &states, None);
-                let mut dk = d.clone();
-                dk.blocks.insert([0, 0, 0], "circuit:target".into());
-                if seen.insert(clock::canon::design_type_key(&dk)) {
-                    designs.push(d);
-                }
-            }
-            // next assignment
-            let mut j = 0;
-            while j < a.k {
-                idx[j] += 1;
-                if idx[j] < pal.len() {
-                    break;
-                }
-                idx[j] = 0;
-                j += 1;
-            }
-            if j == a.k {
-                break;
-            }
-        }
-    }
-    println!("census k={} palette {} ({} states), reach {}: {} cell sets, {} designs, {} distinct structures", a.k, a.palette, pal.len(), a.reach, sets.len(), total, designs.len());
-    if a.count {
-        return Ok(());
-    }
+    // per cell set (one per symmetry class: two sets never hold the same structure), every
+    // assignment of palette states, deduplicated by structure within the set (a symmetric set
+    // repeats some), screened at once: the threads take cell sets in turn
     let next = AtomicUsize::new(0);
-    let done = AtomicUsize::new(0);
+    let total = AtomicUsize::new(0);
+    let distinct = AtomicUsize::new(0);
     let hits: Mutex<Vec<Hit>> = Mutex::new(Vec::new());
-    let n = designs.len();
+    let n = sets.len();
     std::thread::scope(|sc| {
         for _ in 0..a.threads.max(1) {
             sc.spawn(|| {
@@ -280,18 +247,50 @@ pub fn run(a: CensusArgs) -> Result<()> {
                     if i >= n {
                         break;
                     }
-                    let h = screen(designs[i].clone(), a.gap);
-                    if !h.is_empty() {
-                        hits.lock().unwrap().extend(h);
+                    let cells = &sets[i];
+                    let mut seen: HashSet<String> = HashSet::new();
+                    let mut idx = vec![0usize; a.k];
+                    let mut found: Vec<Hit> = Vec::new();
+                    loop {
+                        let states: Vec<&String> = idx.iter().map(|i| &pal[*i]).collect();
+                        if states.iter().any(|s| active(s)) {
+                            total.fetch_add(1, Ordering::Relaxed);
+                            let d = design(cells, &states, None);
+                            let mut dk = d.clone();
+                            dk.blocks.insert([0, 0, 0], "circuit:target".into());
+                            if seen.insert(clock::canon::design_type_key(&dk)) {
+                                distinct.fetch_add(1, Ordering::Relaxed);
+                                if !a.count {
+                                    found.extend(screen(d, a.gap));
+                                }
+                            }
+                        }
+                        // next assignment
+                        let mut j = 0;
+                        while j < a.k {
+                            idx[j] += 1;
+                            if idx[j] < pal.len() {
+                                break;
+                            }
+                            idx[j] = 0;
+                            j += 1;
+                        }
+                        if j == a.k {
+                            break;
+                        }
                     }
-                    let d = done.fetch_add(1, Ordering::Relaxed) + 1;
-                    if d % 2000 == 0 {
-                        eprintln!("  {d}/{n} screened");
+                    if !found.is_empty() {
+                        hits.lock().unwrap().extend(found);
                     }
+                    eprintln!("  cell set {}/{n} done ({} structures so far)", i + 1, distinct.load(Ordering::Relaxed));
                 }
             });
         }
     });
+    println!("census k={} palette {} ({} states), reach {}: {} cell sets, {} designs, {} distinct structures", a.k, a.palette, pal.len(), a.reach, sets.len(), total.load(Ordering::Relaxed), distinct.load(Ordering::Relaxed));
+    if a.count {
+        return Ok(());
+    }
     let hits = hits.into_inner().unwrap();
     // per class set: distinct structures (design + output), the fastest
     let mut by: BTreeMap<String, Vec<Hit>> = BTreeMap::new();
@@ -330,12 +329,18 @@ pub struct TraceArgs {
     /// The frames each event is given.
     #[arg(long, default_value_t = 30)]
     pub gap: u32,
+    /// The judge's whole stimulus (footprint probes and re-arm pairs too).
+    #[arg(long)]
+    pub full: bool,
+    /// Start the window at the first phase whose label starts with this (`rearm update 2`).
+    #[arg(long)]
+    pub phase: Option<String>,
 }
 
 /// Print a BUD design's run on redsim, frame by frame, in a window.
 pub fn trace(a: TraceArgs) -> Result<()> {
     let c = Circuit::load(&a.design)?;
-    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, false);
+    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, a.full);
     let actions = c.actions(&s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let (from, to) = circuit::run::watch_box(&c, 2);
@@ -343,7 +348,8 @@ pub fn trace(a: TraceArgs) -> Result<()> {
     if let Some((t, why)) = &run.stopped {
         println!("stopped at frame {t}: {why}");
     }
-    let start = a.from.unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
+    let by_phase = a.phase.as_ref().and_then(|p| s.phases.iter().find(|(_, _, l)| l.starts_with(p.as_str())).map(|ph| ph.0));
+    let start = a.from.or(by_phase).unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
     let end = (start + a.frames as usize).min(run.cells.len());
     let mut prev: BTreeMap<Pos, String> = run.cells.get(start.saturating_sub(1)).map(|f| f.iter().cloned().collect()).unwrap_or_default();
     for f in start..end {

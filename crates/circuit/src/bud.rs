@@ -327,11 +327,12 @@ pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[
         };
         re.push((fam.to_string(), v));
     }
+    // per class when they differ, `2 gt place / 6 gt remove` (`, ` separates the metrics)
     let joined = |v: Vec<(String, String)>| -> String {
         if v.iter().all(|(_, x)| *x == v[0].1) {
             v[0].1.clone()
         } else {
-            v.iter().map(|(k, x)| format!("{k} {x}")).collect::<Vec<_>>().join(", ")
+            v.iter().map(|(k, x)| format!("{x} {k}")).collect::<Vec<_>>().join(" / ")
         }
     };
     let lat_s = joined(lat.iter().map(|(k, l)| (k.to_string(), format!("{l} gt"))).collect());

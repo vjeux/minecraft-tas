@@ -2501,6 +2501,61 @@ fn measure_windows(p: &Problem, seed: &Grid, groups: &mut [PGroup], win: i32, th
 /// input must fall in the window of one of that input's groups (one real pulse per group, width
 /// within tolerance); a real edge no group explains rejects the filling (None). Returns the
 /// covered groups (bit = index in `groups`).
+/// POCKET LOAD (after the feed report): per pocket, the plan groups it must make. An input whose
+/// piston touches (directly or through the cell above it) ONE pocket only is that pocket's forced
+/// load; inputs it can share with another pocket are listed apart. A filling sees only its own
+/// neighbourhood, so every distinct pulse tick of its load needs its own event source: a 1-3-cell
+/// pocket with 6 forced ticks is a wall before any search runs (the sub-56 screens, 10-20).
+fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup], names: &[String]) {
+    let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+    let feeders: Vec<Vec<usize>> = p
+        .assist_pistons
+        .iter()
+        .map(|&(px, py)| {
+            let mut v: Vec<usize> = n4(px, py)
+                .into_iter()
+                .chain(n4(px, py + 1).into_iter().filter(|c| *c != (px, py)))
+                .filter_map(|c| pockets.iter().position(|pk| pk.contains(&c)))
+                .collect();
+            v.sort();
+            v.dedup();
+            v
+        })
+        .collect();
+    let ticks = |ks: &[usize]| -> (Vec<u32>, Vec<u32>) {
+        let mut t: [Vec<u32>; 2] = [Vec::new(), Vec::new()];
+        for g in groups.iter().filter(|g| ks.contains(&g.k)) {
+            t[g.phase].push(g.t);
+        }
+        for v in t.iter_mut() {
+            v.sort();
+            v.dedup();
+        }
+        let [o, c] = t;
+        (o, c)
+    };
+    let fmt = |v: &[u32]| v.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
+    for i in 0..pockets.len() {
+        let has = |k: &usize| groups.iter().any(|g| g.k == *k);
+        let forced: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k] == [i] && has(k)).collect();
+        let shared: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k].len() > 1 && feeders[*k].contains(&i) && has(k)).collect();
+        if forced.is_empty() && shared.is_empty() {
+            continue;
+        }
+        let (o, c) = ticks(&forced);
+        let label = |ks: &[usize]| ks.iter().map(|k| names[*k].clone()).collect::<Vec<_>>().join(" ");
+        println!(
+            "  load of pocket {i} ({} cells): forced [{}] -> {} distinct ticks (open {} | close {}){}",
+            pockets[i].len(),
+            label(&forced),
+            o.len() + c.len(),
+            fmt(&o),
+            fmt(&c),
+            if shared.is_empty() { String::new() } else { format!("; can also feed [{}]", label(&shared)) }
+        );
+    }
+}
+
 fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<GMask> {
     let mut covered: GMask = 0;
     for k in 0..p.assist_pistons.len() {
@@ -2972,6 +3027,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         let what = if feeds.is_empty() { "NO FREE CELL (only through blocks or a moving source)".to_string() } else { feeds.join(", ") };
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
+    pocket_load_report(&prob, &pockets, &groups, &names);
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {
