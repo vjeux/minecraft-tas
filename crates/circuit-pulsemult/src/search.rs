@@ -281,6 +281,24 @@ pub fn square_divider(n: usize, max_dust: usize, out: &Path) -> Result<String> {
         "group note".into(),
         "study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`)".into(),
     );
+    // R7 (inputs driven by a real repeater line): the input cell holds a repeater the judge's
+    // repeater feeds (its powered state is what the observer sees), on a stone; the facing that
+    // passes is the side the judge's repeater stands on
+    let cell = d.ports.get("input").copied().unwrap_or([0, 0, 0]);
+    let support = [cell[0], cell[1] - 1, cell[2]];
+    let mut fed: Option<Design> = None;
+    for facing in ["north", "south", "west", "east"] {
+        let mut t = d.clone();
+        t.blocks.insert(cell, format!("minecraft:repeater[delay=1,facing={facing},locked=false,powered=false]"));
+        t.blocks.entry(support).or_insert_with(|| "minecraft:stone".into());
+        if let Ok(c) = Circuit::from_design(t.clone())
+            && judge(&c).is_some()
+        {
+            fed = Some(t);
+            break;
+        }
+    }
+    let Some(d) = fed else { bail!("ring of {n}: no facing of the input repeater passes on redsim (R7 input)") };
     let c = Circuit::from_design(d.clone())?;
     let line = match judge(&c) {
         Some((summary, _)) => summary,
