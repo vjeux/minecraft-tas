@@ -9,5 +9,5 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Delay lines](delay/CATALOG.md) | 12 | 2 | 0 |
 | [Logic gates](gates/CATALOG.md) | 19 | 16 | 3 |
 | [Memory](memory/CATALOG.md) | 38 | 32 | 5 |
-| [Piston extenders](pext/CATALOG.md) | 54 | 24 | 9 |
+| [Piston extenders](pext/CATALOG.md) | 56 | 26 | 9 |
 | [Flying machines](fly/CATALOG.md) | 75 | 7 | 2 |
