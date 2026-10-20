@@ -155,6 +155,10 @@ pub struct Renderer {
     /// The game texture and which game assets it holds (their address; 0 = none yet).
     game_tex: wgpu::Texture,
     game_of: usize,
+    /// The client's render distance in chunks at least (None: the real-game pictures' 6, which
+    /// `web compare` matches). The browser viewer draws farther: the fogged end of the ground
+    /// stays at the horizon instead of a curved band under it.
+    pub view_chunks: Option<f32>,
 }
 
 /// The game texture of an atlas (its game assets' mip levels), or a 1x1 placeholder.
@@ -325,7 +329,7 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex, tiles_view: view, bgl, sampler, game_tex, game_of }
+        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex, tiles_view: view, bgl, sampler, game_tex, game_of, view_chunks: None }
     }
 
     fn bind_group(device: &wgpu::Device, bgl: &wgpu::BindGroupLayout, uniforms: &wgpu::Buffer, tiles: &wgpu::TextureView, sampler: &wgpu::Sampler, game: &wgpu::Texture) -> wgpu::BindGroup {
@@ -399,8 +403,9 @@ impl Renderer {
         // the pictures' client: render distance 6 chunks (nothing beyond: the sky shows) with the
         // game's fog (FogRenderer.setupFog: from the render distance minus a tenth of it, 4..64
         // blocks, to the render distance; the overworld's environment fog from 0 to 1024); a
-        // farther camera (zoomed out) pushes the render distance back so the build stays clear
-        let chunks = (((d * 2.0 + 16.0) / 16.0).ceil()).max(6.0);
+        // farther camera (zoomed out) pushes the render distance back so the build stays clear;
+        // the browser viewer's client sees farther (`view_chunks`)
+        let chunks = (((d * 2.0 + 16.0) / 16.0).ceil()).max(self.view_chunks.unwrap_or(6.0));
         let blocks = chunks * 16.0;
         let span = (blocks / 10.0).clamp(4.0, 64.0);
         let u = Uniforms {

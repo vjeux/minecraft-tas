@@ -361,6 +361,16 @@ impl Session {
                 }
             }
         }
+        // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in the declared
+        // output cell when the design leaves it empty, placed after the design's blocks (what
+        // `clock::sim::parse_blocks` does; circuits are built through it too); not a block of the
+        // design. A shulker design's output holds the judge's chest instead.
+        let judge_lamp = design.ports.get("output").map(|(p, _)| *p).filter(|p| !design.blocks.contains_key(p) && !shulker);
+        if let Some(op) = judge_lamp
+            && let Ok(b) = Block::parse(JUDGE_LAMP)
+        {
+            blocks.push((bp(op), b));
+        }
         // shown as built (below): a shulker design's chests (the judge places them) keep it
         // readable; nothing the judge does not place is added
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
@@ -701,10 +711,27 @@ impl Session {
                     self.world.use_block(bp(ci.pos));
                 }
             }
+            crate::circuit::InputHow::Strength { .. } => {
+                self.set_strength(i, if on { 15 } else { 0 });
+            }
         }
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
+    /// again (its state unchanged), then its contents set to the value's fill
+    /// ([`crate::circuit::strength_items`]).
+    fn set_strength(&mut self, i: usize, value: u8) {
+        let Some(crate::circuit::InputHow::Strength { chest }) = self.circuit_inputs.get(i).map(|c| c.how.clone()) else { return };
+        let pos = bp(self.circuit_inputs[i].pos);
+        self.world.set_block(pos, chest, flags::ALL);
+        if let Err(e) = redsim::redstone::container::apply_block_entities(&mut self.world, [(pos, crate::circuit::strength_items(value).as_str())]) {
+            self.world.errors.push(format!("strength input: {e}"));
+        }
+        self.input_on[i] = value > 0;
+        self.last_input = Some(self.tick);
     }
 
     /// A short pulse on input `i`: on now, off `len` ticks later (a tap on a pulse input).
@@ -735,6 +762,14 @@ impl Session {
                 for &(at, on) in e {
                     if at == t {
                         self.set_input(i, on);
+                    }
+                }
+            }
+            // the judge's strength values (after the edges, like `Circuit::actions`)
+            if self.simulated() {
+                for &(at, i, value) in &d.levels {
+                    if at == t {
+                        self.set_strength(i, value);
                     }
                 }
             }
@@ -1631,6 +1666,9 @@ pub fn entity_hash(mut h: u64, w: &World) -> u64 {
     h
 }
 
+/// The block the clock judge puts in a clock's empty output cell (`clock::sim::JUDGE_LAMP`).
+pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
+
 /// A design with a TNT block: it runs with redsim's TNT entities and explosions
 /// (`explosion::explode_on`).
 pub fn is_tnt_design(d: &Design) -> bool {
@@ -1845,7 +1883,7 @@ mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-launch-15b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-drop-16b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
