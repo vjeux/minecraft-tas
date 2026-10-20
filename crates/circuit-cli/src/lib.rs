@@ -194,6 +194,9 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
                     }
                 }
+                if !rep.note.is_empty() {
+                    println!("  {}", rep.note);
+                }
                 println!("{}", rep.summary(&c));
             }
             if failed > 0 {

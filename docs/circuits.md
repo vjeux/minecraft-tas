@@ -66,8 +66,10 @@ plus a 3-cell margin; swept along `travel` for machines). A build fails when a d
 stand where it is (the placement removes a floating dust; a floating lever, torch or repeater
 fails `canSurvive`: a player could not build it), when anything reaches the
 outer layer of the watched box, when an entity appears (a drop, a popped block), or when the
-kind's checker says so. All builds passing with the same metrics: `robust`; passing with
-different metrics: `position-dependent` / `rotation-dependent` (allowed, flagged). One line:
+kind's checker says so. All builds passing with the same metrics: `robust`; builds that
+disagree, with other metrics or failing (as for clocks): `position-dependent` /
+`rotation-dependent` (allowed, flagged; the archive row notes how many builds fail and why, e.g. a
+flying machine that flies east-west only). No build passing: `FAIL`. One line:
 
 `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, robust` or `FAIL: <name> <kind>: <why>`.
 
