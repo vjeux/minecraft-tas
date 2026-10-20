@@ -351,6 +351,8 @@ pub struct Options {
     pub fix: Vec<(Pos, String)>,
     /// Inputs the train may not use (their pistons must be fed by the `fix` blocks).
     pub drop: Vec<Pos>,
+    /// `--search` also offers level moves (an input switched on, later off): holds.
+    pub levels: bool,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -585,10 +587,17 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
 fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
-    let (mut d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
-    if open_ev.iter().chain(close_ev.iter()).any(|e| e.2.as_deref() == Some("@use")) {
-        bail!("plans with lever uses are not handled");
+    let (mut d, open_all, close_all, _) = s.realize(s.vars())?;
+    // the design's real lever (`use` events): flipped at t0 of both edges, like lever-held inputs
+    let is_use = |e: &(u32, Pos, Option<String>)| e.2.as_deref() == Some("@use");
+    let mut uses: Vec<Pos> = open_all.iter().chain(close_all.iter()).filter(|e| is_use(e)).map(|e| e.1).collect();
+    uses.sort();
+    uses.dedup();
+    if open_all.iter().chain(close_all.iter()).any(|e| is_use(e) && e.0 != 0) {
+        bail!("lever uses after t0 are not handled");
     }
+    let open_ev: Vec<(u32, Pos, Option<String>)> = open_all.into_iter().filter(|e| !is_use(e)).collect();
+    let close_ev: Vec<(u32, Pos, Option<String>)> = close_all.into_iter().filter(|e| !is_use(e)).collect();
     let door = *d.ports.get("door").context("design has no door port")?;
     let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
     let mut blocks = Vec::new();
@@ -614,10 +623,36 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     for (k, st) in cl.iter().enumerate() {
         say!(o, "  C{} {} ({} gt)", k + 1, st.label(), st.len());
     }
-    // the open rest state: the open plan applied step by step
+    // the open rest state: the lever used, then the open plan run with its own timing (a plan's
+    // holds may overlap other inputs, which a step-by-step replay would serialize)
     let mut wopen = w0.clone();
-    for st in &os {
-        wopen = sim.apply(&wopen, st).map_err(|e| anyhow::anyhow!("open plan step by step: {e}"))?;
+    {
+        let mut evs = open_ev.clone();
+        evs.sort_by_key(|e| e.0);
+        for c in &uses {
+            wopen.use_block(cs::bp(*c));
+        }
+        let mut t = 0u32;
+        let mut i = 0;
+        while i < evs.len() {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, q, st) = &evs[i];
+                let b = match st {
+                    Some(x) => cs::convert_state(x).map_err(|e| anyhow::anyhow!("{x}: {e}"))?,
+                    None => Block::Air,
+                };
+                wopen.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
+                i += 1;
+            }
+            if i < evs.len() {
+                wopen.tick();
+                t += 1;
+            }
+        }
+        let (_, idle) = cs::step_until_idle(&mut wopen, 300, |_| {});
+        if !idle {
+            bail!("the open plan never settles");
+        }
     }
     let (w0, wopen) = if o.fix.is_empty() {
         (w0, wopen)
@@ -646,11 +681,14 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             .filter(|c| rs.get(**c) != os_.get(**c) && (is_rb(rs.get(**c)) || is_rb(os_.get(**c))))
             .map(|c| (*c, rs.get(*c).unwrap_or(Block::Air), os_.get(*c).unwrap_or(Block::Air)))
             .collect();
-        cells.retain(|c| !lever.iter().any(|l| l.0 == *c));
+        cells.retain(|c| !lever.iter().any(|l| l.0 == *c) && !uses.contains(c));
         let flip = |w: &World, to_open: bool| -> Result<World> {
             let mut w = w.clone();
             for (c, closed, open) in &lever {
                 w.set_block(cs::bp(*c), if to_open { *open } else { *closed }, redsim::world::flags::ALL);
+            }
+            for c in &uses {
+                w.use_block(cs::bp(*c));
             }
             let (_, idle) = cs::step_until_idle(&mut w, 300, |_| {});
             if !idle {
@@ -658,12 +696,16 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             }
             Ok(w)
         };
-        let (a0, b0) = if lever.is_empty() { (w0.clone(), wopen.clone()) } else { (flip(&w0, true)?, flip(&wopen, false)?) };
+        let (a0, b0) = if lever.is_empty() && uses.is_empty() { (w0.clone(), wopen.clone()) } else { (flip(&w0, true)?, flip(&wopen, false)?) };
         let mut fixed: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
         for (c, closed, open) in &lever {
             let st = |b: &Block| if *b == Block::Air { None } else { Some(b.to_string()) };
             fixed.push((true, 0, *c, st(open)));
             fixed.push((false, 0, *c, st(closed)));
+        }
+        for c in &uses {
+            fixed.push((true, 0, *c, Some("@use".to_string())));
+            fixed.push((false, 0, *c, Some("@use".to_string())));
         }
         if !lever.is_empty() {
             say!(o, "lever-held inputs (set at t0 of each edge, not in the train): {:?}", lever.iter().map(|l| l.0).collect::<Vec<_>>());
@@ -721,6 +763,18 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 }
             }
         }
+        if o.levels {
+            // an input switched on (and left on until a later move switches it off): holds
+            for &c in &cells {
+                if in_pocket(&c) {
+                    continue;
+                }
+                moves.push(Step { evs: vec![(0, c, rbs())] });
+                pocket_of.push(None);
+                moves.push(Step { evs: vec![(0, c, None)] });
+                pocket_of.push(None);
+            }
+        }
         // a move's cost: 1, or the largest `--cost` of the cells it pulses
         let costs: Vec<usize> = moves.iter().map(|m| m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1)).collect();
         let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect() };
@@ -729,6 +783,9 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
             Some(train) => timed_train(&d, s.phase, &text, path, &train, &fixed, n, o, out),
         };
+    }
+    if !uses.is_empty() {
+        bail!("the plain merge does not handle the real lever: use --search");
     }
     merge(&sim, &d, s.phase, &text, path, &os, &cl, &w0, &wopen, o, out)
 }
