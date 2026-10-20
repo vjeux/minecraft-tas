@@ -3,6 +3,9 @@
 # Counter 6, dropper corner ring + copper bulb, 11 blocks (track memory): the counter3-corner ring (the input cell touches three droppers; hoppers pass the stone one dropper per pulse) lights its comparator one window in three; that comparator toggles a copper bulb, read by a second comparator: on for three pulse windows, off for three (level style, period 6; as a toggle stream it divides by 3).
 name: counter6-corner-bulb
 circuit: counter 6
+group: ring-bulbs
+group title: Dropper ring + copper bulbs (counter N x 2^K)
+group note: a dropper ring whose comparator toggles K copper bulb T flip-flops in a line (`mctas circuit memory ring --n N --bulbs K`)
 port input: 0 0 0
 port output: 5 0 0
 nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}

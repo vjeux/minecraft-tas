@@ -3,6 +3,9 @@
 # Counter 26, dropper ring + 1 copper bulb, 39 blocks (track memory, `mctas circuit memory ring --n 13 --bulbs 1`): the input cell fires 13 droppers (2 next to it, 11 through 3 dust), and 13 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 13, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (level style).
 name: counter26-ring13-bulb1
 circuit: counter 26
+group: ring-bulbs
+group title: Dropper ring + copper bulbs (counter N x 2^K)
+group note: a dropper ring whose comparator toggles K copper bulb T flip-flops in a line (`mctas circuit memory ring --n N --bulbs K`)
 port input: 0 0 0
 port output: -6 1 0
 nbt: -2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}

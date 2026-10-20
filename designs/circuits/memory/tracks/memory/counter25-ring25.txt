@@ -1,6 +1,9 @@
 # Counter 25, dropper ring, 72 blocks (track memory, `mctas circuit memory ring --n 25`): the input cell fires 25 droppers (1 next to it, 24 through 1 dust and 3 repeater relays: a repeater strongly powers a stone, a cross dust past it powers an outer stone, both fire their neighbours), and 25 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 25 (level style).
 name: counter25-ring25
 circuit: counter 25
+group: dropper-ring
+group title: Dropper ring (counter N)
+group note: N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`)
 port input: 0 0 0
 port output: -2 1 -2
 nbt: -2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}

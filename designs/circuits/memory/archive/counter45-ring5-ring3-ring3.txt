@@ -3,6 +3,9 @@
 # Counter 45, 3 chained dropper rings (5 x 3 x 3), 30 blocks (track memory, `mctas circuit memory ring --n 5 --then 3,3`): ring 1 (5 droppers fired by the input, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; the last comparator is on during one pulse window in 45 (level style). Every transit crosses a hopper, so the firing order never matters.
 name: counter45-ring5-ring3-ring3
 circuit: counter 45
+group: ring-chain
+group title: Chained dropper rings (counter N1 x N2 x ...)
+group note: each ring's comparator strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; copper bulbs may follow (`mctas circuit memory ring --n N1 --then N2,N3 [--bulbs K]`)
 port input: 0 0 0
 port output: -9 0 0
 nbt: -7 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
