@@ -70,6 +70,17 @@ enum Cmd {
         #[arg(long)]
         fixed: Option<PathBuf>,
     },
+    /// Shrink a PRECISE design on redsim: drop blocks one at a time (never a TNT) while it still
+    /// dupes and every kick still ends at one fuse-1 position; writes DIR/<name>-<blocks>b.txt.
+    PreciseShrink {
+        design: PathBuf,
+        #[arg(long, default_value_t = 220)]
+        ticks: u32,
+        #[arg(long, default_value_t = 3)]
+        nth: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// PRECISE on redsim: one run per fixed kick (the game's random one replaced), every TNT an
     /// entity; groups the fuse-1 positions of the Nth TNT of each run.
     PreciseSim {
@@ -239,6 +250,22 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             if let Some(p) = align::align(&o)? {
                 println!("{}", p.display());
+            }
+        }
+        Cmd::PreciseShrink { design, ticks, nth, out } => {
+            let c = clock::Clock::load(&design)?;
+            let n0 = c.design.blocks.len();
+            match precise::shrink(&c, &precise::default_kicks(), ticks, nth) {
+                None => println!("{}: not PRECISE on redsim (or does not dupe)", design.display()),
+                Some(b) => {
+                    std::fs::create_dir_all(&out)?;
+                    let mut d = c.design.clone();
+                    d.name = format!("{}-{}b", c.design.name, b.len());
+                    d.blocks = b;
+                    let p = out.join(format!("{}.txt", d.name));
+                    std::fs::write(&p, d.to_text())?;
+                    println!("{}: {n0} -> {} blocks, still PRECISE on redsim: {}", design.display(), d.blocks.len(), p.display());
+                }
             }
         }
         Cmd::PreciseSim { designs, ticks, nth, follow } => {

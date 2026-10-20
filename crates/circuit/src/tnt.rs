@@ -156,7 +156,18 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         ("per period".to_string(), per[0].to_string()),
         ("latency".to_string(), format!("{} gt", first.saturating_sub(from))),
     ];
-    Outcome { pass: true, why: String::new(), metrics, table }
+    Outcome { pass: true, why: precise_flag(t, start), metrics, table }
+}
+
+/// The PRECISE variation (the real game only: each TNT followed to fuse 1): every TNT of the
+/// periodic region that reached fuse 1 is at the same point then, bit for bit (8 or more).
+fn precise_flag(t: &Trace, start: usize) -> String {
+    let ends: Vec<[f64; 3]> = t.primed.iter().filter(|q| q.frame as usize >= start).filter_map(|q| q.end.map(|e| e.0)).collect();
+    if ends.len() >= 8 && ends.iter().all(|e| e.iter().zip(&ends[0]).all(|(a, b)| a.to_bits() == b.to_bits())) {
+        format!("precise: {} TNT at one point at fuse 1", ends.len())
+    } else {
+        String::new()
+    }
 }
 
 /// `tnt-duper-triggered`.

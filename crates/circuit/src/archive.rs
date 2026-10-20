@@ -149,6 +149,11 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
 /// (lag, fewer). Other kinds fold on blocks alone: a study whose designs trade blocks against a
 /// metric its axis does not carry adds that metric here.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    // TNT dupers (study 9): a PRECISE duper (every TNT at one point at fuse 1) keeps its own
+    // card over a smaller one that is not
+    if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
+        return b.summary.contains("(precise") && !a.summary.contains("(precise");
+    }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
     }

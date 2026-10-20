@@ -65,6 +65,43 @@ pub fn ends_traced(c: &Clock, u: f64, ticks: u32, follow: bool) -> Result<Vec<En
     Ok(out)
 }
 
+/// Greedy shrink keeping the design PRECISE on redsim (every kick in one group) and duping:
+/// remove one block at a time (never a TNT); returns the smaller block set.
+pub fn shrink(c: &Clock, kicks: &[f64], ticks: u32, nth: usize) -> Option<std::collections::BTreeMap<clock::Pos, String>> {
+    let ok = |blocks: &std::collections::BTreeMap<clock::Pos, String>| -> bool {
+        let mut d = c.design.clone();
+        d.blocks = blocks.clone();
+        let Ok(cc) = Clock::from_design(d) else { return false };
+        if crate::search::dupes(&cc, &[], 200).is_none() {
+            return false;
+        }
+        let (g, bad) = groups(&cc, kicks, ticks, nth);
+        bad.is_empty() && g.len() == 1
+    };
+    let mut cur = c.design.blocks.clone();
+    if !ok(&cur) {
+        return None;
+    }
+    loop {
+        let mut better = false;
+        let keys: Vec<clock::Pos> = cur.keys().copied().collect();
+        for k in keys {
+            if cur[&k].contains("tnt") {
+                continue;
+            }
+            let mut t = cur.clone();
+            t.remove(&k);
+            if ok(&t) {
+                cur = t;
+                better = true;
+            }
+        }
+        if !better {
+            return Some(cur);
+        }
+    }
+}
+
 /// Over `kicks`: the fuse-1 position of the `nth` TNT of each run (a steady-state one), grouped:
 /// (position, how many kicks), most common first; and the kicks whose run failed.
 pub fn groups(c: &Clock, kicks: &[f64], ticks: u32, nth: usize) -> (Vec<([f64; 3], usize)>, Vec<String>) {
