@@ -76,15 +76,23 @@ pub struct FeedReport {
     /// Regions that are the only feeder of a firing but see no change 2 gt before it (on that
     /// edge): no static wiring can start them.
     pub cannot_start: Vec<String>,
+    /// `--strict`: why the plan fails the strict screen (empty: it passes): no firing without a
+    /// feed, none with flagged options only (a conductor that moves counting as a flag), no
+    /// one-cell conflict, no region that cannot start.
+    pub strict_fail: Vec<String>,
     pub text: Vec<String>,
 }
 
-/// `door feeds`: print [`analyze`]'s table for one schedule file.
-pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>, sculk: bool) -> Result<()> {
+/// `door feeds`: print [`analyze`]'s table for one schedule file; `strict`: also the strict
+/// screen's verdict, an error when it fails (a screen for searches' exports).
+pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>, sculk: bool, strict: bool) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let r = analyze_opts(&text, &path.display().to_string(), bx, sculk)?;
+    let r = analyze_full(&text, &path.display().to_string(), bx, sculk, strict)?;
     for l in &r.text {
         println!("{l}");
+    }
+    if strict && !r.strict_fail.is_empty() {
+        bail!("{}: fails the strict feed screen: {}", path.display(), r.strict_fail.join("; "));
     }
     Ok(())
 }
@@ -96,6 +104,13 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
 
 /// [`analyze`], plus (`sculk`) what a sculk sensor in each free cell would hear.
 pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool) -> Result<FeedReport> {
+    analyze_full(text, label, bx, sculk, false)
+}
+
+/// [`analyze_opts`], plus (`strict`) the strict screen: a conductor a feed goes through must stay
+/// the same block all cycle (dust on a block that moves pops; a component's power through it is
+/// lost when it leaves), flagged `*`; the verdict in [`FeedReport::strict_fail`].
+pub fn analyze_full(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool, strict: bool) -> Result<FeedReport> {
     let mut out: Vec<String> = Vec::new();
     let s = Schedule::parse_with(text, &BTreeMap::new())?;
     let vars = s.vars().clone();
@@ -281,6 +296,9 @@ pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, s
     out.push(format!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" ")));
     out.push("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M".to_string());
     out.push("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)".to_string());
+    if strict {
+        out.push("# strict: * = the conductor of a `via` option moves during the cycle (dust on it pops; a component's power through it leaves with it): a flag".to_string());
+    }
     out.push("# timing of a clean option (an observer there): @ = the cell it watches changes the tick before the firing (fires with the plan), ~ = it changes only at other ticks; none = a free cell (other wiring drives it)".to_string());
     let mut none: Vec<String> = Vec::new();
     let mut weak: Vec<String> = Vec::new();
@@ -372,7 +390,10 @@ pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, s
                 if let Some((l, _)) = region.get(&m) {
                     feeders.insert(*l);
                 }
-                let fl = drive(m, tg);
+                // --strict: a `via` option's conductor (its target is neither X nor A) must be the
+                // same block all cycle
+                let moves = strict && tg != x && tg != above && !all.iter().all(|s| s.get(&tg).is_some() && s.get(&tg) == all[0].get(&tg));
+                let fl = if moves { "*" } else { drive(m, tg) };
                 let s = if fl.is_empty() {
                     ok_any = true;
                     clean.push((m, tg));
@@ -508,5 +529,25 @@ pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, s
         }
     }
     out.push(format!("# one cell, several targets (its one component cannot feed them all): {}", if conflicts.is_empty() { "none".to_string() } else { conflicts.join("; ") }));
-    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, cannot_start, text: out })
+    let mut strict_fail: Vec<String> = Vec::new();
+    if strict {
+        if !none.is_empty() {
+            strict_fail.push(format!("{} firing(s) without a feed ({})", none.len(), none.join(", ")));
+        }
+        if !weak.is_empty() {
+            strict_fail.push(format!("{} firing(s) with flagged options only ({})", weak.len(), weak.join(", ")));
+        }
+        if !conflicts.is_empty() {
+            strict_fail.push(format!("{} one-cell conflict(s) ({})", conflicts.len(), conflicts.join("; ")));
+        }
+        if !cannot_start.is_empty() {
+            strict_fail.push(format!("{} region start(s) impossible ({})", cannot_start.len(), cannot_start.join(", ")));
+        }
+        out.push(if strict_fail.is_empty() {
+            format!("# strict: PASS ({} firings, every one with a clean feed, no conflict, every sole region startable)", firings.len())
+        } else {
+            format!("# strict: FAIL: {}", strict_fail.join("; "))
+        });
+    }
+    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, cannot_start, strict_fail, text: out })
 }

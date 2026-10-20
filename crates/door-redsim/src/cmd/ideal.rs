@@ -15,11 +15,16 @@ pub struct FeedsArgs {
     /// each edge, from the plan's own vibrations (piston moves, lever flips).
     #[arg(long)]
     sculk: bool,
+    /// The strict screen (for searches' exports): a conductor a feed goes through must stay the
+    /// same block all cycle (`*` otherwise); FAIL (exit code 1) on a firing without a feed, one
+    /// with flagged options only, a one-cell conflict or a region that cannot start.
+    #[arg(long)]
+    strict: bool,
 }
 
 pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
     let bx = args.r#box.as_deref().map(crate::feeds::parse_box).transpose()?;
-    crate::feeds::cli(&args.schedule, bx, args.sculk)
+    crate::feeds::cli(&args.schedule, bx, args.sculk, args.strict)
 }
 
 #[derive(clap::Args)]
