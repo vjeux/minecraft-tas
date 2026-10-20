@@ -1,0 +1,36 @@
+# archived 2026-10-20T00:52Z from designs/circuits/memory/tracks/memory/counter18-ring9-bulb1.txt by mctas circuit archive
+# CIRCUIT: counter18-ring9-bulb1 counter 18 N 18, output level every 18 pulses, 28 blocks, 9x3x3, robust
+# Counter 18, dropper ring + 1 copper bulb, 28 blocks (track memory, `mctas circuit memory ring --n 9 --bulbs 1`): the input cell fires 9 droppers (2 next to it, 7 through 2 dust), and 9 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 9, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (level style).
+name: counter18-ring9-bulb1
+circuit: counter 18
+port input: 0 0 0
+port output: -6 1 0
+nbt: -2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -5 0 -1
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  ....S.S
+  .
+layer 0:
+  ..hB
+  S.dSR.RSA
+  ..FEIEIEI
+layer 1:
+  ...G
+  CWCDhDhDH
+  .
