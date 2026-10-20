@@ -203,6 +203,10 @@ ul.toc { columns: 3 260px; padding-left: 18px; }
 section.what { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--circuit); border-radius: var(--radius); padding: 4px 18px 8px; margin: 12px 0 16px; }
 section.what h2 { margin-top: 12px; }
 section.what p { font-size: 15.5px; line-height: 1.55; }
+ul.badgelist { margin: 4px 0 10px; padding-left: 20px; font-size: 14.5px; }
+ul.badgelist li { margin: 2px 0; }
+table.variations td { vertical-align: top; }
+table.variations th[scope="row"] { white-space: nowrap; }
 p.howdesign { font-size: 14px !important; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 p.howdesign b { color: var(--fg); }
 table.truth { width: auto; margin: 8px 0; }
@@ -225,6 +229,15 @@ svg.wave .tgt { stroke: #2d5b85; stroke-width: 1; stroke-dasharray: 4 3; opacity
 svg.wave .tgtl { fill: #2d5b85; font-weight: 700; }
 svg.wave .note { fill: #2d5b85; }
 p.wave-note { margin: 6px 0 0; font-size: 14px; }
+svg.wave .mk { stroke-width: 2; }
+svg.wave .mk-place { stroke: #2f7d32; }
+svg.wave .mk-clear { stroke: #c8231e; }
+svg.wave .mk-shape { stroke: #7a3fb0; }
+svg.wave .mk-update { stroke: #2d5b85; }
+.mk-place-t { color: #2f7d32; font-weight: 700; }
+.mk-clear-t { color: #c8231e; font-weight: 700; }
+.mk-shape-t { color: #7a3fb0; font-weight: 700; }
+.mk-update-t { color: #2d5b85; font-weight: 700; }
 table.metrics th { width: 120px; }
 table.metrics td.def { color: var(--muted); font-size: 13px; }
 h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; }

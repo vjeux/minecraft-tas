@@ -78,8 +78,12 @@ pub fn subline(b: &Build) -> String {
                 if !c.direction.is_empty() {
                     parts.push(c.direction.clone());
                 }
-                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(c.axis.as_str()) {
+                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(c.axis.as_str()) && !c.axis.starts_with("detects") {
                     parts.push(c.axis.clone());
+                }
+                // a machine's speed: a shulker loader's items per second
+                if let Some((_, v)) = c.metrics.iter().find(|(n, _)| n == "items/s") {
+                    parts.push(format!("{v} items/s"));
                 }
                 parts.push(blocks_word(b.blocks));
                 parts.join(" · ")
@@ -114,6 +118,19 @@ pub fn badges(b: &Build) -> Vec<String> {
     if let Some(c) = &b.circuit {
         if !c.span.is_empty() {
             v.push(format!("tunable: {}", c.span));
+        }
+        // the machines' variations: a shulker loader's badges, what a BUD switch detects
+        let m = |k: &str| c.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str()).unwrap_or("");
+        let badges: Vec<&str> = m("badges").split('+').filter(|s| !s.is_empty()).collect();
+        for x in badges.iter().take(4) {
+            v.push(x.to_string());
+        }
+        if badges.len() > 4 {
+            v.push(format!("+{} more", badges.len() - 4));
+        }
+        let detects = m("detects");
+        if !detects.is_empty() {
+            v.push(format!("detects {}", detects.split_whitespace().collect::<Vec<_>>().join(", ")));
         }
     }
     v
