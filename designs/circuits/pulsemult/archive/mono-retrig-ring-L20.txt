@@ -1,5 +1,5 @@
 # archived 2026-10-20T11:38Z from designs/circuits/pulsemult/tracks/timer/retrig/mono-retrig-ring-L20.txt by mctas circuit archive
-# CIRCUIT: mono-retrig-ring-L20 monostable retriggerable L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 1 gt, 22 blocks, 6x4x3, robust
+# CIRCUIT: mono-retrig-ring-L20 monostable retriggerable L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes), 22 blocks, 6x4x3, robust
 name: mono-retrig-ring-L20
 circuit: monostable retriggerable
 group: mono-retrig-ring

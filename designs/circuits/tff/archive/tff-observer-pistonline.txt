@@ -1,5 +1,5 @@
 # archived 2026-10-20T01:42Z from designs/circuits/tff/tracks/tff/tff-observer-pistonline.txt by mctas circuit archive
-# CIRCUIT: tff-observer-pistonline tff latency 5 gt, edge rising, min-pulse 4 gt, min-period 8 gt, 5 blocks, 5x2x1, robust
+# CIRCUIT: tff-observer-pistonline tff latency 4 gt, edge rising, min-pulse 4 gt, min-period 8 gt, 5 blocks, 5x2x1, robust
 # Observer + piston line T flip-flop, 5 blocks (found by the tff census): the input piston P pushes a sticky piston S2 and its redstone block R east; after the first pulse R alternates between the output cell itself (off) and the cell beyond it (on). Under P, a sticky piston shuttles an observer under S2 and back on every pulse, and S2 alternately spits R one cell out (short power) and pulls it back. Latency 5 gt, 4 gt pulses and longer, trains down to an 8 gt period.
 name: tff-observer-pistonline
 circuit: tff
