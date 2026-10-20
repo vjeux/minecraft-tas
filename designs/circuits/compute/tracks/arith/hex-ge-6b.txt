@@ -1,0 +1,28 @@
+name: hex-ge-6b
+circuit: comparator 4 hex
+# a >= b on signal strengths (study 12, hex; track arith, found by `mctas circuit arith synth`):
+# comparator A reads a's chest and feeds the side of comparator C, which reads b's chest in
+# SUBTRACT mode: C outputs b - a, which is 0 exactly when a >= b (calculateOutputSignal). C powers
+# a stone; the wall torch on that stone is lit unless b - a > 0, so it reads a >= b, a = b = 0
+# included (a compare-mode comparator would be off there). The redstone block is only A's floor.
+port input.a: 2 1 3 strength
+port input.b: 3 1 1 strength
+port output.ge: 1 1 -1
+origin: 1 0 0
+palette:
+  A minecraft:comparator[facing=south,mode=subtract,powered=false]
+  C minecraft:chest[facing=north,type=single,waterlogged=false]
+  R minecraft:redstone_block
+  S minecraft:stone
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+layer 0:
+  .
+  .S
+  .R
+  .
+layer 1:
+  r
+  ScC
+  .A
+  .C

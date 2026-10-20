@@ -216,6 +216,7 @@ fn details(c: &Design) -> Details {
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
+            circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
         })
@@ -872,6 +873,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
+            circuit::InputHow::Strength { .. } => "strength".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
         })
         .collect::<Vec<_>>()
