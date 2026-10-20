@@ -9,10 +9,13 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | kind | L (gt) | blocks | mechanism |
 |---|---|---|---|
 | rising-edge | 2 | 2 | sticky piston + observer: the observer is pushed INTO the output cell and fires 2 gt after it lands; pulled back on the falling edge, it fires where the output cannot see it (min-pulse 4) |
+| rising-edge | 2 | 4 | BULB EDGE: the input toggles a copper bulb on every rising edge (even 1 gt), a comparator reads it (one change per rising edge), an observer turns each change into a 2 gt pulse (min-pulse 1) |
+| rising-edge | 4, 6, 8 | 6 | the bulb edge + a repeater (min-pulse 1) |
+| rising-edge | 18 + 16n | 19 + 4n | card `pulse-oneshot-bulb-rise` (and `-ext` as an extender): the bulb edge triggers the bulb one-shot (min-pulse 1) |
 | rising-edge | 4, 6, 8 | 4 | the same with a sideways observer whose back faces a repeater only when pushed; the repeater stretches the 2 gt pulse to L |
 | rising-edge | 6..40 (every even L) | 17-25 | BULB ONE-SHOT: the pushed observer lights a copper bulb; a comparator reads the bulb into a U of repeaters back into the bulb, which turns it off a loop later (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing) |
 | rising-edge | 18 + 16n | 17 + 4n | card `pulse-oneshot-rise` (n 0..10) |
-| falling-edge | 2 | 3 | observer between two sticky pistons (census) |
+| falling-edge | 2 | 3 | observer between two sticky pistons (census; another layout: min-pulse 2, rotation-dependent) |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
@@ -31,7 +34,9 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
   levels (dust power; repeater, observer, torch own output; comparator strength; else the best
   signal into the cell) over the judge's input lengths, and lists every kind it satisfies (a
   constant-length monostable is a rising-edge detector, a limiter and an extender at once) with
-  its min-pulse. Delays agree with the judge's frames.
+  its min-pulse. Delays agree with the judge's frames. Like the judge it checks the outputs only:
+  an inner toggle (a bulb flipping on every rising edge) is allowed (a first version required the
+  whole state back after every pulse and missed the bulb edge detectors).
 * `census --k K --palette ...`: every polycube of K blocks + an input cell (any cell of it), every
   output cell; a quick 40 gt probe drops inert designs; keeps the best of each (kind, L) (min-pulse
   then delay). k = 3 with the full palette: 1.4 min on 40 threads.
@@ -45,5 +50,6 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 * Odd L: every design so far has even L (observers, repeaters, comparators work in 2 gt units). A
   redstone block that LANDS (block-entity phase) next to the output and is pushed away the next
   tick by a piston it powers would give a 1 gt pulse (L = 1 + 2d with a repeater on the way).
-* Min-pulse 1 rising/falling-edge detectors (the piston-observer trigger needs 4 / 6 gt).
+* Min-pulse 1 falling-edge detectors (the best has min-pulse 2): a bulb needs a rising edge, so
+  the input must be inverted first, and torches and comparators miss 1 gt inputs.
 * The 4-block census (running) for smaller designs per (kind, L).
