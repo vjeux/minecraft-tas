@@ -3,7 +3,8 @@
 name: clk-obs-p24-obs-stk-5b-05a52b
 # P24: 1 copper bulb, 2 observers, 1 redstone block, 1 sticky piston; changing in place: observer, sticky_piston (copper bulb, redstone block only moved or static). Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 0 3
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 3: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 5
 port start: 0 0 3 last
 palette:
   A minecraft:redstone_block

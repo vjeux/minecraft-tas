@@ -10,7 +10,8 @@ extend n: 0..46
 extend base: 0
 extend generator: mctas clock obs family odd-b --n {n} --out {out}
 origin: 0 0 0
-port output: 2 2 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 2 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 3 -1 0
 port start: 2 3 0 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=east]

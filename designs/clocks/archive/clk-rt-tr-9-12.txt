@@ -1,11 +1,12 @@
 # archived 2026-10-19T15:47Z from /tmp/clk-in/clk-rt--tr-9-12.txt by mctas clock archive
-# CLOCK: clk-rt-tr-9-12 period 12 gt, on 6/12, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 9 blocks, 3x2x2, robust
+# CLOCK: clk-rt-tr-9-12 period 12 gt (0.6 s), on 6/12, edges 1, warmup 2, family redstone_torch+redstone_wire+repeater, 9 blocks, 3x2x2, robust
 # Torch + repeater loop, 9 blocks (draft, clk-rt): wall torch T on A -> repeater R reads T
 # directly -> R strongly powers F -> dust beside F -> dust pointing into A. One inversion, loop
 # delay 2 + 2d: period 4 (1 + d) = 12 with the delay-2 repeater (16 / 20 with delay 3 / 4).
 name: clk-rt-tr-9-12
 origin: 0 0 -1
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 0
 palette:
   S minecraft:stone
   A minecraft:stone

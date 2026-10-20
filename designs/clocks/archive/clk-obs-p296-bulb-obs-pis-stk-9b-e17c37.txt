@@ -3,7 +3,8 @@
 name: clk-obs-p296-bulb-obs-pis-stk-9b-e17c37
 # clk-obs grow: P=296 (redsim), family observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 0 1, swept volume 36.
 origin: -1 0 0
-port output: -1 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -1 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 3
 port start: 0 0 1 last
 palette:
   A minecraft:waxed_copper_bulb[lit=false,powered=false]

@@ -1,9 +1,10 @@
 # archived 2026-10-19T17:33Z from /tmp/clk-in7/clk-sculk--c21-obs3-disp.txt by mctas clock archive
-# CLOCK: clk-sculk-c21-obs3-disp period 21 gt, on 10/21, edges 1, warmup 13, family calibrated_sculk_sensor+dispenser+observer, 5 blocks, 4x1x2, robust
-# CLOCK: cand period 21 gt, on 10/21, edges 1, warmup 13, family calibrated_sculk_sensor+dispenser+observer, 5 blocks, 4x1x2, kick: redstone_block 1 gt at -2,0,1
+# CLOCK: clk-sculk-c21-obs3-disp period 21 gt (1.05 s), on 10/21, edges 1, warmup 13, family calibrated_sculk_sensor+dispenser+observer, 5 blocks, 4x1x2, robust
+# CLOCK: clk-sculk-c21-obs3-disp period 21 gt (1.05 s), on 10/21, edges 1, warmup 13, family calibrated_sculk_sensor+dispenser+observer, 5 blocks, 4x1x2, robust
 # Calibrated sensor, 3 observers curling back (each watches the previous; the first watches the sensor), empty dispenser at the last output, diagonal to the sensor (travel 1). The cooldown pulse (A+10) reaches the dispenser at A+16, it fires at A+20, right after the sensor re-arms.
 name: clk-sculk-c21-obs3-disp
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: -2 0 1 minecraft:redstone_block 1
 origin: -1 0 0
 palette:

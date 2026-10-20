@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:22Z from designs/clocks/tracks/clk-rt/odd/ring-p7.txt by mctas clock archive
-# CLOCK: clk-rt-odd-ring-p7 period 7 gt, on 2/7, edges 1, warmup 7, family redstone_wire+repeater, 22 blocks, 7x2x2, robust
+# CLOCK: clk-rt-odd-ring-p7 period 7 gt (0.35 s), on 2/7, edges 1, warmup 11, family redstone_wire+repeater, 22 blocks, 7x2x2, robust
 # ODD period 7 (clk-rt): a ring of 7 delay-1 repeaters + dust (loop delay 14 gt) holds TWO
 # identical 2 gt pulses 7 gt apart: one loaded at placement (a powered repeater), the other started
 # by a 1 gt redstone block next to the corner dust at tick 5 (odd: a second parity class).
 name: clk-rt-odd-ring-p7
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 -1
 port start: -1 1 -1 minecraft:redstone_block 1 at 5
 origin: 0 0 -1
 palette:

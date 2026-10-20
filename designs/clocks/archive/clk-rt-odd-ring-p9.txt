@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:23Z from designs/clocks/tracks/clk-rt/odd/ring-p9.txt by mctas clock archive
-# CLOCK: clk-rt-odd-ring-p9 period 9 gt, on 4/9, edges 1, warmup 9, family redstone_wire+repeater, 18 blocks, 6x2x2, robust
+# CLOCK: clk-rt-odd-ring-p9 period 9 gt (0.45 s), on 4/9, edges 1, warmup 13, family redstone_wire+repeater, 18 blocks, 6x2x2, robust
 # ODD period 9 (clk-rt): a ring of 3 delay-2 + 3 delay-1 repeaters + dust (loop delay 18 gt)
 # holds TWO identical 4 gt pulses 9 gt apart: one loaded at placement (a powered repeater), the
 # other started by a 1 gt redstone block next to the corner dust at tick 5 (a second parity class).
 name: clk-rt-odd-ring-p9
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 -1
 port start: -1 1 -1 minecraft:redstone_block 1 at 5
 origin: 0 0 -1
 palette:
