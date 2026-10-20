@@ -293,9 +293,10 @@ kick) before the first input.
   ray is at its largest roll (`Rolls::Max`: surviving it is surviving every roll). **All randoms**
   (vjeux 2026-10-20: "pass every possible random number"): the kick's `nextDouble()` swept over
   [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
-  piece and boundary judged on both grounds; every one must pass with the same metrics (and the
-  same PRECISE claim) (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run
-  (per-spawn kicks: next). `Rolls::Max` covers every roll because a blast's destroyed set only
+  piece and boundary judged on both grounds; every one must pass with the same metrics (and
+  PRECISE only when every kick is precise), then 64 runs per ground where every TNT gets its own
+  kick (`robust::PER_SPAWN_RUNS`, a fixed generator) must pass with the same metrics (`mctas
+  circuit tnt robust` alone, at the safe drop; `mctas circuit tnt judge` one run). `Rolls::Max` covers every roll because a blast's destroyed set only
   grows with the rolls and knockback ignores them; a destroyed machine block fails the run, the
   ground's craters do not (clockinfra's check). The evidence: `mctas circuit tnt blasts` lists
   every explosion's distance to the machine and the blocks destroyed, in the void and on both

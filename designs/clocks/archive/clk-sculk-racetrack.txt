@@ -9,7 +9,8 @@ extend generator: mctas clock sculk family racetrack --n {n} --out {out}
 extend n: 1..8
 extend period: 28 + 32n
 extend rule: one more calibrated sensor + amethyst block on each straight side, 17 blocks apart (the far turn sensor moves 17 out)
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -13 -1 9
 port start: 1 0 0 use
 origin: -13 0 0
 palette:

@@ -1,41 +1,38 @@
-# archived 2026-10-20T11:03Z from designs/circuits/tracks/bud/bud-latched-qc-fast.txt by mctas circuit archive
-# CIRCUIT: bud-latched-qc-fast bud detects place remove state update, latency 1 gt, reset manual, off 3 gt after it, re-arm 2 gt, footprint 5 cells, tileable every 4 (0 0 4), 7 blocks, 3x3x3, robust
+# archived 2026-10-20T17:27Z from designs/circuits/tracks/bud/wr/bud-latched-qc-fast.txt by mctas circuit archive
+# CIRCUIT: bud-latched-qc-fast bud detects place remove state update, latency 1 gt, reset manual, off 3 gt after it, re-arm 2 gt, footprint 5 cells, tileable every 3 (0 0 3), 7 blocks, 3x3x3, robust
 name: bud-latched-qc-fast
 circuit: bud
-tile: 0 0 4
-# A latched BUD (manual reset) with a 1 gt latency: the sticky piston, armed by quasi-connectivity
-# from the redstone block above the stone in front of it, pushes that stone off the step between
-# two dusts in the tick after the update; the low dust joins the high one (powered by its redstone
-# block) and lights the output, and the piston stays out, so the output holds. The reset input is
-# the arming redstone block: taking it away updates the piston through its head, it pulls the stone
-# back onto the step (the output goes off 3 gt after the reset starts); putting it back arms the
-# piston without updating it.
-origin: -1 -2 -1
-port target: -1 0 0
-port output: 1 -1 -1
+# Turns on at the first block update next to the target and stays on until you reset it, reacting
+# in 1 tick: the fastest latched BUD (7 blocks), copies every 3 blocks. Detail: a sticky piston
+# armed by quasi-connectivity (power that reaches it only through the block above its neighbor, so
+# it has not noticed it) pushes a stone off the step between two dusts in the tick after the
+# update; the low dust joins the powered high one and lights the output, and the piston stays out.
+# The reset input is the arming redstone block: taking it away makes the piston pull the stone back
+# (the output goes off 3 ticks later); putting it back arms it silently. The output is the low
+# dust's own level.
+tile: 0 0 3
 port input.reset: 1 1 0 minecraft:air minecraft:redstone_block
+port output: 1 -1 0
+port target: -1 0 0
+origin: 0 0 0
 palette:
-  P minecraft:sticky_piston[extended=false,facing=east]
-  X minecraft:stone
   R minecraft:redstone_block
-  D minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:stone
+layer -2:
+  .s
+  .
+  .
+layer -1:
+  .r
+  .s
+  .
 layer 0:
-  ....
-  ..X.
-  ....
-  ....
+  Ss
+  .r
+  .R
 layer 1:
-  ....
-  ..D.
-  ..X.
-  ....
-layer 2:
-  ....
-  .PX.
-  ..D.
-  ..R.
-layer 3:
-  ....
-  ..R.
-  ....
-  ....
+  .R
+  .
+  .

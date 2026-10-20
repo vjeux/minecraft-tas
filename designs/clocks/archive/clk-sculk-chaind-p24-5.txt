@@ -3,7 +3,8 @@
 # A calibrated sculk sensor drives repeater(s) of delay [3,3,2] placed powered (their first turn-off is the self-start), then dispenser at the last repeater's output, 4 from the sensor (travel time)
 name: clk-sculk-chaind-p24-5
 # how: chain cal line reps [3,3,2] placed powered, dispenser at the last repeater's output (travel 4)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

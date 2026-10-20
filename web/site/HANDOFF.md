@@ -35,7 +35,7 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 13:50Z, explore/site after main 8c126a4a5; box devvm59220, devvm59165 is gone)
+## State (2026-10-20 16:50Z, explore/site after main fd51ca0d2; box devvm59220, devvm59165 is gone)
 
 - Plain player language (vjeux 13:06Z): every build page leads with what it does in one sentence
   with its own numbers (crates/site/src/plain.rs), then why build it and how to try it; kinds in
@@ -48,10 +48,18 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   smoke-checked); no page links in the footer.
 - "Works in any direction, anywhere" replaces "robust" (directional / locational when it fails).
 - hidden.tsv: the slime-free extenders, pext's world-record bar (only each N's holder; `!`
-  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, the
-  dominated pulse-limiter-psub-L7, the coordinator's TEMPORARY hides (3 TNT launchers being
-  re-judged on a floor), and the class rule `*/@vibration-sensitive` (clk-obs's vibration test:
-  only vibration-proof sculk designs are published).
+  exception lines keep the N = 2 slime-free holders), the dominated pulse-limiter-psub-L7, the
+  coordinator's TEMPORARY hides (3 TNT launchers being re-judged on a floor; R7's placement-only
+  or refused circuits until clk-rt's in-game re-judge: pulse, tff, memory, square dividers), and
+  the class rule `*/@vibration-sensitive` (clk-obs's vibration test: only vibration-proof sculk
+  designs are published). Take a temporary line out as soon as its designs leave the archive or
+  pass (a stale pattern hides the new designs).
+- Clocks (16:45Z): the catalog's rule `Row::shown` (no uneven output, nothing ruled out of
+  survival): 2544 archived clocks are not published until clockinfra's retap brings the even
+  ones back; an output pulsing several times evenly per cycle shows that period.
+- Opening lines say what a build needs (plain::needs: TNT height, loaded containers, water, open
+  sky); a build archived under two kinds shows once (kind-twin + "also a ..."); shulker machines
+  timed with other items are one card; every header has the index's tab counts.
 - One card per mechanism (doors by category, box, times, seamless tier and properties; clock
   twins; census clocks unless the record of their period); the Circuits tab opens on the first
   design of every kind; search knows the players' words; family pages in words; every clock has

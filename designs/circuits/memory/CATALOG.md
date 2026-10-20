@@ -56,15 +56,15 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 17 | 39 | [counter17-items](archive/counter17-items.txt) | N 17, output toggles every 17 pulses, input fed through the build |
-| 19 | 39 | [counter19-items](archive/counter19-items.txt) | N 19, output toggles every 19 pulses, input fed through the build |
-| 23 | 39 | [counter23-items](archive/counter23-items.txt) | N 23, output toggles every 23 pulses, input fed through the build |
-| 25 | 39 | [counter25-items](archive/counter25-items.txt) | N 25, output toggles every 25 pulses, input fed through the build |
-| 34 | 39 | [counter34-items](archive/counter34-items.txt) | N 34, output toggles every 34 pulses, input fed through the build |
-| 38 | 39 | [counter38-items](archive/counter38-items.txt) | N 38, output toggles every 38 pulses, input fed through the build |
-| 39 | 39 | [counter39-items](archive/counter39-items.txt) | N 39, output toggles every 39 pulses, input fed through the build |
-| 100 | 39 | [counter100-items](archive/counter100-items.txt) | N 100, output toggles every 100 pulses, input fed through the build |
-| 576 | 39 | [counter576-items](archive/counter576-items.txt) | N 576, output toggles every 576 pulses, input fed through the build |
+| 17 | 39 | [counter17-items](archive/counter17-items.txt) | N 17, output toggles every 17 pulses |
+| 19 | 39 | [counter19-items](archive/counter19-items.txt) | N 19, output toggles every 19 pulses |
+| 23 | 39 | [counter23-items](archive/counter23-items.txt) | N 23, output toggles every 23 pulses |
+| 25 | 39 | [counter25-items](archive/counter25-items.txt) | N 25, output toggles every 25 pulses |
+| 34 | 39 | [counter34-items](archive/counter34-items.txt) | N 34, output toggles every 34 pulses |
+| 38 | 39 | [counter38-items](archive/counter38-items.txt) | N 38, output toggles every 38 pulses |
+| 39 | 39 | [counter39-items](archive/counter39-items.txt) | N 39, output toggles every 39 pulses |
+| 100 | 39 | [counter100-items](archive/counter100-items.txt) | N 100, output toggles every 100 pulses |
+| 576 | 39 | [counter576-items](archive/counter576-items.txt) | N 576, output toggles every 576 pulses |
 
 ## counter 3
 
@@ -88,4 +88,4 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tffr-dropring](archive/tffr-dropring.txt) | tff-reset | latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes) | 8 | 3x3x2 | robust | T flip-flop with reset, 8 blocks (track memory): the dropper-ring T flip-flop (two droppers, two hoppers between them, a comparator reading dropper B) with a reset input next to dropper B only. A t pulse fires both droppers (A directly, B through the dust line), only the one holding the stone moves it, and the hoppers hand it to the other dropper after both have fired: q toggles. An r pulse fires B alone: a stone in B leaves (q off at once) and lands in A; with the stone in A nothing moves. |
+| [tffr-dropring](archive/tffr-dropring.txt) | tff-reset | latency 13 gt, reset 6 gt, min-pulse 1 gt | 8 | 3x3x2 | robust | T flip-flop with reset, 8 blocks (track memory): the dropper-ring T flip-flop (two droppers, two hoppers between them, a comparator reading dropper B) with a reset input next to dropper B only. A t pulse fires both droppers (A directly, B through the dust line), only the one holding the stone moves it, and the hoppers hand it to the other dropper after both have fired: q toggles. An r pulse fires B alone: a stone in B leaves (q off at once) and lands in A; with the stone in A nothing moves. |

@@ -1,9 +1,10 @@
 # archived 2026-10-19T18:43Z from designs/clocks/tracks/clk-obs/families/p13-lamp-note-obs-stk-7b-ec9622.txt by mctas clock archive
-# CLOCK: clk-obs-p13-lamp-note-obs-stk-7b-ec9622 period 13 gt (0.65 s), on 6/13, edges 3, warmup 4, family note_block+observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p13-lamp-note-obs-stk-7b-ec9622 period 13 gt (0.65 s), on 2/13, edges 1, warmup 4, family note_block+observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
 name: clk-obs-p13-lamp-note-obs-stk-7b-ec9622
 # P13: 1 note block, 3 observers, 1 redstone lamp, 2 sticky pistons; changing in place: note_block, observer, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 -1
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 1 -1
 port start: 0 2 0 last
 palette:
   A minecraft:note_block[instrument=harp,note=0,powered=false]

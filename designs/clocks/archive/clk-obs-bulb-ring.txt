@@ -1,5 +1,5 @@
 # archived 2026-10-19T19:37Z from designs/clocks/tracks/clk-obs/extend/bulb-ring.txt by mctas clock archive
-# CLOCK: clk-obs-bulb-ring period 20 gt (1 s), on 4/20, edges 2, warmup 2, family copper_bulb+observer, 6 blocks, 3x1x2, robust
+# CLOCK: clk-obs-bulb-ring period 20 gt (1 s), on 4/20, edges 2, warmup 4, family copper_bulb+observer, 6 blocks, 3x1x2, robust
 name: clk-obs-bulb-ring
 # Extendable family bulb-ring (n = 0): P = 20 + 8n gt, 6 + 2n blocks. a copper bulb after a straight observer toggles on each pulse and the next observer fires on each toggle, so one pulse makes the round twice before the bulb is back: P = 2 x 2 gt x (observers). Extension: insert 2 observers: one more column in the 2-wide ring. Generator: mctas clock obs family bulb-ring --n N --out FILE.
 extend family: clk-obs-bulb-ring
@@ -10,7 +10,8 @@ extend n: 0..22
 extend base: 0
 extend generator: mctas clock obs family bulb-ring --n {n} --out {out}
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 1
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=south,powered=false]

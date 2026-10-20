@@ -70,10 +70,8 @@ CHANGED pulse/pulse-fall-repeater-L8.txt: L 8 gt, delay 13 gt, min-pulse 6 gt ->
 CHANGED pulse/pulse-rise-repeater-L4.txt: L 4 gt, delay 9 gt, min-pulse 4 gt -> L 4 gt, delay 8 gt, min-pulse 4 gt
 CHANGED pulse/pulse-rise-repeater-L6.txt: L 6 gt, delay 11 gt, min-pulse 4 gt -> L 6 gt, delay 10 gt, min-pulse 4 gt
 CHANGED pulse/pulse-rise-repeater-L8.txt: L 8 gt, delay 13 gt, min-pulse 4 gt -> L 8 gt, delay 12 gt, min-pulse 4 gt
-CHANGED pulse/pulse-fall-pistons-observer-L2-mp2.txt: L 2 gt, delay 5 gt, min-pulse 2 gt -> L 2 gt, delay 4 gt, min-pulse 3 gt
 CHANGED pulse/pulse-oneshot-bulb-rise.txt: L 18 gt, delay 6 gt, min-pulse 1 gt -> L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes)
 CHANGED pulse/pulse-oneshot-bulb-ext.txt: L 18 gt, delay 6 gt, min-pulse 1 gt -> L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes)
-CHANGED pulse/pulse-dual-two-observers-L3.txt: L 3 gt, delay 2 gt, min-pulse 4 gt -> L 2 gt, delay 2 gt, min-pulse 4 gt
 CHANGED pulse/pulse-dual-observers-qc-L2-1.txt: L 2 gt rising / 1 gt falling, delay 3 gt rising / 4 gt falling, min-pulse 6 gt -> L 2 gt rising / 1 gt falling, delay 2 gt rising / 3 gt falling, min-pulse 6 gt
 CHANGED pulse/pulse-extender-sculk-cal-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
 CHANGED pulse/pulse-extender-sculk-filter-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes
@@ -111,7 +109,7 @@ CHANGED pulse/pulse-rise-hopper-oneshot-L24.txt: L 24 gt, delay 7 gt, min-pulse 
 CHANGED pulse/pulse-extender-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
 CHANGED pulse/pulse-fall-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 6 gt -> L 40 gt, delay 6 gt, min-pulse 6 gt
 CHANGED pulse/pulse-rise-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
-pulse: 0 pass only by the block placement, 0 refused, 113 changed, 15 unchanged, 7 without a plain input or a redsim verdict
+pulse: 0 pass only by the block placement, 0 refused, 111 changed, 16 unchanged, 7 without a plain input or a redsim verdict
 CHANGED tff/tff-observer-piston.txt: latency 11 gt, edge rising, min-pulse 3 gt, min-period 10 gt -> latency 10 gt, edge rising, min-pulse 3 gt, min-period 10 gt
 CHANGED tff/tff-snowdisp-dust.txt: latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt -> latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes)
 CHANGED tff/tff-snowdisp.txt: latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt -> latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes)
@@ -122,10 +120,9 @@ CHANGED tff/tff-observer-pistonline.txt: latency 5 gt, edge rising, min-pulse 4 
 CHANGED tff/tff-observer-flat.txt: latency 7 gt, edge falling, min-pulse 3 gt, min-period 10 gt -> latency 6 gt, edge falling, min-pulse 3 gt, min-period 10 gt
 CHANGED tff/tff-crafter7.txt: latency 21 gt, edge rising, min-pulse 1 gt, min-period over 30 gt -> latency 21 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period over 30 gt
 tff: 0 pass only by the block placement, 0 refused, 9 changed, 1 unchanged, 0 without a plain input or a redsim verdict
-CHANGED delay/delay-piston-or-3.txt: N 3 gt, min-pulse 4 gt, min-gap 3 gt -> N 2 gt, min-pulse 4 gt, min-gap 3 gt
-CHANGED delay/delay-piston-qc-1.txt: N 1 gt, min-pulse 3 gt, min-gap 3 gt -> N 0 gt, min-pulse 4 gt, min-gap 3 gt
-delay: 0 pass only by the block placement, 0 refused, 2 changed, 6 unchanged, 0 without a plain input or a redsim verdict
-gates: 0 pass only by the block placement, 0 refused, 0 changed, 4 unchanged, 3 without a plain input or a redsim verdict
+CHANGED delay/delay-qc-0.txt: N 1 gt, min-pulse 3 gt, min-gap 3 gt -> N 0 gt, min-pulse 4 gt, min-gap 3 gt
+delay: 0 pass only by the block placement, 0 refused, 1 changed, 6 unchanged, 0 without a plain input or a redsim verdict
+gates: 0 pass only by the block placement, 0 refused, 0 changed, 3 unchanged, 5 without a plain input or a redsim verdict
 CHANGED memory/tffr-dropring.txt: latency 13 gt, reset 6 gt, min-pulse 1 gt -> latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes)
 CHANGED memory/counter19-items.txt: N 19, output toggles every 19 pulses -> N 19, output toggles every 19 pulses, input fed through the build
 CHANGED memory/counter23-items.txt: N 23, output toggles every 23 pulses -> N 23, output toggles every 23 pulses, input fed through the build
@@ -135,11 +132,11 @@ CHANGED memory/counter39-items.txt: N 39, output toggles every 39 pulses -> N 39
 CHANGED memory/counter17-items.txt: N 17, output toggles every 17 pulses -> N 17, output toggles every 17 pulses, input fed through the build
 CHANGED memory/counter34-items.txt: N 34, output toggles every 34 pulses -> N 34, output toggles every 34 pulses, input fed through the build
 memory: 0 pass only by the block placement, 0 refused, 8 changed, 20 unchanged, 2 without a plain input or a redsim verdict
-pext: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 60 without a plain input or a redsim verdict
+pext: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 59 without a plain input or a redsim verdict
 fly: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 13 without a plain input or a redsim verdict
 shulker: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 18 without a plain input or a redsim verdict
-tnt: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 6 without a plain input or a redsim verdict
-bud: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 14 without a plain input or a redsim verdict
+tnt: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 7 without a plain input or a redsim verdict
+bud: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 12 without a plain input or a redsim verdict
 CHANGED pulsemult/pm-burst2-bulb.txt: N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt -> N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 12 gt
 CHANGED pulsemult/pm-burst3-bulb.txt: N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt -> N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt
 CHANGED pulsemult/pm-burst4-taps.txt: N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 20 gt -> N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 20 gt

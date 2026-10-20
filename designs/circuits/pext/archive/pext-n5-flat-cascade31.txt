@@ -1,0 +1,41 @@
+# archived 2026-10-20T17:13Z from designs/circuits/pext/work/n5-flat-lns31.txt by mctas circuit archive
+# CIRCUIT: pext-n5-flat-cascade31 piston-extender 5 N 5, extend 48 gt, retract 64 gt, 31 blocks, 15x6x1, robust
+# Pushes a block out five cells from a one-block-wide wall, 31 blocks: a line of five sticky pistons
+# with a slime block between each pair; each piston fires itself whenever it is moved (an observer
+# hangs under the slime behind it), and observers above the line, run by a chain from the lever, start
+# each wave of pushes (out) or grabs (back).
+# How it works: the cascade train (going out the pistons push in waves; coming back the waves start
+# front first and each piston grabs what the one in front left behind), every wave started by an
+# observer two above the line that powers its piston through the empty cell above it; the lever hangs
+# on the side of the chain's first observer and repeaters in the chain stretch the waits between
+# waves. Found by `mctas circuit pext lns --free-lever` from the 33-block cascade (33 -> 31, faster
+# too); game: robust (16 builds), redsim agrees.
+name: pext-n5-flat-cascade31
+circuit: piston-extender 5
+travel: 1 0 0
+port input: 13 4 0 lever
+port payload: 10 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=up]
+  C minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  .O.O.O.O
+layer 1:
+  CSCSCSCSCG
+layer 2:
+  .
+layer 3:
+  B.B.B.B..B..B
+layer 4:
+  rAsARAoA.PAAL
