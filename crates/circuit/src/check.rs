@@ -371,6 +371,12 @@ fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         ));
         rows.push((len, os, back));
     }
+    // off at rest and back off at the end of EVERY gap (docs/circuits.md), handled input or not: a
+    // short input that leaves the output on would hold it on until the next input
+    if let Some((len, _, _)) = rows.iter().find(|r| !r.2) {
+        let len = *len;
+        return Outcome::fail(format!("latches: after a {len} gt input the output is still on at the end of its gap (the output must be back off after every input, handled or not)"), table);
+    }
     let n = rows.len();
     let last = &rows[n - 1];
     // each row's verdict against the reference (the longest input, or the kind's rule)
