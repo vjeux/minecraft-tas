@@ -413,6 +413,23 @@ track notes).
   that by QC (it emits into (-2,1)): a level-held 2-stack, switched off by powering the stone.
 * **A level-held piston is a clean link**: it moves once per lever edge, so an observer on its base
   fires exactly one pulse per edge (box72's torch link, c79's (4,0) on MR's puller, u7-m10a's R0).
+* **Corner pistons of a 2-row bottom take no observer pulse** (s79 NOTES §2): the corner piston K
+  (-1,-1) facing east is fed only from (-2,-1) (east-pointing emitter) or (-1,-2) (up-pointing): an
+  observer pointing into K watches (-3,-1) or (-1,-3), outside a 7-wide x 2-row bottom; repeaters
+  and comparators have no floor there. K can only get dust on a powered (-2,-2), a conductor at
+  (-1,-2) powered by an observer at (0,-2) watching U, a torch (inverted) or a sensor window. With
+  c79's mechanism the dust route takes L0's only feeder and the conductor route takes U's only
+  feeder: c79's mechanism is not wirable in 7x8 (cosearch pockets k=4 with sculk: no filling drives K).
+* **A 1 gt pulse makes a piston watcher fire once** (s79 c78y/c78z): an observer watching a sticky
+  piston fires at its extension (X+2) AND at its retraction's landing (X+4 -> X+6) for a 2 gt pulse;
+  with a 1 gt pulse (retract at X+1, landing at X+3 inside the busy window) it fires once. A 1-tick
+  sticky retraction still pulls the block two cells ahead (open: U pulls BM from (1,0)); on close the
+  push is spit. The U-watcher bottom-left (observer (0,-2) east -> stone (-1,-2) -> K; dropper
+  (-2,-2) -> observer (-2,-1) down -> L0) works only with it (ideal-rs: never with 2 gt).
+* **A lamp as a level conductor adds +4 on one edge** (s79 c78z): a redstone lamp under the lever's
+  dust holds the pullers below it like a dropper, but goes dark 4 gt after the lever drops, so an
+  observer watching it fires at t6 on open and t2 on close (c79's dropper: t2 both): the elevator's
+  push moves 4 gt later on open only.
 * **Sound crosses sealed regions** (m79s, archive m79s-sculk-63b-50-50b / m79s-sculk-8x8-64b-50b): a
   region that sees nothing the lever moves first (a top-left behind the elevator column, a bottom-left
   behind U) can hear the lever or the t1 pistons: activation = event tick + floor(distance). A plain

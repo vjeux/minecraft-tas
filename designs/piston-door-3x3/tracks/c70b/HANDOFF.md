@@ -1,39 +1,35 @@
-# HANDOFF: track c70b (c070x, 8x7 = 56), 2026-10-19
+# HANDOFF: track c70b, 2026-10-19 (three tasks, newest first)
 
-## State
-- No working door. c70's m2 (explore/c70 tracks/c70/wip/m2.txt, only BL ideal) is still the best partial.
-- `wip/m2x.txt` + `ideal/m2x.ideal`: m2 with U's chain removed and U driven by an off-plane test observer X
-  (plan toggles (-1,-1,2) at gu/guc). Windows: open gu = 9 EXACTLY (U at t11), close guc 6..32 (gaps 18, 20,
-  21, 30); BL (0,-2) open 4..40 (not 31), close 4..~40. BL is wide once the bottom-left sensor loop is gone.
-- `wip/m2w.txt`: m2 with WOOL door blocks + frame (the door occludes the lever for the whole bottom-left).
-- `wip/w1b.txt` (+ ideal/w1b.ideal, no ideal input): wool; plain sensor (-2,-2) hears E1 at t8 -> normal piston
-  (-3,-2) up -> its head into (-3,-1) at t9 -> observer (-2,-1) facing west fires U at t11; observer (-1,-2)
-  facing west on the sensor fires BL at t10. Open works to t39; then the sensor's cooldown/inactive taps move BL
-  twice more and it re-arms on BL's puller (d=2): endless loop; on close the piston's retraction gives a second
-  U pulse after E2 (fatal, see NOTES 1).
+## 3. Generator: extended-at-rest pullers by default (coordinator, after the community 7x8 audit)
+- families / mechspace / fullmech: pullers EXTENDED at rest are allowed for 1-move exits by default
+  (`--no-ext-pullers` = the old catalog), bounded: `--ext-max 3` exits by such pullers per mechanism,
+  each within `--ext-dist 1` of an earlier one (`--ext-apart` drops it). The generation runs the 4
+  center exit directions on 4 threads. Merged to main up to e426d787a; 40cf01ba4, abf205372,
+  d26db2ae4, 6254dcf3e sent for merge. Costs and the archive recount: docs/audit.md section 2.
+- door audit: g1 = --no-ext-pullers, g2..g5 the defaults, g6 every flag incl. --ext-max 12
+  --ext-apart. Selftest audit:generator-membership expects c79 out,IN,IN,IN,IN,IN.
+- Open: the default bound leaves out the u7-m10 family (m79s, s88i, cosearch-63b-50: exits 3 apart;
+  IN with --ext-dist 3, +52% candidates). Bounds (a) / (b) of docs/audit.md section 6 still open.
 
-## Why it is stuck (NOTES.md 1)
-- M is lever-locked at 4/14/24 -> U must be exactly 11 (or 21).
-- BL's puller is fed only from (-1,-2); U only from (-2,-1) or (-1,-2). The only ONE-SHOT source for U in the
-  bottom-left is c70's moving observer landing at (-1,-2) (facing down). Every sensor-based source changes 2-3
-  times and an extra U pulse on close after E2 makes the watcher fire D once (E pushed alone into (-1,1), spit).
-- So U (one-shot, needs (-1,-2)) and BL (needs a static east-pointing block at (-1,-2)) cannot both be wired in
-  the 8x7 bottom-left with this mechanism, unless a new trick gives a one-shot from (-2,-1).
+## 2. The community 7x8 (SacredRedstone) from vjeux's screenshot (community/NOTES.md)
+- `community-7x8.txt`: 48 blocks, solid, FULL, rotation-safe, open 42 / close 38, verify
+  --extra-offsets 28 WORKS. Every block read from the screenshot except (3,5) (hidden dust: lever ->
+  comparator) and (3,3) (a delay-4 repeater from c77's door fill). The screenshot shows (3,3) EMPTY;
+  every invisible option there (dust, rails) closes but cannot reopen in redsim and the JVM (the lever
+  block feeds both the elevator top and TR's puller; only 2 re-pulses leave TR up, dust gives 1).
+  The real wiring at (3,3) is the open question (a version difference or a misread not found).
+- Mechanism (wiggle door: TL/ML/BL/TR move 3 times, TM 5 on open), tricks and tool audit:
+  community/NOTES.md + community/audit.md. c77 shrinks it (47, record-eligible).
+- Tool fixes from it: `door cycle` checks every flip + `--vary` (merged); cosearch quartz_like
+  (pockets3's same fix is on main).
 
-## Searches (all 0)
-- mine: m2 KEEP k<=3 over 10 cells (4.6M); m2w k<=5 on the 5 bottom-left cells (147M, 42 states).
-- pockets3 (runs on explore/pockets): m2 cross-region KEEP k<=3 over all 23 wiring cells (47.1M): 0;
-  m2w same and m2 bottom-left k<=5 with 50 states (255M): running at 16:10Z.
-
-## Next ideas (not tried)
-- A one-shot at (-3,-1) for the (-2,-1) observer: a normal piston pushing a block INTO (-3,-1) (the block stays)
-  has no room (the push line comes from (-3,-3) or D), a pulled block needs (-3,0) = D's feed.
-- D driven from the top-left as a HOLD (instead of the blocked-push watcher) widens M's window and frees (-2,0)/(-3,0),
-  but the hold sensor hears E1 first, and on close E2 must be swallowed by the hold (q > 37) while on open E2
-  must come after it.
-- c077w: same exact 3-tick coupling; its top-left one-shot for S (moving observer (-2,4) -> (-1,4) pushed by a
-  piston at (-3,4)) can only be fed from (-3,3), where any sensor powers D's feed (-3,2) (strongly, or by QC
-  through an air cell).
+## 1. Parked: t7b in 8 rows (partials/t7b8.md) and c070x (partials/c070x.md)
+- t7b8 (NOTES.md 6-9, files t7b/): a hybrid B works with ideal inputs (east lift pulse + a redstone
+  block shuttle the gate watches); a real right-side lift chain exists (t8t.txt); P_M (pm = 12
+  exactly) and the shuttle's two pulses are missing on the left. pockets3 runs the left-cell fills
+  (runs/t8t-f1 on explore/pockets, 19:40Z).
+- c070x: negative result (NOTES.md 1-5): U needs a one-shot at exactly t11 and its only one-shot takes
+  BL's only feed; every screen 0.
 
 ## Running processes
 None of mine.

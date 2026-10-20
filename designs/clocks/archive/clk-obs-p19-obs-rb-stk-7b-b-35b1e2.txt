@@ -1,0 +1,25 @@
+# archived 2026-10-19T19:58Z from designs/clocks/tracks/clk-obs/mech2/p19-obs-rb-stk-7b-b-35b1e2.txt by mctas clock archive
+# CLOCK: clk-obs-p19-obs-rb-stk-7b-b-35b1e2 period 19 gt (0.95 s), on 8/19, edges 4, warmup 14, family observer+redstone_block+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p19-obs-rb-stk-7b-b-35b1e2
+# P19: 3 observers, 2 redstone blocks, 2 sticky pistons; changing in place: observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_block
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  .
+  .
+layer 1:
+  B
+  B
+  C
+layer 2:
+  C
+  D
+  E

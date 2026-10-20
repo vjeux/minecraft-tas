@@ -6,6 +6,9 @@ name: clk-item-lockring-3s
 extend base: 0
 extend blocks: 11
 extend family: clk-item-lockring-3s
+extend group: clk-item-lockring
+extend group title: lock ring
+extend group note: a 2x2 hopper ring with 2 or 3 swords, its lock repeater at delay n + 1
 extend generator: mctas clock item gen lockring --d 2 --m 3 --n {n} --out {out}
 extend n: 0..3
 extend period: 41 + 2n

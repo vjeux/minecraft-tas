@@ -53,3 +53,16 @@ opt-level = 0
 opt-level = 0
 [profile.release.package.clock-cli]
 opt-level = 0
+[profile.release.package.circuit-cli]
+opt-level = 0
+[profile.release.package.web-cli]
+opt-level = 0
+
+# The browser viewer's wasm (`mctas web bundle`): small and fast, no debug info.
+[profile.web]
+inherits = "release"
+opt-level = 3
+debug = 0
+lto = true
+codegen-units = 1
+incremental = false

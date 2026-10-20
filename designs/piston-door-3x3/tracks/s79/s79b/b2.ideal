@@ -1,0 +1,15 @@
+# s79b b2: c78z's top (lamp + observer chain, s real) + the real bottom-right U (sensor (3,-1), note block (3,-2), observer (2,-2)); L0 and R0 ideal ((-2,-1) is stone).
+design designs/piston-door-3x3/tracks/s79/s79b/b2.txt
+let r0 = 4
+let l0 = 8
+let cl0 = 8
+open 0 use 4 6 0
+open r0 set 4 0 -1 minecraft:redstone_block
+open r0+2 clear 4 0 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+close 0 use 4 6 0
+close r0 set 4 0 -1 minecraft:redstone_block
+close r0+2 clear 4 0 -1
+close cl0 set -2 0 -1 minecraft:redstone_block
+close cl0+2 clear -2 0 -1

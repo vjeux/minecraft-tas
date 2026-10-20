@@ -1,0 +1,4 @@
+assist designs/piston-door-3x3/tracks/s79/s79b/b1cu.ideal: 5 input cells off the plane ([(1, -2), (4, 0), (1, 3), (-2, 0), (1, 4)]), 10 / 10 events, 2 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/s79/s79b/b1c.txt: 41 blocks in the box, screen 79/79
+seed screen 39/79 with 5 inputs assisted
+Error: the seed must screen perfect with its assisted inputs

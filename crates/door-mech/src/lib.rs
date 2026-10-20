@@ -42,6 +42,12 @@ pub enum DoorCmd {
     /// piston model with the FULL seamless open test, reduced to minimal mechanisms, mirror
     /// images merged; writes CATALOG.md + CATALOG.tsv; `--verify` replays each in the simulator.
     Families(cmd::families::FamiliesArgs),
+    /// Local search around known flat mechanisms (mechmut.rs) for variants with fewer pistons and
+    /// better feedability: drop / shift / turn a piston, toggle sticky / extended; every neighbour
+    /// solved exactly in families' macro model and kept with a FULL frame; ranked by (pistons no
+    /// free cell can feed, pistons, wiring class, events); `--ideal-out` writes the best as
+    /// ideal-input designs + plans.
+    Mechmut(cmd::families::MechmutArgs),
     /// Mechanism synthesis (mechsynth.rs): enumerate up to --add blocks (pistons, slime...) on a
     /// base mechanism, solve each in a macro piston model (open + close paths, symmetric
     /// schedules), rank by (blocks, control events), write ideal-input designs + schedules and
@@ -81,6 +87,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::MechWire(a) => cmd::mechwire::cmd_mech_wire(version, a),
         DoorCmd::Mechspace(a) => cmd::families::cmd_mechspace(version, a),
         DoorCmd::Families(a) => cmd::families::cmd_families(version, a),
+        DoorCmd::Mechmut(a) => cmd::families::cmd_mechmut(a),
         DoorCmd::Topology(a) => cmd::families::cmd_topology(a),
         DoorCmd::Connect(a) => cmd::families::cmd_connect(a),
         DoorCmd::MechSynth(a) => cmd::mechsynth::cmd_mech_synth(version, a),

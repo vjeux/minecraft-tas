@@ -1,0 +1,36 @@
+name: pocket2-set2
+covers: (1,-2)o20
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  ...CC.OP
+layer -1:
+  .....F.A
+layer 0:
+  ..FFFF.D
+layer 1:
+  ss.FFF.D
+layer 2:
+  Fo.FFFFA
+layer 3:
+  ..SpppBN
+layer 4:
+  ...EEE
+layer 5:
+  ....L

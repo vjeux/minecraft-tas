@@ -1,0 +1,10 @@
+# c78l L4c: one calibrated sensor (-2,5) -> comparator (-1,5) -> repeater (0,5) d3 -> M; observer (-1,4) up on the comparator -> TP (2 taps); observer (0,4) up on the repeater -> TM at (0,3) -> s lowered. L1/L2 ideal.
+design designs/piston-door-3x3/tracks/s79/c78l/L4c.txt
+let l = 12
+let cl = 12
+open 0 use 5 -1 0
+open l set -2 2 -1 minecraft:redstone_block
+open l+2 clear -2 2 -1
+close 0 use 5 -1 0
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1

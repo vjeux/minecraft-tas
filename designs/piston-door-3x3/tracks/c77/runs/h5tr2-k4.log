@@ -1,0 +1,3 @@
+fill designs/piston-door-3x3/tracks/c77/solid/h5-tr2.txt: 17 region cells (17 free, 0 fixed), base 41 blocks (design 41), k 4..=4, global palette 34 states, gaps allowed, KEEP mode (k = changed cells)
+2380 subsets pass the connectivity rule; 3224621540 fillings to screen in 2788975 work items
+done in 285 s: 21410112 screened, 3203211428 pruned, 0 passed the screen, 0 finds

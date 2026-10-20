@@ -852,6 +852,14 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                     d.meta.insert("extend n".into(), format!("{}..{}", c.n_lo, c.n_hi));
                     d.meta.insert("extend base".into(), c.n_lo.to_string());
                     d.meta.insert("extend generator".into(), format!("mctas clock item gen {}", c.args));
+                    if let Some((g, title, period, note)) = crate::extend::group_of(c.id) {
+                        d.meta.insert("extend group".into(), g.into());
+                        d.meta.insert("extend group title".into(), title.into());
+                        if let Some(p) = period {
+                            d.meta.insert("extend group period".into(), p.into());
+                        }
+                        d.meta.insert("extend group note".into(), note.into());
+                    }
                     std::fs::create_dir_all(dir)?;
                     let path = dir.join(format!("{}.txt", c.id));
                     std::fs::write(&path, format!("# {}\n\n{}", c.caption, d.to_text()))?;

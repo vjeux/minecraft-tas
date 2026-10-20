@@ -6,6 +6,10 @@ name: clk-item-dropring-1d
 extend base: 0
 extend blocks: 10 + 2n
 extend family: clk-item-dropring-1d
+extend group: clk-item-dropring
+extend group title: dropper ring
+extend group period: 20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 Σ delays
+extend group note: W = ring width, depth = 3 + its repeaters, one or two droppers
 extend generator: mctas clock item gen dropring --one --n {n} --out {out}
 extend n: 0..30
 extend period: 27 + 14n

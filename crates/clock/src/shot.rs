@@ -78,6 +78,11 @@ struct Plan {
 }
 
 impl Plan {
+    /// The same plan for the clock moved `dy` blocks up.
+    fn shifted(&self, dy: i32) -> Plan {
+        let up = |p: Pos| [p[0], p[1] + dy, p[2]];
+        Plan { ticks: self.ticks.clone(), lo: up(self.lo), hi: up(self.hi), output: self.output.map(up) }
+    }
     /// The box the camera frames: the swept box, or for an elongated clock (its longest side over
     /// 16 blocks and over 5x the next) a window of it along that side around the output, 3x the
     /// next side long (8 to 16 blocks: coordinator, 50-100-block observer lines and towers came out
@@ -101,22 +106,39 @@ impl Plan {
 
 /// The mean luma (0-255) of a picture (ffmpeg signalstats), if it can be read.
 fn mean_luma(path: &Path) -> Option<f64> {
-    let o = Command::new(video::ffmpeg().ok()?).args(["-hide_banner", "-i"]).arg(path).args(["-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"]).output().ok()?;
+    band_luma(path, None)
+}
+
+/// The mean luma of the whole picture, or of its top `frac` band.
+fn band_luma(path: &Path, top: Option<f64>) -> Option<f64> {
+    let vf = match top {
+        Some(f) => format!("crop=iw:ih*{f}:0:0,signalstats,metadata=print:key=lavfi.signalstats.YAVG"),
+        None => "signalstats,metadata=print:key=lavfi.signalstats.YAVG".to_string(),
+    };
+    let o = Command::new(video::ffmpeg().ok()?).args(["-hide_banner", "-i"]).arg(path).args(["-vf", &vf, "-f", "null", "-"]).output().ok()?;
     let err = String::from_utf8_lossy(&o.stderr);
     let i = err.find("YAVG=")? + 5;
     err[i..].split(|ch: char| !(ch.is_ascii_digit() || ch == '.')).next()?.parse().ok()
 }
 
-/// A frame to take again: dark (mean luma < 70: the client still loading, or an error screen) or
-/// nearly uniform (its JPEG under 15 KB: sky or grass only).
-fn bad_frame(raw: &Path, jpg: &Path) -> Option<String> {
-    if let Some(l) = mean_luma(raw).filter(|l| *l < 70.0) {
+/// A picture to take again: nearly uniform (its JPEG under 15 KB: sky or grass only), dark (mean
+/// luma < 70: the client still loading, an error screen), or with a dark band across its top (mean
+/// luma < 70 in the top 12%: the sky beyond the loaded floor drawn black below the horizon).
+pub fn bad_picture(jpg: &Path) -> Option<String> {
+    match std::fs::metadata(jpg) {
+        Ok(m) if m.len() < 15_000 => return Some(format!("nearly uniform ({} bytes)", m.len())),
+        Err(_) => return Some("missing".into()),
+        _ => {}
+    }
+    if let Some(l) = mean_luma(jpg).filter(|l| *l < 70.0) {
         return Some(format!("dark (mean luma {l:.0})"));
     }
-    match std::fs::metadata(jpg) {
-        Ok(m) if m.len() < 15_000 => Some(format!("nearly uniform ({} bytes)", m.len())),
-        _ => None,
-    }
+    band_luma(jpg, Some(0.12)).filter(|l| *l < 70.0).map(|l| format!("dark band at the top (luma {l:.0})"))
+}
+
+/// A frame to take again: see [`bad_picture`] (checked on the saved JPEG).
+fn bad_frame(_raw: &Path, jpg: &Path) -> Option<String> {
+    bad_picture(jpg)
 }
 
 /// The output marker (vjeux's pick): an orange stained glass block where the output signal is,
@@ -598,9 +620,10 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
     // two sandboxes used in turn, cleared for each clock and never dropped (dropping a level the
     // client has visited took ~10 s a clock); the camera always arrives from the other one, so
     // the client loads every chunk (and the marker) fresh
-    // the floor reaches 64 blocks around each clock (a close-up looking along a long clock saw
-    // past a 40-block floor into the dark void)
-    let m = 64;
+    // the floor reaches 96 blocks around each clock and the client gets chunks up to 6 chunks (its
+    // render distance) from the camera: a camera looking low along a long clock saw past a nearer
+    // edge into the dark sky below the horizon
+    let m = 96;
     let (mut ulo, mut uhi) = (todo[0].2.lo, todo[0].2.hi);
     for (_, _, p) in &todo {
         crate::grow(&mut ulo, &mut uhi, p.lo);
@@ -609,11 +632,17 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
     let chunks = [(ulo[0] - m).div_euclid(16), (ulo[2] - m).div_euclid(16), (uhi[0] + m).div_euclid(16), (uhi[2] + m).div_euclid(16)];
     let pair = [w.create(&SandboxOptions { chunks, seed: 0 })?, w.create(&SandboxOptions { chunks, seed: 0 })?];
     for sb in pair {
-        w.view_distance(sb, 4)?;
+        w.view_distance(sb, 6)?;
     }
     let mut cam_in: Option<u32> = None;
     for (i, (stem, c, p)) in todo.iter().enumerate() {
         let t0 = Instant::now();
+        // the picture is taken with the clock's lowest cell at y = 72: the camera then stands above
+        // the client's horizon height (63), below which it draws the sky beyond the loaded floor
+        // black (dark bands in the pictures)
+        let dy = 72 - p.lo[1];
+        let c = &c.translated([0, dy, 0]);
+        let p = &p.shifted(dy);
         let sb = if cam_in == Some(pair[0]) { pair[1] } else { pair[0] };
         w.clear(sb)?;
         place(&mut w, sb, c)?;
@@ -638,8 +667,12 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             }
         };
         let aspect = rw as f64 / rh as f64;
-        // the main picture
-        step_to(&mut w, p.ticks[0], &mut t, &mut actions)?;
+        // the main picture. A design with entities (a minecart): the level sends its entities to a
+        // viewer only in its own tick, and the picture's level is frozen, so it stops one tick short,
+        // the camera arrives, and the last tick runs with the viewer there (the cart is paired and
+        // drawn); the marker stands during that one tick (an air cell off the track)
+        let entity_shot = !c.design.entities.is_empty() && p.ticks[0] > 0;
+        step_to(&mut w, if entity_shot { p.ticks[0] - 1 } else { p.ticks[0] }, &mut t, &mut actions)?;
         let t_step = t0.elapsed().as_secs_f64() - t_build;
         let marker = match p.output {
             Some(op) => marker_cell(&mut w, sb, op)?,
@@ -669,7 +702,22 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
         let raw = run.join(format!("{stem}.png"));
         // the camera arrives with the marker already written (the client loads the chunks with it)
         let t_cam0 = t0.elapsed().as_secs_f64();
-        screenshot_marked(&mut w, sb, marker, Some((eye, yaw, pitch)), (eye, yaw, pitch), None, &display, rw, rh, if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms }, &raw)?;
+        let hold = if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms };
+        if entity_shot {
+            if let Some(m) = marker {
+                w.set_blocks(sb, &[(m, MARKER)], PlaceMode::Raw)?;
+            }
+            w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+            w.hold(hold)?;
+            step_to(&mut w, p.ticks[0], &mut t, &mut actions)?;
+            w.hold(1500)?;
+            video::screenshot(&display, rw, rh, &raw)?;
+            if let Some(m) = marker {
+                w.set_blocks(sb, &[(m, "minecraft:air")], PlaceMode::Raw)?;
+            }
+        } else {
+            screenshot_marked(&mut w, sb, marker, Some((eye, yaw, pitch)), (eye, yaw, pitch), None, &display, rw, rh, hold, &raw)?;
+        }
         cam_in = Some(sb);
         let t_shot = t0.elapsed().as_secs_f64() - t_cam0;
         let out = shot_path(&o.out_dir, stem);

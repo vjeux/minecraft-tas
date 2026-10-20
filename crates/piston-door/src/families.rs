@@ -87,7 +87,7 @@ impl Pc {
             K::Piston { sticky, f, ext } => format!("{}{}{}({},{})", if sticky { "S" } else { "N" }, FNAME[f as usize], if ext { "+" } else { "" }, self.x, self.y),
         }
     }
-    fn cells(&self) -> Vec<(i8, i8)> {
+    pub(crate) fn cells(&self) -> Vec<(i8, i8)> {
         match self.k {
             K::Piston { ext: true, f, .. } => vec![(self.x, self.y), (self.x + F[f as usize].0, self.y + F[f as usize].1)],
             _ => vec![(self.x, self.y)],
@@ -187,6 +187,40 @@ pub static LIFT_EXT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBo
 /// `--carry-in` (audit bound b, with --carry): a new provider piston may rest 1-2 cells beside its
 /// action position and be carried there.
 pub static CARRY_IN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--ring-escape`: a piston resting IN a ring cell (it must be gone when open) gets escape
+/// providers: carried 1-2 cells along the ring row / column into a ring corner or straight out of
+/// the frame, by a pull carrier 2 ahead or a push carrier 1 behind (that carrier escapes too when
+/// it rests in the ring). c77's 7x7 w1: P (1,-1) is push-spit by Q (0,-1) to (2,-1) and pulled to
+/// the corner (3,-1) by R (4,-1); Q is pulled to (-1,-1) by L (-2,-1).
+pub static RING_ESCAPE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--ring-escape`: most escapes (ring-resting pistons given a way out) per candidate.
+pub static RING_ESCAPE_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+/// `--ring-escape-only`: emit only candidates with at least one ring escape (the new space; the
+/// plain candidates are the default run's).
+pub static RING_ESCAPE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--feedable`: keep only candidates whose every piston has a cell wiring could feed it from at
+/// rest (see [`feedable`]).
+pub static FEEDABLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `--feedable` (c77's filter for the 7x7 wiggle doors): every piston of `v` has a FEED cell at
+/// rest: a neighbour (not its head side) or, by quasi-connectivity, the cell above it or one of
+/// that cell's neighbours, which is free (in the box, outside the 3x3, no piece) and either off
+/// the ring or a ring cell with a free off-ring neighbour (a static frame stone a margin
+/// component can strongly power). Structural and optimistic: the real check is the solved
+/// cycle's (`connect`, the catalog's wire column).
+pub fn feedable(bx: Bx, v: &[Pc]) -> bool {
+    let occ: HashSet<(i8, i8)> = v.iter().flat_map(|p| p.cells()).collect();
+    let free0 = |c: (i8, i8)| bx.has(c.0, c.1) && !in_t(c.0, c.1) && !occ.contains(&c);
+    let free = |c: (i8, i8)| free0(c) && (!in_r(c.0, c.1) || F.iter().any(|d| free0((c.0 + d.0, c.1 + d.1)) && !in_r(c.0 + d.0, c.1 + d.1)));
+    v.iter().all(|p| {
+        let K::Piston { f, .. } = p.k else { return true };
+        let head = F[f as usize];
+        let side = F.iter().filter(|&&d| d != head).any(|d| free((p.x + d.0, p.y + d.1)));
+        let a = (p.x, p.y + 1);
+        let qc = free(a) || F.iter().any(|d| (a.0 + d.0, a.1 + d.1) != (p.x, p.y) && free((a.0 + d.0, a.1 + d.1)));
+        side || qc
+    })
+}
 
 /// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
 pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
@@ -1598,6 +1632,35 @@ impl Gen {
         v
     }
 
+    /// `--ring-escape`: every way to give the ring-resting pistons of `v` (not yet in `done`) an
+    /// escape: carried 1-2 cells along u into a cell outside the 3x3 and the ring (a ring corner,
+    /// or straight out of the frame), through ring cells only; new carriers resting in the ring
+    /// escape in turn, at most `left` escapes in all. Only complete sets are returned.
+    fn escapes(&self, v: &[Pc], done: Vec<(i8, i8)>, left: usize) -> Vec<Vec<Pc>> {
+        let Some(r) = v.iter().find(|p| matches!(p.k, K::Piston { .. }) && in_r(p.x, p.y) && !done.contains(&(p.x, p.y))).map(|p| (p.x, p.y)) else {
+            return if done.is_empty() { Vec::new() } else { vec![v.to_vec()] };
+        };
+        if left == 0 || n_pistons(v) >= self.pmax {
+            return Vec::new();
+        }
+        let mut done2 = done.clone();
+        done2.push(r);
+        let mut out = Vec::new();
+        for u in F {
+            for k in 1..=2i8 {
+                let dest = (r.0 + k * u.0, r.1 + k * u.1);
+                let via_ok = (1..k).all(|j| in_r(r.0 + j * u.0, r.1 + j * u.1));
+                if !via_ok || in_t(dest.0, dest.1) || in_r(dest.0, dest.1) || !self.bx.has(dest.0, dest.1) {
+                    continue;
+                }
+                for w in self.carry_by(v, r, u, k, 1) {
+                    out.extend(self.escapes(&w, done2.clone(), left - 1));
+                }
+            }
+        }
+        out
+    }
+
     /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted, or extended at
     /// rest: at most `--ext-max` of those, each next to an earlier one (`ext` = their cells)
     /// unless `--ext-apart`), or, while the budget allows (`two_left`), a 2-move path with any
@@ -1607,7 +1670,17 @@ impl Gen {
             return;
         }
         if i == self.order.len() {
-            self.out.insert(v);
+            let feed = FEEDABLE.load(Ordering::Relaxed);
+            if RING_ESCAPE.load(Ordering::Relaxed) {
+                for w in self.escapes(&v, Vec::new(), RING_ESCAPE_MAX.load(Ordering::Relaxed)) {
+                    if !feed || feedable(self.bx, &w) {
+                        self.out.insert(w);
+                    }
+                }
+            }
+            if (!feed || feedable(self.bx, &v)) && !RING_ESCAPE_ONLY.load(Ordering::Relaxed) {
+                self.out.insert(v);
+            }
             return;
         }
         if !self.memo.insert((i, ext.clone(), v.clone())) {
@@ -1963,7 +2036,7 @@ pub struct Wire {
     pub why: String,
 }
 
-fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
+pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     let bx = m.bx;
     let n = bx.n();
     // the two runs of the train (or open then close)

@@ -1,0 +1,24 @@
+name: clk-obs-p16-bulb-lamp-note-obs-7b-44cb35
+# clk-obs grow: P=16 (redsim), family note_block+observer+redstone_lamp+waxed_copper_bulb, kick last 0 1 2, swept volume 9.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 2 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  B
+layer 1:
+  C
+  D
+  E
+layer 2:
+  .
+  .
+  F

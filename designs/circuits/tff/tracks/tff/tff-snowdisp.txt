@@ -1,0 +1,22 @@
+# Powder snow dispenser T flip-flop, 6 blocks (track tff): each input pulse fires a dispenser facing up; it holds a powder snow bucket (it places powder snow above itself and keeps an empty bucket) or an empty bucket (it picks the powder snow back up). Comparator C reads the dispenser: 2 with the powder snow bucket (stack size 1), 1 with the empty bucket (stack size 16); comparator K feeds C's side a constant 2 read from a dropper holding a powder snow bucket, so C (compare mode) gives 2 or 0. Latency 6 gt (dispenser 4 + comparator 2), 1 gt pulses, trains down to 4 gt; rests ON.
+name: tff-snowdisp
+circuit: tff
+port input: 0 1 0
+port output: 3 1 0
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:powder_snow_bucket",count:1}]}
+nbt: 2 1 2 {Items:[{Slot:0b,id:"minecraft:powder_snow_bucket",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  D minecraft:dispenser[facing=up,triggered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  K minecraft:comparator[facing=south,mode=compare,powered=false]
+  P minecraft:dropper[facing=up,triggered=false]
+layer 0:
+  ..S
+  ..S
+  ...
+layer 1:
+  .DC
+  ..K
+  ..P

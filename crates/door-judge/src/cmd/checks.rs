@@ -37,10 +37,17 @@ pub struct AuditArgs {
     /// Print one design's extracted mechanism (paths, moves, providers, membership) instead.
     #[arg(long)]
     explain: bool,
+    /// Generator membership of piece lists instead (ideal-input designs): lines
+    /// `W H x0 y0 piece piece ...` (box in door coordinates).
+    #[arg(long)]
+    member: Option<PathBuf>,
 }
 
 pub fn cmd_audit(version: &str, args: AuditArgs) -> Result<()> {
-    let AuditArgs { designs, sections, jvm, out, tsv, threads, cap, src, only_flat, explain } = args;
+    let AuditArgs { designs, sections, jvm, out, tsv, threads, cap, src, only_flat, explain, member } = args;
+    if let Some(m) = member {
+        return crate::audit::member_file(&m);
+    }
     let designs = if designs.is_empty() { vec![PathBuf::from("designs/piston-door-3x3/tracks/c79/c79-closed.txt")] } else { designs };
     if explain {
         for d in &designs {

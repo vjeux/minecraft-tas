@@ -1,0 +1,16 @@
+# archived 2026-10-19T23:49Z from designs/circuits/delay/tracks/delay/delay-rep-1.txt by mctas circuit archive
+# CIRCUIT: delay-rep-1 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1, robust
+# Repeater line (track delay): 1 repeater(s) with delays 1 redstone ticks in a row, each reading the
+# one before: N = 2 x sum = 2 gt
+name: delay-rep-1
+circuit: delay
+port input: 0 1 0
+port output: 1 1 0
+origin: 1 0 0
+palette:
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  R

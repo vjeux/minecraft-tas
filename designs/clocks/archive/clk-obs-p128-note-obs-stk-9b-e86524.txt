@@ -1,0 +1,35 @@
+# archived 2026-10-19T23:13Z from designs/clocks/tracks/clk-obs/families9/p128-note-obs-stk-9b-e86524.txt by mctas clock archive
+# CLOCK: clk-obs-p128-note-obs-stk-9b-e86524 period 128 gt (6.4 s), on 56/128, edges 28, warmup 5, family note_block+observer+sticky_piston, 9 blocks, 2x5x3, robust
+name: clk-obs-p128-note-obs-stk-9b-e86524
+# clk-obs grow: P=128 (redsim), family note_block+observer+sticky_piston+waxed_copper_bulb, kick last 0 1 2, swept volume 30.
+origin: -1 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=east,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:observer[facing=north,powered=false]
+layer -2:
+  ..
+  ..
+  A.
+layer -1:
+  ..
+  ..
+  B.
+layer 0:
+  .A
+  .C
+  .D
+layer 1:
+  .E
+  .C
+  .F
+layer 2:
+  ..
+  .G
+  ..

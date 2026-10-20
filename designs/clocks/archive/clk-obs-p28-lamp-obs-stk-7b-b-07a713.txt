@@ -1,0 +1,26 @@
+# archived 2026-10-19T20:10Z from designs/clocks/tracks/clk-obs/mech2/p28-lamp-obs-stk-7b-b-07a713.txt by mctas clock archive
+# CLOCK: clk-obs-p28-lamp-obs-stk-7b-b-07a713 period 28 gt (1.4 s), on 10/28, edges 5, warmup 0, family observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p28-lamp-obs-stk-7b-b-07a713
+# P28: 3 observers, 1 redstone lamp, 2 sticky pistons, 1 stone; changing in place: observer, redstone_lamp, sticky_piston (stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 2 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:redstone_lamp[lit=false]
+  F minecraft:stone
+layer 0:
+  A
+  .
+  B
+layer 1:
+  B
+  C
+  D
+layer 2:
+  E
+  F
+  .

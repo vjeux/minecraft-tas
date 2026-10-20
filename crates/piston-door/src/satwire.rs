@@ -243,6 +243,9 @@ impl Kind {
                 _ => (0, 0),
             }),
             n if n.ends_with("_wool") => Kind::Wool,
+            // any other quartz-like full block (concrete, quartz, terracotta...) is a plain
+            // conductor: the community 7x8's white-concrete statics were "not in the palette"
+            _ if crate::properties::quartz_like(s) => Kind::Block,
             _ => return None,
         })
     }
@@ -979,6 +982,13 @@ pub struct Prob {
     pub mech: HashSet<C2>,
     pub static_sturdy: HashSet<C2>,
     pub sturdy_up: HashSet<C2>,
+    /// Bottom face sturdy at every recorded tick (a retracted piston, or an extended one facing up:
+    /// its back is its bottom): a lever may hang under it (`face=ceiling`), e.g. the door's lever
+    /// under a lever-held puller of the bottom row.
+    pub sturdy_down: HashSet<C2>,
+    /// Mechanism pistons whose base never leaves its cell, by facing: their BACK face (opposite the
+    /// facing) stays full, extended or not, so a lever may hang behind them (a lever-held puller).
+    pub lever_back: HashMap<C2, C2>,
     pub levers: Vec<LeverCand>,
     /// Most stalls (recorded static ticks replayed) per trace before any tick.
     pub dmax: i32,
@@ -1202,6 +1212,10 @@ pub struct ProbOpts {
     pub blocked_dc: bool,
     pub motion: bool,
     pub clusters: bool,
+    /// Sculk sensors (regular and calibrated) only in these cells (None: wherever the palette
+    /// allows): "solid wiring + a sensor or two in one pocket" questions, at a fraction of the
+    /// full sculk encoding's cost (a restriction can only remove solutions).
+    pub sound_cells: Option<Vec<C2>>,
 }
 
 /// Free cells, palettes per cell, lever candidates.
@@ -1273,6 +1287,44 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
             })
         })
         .collect();
+    // bottom face sturdy at every recorded tick (the mirror of sturdy_up: an extended piston
+    // facing up keeps a full bottom face, its back; a retracting base is a moving piston for 2 gt
+    // placed without shape updates, so a lever hanging under it stays)
+    let sturdy_down: HashSet<C2> = mech
+        .iter()
+        .copied()
+        .filter(|c| {
+            rec.all_phases().iter().all(|ph| {
+                ph.frames.iter().all(|f| match f.get(c).map(|s| mk(s)) {
+                    Some(MK::Cond | MK::Solid | MK::Piston { ext: false, .. }) => true,
+                    Some(MK::Piston { ext: true, f: fc, .. }) => fc == U,
+                    Some(MK::Other) => rec.all_phases().iter().all(|p| p.frames[0].get(c).is_some_and(|s| matches!(mk(s), MK::Piston { .. }))),
+                    _ => false,
+                })
+            })
+        })
+        .collect();
+    // a piston base that never leaves its cell keeps a full BACK face (the face opposite its
+    // facing) extended or not: a lever may hang there (behind a lever-held puller); a retracting
+    // base is a moving piston for 2 gt, placed without shape updates
+    let lever_back: HashMap<C2, C2> = mech
+        .iter()
+        .copied()
+        .filter_map(|c| {
+            let f0 = rec.all_phases().iter().find_map(|p| p.frames[0].get(&c).and_then(|s| match mk(s) {
+                MK::Piston { f, .. } => Some(f),
+                _ => None,
+            }))?;
+            let ok = rec.all_phases().iter().all(|ph| {
+                ph.frames.iter().all(|fr| match fr.get(&c).map(|s| mk(s)) {
+                    Some(MK::Piston { f, .. }) => f == f0,
+                    Some(MK::Other) => true,
+                    _ => false,
+                })
+            });
+            ok.then_some((c, f0))
+        })
+        .collect();
     let bx = match o.bx {
         Some(b) => b,
         None if rec.src_box.is_some() => rec.src_box.unwrap(),
@@ -1326,7 +1378,12 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
                 hall_fixed.push(c);
                 vec![Kind::Empty, Kind::Block]
             } else {
-                o.palette.iter().copied().filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block)).collect()
+                o.palette
+                    .iter()
+                    .copied()
+                    .filter(|k| !plain_only || matches!(k, Kind::Empty | Kind::Block))
+                    .filter(|k| !k.sculk() || o.sound_cells.as_ref().is_none_or(|v| v.contains(&c)))
+                    .collect()
             };
             kinds.insert(c, ks);
             free.push(c);
@@ -1435,7 +1492,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
         for d in DIRS {
             let a = add(c, d);
-            if !sturdy_possible(a) {
+            if !sturdy_possible(a) && !(d == U && sturdy_down.contains(&a)) && lever_back.get(&a) != Some(&d) {
                 continue;
             }
             let st = match d {
@@ -1546,7 +1603,7 @@ pub fn build_prob(rec: Rec, o: &ProbOpts) -> Result<Prob> {
         }
     }
     let lever_on_rest = rec.lever.as_ref().is_some_and(|(_, s)| prop(s, "powered") == Some("true")) || LEVER_ON.load(std::sync::atomic::Ordering::Relaxed);
-    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, plan: None, cell_group, cluster, ncl })
+    Ok(Prob { rec, z, bx, free, kinds, mech, static_sturdy, sturdy_up, sturdy_down, lever_back, levers, dmax: o.dmax, skip: o.skip, h, qc: o.qc, levels: o.levels, blocked_dc: o.blocked_dc, motion: o.motion, fixed, fixed_lever: None, fixed_only: false, fixed_state: HashMap::new(), lever_on_rest, plan: None, cell_group, cluster, ncl })
 }
 
 /// `--menu`: record each alternative schedule, keep the trace `tr` of those that start and end
@@ -3329,7 +3386,12 @@ pub fn build(p: &Prob, check_mode: bool) -> Model<'_> {
     for (i, lc) in p.levers.iter().enumerate() {
         let l = m.lever[i];
         let att = (lc.att[0], lc.att[1]);
-        let s = m.sturdy_static(att, lc.pos[1] > lc.att[1]);
+        let back = lc.pos[2] == p.z && lc.att[2] == p.z && p.lever_back.get(&att) == Some(&(lc.att[0] - lc.pos[0], lc.att[1] - lc.pos[1]));
+        let s = if back || (lc.pos[2] == p.z && lc.pos[1] < lc.att[1] && p.sturdy_down.contains(&att)) {
+            m.e.konst(true)
+        } else {
+            m.sturdy_static(att, lc.pos[1] > lc.att[1])
+        };
         m.e.add(&[!l, s]);
         if lc.pos[2] == p.z {
             let c = (lc.pos[0], lc.pos[1]);
@@ -5016,7 +5078,8 @@ pub fn families_schedule(tsv: &std::path::Path, id: &str, sym: bool, gap: u32) -
     };
     let open = seq(row[col("open")?])?;
     let close = seq(row[col("close")?])?;
-    let symv = row.get(col("sym")?).filter(|s| !s.trim().is_empty()).map(|s| seq(s)).transpose()?;
+    // an empty or "-" sym (door audit --tsv writes "-") = no symmetric train
+    let symv = row.get(col("sym")?).filter(|s| !s.trim().is_empty() && s.trim() != "-").map(|s| seq(s)).transpose()?;
     let (wd, map) = crate::families::to_world(&m);
     let sol = crate::mechsynth::Solution {
         open: crate::families::ms_seq(&map, &open),

@@ -1,0 +1,19 @@
+# Frequency filter: calibrated sensor C (back = west) watched by observer O, whose pulses reach an
+# oak fence gate E through a stone and a dust; a plain sensor S sits at C's back, sqrt(11) from E,
+# so when S hears E its power is 9: while S is active C's filter is 9 and it ignores E opening
+# (block_open, 10) and fires on E closing (block_close, 9) 2 gt later. Without S: P24.
+name: clk-sculk-filter9-gate
+origin: 0 0 0
+port output: 1 0 0
+palette:
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=west,powered=false]
+  B minecraft:stone
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=side,west=none]
+  E minecraft:oak_fence_gate[facing=north,in_wall=false,open=true,powered=true]
+layer 0:
+  SCOB
+layer 1:
+  ...W
+  ...E
