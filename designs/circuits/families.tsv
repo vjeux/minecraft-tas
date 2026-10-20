@@ -1,1 +1,5 @@
 study	family	group	kind	axis_formula	blocks_formula	n_lo	n_hi	base	rule	judged_n
+pulse	pulse-limiter-u4		pulse-limiter	16 + 16n	10 + 4n	0	10	pulse/archive/pulse-limiter-u4.txt	lengthen the U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-ext		pulse-extender	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-ext.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-fall		falling-edge	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-fall.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-rise		rising-edge	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-rise.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
