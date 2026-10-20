@@ -1,0 +1,98 @@
+name: pext-n7-sf-sweep254
+circuit: piston-extender 7
+travel: 1 0 0
+port input: 15 1 -2 lever
+port payload: 8 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=west]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -3:
+  .
+  .
+  .........B
+  .........B
+  .........B
+  .........C
+  .
+  .
+layer -2:
+  .
+  .........B
+  .........O
+  .....oCoCoCoC
+  .
+  ......CDDD
+  .
+  .
+layer -1:
+  .
+  ......ooCO
+  ....BDDDDDDD
+  ....oOoOoOoOB.B
+  ............C.B
+  ......CooC.ooCB
+  ..............C
+  .
+layer 0:
+  .
+  ......O.CO
+  ...........O
+  ....O.O.O.O.O.O
+  ...BDDDDDDDDD
+  ...CoCCO.CCOCC
+  ........ooA.ADD
+  .
+layer 1:
+  .......ooB
+  oooooCOACOoCoCooLs
+  A...A.AAAAAOA.A
+  ADSSSSSSSG
+  ...B.BBBBBBBBB
+  ...oOCBOBCBOCC
+  ......B.O.C
+  ......C
+layer 2:
+  .
+  .....oOOC.OoOoO
+  ......CDD..O
+  O....C.CCCCC
+  ADDDDDDDDDDDDD
+  ....CC.OOC.OCA
+  ....ADDDDDD
+  ......C
+layer 3:
+  .
+  ......oOooO
+  ......ACO.CO
+  ....ooBAABAA
+  ....A.oA.CADD
+  ....AooOOooOA
+  ......ooA
+  ......A
+layer 4:
+  .
+  .
+  .......ooBC
+  ........OO.O
+  .........ooA
+  .
+  .
+  .
+layer 5:
+  .
+  .
+  ..........B
+  ........ODD
+  .
+  .
+  .
+  .

@@ -94,15 +94,25 @@ pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
             // two above the piston (quasi-connectivity through the air cell above it: its watched
             // node can be reached from any side) and below it
             vec![([x, 3, 0], "up", [x, 4, 0]), ([x, 0, 0], "down", [x, -1, 0])]
-        } else {
+        } else if x % 2 == 0 {
+            // alternate the preferred sides with the cell's parity so neighbouring cells' watched
+            // nodes do not crowd one band
             vec![
                 ([x, 1, 1], "south", [x, 1, 2]),
-                ([x, 1, -1], "north", [x, 1, -2]),
                 ([x, 2, 0], "up", [x, 3, 0]),
+                ([x, 1, -1], "north", [x, 1, -2]),
                 ([x, 0, 0], "down", [x, -1, 0]),
-                // quasi-connectivity through the cell above the piston
                 ([x, 2, 1], "south", [x, 2, 2]),
                 ([x, 2, -1], "north", [x, 2, -2]),
+            ]
+        } else {
+            vec![
+                ([x, 1, -1], "north", [x, 1, -2]),
+                ([x, 0, 0], "down", [x, -1, 0]),
+                ([x, 1, 1], "south", [x, 1, 2]),
+                ([x, 2, 0], "up", [x, 3, 0]),
+                ([x, 2, -1], "north", [x, 2, -2]),
+                ([x, 2, 1], "south", [x, 2, 2]),
             ]
         };
         if x == 1 {
