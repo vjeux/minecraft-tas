@@ -144,3 +144,16 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   through a powered frame block for it. 6x7-in2/mm01 widened to 7x7 (x -3..3) WORKS in redsim,
   d67's `door connect` leaves only SU(1,-2) never fed, but it needs up to 7 actions per piston per
   edge and is PROVEN unsolvable at K=2 (15 s): excluded by the action bar, not by physics.
+- families 6x7 / 7x6 / 8x6 ring-escape P12 at K=2 + 1 extra + no-inside + fed: 0 of 1,994 /
+  3,010 / 31,738 (0 / 8 / 21 undecided). P14 two 3 carry 1 ring-escape on the same boxes: the
+  GENERATION passed 85 GB and was killed (not enumerable).
+- 7x7 from w86's t1 (w1 transposed, P in L1): `mechmut --repair --add --reserve=-2,2` gave t1-r22
+  (12 sticky, TL up through SD+(0,4), WORKS redsim + game, unfed 3: its lever at (0,5) also arms
+  (-1,4)/(1,4) by QC, so the lever rule now requires every piston the lever powers to be
+  lever-held); `--rank-unfed` from t1-r22 gave **u0-7x7** (bars/u0-7x7: Q turned east,
+  SD(-1,4) moved to the corner (-1,3)): WORKS in redsim (32 x 2) and in the game (4 x 2), 57/45
+  ticks, EVERY receiver next to a free feed cell, d67's connect: no never-fed piston. Wiring checks
+  (pockets3 satwire 19 s, w86 satwire, d67 `door feeds`): UNSAT, core SU(1,-2) alone: 4-5 distinct
+  ticks from the sealed single cell (0,-2); next wall the top-left 4-cell pocket (~9 ticks).
+  Families' wiring analysis now reports a macro POCKET LOAD (forced actions per free cell, x10;
+  u0 = 40), a mechmut rank key.
