@@ -60,6 +60,10 @@ fn properties(b: &Build) -> BTreeSet<String> {
     let mut s: BTreeSet<String> = site_model::html::props(b).chips.into_iter().filter(|c| !c.starts_with("tunable") && !c.starts_with('+') && !matches!(c.as_str(), "variant" | "layout")).collect();
     s.extend(b.flags.iter().filter(|f| !matches!(f.as_str(), "variant" | "layout" | "tunable")).cloned());
     if let Some(c) = &b.circuit {
+        // the base design of an extendable family grows by one unit per n: a builder's property
+        if c.extends {
+            s.insert("extendable".into());
+        }
         for (k, v) in &c.metrics {
             match k.as_str() {
                 "badges" => s.extend(v.split('+').filter(|x| !x.is_empty()).map(String::from)),
@@ -149,6 +153,28 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
         }
     }
     out.sort_by(|a, b| (&a.x.circuit.as_ref().unwrap().study, &a.x.name).cmp(&(&b.x.circuit.as_ref().unwrap().study, &b.x.name)));
+    out
+}
+
+/// The build's notes: every dominated design still published, for whoever builds the site to
+/// check and add to crates/site/hidden.tsv (the coordinator: re-run the audit whenever a study
+/// re-archives; the build does it every time).
+pub fn notes(site: &Site) -> Vec<String> {
+    let mut out = Vec::new();
+    for (pattern, what) in [(Pattern::SlowerMaterial, "bigger AND slower"), (Pattern::SameSpeedMaterial, "bigger, the same speed")] {
+        for d in dominated(site, pattern) {
+            out.push(format!(
+                "dominated ({what}, only avoids {}): {}/{} ({} blocks) is beaten by {} ({} blocks){}: check it, then hide it in crates/site/hidden.tsv (mctas site dominated)",
+                d.avoids.join(", "),
+                d.x.circuit.as_ref().map(|c| c.study.as_str()).unwrap_or(""),
+                d.x.name,
+                d.x.blocks,
+                d.y.name,
+                d.y.blocks,
+                if d.slower.is_empty() { String::new() } else { format!(", {}", d.slower.iter().map(|(k, a, b)| format!("{k} {a} vs {b}")).collect::<Vec<_>>().join(", ")) }
+            ));
+        }
+    }
     out
 }
 
