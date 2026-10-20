@@ -176,6 +176,30 @@ struct Opts {
     /// `--physics` (c70b: replayable seeds): co-firing and rest QC stability without the
     /// wirability filters of `--strict`.
     physics: bool,
+    /// `--free x0,y0,x1,y1[;...]` with `--fix`: these rectangles are searched (any content),
+    /// the rest of the box keeps the fixed design (fly: freeze half a door, search the other).
+    free: Vec<(i32, i32, i32, i32)>,
+    /// `--region-budget x0,y0,x1,y1:K[;...]`: at most K actions per edge fed from wiring in
+    /// the rectangle (fly: a blind corner drives at most one action per edge).
+    region_budget: Vec<(i32, i32, i32, i32, usize)>,
+}
+
+/// Rectangles `x0,y0,x1,y1` separated by `;` (inclusive corners).
+fn rects(s: &str) -> Result<Vec<(i32, i32, i32, i32)>> {
+    s.split(';')
+        .filter(|r| !r.trim().is_empty())
+        .map(|r| {
+            let v: Vec<i32> = r.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            if v.len() != 4 {
+                bail!("rectangle {r:?}: want x0,y0,x1,y1");
+            }
+            Ok((v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])))
+        })
+        .collect()
+}
+
+fn in_rect(r: &(i32, i32, i32, i32), x: i32, y: i32) -> bool {
+    x >= r.0 && x <= r.2 && y >= r.1 && y <= r.3
 }
 
 struct Model {
@@ -1056,6 +1080,29 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
     }
+    // --region-budget: per edge, at most K actions whose feed draws on wiring in the rectangle
+    for rb in &o.region_budget {
+        let inside = |c: usize| {
+            let (x, y) = g.xy(c);
+            x >= rb.0 && x <= rb.2 && y >= rb.1 && y <= rb.3
+        };
+        for edge in 0..2 {
+            let mut frs: Vec<Lit> = Vec::new();
+            for s in edge * o.h..(edge + 1) * o.h {
+                for a in &acts[s] {
+                    let mut fr: Option<Lit> = None;
+                    for f in feed[s][&(a.c * 4 + a.d)].iter().filter(|f| f.kinds & kind_bit(a.kind) != 0) {
+                        if f.wire.is_some_and(inside) || (f.wire.is_none() && f.cells.iter().any(|&q| inside(q))) {
+                            let v = *fr.get_or_insert_with(|| sat.var());
+                            sat.add(&[!a.lit, !f.u, v]);
+                        }
+                    }
+                    frs.extend(fr);
+                }
+            }
+            at_most_k_seq(&mut sat, &frs, rb.4);
+        }
+    }
     if o.physics || o.strict {
         // redstone-block stability: a retracted piston next to a redstone block (any side but its
         // front) is powered and extends at once: it extends in the next step, and never sits so at
@@ -1155,6 +1202,11 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
         for c in 0..n {
+            let (x, y) = g.xy(c);
+            if o.free.iter().any(|r| in_rect(r, x, y)) {
+                // --free: searched
+                continue;
+            }
             match fixed[c] {
                 Some(t) => sat.add(&[ty[0][c][t]]),
                 None => sat.add(&[ty[0][c][AIR], ty[0][c][WIRE]]),
@@ -1677,6 +1729,22 @@ fn opts_of(a: &Args) -> Result<Opts> {
         frame3: a.has("frame3") || strict,
         max_pistons: a.s("max-pistons").and_then(|v| v.parse().ok()),
         physics: a.has("physics"),
+        free: match a.s("free") {
+            Some(s) => rects(s)?,
+            None => Vec::new(),
+        },
+        region_budget: match a.s("region-budget") {
+            Some(s) => s
+                .split(';')
+                .filter(|r| !r.trim().is_empty())
+                .map(|r| {
+                    let (rc, k) = r.rsplit_once(':').ok_or_else(|| anyhow!("--region-budget {r:?}: want x0,y0,x1,y1:K"))?;
+                    let rr = rects(rc)?.first().copied().ok_or_else(|| anyhow!("--region-budget {r:?}"))?;
+                    Ok((rr.0, rr.1, rr.2, rr.3, k.trim().parse::<usize>()?))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            None => Vec::new(),
+        },
     })
 }
 
