@@ -1,0 +1,23 @@
+name: rt-cart-side
+# redsim test scene (not a clock): two minecarts on parallel east-west rails one block apart: a cart
+# thrown along +x passes a resting one (their grown boxes overlap, but the direction between them is
+# perpendicular to the facing: no push), and a resting cart on a north-south rail beside the track
+# end (facing along z) is reached head-on by a cart from the west, offset half a block.
+entity: minecraft:minecart 1.5 1.0625 0.5 {Motion:[0.5d,0.0d,0.0d]}
+entity: minecraft:minecart 6.5 1.0625 1.5
+entity: minecraft:minecart 1.5 1.0625 3.5 {Motion:[0.5d,0.0d,0.0d]}
+entity: minecraft:minecart 9.5 1.0625 3.5
+palette:
+  S minecraft:stone
+  r minecraft:rail[shape=east_west]
+  n minecraft:rail[shape=north_south]
+layer 0:
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+layer 1:
+  rrrrrrrrrrrr
+  rrrrrrrrrrrr
+  ............
+  rrrrrrrrrn..

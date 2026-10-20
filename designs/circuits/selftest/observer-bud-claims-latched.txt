@@ -1,0 +1,18 @@
+name: cal-observer-bud-claims-latched
+circuit: bud
+# Refusal: an observer BUD given a reset input is not latched: its 2 gt pulse ends long before the
+# judge's reset.
+origin: 0 0 0
+port target: 0 1 0
+port output: 2 1 0
+port input.reset: 2 1 2
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  ...
+  ...
+  ...
+layer 1:
+  .O.
+  ...
+  ...

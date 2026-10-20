@@ -366,7 +366,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
-        Kind::Bud => format!("detects {}", m("detects")),
+        Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),

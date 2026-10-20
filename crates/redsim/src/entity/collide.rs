@@ -155,13 +155,16 @@ pub fn block_collisions(w: &World, bb: Aabb) -> Vec<(BlockPos, Vec<Aabb>)> {
 }
 
 /// `Level.getEntityCollisions(source, box)`: the boxes of the entities `source` collides with
-/// (boats: `canVehicleCollide`; other kinds: entities that `canBeCollidedWith` it, i.e. boats).
+/// (`canCollideWith`: boats and minecarts use `AbstractBoat.canVehicleCollide` = the other
+/// `canBeCollidedWith` (boats) or `isPushable` (boats, minecarts); every other kind takes the entities
+/// that `canBeCollidedWith` it, i.e. boats).
 pub fn entity_collisions(w: &World, i: usize, bb: Aabb) -> Vec<Vec<Aabb>> {
     if w.entities.list.len() < 2 || bb.x_size() * bb.y_size() * bb.z_size() < 1.0e-7 {
         return Vec::new();
     }
     let query = bb.inflate(1.0e-7, 1.0e-7, 1.0e-7);
-    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)))
+    let vehicle = matches!(w.entities.list[i].kind, super::EntityKind::Boat(_) | super::EntityKind::Minecart(_));
+    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)) || (vehicle && super::minecart::is_pushable(e)))
         .into_iter()
         .filter(|&j| j != i)
         .map(|j| vec![w.entities.list[j].bb])

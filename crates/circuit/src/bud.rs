@@ -69,8 +69,8 @@ pub fn check_ports(c: &Circuit) -> Result<()> {
     if c.outputs.len() != 1 {
         bail!("bud: needs exactly one output (port output:), has {}", c.outputs.len());
     }
-    if !c.inputs.is_empty() {
-        bail!("bud: takes no input (the judge's updates at its targets are the stimulus)");
+    if !c.inputs.is_empty() && !latched(c) {
+        bail!("bud: takes no input (the judge's updates at its targets are the stimulus), or one reset input (port input.reset:) for a latched design");
     }
     for w in &c.bud_claims {
         if !CLASSES.contains(&w.as_str()) {
@@ -92,39 +92,59 @@ pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
 }
 
 /// [`stimulus`]; `full` false stops after the classes and the idle span (no footprint probes, no
-/// re-arm pairs: the census's screen).
+/// re-arm pairs: the census's screen). A LATCHED design (a `port input.reset:`) gets a reset pulse
+/// [`HOLD`]-ish after every event it may answer (half the gap), and a relatch test (a second event
+/// while it holds).
 pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
     let gap = z.gap.clamp(30, 200);
-    let mut s = Schedule::new(0);
+    let latched = latched(c);
+    let hold = gap / 2;
+    let mut s = Schedule::new(c.inputs.len());
+    // the reset after an event at `at` (latched designs only)
+    let rst = |s: &mut Schedule, at: u32| {
+        if latched {
+            s.pulse(0, at + hold, RESET_LEN);
+        }
+    };
     let mut t = c.clock.free_from() + SETTLE;
+    if latched {
+        // a latched design may latch as it is built (the placement updates every block): one reset
+        // right after, before the rest window
+        s.pulse(0, c.clock.free_from() + 4, RESET_LEN);
+    }
     s.phase(t, t + 2 * gap, "idle");
     t += 2 * gap;
     for (i, tg) in c.targets.iter().enumerate() {
         let (a, b, n) = (tg.a.clone(), tg.b.clone(), tg.name.clone());
+        let mut evr = |s: &mut Schedule, t: &mut u32, op: TargetOp, label: String| {
+            ev(s, *t, gap, i, op, label);
+            rst(s, *t);
+            *t += gap;
+        };
         for k in 1..=REPEATS {
-            ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("place {k} {n}"));
-            t += gap;
-            ev(&mut s, t, gap, i, TargetOp::Clear, format!("remove {k} {n}"));
-            t += gap;
+            evr(&mut s, &mut t, TargetOp::Place(a.clone()), format!("place {k} {n}"));
+            evr(&mut s, &mut t, TargetOp::Clear, format!("remove {k} {n}"));
         }
-        ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("setup {n}"));
-        t += gap;
+        evr(&mut s, &mut t, TargetOp::Place(a.clone()), format!("setup {n}"));
         for k in 1..=REPEATS {
-            ev(&mut s, t, gap, i, TargetOp::Place(b.clone()), format!("state {k} {n}"));
-            t += gap;
-            ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("state {k}b {n}"));
-            t += gap;
+            evr(&mut s, &mut t, TargetOp::Place(b.clone()), format!("state {k} {n}"));
+            evr(&mut s, &mut t, TargetOp::Place(a.clone()), format!("state {k}b {n}"));
         }
         for k in 1..=REPEATS {
-            ev(&mut s, t, gap, i, TargetOp::Shape(b.clone()), format!("shape {k} {n}"));
-            t += gap;
-            ev(&mut s, t, gap, i, TargetOp::Shape(a.clone()), format!("shape {k}b {n}"));
-            t += gap;
+            evr(&mut s, &mut t, TargetOp::Shape(b.clone()), format!("shape {k} {n}"));
+            evr(&mut s, &mut t, TargetOp::Shape(a.clone()), format!("shape {k}b {n}"));
         }
-        ev(&mut s, t, gap, i, TargetOp::Clear, format!("setup {n}"));
-        t += gap;
+        evr(&mut s, &mut t, TargetOp::Clear, format!("setup {n}"));
         for k in 1..=REPEATS {
-            ev(&mut s, t, gap, i, TargetOp::Update, format!("update {k} {n}"));
+            evr(&mut s, &mut t, TargetOp::Update, format!("update {k} {n}"));
+        }
+        if latched {
+            // a latch holds through a second event (a toggle would let go): a placement, then its
+            // removal while it holds, then the reset; counted as a placement
+            s.events.push((t, EventAt::Target(i), TargetOp::Place(a.clone())));
+            s.events.push((t + hold / 2, EventAt::Target(i), TargetOp::Clear));
+            s.phase(t, t + gap, format!("relatch {n}"));
+            rst(&mut s, t);
             t += gap;
         }
     }
@@ -141,11 +161,14 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
         for (op, what) in [(TargetOp::Place(a0.clone()), "place"), (TargetOp::Clear, "remove"), (TargetOp::Update, "update")] {
             s.events.push((t, EventAt::Probe(k), op));
             s.phase(t, t + gap, format!("probe {k} {what}"));
+            rst(&mut s, t);
             t += gap;
         }
     }
     // re-arm pairs, last (a pair too close together may jam a design: nothing after a jam is
     // measured): two events g apart then the gap, from the longest g down, every family at each g
+    // (a latched design: g after the end of the reset that follows the first event)
+    let step = |g: u32| if latched { hold + RESET_LEN + g } else { g };
     for g in REARM_GAPS.iter().rev().copied() {
         for (i, tg) in c.targets.iter().enumerate() {
             let (a, b, n) = (tg.a.clone(), tg.b.clone(), tg.name.clone());
@@ -158,14 +181,28 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
                 };
                 if setup {
                     ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("rsetup {fam} {n}"));
+                    rst(&mut s, t);
                     t += gap;
                 }
+                let d = step(g);
+                let mut at = vec![t, t + d];
                 s.events.push((t, EventAt::Target(i), e1));
-                s.events.push((t + g, EventAt::Target(i), e2));
-                s.phase(t, t + g + gap, format!("rearm {fam} {g} {n}"));
-                t += g + gap;
-                if setup {
+                s.events.push((t + d, EventAt::Target(i), e2));
+                if fam == "place" {
+                    // place, remove, place: a design that sees only one of them (place-only,
+                    // remove-only) is measured too (the next placement after a removal)
+                    s.events.push((t + 2 * d, EventAt::Target(i), TargetOp::Place(a.clone())));
+                    at.push(t + 2 * d);
+                }
+                for x in &at {
+                    rst(&mut s, *x);
+                }
+                let last = *at.last().unwrap();
+                s.phase(t, last + gap, format!("rearm {fam} {g} {n}"));
+                t = last + gap;
+                if setup || fam == "place" {
                     ev(&mut s, t, gap, i, TargetOp::Clear, format!("rsetup {fam} {n}"));
+                    rst(&mut s, t);
                     t += gap;
                 }
             }
@@ -173,6 +210,14 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
     }
     s.ticks = t;
     s
+}
+
+/// The reset pulse a latched design gets (gt).
+pub const RESET_LEN: u32 = 4;
+
+/// Whether a BUD design is latched: its output holds until the judge pulses its reset input.
+pub fn latched(c: &Circuit) -> bool {
+    c.inputs.len() == 1 && c.inputs[0].name == "r"
 }
 
 /// The class an event label belongs to (`place 2 t` -> place; `state 1b t` -> state).
@@ -183,36 +228,44 @@ fn class_of(label: &str) -> Option<&'static str> {
 
 /// Judge a BUD run.
 pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
-    // the footprint probes must leave the design as it was (every cell as at rest once the probe
-    // block is gone): a design that carries a probe block away or is broken by it cannot be
-    // measured after that (the later probes, the re-arm pairs)
-    let rest = s.phases.first().map(|p| p.0 as usize).unwrap_or(0).saturating_sub(1);
+    // the footprint probes must leave the design as they found it (every cell as just before the
+    // probe once its block is gone): a design that carries a probe block away or is broken by it
+    // cannot be measured after that (the later probes, the re-arm pairs)
     let mut broke: Option<usize> = None;
-    if let Some(rest_frame) = t.cells.get(rest) {
-        for (_, b, label) in &s.phases {
-            let w: Vec<&str> = label.split_whitespace().collect();
-            if w.first() == Some(&"probe") && w.get(2) == Some(&"update") {
+    let mut before: Option<usize> = None;
+    for (a, b, label) in &s.phases {
+        let w: Vec<&str> = label.split_whitespace().collect();
+        if w.first() != Some(&"probe") {
+            continue;
+        }
+        match w.get(2).copied() {
+            Some("place") => before = Some((*a as usize).saturating_sub(1)),
+            Some("update") => {
                 let end = (*b as usize).saturating_sub(1);
-                if t.cells.get(end).is_some_and(|f| f != rest_frame) {
+                if let (Some(f0), Some(f1)) = (before.and_then(|f| t.cells.get(f)), t.cells.get(end))
+                    && f0 != f1
+                {
                     broke = w.get(1).and_then(|k| k.parse().ok());
                     break;
                 }
             }
+            _ => {}
         }
     }
-    judge_with(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims, broke)
+    judge_with(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims, broke, latched(c))
 }
 
 /// Judge an output sequence (on per frame) against a BUD schedule: `from` is the first frame the
 /// output must be off at rest, `targets` the number of target cells, `claims` the claimed classes.
 /// The census screens every candidate output cell of a design with it.
 pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String]) -> Outcome {
-    judge_with(out, s, from, targets, claims, None)
+    judge_with(out, s, from, targets, claims, None, false)
 }
 
 /// [`judge`]; `broke`: the footprint probe after which the design is no longer as it was (the
-/// later probes and the re-arm pairs are not measured).
-fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String], broke: Option<usize>) -> Outcome {
+/// later probes and the re-arm pairs are not measured); `latched`: the output must hold until the
+/// reset that follows each event (half a gap later) and go off after it.
+fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String], broke: Option<usize>, latched: bool) -> Outcome {
     let mut table = Vec::new();
     let first = s.phases.first().map(|p| p.0 as usize).unwrap_or(out.len());
     if out[from.min(out.len())..first.min(out.len())].iter().any(|x| *x) {
@@ -225,6 +278,8 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
     let mut rearm: Vec<(String, u32, usize, bool)> = Vec::new();
     // footprint probes: (cell index, pulses, off at the end)
     let mut probes: Vec<(usize, usize, bool)> = Vec::new();
+    // latched designs: the relatch windows (a placement, its removal while it holds, the reset)
+    let mut relatch: Vec<(u32, Vec<(usize, usize)>)> = Vec::new();
     for (a, b, label) in &s.phases {
         let ps = starting(*a, *b);
         let end = (*b as usize).saturating_sub(1).min(out.len().saturating_sub(1));
@@ -252,6 +307,10 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
                 }
             }
             Some("setup") => {}
+            Some("relatch") => {
+                table.push(format!("  {label}: {}", if ps.is_empty() { "no output".to_string() } else { ps.iter().map(|(st, l)| format!("+{} for {l}", *st as i64 - *a as i64)).collect::<Vec<_>>().join(", ") }));
+                relatch.push((*a, ps));
+            }
             _ => {
                 if let Some(cl) = class_of(label) {
                     let desc = if ps.is_empty() { "no output".to_string() } else { ps.iter().map(|(st, l)| format!("+{} for {l}", *st as i64 - *a as i64)).collect::<Vec<_>>().join(", ") };
@@ -300,8 +359,16 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
     // that leaves the output on JAMS the design: nothing after it is measured)
     let fam_ok = |f: &str| -> bool {
         match f {
-            "place" => detected.contains(&"place") && detected.contains(&"remove"),
+            "place" => detected.contains(&"place") || detected.contains(&"remove"),
             x => detected.contains(&x),
+        }
+    };
+    // pulses a re-arm sequence gives when every event in it is seen: place, remove, place for the
+    // place family, two events for the others
+    let want = |f: &str| -> usize {
+        match f {
+            "place" => 2 * usize::from(detected.contains(&"place")) + usize::from(detected.contains(&"remove")),
+            _ => 2,
         }
     };
     let mut re: Vec<(String, String)> = Vec::new();
@@ -330,7 +397,7 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
             }
         };
         if !state[k].2 {
-            if *n == 2 {
+            if *n == want(fam) {
                 state[k].1 = Some(*g);
             } else {
                 state[k].2 = true;
@@ -362,6 +429,30 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
     let len_s = joined(len.iter().map(|(k, l)| (k.to_string(), format!("{l} gt"))).collect());
     let re_s = if re.is_empty() { String::new() } else { joined(re.clone()) };
     let mut metrics = vec![("detects".to_string(), detected.join(" ")), ("latency".to_string(), lat_s), ("pulse".to_string(), len_s)];
+    if latched {
+        // the output must hold until the reset (half a gap after the event) and go off after it:
+        // `reset` is how long after the reset pulse starts
+        let hold = s.phases.iter().find(|p| class_of(&p.2).is_some()).map(|p| (p.1 - p.0) / 2).unwrap_or(0) as i64;
+        let mut off: Vec<(String, String)> = Vec::new();
+        for ((cl, l), (_, n)) in lat.iter().zip(&len) {
+            let end = *l + *n as i64;
+            if end <= hold {
+                return Outcome::fail(format!("not latched: after a {cl} the output goes off {} gt before the reset", hold - end), table);
+            }
+            off.push((cl.to_string(), format!("{} gt", end - hold)));
+        }
+        metrics.retain(|(k, _)| k != "pulse");
+        metrics.push(("reset".to_string(), format!("manual, off {} after it", joined(off))));
+        // a latch holds through a removal while it is on (a toggle lets go)
+        if detected.contains(&"place") {
+            for (a, ps) in &relatch {
+                let held = ps.len() == 1 && (ps[0].0 + ps[0].1) as i64 > *a as i64 + hold;
+                if !held {
+                    return Outcome::fail(format!("not a latch: a placement then its removal while the output holds (frame {a}) gives {} pulse(s) before the reset: it toggles or lets go", ps.len()), table);
+                }
+            }
+        }
+    }
     if let Some(k) = broke {
         // the re-arm pairs ran on a changed design
         table.push(format!("  footprint probe {k} changed the design (a block placed beside it and removed leaves it different): the later probes and the re-arm pairs are not measured"));
