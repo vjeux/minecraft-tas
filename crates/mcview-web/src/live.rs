@@ -114,7 +114,12 @@ const ICON_STEP: &str = "M5 5v14l9-7zM15 5h3v14h-3z";
 const ICON_RESET: &str = "M12 5V1.5L7 6l5 4.5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z";
 const ICON_LEVER: &str = "M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z";
 const ICON_BOXES: &str = "M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8zM5 5v4h4V5zM15 5v4h4V5zM5 15v4h4v-4zM15 15v4h4v-4z";
-const ICON_RECORD: &str = "M12 5a7 7 0 1 0 0 14a7 7 0 1 0 0-14z";
+/// The Record button's face: a red dot and its word; while recording, a stop square and the
+/// progress.
+const RECORD_FACE: &str = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" aria-hidden=\"true\" style=\"display:block\"><circle cx=\"7\" cy=\"7\" r=\"6\" fill=\"#ff3b30\"/></svg><span>Record</span>";
+fn recording_face(pct: u32) -> String {
+    format!("<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\" style=\"display:block\"><rect x=\"1\" y=\"1\" width=\"10\" height=\"10\" rx=\"1.5\" fill=\"#fff\"/></svg><span style=\"font-variant-numeric:tabular-nums\">{pct}%</span>")
+}
 
 fn icon(path: &str) -> String {
     format!("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\" style=\"display:block\"><path d=\"{path}\"/></svg>")
@@ -293,13 +298,14 @@ pub fn start(app: &mut App, id: u32) {
         ],
     );
     let _ = root.append_child(&status);
-    // the Record button: round, over the view's bottom right above the bar (a phone's bar is
-    // full), where the browser can encode video (WebCodecs); while recording it shows the
-    // progress and a press stops it
-    let record = button(ICON_RECORD, RECORD_TITLE);
+    // the Record button: a labelled pill over the view's bottom right above the bar (a phone's
+    // bar is full; critique: a bare red dot read as a logo or a "live" light), where the browser
+    // can encode video (WebCodecs); while recording it shows the progress and a press stops it
+    let record = button(RECORD_TITLE, RECORD_TITLE);
+    record.set_inner_html(RECORD_FACE);
     style(
         record.unchecked_ref(),
-        &[("position", "absolute"), ("right", "8px"), ("bottom", "68px"), ("width", "44px"), ("min-width", "44px"), ("padding", "0"), ("border-radius", "22px"), ("color", "#ff3b30"), ("font-size", "12px"), ("z-index", "2")],
+        &[("position", "absolute"), ("right", "8px"), ("bottom", "68px"), ("height", "36px"), ("min-width", "0"), ("padding", "0 12px 0 10px"), ("gap", "6px"), ("border-radius", "18px"), ("font", "600 14px/1 system-ui, sans-serif"), ("z-index", "2")],
     );
     let _ = record.set_attribute("data-mcview-record", "");
     if !crate::record::supported() {
@@ -828,7 +834,7 @@ async fn record_video(id: u32) {
             return;
         }
     }
-    with_live(id, |l, _, _| l.record.set_text_content(Some("…")));
+    with_live(id, |l, _, _| l.record.set_inner_html("<span>Saving…</span>"));
     let (ext, mime) = (enc.ext, enc.mime);
     let file = format!("{name}.{ext}");
     let saved = match enc.finish().await {
@@ -976,9 +982,7 @@ impl Live {
         canvas.set_height(h);
         let ctx: web_sys::CanvasRenderingContext2d = canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok()).ok_or("no 2D context")?;
         self.rec = Some(Rec { player: p, frames, canvas: canvas.clone(), ctx, cancel: false });
-        self.record.set_inner_html("");
-        self.record.set_text_content(Some("0%"));
-        let _ = self.record.style().set_property("color", "#fff");
+        self.record.set_inner_html(&recording_face(0));
         let _ = self.record.style().set_property("background", "rgba(200,30,20,0.85)");
         self.record.set_title("Recording: press to stop");
         Ok((canvas, w, h, frames, self.name.clone()))
@@ -1017,15 +1021,14 @@ impl Live {
         crate::record::paint(&r.ctx, overlays.layer(), origin, scale);
         crate::record::paint(&r.ctx, status, origin, scale);
         crate::record::paint(&r.ctx, label, origin, scale);
-        record.set_text_content(Some(&format!("{}%", (k + 1) * 100 / r.frames.max(1))));
+        record.set_inner_html(&recording_face((k + 1) * 100 / r.frames.max(1)));
         true
     }
 
     /// The recording is over (saved, stopped or failed): the live view comes back as it was.
     fn rec_end(&mut self, error: Option<&str>) {
         self.rec = None;
-        self.record.set_inner_html(&icon(ICON_RECORD));
-        let _ = self.record.style().set_property("color", "#ff3b30");
+        self.record.set_inner_html(RECORD_FACE);
         let _ = self.record.style().set_property("background", "rgba(20,22,28,0.72)");
         match error {
             Some(e) => {
