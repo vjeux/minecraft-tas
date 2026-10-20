@@ -13,6 +13,7 @@ mctas = { path = "../mctas" }
 clock = { path = "../clock" }
 circuit = { path = "../circuit" }
 circuit-pulse = { path = "../circuit-pulse" }
+circuit-bud = { path = "../circuit-bud" }
 circuit-tff = { path = "../circuit-tff" }
 circuit-memory = { path = "../circuit-memory" }
 circuit-delay = { path = "../circuit-delay" }

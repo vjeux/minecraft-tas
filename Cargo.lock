@@ -255,11 +255,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-bud"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "circuit-bud",
  "circuit-delay",
  "circuit-fly",
  "circuit-gates",
