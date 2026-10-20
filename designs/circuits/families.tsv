@@ -6,6 +6,7 @@ pulse	pulse-oneshot-rise		rising-edge	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-
 pulse	pulse-oneshot-bulb-rise		rising-edge	18 + 16n	19 + 4n	0	10	pulse/archive/pulse-oneshot-bulb-rise.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
 pulse	pulse-oneshot-bulb-ext		pulse-extender	18 + 16n	19 + 4n	0	10	pulse/archive/pulse-oneshot-bulb-ext.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
 pulse	pulse-dual-edge-reset		dual-edge	30 + 16n	32 + 4n	0	10	pulse/archive/pulse-dual-edge-reset.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-limiter-psub-u4		pulse-limiter	13 + 16n	18 + 4n	0	10	pulse/archive/pulse-limiter-psub-u4.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
 delay	delay-cmp		delay	2 + 2n	2 + 2n	0	10	delay/archive/delay-cmp-n0.txt	add one compare-mode comparator (on its stone) at the end	0, 1, 2, 5, 10
 delay	delay-piston-or11	delay-piston-or	delay	11 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or11-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
 delay	delay-piston-or5	delay-piston-or	delay	5 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or5-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
