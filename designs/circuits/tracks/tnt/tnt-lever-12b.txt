@@ -1,5 +1,6 @@
 name: tnt-lever-12b
 circuit: tnt-duper
+explode: off
 port input: 0 0 1
 origin: 0 0 -1
 palette:

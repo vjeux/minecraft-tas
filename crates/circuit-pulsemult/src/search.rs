@@ -293,6 +293,74 @@ pub fn square_divider(n: usize, max_dust: usize, out: &Path) -> Result<String> {
 
 const DIRS: [Pos; 6] = [[0, -1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0]];
 
+/// The gated-chase burst with a delay loop of `delays` (repeater settings, out and back rows of
+/// `delays.len() / 2` each; see `Cmd::BurstGate`).
+pub fn burst_gate_design(name: &str, n: usize, delays: &[u32]) -> Design {
+    let mut b: BTreeMap<Pos, String> = BTreeMap::new();
+    let st = |b: &mut BTreeMap<Pos, String>, p: Pos| {
+        b.insert(p, "minecraft:stone".into());
+    };
+    let rep = |d: u32, f: &str| format!("minecraft:repeater[delay={d},facing={f},locked=false,powered=false]");
+    // the edge detector: bulb, comparator, observer (a 2 gt pulse into the stone at x 4)
+    b.insert([1, 1, 0], "minecraft:waxed_copper_bulb[lit=false,powered=false]".into());
+    b.insert([2, 1, 0], "minecraft:comparator[facing=west,mode=compare,powered=false]".into());
+    st(&mut b, [2, 0, 0]);
+    b.insert([3, 1, 0], "minecraft:observer[facing=west,powered=false]".into());
+    st(&mut b, [4, 1, 0]);
+    // the gate bulb (south of the stone), its comparator, the chase piston and observers
+    b.insert([4, 1, 1], "minecraft:waxed_copper_bulb[lit=false,powered=false]".into());
+    b.insert([4, 1, 2], "minecraft:comparator[facing=north,mode=compare,powered=false]".into());
+    st(&mut b, [4, 0, 2]);
+    b.insert([4, 1, 3], "minecraft:sticky_piston[extended=false,facing=south]".into());
+    b.insert([4, 1, 4], "minecraft:observer[facing=west,powered=false]".into());
+    b.insert([3, 1, 5], "minecraft:observer[facing=east,powered=false]".into());
+    // the delay loop: out along z 0 from x 5, back along z 1 into the gate bulb
+    let m = delays.len().div_ceil(2) as i32;
+    for i in 0..m {
+        let x = 5 + i;
+        b.insert([x, 1, 0], rep(delays[i as usize], "west"));
+        st(&mut b, [x, 0, 0]);
+        let back = delays.get((m + i) as usize).copied().unwrap_or(1);
+        b.insert([x, 1, 1], rep(back, "east"));
+        st(&mut b, [x, 0, 1]);
+    }
+    for z in [0, 1] {
+        b.insert([5 + m, 1, z], "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+        st(&mut b, [5 + m, 0, z]);
+    }
+    let mut d = Design { name: name.to_string(), blocks: b, ..Default::default() };
+    d.meta.insert("circuit".into(), format!("burst {n}"));
+    d.ports.insert("input".into(), [0, 1, 0]);
+    d.ports.insert("output".into(), [2, 1, 5]);
+    d
+}
+
+/// `circuit pulsemult burst-gate`: the smallest delay loop giving exactly N (judged on redsim).
+pub fn burst_gate(n: usize, out: &Path) -> Result<String> {
+    // loops of 1..8 repeaters a row; for each, every total delay from the shortest up (the extra
+    // ticks go to the first repeaters): the first loop judged to give exactly N wins
+    for m in 1..=8usize {
+        for total in (2 * m as u32)..=(8 * m as u32) {
+            let mut delays = vec![1u32; 2 * m];
+            let mut extra = total - 2 * m as u32;
+            for d in delays.iter_mut() {
+                let add = extra.min(3);
+                *d += add;
+                extra -= add;
+            }
+            let name = format!("pm-burst{n}-gate");
+            let d = burst_gate_design(&name, n, &delays);
+            let c = Circuit::from_design(d.clone())?;
+            if let Some((summary, _)) = judge(&c) {
+                let p = out.join(format!("{name}.txt"));
+                d.save(&p)?;
+                return Ok(format!("{} blocks: {summary} -> {}", d.blocks.len(), p.display()));
+            }
+        }
+    }
+    bail!("burst {n}: no delay loop of up to 8 repeaters a row gives exactly {n}")
+}
+
 /// Seed cells that must stay empty: the ports (the judge's input block, its lamps).
 fn port_cells(d: &Design) -> Vec<Pos> {
     d.ports.values().copied().collect()

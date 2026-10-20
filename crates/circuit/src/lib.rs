@@ -609,8 +609,12 @@ impl Circuit {
 
     /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
     /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    /// TNT dupers explode by default (vjeux 2026-10-20: "this will blow up the machine"): the
+    /// game run lets every primed TNT explode and the design must survive; `explode: off` turns
+    /// that off for analysis only (such a design is not archived as a duper that works).
     pub fn explodes(&self) -> bool {
-        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
+        let tnt = matches!(self.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
+        tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone

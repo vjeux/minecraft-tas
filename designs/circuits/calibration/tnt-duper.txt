@@ -1,5 +1,8 @@
 name: cal-tnt-duper
 circuit: tnt-duper
+# the judge's measuring calibration (rate, period, latency on redsim and in the game): explosions
+# off, since this machine does not survive its own TNT (vjeux 2026-10-20)
+explode: off
 origin: 1 0 0
 palette:
   A minecraft:stone
