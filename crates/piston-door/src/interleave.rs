@@ -164,17 +164,16 @@ impl Sim {
 }
 
 /// The train as a plan: pulse `k` (2 gt) at tick `times[k]` on both edges.
-fn train_plan(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Pos], times: &[u32]) -> (Schedule, Vec<(bool, u32, Pos, Option<String>)>) {
+fn train_plan(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Step], times: &[u32]) -> (Schedule, Vec<(bool, u32, Pos, Option<String>)>) {
     let mut all: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
-    let mut seen: Vec<(Pos, u32)> = Vec::new();
-    for (c, t) in train.iter().zip(times) {
-        if seen.contains(&(*c, *t)) {
-            continue;
-        }
-        seen.push((*c, *t));
-        for open in [true, false] {
-            all.push((open, *t, *c, Some("minecraft:redstone_block".into())));
-            all.push((open, *t + 2, *c, None));
+    for (st, t) in train.iter().zip(times) {
+        for (dt, c, s) in &st.evs {
+            for open in [true, false] {
+                let e = (open, *t + dt, *c, s.clone());
+                if !all.contains(&e) {
+                    all.push(e);
+                }
+            }
         }
     }
     let mut plan = Schedule::from_events(d.clone(), &all);
@@ -182,9 +181,9 @@ fn train_plan(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: 
     (plan, all)
 }
 
-/// Pull every pulse of a working train as early as it goes, on BOTH edges together (unlike
+/// Pull every step of a working train as early as it goes, on BOTH edges together (unlike
 /// `ideal-rs --compact`, which moves each edge's groups on their own), two passes.
-fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Pos], times: &mut [u32], cycles: u32) {
+fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: &[Step], times: &mut [u32], cycles: u32) {
     let screen = crate::ideal::offsets(0);
     let works = |t: &[u32]| ideal_rs::run_edited(&train_plan(d, phase, train, t).0, &BTreeMap::new(), &[], &screen, cycles, false).is_ok();
     for _ in 0..2 {
@@ -208,7 +207,7 @@ fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, trai
 /// closing) with ANY input cell pulsed (2 gt) on both at once, from (rest, open) to (open, rest):
 /// a train not tied to the plan's own steps. Returns the cells pulsed, in order (or the pairs
 /// searched and the best distance reached: cells off the two targets).
-fn search_pairs(sim: &Sim, w0: &World, wopen: &World, cells: &[Pos], cap: usize, weight: usize) -> (Option<Vec<Pos>>, usize, usize) {
+fn search_pairs(sim: &Sim, w0: &World, wopen: &World, moves: &[Step], cap: usize, weight: usize) -> (Option<Vec<Step>>, usize, usize) {
     use std::collections::{BinaryHeap, HashSet};
     use std::hash::{Hash, Hasher};
     let target_open = sim.sparse(wopen);
@@ -229,19 +228,20 @@ fn search_pairs(sim: &Sim, w0: &World, wopen: &World, cells: &[Pos], cap: usize,
     };
     let mut seen: HashSet<u64> = HashSet::new();
     // (open-edge world, close-edge world, parent, cell pulsed, steps)
-    let mut nodes: Vec<(Sparse, Sparse, Option<usize>, Pos, usize)> = vec![(target_rest.clone(), target_open.clone(), None, [0, 0, 0], 0)];
+    let mut nodes: Vec<(Sparse, Sparse, Option<usize>, usize, usize)> = vec![(target_rest.clone(), target_open.clone(), None, 0, 0)];
     let h0 = diff(&target_rest, &target_open) * 2;
     let mut heap = BinaryHeap::new();
     heap.push((std::cmp::Reverse(h0 * weight), 0usize));
     seen.insert(key(&target_rest, &target_open));
     let mut best = h0;
+    let mut best_id = 0usize;
     while let Some((_, id)) = heap.pop() {
         let (a, b, _, _, g) = nodes[id].clone();
         if a == target_open && b == target_rest {
             let mut out = Vec::new();
             let mut c = id;
             while let Some(p) = nodes[c].2 {
-                out.push(nodes[c].3);
+                out.push(moves[nodes[c].3].clone());
                 c = p;
             }
             out.reverse();
@@ -251,19 +251,41 @@ fn search_pairs(sim: &Sim, w0: &World, wopen: &World, cells: &[Pos], cap: usize,
             break;
         }
         let (wa, wb) = (sim.rebuild(&a), sim.rebuild(&b));
-        for &c in cells {
-            let st = Step { evs: vec![(0, c, Some("minecraft:redstone_block".into())), (2, c, None)] };
-            let (Ok(a2), Ok(b2)) = (sim.apply(&wa, &st), sim.apply(&wb, &st)) else { continue };
+        for (mi, st) in moves.iter().enumerate() {
+            let (Ok(a2), Ok(b2)) = (sim.apply(&wa, st), sim.apply(&wb, st)) else { continue };
             let (sa, sb) = (sim.sparse(&a2), sim.sparse(&b2));
             let k = key(&sa, &sb);
             if !seen.insert(k) {
                 continue;
             }
             let h2 = diff(&sa, &target_open) + diff(&sb, &target_rest);
+            if h2 < best {
+                best_id = nodes.len();
+            }
             best = best.min(h2);
-            nodes.push((sa, sb, Some(id), c, g + 1));
+            nodes.push((sa, sb, Some(id), mi, g + 1));
             heap.push((std::cmp::Reverse(g + 1 + h2 * weight), nodes.len() - 1));
         }
+    }
+    if std::env::var("INTERLEAVE_DEBUG").is_ok() && best_id < nodes.len() {
+        let show = |a: &Sparse, b: &Sparse, what: &str| {
+            let ma: HashMap<u32, Block> = a.iter().copied().collect();
+            let mb: HashMap<u32, Block> = b.iter().copied().collect();
+            let size = [sim.hi[0] - sim.lo[0] + 1, sim.hi[1] - sim.lo[1] + 1, sim.hi[2] - sim.lo[2] + 1];
+            let mut keys: Vec<u32> = ma.keys().chain(mb.keys()).copied().collect();
+            keys.sort();
+            keys.dedup();
+            for i in keys {
+                let (x, y) = (ma.get(&i), mb.get(&i));
+                if x != y {
+                    let ii = i as i32;
+                    let p = [sim.lo[0] + ii % size[0], sim.lo[1] + ii / (size[0] * size[2]), sim.lo[2] + (ii / size[0]) % size[2]];
+                    eprintln!("  {what} {p:?}: {:?} (want {:?})", x, y);
+                }
+            }
+        };
+        show(&nodes[best_id].0, &target_open, "opening world");
+        show(&nodes[best_id].1, &target_rest, "closing world");
     }
     (None, nodes.len(), best)
 }
@@ -283,6 +305,8 @@ pub struct Options {
     pub weight: usize,
     /// Print nothing but the summary (batch mode).
     pub quiet: bool,
+    /// `--search` also offers the plan's own tick groups as moves.
+    pub groups: bool,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -333,11 +357,11 @@ fn write_plan(out: &Path, header: &str, text: &str, phase: crate::ideal::PlanPha
 /// A train found by `--search`: judge it timed (one 2 gt pulse every `spacing` ticks, the same on
 /// both edges), compact it on both edges together, print each input's ticks, write it (to `out`).
 /// Returns a one-line summary.
-fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, train: &[Pos], n: usize, o: &Options, out: Option<&Path>) -> Result<String> {
-    let shown: Vec<String> = train.iter().map(|c| format!("{},{},{}", c[0], c[1], c[2])).collect();
-    say!(o, "TRAIN of {} single pulses for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
+fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, train: &[Step], n: usize, o: &Options, out: Option<&Path>) -> Result<String> {
+    let shown: Vec<String> = train.iter().map(|st| st.label()).collect();
+    say!(o, "TRAIN of {} steps for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
     let offsets = crate::ideal::offsets(o.extra_offsets);
-    for spacing in [4u32, 6, 8, 10, 12] {
+    for spacing in [4u32, 6, 8, 10, 12, 16, 20, 30] {
         let mut times: Vec<u32> = (0..train.len() as u32).map(|k| k * spacing).collect();
         let (plan, _) = train_plan(d, phase, train, &times);
         if let Err(e) = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
@@ -347,28 +371,29 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
         say!(o, "WORKS timed every {spacing} gt ({} positions x {} cycles)", offsets.len(), o.cycles);
         compact_train(d, phase, train, &mut times, o.cycles);
         let (plan, mut all) = train_plan(d, phase, train, &times);
-        let shown: Vec<String> = train.iter().zip(&times).map(|(c, t)| format!("t{t}:{},{},{}", c[0], c[1], c[2])).collect();
+        let shown: Vec<String> = train.iter().zip(&times).map(|(st, t)| format!("t{t}:{}", st.label())).collect();
         say!(o, "compacted (both edges together): {}", shown.join(" "));
         let distinct = all.iter().filter(|e| e.0 && e.3.is_some()).count();
         let summary = match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
             Ok((a, b)) => {
                 let last = times.iter().max().unwrap_or(&0);
-                say!(o, "WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last pulse t{last}", offsets.len(), o.cycles);
+                say!(o, "WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last step t{last}", offsets.len(), o.cycles);
                 format!("ONE TRAIN: {distinct} pulses, last t{last}, open {a} / close {b} ({} positions)", offsets.len())
             }
             Err(e) => {
                 say!(o, "compacted train fails at the full positions ({e}); keeping every {spacing} gt");
                 times = (0..train.len() as u32).map(|k| k * spacing).collect();
                 all = train_plan(d, phase, train, &times).1;
-                format!("ONE TRAIN: {} pulses every {spacing} gt (compaction failed)", train.len())
+                format!("ONE TRAIN: {} steps every {spacing} gt (compaction failed)", train.len())
             }
         };
         let mut per_cell: BTreeMap<Pos, Vec<u32>> = BTreeMap::new();
-        for (c, t) in train.iter().zip(&times) {
-            per_cell.entry(*c).or_default().push(*t);
+        for e in all.iter().filter(|e| e.0 && e.3.is_some()) {
+            per_cell.entry(e.2).or_default().push(e.1);
         }
-        for (c, ts) in &per_cell {
-            say!(o, "  input {c:?}: pulses at {ts:?} on both edges");
+        for (c, ts) in per_cell.iter_mut() {
+            ts.sort();
+            say!(o, "  input {c:?}: on at {ts:?} on both edges");
         }
         if let Some(out) = out {
             let header = format!("door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len());
@@ -415,7 +440,17 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         let mut cells: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.is_some()).map(|e| e.1).collect();
         cells.sort();
         cells.dedup();
-        let (found, n, best) = search_pairs(&sim, &w0, &wopen, &cells, cap, o.weight);
+        // moves: a 2 gt pulse on any input cell, plus (`--groups`) every tick group of the plan
+        // itself (several inputs with their own relative timing)
+        let mut moves: Vec<Step> = cells.iter().map(|&c| Step { evs: vec![(0, c, Some("minecraft:redstone_block".into())), (2, c, None)] }).collect();
+        if o.groups {
+            for st in steps(&open_ev, false).into_iter().chain(steps(&close_ev, false)) {
+                if !moves.contains(&st) {
+                    moves.push(st);
+                }
+            }
+        }
+        let (found, n, best) = search_pairs(&sim, &w0, &wopen, &moves, cap, o.weight);
         return match found {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
             Some(train) => timed_train(&d, s.phase, &text, path, &train, n, o, out),

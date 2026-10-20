@@ -26,7 +26,15 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   L (-2,-2) t0 t10; BL-down (0,-3) t2; P (1,-1,1) t0 t3 t5; Q (0,-1,1) t13 t24 t32; BM-down (1,-3)
   t14 t21 t31.
 * Open problem for a real door: P and BM-down are still boxed in (c77's obstruction); the train
-  only removes the lever-state logic and fixes every tap's ticks.
+  only removes the lever-state logic and fixes every tap's ticks. pockets3 (feed report on the
+  train): no free cell for P, Q, BM-down; every other input has one; pockets k=4 stalls at 11 of 12.
+* Batch over c70b's 53 smaller/ plans (`door interleave <plans...> --search 200000`, then 1M pairs
+  at weights 1 and 3, and `--groups` = the plan's own tick groups as extra moves): only w1-k2 has a
+  train. mm-w1 mm04 exhausts its whole pair space (417k) 2 cells off: PROVEN no single-pulse train.
+  6x7-u1 mm01..05, 6x7-inside mm02/03 plateau at 2 cells (one block in the wrong place on one
+  edge, `INTERLEAVE_DEBUG=1` prints it); 6x7-in2 at 4; m69T mm02 has a step-by-step train but no
+  timing (its lever-held right side is level-driven, which the search's pulse moves mimic by
+  pulsing a redstone block cell away).
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,

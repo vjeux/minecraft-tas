@@ -92,13 +92,17 @@ pub struct InterleaveArgs {
     /// Weight of the heuristic in --search (f = steps + weight * cells off the targets).
     #[arg(long, default_value_t = 2)]
     weight: usize,
+    /// --search also offers the plan's own tick groups (several inputs with their relative
+    /// timing) as moves.
+    #[arg(long)]
+    groups: bool,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups } = args;
     crate::ideal::cli_phase(between_ticks);
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups };
     if quiet {
         return crate::interleave::batch(&schedule, &o, out_dir.as_deref(), threads);
     }
