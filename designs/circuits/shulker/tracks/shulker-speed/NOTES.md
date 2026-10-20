@@ -128,6 +128,22 @@ Full layout (box cell X at (0,1,0)):
 - Supply 10/s: exactly TWO item chests, each over a hopper minecart, each cart over two hoppers (a cart at a cell edge, x=0.01 or 0.99, straddles two cells, and both hoppers below pull from it: 5/s per chest). Chest A at (0,4,1) over a cart at (0,3,1) feeding (0,2,1) and (-1,2,1) -> (-1,1,1). Chest B at (-3,4,0) over a cart at (-3,3,0) straddling z, feeding two hopper lines at y=0 east into Y1's west and north faces.
 - Two chests, not three, so the drain is balanced: with three chests the judge puts 27 stacks in each, the cart chest empties first and the rate falls back to 7.5/s. With two the judge tops them up from the remaining budget and both run dry together.
 
+## dropper75, ground truth from its trace (2026-10-20)
+
+Read the real blocks out of designs/circuits/shulker/traces/shulker-speed-loader-dropper75.trace (line 2 is every cell with coordinates). ALWAYS read a design that way rather than parsing the layer grid: `to_text()` reassigns palette letters on every write, so letters do not match the caption.
+- Supply chains: chest a (0,3,1) -> (0,2,1) hopper west; chest b (1,3,1) -> (1,2,1) hopper west -> (0,2,1), so a and b MERGE; then (-1,2,1) down -> (-1,1,1) down -> (-1,0,1) north -> (-1,0,0) east -> Y1. Chest c (0,3,2) -> (0,2,2) down -> (0,1,2) north -> (0,1,1) north -> box, and (0,0,1) north pulls from (0,1,1) into Y1.
+- Measured: all three chests drain at the same rate (61 -> 39 items in 180 gt each, about 2.45/s), so the merge does not throttle them: a hopper moves one item in and one out per 8 gt, and (0,2,1) pulls from chest a while also receiving b's push. Total 7.4/s = 3 chests.
+- Free faces of the box (0,1,0): north (0,1,-1) read stone, south (0,1,1) feed hopper, west (-1,1,0) pushed stone, east (1,1,0) drop cell, up (0,2,0) dispenser, down (0,0,0) Y1. The box is full.
+
+## 10/s loader: where the build stopped (2026-10-20)
+
+Plan unchanged: Y2 dropper at (0,1,1) facing north (replacing the feed hopper), Y1 at (0,0,0) unchanged.
+- Fire both with ONE pair of observers: a powered conductor under Y2 at (0,0,1) is adjacent to both Y1 and Y2, so an observer at (0,-1,1) facing down (watching the clock repeater (0,-2,1)) fires both. (0,0,1) must become stone, and nothing may pull out of Y2.
+- Second phase: an observer at (1,0,1) facing east or (-1,0,1) facing west, also outputting into (0,0,1), watching a delay-2 copy of the clock led to that cell at y=0.
+- Y2's feeds (needs 5/s): (0,2,1) hopper down and (-1,1,1) hopper east. Y1's feeds (needs 5/s): (-1,0,0) east and (0,0,-1) south, so the floor stone at (0,0,-1) becomes a hopper (a comparator may sit on a hopper).
+- Supply must be TWO item chests, each over a hopper minecart at a cell edge with two hoppers below it (5/s per chest): three chests give 7.5/s and, worse, the judge fills three chests with the whole 81-stack budget so nothing is ever topped up. With two chests, 54 stacks go in and 27 stay in the cursor, so the judge refills them as they drain.
+- Where it stopped: the dust columns carrying the two clock phases from y=-2 up to the Y2 observers need their own stone pillars, and my first attempts put dust on cells that already hold the clock. Build the second phase at y=0 (one level up only), not at y=1.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
