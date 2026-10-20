@@ -123,25 +123,10 @@ pub enum Outcome {
 /// path too); an error names what is missing.
 fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
     for e in &c.design.entities {
-        let item = e.kind.trim_start_matches("minecraft:") == "item";
-        if let Some(n) = &e.nbt
-            && !item
-            && parse_motion(n).is_none()
-        {
-            // test scenes: `{Motion:[x d, y d, z d]}` only (container contents... are not modeled)
-            return Err(format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind));
-        }
+        // spawn names any data it does not model (Motion, Rotation; items' and containers' own)
         redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref())?;
     }
     Ok(())
-}
-
-/// `{Motion:[0.5d,0.0d,-0.25d]}` -> the three doubles.
-fn parse_motion(s: &str) -> Option<[f64; 3]> {
-    let inner = s.trim().strip_prefix('{')?.strip_suffix('}')?.trim();
-    let list = inner.strip_prefix("Motion:")?.trim().strip_prefix('[')?.strip_suffix(']')?;
-    let v: Vec<f64> = list.split(',').map(|t| t.trim().trim_end_matches(['d', 'D']).parse::<f64>()).collect::<Result<_, _>>().ok()?;
-    if v.len() == 3 { Some([v[0], v[1], v[2]]) } else { None }
 }
 
 /// The live entities of redsim's world, in tick order.
@@ -155,7 +140,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
             id: e.id as u64,
             kind: match &e.kind {
                 EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
-                EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
+                EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
                 EntityKind::Item(_) => "minecraft:item".to_string(),
                 EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
             },

@@ -49,6 +49,22 @@ each build's page.
   100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors); badges at the top: what runs
   (redsim, a recording, or shown as built) on the left, the tick counter in gt and seconds on the
   right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
+* Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
+  stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
+  input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
+  ...`), `data-input-mode` = `pulse` | `toggle` (default from the kind: edges, limiters,
+  extenders, T flip-flops, delays, RS latches and counters pulse; gates, D latches and piston
+  extenders toggle). Inputs are driven like `Circuit::actions` (the cell written with updates,
+  default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
+  44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
+  on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
+  the input's cell does the same. Lime tags name the inputs over their cells, orange tags the
+  outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
+  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
+  (the left badge shows `demo · <phase>`), looped until the person's first input (any button,
+  tap, play/pause/step/reset); then the inputs are theirs.
+* Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
+  above each one, item icons with counts, live every tick; a bar button (grid icon) hides them.
 
 ## How it works
 
@@ -73,8 +89,17 @@ each build's page.
   and wasm.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
-  sculk, hoppers, doors, trapdoors, rails, ...) and 16x16 textures drawn procedurally (no game asset
-  is shipped: the site is public). Unknown blocks get a tinted cube.
+  sculk, hoppers, doors, trapdoors, rails, ...). The tiles are the game's own textures, fetched
+  at run time by the browser from misode/mcmeta's block atlas of the judge's version
+  (`raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png` + `data.min.json`, the
+  mirror block viewers use; kept in the Cache API; `atlas::vanilla` maps each tile to its
+  texture, tinting the gray grass, leaves and water): nothing Mojang-owned is in the repository
+  or the site. Thumbnails wait up to 4 s for them; without them (offline, blocked, or
+  `data-mcview-textures="none"` on the page's root element, which can also point to another
+  directory holding `atlas.png` + `data.min.json`) the hand-drawn tiles of `atlas::art` (colors
+  measured from the game, shapes after its layout) and procedural ones are used. Native tools
+  (`shot`, `compare`, `strip`) download the same atlas once into `~/.cache/mctas` (`--procedural`:
+  the hand-drawn tiles).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
@@ -96,6 +121,7 @@ each build's page.
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
+| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900]` | a screenshot after some seconds of real time (playing viewers and demos advance) |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
