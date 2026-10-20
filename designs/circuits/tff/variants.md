@@ -12,7 +12,6 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [tff-snowdisp-dust](archive/tff-snowdisp-dust.txt) | 7 | dispenser, redstone_wire |
 | [tff-snowdisp](archive/tff-snowdisp.txt) | 6 | dispenser, dropper |
 | [tff-dropring](archive/tff-dropring.txt) | 8 | dropper, hopper, redstone_wire |
-| [tff-piston-slime](archive/tff-piston-slime.txt) | 5 | piston, redstone_block, slime_block, sticky_piston |
 | [tff-observer-pistonline](archive/tff-observer-pistonline.txt) | 5 | observer, piston, redstone_block, sticky_piston |
 
 **[tff-crafter7](archive/tff-crafter7.txt)** (tff, comparator+crafter+hopper; 7 blocks: comparator, crafter, dropper, hopper, stone):

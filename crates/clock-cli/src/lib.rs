@@ -626,6 +626,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                         println!("HIDE {f}: {why}");
                     }
                     Ok(clock::gaps::Retap::Skip(why)) => println!("SKIP {f}: {why}"),
+                    Ok(clock::gaps::Retap::Reload(v)) => {
+                        if v != "ok" {
+                            println!("RELOAD {f}: {v}");
+                        }
+                    }
                     Err(e) => println!("ERROR {f}: {e:#}"),
                 }
             }

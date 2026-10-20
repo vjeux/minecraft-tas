@@ -165,6 +165,10 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
     let circuits: Vec<&Build> = site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_none())).collect();
     for x in &circuits {
         let cx = x.circuit.as_ref().unwrap();
+        // (a design already folded under another is off the lists)
+        if cx.host.is_some() {
+            continue;
+        }
         let mut best: Option<Dominated> = None;
         for y in &circuits {
             let cy = y.circuit.as_ref().unwrap();

@@ -66,17 +66,12 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 100 | 39 | [counter100-items](archive/counter100-items.txt) | N 100, output toggles every 100 pulses |
 | 576 | 39 | [counter576-items](archive/counter576-items.txt) | N 576, output toggles every 576 pulses |
 
-## counter 3
-
-| design | kind | metrics | blocks | box | robustness | how it works |
-|---|---|---|---|---|---|---|
-| [counter3-ring3-bulb1-div](archive/counter3-ring3-bulb1-div.txt) | counter 3 | N 3, output toggles every 3 pulses | 11 | 5x3x2 | robust | Counter 3 as a divider, dropper ring + 1 copper bulb, 11 blocks (track memory, `mctas circuit memory ring --n 3 --bulbs 1 --divider`): the input cell fires 3 droppers (3 next to it), and 3 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 3, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (the last comparator changes state once every 3 pulses: toggles style). |
-
 ## d-latch
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
 | [d-latch-repeater](archive/d-latch-repeater.txt) | d-latch | latency 4 gt, enable low | 4 | 1x2x2 | robust | Repeater-lock D latch, 4 blocks (track memory census): the data input feeds repeater M (on stone) whose output is q; the enable input feeds a second repeater L pointing into M's side. While L is on M is locked and holds q; while it is off M follows d. Transparent while e is OFF (`enable low`), latency 4 gt. |
+| [d-latch-r7](archive/d-latch-r7.txt) | d-latch | latency 6 gt, enable high | 8 | 2x2x3 | robust | D latch, enable high, with real signal inputs: repeater M carries d to q; subtract comparator C points into M's side with a redstone block at its back, so C gives 15 - e and M is locked while e is off, following d while e is on. The enable arrives on the design's OWN repeater E in the input cell, because a comparator's side never reads a powered plain block: the judge's stone there reads 0. |
 
 ## rs-latch
 

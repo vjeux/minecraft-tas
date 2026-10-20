@@ -780,7 +780,8 @@ impl Circuit {
     /// away, and no builder's wire can follow an output that leaves its cell. Kinds whose machines
     /// move as a whole (flying machines, extenders, TNT) are not output-cell kinds and are skipped.
     pub fn output_entered(&self, t: &trace::Trace) -> Option<String> {
-        if !self.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        let driven = self.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. }));
+        if !driven && self.kind != Some(Kind::Bud) {
             return None;
         }
         let id = |s: &str| s.split(['[', '{']).next().unwrap_or(s).to_string();

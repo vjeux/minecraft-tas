@@ -20,7 +20,7 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload";
 
 /// The verdict table's header line.
 pub fn header() -> &'static str {
@@ -75,10 +75,14 @@ pub struct Row {
     pub summary: String,
     /// The ticks between the output's rising edges over one period (`[6, 6]`; empty: not measured).
     pub gaps: String,
-    /// Why the clock is kept off the catalog and the site (empty: shown): it does not work in a
-    /// normal survival world, indefinitely (coordinator's rulings, 2026-10-20), e.g. `no output`,
-    /// `command-only`, `daytime only`, `tripwire`, `rotation-dependent`.
+    /// Why the clock is kept off the catalog and the site (empty: shown): a judge failure in
+    /// normal running (2026-10-20), `no output` (no exterior cell that pulses evenly) or
+    /// `command-only` (entity data a player cannot make).
     pub hidden: String,
+    /// What a chunk reload mid-run does (`clock verify --reload`; a property the page states,
+    /// never a reason to hide): `ok`, `glitch then resumes`, `stops`, `changes period ...`, with
+    /// `in N of M builds` when only some builds do it; empty: not checked.
+    pub reload: String,
 }
 
 impl Row {
@@ -117,6 +121,7 @@ impl Row {
             self.summary.clone(),
             self.gaps.clone(),
             self.hidden.clone(),
+            self.reload.clone(),
         ]
         .join("\t")
     }
@@ -145,6 +150,7 @@ impl Row {
             summary: f[15].into(),
             gaps: f.get(16).copied().unwrap_or("").into(),
             hidden: f.get(17).copied().unwrap_or("").into(),
+            reload: f.get(18).copied().unwrap_or("").into(),
         })
     }
 }
@@ -610,6 +616,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         summary: summary.clone(),
         gaps,
         hidden: String::new(),
+        reload: String::new(),
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);
