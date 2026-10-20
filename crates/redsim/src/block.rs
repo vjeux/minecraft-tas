@@ -363,14 +363,23 @@ pub enum RailShape {
     AscendingWest,
     AscendingNorth,
     AscendingSouth,
+    // ---- entity-reacting blocks (clk-misc): the plain rail's curves ----
+    SouthEast,
+    SouthWest,
+    NorthWest,
+    NorthEast,
 }
-const RAIL_SHAPES: [(RailShape, &str); 6] = [
+const RAIL_SHAPES: [(RailShape, &str); 10] = [
     (RailShape::NorthSouth, "north_south"),
     (RailShape::EastWest, "east_west"),
     (RailShape::AscendingEast, "ascending_east"),
     (RailShape::AscendingWest, "ascending_west"),
     (RailShape::AscendingNorth, "ascending_north"),
     (RailShape::AscendingSouth, "ascending_south"),
+    (RailShape::SouthEast, "south_east"),
+    (RailShape::SouthWest, "south_west"),
+    (RailShape::NorthWest, "north_west"),
+    (RailShape::NorthEast, "north_east"),
 ];
 impl RailShape {
     pub fn name(self) -> &'static str {
@@ -381,6 +390,10 @@ impl RailShape {
     }
     pub fn is_ascending(self) -> bool {
         matches!(self, RailShape::AscendingEast | RailShape::AscendingWest | RailShape::AscendingNorth | RailShape::AscendingSouth)
+    }
+    /// A curve (plain rails only).
+    pub fn is_curve(self) -> bool {
+        matches!(self, RailShape::SouthEast | RailShape::SouthWest | RailShape::NorthWest | RailShape::NorthEast)
     }
 }
 
@@ -464,6 +477,10 @@ pub enum Block {
     Lantern { hanging: bool },
     /// Stone slab: 0 bottom, 1 top, 2 double (the shapes of `Slab`).
     StoneSlab { kind: u8 },
+    /// Plain rail (`RailBlock`: curves too), `react::rails`.
+    PlainRail { shape: RailShape },
+    /// Detector rail (`DetectorRailBlock`: straight shapes), `react::rails`.
+    DetectorRail { shape: RailShape, powered: bool },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -530,6 +547,8 @@ pub enum Kind {
     WallBanner,
     Lantern,
     StoneSlab,
+    PlainRail,
+    DetectorRail,
     Water,
     BubbleColumn,
 }
@@ -586,6 +605,8 @@ impl Block {
             Block::WallBanner { .. } => Kind::WallBanner,
             Block::Lantern { .. } => Kind::Lantern,
             Block::StoneSlab { .. } => Kind::StoneSlab,
+            Block::PlainRail { .. } => Kind::PlainRail,
+            Block::DetectorRail { .. } => Kind::DetectorRail,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
@@ -753,7 +774,7 @@ impl Block {
                     activator: name == "activator_rail",
                     shape: match get("shape") {
                         None => RailShape::NorthSouth,
-                        Some(v) => RailShape::parse(v).ok_or_else(|| format!("bad shape={v}"))?,
+                        Some(v) => RailShape::parse(v).filter(|s| !s.is_curve()).ok_or_else(|| format!("bad shape={v}"))?,
                     },
                     powered: bool_of("powered", false)?,
                 }
@@ -877,6 +898,26 @@ impl Block {
             }
             "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
             "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
+            // ---- entity-reacting blocks (clk-misc): rails ----
+            "rail" => {
+                waterlogged_ok()?;
+                Block::PlainRail {
+                    shape: match get("shape") {
+                        None => RailShape::NorthSouth,
+                        Some(v) => RailShape::parse(v).ok_or_else(|| format!("bad shape={v}"))?,
+                    },
+                }
+            }
+            "detector_rail" => {
+                waterlogged_ok()?;
+                Block::DetectorRail {
+                    shape: match get("shape") {
+                        None => RailShape::NorthSouth,
+                        Some(v) => RailShape::parse(v).filter(|s| !s.is_curve()).ok_or_else(|| format!("bad shape={v}"))?,
+                    },
+                    powered: bool_of("powered", false)?,
+                }
+            }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -1008,6 +1049,8 @@ impl fmt::Display for Block {
             Block::WallBanner { facing } => write!(f, "minecraft:white_wall_banner[facing={}]", facing.name()),
             Block::Lantern { hanging } => write!(f, "minecraft:lantern[hanging={},waterlogged=false]", b(hanging)),
             Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
+            Block::PlainRail { shape } => write!(f, "minecraft:rail[shape={},waterlogged=false]", shape.name()),
+            Block::DetectorRail { shape, powered } => write!(f, "minecraft:detector_rail[powered={},shape={},waterlogged=false]", b(powered), shape.name()),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }

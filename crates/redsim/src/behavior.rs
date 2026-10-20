@@ -33,6 +33,7 @@ pub fn collides(s: &Block) -> bool {
         Block::FenceGate { open, .. } => !open,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => false,
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
         Block::Water { .. } | Block::BubbleColumn { .. } => false,
         _ => true,
     }
@@ -86,6 +87,7 @@ pub fn is_solid(s: &Block) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         // no collision and not forced solid (plates, wall banners and lanterns are forceSolidOn)
         Block::Tripwire { .. } | Block::TripwireHook { .. } => false,
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
         _ => true,
     }
 }
@@ -192,7 +194,7 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Target { .. }
         | Block::Sculk { .. } => true,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { .. } | Block::TripwireHook { .. } => true,
+        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } => true,
         _ => false,
     }
 }
@@ -215,6 +217,7 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::signal(s),
         Block::TripwireHook { .. } => crate::react::hook::signal(s),
+        Block::DetectorRail { .. } => crate::rails::detector::signal(s),
         _ => 0,
     }
 }
@@ -231,6 +234,7 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::direct_signal(s, d),
         Block::TripwireHook { .. } => crate::react::hook::direct_signal(s, d),
+        Block::DetectorRail { .. } => crate::rails::detector::direct_signal(s, d),
         _ => 0,
     }
 }
@@ -257,7 +261,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::Composter { .. }
             | Block::RespawnAnchor { .. }
             | Block::Sculk { .. }
-    )
+    ) || matches!(s, Block::DetectorRail { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -455,6 +459,7 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => vec![],
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => vec![],
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => vec![],
         // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
         Block::Lantern { hanging } => {
             let h = hanging as i32;
@@ -485,6 +490,7 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
         Block::WallBanner { facing } => is_solid(&w.get(p.rel(facing.opposite()))),
         // canSupportCenter of the block above (hanging) or below
         Block::Lantern { hanging } => {
@@ -508,6 +514,8 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Note { .. } => note::neighbor_changed(w, s, p),
         Block::Trapdoor { .. } | Block::Door { .. } | Block::FenceGate { .. } | Block::Skull { .. } | Block::WallSkull { .. } => indicator::neighbor_changed(w, s, p, src),
         Block::Rail { .. } => rail::neighbor_changed(w, s, p, moved),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::neighbor_changed(w, s, p, src, moved),
         Block::Dispenser { .. } | Block::Crafter { .. } => dispenser::neighbor_changed(w, s, p),
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
@@ -595,6 +603,7 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Tripwire { .. } => crate::react::tripwire::on_place(w, s, p, old),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::on_place(w, s, p, old, moved),
         Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
@@ -616,6 +625,7 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Plate { .. } => crate::react::plate::affect_neighbors_after_removal(w, s, p, moved),
         Block::Tripwire { .. } => crate::react::tripwire::affect_neighbors_after_removal(w, s, p, moved),
         Block::TripwireHook { .. } => crate::react::hook::affect_neighbors_after_removal(w, s, p, moved),
+        Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }
 }
@@ -651,6 +661,7 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Plate { .. } => crate::react::plate::tick(w, s, p),
         Block::Tripwire { .. } => crate::react::tripwire::tick(w, p),
         Block::TripwireHook { .. } => crate::react::hook::tick(w, s, p),
+        Block::DetectorRail { .. } => crate::rails::detector::tick(w, s, p),
         Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
         Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
         _ => {}
