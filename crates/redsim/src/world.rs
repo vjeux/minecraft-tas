@@ -584,8 +584,7 @@ impl World {
             }
         }
         self.handling_tick = false;
-        crate::gravity::tick_entities(self);
-        crate::entity::tick_all(self);
+        crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);
