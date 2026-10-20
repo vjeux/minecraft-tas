@@ -25,8 +25,11 @@ What still works at 0 gt: a dust whose power CHANGES sends the updates. Two ways
   other input through one dust) and the input that bends it is a 15 source, so bending it also
   raises its power: NOT, NOR, NIMPLY, IMPLY in 4 blocks, NAND in 8 (two bump NOTs into one cell).
 A single dust cannot make XOR update-correct (the 10 -> 11 and 01 -> 11 transitions would both
-need a power change, but max(p_a, p_b) equals one of them), and no dust shape can make AND or XNOR
-(adding connections only removes pointing into free cells).
+need a power change, but max(p_a, p_b) equals one of them), but a RING of dusts can
+(gate-xor-ring-14b): its two ends point into the output cell, each input sits beside the end the
+other input does not touch, and power flows around the whole ring whatever the shapes, so either
+input lights the far end while bending the near one, with a power bump (15 against the ring's 9).
+No dust shape can make AND (adding connections only removes pointing into free cells).
 
 ## Results (archived, robust)
 
@@ -39,8 +42,8 @@ need a power change, but max(p_a, p_b) equals one of them), and no dust shape ca
 | IMPLY / IMPLY-BA | 3 (dust + torch, input touching the output; 2 gt, 2 glitches) | 0 gt: gate-imply(-ba)-bump-4b | |
 | NAND | 6 (two torch NOTs into one cell, 2 gt) | 0 gt: gate-nand-bump-8b | |
 | AND | 5 (two subtract comparators: a - (15 - b), 4 gt) | 4 gt | |
-| XOR | not found (none up to 5 blocks in 3x2x3 with every component; up to 6 without comparators or torches) | | the one-dust XOR is update-less |
-| XNOR | not found (none up to 6 blocks) | | |
+| XOR | 14 (gate-xor-ring-14b, 0 gt) | 0 gt | none up to 5 blocks in 3x2x3 with every component; up to 6 without comparators or torches; the one-dust XOR is update-less |
+| XNOR | 16 (gate-xnor-ring-16b: the ring into a stone with a torch, 2 gt) | 2 gt | none up to 6 blocks |
 
 ## Tools
 
@@ -54,7 +57,7 @@ need a power change, but max(p_a, p_b) equals one of them), and no dust shape ca
 
 ## Next
 
-* XOR and XNOR: by hand, the comparator versions need a dust link per input (each input feeds one
-  comparator's back and the other's side, which never share a cell when both fronts meet): about 8
-  blocks for XOR (2 gt) and 10 for XNOR (4 gt: 15 - max(a - b, b - a) on a third comparator).
-  A census needs a bigger box or k = 7-8 with a narrow palette.
+* Smaller XOR / XNOR: the ring's 7 dusts are the shortest path between the two ends that avoids
+  the cell touching both; comparator versions need a dust link per input (each input feeds one
+  comparator's back and the other's side, and the two fronts end up 3 cells apart), so about 8-10
+  blocks at 2 gt. The dust-only census at k = 8 in 3x2x4 takes over an hour per input placement.
