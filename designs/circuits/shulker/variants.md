@@ -14,5 +14,4 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
-| [shulker-ref-unloader-64](archive/shulker-ref-unloader-64.txt) | 47 | redstone_wire |
 | [shulker-small-unloader](archive/shulker-small-unloader.txt) | 41 | redstone_wire |
