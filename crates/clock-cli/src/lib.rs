@@ -11,6 +11,26 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum ClockCmd {
+    /// The ambient vibration property of sculk clocks (`clock::vibration`): each clock run on
+    /// redsim with and without footsteps, items and blocks placed or broken around it (seeded by the
+    /// build); `yes` when its output sequence after the warmup is the same. A property, never a
+    /// verdict. `--archive`: every archived clock holding a sensor; `--game N`: spot-check N of them
+    /// in the game too. Writes the table (`--out`, default designs/clocks/archive/vibration.tsv).
+    Vibration {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        archive: bool,
+        /// Also run this many of them (spread over the list) in the game.
+        #[arg(long, default_value_t = 0)]
+        game: usize,
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// JVM workers for `--game` (capped by MCTAS_MAX_WORKERS).
+        #[arg(long, default_value_t = 6)]
+        workers: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Exact period on redsim (milliseconds): place like the judge, kick, run until the whole
     /// state repeats; prints the period, warmup, waveform per changing cell and at the output,
     /// the family, blocks placed and the swept box. Blocks redsim does not model: UNMODELED.
@@ -362,7 +382,11 @@ pub enum ClockCmd {
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
+    if let ClockCmd::Vibration { designs, archive, game, threads, workers, out } = cmd {
+        return vibration_cmd(version, designs, archive, game, threads, workers, out);
+    }
     match cmd {
+        ClockCmd::Vibration { .. } => unreachable!("handled above"),
         ClockCmd::Sim { designs, horizon, margin, json, quiet, trace, irregular, exterior } => {
             if designs.is_empty() {
                 bail!("clock sim <design>...");
@@ -835,4 +859,44 @@ fn verify_json(r: &VerifyReport, sim: Option<&SimReport>) -> serde_json::Value {
         }).collect::<Vec<_>>(),
         "redsim": sim.map(|s| agreement(r, s)),
     })
+}
+
+/// `mctas clock vibration`: the ambient property table (`clock::vibration`).
+fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usize, threads: usize, workers: usize, out: Option<PathBuf>) -> Result<()> {
+    let dir = PathBuf::from("designs/clocks/archive");
+    let mut paths = designs;
+    if archive {
+        let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        paths.extend(v);
+    }
+    if paths.is_empty() {
+        bail!("clock vibration <design>... | --archive");
+    }
+    let t0 = std::time::Instant::now();
+    let mut rows = clock::vibration::sim_rows(&paths, threads);
+    eprintln!("redsim: {} sculk clocks in {:.0} s", rows.len(), t0.elapsed().as_secs_f64());
+    if game > 0 && !rows.is_empty() {
+        // spread over the list, the rows that have a redsim property first
+        let have: Vec<usize> = (0..rows.len()).filter(|&i| rows[i].sim.is_some()).collect();
+        let step = (have.len() / game).max(1);
+        let picks: Vec<usize> = have.iter().step_by(step).take(game).copied().collect();
+        let gdir = if archive { dir.clone() } else { paths[0].parent().map(|p| p.to_path_buf()).unwrap_or_default() };
+        clock::vibration::game_rows(&mut rows, &gdir, &picks, workers, version)?;
+    }
+    let proof = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| p.proof)).count();
+    let sensitive = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| !p.proof)).count();
+    let none = rows.len() - proof - sensitive;
+    let agree = rows.iter().filter(|r| r.game.is_some()).filter(|r| r.game.as_ref().map(|g| g.proof) == r.sim.as_ref().map(|s| s.proof)).count();
+    let checked = rows.iter().filter(|r| r.game.is_some()).count();
+    let mut text = String::from(clock::vibration::TSV_HEADER);
+    text.push('\n');
+    for r in &rows {
+        text.push_str(&r.line());
+        text.push('\n');
+    }
+    let out = out.unwrap_or_else(|| dir.join("vibration.tsv"));
+    std::fs::write(&out, text)?;
+    println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
+    Ok(())
 }

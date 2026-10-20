@@ -20,6 +20,8 @@ pub mod item;
 pub mod kinds;
 pub mod minecart;
 pub mod mth;
+pub mod piston_push;
+pub mod primed_tnt;
 pub mod vec3;
 
 use crate::block::Block;
@@ -44,6 +46,8 @@ pub enum EntityKind {
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
     ArmorStand(armor_stand::ArmorStandState),
+    /// Track tnt: a primed TNT (`primed_tnt.rs`), only with `World::tnt_kick`.
+    PrimedTnt(primed_tnt::PrimedTntState),
 }
 
 impl EntityKind {
@@ -54,6 +58,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
             EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+            EntityKind::PrimedTnt(_) => (primed_tnt::WIDTH, primed_tnt::HEIGHT),
         }
     }
 
@@ -64,6 +69,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
             EntityKind::Item(_) => 0.2125,
             EntityKind::ArmorStand(_) => 1.7775,
+            EntityKind::PrimedTnt(_) => primed_tnt::EYE_HEIGHT,
         }
     }
 }
@@ -126,6 +132,15 @@ pub struct Entity {
     pub network_id: i32,
     /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
     pub fluid: fluid_push::FluidInteraction,
+    // ---- piston pushing (piston_push.rs, clk-misc) ----
+    /// `pistonDeltas` (how far pistons moved it per axis this game tick, each within +-0.51)
+    /// and `pistonDeltasGameTime`.
+    pub piston_deltas: [f64; 3],
+    pub piston_deltas_time: i64,
+    // ---- explosions (explosion.rs, clk-misc) ----
+    /// `VehicleEntity.getDamage()` (boats, minecarts): +10 per point of damage, destroyed past
+    /// 40, -1 per tick.
+    pub vehicle_damage: f32,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -178,6 +193,9 @@ impl Entity {
             invulnerable_time: 0,
             network_id: id as i32,
             fluid: Default::default(),
+            piston_deltas: [0.0; 3],
+            piston_deltas_time: 0,
+            vehicle_damage: 0.0,
         }
     }
 
@@ -199,6 +217,9 @@ impl Entity {
 pub struct Entities {
     pub list: Vec<Entity>,
     pub next_id: u32,
+    /// `PistonMovingBlockEntity.NOCLIP`: the direction of the piston move under way (set only
+    /// inside `piston_push::move_entity_by_piston`, None between calls).
+    pub noclip: Option<crate::pos::Dir>,
 }
 
 /// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
@@ -388,7 +409,7 @@ fn spawn_falling_block(w: &mut World, pos: [f64; 3], nbt: Option<&str>) -> Resul
     }
     let id = w.entities.next_id;
     w.entities.next_id += 1;
-    w.gravity.entities.push(crate::gravity::FallingBlock { block, x: pos[0], y: pos[1], z: pos[2], vy, time, removed: false, id });
+    w.gravity.entities.push(crate::gravity::FallingBlock::new(block, pos[0], pos[1], pos[2], vy, time, id));
     Ok(id)
 }
 
@@ -430,6 +451,7 @@ pub fn tick_one(w: &mut World, i: usize) {
         EntityKind::Minecart(_) => minecart::tick(w, i),
         EntityKind::Item(_) => item::tick(w, i),
         EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
     }
 }
 

@@ -41,6 +41,13 @@ pub struct Trace {
     pub to: [i32; 3],
     /// Per tick: the cells that changed (all non-air cells at t = 0), and every entity.
     pub frames: Vec<(Vec<([i32; 3], String)>, Vec<TraceEntity>)>,
+    /// The sandbox seed and forced chunk box `[minX, minZ, maxX, maxZ]` (header `seed`,
+    /// `chunks`): with both, redsim mirrors the level random (`World::mirror_level_random`).
+    pub seed: Option<i64>,
+    pub chunks: Option<[i32; 4]>,
+    /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
+    /// with `random_state`), checked against the mirror every frame.
+    pub rng: Vec<Option<i64>>,
 }
 
 fn f3(v: &serde_json::Value) -> Option<[f64; 3]> {
@@ -66,6 +73,12 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         from: i3(&bx[0]).context("header: box")?,
         to: i3(&bx[1]).context("header: box")?,
         frames: Vec::new(),
+        seed: h["seed"].as_i64(),
+        chunks: h["chunks"].as_array().and_then(|a| {
+            let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        }),
+        rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
         let v: serde_json::Value = serde_json::from_str(line).with_context(|| format!("line {}", i + 2))?;
@@ -89,6 +102,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             });
         }
         t.frames.push((blocks, ents));
+        t.rng.push(v["rng"].as_i64());
     }
     Ok(t)
 }
@@ -151,6 +165,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
                         EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
                         EntityKind::Item(_) => "minecraft:item".to_string(),
                         EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                        EntityKind::PrimedTnt(_) => "minecraft:tnt".to_string(),
                     },
                     pos: [e.pos.x, e.pos.y, e.pos.z],
                     motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
@@ -168,10 +183,10 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
                 id: f.id as u64,
                 kind: "minecraft:falling_block".to_string(),
                 pos: [f.x, f.y, f.z],
-                motion: [0.0, f.vy, 0.0],
+                motion: [f.vx, f.vy, f.vz],
                 yaw: 0.0,
                 pitch: 0.0,
-                net_id: None,
+                net_id: Some(f.id as i32),
             },
         )
     }));
@@ -199,6 +214,13 @@ fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String
         if g.yaw.to_bits() != r.yaw.to_bits() || g.pitch.to_bits() != r.pitch.to_bits() {
             out.push(format!("{} {i} rotation: game ({}, {}), redsim ({}, {})", short(&g.kind), g.yaw, g.pitch, r.yaw, r.pitch));
         }
+        // the bridge numbers each sandbox's entities from 0 in the order they enter (the game's
+        // tick order; `(tickCount + id) % 4` paces an item at rest): redsim's ids must agree
+        if let (Some(a), Some(b)) = (g.net_id, r.net_id)
+            && a != b
+        {
+            out.push(format!("{} {i} network id: game {a}, redsim {b}", short(&g.kind)));
+        }
     }
 }
 
@@ -223,6 +245,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let (from, to) = (trace.from, trace.to);
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(bp(from), size);
+    // TNT entities (their kick replaced: each new one takes the game's state when first seen)
+    w.tnt_kick = Some(0.0);
+    // the level random, mirrored from the sandbox's seed and forced chunks (before placement:
+    // placement can draw, e.g. a powered door's sound), and the bridge's seeded drops (popResource
+    // items: `rng::Drop` from the same seed)
+    if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
+        w.mirror_level_random(seed, chunks);
+        w.drop_seed = Some(seed);
+    }
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
     match c.placement {
@@ -242,20 +273,16 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if let Err(e) = summon(&mut w, &c) {
         return Ok(Outcome::Unmodeled(e));
     }
-    // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
-    // first frame, in the summon order (falling blocks carry no network id here)
-    if let Some((_, ents)) = trace.frames.first() {
-        let mut k = 0;
-        for te in ents.iter().filter(|te| te.kind != "minecraft:falling_block") {
-            if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
-                e.network_id = n;
-            }
-            k += 1;
-        }
-    }
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
+    // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
+    // from level.random); the trace's TNT entities are compared as spawns (new ids per tick, by
+    // the cell they stand in) with redsim's primes of that tick, and left out of the entity check
+    let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut sim_tnt_seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    let mut primed_seen = 0usize;
+    let mut chain_seen = 0usize;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -275,6 +302,17 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
                 Action::Clear { pos } => {
                     w.set_block(bp(pos), Block::Air, flags::ALL);
+                }
+                Action::ShapeSet { pos, state } => {
+                    let b = Block::parse(&state).map_err(|e| anyhow::anyhow!(e))?;
+                    w.set_block(bp(pos), b, flags::CLIENTS);
+                }
+                Action::Update { pos } => {
+                    let src = w.get(bp(pos)).kind();
+                    w.update_neighbors_at(bp(pos), src);
+                }
+                Action::GameEvent { pos, event } => {
+                    w.game_event(event, bp(pos));
                 }
             }
         }
@@ -302,7 +340,40 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             }
         }
         let mut ed = Vec::new();
+        // (a TNT is first seen one tick after it spawned and may already have been pushed one
+        // cell by the machine: counts per tick must match, cells within 1)
+        let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
+        let new_game: Vec<&TraceEntity> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).collect();
+        let mut game_spawns: Vec<[i32; 3]> = new_game.iter().map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().chain(&w.chain_primed[chain_seen..]).map(|(_, p)| [p.x, p.y, p.z]).collect();
+        primed_seen = w.primed.len();
+        chain_seen = w.chain_primed.len();
+        game_spawns.sort();
+        sim_spawns.sort();
+        let near = |a: &[i32; 3], b: &[i32; 3]| (0..3).all(|i| (a[i] - b[i]).abs() <= 1);
+        if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
+            ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
+        }
+        // redsim's TNT entities (World::tnt_kick): without the level random the game's random kick
+        // is unknown, so each new TNT takes the game's state at its first sighting; from then on it
+        // is compared bit for bit (with the level random mirrored, the kick is the game's own:
+        // nothing is injected)
+        let new_sim: Vec<usize> = (0..w.entities.list.len()).filter(|&k| matches!(w.entities.list[k].kind, redsim::entity::EntityKind::PrimedTnt(_)) && !w.entities.list[k].removed && sim_tnt_seen.insert(w.entities.list[k].id)).collect();
+        if w.level_random.is_none() {
+            for (g, &k) in new_game.iter().zip(&new_sim) {
+                let e = &mut w.entities.list[k];
+                e.set_pos(redsim::entity::Vec3::new(g.pos[0], g.pos[1], g.pos[2]));
+                e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
+            }
+        }
         entity_diffs(ents, &entities_of(&w), &mut ed);
+        // the level random after this frame (exact traces with `rng`): a drift shows on the tick
+        // it starts, not later through behavior
+        if let (Some(game), Some(r)) = (trace.rng.get(t).copied().flatten(), w.level_random.as_ref()) {
+            if let Some(d) = redsim::rng::state_diff(game, r.state()) {
+                ed.push(d);
+            }
+        }
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {

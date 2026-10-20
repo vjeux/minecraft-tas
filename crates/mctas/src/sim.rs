@@ -26,6 +26,8 @@ pub enum PlaceMode {
     Raw,
     /// Like a player placing it: neighbor and shape updates, `onPlace` runs.
     Update,
+    /// Shape updates only (flags 2: no block update to the neighbors), like a crop growing.
+    Shape,
 }
 
 impl PlaceMode {
@@ -33,6 +35,7 @@ impl PlaceMode {
         match self {
             PlaceMode::Raw => "raw",
             PlaceMode::Update => "update",
+            PlaceMode::Shape => "shape",
         }
     }
 }
@@ -456,6 +459,14 @@ impl Worker {
         Ok(())
     }
 
+    /// The sandbox's level random state (`LegacyRandomSource.seed`, the 48-bit LCG state), read
+    /// without advancing it: redsim's level-random mirror is checked against it (trace-export's
+    /// "rng").
+    pub fn random_state(&mut self, sandbox: u32) -> Result<i64> {
+        let v = self.call(json!({"op": "random_state", "sandbox": sandbox}))?;
+        v["seed"].as_i64().context("random_state: no seed")
+    }
+
     /// Write blocks. Returns how many positions changed.
     pub fn set_blocks<S: AsRef<str>>(&mut self, sandbox: u32, blocks: &[(Pos, S)], mode: PlaceMode) -> Result<u32> {
         let list: Vec<Value> = blocks.iter().map(|(p, s)| json!([p[0], p[1], p[2], s.as_ref()])).collect();
@@ -664,6 +675,13 @@ impl Worker {
     /// source entity (sculk sensors in range hear it). Returns how many were emitted.
     pub fn game_event(&mut self, sandbox: u32, event: &str, positions: &[Pos]) -> Result<u32> {
         let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
+    }
+
+    /// [`Worker::game_event`] at each cell's CENTER when `center` (where `Level.gameEvent(.., BlockPos)`
+    /// posts a block's own events: a lever's `block_activate`), else at its bottom center.
+    pub fn game_event_at(&mut self, sandbox: u32, event: &str, positions: &[Pos], center: bool) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions, "at": if center { "center" } else { "feet" }}))?;
         Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
     }
 

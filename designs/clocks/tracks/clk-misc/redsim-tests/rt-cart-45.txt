@@ -1,0 +1,15 @@
+name: rt-cart-45
+# redsim test scene (not a clock): shulker-speed-unloader-rail's pair: two hopper minecarts standing
+# at the two ends of one east-west rail cell, turned 45 degrees: their boxes touch, but the
+# direction between them is 45 degrees off their facing (dot 0.71 < 0.8): no push; a third hopper
+# minecart thrown along -x then reaches them (facing along the rail: pushes).
+entity: minecraft:hopper_minecart 2.01 1.0625 0.5 {Rotation:[45f,0f]}
+entity: minecraft:hopper_minecart 2.99 1.0625 0.5 {Rotation:[45f,0f]}
+entity: minecraft:hopper_minecart 7.5 1.0625 0.5 {Motion:[-0.3d,0.0d,0.0d]}
+palette:
+  S minecraft:stone
+  r minecraft:rail[shape=east_west]
+layer 0:
+  SSSSSSSSSSS
+layer 1:
+  Srrrrrrrrrr

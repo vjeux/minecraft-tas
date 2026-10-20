@@ -18,8 +18,10 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site build --out site/` | exports `site/data/site.json`, one page per build (`doors/<stem>.html`, `clocks/<stem>.html`, `circuits/<study>/<stem>.html`) and per extendable family (`families/<card>.html`), the boards page, the design files (`designs/...`) with a Litematica schematic next to each (`<stem>.litematic`, [litematic.md](litematic.md); one that cannot be written fails the build), generates every family member with the family's own `extend generator` and checks it in redsim, builds the UI into `pkg/`, copies webrender's 3D viewer (`web/viewer/` of the checkout by default; `--viewer <dir>`, `--viewer-ref <git ref>`, `--no-viewer`) into `viewer/`; `--pkg-ref origin/gh-pages` reuses the deployed UI instead of building it, only when its `pkg/SOURCE` fingerprint matches the checkout's `web/site` + `crates/site-model` (else the build fails: rebuild with the wasm32 target and wasm-bindgen-cli 0.2.129) |
 | `mctas site serve --dir site/ [--port 8000]` | local preview (static server on 127.0.0.1) |
 | `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site. `mctas site publish` refuses to deploy without it (`--no-smoke` overrides) |
-| `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit and a family page must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black). It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
+| `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, five shulker machines (a loader, an unloader, the combo, the fastest loader and the fastest unloader) and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
+| `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
+| `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
@@ -54,10 +56,30 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   selftest designs (`designs/circuits/calibration/`, `selftest/`) are not published (vjeux: "not
   useful to people"; smoke checks it). Every
   circuit is also run through `circuit::verify::sim` at build time: the judge's own stimulus
-  becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`) and the page's
-  timing diagram (inputs and outputs per gt) with the checker's report; the page's plain-language
-  texts (what each kind does, how to try it, what each metric means, the studies' introductions,
-  the glossary) live in `crates/site/src/explain.rs`. The catalog's folds (`catalog.tsv`):
+  becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`; a BUD switch's
+  block changes at its target cells as `data-events`) and the page's
+  timing diagram (inputs and outputs per gt, a TARGET row for the BUD judge's changes) with the
+  checker's report; whether the 3D view runs a design or shows it as built comes from the viewer's
+  own session (`mcview::session::Session::new`, its `unsimulated` reason in plain words), and each
+  live shulker machine is run at build time the way the view runs it (the judge's chests kept full
+  and emptied, the start lever on) until it sends out 4 boxes: the page gives when the first box
+  goes out and how often the next ones do, and the build prints every run (WARNING on none). The
+  machines' studies (shulker loaders, TNT dupers, BUD switches) get a Variations table on their
+  study page: the best design for each variation of their VARIATIONS.md, from the metrics
+  (badges, items/s, rate, detected classes). The page's plain-language
+  texts live in `crates/site/src/plain.rs` (vjeux 13:06Z: "explain all the builds so someone can
+  understand them": every build page leads with one sentence of what it does with its own numbers,
+  then why you would build it and how to try it; kinds in everyday words with the community's
+  name in parentheses, `explain::kind_title` / `site_model::html::kind_words`) and
+  `crates/site/src/explain.rs` (the in-depth texts, metric meanings, the studies' plain intros
+  `STUDY_USES` and their "How we test" texts `STUDIES`). Our test, the measurements, the
+  properties and the design's file name fold into one collapsed "Details" (vjeux 13:11Z: no design
+  ids in any list or card; the name stays in the URL, the downloads and that details table).
+  Captions that are agent or tool logs are dropped (`explain::caption_plain`); the first sentence
+  of a designer's caption shows as "How this design does it". Pages vjeux deleted (13:35Z): the
+  door boards, the families index, the list of everything and the about page
+  (`generate::DELETED_PAGES`: never written, removed from an old output folder, and a smoke check
+  fails if one exists or is linked). The catalog's folds (`catalog.tsv`):
   equivalent layouts (`variant_of` naming a design of the same kind, value, block count and block
   kinds) hide under their shown design ("Also N other layouts"), dominance variants as before, and
   a tunable group (`group`: one mechanism, other repeater delays) shows as one card (its smallest
@@ -82,7 +104,9 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`; circuits: `data-stimulus`, `data-phases`, `data-input-mode`, `data-circuit`) is
+`data-pitch`; circuits: `data-stimulus`, `data-events` (the judge's block changes at a BUD's target:
+`<frame> place|clear|shape|update <x> <y> <z> [<state>]; ...`, design coordinates), `data-phases`,
+`data-input-mode`, `data-circuit`) is
 rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the
 checkout's `web/viewer/`): lazily when visible, one shared WebGL context for the thumbnails,
 thumbnails cached by (src, size), new elements picked up by a MutationObserver. It adds
@@ -115,7 +139,20 @@ header's active tab with live counts and makes the header's box the live search:
 Clocks tab (or with a unit) the clock time search (`48`, `2.5 s`, `1 min 30 s`, `40-60 gt`,
 `2-3 s`, `< 1 min`: `site_model::parse_time_query`); from any other page the box is a plain form
 to `index.html?kind=<page kind>&q=<text>`, which the UI turns into the same query. The side panel
-holds the main facet (door category / clock family / circuit kind),
-block kinds and properties as tri-state chips (must / must not / either), numeric ranges, sort,
-and 60 cards per page (more on scroll). The query is the URL fragment (`#kind=clock&time=2-3%20s`),
+holds the main facet (door category / clock family / circuit kind: the base kind in words,
+`Piston extender`, never one entry per N: the number is a property),
+block kinds and properties as tri-state chips (must / must not / either), numeric ranges, sort
+(by default the main number, then blocks: doors by size, clocks by period, circuits by kind, then
+N / L / P...), and 60 cards per page (more on scroll). The query is the URL fragment (`#kind=clock&time=2-3%20s`),
 so every search is a link; facet counts are computed with every other filter applied.
+
+Every card (grids, study pages, related lists, family members, search results:
+`site_model::html::props`) leads with the build's properties, not its generated name (vjeux:
+"the focus is on the randomly generated name which is useless for the viewer"): the kind in small
+capitals, the headline (a piston extender's `N = 3 · 19 blocks`, a clock's period and blocks, a
+door's size and blocks, a divider's `÷3 · square`), a line of secondary metrics (extend / retract,
+latency, re-arm, items/s...), chips (its own button or lever, 1 wide / 1 high, slime-free,
+tunable span, badges) and the design's name last, small (and in the tooltip). A build page's
+title is the same property line, the name under it. Circuits listed in `crates/site/hidden.tsv`
+(study / file pattern, why) are not published at all (the slime-free piston extenders, vjeux:
+"Why would anyone use this monstrosity?"); `mctas site smoke` checks none is.

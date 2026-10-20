@@ -109,7 +109,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ["rs-latch"] => Box::new(specs::RsSpec { gap }),
                 ["d-latch"] => Box::new(specs::DSpec { gap }),
                 ["counter", n] => Box::new(specs::CounterSpec { n: n.parse().context("counter N")?, gap }),
-                _ => bail!("kind {words:?}: rs-latch | d-latch | counter N"),
+                ["dff"] => Box::new(specs::DffSpec { gap }),
+                ["tff-reset"] => Box::new(specs::TffResetSpec { gap }),
+                _ => bail!("kind {words:?}: rs-latch | d-latch | counter N | dff | tff-reset"),
             };
             let mut inputs = c.inputs.clone();
             inputs.sort_by(|a, b| a.name.cmp(&b.name));
@@ -167,11 +169,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ["rs-latch"] => Box::new(specs::RsSpec { gap }),
                 ["d-latch"] => Box::new(specs::DSpec { gap }),
                 ["counter", n] => Box::new(specs::CounterSpec { n: n.parse().context("counter N")?, gap }),
-                _ => bail!("--kind rs-latch | d-latch | counter N"),
+                ["dff"] => Box::new(specs::DffSpec { gap }),
+                ["tff-reset"] => Box::new(specs::TffResetSpec { gap }),
+                _ => bail!("--kind rs-latch | d-latch | counter N | dff | tff-reset"),
             };
             let want_inputs = match words[0] {
                 "rs-latch" => vec!["r", "s"],
                 "d-latch" => vec!["d", "e"],
+                "dff" => vec!["clk", "d"],
+                "tff-reset" => vec!["r", "t"],
                 _ => vec![""],
             };
             let names: Vec<&str> = named.iter().map(|(n, _)| n.as_str()).collect();

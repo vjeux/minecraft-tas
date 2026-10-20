@@ -201,8 +201,10 @@ pub mod indicator {
             Block::Trapdoor { iron, facing, top, open, powered } => {
                 let signal = w.has_neighbor_signal(pos);
                 if signal != powered {
-                    // TrapDoorBlock.playSound: the game event comes before the write
+                    // TrapDoorBlock.playSound (pitch: a level-random nextFloat): the game event
+                    // comes before the write
                     if open != signal {
+                        w.draw_sound_pitch();
                         w.game_event(if signal { "block_open" } else { "block_close" }, pos);
                     }
                     w.set_block(pos, Block::Trapdoor { iron, facing, top, open: signal, powered: signal }, flags::CLIENTS);
@@ -213,6 +215,8 @@ pub mod indicator {
                 let signal = w.has_neighbor_signal(pos) || w.has_neighbor_signal(other);
                 if src != s.kind() && signal != powered {
                     if signal != open {
+                        // DoorBlock.playSound (a level-random nextFloat pitch), then the game event
+                        w.draw_sound_pitch();
                         w.game_event(if signal { "block_open" } else { "block_close" }, pos);
                     }
                     w.set_block(pos, Block::Door { iron, facing, upper, hinge_right, open: signal, powered: signal }, flags::CLIENTS);
@@ -223,6 +227,8 @@ pub mod indicator {
                 if powered != has {
                     w.set_block(pos, Block::FenceGate { facing, in_wall, open: has, powered: has }, flags::CLIENTS);
                     if open != has {
+                        // FenceGateBlock.neighborChanged: playSound (a level-random nextFloat pitch)
+                        w.draw_sound_pitch();
                         w.game_event(if has { "block_open" } else { "block_close" }, pos);
                     }
                 }
@@ -317,6 +323,8 @@ pub mod rail {
         }
         if let Block::Rail { shape, .. } = s {
             if should_be_removed(w, pos, shape) {
+                // dropResources: its loot's stacks pop (level-random draws, seeded items)
+                w.drop_resources(pos, s);
                 w.drops.push((pos, s));
                 w.remove_block(pos, moved);
             } else {

@@ -1,0 +1,33 @@
+# m77 = c70b's m69g-12 (mechmut from w86's m69g; explore/c70b e61ad832d smaller/v9x6/m69g-12.txt) with the REAL lever
+# ON at rest on top of (1,4) holding the top trio (the 7x8 doors' trick), so the trio releases together at the flip.
+# 9x6 = 54b (x -3..5, y -1..4), floor = 3 statics. BM leaves RIGHT along row 0: U0, carried into the left wall cell
+# (-1,0) by MB0, pushes the whole bottom row right (RP0, resting in (3,0), is pushed out to (4,0) and later pulls BM
+# into (3,0)); C leaves LEFT along row 1: W' (3,-1) lifts RP0 into (3,1), RP0 pushes row 1 left (ML into the wall).
+name: w86-m77
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -1:
+  ...SSSB
+layer 0:
+  AA.EEEC.C
+layer 1:
+  .A.EEE.C
+layer 2:
+  ...EEE
+layer 3:
+  ..sPPPs
+layer 4:
+  ...DDD
+layer 5:
+  ....L

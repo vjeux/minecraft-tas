@@ -29,6 +29,7 @@ pub mod kits;
 pub mod shot;
 pub mod sim;
 pub mod verify;
+pub mod vibration;
 pub mod video;
 pub mod wave;
 
@@ -104,6 +105,16 @@ pub enum Action {
     Use { pos: Pos },
     /// Remove the block there with updates (no drop).
     Clear { pos: Pos },
+    /// Change the block there with SHAPE updates only (flags 2: no block update to the
+    /// neighbors), the way crops grow or a dispenser marks itself triggered (the BUD judge).
+    ShapeSet { pos: Pos, state: String },
+    /// A pure BLOCK update around the cell (`Level.updateNeighborsAt`), nothing changes (the BUD
+    /// judge).
+    Update { pos: Pos },
+    /// A game event at the cell's center (`Level.gameEvent`, no entity, no affected state): what
+    /// sculk sensors hear (the circuit judge's vibration test: an input device's events, ambient
+    /// footsteps and block changes).
+    GameEvent { pos: Pos, event: &'static str },
 }
 
 /// How the blocks are placed.

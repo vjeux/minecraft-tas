@@ -17,12 +17,32 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (clone
-  explore/pockets there, `cargo build --release`, selftest --quick). Nothing was in flight worth restarting: the 6x7
-  satwire runs had already answered (UNSAT, one-piston cores) and c70b asked to wait for its next variants
-  (mechmut --outside-only, FULL frames filled). pockets on 6x7 plans: --box enlarged to hold the plan's inputs
-  outside the volume + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire: --rec-ticks 240.
+- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (cloned
+  ~/agents/pockets/minecraft-tas from GitHub, built with ~/bin/cargo, JVM cache warmed by one `door verify`: the
+  first selftest on a fresh box fails 3 JVM checks while two checks download Java/the server at once; full selftest
+  35/35 after). Nothing was in flight worth restarting: the 6x7 satwire runs had already answered (UNSAT, one-piston
+  cores) and c70b asked to wait for its next variants (mechmut --outside-only, FULL frames filled).
+- Recipes for designers' sub-56 plans: pockets --box enlarged to hold the plan's inputs outside the volume (they were
+  silently dropped: seed 9/79) + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire
+  --rec-ticks >= open ticks + settle (default 80 recorded c70b's 99-tick opens unfinished: false frame errors);
+  statics must be the door material (smooth-stone statics fail the record frame rule): my svc copies turn them to
+  stone. c70b's 6x9 recipe: `door satwire <plan> --keep-wiring --lever-on --lever='5,1,0' --box=-1,-3,0:4,5,0
+  --full-frame --forbid-ring --update-order --exact-order --dmax 8 --skip 8 --hold auto --free-order --retime
+  --palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston,wool --first`.
 - Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
+- Pockets prints a POCKET LOAD line per pocket (10be184f): forced inputs + distinct pulse ticks; quick report with
+  `--k 1 --only-pockets 99`. The lever port cell is a wiring cell again without --keep-lever (56fb440b). ISLAND START
+  (ad9c171c): per lever pocket, the pockets that can never fire (run it first on any designer plan).
+- Screens since the box move (all satwire UNSAT, one-piston cores, reported to the senders): c70b 6x7-in2
+  (core (0,-2)), d67 q7 (0,-2), c70b t1-r22 7x7 ((-1,4): its lever at (0,5) QC-powers SD (-1,4)/(1,4)), pext's
+  one-trains (w1k2 (1,-2); m69T-mm02 x8: top-left / bottom-left / top-middle), w86 6x8 s1 ((3,3) solid; with
+  sculk in (-1,4) + the bottom-left trio: (0,4) close).
+- Later (01:00-04:15Z): c70b u0-7x7 (core (1,-2)), u2-7x7 ((-2,0); (0,-2) load fixed to 2 ticks), pext u2-train-isl
+  (islands OK with the lever top-left; pockets k=4 2 of 12 real; (-1,-2) fires 9x), d67 u0-s0 with sculk in the
+  bottom-right (everything else ideal: core SU(2,-2)), clockinfra macrosat m86-a 8x6 (core (3,-1); retracted by
+  clockinfra, which now encodes the lever-level / static-conductor / per-region-budget rules). clk-misc's exact
+  lever screen: `door ideal-rs <plan> --vary 'x,y,z=lever[...]'` + `open 0 use` / `close 0 use`.
+- Waiting for: c70b's island-start-0 mechmut variants, macrosat's next exports, pext's budgeted trains.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):

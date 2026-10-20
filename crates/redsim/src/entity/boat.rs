@@ -353,6 +353,13 @@ pub fn tick(w: &mut World, i: usize) {
             s.out_of_control_ticks += 1.0;
         }
     }
+    // the damage an explosion left decays (`setDamage(getDamage() - 1)`)
+    {
+        let e = &mut w.entities.list[i];
+        if e.vehicle_damage > 0.0 {
+            e.vehicle_damage -= 1.0;
+        }
+    }
     // `super.tick()` = `Entity.baseTick`: fluid heights and pushing, fire, firstTick
     entity::base_tick(w, i);
     float_boat(w, i);

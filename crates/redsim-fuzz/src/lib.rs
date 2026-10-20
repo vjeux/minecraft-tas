@@ -19,6 +19,7 @@ use std::sync::Mutex;
 
 /// Exact real-game traces of entity / fluid clocks replayed in redsim (track clk-misc).
 pub mod trace_compare;
+pub mod loot_gen;
 pub mod recipes_gen;
 pub mod archive_check;
 
@@ -243,7 +244,7 @@ fn sim_items(w: &mut World, c: &Case) -> Result<()> {
         let mut v = Vec::new();
         for (slot, item, count) in items {
             let id = item_id(&item).with_context(|| format!("unknown item {item}"))?;
-            v.push((slot, Stack { item: id, count }));
+            v.push((slot, Stack::new(id, count)));
         }
         set_contents(w, bp(p), &v);
     }
@@ -256,6 +257,12 @@ fn sim_frame(w: &World, cells: &[Pos]) -> Frame {
 
 /// Run a case in redsim; also returns the model's own error notes.
 pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
+    run_sim_noted(c).map(|(f, n, _)| (f, n))
+}
+
+/// [`run_sim`] plus the first frame at which the model had a note (frames before it are in
+/// scope even when a note comes later: a primed TNT's explosion 80 gt on).
+pub fn run_sim_noted(c: &Case) -> Result<(Vec<Frame>, Vec<String>, Option<usize>)> {
     let margin = 6;
     let min = BlockPos::new(c.lo[0] - margin, c.lo[1] - margin, c.lo[2] - margin);
     let size = [c.hi[0] - c.lo[0] + 1 + 2 * margin, c.hi[1] - c.lo[1] + 1 + 2 * margin, c.hi[2] - c.lo[2] + 1 + 2 * margin];
@@ -276,12 +283,16 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
     }
     let cells = c.cells();
     let mut frames = vec![sim_frame(&w, &cells)];
+    let mut note_frame: Option<usize> = if w.errors.is_empty() { None } else { Some(0) };
     for st in &c.steps {
         match st {
             Step::Run(n) => {
                 for _ in 0..*n {
                     w.tick();
                     frames.push(sim_frame(&w, &cells));
+                    if note_frame.is_none() && !w.errors.is_empty() {
+                        note_frame = Some(frames.len() - 1);
+                    }
                 }
             }
             Step::Use(p) => {
@@ -294,6 +305,9 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
                 frames.push(sim_frame(&w, &cells));
             }
         }
+        if note_frame.is_none() && !w.errors.is_empty() {
+            note_frame = Some(frames.len() - 1);
+        }
     }
     let mut notes = w.errors.clone();
     // item entities (drops of popped blocks) can fall into hoppers below them: out of scope
@@ -301,8 +315,10 @@ pub fn run_sim(c: &Case) -> Result<(Vec<Frame>, Vec<String>)> {
     let near = |d: &BlockPos| hoppers.iter().any(|h| (d.x - h.x).abs() <= 1 && (d.z - h.z).abs() <= 1 && d.y >= h.y && d.y - h.y <= 4);
     if let Some((p, b)) = w.drops.iter().find(|(p, _)| near(p)) {
         notes.push(format!("drops near hoppers (item entities, not modeled): {p} {b}"));
+        // (when the drop fell is not tracked: the whole case is out of scope)
+        note_frame = Some(0);
     }
-    Ok((frames, notes))
+    Ok((frames, notes, note_frame))
 }
 
 /// Where the two traces first differ: (frame index, [(cell, redsim, game)]).
@@ -415,6 +431,9 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         // plain and detector rails (redsim M4)
         ("plainrail", 0),
         ("detrail", 0),
+        // TNT and dead coral fans (track tnt): `--palette core,piston:4,tnt:3,coral:3`
+        ("tnt", 0),
+        ("coral", 0),
     ];
     let mut out: Vec<(String, u32)> = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -551,6 +570,14 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "water" => st(format!("water[level={}]", if r.chance(0.6) { 0 } else { r.range(1, 15) })),
         "soulsand" => st("soul_sand".into()),
         "magma" => st("magma_block".into()),
+        // TNT dupers (track tnt): TNT (primes when powered; an explosion is a model note) and dead
+        // coral fans, floor or wall, sometimes waterlogged
+        "tnt" => st("tnt[unstable=false]".into()),
+        "coral" => {
+            let k = *r.pick(&redsim::tnt::DEAD_CORALS);
+            let wl = tf(r, 0.1);
+            if r.chance(0.5) { st(format!("dead_{k}_coral_fan[waterlogged={wl}]")) } else { st(format!("dead_{k}_coral_wall_fan[facing={},waterlogged={wl}]", hdir(r))) }
+        }
         "leaves" => st(format!("oak_leaves[distance={},persistent=true,waterlogged=false]", r.range(1, 7))),
         // scaffolding: distance 7 (only from placement) makes it fall as an entity at its first
         // tick (`scaffold7:1` adds those)
@@ -930,12 +957,25 @@ fn container_items(r: &mut Rng, order: &[Pos], grid: &HashMap<Pos, String>) -> V
 pub struct Outcome {
     pub diff: Option<(usize, Vec<(Pos, String, String)>)>,
     pub sim_errors: Vec<String>,
+    /// The first frame with a model note (None: no note).
+    pub note_frame: Option<usize>,
+}
+
+impl Outcome {
+    /// A difference the notes do not excuse: no note, or one that came after the difference.
+    pub fn real_diff(&self) -> bool {
+        match (&self.diff, self.note_frame) {
+            (Some(_), None) => true,
+            (Some((f, _)), Some(n)) => *f < n,
+            _ => false,
+        }
+    }
 }
 
 pub fn check(w: &mut Worker, sb: u32, c: &Case) -> Result<Outcome> {
     let game = run_bridge(w, sb, c)?;
-    let (sim, sim_errors) = run_sim(c)?;
-    Ok(Outcome { diff: first_diff(c, &sim, &game), sim_errors })
+    let (sim, sim_errors, note_frame) = run_sim_noted(c)?;
+    Ok(Outcome { diff: first_diff(c, &sim, &game), sim_errors, note_frame })
 }
 
 /// Greedy shrink: drop blocks, then steps, while the case still mismatches (without model
@@ -1064,10 +1104,11 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
                         *note_kinds.entry(k).or_insert(0usize) += 1;
                     }
                 }
-                if let Some((f, d)) = out.diff {
+                if out.diff.is_some() {
                     // a case the model flagged as out of scope (random dropper slot, item
-                    // entities...) is not a model error
-                    if out.sim_errors.is_empty() {
+                    // entities, an explosion...) is not a model error from the note's frame on
+                    if out.real_diff() {
+                        let (f, d) = out.diff.unwrap();
                         bad.push((i, c, f, d));
                     } else {
                         noted_bad += 1;

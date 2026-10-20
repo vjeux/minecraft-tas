@@ -1,0 +1,15 @@
+name: rt-lift-sand
+# redsim test scene (not a clock): a sticky piston facing up lifts a stone into a falling sand
+# (summoned at y 6) at tick 10: the sand lands on the moving stone (a moving piston in its cell:
+# bounce and wait), is pushed up by it (moveCollidedEntities, vertical) and lands on top.
+port start: 1 1 0 minecraft:redstone_block 4 at 10
+entity: minecraft:falling_block 2.5 6.0 0.5 {BlockState:"minecraft:sand",Time:1}
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=up,extended=false]
+layer 0:
+  SSSSS
+layer 1:
+  ..P..
+layer 2:
+  ..S..

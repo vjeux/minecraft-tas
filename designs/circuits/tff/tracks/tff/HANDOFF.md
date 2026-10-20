@@ -72,11 +72,24 @@ TFF is a counter 2 and n bulbs make a counter 2^n. Ring rules: droppers of one r
 parity; hoppers never face up and never sit under a container (they pull); a dust next to the
 input connects to it (a line) and fires the cell beyond and its floor; a dust under the input is
 a cross; a dust pointing into a stone makes it a relay that fires its own neighbours (rings to 17).
+Counters carry tunable-group headers (`circuit memory stamp-groups`, the ring generator stamps its
+own): bulb-chain, dropper-ring, ring-bulbs, ring-chain, ring-divider = 5 catalog cards.
+
+Sequential kinds (judge kinds added by this track, crates/circuit/src/seq.rs, docs/circuits.md):
+tffr-dropring (tff-reset, 8b: the dropper-ring TFF with r next to the q dropper only), dff-window
+(dff, 10b redstone: a repeater latch opened for 2 gt after the clock's falling edge by a comparator
+reading a wire powered by the clock while on and by a NOT-clock stone while off), dffe-window
+(dff-enable, 13b: + a NOT-e subtract comparator powering the wire), shift2-window (shift 2, 20b:
+two latches on one 5 gt window wire, the output latch opened by a comparator 2..7 gt after the
+fall, the input latch by a delay-4 repeater 4..9 gt after it; equal windows always race, and a
+repeater longer than the window gap swallows it). Calibrations: cal-dropper-tff-reset,
+cal-window-dff, cal-window-dff-enable, cal-window-shift1 + 4 refusals in designs/circuits/selftest/.
 
 ## Next
-- Smaller redstone TFF: a different core (the 18-block one spends 7 blocks on the NOT-q loop and
-  8 on the lock window); maybe a lever-input variant (the gates track archives lever variants).
-- Ring chains with three stages (27 = 3x3x3), relays chained through repeaters for rings > 17,
-  counters 19, 23, 25, 27, 29+.
-- Third RS / D latch mechanism (piston RS: none <= 5 blocks in 3x2x2 / 4x2x1), extendable cards
-  once `extend:` lands for circuits (bulb chains: counter 2^n = 3n blocks; ring N + k bulbs).
+- Smaller redstone TFF: a different core (the 17-block one spends 6 blocks on the NOT-q loop and
+  8 on the lock window); the auto-floor census over 3x1x3 found none with up to 6 components (12
+  blocks), all three input positions (150 min on 166 cores).
+- A master-slave dff (9b if the clock cell can feed a master-lock repeater and a slave-lock
+  subtract comparator's side at once: no layout found yet), shift N > 2 (staggered windows), a
+  copper-bulb tff-reset (needs r AND q).
+- Third RS / D latch mechanism (piston RS: none <= 5 blocks in 3x2x2 / 4x2x1).

@@ -1,0 +1,25 @@
+# archived 2026-10-20T11:03Z from designs/circuits/tracks/bud/bud-latched-qc.txt by mctas circuit archive
+# CIRCUIT: bud-latched-qc bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, tileable every 2 (0 2 0), 2 blocks, 3x1x1, robust
+name: bud-latched-qc
+circuit: bud
+tile: 0 2 0
+# The smallest latched BUD (manual reset): a sticky piston armed by quasi-connectivity from the
+# redstone block above the block in front of it. A block update reaching the piston makes it push
+# that block, another redstone block, beside the output; the piston stays out (still powered), so
+# the output holds through any further update. The reset input is the arming redstone block itself:
+# taking it away updates the piston through its head, it retracts and pulls the redstone block back
+# (the output goes off 1 gt after the reset starts); putting it back arms the piston without
+# updating it. A shape-only change sends no block update: not detected.
+origin: -1 0 0
+port target: -1 0 0
+port output: 2 0 1
+port input.reset: 1 1 0 minecraft:air minecraft:redstone_block
+palette:
+  P minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+layer 0:
+  .PR.
+  ....
+layer 1:
+  ..R.
+  ....

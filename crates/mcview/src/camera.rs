@@ -97,6 +97,69 @@ impl Camera {
         self.dist = b;
     }
 
+    /// Keep the direction; move the target and the distance so that every point projects inside
+    /// the view window `x` in [-wx, wx], `y` in [y0, y1] (normalized view coordinates, y up)
+    /// and the points' projected box is centred in that window (the build fills the window's
+    /// limiting side). Used to frame a build tightly: its cells' corners, not its bounding box.
+    pub fn fit_points(&mut self, pts: &[[f32; 3]], aspect: f32, wx: f32, y0: f32, y1: f32) {
+        if pts.is_empty() {
+            return;
+        }
+        let mut lo = [f32::MAX; 3];
+        let mut hi = [f32::MIN; 3];
+        for p in pts {
+            for k in 0..3 {
+                lo[k] = lo[k].min(p[k]);
+                hi[k] = hi[k].max(p[k]);
+            }
+        }
+        self.target = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+        let tan_v = (self.vfov.to_radians() / 2.0).tan();
+        let tan_h = tan_v * aspect;
+        let (f, right, up) = self.basis();
+        let d = self.dir();
+        let (hw, hh, yc) = (wx.max(0.05), ((y1 - y0) / 2.0).max(0.05), (y0 + y1) / 2.0);
+        // the projected box (in view coordinates) of the points from `dist` behind `target`
+        let bbox = |target: [f32; 3], dist: f32| -> Option<(f32, f32, f32, f32)> {
+            let eye = [target[0] + d[0] * dist, target[1] + d[1] * dist, target[2] + d[2] * dist];
+            let (mut x0, mut x1, mut ya, mut yb) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+            for p in pts {
+                let v = sub(*p, eye);
+                let z = dot(v, f);
+                if z <= 0.1 {
+                    return None;
+                }
+                let (x, y) = (dot(v, right) / z / tan_h, dot(v, up) / z / tan_v);
+                x0 = x0.min(x);
+                x1 = x1.max(x);
+                ya = ya.min(y);
+                yb = yb.max(y);
+            }
+            Some((x0, x1, ya, yb))
+        };
+        for _ in 0..3 {
+            // the distance at which the projected box's halves fit the window's
+            let fits = |dist: f32| bbox(self.target, dist).is_some_and(|(x0, x1, ya, yb)| (x1 - x0) / 2.0 <= hw && (yb - ya) / 2.0 <= hh);
+            let (mut a, mut b) = (0.5f32, 4000.0f32);
+            for _ in 0..60 {
+                let mid = (a + b) / 2.0;
+                if fits(mid) {
+                    b = mid
+                } else {
+                    a = mid
+                }
+            }
+            self.dist = b;
+            // centre the projected box in the window: move the target across the view
+            let Some((x0, x1, ya, yb)) = bbox(self.target, self.dist) else { break };
+            let (cx, cy) = ((x0 + x1) / 2.0, (ya + yb) / 2.0 - yc);
+            let (sx, sy) = (cx * tan_h * self.dist, cy * tan_v * self.dist);
+            for k in 0..3 {
+                self.target[k] += right[k] * sx + up[k] * sy;
+            }
+        }
+    }
+
     /// Projection x view (wgpu clip space: depth 0..1).
     pub fn view_proj(&self, aspect: f32) -> Mat4 {
         let eye = self.eye();

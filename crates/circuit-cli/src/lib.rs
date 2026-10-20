@@ -84,10 +84,26 @@ pub enum CircuitCmd {
         /// With --rejudge: only these studies (default: all).
         #[arg(long)]
         study: Vec<String>,
+        /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
+        /// dominates): the file, its verdict row and its caption.
+        #[arg(long)]
+        remove: Vec<String>,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
     Catalog {
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+    },
+    /// Set an archived design's caption (captions.tsv of its study's archive; no game): for the
+    /// plain-language pass (one sentence a non-redstoner follows first, the detail after it).
+    Caption {
+        /// The study directory name (designs/circuits/<study>).
+        study: String,
+        /// The archived file (`tnt-launch-14b.txt` or without `.txt`).
+        file: String,
+        #[arg(long)]
+        text: String,
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
@@ -102,6 +118,11 @@ pub enum CircuitCmd {
     },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track bud's commands (crates/circuit-bud): BUD switches, study 10.
+    Bud {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -132,6 +153,27 @@ pub enum CircuitCmd {
     },
     /// Track fly's commands (crates/circuit-fly).
     Fly {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track shulker's commands (crates/circuit-shulker).
+    Shulker {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track tnt's commands (crates/circuit-tnt).
+    Tnt {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track pulsemult's commands (crates/circuit-pulsemult): study 11's searches.
+    Pulsemult {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track timer's commands (crates/circuit-timer): study 11's monostables, off-delays and
+    /// on-delays.
+    Timer {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -196,9 +238,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             for p in &designs {
                 let c = Circuit::load(p)?;
                 let rep = circuit::verify::verify_in_pool(&pool, &c, &o)?;
-                if table && let Some(b) = rep.base() {
-                    for l in &b.outcome.table {
+                if table {
+                    // the base build's table, else (nothing passes) the first build's: why it fails
+                    let b = rep.base().or_else(|| rep.builds.first().and_then(|b| b.result.as_ref().ok()));
+                    for l in b.map(|b| b.outcome.table.as_slice()).unwrap_or(&[]) {
                         println!("  {l}");
+                    }
+                    // and the first failing build's, when some pass
+                    if rep.base().is_some()
+                        && let Some(f) = rep.builds.iter().find(|b| b.result.as_ref().is_ok_and(|b| !b.outcome.pass))
+                        && let Ok(fo) = &f.result
+                    {
+                        println!("  == failing build: rotation {} at {:?}", f.turns, f.offset);
+                        for l in &fo.outcome.table {
+                            println!("  {l}");
+                        }
                     }
                 }
                 if !rep.pass {
@@ -220,7 +274,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, remove } => {
+            for spec in &remove {
+                println!("{}", circuit::archive::unarchive(&root, spec)?);
+            }
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe {
+                return Ok(());
+            }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
@@ -243,6 +303,30 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
+        CircuitCmd::Caption { study, file, text, root } => {
+            let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+            let dir = root.join(&study).join("archive");
+            anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
+            anyhow::ensure!(!text.contains('\t') && !text.contains('\n'), "a caption is one line without tabs");
+            let path = dir.join("captions.tsv");
+            let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
+            let mut out = String::new();
+            let mut done = false;
+            for (i, line) in old.lines().enumerate() {
+                if i > 0 && line.split('\t').next() == Some(file.as_str()) {
+                    out.push_str(&format!("{file}\t{text}\n"));
+                    done = true;
+                } else {
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+            if !done {
+                out.push_str(&format!("{file}\t{text}\n"));
+            }
+            std::fs::write(&path, out)?;
+            println!("{}: caption of {file} set", path.display());
+        }
         CircuitCmd::Catalog { root } => {
             for l in circuit::archive::catalog(&root)? {
                 println!("{l}");
@@ -264,12 +348,17 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}", out.display());
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
+        CircuitCmd::Bud { args } => circuit_bud::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,
         CircuitCmd::Memory { args } => circuit_memory::run(args)?,
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
+        CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
+        CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
+        CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
+        CircuitCmd::Timer { args } => circuit_timer::run(args)?,
     }
     Ok(())
 }

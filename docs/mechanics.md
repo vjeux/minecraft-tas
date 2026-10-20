@@ -852,6 +852,59 @@ basin: 6000 cases, 0 mismatches, 2026-10-19).
   water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
   support goes away turns back into water 5 gt after its shape update.
 
+## TNT and dead coral fans (`TntBlock`, `BaseCoralFanBlock`, `PistonBaseBlock.moveBlocks`) — redsim (track tnt)
+
+Modeled in `crates/redsim/src/tnt.rs` (study 9, TNT dupers: designs/circuits/tnt/VARIATIONS.md),
+checked by `redsim-fuzz fuzz --palette core,piston:6,simple:6,tnt:4,coral:4` (12000 cases, 0
+mismatches) and the exact trace of the real-game dupe tnt-c1.
+
+* A TNT primes on placement (a different old block) or any neighbor update while it has a neighbor
+  signal, then is removed (`removeBlock`, flags 3). It is not a conductor. In redsim a prime is a
+  record (`World::primed`: tick, cell), not an entity (the `PrimedTnt`'s kick draws from
+  `level.random`); a primed TNT reaching its explosion tick is an UNMODELED note unless the caller
+  removes primed TNT first (the TNT judge does).
+* Dead coral fans are pushable (slime drags them), have no collision and drop nothing; a floor fan
+  pops on a DOWN shape update without a sturdy top below, a wall fan on the update from its back.
+* The dupe: `moveBlocks` copies every pushed state first and blanks the sources last. A fan
+  riding the structure pops when the cell under it turns `moving_piston` (the flag-324 write
+  updates shapes before the block entity exists) and updates a TNT still at its source; if the
+  TNT is powered then, it primes while its moving copy lands. A TNT can never rest next to power,
+  so the power must appear inside the push: a dust whose connections change (it computes them on
+  the fly) is the source every duper found so far uses.
+
+## Drops and the bridge's seeds (`Block.popResource`, `ItemEntity`) — shulker study
+
+A piston breaking a shulker box (push reaction DESTROY) drops it with its contents through
+`Block.popResource(level, pos, stack)` (Block.java 409): the item entity's position is the cell
+center plus `Mth.nextDouble(level.random, -0.25, 0.25)` on each axis (x, y, z in that order; y
+minus half the item's height, 0.125). Those three draws come from the level random, which the
+bridge seeds per sandbox (`Sandbox.create`, `clear`). But the 5-argument
+`new ItemEntity(level, x, y, z, stack)` (ItemEntity.java 62) then draws from the ENTITY's own
+random: the yaw (`nextFloat() * 360`, in the type constructor) and the drift
+(`setDeltaMovement(nextDouble() * 0.2 - 0.1, 0.2, nextDouble() * 0.2 - 0.1)`). Vanilla seeds that
+random with `RandomSupport.generateUniqueSeed()` (a static uniquifier ^ `System.nanoTime()`), so
+the same build in the same seeded sandbox drifts differently on every run.
+
+**What the bridge does differently from vanilla**: an `ItemEntity` that enters a sandbox during
+its tick (`Sandbox.tick`) through `Block.popResource(Level, BlockPos, ItemStack)` (seen on the
+call stack; `popResourceFromFace`, dispensers and summoned design entities are left alone) gets
+its own random reseeded to `sandbox seed ^ (0x6d63746173 + n)`, n = the n-th such drop of the
+sandbox (from 0, reset with the sandbox), and the constructor's draws redone in the same order
+(yaw, then the x and z drift), before it is tracked or ticked (`LevelCallback.onCreated`, the
+level entity manager's callbacks wrapped). The same distribution, now one sample per seed:
+judges that depend on drops vary the seed (the shulker judge seeds each build from its position
+and runs 64 more seeds after the builds). Two runs with the same seed give the same exact trace;
+traces without such drops are unchanged.
+
+**Entity ids**: every entity that enters a sandbox (summoned, spawned by the game, falling
+blocks, primed TNT, drops) gets the id `base + n` (`Entity.setId` in `onCreated`, before it is
+tracked), n counting from 0 in the order they enter (reset with the sandbox), base =
+`0x40000000 + ((sandbox id & 1023) << 20)`, a multiple of 4. Vanilla takes ids from one
+server-wide counter, so `(tickCount + getId()) % 4` (an item entity at rest moves 1 tick in 4)
+depended on everything the JVM had spawned before; now it depends on n only, ids grow with the
+entity tick list's order, and redsim's ids (from 0, falling blocks sharing the counter) are the
+same numbers: the protocol reports n as `net_id`, and `redsim-fuzz trace-compare` checks it.
+
 ## 12. redsim: the exact model (track redmodel)
 
 `crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,

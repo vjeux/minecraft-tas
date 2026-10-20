@@ -165,6 +165,7 @@ public final class Protocol {
             case "exec" -> exec(r);
             case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
+            case "random_state" -> randomState(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "viewer_mode" -> viewerMode(r);
@@ -237,6 +238,8 @@ public final class Protocol {
         return switch (mode.getAsString()) {
             case "raw" -> Sandbox.RAW_FLAGS;
             case "update" -> Block.UPDATE_ALL;
+            // shape updates only, no block update to the neighbors (how crops grow): the BUD judge
+            case "shape" -> Block.UPDATE_CLIENTS;
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         };
     }
@@ -317,6 +320,14 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         o.add("positions", out);
         o.add("random", random);
+        return o;
+    }
+
+    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}). */
+    private JsonObject randomState(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonObject o = new JsonObject();
+        o.addProperty("seed", sb.randomState());
         return o;
     }
 
@@ -565,9 +576,10 @@ public final class Protocol {
         a.add(p.z);
         j.add("pos", a);
         j.addProperty("uuid", e.getStringUUID());
-        // the network id (Entity.getId(): a server-wide counter), which some ticks read
-        // (ItemEntity's 1-in-4 rest moves)
-        j.addProperty("net_id", e.getId());
+        // the network id within the sandbox: Entity.getId() - Sandbox#entityIdBase (the bridge
+        // numbers each sandbox's entities from 0 in the order they enter; some ticks read it:
+        // ItemEntity's 1-in-4 rest moves)
+        j.addProperty("net_id", e.getId() - sb.entityIdBase());
         Vec3 m = e.getDeltaMovement();
         JsonArray mv = new JsonArray();
         mv.add(m.x);
@@ -749,21 +761,34 @@ public final class Protocol {
 
     /**
      * Emit a game event at block positions, at each cell's bottom center (where a player's feet
-     * are): {@code event} is {@code step} (a player's footstep, GameEvent.STEP; the default). No
-     * source entity, no affected state, as {@code level.gameEvent} gets from a walking player
-     * minus the entity (sculk sensors hear it the same way).
+     * are) or, with {@code at} = {@code center}, at its center (where {@code Level.gameEvent} posts a
+     * block's own events, e.g. a lever's BLOCK_ACTIVATE). {@code event}: {@code step} (the default),
+     * {@code hit_ground}, {@code block_place}, {@code block_destroy}, {@code entity_place},
+     * {@code block_activate}, {@code block_deactivate}, {@code block_open}, {@code block_close},
+     * {@code note_block_play}. No source entity, no affected state (sculk sensors hear it the same
+     * way).
      */
     private JsonObject gameEvent(JsonObject r) {
         Sandbox sb = sandbox(r);
         String name = r.has("event") ? r.get("event").getAsString() : "step";
-        net.minecraft.core.Holder<net.minecraft.world.level.gameevent.GameEvent> ev = switch (name) {
-            case "step", "minecraft:step" -> net.minecraft.world.level.gameevent.GameEvent.STEP;
+        boolean center = r.has("at") && r.get("at").getAsString().equals("center");
+        net.minecraft.core.Holder<net.minecraft.world.level.gameevent.GameEvent> ev = switch (name.startsWith("minecraft:") ? name.substring(10) : name) {
+            case "step" -> net.minecraft.world.level.gameevent.GameEvent.STEP;
+            case "hit_ground" -> net.minecraft.world.level.gameevent.GameEvent.HIT_GROUND;
+            case "block_place" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE;
+            case "block_destroy" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_DESTROY;
+            case "entity_place" -> net.minecraft.world.level.gameevent.GameEvent.ENTITY_PLACE;
+            case "block_activate" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_ACTIVATE;
+            case "block_deactivate" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_DEACTIVATE;
+            case "block_open" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_OPEN;
+            case "block_close" -> net.minecraft.world.level.gameevent.GameEvent.BLOCK_CLOSE;
+            case "note_block_play" -> net.minecraft.world.level.gameevent.GameEvent.NOTE_BLOCK_PLAY;
             default -> throw new IllegalArgumentException("unsupported game event " + name);
         };
         int n = 0;
         for (JsonElement e : r.getAsJsonArray("positions")) {
             int[] p = ints(e.getAsJsonArray());
-            sb.level.gameEvent(ev, new Vec3(p[0] + 0.5, p[1], p[2] + 0.5), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null, (BlockState) null));
+            sb.level.gameEvent(ev, new Vec3(p[0] + 0.5, p[1] + (center ? 0.5 : 0.0), p[2] + 0.5), net.minecraft.world.level.gameevent.GameEvent.Context.of((Entity) null, (BlockState) null));
             n++;
         }
         JsonObject o = new JsonObject();

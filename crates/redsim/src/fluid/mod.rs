@@ -129,6 +129,10 @@ pub fn waterlogged(b: &Block) -> Option<bool> {
     match *b {
         // ---- entity-reacting blocks (clk-misc): their waterlogged variants ----
         Block::BigDripleaf { waterlogged, .. } => Some(waterlogged),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { waterlogged, .. } | Block::CoralWallFan { waterlogged, .. } => Some(waterlogged),
+        // ---- fences (clk-misc) ----
+        Block::Fence { waterlogged, .. } => Some(waterlogged),
         _ => None,
     }
 }
@@ -139,6 +143,11 @@ pub fn set_waterlogged(b: Block, v: bool) -> Option<Block> {
     match b {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::BigDripleaf { facing, tilt, .. } => Some(Block::BigDripleaf { facing, tilt, waterlogged: v }),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { kind, .. } => Some(Block::CoralFan { kind, waterlogged: v }),
+        Block::CoralWallFan { kind, facing, .. } => Some(Block::CoralWallFan { kind, facing, waterlogged: v }),
+        // ---- fences (clk-misc) ----
+        Block::Fence { kind, north, east, south, west, .. } => Some(Block::Fence { kind, north, east, south, west, waterlogged: v }),
         _ => None,
     }
 }
@@ -439,6 +448,8 @@ fn spread_to(w: &mut World, p: BlockPos, s: Block, _d: Dir, target: FluidState) 
         return;
     }
     if !s.is_air() && bh::drops_item(&s) {
+        // beforeDestroyingBlock -> Block.dropResources (its loot's stacks pop)
+        w.drop_resources(p, s);
         w.drops.push((p, s));
     }
     w.set_block_and_update(p, target.create_legacy_block());

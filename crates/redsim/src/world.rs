@@ -125,6 +125,52 @@ pub struct World {
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
+    /// TNT primed (`TntBlock.prime`: a `PrimedTnt` in the game, not simulated: its motion draws
+    /// from `level.random` and the judge removes primed TNT before it explodes): (game time, the
+    /// TNT's cell; the entity spawns at its bottom center).
+    pub primed: Vec<(i64, BlockPos)>,
+    /// The caller removes every primed TNT before it explodes (the TNT judge): no explosion
+    /// error (`tick`).
+    pub remove_primed: bool,
+    /// Primed TNT become entities (`entity::primed_tnt`) with this value in place of the game's
+    /// random `nextDouble()` for their kick; `None`: primes are records only (the judge's screen).
+    pub tnt_kick: Option<f64>,
+    // ---- shulker study (clk-rt) ----
+    /// Item components (`Stack::payload` - 1 indexes it): a shulker box's 27 slots, an item's
+    /// custom name.
+    pub payloads: Vec<crate::redstone::container::Payload>,
+    /// The sandbox seed the bridge draws piston-broken drops from (`rng::Drop`): with one, a
+    /// destroyed shulker box drops as an item entity (`drop_count` numbers them); without, its
+    /// drop is only recorded in `drops`.
+    pub drop_seed: Option<i64>,
+    pub drop_count: u64,
+    // ---- the level random (clk-misc) ----
+    /// `Level.random`, mirrored (`mirror_level_random`): the sandbox's LegacyRandomSource, seeded
+    /// like the bridge's and drawn at every game spot redsim models (chunk ticks, piston sounds,
+    /// note blocks, door sounds, dispenser slots, entity containers, drops...). `None` (the
+    /// default): nothing is drawn and anything that would choose by it stays a model error.
+    /// Never part of the state key.
+    pub level_random: Option<crate::rng::LegacyRandom>,
+    /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
+    /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
+    pub chunk_draws: u32,
+    // ---- explosions and TNT outcomes (clk-misc, `explosion.rs`) ----
+    /// How an explosion draws its rays' power (`explosion::Rolls`: the level random by default).
+    pub explosion_rolls: crate::explosion::Rolls,
+    /// Injected kicks: the `nextDouble()` of the k-th TNT entity spawned (block primes and
+    /// explosion primes together, in spawn order), in place of the level random's (still drawn
+    /// when mirrored) or `tnt_kick`. For robustness sweeps over every kick angle.
+    pub tnt_kicks: Vec<f64>,
+    /// TNT entities spawned so far (the index into `tnt_kicks`).
+    pub tnt_spawned: u32,
+    /// Injected fuses (10..=29) of the explosion-primed TNT (`TntBlock.wasExploded`), in order, in
+    /// place of the level random's `nextInt(20) + 10`.
+    pub chain_fuses: Vec<i32>,
+    pub chain_spawned: u32,
+    /// TNT blocks an explosion primed: (game time, cell), like `primed` for `TntBlock.prime`.
+    pub chain_primed: Vec<(i64, BlockPos)>,
+    /// Every explosion so far (`explosion::explode`): when, where, what it destroyed.
+    pub explosions: Vec<crate::explosion::Blast>,
 }
 
 impl World {
@@ -157,6 +203,88 @@ impl World {
             watch_light: false,
             light_changes: Vec::new(),
             errors: Vec::new(),
+            primed: Vec::new(),
+            remove_primed: false,
+            tnt_kick: None,
+            payloads: Vec::new(),
+            drop_seed: None,
+            drop_count: 0,
+            level_random: None,
+            chunk_draws: 0,
+            explosion_rolls: Default::default(),
+            tnt_kicks: Vec::new(),
+            tnt_spawned: 0,
+            chain_fuses: Vec::new(),
+            chain_spawned: 0,
+            chain_primed: Vec::new(),
+            explosions: Vec::new(),
+        }
+    }
+
+    /// Mirror the bridge sandbox's level random: seeded `seed` (`level.getRandom().setSeed`, at
+    /// create and reset), its chunk box `[minX, minZ, maxX, maxZ]` (chunk coordinates, forced:
+    /// each draws `RANDOM_TICK_SPEED` = 3 `nextInt(48)` per tick).
+    pub fn mirror_level_random(&mut self, seed: i64, chunks: [i32; 4]) {
+        self.level_random = Some(crate::rng::LegacyRandom::new(seed));
+        let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
+        self.chunk_draws = 3 * n;
+    }
+
+    /// The mirrored level random, if any (draw from it at the game's spot).
+    pub fn rng(&mut self) -> Option<&mut crate::rng::LegacyRandom> {
+        self.level_random.as_mut()
+    }
+
+    /// One `level.getRandom().nextFloat()` (a sound's random pitch: pistons, doors, trapdoors,
+    /// fence gates, sculk clicks, dripleaf tilts...), when the level random is mirrored.
+    pub fn draw_sound_pitch(&mut self) {
+        if let Some(r) = self.level_random.as_mut() {
+            r.next_float();
+        }
+    }
+
+    /// `Block.popResource`'s three `Mth.nextDouble(level.random, -0.25, 0.25)` (one item stack a
+    /// broken block drops; the bridge then reseeds the item's own random: `rng::Drop`), when the
+    /// level random is mirrored.
+    pub fn draw_pop_resource(&mut self) {
+        if let Some(r) = self.level_random.as_mut() {
+            for _ in 0..3 {
+                r.next_double_between(-0.25, 0.25);
+            }
+        }
+    }
+
+    /// `Block.popResource(level, pos, stack)`: the three level-random draws (when mirrored), and
+    /// with a drop seed the item entity the bridge spawns (`rng::Drop`, the sandbox's n-th drop;
+    /// `payload`: a shulker box item's contents).
+    pub fn pop_resource(&mut self, pos: BlockPos, item: &str, count: u32, payload: u16) {
+        self.draw_pop_resource();
+        let Some(seed) = self.drop_seed else { return };
+        let d = crate::rng::Drop::seeded(seed, self.drop_count, pos);
+        self.drop_count += 1;
+        let state = crate::entity::item::ItemState { item: item.to_string(), count: count.min(255) as u8, pickup_delay: 10, age: 0, payload, health: 5 };
+        let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
+        if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
+            e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
+        }
+    }
+
+    /// `Block.dropResources(state, level, pos)` of the block `s` just broken at `pos` (callers
+    /// record it in `drops`): with the level random mirrored or a drop seed, every stack of its
+    /// loot table pops (`pop_resource`); a table redsim cannot evaluate is a model error. Without
+    /// either, nothing (no draw, no entity).
+    pub fn drop_resources(&mut self, pos: BlockPos, s: Block) {
+        if self.level_random.is_none() && self.drop_seed.is_none() {
+            return;
+        }
+        let payload = crate::redstone::shulker::box_payload(self, pos, &s).unwrap_or(0);
+        match crate::loot::drops(&s) {
+            Ok(v) => {
+                for (item, n) in v {
+                    self.pop_resource(pos, &item, n, payload);
+                }
+            }
+            Err(e) => self.errors.push(e),
         }
     }
 
@@ -288,6 +416,8 @@ impl World {
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
             Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox => crate::redstone::container::remove(self, pos),
+            // ---- shulker study (clk-rt) ----
+            Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
@@ -300,6 +430,8 @@ impl World {
                 self.comparator_out.entry(pos).or_insert(0);
             }
             Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
+            // ---- shulker study (clk-rt) ----
+            Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),
             Kind::Jukebox => {
                 crate::redstone::container::create(self, pos, &state);
@@ -329,6 +461,8 @@ impl World {
             return false;
         }
         if drop && bh::drops_item(&s) {
+            // dropResources: its loot's stacks pop (level-random draws, seeded items)
+            self.drop_resources(pos, s);
             self.drops.push((pos, s));
         }
         // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)
@@ -579,6 +713,16 @@ impl World {
     pub fn tick(&mut self) {
         self.handling_tick = true;
         self.time += 1;
+        // a primed TNT explodes after its 80 gt fuse (it ticks from the tick it spawns in): not
+        // modeled, unless the caller removes primed TNT before that (the TNT judge does); TNT
+        // entities (`tnt_kick`) count their own fuse
+        if !self.remove_primed && self.tnt_kick.is_none() {
+            if let Some(&(t, p)) = self.primed.iter().find(|(t, _)| self.time >= *t + 79) {
+                if !self.errors.iter().any(|e| e.starts_with("explosion")) {
+                    self.errors.push(format!("explosion not modeled: the TNT primed at gt {t} ({p}) explodes"));
+                }
+            }
+        }
         let due = self.ticks.collect(self.time);
         for t in due {
             self.ticks.start_running(&t);
@@ -596,6 +740,14 @@ impl World {
                 crate::fluid::tick(self, t.pos, t.kind);
             }
             self.fluid_ticks.end_tick();
+        }
+        // ServerChunkCache.tickChunks (after raids, before block events): every forced chunk's
+        // ServerLevel.tickChunk draws randomTickSpeed x nextInt(48) for precipitation (a void
+        // world: nothing else happens; no random-ticking sections are modeled)
+        if let Some(r) = self.level_random.as_mut() {
+            for _ in 0..self.chunk_draws {
+                r.next_int(48);
+            }
         }
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
@@ -666,9 +818,13 @@ impl World {
             Block::Wire { .. } => crate::redstone::wire::use_block(self, s, pos),
             Block::Trapdoor { iron: false, facing, top, open, powered } => {
                 self.set_block(pos, Block::Trapdoor { iron: false, facing, top, open: !open, powered }, flags::CLIENTS);
+                // TrapDoorBlock.toggle -> playSound (a level-random nextFloat pitch)
+                self.draw_sound_pitch();
             }
             Block::Door { iron: false, facing, upper, hinge_right, open, powered } => {
                 self.set_block(pos, Block::Door { iron: false, facing, upper, hinge_right, open: !open, powered }, flags::CLIENTS | flags::IMMEDIATE);
+                // DoorBlock.useWithoutItem -> playSound (a level-random nextFloat pitch)
+                self.draw_sound_pitch();
                 self.game_event(if open { "block_close" } else { "block_open" }, pos);
             }
             Block::Trapdoor { .. } | Block::Door { .. } | Block::Air | Block::Water { .. } | Block::BubbleColumn { .. } => {}

@@ -68,13 +68,14 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
-    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
-    pub trace: Option<String>,
     pub tick: Option<u32>,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
     /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
     pub stimulus: Option<String>,
+    /// `data-events`: the judge's actions at cells (a BUD switch's target and footprint probes),
+    /// replayed in the auto-demo.
+    pub events: Option<String>,
     /// `data-phases`: the checker's phase labels.
     pub phases: Option<String>,
     /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
@@ -125,21 +126,69 @@ pub(crate) struct App {
     /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
     /// (applied, or unavailable: the hand-drawn tiles stay).
     textures_pending: bool,
+    /// The game's entity textures were asked for (the first entity drawn without them).
+    entities_requested: bool,
 }
 
-/// Where the game's block atlas comes from: `data-mcview-textures` on the page's root element
-/// (`none` = the hand-drawn tiles only; else the directory of `atlas.png` and `data.min.json`),
-/// by default misode/mcmeta's atlas of the judge's version.
-fn texture_urls() -> Option<(String, String)> {
+/// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
+/// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
+/// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default misode/mcmeta's
+/// block atlas, block definitions and models of the judge's version.
+fn texture_urls() -> Option<[String; 4]> {
     let root = document().document_element()?;
     match root.get_attribute("data-mcview-textures") {
         Some(v) if v.trim() == "none" => None,
         Some(v) if !v.trim().is_empty() => {
             let base = v.trim().trim_end_matches('/').to_string();
-            Some((format!("{base}/atlas.png"), format!("{base}/data.min.json")))
+            Some([format!("{base}/atlas.png"), format!("{base}/data.min.json"), format!("{base}/block_definition.min.json"), format!("{base}/model.min.json")])
         }
-        _ => Some((mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string())),
+        _ => Some([mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string(), mcview::gamemodel::DEFS_URL.to_string(), mcview::gamemodel::MODELS_URL.to_string()]),
     }
+}
+
+/// The game's entity and item atlases (`entities.png`, `entities.min.json`, `items.png`,
+/// `items.min.json` in a `data-mcview-textures` directory; misode/mcmeta's by default), loaded
+/// the first time a page draws an entity.
+fn entity_urls() -> Option<[String; 4]> {
+    use mcview::atlas::vanilla::*;
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some([format!("{base}/entities.png"), format!("{base}/entities.min.json"), format!("{base}/items.png"), format!("{base}/items.min.json")])
+        }
+        _ => Some([ENTITY_ATLAS_URL.to_string(), ENTITY_INDEX_URL.to_string(), ITEM_ATLAS_URL.to_string(), ITEM_INDEX_URL.to_string()]),
+    }
+}
+
+/// Load the game's entity and item textures into the game texture (boats, minecarts, armor
+/// stands and dropped items drawn with the viewer's stand-ins until then).
+async fn load_entity_textures() {
+    let Some([ep, ei, ip, ii]) = entity_urls() else { return };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    let (ep, ei, ip, ii) = futures_join4(fetch_cached(&ep), fetch_cached(&ei), fetch_cached(&ip), fetch_cached(&ii)).await;
+    let got = (|| {
+        let (er, ew, eh) = mcview::atlas::vanilla::decode_png(&ep?)?;
+        let (ir, iw, ih) = mcview::atlas::vanilla::decode_png(&ip?)?;
+        Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
+    })();
+    with_app(|a| match got {
+        Ok((er, ew, eh, ei, ir, iw, ih, ii)) => {
+            let mut atlas = (*a.atlas).clone();
+            match atlas.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii)) {
+                Ok(n) => {
+                    if debug() {
+                        log(&format!("the game's entity textures ({n}) and items"));
+                    }
+                    a.set_atlas(atlas);
+                }
+                Err(e) => log(&format!("the game's entity textures: {e} (the viewer's stand-ins)")),
+            }
+        }
+        Err(e) => log(&format!("the game's entity textures unavailable: {e} (the viewer's stand-ins)")),
+    });
+    ensure_frame();
 }
 
 /// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
@@ -179,25 +228,41 @@ async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
 
 /// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
 async fn load_textures() {
-    let Some((png_url, index_url)) = texture_urls() else {
+    let Some([png_url, index_url, defs_url, models_url]) = texture_urls() else {
         with_app(|a| a.textures_pending = false);
         ensure_frame();
         return;
     };
-    let got = async {
-        let png = fetch_cached(&png_url).await?;
-        let index = String::from_utf8(fetch_cached(&index_url).await?).map_err(|e| e.to_string())?;
-        Ok::<_, String>((png, index))
-    }
-    .await;
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    // all four at once
+    let (png, index, defs, models) = futures_join4(fetch_cached(&png_url), fetch_cached(&index_url), fetch_cached(&defs_url), fetch_cached(&models_url)).await;
+    let got = (|| Ok::<_, String>((png?, text(index?)?)))();
+    let game_text = (|| Ok::<_, String>((text(defs?)?, text(models?)?)))();
     with_app(|a| {
+        let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let t0 = now();
         match got {
             Ok((png, index)) => {
                 let mut atlas = (*a.atlas).clone();
-                match atlas.apply_vanilla_png(&png, &index) {
-                    Ok(n) => {
-                        if debug() {
-                            log(&format!("the game's textures on {n} tiles"));
+                match mcview::atlas::vanilla::decode_png(&png) {
+                    Ok((rgba, w, h)) => {
+                        match atlas.apply_vanilla(&rgba, w, h, &index) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's textures on {n} tiles ({:.0} ms)", now() - t0));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                        }
+                        // the game's own block models (the viewer's when they cannot be read)
+                        let t1 = now();
+                        match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's block models ({n} textures, {:.0} ms)", now() - t1));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
                         }
                         a.set_atlas(atlas);
                     }
@@ -209,6 +274,35 @@ async fn load_textures() {
         a.textures_pending = false;
     });
     ensure_frame();
+}
+
+/// Four futures driven together (no executor crate: a small poll loop over pinned futures).
+async fn futures_join4<A: std::future::Future, B: std::future::Future, C: std::future::Future, D: std::future::Future>(a: A, b: B, c: C, d: D) -> (A::Output, B::Output, C::Output, D::Output) {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::Poll;
+    let (mut a, mut b, mut c, mut d) = (Box::pin(a), Box::pin(b), Box::pin(c), Box::pin(d));
+    let (mut ra, mut rb, mut rc, mut rd) = (None, None, None, None);
+    std::future::poll_fn(move |cx| {
+        if ra.is_none() && let Poll::Ready(v) = Pin::new(&mut a).poll(cx) {
+            ra = Some(v);
+        }
+        if rb.is_none() && let Poll::Ready(v) = Pin::new(&mut b).poll(cx) {
+            rb = Some(v);
+        }
+        if rc.is_none() && let Poll::Ready(v) = Pin::new(&mut c).poll(cx) {
+            rc = Some(v);
+        }
+        if rd.is_none() && let Poll::Ready(v) = Pin::new(&mut d).poll(cx) {
+            rd = Some(v);
+        }
+        if ra.is_some() && rb.is_some() && rc.is_some() && rd.is_some() {
+            Poll::Ready((ra.take().unwrap(), rb.take().unwrap(), rc.take().unwrap(), rd.take().unwrap()))
+        } else {
+            Poll::Pending
+        }
+    })
+    .await
 }
 
 #[wasm_bindgen(start)]
@@ -245,6 +339,7 @@ pub fn start() {
         frame_scheduled: false,
         work_scheduled: false,
         textures_pending: true,
+        entities_requested: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
     // the game's textures (hand-drawn tiles if they do not come within a few seconds)
@@ -420,9 +515,25 @@ fn scan(root: &Element) {
     }
 }
 
+/// An entity was drawn without the game's entity textures: load them (once).
+fn maybe_load_entities() {
+    let want = with_app(|a| {
+        let want = !a.entities_requested && a.atlas.game.as_ref().is_some_and(|g| !g.entities && g.wants_entities.get());
+        if want {
+            a.entities_requested = true;
+        }
+        want
+    })
+    .unwrap_or(false);
+    if want {
+        wasm_bindgen_futures::spawn_local(load_entity_textures());
+    }
+}
+
 /// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
 /// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
+    maybe_load_entities();
     let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
     if work {
         let cb = Closure::once_into_js(move || {
@@ -431,6 +542,7 @@ pub(crate) fn ensure_frame() {
                 a.thumbs()
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }
@@ -445,6 +557,7 @@ pub(crate) fn ensure_frame() {
                 a.live_frames(ts)
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }
@@ -482,10 +595,10 @@ impl App {
         }
         v.src = src;
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
-        v.trace = el.get_attribute("data-trace").filter(|s| !s.is_empty());
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
+        v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
         v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
         v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
         v.yaw = attr_f32(el, "data-yaw");
@@ -505,7 +618,7 @@ impl App {
     /// drawn again.
     fn set_atlas(&mut self, atlas: Atlas) {
         self.atlas = Rc::new(atlas);
-        if let ThumbGpu::Ready(g) = &self.thumb {
+        if let ThumbGpu::Ready(g) = &mut self.thumb {
             g.r.upload_atlas(&self.atlas);
         }
         self.cache.clear();
@@ -554,10 +667,10 @@ impl App {
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
-            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
+            events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
             phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
             input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
@@ -669,15 +782,8 @@ impl App {
         self.url_text(&src)
     }
 
-    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
-    /// `View::trace` first).
-    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
-        let url = self.views.get(&id)?.trace.clone()?;
-        self.url_text(&url)
-    }
-
     /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
-    /// arrives, every view using it (as design or recording) is queued again.
+    /// arrives, every view using it is queued again.
     fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
         if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
@@ -689,7 +795,7 @@ impl App {
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str());
                     let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
@@ -797,9 +903,13 @@ impl App {
                     s.go_to_still(20_000);
                 }
             }
-            let look = scene::default_look(&s);
+            let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
+            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect, scene::THUMB_WINDOW);
+            // a thumbnail is a picture, nothing to press: no outlines over a small build (the
+            // live viewer has them, with its tags)
+            look.outlines.clear();
+            look.port_outlines.clear();
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();

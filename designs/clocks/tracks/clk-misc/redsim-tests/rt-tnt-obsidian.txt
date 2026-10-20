@@ -1,0 +1,39 @@
+name: rt-tnt-obsidian
+# redsim test scene (not a clock): a TNT in an obsidian shell (resistance 1200 stops the rays) whose
+# top cell is the priming redstone block (placed at tick 2 for 6 gt, then air: a hole), stone outside
+# the shell and above the hole: only what the hole lets the rays reach is destroyed.
+port start: 2 2 2 minecraft:redstone_block 6 at 2
+palette:
+  S minecraft:stone
+  O minecraft:obsidian
+  T minecraft:tnt[unstable=false]
+layer 0:
+  SSSSS
+  SOOOS
+  SOOOS
+  SOOOS
+  SSSSS
+layer 1:
+  ..S..
+  .OOO.
+  SOTOS
+  .OOO.
+  ..S..
+layer 2:
+  .....
+  .OOO.
+  .O.O.
+  .OOO.
+  .....
+layer 3:
+  .....
+  .....
+  ..S..
+  .....
+  .....
+layer 4:
+  .....
+  .....
+  ..S..
+  .....
+  .....

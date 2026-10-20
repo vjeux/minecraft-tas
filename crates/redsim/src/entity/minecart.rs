@@ -300,6 +300,13 @@ fn come_off_track(w: &mut World, i: usize) {
 
 /// `AbstractMinecart.tick` of entity `i`.
 pub fn tick(w: &mut World, i: usize) {
+    // AbstractMinecart.tick: the damage an explosion left decays first
+    {
+        let e = &mut w.entities.list[i];
+        if e.vehicle_damage > 0.0 {
+            e.vehicle_damage -= 1.0;
+        }
+    }
     if w.entities.list[i].pos.y < (crate::gravity::MIN_Y - 64) as f64 {
         w.entities.list[i].removed = true;
         return;
@@ -351,11 +358,8 @@ pub fn tick(w: &mut World, i: usize) {
         let m = st_mut(w, i);
         m.flipped = !m.flipped;
     }
-    // pushAndPickupEntities: nothing else around in the traced designs
-    let bb = w.entities.list[i].bb.inflate(0.2f32 as f64, 0.0, 0.2f32 as f64);
-    if w.get_entities(bb, |_| true).iter().any(|&j| j != i) {
-        w.errors.push("minecart: pushing other entities is not modeled yet".into());
-    }
+    // pushAndPickupEntities (OldMinecartBehavior; clk-misc 2026-10-20)
+    push_and_pickup_entities(w, i);
     entity::fluid_push::update_fluid_interaction(w, i);
     w.entities.list[i].first_tick = false;
     // MinecartHopper.tick: after the cart's tick, `tryConsumeItems` (consumedItemThisFrame is
@@ -364,4 +368,87 @@ pub fn tick(w: &mut World, i: usize) {
     if m.hopper && m.enabled && !w.entities.list[i].removed {
         crate::redstone::container::hopper_minecart_suck(w, i);
     }
+}
+
+/// `isPushable()` of a modeled entity: boats and minecarts (armor stands and items are not; living
+/// mobs are not modeled).
+pub fn is_pushable(e: &entity::Entity) -> bool {
+    matches!(e.kind, entity::EntityKind::Boat(_) | entity::EntityKind::Minecart(_))
+}
+
+/// `OldMinecartBehavior.pushAndPickupEntities` of cart `i` (clk-misc, 2026-10-20). A rideable cart
+/// (a plain minecart) moving at least 0.1 per tick sideways picks up the pushable entities in its box
+/// grown by 0.2 (boats: `startRiding`, not modeled) and pushes other minecarts; otherwise every other
+/// minecart in that box is pushed (`entity.push(this cart)`: [`push_by`] on THAT cart). Entities in list
+/// order (`level.getEntities`).
+fn push_and_pickup_entities(w: &mut World, i: usize) {
+    let hitbox = w.entities.list[i].bb.inflate(0.2f32 as f64, 0.0, 0.2f32 as f64);
+    let rideable = !st(w, i).hopper;
+    let moving = w.entities.list[i].delta_movement.horizontal_distance_sqr() >= 0.01;
+    let is_cart = |e: &entity::Entity| matches!(e.kind, entity::EntityKind::Minecart(_));
+    if rideable && moving {
+        let found: Vec<usize> = w.get_entities(hitbox, is_pushable).into_iter().filter(|&j| j != i).collect();
+        for j in found {
+            if is_cart(&w.entities.list[j]) {
+                push_by(w, j, i);
+            } else {
+                // a boat (not a player, golem or minecart, the cart carries nobody): startRiding
+                w.errors.push("a moving minecart picking up an entity (startRiding: passengers) is not modeled".into());
+            }
+        }
+    } else {
+        let found: Vec<usize> = w.get_entities(hitbox, |e| is_cart(e)).into_iter().filter(|&j| j != i).collect();
+        for j in found {
+            push_by(w, j, i);
+        }
+    }
+}
+
+/// `AbstractMinecart.push(Entity entity)` on cart `j` (this) by cart `i` (the entity): both carts
+/// are minecarts here, so `pushOtherMinecart`.
+fn push_by(w: &mut World, j: usize, i: usize) {
+    let (this, other) = (&w.entities.list[j], &w.entities.list[i]);
+    if this.removed || other.removed || this.no_physics || other.no_physics {
+        return;
+    }
+    let mut xa = other.pos.x - this.pos.x;
+    let mut za = other.pos.z - this.pos.z;
+    let mut dd = xa * xa + za * za;
+    if !(dd >= 1.0e-4f32 as f64) {
+        return;
+    }
+    dd = dd.sqrt();
+    xa /= dd;
+    za /= dd;
+    let mut pow = 1.0 / dd;
+    if pow > 1.0 {
+        pow = 1.0;
+    }
+    xa *= pow;
+    za *= pow;
+    xa *= 0.1f32 as f64;
+    za *= 0.1f32 as f64;
+    xa *= 0.5;
+    za *= 0.5;
+    push_other_minecart(w, j, i, xa, za);
+}
+
+/// `AbstractMinecart.pushOtherMinecart(otherMinecart, xa, za)` on cart `j` (this), `i` the other
+/// (no furnace minecarts are modeled; old movement: the direction between the carts).
+fn push_other_minecart(w: &mut World, j: usize, i: usize, xa: f64, za: f64) {
+    let (this, other) = (&w.entities.list[j], &w.entities.list[i]);
+    let dir = Vec3::new(other.pos.x - this.pos.x, 0.0, other.pos.z - this.pos.z).normalize();
+    let r = this.y_rot * ((std::f64::consts::PI / 180.0) as f32);
+    let facing = Vec3::new(mth::cos(r as f64) as f64, 0.0, mth::sin(r as f64) as f64).normalize();
+    let dot = dir.dot(facing).abs();
+    if dot < 0.8f32 as f64 {
+        return;
+    }
+    let movement = this.delta_movement;
+    let entity_movement = other.delta_movement;
+    let xdd = (entity_movement.x + movement.x) / 2.0;
+    let zdd = (entity_movement.z + movement.z) / 2.0;
+    let push = |v: Vec3, x: f64, z: f64| if x.is_finite() && z.is_finite() { v.add(x, 0.0, z) } else { v };
+    w.entities.list[j].delta_movement = push(movement.multiply(0.2, 1.0, 0.2), xdd - xa, zdd - za);
+    w.entities.list[i].delta_movement = push(entity_movement.multiply(0.2, 1.0, 0.2), xdd + xa, zdd + za);
 }

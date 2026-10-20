@@ -225,10 +225,24 @@ pub enum Simple {
     Dirt,
     // ---- fluids (clockinfra): what turns water above into a bubble column ----
     MagmaBlock,
+    // ---- the other wool colours (clk-misc, coverage: community-7x8-48b's cyan) ----
+    MagentaWool,
+    LightBlueWool,
+    YellowWool,
+    LimeWool,
+    PinkWool,
+    GrayWool,
+    LightGrayWool,
+    CyanWool,
+    PurpleWool,
+    BlueWool,
+    BrownWool,
+    GreenWool,
+    RedWool,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 62] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 75] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -299,6 +313,20 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 62] = [
     (Simple::Dirt, "dirt", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- fluids (clockinfra) ----
     (Simple::MagmaBlock, "magma_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
+    // ---- the other wool colours (clk-misc): every wool is a plain conductor, GUITAR ----
+    (Simple::MagentaWool, "magenta_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::LightBlueWool, "light_blue_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::YellowWool, "yellow_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::LimeWool, "lime_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::PinkWool, "pink_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::GrayWool, "gray_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::LightGrayWool, "light_gray_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::CyanWool, "cyan_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::PurpleWool, "purple_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::BlueWool, "blue_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::BrownWool, "brown_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::GreenWool, "green_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
+    (Simple::RedWool, "red_wool", true, true, Instrument::Guitar, PushReaction::PushPull),
 ];
 
 impl Simple {
@@ -500,7 +528,29 @@ pub enum Block {
     /// A bubble column (`BubbleColumnBlock`, a water source): `drag` = down (magma below), else up
     /// (soul sand below).
     BubbleColumn { drag: bool },
+    // ---- TNT dupers (track tnt, `tnt.rs`) ----
+    /// TNT (`TntBlock`): primes on placement or an update while powered.
+    Tnt { unstable: bool },
+    /// Dead coral fan on a floor (`BaseCoralFanBlock`): `kind` indexes `tnt::DEAD_CORALS`.
+    CoralFan { kind: u8, waterlogged: bool },
+    /// Dead coral wall fan (`BaseCoralWallFanBlock`), on the block at `facing.opposite()`.
+    CoralWallFan { kind: u8, facing: Dir, waterlogged: bool },
+    // ---- shulker study (clk-rt, `redstone/container.rs`) ----
+    /// Shulker box (`ShulkerBoxBlock`, always closed here: a full cube, a conductor, solid):
+    /// `colour` 0 = plain, else 1 + the `DyeColor` id ([`DYES`]); its 27 slots live in the block
+    /// entity. Pistons destroy it: it drops as an item carrying its contents.
+    ShulkerBox { colour: u8, facing: Dir },
+    /// Single chest (`ChestBlock`, `type=single`): 27 slots in the block entity; immovable (a
+    /// block entity), not a conductor; shape 1..15 x 0..14 x 1..15 px.
+    Chest { facing: Dir, waterlogged: bool },
+    // ---- fences (clk-misc, `fence.rs`) ----
+    /// A fence (`FenceBlock`): `kind` indexes `fence::FENCES` (wooden, then nether brick); the four
+    /// arms and the water.
+    Fence { kind: u8, north: bool, east: bool, south: bool, west: bool, waterlogged: bool },
 }
+
+/// `DyeColor` names by id (a shulker box's `colour` - 1).
+pub const DYES: [&str; 16] = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"];
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
 pub const SCULK_PHASES: [&str; 3] = ["inactive", "active", "cooldown"];
@@ -568,6 +618,18 @@ pub enum Kind {
     Jukebox,
     Water,
     BubbleColumn,
+    // ---- TNT dupers (track tnt) ----
+    Tnt,
+    /// By `tnt::DEAD_CORALS` index.
+    CoralFan(u8),
+    CoralWallFan(u8),
+    // ---- shulker study (clk-rt) ----
+    /// By `Block::ShulkerBox::colour` (each colour is its own block).
+    ShulkerBox(u8),
+    Chest,
+    // ---- fences (clk-misc) ----
+    /// By `fence::FENCES` index.
+    Fence(u8),
 }
 
 fn b(s: bool) -> &'static str {
@@ -631,6 +693,12 @@ impl Block {
             Block::Jukebox { .. } => Kind::Jukebox,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
+            Block::Tnt { .. } => Kind::Tnt,
+            Block::CoralFan { kind, .. } => Kind::CoralFan(kind),
+            Block::CoralWallFan { kind, .. } => Kind::CoralWallFan(kind),
+            Block::ShulkerBox { colour, .. } => Kind::ShulkerBox(colour),
+            Block::Chest { .. } => Kind::Chest,
+            Block::Fence { kind, .. } => Kind::Fence(kind),
         }
     }
 
@@ -943,6 +1011,26 @@ impl Block {
             }
             "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
             "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
+            // ---- TNT dupers (track tnt): the dead fans' default state is waterlogged ----
+            "tnt" => Block::Tnt { unstable: bool_of("unstable", false)? },
+            n if n.starts_with("dead_") && n.ends_with("_coral_fan") && crate::tnt::DEAD_CORALS.contains(&&n[5..n.len() - 10]) => Block::CoralFan {
+                kind: crate::tnt::DEAD_CORALS.iter().position(|k| *k == &n[5..n.len() - 10]).unwrap() as u8,
+                waterlogged: bool_of("waterlogged", true)?,
+            },
+            n if n.starts_with("dead_") && n.ends_with("_coral_wall_fan") && crate::tnt::DEAD_CORALS.contains(&&n[5..n.len() - 15]) => Block::CoralWallFan {
+                kind: crate::tnt::DEAD_CORALS.iter().position(|k| *k == &n[5..n.len() - 15]).unwrap() as u8,
+                facing: hdir_of("facing", Dir::North)?,
+                waterlogged: bool_of("waterlogged", true)?,
+            },
+            // ---- fences (clk-misc) ----
+            n if n.ends_with("_fence") && crate::fence::FENCES.contains(&&n[..n.len() - 6]) => Block::Fence {
+                kind: crate::fence::FENCES.iter().position(|k| *k == &n[..n.len() - 6]).unwrap() as u8,
+                north: bool_of("north", false)?,
+                east: bool_of("east", false)?,
+                south: bool_of("south", false)?,
+                west: bool_of("west", false)?,
+                waterlogged: bool_of("waterlogged", false)?,
+            },
             // ---- entity-reacting blocks (clk-misc): rails ----
             "rail" => {
                 waterlogged_ok()?;
@@ -962,6 +1050,18 @@ impl Block {
                     },
                     powered: bool_of("powered", false)?,
                 }
+            }
+            // ---- shulker study (clk-rt) ----
+            "shulker_box" => Block::ShulkerBox { colour: 0, facing: dir_of("facing", Dir::Up)? },
+            n if n.ends_with("_shulker_box") && DYES.contains(&&n[..n.len() - 12]) => Block::ShulkerBox {
+                colour: 1 + DYES.iter().position(|d| *d == &n[..n.len() - 12]).unwrap() as u8,
+                facing: dir_of("facing", Dir::Up)?,
+            },
+            "chest" => {
+                if get("type").is_some_and(|t| t != "single") {
+                    return Err(format!("only single chests are modeled by redsim: {s:?}"));
+                }
+                Block::Chest { facing: hdir_of("facing", Dir::North)?, waterlogged: bool_of("waterlogged", false)? }
             }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
@@ -1115,6 +1215,24 @@ impl fmt::Display for Block {
             Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
+            Block::Tnt { unstable } => write!(f, "minecraft:tnt[unstable={}]", b(unstable)),
+            Block::CoralFan { kind, waterlogged } => write!(f, "minecraft:dead_{}_coral_fan[waterlogged={}]", crate::tnt::DEAD_CORALS[kind as usize], b(waterlogged)),
+            Block::CoralWallFan { kind, facing, waterlogged } => {
+                write!(f, "minecraft:dead_{}_coral_wall_fan[facing={},waterlogged={}]", crate::tnt::DEAD_CORALS[kind as usize], facing.name(), b(waterlogged))
+            }
+            Block::ShulkerBox { colour: 0, facing } => write!(f, "minecraft:shulker_box[facing={}]", facing.name()),
+            Block::ShulkerBox { colour, facing } => write!(f, "minecraft:{}_shulker_box[facing={}]", DYES[colour as usize - 1], facing.name()),
+            Block::Chest { facing, waterlogged } => write!(f, "minecraft:chest[facing={},type=single,waterlogged={}]", facing.name(), b(waterlogged)),
+            Block::Fence { kind, north, east, south, west, waterlogged } => write!(
+                f,
+                "minecraft:{}_fence[east={},north={},south={},waterlogged={},west={}]",
+                crate::fence::FENCES[kind as usize],
+                b(east),
+                b(north),
+                b(south),
+                b(waterlogged),
+                b(west)
+            ),
         }
     }
 }
