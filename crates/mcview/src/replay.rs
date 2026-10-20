@@ -40,6 +40,11 @@ fn is_air(s: &str) -> bool {
 }
 
 impl Replay {
+    /// The entities recorded at tick `t` (none past the trace).
+    pub fn entities_at(&self, t: u32) -> &[TraceEntity] {
+        self.entities.get(t as usize).map(|v| v.as_slice()).unwrap_or(&[])
+    }
+
     pub fn parse(text: &str) -> Result<Replay, String> {
         let mut lines = text.lines().filter(|l| !l.trim().is_empty());
         let head = Json::parse(lines.next().ok_or("empty trace")?).map_err(|e| format!("trace header: {e}"))?;
