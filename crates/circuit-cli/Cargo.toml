@@ -19,3 +19,4 @@ circuit-delay = { path = "../circuit-delay" }
 circuit-gates = { path = "../circuit-gates" }
 circuit-pext = { path = "../circuit-pext" }
 circuit-fly = { path = "../circuit-fly" }
+circuit-shulker = { path = "../circuit-shulker" }

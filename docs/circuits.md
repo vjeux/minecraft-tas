@@ -234,6 +234,11 @@ kick) before the first input.
   * `flush` (loaders): 2.5 boxes' worth: the half box must arrive within 6000 gt after the source
     runs dry for good (longer than `restart`'s pause: a design that waits 3000 to 6000 gt gets
     both; one that flushes at once cannot have `restart`);
+  * `mixed` (loaders): 3 iron ingots once, then 16 rounds of cobblestone 64, snowballs 16, dirt
+    37, cobblestone 20, snowballs 5, dirt 64 (6 empty boxes): every item must end in a delivered
+    box, every box but the last with 27 occupied slots, the last within 6000 gt of the source
+    running dry. The rare item's slot stays partial for good, so a design that waits for a box to
+    read full jams;
   * `box-starved`: 2 boxes at the start (empty or full); the judge adds the rest 3000 gt after the
     2nd box arrives;
   * `drop-free`: entities polled every gt: every item entity is picked up within 8 gt and never
@@ -249,7 +254,15 @@ kick) before the first input.
   looks for items every gt. What a design's own container entities (a hopper minecart) hold at
   the end counts as left in the machine. The table adds `badge X: yes` or `no (why)` lines.
   `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
-  snapshots of a..b) add what changed to `--table`: a design aid.
+  snapshots of a..b) add what changed to `--table`: a design aid. `MCTAS_SHULKER_BADGE=<badge>`
+  judges that badge's scenario in place of the base (with its tables), the way to see why a badge
+  fails. Each build seeds the level's random from where it stands, so the 16 builds and the badge
+  runs sample different drops (a drop's offset and drift are random): a design that loses a drop
+  now and then shows up as a failing build or a missing badge.
+  `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
+  greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
+  badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
+  design another one dominates out of the archive.
 
 ## Archive and catalog
 

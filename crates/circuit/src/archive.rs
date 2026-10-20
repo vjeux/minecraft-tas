@@ -141,6 +141,22 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
+/// dominates): the file, its verdict row and its caption.
+pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
+    let (study, file) = spec.split_once('/').ok_or_else(|| anyhow::anyhow!("--remove {spec}: want <study>/<file>"))?;
+    let dir = archive_dir(root, study);
+    let rows = read_rows(&dir)?;
+    if !rows.iter().any(|r| r.file == file) {
+        anyhow::bail!("--remove {spec}: no such row in {}", dir.join(VERDICTS).display());
+    }
+    write_rows(&dir, &rows.into_iter().filter(|r| r.file != file).collect::<Vec<_>>())?;
+    let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| l.split('\t').next() != Some(file)).map(|l| format!("{l}\n")).collect();
+    std::fs::write(dir.join(CAPTIONS), caps)?;
+    let _ = std::fs::remove_file(dir.join(file));
+    Ok(format!("REMOVED {}", dir.join(file).display()))
+}
+
 /// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
 /// stone: `clock::ident`) whose run on redsim under the kind's stimulus is identical modulo the swap
 /// (every cell's full state at every frame); the circuit itself when redsim does not model it.
