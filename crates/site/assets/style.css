@@ -80,6 +80,11 @@ header.top {
   .grid > .card > .meta { flex: 1; min-width: 0; padding: 7px 10px; }
 }
 .nowrap { white-space: nowrap; }
+/* a wide table inside its scroll frame keeps its columns and scrolls (critique: the variations
+   table's last column was cut, links wrapped one word per line) */
+.scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
+.scroll-x > table.list th, .scroll-x > table.list td { white-space: nowrap; }
+.scroll-x > table.list td.def { white-space: normal; min-width: 180px; max-width: 280px; }
 p.needs { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--card); font-size: 14px; }
 .scroll-x { overflow-x: auto; max-width: 100%; }
 .phone-only { display: none; }

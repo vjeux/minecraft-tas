@@ -778,6 +778,15 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             }
         }
         let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        let smallest = list.iter().copied().min_by_key(|&j| (builds[j].blocks, builds[j].name.clone()));
+        // how many cards carry each badge: the rarest say the most about a card (critique: the
+        // smallest loader led with "always on + 16-stack items", not "tiles every 3 blocks")
+        let mut count: BTreeMap<String, usize> = BTreeMap::new();
+        for &j in &list {
+            for bd in badges_of(j) {
+                *count.entry(bd).or_default() += 1;
+            }
+        }
         // what each card adds over the smaller ones at least as fast (critique: cards of 31, 37
         // and 65 blocks all led with the same rate): its new badges, else the variation it is the
         // best design for
@@ -785,7 +794,8 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             let smaller: Vec<usize> = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name) && rate(&builds[j]) >= rate(&builds[i])).collect();
             let covered: BTreeSet<String> = smaller.iter().flat_map(|&j| badges_of(j)).collect();
             let mine = badges_of(i);
-            let new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
+            let mut new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
+            new.sort_by_key(|bd| (count.get(bd).copied().unwrap_or(0), bd.clone()));
             // (no new badge alone: a pair no smaller card has together, "restarts + flushes")
             let pair = || -> Option<String> {
                 for (x, a) in mine.iter().enumerate() {
@@ -805,15 +815,78 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
                 Some("fastest".to_string())
             } else if speedup >= 1.5 {
                 Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
+            } else if Some(i) == smallest {
+                // the smallest says so, with the rarest thing it does
+                Some(match new.first() {
+                    Some(bd) => format!("smallest · {}", site_model::html::badge_words(bd)),
+                    None => "smallest".to_string(),
+                })
             } else if !new.is_empty() {
                 Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
             } else if let Some(p) = pair() {
                 Some(p)
+            } else if builds[i].flags.iter().any(|f| f == "lever") && !mine.iter().any(|bd| bd == "always-on") {
+                // (what a reference machine adds over the smaller always-on ones: critique)
+                Some("has its own lever (can be switched off)".to_string())
+            } else if let Some(gain) = {
+                // its first box sooner than every smaller one at least as fast: what it adds
+                let first = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "first box")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+                let mine_first = first(&builds[i]);
+                let theirs = smaller.iter().filter_map(|&j| first(&builds[j])).min();
+                match (mine_first, theirs) {
+                    (Some(a), Some(b)) if a < b => Some(b - a),
+                    _ => None,
+                }
+            } {
+                Some(format!("first box {} sooner", site_model::real_time(gain)))
             } else {
                 mine.iter().find(|bd| best.get(*bd) == Some(&i)).map(|bd| site_model::html::badge_words(bd))
             };
             if let Some(l) = lead {
                 leads.push((i, l));
+            }
+        }
+    }
+    // piston extenders of one reach: each card leads with what sets it apart from the others of
+    // its reach (critique: the 7- and 8-block slime-free cards read the same): a property some of
+    // the others lack (no slime, 1 block wide, its own button...) and the speed it wins
+    let mut by_reach: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if shown(b) && b.group != "Sand elevator" && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")) {
+            let c = b.circuit.as_ref().unwrap();
+            by_reach.entry((c.kind.clone(), c.axis.clone())).or_default().push(i);
+        }
+    }
+    const SETS_APART: [&str; 6] = ["no slime", "1 block wide", "lies flat (1 block high)", "has its own button", "has its own lever", "comes in every size"];
+    for list in by_reach.values().filter(|l| l.len() > 1) {
+        // (an extendable family's base is marked later: its `extends`)
+        let chips: Vec<Vec<String>> = list
+            .iter()
+            .map(|&i| {
+                let mut v = site_model::html::props(&builds[i]).chips;
+                if builds[i].circuit.as_ref().is_some_and(|c| c.extends) {
+                    v.push("comes in every size".into());
+                }
+                v
+            })
+            .collect();
+        let metric = |i: usize, k: &str| -> Option<f64> { builds[i].circuit.as_ref()?.metrics.iter().find(|(n, _)| n == k)?.1.split_whitespace().next()?.parse().ok() };
+        for (x, &i) in list.iter().enumerate() {
+            let mut parts: Vec<String> = Vec::new();
+            // the strictly smallest of its reach says so
+            if list.iter().all(|&j| j == i || builds[j].blocks > builds[i].blocks) {
+                parts.push("smallest".into());
+            }
+            parts.extend(SETS_APART.iter().filter(|p| chips[x].iter().any(|c| c == *p) && chips.iter().enumerate().any(|(y, o)| y != x && !o.iter().any(|c| c == *p))).map(|p| p.to_string()));
+            for (k, words) in [("extend", "fastest out"), ("retract", "fastest back")] {
+                if let Some(v) = metric(i, k) {
+                    if list.iter().all(|&j| j == i || metric(j, k).is_some_and(|w| v < w)) {
+                        parts.push(words.to_string());
+                    }
+                }
+            }
+            if !parts.is_empty() {
+                leads.push((i, parts.into_iter().take(3).collect::<Vec<_>>().join(", ")));
             }
         }
     }
@@ -900,7 +973,7 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         list.sort_by_key(|&i| {
             let c = builds[i].circuit.as_ref();
             // (gates: the most common function first, critique)
-            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            let value = c.and_then(site_model::html::sort_value).unwrap_or(i64::MAX);
             (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
@@ -1572,9 +1645,9 @@ mod tests {
         assert!(!glob("pext-*-sf*", "pext-n2-sand6.txt"));
         assert!(hidden("pext", "pext-n1-sticky.txt").is_some());
         assert!(hidden("pulse", "pext-n1-sticky.txt").is_none());
-        // a line names one design: the other lengths of the same kind stay
-        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L8.txt").is_some());
-        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L12.txt").is_none());
+        // a line names one design: the others of its kind stay
+        assert!(hidden("pext", "pext-n3-sf43.txt").is_some());
+        assert!(hidden("pext", "pext-n3-sf38.txt").is_none());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
         // a class rule: every vibration-sensitive sculk design, in any study
         assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());
