@@ -344,6 +344,8 @@ struct Islands {
     feeders: Vec<u64>,
     watch: Vec<(Pos, u64)>,
     start: [u64; 2],
+    /// Pulses each island may deliver per edge (`--island-budget` per cell; 255 = no limit).
+    budget: Vec<u8>,
 }
 
 /// `--search`: weighted A* over pairs of idle worlds (the closed door opening, the open door
@@ -380,6 +382,7 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
     if let Some(isl) = &limits.islands {
         used0.extend_from_slice(&isl.start[0].to_le_bytes());
         used0.extend_from_slice(&isl.start[1].to_le_bytes());
+        used0.extend(std::iter::repeat_n(0u8, isl.budget.len()));
     }
     let masks = |u: &[u8]| -> (u64, u64) {
         if u.len() < nb + 16 {
@@ -434,6 +437,19 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
                         let m = &moves[mi];
                         if (m.edge != 2 && ma & f == 0) || (m.edge != 1 && mb & f == 0) {
                             continue;
+                        }
+                        // charge the pulse to a started feeding island with budget left (the one
+                        // with the most left)
+                        let ok = match m.edge {
+                            1 => ma & f,
+                            2 => mb & f,
+                            _ => ma & mb & f,
+                        };
+                        let base = nb + 16;
+                        let pick = (0..isl.budget.len()).filter(|i| ok & (1u64 << i) != 0 && used2[base + i] < isl.budget[*i]).max_by_key(|i| isl.budget[*i] - used2[base + i]);
+                        match pick {
+                            Some(i) => used2[base + i] += 1,
+                            None => continue,
                         }
                     }
                 }
@@ -562,6 +578,8 @@ pub struct Options {
     pub after: Vec<(Pos, u32)>,
     /// Sealed islands must start (see a change next to them, or hold the lever) before they feed.
     pub islands: bool,
+    /// With `islands`: pulses an island may deliver per edge, per cell of it (0 = no limit).
+    pub island_budget: usize,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -825,7 +843,7 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
 /// pistons (a free cell next to the piston, or next to the cell above it for quasi-connectivity);
 /// per cell, the islands that see it; the islands started at t0 (the lever's, and those that see
 /// the lever flip's changes). Returns a description and the islands.
-fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos>, lever_cells: &[Pos], inputs: &[Pos], moves: &[Step], sim: &Sim, flips: (&std::collections::BTreeSet<u32>, &std::collections::BTreeSet<u32>)) -> (String, Islands) {
+fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos>, lever_cells: &[Pos], inputs: &[Pos], moves: &[Step], sim: &Sim, flips: (&std::collections::BTreeSet<u32>, &std::collections::BTreeSet<u32>), per_cell: usize) -> (String, Islands) {
     let door = d.ports.get("door").copied().unwrap_or([0, 0, 0]);
     let along_z = d.meta.get("door-axis").is_some_and(|v| v == "z");
     let (a, b, k) = if along_z { (2usize, 1usize, 0usize) } else { (0usize, 1usize, 2usize) };
@@ -904,7 +922,8 @@ fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos
     let woken_by = |changed: &std::collections::BTreeSet<u32>| -> u64 { watch.iter().filter(|(p, _)| sim.index(*p).is_some_and(|i| changed.contains(&i))).fold(0u64, |m, (_, b)| m | b) };
     let lever_islands = lever_cells.iter().fold(0u64, |m, c| m | touching(*c));
     let start = [lever_islands | woken_by(flips.0), lever_islands | woken_by(flips.1)];
-    let isl = Islands { feeders, watch, start };
+    let budget: Vec<u8> = islands.iter().map(|c| if per_cell == 0 { 255 } else { (per_cell * c.len()).min(254) as u8 }).collect();
+    let isl = Islands { feeders, watch, start, budget };
     let desc = islands.iter().enumerate().map(|(i, c)| format!("#{i} {:?}", c.iter().map(|p| (p[a], p[b])).collect::<Vec<_>>())).collect::<Vec<_>>().join(" ");
     (desc, isl)
 }
@@ -1188,7 +1207,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             let lever_cells: Vec<Pos> = lever.iter().map(|l| l.0).chain(uses.iter().copied()).collect();
             // cells the plan drives (its inputs) are not part of the door's box
             let inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).map(|e| e.1).chain(lever_cells.iter().copied()).collect();
-            let isl = build_islands(&d, &occ, &lever_cells, &inputs, &moves, &sim, (&ch_open, &ch_close));
+            let isl = build_islands(&d, &occ, &lever_cells, &inputs, &moves, &sim, (&ch_open, &ch_close), o.island_budget);
             say!(o, "islands: {} (start masks open {:#x} / close {:#x})", isl.0, isl.1.start[0], isl.1.start[1]);
             Some(isl.1)
         } else {
