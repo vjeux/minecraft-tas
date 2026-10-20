@@ -13,6 +13,7 @@
 //! activated at tick A is INACTIVE again in the tile-tick phase of A+20 (calibrated) / A+40 (plain)
 //! and a vibration posted at T lands at T + max(1, floor(distance)), so P >= 21 / P >= 41.
 
+mod ambient;
 mod build;
 mod caption;
 mod climb;
@@ -84,6 +85,8 @@ enum Cmd {
     Outputs(outputs::OutputsArgs),
     /// Rewrite generated designs' headers into a one-line caption (what `clock archive` keeps).
     Caption(caption::CaptionArgs),
+    /// One clock's quiet and ambient (vibration property) runs tick by tick, redsim and the game.
+    AmbientTrace(ambient::AmbientArgs),
     /// Greedy block removal keeping the period and a full-period cell (minimal designs).
     Reduce(outputs::ReduceArgs),
     /// The extendable families (replin, racetrack): one design per n.
@@ -142,6 +145,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Climb(a) => climb::climb(&a),
         Cmd::Outputs(a) => outputs::outputs(&a),
         Cmd::Caption(a) => caption::caption(&a),
+        Cmd::AmbientTrace(a) => ambient::ambient(&a),
         Cmd::Reduce(a) => outputs::reduce(&a),
         Cmd::Family(a) => family::family(&a),
         Cmd::FamilyDupes(a) => family::dupes(&a),

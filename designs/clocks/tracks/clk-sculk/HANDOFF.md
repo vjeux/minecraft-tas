@@ -37,6 +37,9 @@ Notebook: NOTES.md (floor proof, timing rule, mechanisms, output rule). Board: S
 * `select` smallest per period or per (period, family), `--mechanisms N`, `--minimal`,
   `--no-composite`, `--known`; `outputs [--fix]` (period = the output's period); `caption`
   one-line captions; `table [--md]`
+* `ambient-trace <design> [--game] [--only i,j | --drop i]` the clock judge's vibration property
+  (quiet vs ambient run) tick by tick on redsim and in the game: which ambient event changes the
+  run, and whether redsim and the game agree (they did on every cell for census-p90, 10-20)
 Census (clockinfra's `mctas clock census`) palette for sculk:
 csculk,sculk,observer,note,trapdoor,dispenser,stone,sticky,piston (boxes 3x1x2 k5, 4x1x2 k5,
 2x2x2/3x2x2/3x3x1 k4: 4-block P23/42/43/90/140, 5-block P66..296).
