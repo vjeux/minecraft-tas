@@ -600,6 +600,9 @@ fn checks() -> Vec<Check> {
     // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
     // output refused, a comparator AND kept with its metrics
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
+    // a design file left with merge markers is not a design: parsing its HEAD half silently once
+    // put a broken file on main (clk-item 2026-10-20)
+    s.push("designs/circuits/selftest/merge-markers.txt".into());
     s.push("designs/circuits/selftest/comparator-and.txt".into());
     s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
     // the sequential memory kinds: a claim each refused (a reset that drives nothing, a level
@@ -642,6 +645,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
             has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "REFUSED: designs/circuits/selftest/merge-markers.txt: parsing designs/circuits/selftest/merge-markers.txt: line 6: \"<<<<<<< HEAD\": unresolved merge markers, not a design")?;
             has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
             // R7: the update-less NOR's dust turned toward a redstone block written into an input
             // cell; the judge's stone there is no source to turn toward, so it never switches
