@@ -13,3 +13,4 @@ serde_json.workspace = true
 circuit = { path = "../circuit" }
 clock = { path = "../clock" }
 mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

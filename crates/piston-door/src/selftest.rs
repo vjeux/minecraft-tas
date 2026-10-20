@@ -640,8 +640,24 @@ fn checks() -> Vec<Check> {
                 return Err(format!("auto unloader: {l:?}: {}", tail(&o[0])));
             }
             has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
-            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not model shulker boxes")?;
+            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not judge shulker loaders")?;
             Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
+        }),
+    });
+    // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
+    // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
+    // seeds it, its pickup)
+    v.push(Check {
+        name: "circuit:shulker-compare".into(),
+        what: "`circuit shulker compare` replays the exact real-game traces of the reference loader and unloader (3 boxes of unstackables each) in redsim: every cell and entity identical every tick",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit shulker compare designs/circuits/shulker/traces/exact/shulker-ref-loader-1.trace designs/circuits/shulker/traces/exact/shulker-ref-unloader-1.trace")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "OK shulker-ref-loader-1: 687 ticks identical")?;
+            has(&o[0], "OK shulker-ref-unloader-1: 678 ticks identical")?;
+            Ok("reference loader and unloader traces tick-identical in redsim".into())
         }),
     });
     v
