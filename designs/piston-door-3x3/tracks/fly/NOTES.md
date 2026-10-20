@@ -114,6 +114,16 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
     driver cell is (0,-1).
   - Conclusion: this mechanism family is not wireable in 6x9 without a new idea for the box-edge
     column or for driving Qv.
+* Next directions (coordinator 20:29Z):
+  - (1) toggle-only top, one island: clk-obs.
+  - (2) the slime moved from the BOTTOM (Pb at (0,-2) facing west, L down to (-1,-2)), so the
+    whole close order (bottom-right -> bottom-left -> slime) lives at the bottom and the top only
+    watches the slime (observer at (-2,4) facing down -> row 5). Open issue: (0,-1) next to L's
+    slime is poisoned (dragged), so Qv's driver must be at (2,-1) (observer facing east watching
+    K) or a rider.
+  - (3) corner cells that can watch the mechanism.
+  - Rule check: docs/rules.md says the 3 extra blocks must be in place in BOTH rest states, so an
+    empty right frame column at rest is not allowed.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
