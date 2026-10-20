@@ -87,7 +87,8 @@ cal-window-dff, cal-window-dff-enable, cal-window-shift1 + 4 refusals in designs
 
 ## Next
 - Smaller redstone TFF: a different core (the 17-block one spends 6 blocks on the NOT-q loop and
-  8 on the lock window); the auto-floor census over 3x1x3 at k=6 found none on its first input.
+  8 on the lock window); the auto-floor census over 3x1x3 found none with up to 6 components (12
+  blocks), all three input positions (150 min on 166 cores).
 - A master-slave dff (9b if the clock cell can feed a master-lock repeater and a slave-lock
   subtract comparator's side at once: no layout found yet), shift N > 2 (staggered windows), a
   copper-bulb tff-reset (needs r AND q).
