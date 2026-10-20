@@ -110,7 +110,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut seen_tnt: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut tnt_index: HashMap<String, usize> = HashMap::new();
     let explode = tnt && c.explodes();
-    let mut burning: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut burning: HashMap<String, i32> = HashMap::new();
     let mut exploded = 0u32;
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
@@ -151,13 +151,23 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
             // before and gone now has exploded)
             let ents = w.entities(sb)?;
             let alive: std::collections::HashSet<&str> = ents.iter().filter(|e| e.kind.trim_start_matches("minecraft:") == "tnt").map(|e| e.uuid.as_str()).collect();
-            burning.retain(|u| {
+            let mut vanished_early: Option<(String, i32)> = None;
+            burning.retain(|u, last_fuse| {
                 let gone = !alive.contains(u.as_str());
                 if gone {
-                    exploded += 1;
+                    // an explosion only if its last sighting had fuse <= 1 (clockinfra): a TNT gone
+                    // earlier left the loaded world or was removed otherwise
+                    if *last_fuse <= 1 {
+                        exploded += 1;
+                    } else if vanished_early.is_none() {
+                        vanished_early = Some((u.clone(), *last_fuse));
+                    }
                 }
                 !gone
             });
+            if let Some((u, f)) = vanished_early {
+                return Ok(Err(format!("frame {next}: a primed TNT ({u}) vanished with fuse {f} left (out of the loaded world?), not an explosion")));
+            }
             for e in ents {
                 if e.kind.trim_start_matches("minecraft:") != "tnt" {
                     continue;
@@ -165,14 +175,14 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                 if seen_tnt.insert(e.uuid.clone()) {
                     tnt_index.insert(e.uuid.clone(), primed.len());
                     primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
-                    if explode {
-                        burning.insert(e.uuid.clone());
-                    }
                 }
                 let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok());
                 let Some(fuse) = fuse else {
                     return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
                 };
+                if explode {
+                    burning.insert(e.uuid.clone(), fuse);
+                }
                 // the burning TNT is a real entity in the game only (redsim records primes): an
                 // entity-reacting block it touches would see it in the game and not on redsim
                 let bb = e.bbox;
