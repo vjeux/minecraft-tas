@@ -564,11 +564,11 @@ pub fn load(app: &mut App, id: u32) {
                     l.shown_status = String::from("\u{0}");
                 }
             }
-            if mcview::labels::has_containers(&p.session) {
-                let _ = l.containers.style().set_property("display", "inline-flex");
-                let _ = l.containers.style().set_property("color", "#ffd27a");
-            }
             l.overlays.setup(&p);
+            // the contents button: shown with containers, gold while every container is labelled
+            let has = mcview::labels::has_containers(&p.session);
+            let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
+            let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
                 on(&t, "pointerdown", move |e: PointerEvent| {
@@ -731,7 +731,12 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     .clone()
                     .iter()
                     .map(|c| {
-                        let on = p.session.is_on(*c) as u8;
+                        // a circuit input: its own state (a strength chest is always a block);
+                        // a lever or button of a door: its cell's
+                        let on = match p.session.circuit_inputs.iter().position(|ci| ci.pos == *c) {
+                            Some(i) => p.session.input_on.get(i).copied().unwrap_or(false),
+                            None => p.session.is_on(*c),
+                        } as u8;
                         match p.screen_point(&atlas, *c, aspect) {
                             Some((x, y)) => format!("{:.4},{:.4},{on}", (x + 1.0) / 2.0, (1.0 - y) / 2.0),
                             None => format!("-,-,{on}"),

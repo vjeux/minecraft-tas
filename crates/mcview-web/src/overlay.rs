@@ -154,6 +154,9 @@ impl Overlays {
         }
         self.input_tags.clear();
         self.pinned.clear();
+        // what tells the story: a shulker design's port chests and boxes (its hoppers and carts
+        // on a tap); any other design's containers all (an item counter's droppers hold its count)
+        self.show_all = !mcview::circuit::is_shulker(&p.session.design);
         self.hits.clear();
         let make = |layer: &HtmlElement, text: &str, color: &str, cells: Vec<[i32; 3]>| -> Tag {
             let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
@@ -340,8 +343,14 @@ impl Overlays {
         let dist = |a: [f32; 3]| (a[0] - eye[0]).powi(2) + (a[1] - eye[1]).powi(2) + (a[2] - eye[2]).powi(2);
         now.sort_by(|a, b| dist(a.anchor).total_cmp(&dist(b.anchor)).then(a.key.cmp(&b.key)));
         // the tags first, always shown (at their point when no free spot is left); the
-        // containers under a tag (port chests) show their contents in the tag
+        // containers under a tag (port chests) show their contents in the tag; no tag covers an
+        // input's cell (a tap there presses that input, not the tag's)
         let view = Rect { x0: 0.0, y0: 0.0, x1: w, y1: h };
+        for ci in &p.session.circuit_inputs {
+            if let Some((x, y)) = project([ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 0.5, ci.pos[2] as f32 + 0.5]) {
+                layout.obstacles.push(Rect { x0: x - 10.0, y0: y - 10.0, x1: x + 10.0, y1: y + 10.0 });
+            }
+        }
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();

@@ -114,11 +114,13 @@ pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
 /// marker (kept for `web compare`).
 pub fn viewer_look(s: &Session) -> Look {
     let mut look = default_look(s);
+    // no orange glass anywhere in the viewer: an output has its OUT box (a circuit's from its
+    // port tags, a clock's added here)
+    look.marker = None;
     if !s.design.meta.contains_key("circuit")
         && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
     {
-        look.marker = None;
         if !look.port_outlines.iter().any(|(p, _)| p == o) {
             look.port_outlines.push((*o, OUT_COLOUR));
         }
@@ -351,14 +353,23 @@ pub fn triangles(m: &Mesh, cam: &Camera) -> (Vec<Vertex>, Vec<Vertex>) {
 /// Where on the view (x, y in -1..1, y up) a click picks `cell`: the first of a few points of the
 /// cell that the pick ray reaches (None: hidden or out of view).
 pub fn click_point(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f32) -> Option<(f32, f32)> {
+    click_point_at(atlas, s, cam, cell, aspect, &[0.5, 0.3, 0.7, 0.15, 0.85])
+}
+
+/// [`click_point`] at the cell's centre only: where a tap on it (and a test's click) lands.
+pub fn centre_point(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f32) -> Option<(f32, f32)> {
+    click_point_at(atlas, s, cam, cell, aspect, &[0.5])
+}
+
+fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f32, steps: &[f32]) -> Option<(f32, f32)> {
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
     let t = (cam.vfov.to_radians() / 2.0).tan();
     let blocks = s.render_blocks(0.0);
-    let steps = [0.5f32, 0.3, 0.7, 0.15, 0.85];
-    for &dy in &steps {
-        for &dx in &steps {
-            for &dz in &steps {
+    let empty = !blocks.iter().any(|b| b.cell == cell);
+    for &dy in steps {
+        for &dx in steps {
+            for &dz in steps {
                 let p = [cell[0] as f32 + dx, cell[1] as f32 + dy, cell[2] as f32 + dz];
                 let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
                 let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
@@ -371,8 +382,22 @@ pub fn click_point(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: 
                     continue;
                 }
                 let (o, d) = cam.ray(x, y, aspect);
-                if crate::pick::pick(atlas, &blocks, o, d, cam.dist * 4.0 + 50.0) == Some(cell) {
+                let picked = crate::pick::pick(atlas, &blocks, o, d, cam.dist * 4.0 + 50.0);
+                if picked == Some(cell) {
                     return Some((x, y));
+                }
+                // an empty cell (an input's cell with nothing in it): reached before any block,
+                // the rule of `Player::input_at`, a few pixels around too (not a sliver)
+                if empty {
+                    let reached = |x: f32, y: f32| -> bool {
+                        let (o, d) = cam.ray(x, y, aspect);
+                        let picked = crate::pick::pick(atlas, &blocks, o, d, cam.dist * 4.0 + 50.0);
+                        cell_entry(o, d, cell).is_some_and(|t| t <= picked.and_then(|p| cell_entry(o, d, p)).unwrap_or(f32::MAX) + 1e-3)
+                    };
+                    let e = 0.008;
+                    if [(0.0, 0.0), (e, 0.0), (-e, 0.0), (0.0, e), (0.0, -e)].iter().all(|(a, b)| reached(x + a, y + b)) {
+                        return Some((x, y));
+                    }
                 }
             }
         }
@@ -389,19 +414,57 @@ pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f3
     if s.inputs.is_empty() || !s.simulated() {
         return base;
     }
-    for (sx, sz) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)] {
-        let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [CAM_DIR[0] * sx, CAM_DIR[1], CAM_DIR[2] * sz], window) };
-        if s.inputs.iter().all(|c| click_point(atlas, s, &cam, *c, aspect).is_some()) {
-            return cam;
+    // a side every input's centre can be tapped from, else one every input can be tapped from
+    for centre in [true, false] {
+        for (sx, sz) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)] {
+            let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [CAM_DIR[0] * sx, CAM_DIR[1], CAM_DIR[2] * sz], window) };
+            if s.inputs.iter().all(|c| if centre { centre_point(atlas, s, &cam, *c, aspect).is_some() } else { click_point(atlas, s, &cam, *c, aspect).is_some() }) {
+                return cam;
+            }
         }
     }
     base
+}
+
+/// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).
+fn cell_entry(o: [f32; 3], d: [f32; 3], c: Pos) -> Option<f32> {
+    let (mut t0, mut t1) = (0.0f32, f32::MAX);
+    for i in 0..3 {
+        let (lo, hi) = (c[i] as f32, c[i] as f32 + 1.0);
+        if d[i].abs() < 1e-9 {
+            if o[i] < lo || o[i] > hi {
+                return None;
+            }
+            continue;
+        }
+        let (a, b) = ((lo - o[i]) / d[i], (hi - o[i]) / d[i]);
+        t0 = t0.max(a.min(b));
+        t1 = t1.min(a.max(b));
+        if t0 > t1 {
+            return None;
+        }
+    }
+    Some(t0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::session::Options;
+
+    /// An empty input cell (a gate's A and B) counts as seen when a ray reaches it before any
+    /// block: the camera then starts on the side both inputs can be tapped from (gate-imply-ba's
+    /// A hides behind its OUT lamp from the pictures' side).
+    #[test]
+    fn empty_input_cells_are_tappable() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-imply-ba-bump-4b.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        let look = viewer_look(&s);
+        let aspect = 1217.0 / 480.0;
+        let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
+        assert!(s.inputs.iter().all(|c| centre_point(&atlas, &s, &cam, *c, aspect).is_some()), "every input's centre tappable from {cam:?}");
+    }
 
     /// Every circuit port is outlined like its tag: the inputs lime (when the design runs), the
     /// outputs orange, a shulker design's ITEMS gold and BOXES lilac chests, a BUD switch's TARGET

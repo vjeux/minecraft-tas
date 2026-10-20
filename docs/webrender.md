@@ -57,8 +57,10 @@ each build's page.
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
   simulation starts, so the build responds); the camera stays above the ground and starts on the
-  side every lever and button can be seen from (a door's lever is often behind the build from the
-  pictures' side). Bar of
+  side every lever, button and input cell can be tapped from at its centre (an empty input cell
+  counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
+  it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
+  OUT lamp); no tag covers an input's cell. Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
@@ -162,10 +164,12 @@ each build's page.
   brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
-* Containers: what tells the story is labelled by default: the judge's port chests (their
-  contents inside their tag) and the shulker boxes being filled or emptied. Any other container
-  (hoppers, droppers, dispensers, chests, carts, chest boats) shows its label when tapped (a tap
-  again hides it); the bar's contents button (grid icon) labels them all. A label is ONE compact
+* Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
+  judge's port chests (their contents inside their tag) and the shulker boxes being filled or
+  emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)
+  shows its label when tapped (a tap again hides it). On every other design all containers are
+  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
+  gold while all are labelled) labels them all or only the story's. A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
   and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
   with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
