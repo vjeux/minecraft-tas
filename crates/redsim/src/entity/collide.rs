@@ -362,14 +362,20 @@ fn restitute(w: &mut World, i: usize, x_col: bool, z_col: bool, movement: Vec3) 
 /// `Entity.limitPistonMovement(vec)`: one axis only (x, else y, else z), and what pistons move it
 /// along that axis in one game tick stays within +-0.51 (`applyPistonMovementRestriction`).
 fn limit_piston_movement(w: &mut World, i: usize, v: Vec3) -> Vec3 {
+    let time = w.time;
+    let e = &mut w.entities.list[i];
+    limit_piston(&mut e.piston_deltas, &mut e.piston_deltas_time, time, v)
+}
+
+/// `limitPistonMovement` on an entity's `pistonDeltas` / `pistonDeltasGameTime` (any kind:
+/// falling blocks keep theirs in `gravity::FallingBlock`).
+pub fn limit_piston(deltas: &mut [f64; 3], deltas_time: &mut i64, time: i64, v: Vec3) -> Vec3 {
     if v.length_sqr() <= 1.0e-7 {
         return v;
     }
-    let time = w.time;
-    let e = &mut w.entities.list[i];
-    if time != e.piston_deltas_time {
-        e.piston_deltas = [0.0; 3];
-        e.piston_deltas_time = time;
+    if time != *deltas_time {
+        *deltas = [0.0; 3];
+        *deltas_time = time;
     }
     let (axis, amount) = if v.x != 0.0 {
         (0, v.x)
@@ -380,13 +386,23 @@ fn limit_piston_movement(w: &mut World, i: usize, v: Vec3) -> Vec3 {
     } else {
         return Vec3::ZERO;
     };
-    let clamped = mth::clamp(amount + e.piston_deltas[axis], -0.51, 0.51);
-    let a = clamped - e.piston_deltas[axis];
-    e.piston_deltas[axis] = clamped;
+    let clamped = mth::clamp(amount + deltas[axis], -0.51, 0.51);
+    let a = clamped - deltas[axis];
+    deltas[axis] = clamped;
     if a.abs() <= 1.0e-5f32 as f64 {
         return Vec3::ZERO;
     }
     Vec3::ZERO.with_axis(axis, a)
+}
+
+/// `Entity.collide` of a box against block shapes only, with no step-up (falling blocks: no
+/// `maxUpStep`, and no modeled entity they collide with).
+pub fn collide_box(w: &World, bb: Aabb, movement: Vec3) -> Vec3 {
+    if movement.length_sqr() == 0.0 {
+        return movement;
+    }
+    let colliders: Vec<Vec<Aabb>> = block_collisions(w, bb.expand_towards(movement.x, movement.y, movement.z)).into_iter().map(|(_, s)| s).collect();
+    collide_with_shapes(movement, bb, &colliders)
 }
 
 /// `Entity.move(moverType, delta)` of entity `i`.
