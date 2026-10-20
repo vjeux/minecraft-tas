@@ -1,0 +1,24 @@
+# N=4 one-frame rider, IDEAL pulses (redstone blocks at z=1 beside the line y=2): A held by the
+# lever pushes a 7-slime row (latches at rel 0..6); B, C, D, payload on top. Inner train after each
+# landing: D C D B C D. Step 1 from two observers under S2 and S4 (landing burst).
+# World cells (x): B rest 2. Steps: 2: C@x4 both; 3: D x5,x6 (on x6 / off x5... see NOTES);
+# 4: B x2,x3; 5: C on x5 / off x3 (edge-specific); 6: D on x7 / off x4.
+name: ideal-r4
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 5 2 0
+ideal: both 10 set 4 2 1 minecraft:redstone_block; both 12 clear 4 2 1; both 15 set 5 2 1 minecraft:redstone_block; both 15 set 6 2 1 minecraft:redstone_block; both 17 clear 5 2 1; both 17 clear 6 2 1; both 20 set 2 2 1 minecraft:redstone_block; both 20 set 3 2 1 minecraft:redstone_block; both 22 clear 2 2 1; both 22 clear 3 2 1; on 25 set 5 2 1 minecraft:redstone_block; on 27 clear 5 2 1; off 25 set 3 2 1 minecraft:redstone_block; off 27 clear 3 2 1; on 30 set 7 2 1 minecraft:redstone_block; on 32 clear 7 2 1; off 30 set 4 2 1 minecraft:redstone_block; off 32 clear 4 2 1
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  O minecraft:observer[facing=down]
+layer 0:
+  ....O.O
+layer 1:
+  LASSSSSSS
+layer 2:
+  ..BBBG
