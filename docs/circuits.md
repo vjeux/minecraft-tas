@@ -228,8 +228,9 @@ kick) before the first input.
   spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
   horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same
   position bit for bit for 10+ gt); `dropped: every TNT falls straight down, N+ blocks by fuse 1`
-  (3+ blocks below its first sighting, horizontal motion under 0.01 at fuse 1). The axis takes the
-  first of switchable, survivable, precise, dropped, launched; each keeps its own catalog card.
+  (3+ blocks below its first sighting, horizontal motion under 0.01 at fuse 1); `slime-free` (no
+  slime block in the design; `: a honey frame` with honey). The axis takes the first of
+  switchable, survivable, precise, dropped, launched, slime-free; each keeps its own catalog card.
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
