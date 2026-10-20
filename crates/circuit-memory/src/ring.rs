@@ -129,6 +129,9 @@ pub struct Ring {
     pub read: P,
     /// Copper bulb stages after the comparator (each halves the rate: counter N * 2^bulbs).
     pub bulbs: usize,
+    /// Judged as a divider: the last bulb's comparator changes once every N * 2^(bulbs-1) pulses
+    /// (toggles style) instead of a level with period N * 2^bulbs.
+    pub divider: bool,
 }
 
 impl Ring {
@@ -138,7 +141,7 @@ impl Ring {
 
     /// The counter's N.
     pub fn n(&self) -> usize {
-        self.droppers.len() << self.bulbs
+        if self.divider && self.bulbs > 0 { self.droppers.len() << (self.bulbs - 1) } else { self.droppers.len() << self.bulbs }
     }
 
     /// The design text (with a caption line).
@@ -182,12 +185,14 @@ impl Ring {
         let d = self.build(name);
         let direct = self.droppers.iter().filter(|p| dist(**p, X) == 1).count();
         let caption = format!(
-            "# Counter {total}, dropper ring{}, {} blocks (track memory, `mctas circuit memory ring --n {n}{}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n}{} (level style).\n",
+            "# Counter {total}{}, dropper ring{}, {} blocks (track memory, `mctas circuit memory ring --n {n}{}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n}{} ({}).\n",
+            if self.divider { " as a divider" } else { "" },
             if self.bulbs > 0 { format!(" + {} copper bulb{}", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.blocks(),
-            if self.bulbs > 0 { format!(" --bulbs {}", self.bulbs) } else { String::new() },
+            if self.bulbs > 0 { format!(" --bulbs {}{}", self.bulbs, if self.divider { " --divider" } else { "" }) } else { String::new() },
             if self.dust.is_empty() { String::new() } else { format!(", {} through {} dust", n - direct, self.dust.len()) },
             if self.bulbs > 0 { format!(", and toggles a chain of {} bulb T flip-flop{} (bulb + comparator), each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
+            if self.divider { format!("the last comparator changes state once every {total} pulses: toggles style") } else { "level style".to_string() },
         );
         format!("{caption}{}", d.to_text())
     }
@@ -541,7 +546,7 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
                 }
             }
             // the stone starts in the dropper the comparator reads
-            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), stone: st, comparator: add(d, u), read: d, bulbs };
+            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), stone: st, comparator: add(d, u), read: d, bulbs, divider: false };
             if best.as_ref().is_none_or(|b| r.blocks() < b.blocks()) {
                 best = Some(r);
             }
@@ -551,7 +556,7 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
 }
 
 /// `circuit memory ring`: write the smallest rings for each N.
-pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: Option<usize>, out: &Path) -> Result<()> {
+pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: Option<usize>, divider: bool, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     if let Some(n2) = then {
         for &n in ns {
@@ -574,14 +579,22 @@ pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: Optio
         if n < 2 {
             bail!("--n: at least 2");
         }
-        let rings = search(n, max_dust, keep, bulbs);
-        let total = n << bulbs;
+        let mut rings = search(n, max_dust, keep, bulbs);
+        if divider {
+            if bulbs == 0 {
+                bail!("--divider needs --bulbs 1 or more");
+            }
+            for r in &mut rings {
+                r.divider = true;
+            }
+        }
+        let total = if divider { n << (bulbs - 1) } else { n << bulbs };
         if rings.is_empty() {
             println!("counter {total}: no ring of {n} with at most {max_dust} dust and {bulbs} bulbs");
             continue;
         }
         for (i, r) in rings.iter().enumerate() {
-            let base = format!("counter{total}-ring{n}{}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() });
+            let base = format!("counter{total}-ring{n}{}{}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() }, if divider { "-div" } else { "" });
             let name = if rings.len() == 1 { base } else { format!("{base}-{i}") };
             std::fs::write(out.join(format!("{name}.txt")), r.design(&name))?;
             println!("counter {total}: {} blocks ({} dust) -> {name}", r.blocks(), r.dust.len());
