@@ -73,6 +73,9 @@ pub struct FeedReport {
     pub weak: Vec<String>,
     /// Cells that are the only clean option of firings needing different targets.
     pub conflicts: Vec<String>,
+    /// Regions that are the only feeder of a firing but see no change 2 gt before it (on that
+    /// edge): no static wiring can start them.
+    pub cannot_start: Vec<String>,
     pub text: Vec<String>,
 }
 
@@ -111,6 +114,8 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
         }
     };
     let (mut w, _, idle) = cs::place_and_settle(&blocks, &spec, 400);
+    // the lever: a redstone block the design holds at rest (the plan clears and sets it)
+    let lever_cells: BTreeSet<Pos> = blocks.iter().filter(|(_, b)| b.to_string().trim_start_matches("minecraft:") == "redstone_block").map(|(p, _)| *p).collect();
     ensure!(idle && w.errors.is_empty(), "the design does not settle after placement: {}", w.errors.join("; "));
     // cells holding what the plan itself placed (ideal inputs, triggers) do not count as taken
     let snap = move |w: &World, held: &BTreeMap<P2, Block>| -> BTreeMap<P2, Block> {
@@ -260,6 +265,8 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
     let mut weak: Vec<String> = Vec::new();
     // cell -> (targets, firing) of the firings whose clean options are all in that cell
     let mut sole: BTreeMap<P2, Vec<(BTreeSet<P2>, String)>> = BTreeMap::new();
+    // (edge, tick, region, firing) of firings only one region can feed
+    let mut sole_region: Vec<(usize, u32, char, String)> = Vec::new();
     // an observer in m pointing into t watches w = 2m - t: "@" if w changes in the tick before the
     // firing's (it then fires with the plan's input), "~" if w changes only at other ticks (the
     // schedule would have to follow w), nothing if w is a free cell (other wiring drives it)
@@ -339,7 +346,11 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
             let mut flagged_any = false;
             let mut clean: Vec<(P2, P2)> = Vec::new();
             let mut qc: Vec<String> = Vec::new();
+            let mut feeders: BTreeSet<char> = BTreeSet::new();
             for (is_qc, text, m, tg) in opts {
+                if let Some((l, _)) = region.get(&m) {
+                    feeders.insert(*l);
+                }
                 let fl = drive(m, tg);
                 let s = if fl.is_empty() {
                     ok_any = true;
@@ -371,6 +382,11 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
                 if obs.is_empty() { String::new() } else { format!("; {}", obs.join("; ")) }
             ));
             let label = format!("{} t{} {}({},{})", if f.open { "open" } else { "close" }, f.t, short(b), x.0, x.1);
+            // only one region can feed this firing (and no fixed observer does): it must have seen
+            // something change before
+            if obs.is_empty() && feeders.len() == 1 && !lever_cells.contains(&f.input) {
+                sole_region.push((e, f.t, *feeders.iter().next().unwrap(), label.clone()));
+            }
             // a firing whose clean options all sit in one cell depends on that cell's one component
             if obs.is_empty() && !clean.is_empty() {
                 let cells: BTreeSet<P2> = clean.iter().map(|c| c.0).collect();
@@ -404,6 +420,33 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
             conflicts.push(format!("({},{}): {}", m.0, m.1, who.join(", ")));
         }
     }
+    // regions: the cells next to each (all an observer there can watch) and the first tick one of
+    // them changes on each edge; a region that is the only feeder of a firing must see a change at
+    // least 2 gt before it (an observer's delay), else nothing can start it (no electrical path
+    // crosses a piston, a moving block or two blocks)
+    let mut letters: Vec<char> = regions.keys().copied().collect();
+    letters.sort();
+    let mut cannot_start: Vec<String> = Vec::new();
+    for l in letters {
+        let cells: Vec<P2> = region.iter().filter(|(_, (r, _))| *r == l).map(|(c, _)| *c).collect();
+        let adj: BTreeSet<P2> = cells.iter().flat_map(|c| nbrs(*c)).filter(|n| in_box(*n) && !free.contains(n)).collect();
+        let first = |e: usize| -> Option<usize> {
+            let s = &edge_snaps[e];
+            (1..s.len()).find(|&t| adj.iter().any(|c| s[t].get(c) != s[t - 1].get(c)))
+        };
+        let (fo, fc) = (first(0), first(1));
+        let fmt = |v: Option<usize>| v.map(|t| format!("t{t}")).unwrap_or_else(|| "never".into());
+        out.push(format!("# region {l}{}: watches {}; first change open {} close {}", cells.len(), adj.iter().map(|c| format!("({},{})", c.0, c.1)).collect::<Vec<_>>().join(" "), fmt(fo), fmt(fc)));
+        for e in 0..2 {
+            let first_c = if e == 0 { fo } else { fc };
+            if let Some((_, t, _, label)) = sole_region.iter().filter(|(ee, _, r, _)| *ee == e && *r == l).min_by_key(|(_, t, _, _)| *t)
+                && first_c.is_none_or(|c| c + 2 > *t as usize)
+            {
+                cannot_start.push(format!("{l} ({label}: first change {})", fmt(first_c)));
+            }
+        }
+    }
+    out.push(format!("# regions that cannot start (only feeder of a firing, nothing seen 2 gt before): {}", if cannot_start.is_empty() { "none".to_string() } else { cannot_start.join(", ") }));
     out.push(format!("# one cell, several targets (its one component cannot feed them all): {}", if conflicts.is_empty() { "none".to_string() } else { conflicts.join("; ") }));
-    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, text: out })
+    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, cannot_start, text: out })
 }
