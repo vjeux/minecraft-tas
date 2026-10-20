@@ -114,6 +114,15 @@ fn route_search(q: &mut Query, s: &str) {
     let t = s.trim();
     let has_digit = t.chars().any(|c| c.is_ascii_digit());
     let lower = t.to_lowercase();
+    // the Circuits tab: a value (`12`, `L 12`, `N 3`, `10-20 gt`, `latency 0`) is the circuit
+    // value search, which expands the tunable groups to the member that hits it
+    if q.kind == "circuit" && has_digit && site_model::parse_value_query(t).is_ok() {
+        q.value = t.to_string();
+        q.text.clear();
+        q.time.clear();
+        return;
+    }
+    q.value.clear();
     let explicit_unit = ["gt", "tick", " s", "sec", "min", "rt"].iter().any(|u| lower.contains(u)) || lower.ends_with('s');
     let is_time = has_digit && site_model::parse_time_query(t).is_ok() && (q.kind == "clock" || explicit_unit);
     if is_time {
@@ -342,7 +351,7 @@ fn sync_inputs() {
             }
         }
     };
-    set("hq", if q.time.is_empty() { &q.text } else { &q.time });
+    set("hq", if !q.value.is_empty() { &q.value } else if q.time.is_empty() { &q.text } else { &q.time });
     set("f-kind-filter", &kf);
     let opt = |v: Option<i64>| v.map(|x| x.to_string()).unwrap_or_default();
     for (id, r) in [("blocks", q.blocks), ("volume", q.volume), ("period", q.period), ("open", q.open), ("close", q.close)] {
@@ -490,6 +499,20 @@ fn draw_dynamic() {
         };
         let time_msg: Option<(String, bool)> = if !a.error.is_empty() {
             Some((a.error.clone(), true))
+        } else if !q.value.trim().is_empty() {
+            Some(match site_model::parse_value_query(&q.value) {
+                Ok((field, lo, hi)) => {
+                    let what = match field {
+                        site_model::ValueField::Latency => "a latency",
+                        site_model::ValueField::L => "L",
+                        site_model::ValueField::N => "N",
+                        site_model::ValueField::Axis => "L / N",
+                    };
+                    let range = if lo == hi { format!("of {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
+                    (format!("with {what} {range} (tunable groups expanded to that member)"), false)
+                }
+                Err(e) => (e, true),
+            })
         } else if q.time.trim().is_empty() {
             None
         } else {
@@ -511,12 +534,12 @@ fn draw_dynamic() {
             }
             s
         } else {
-            format!("<span class=\"error\">The period did not parse: {}</span>", esc(&a.error))
+            format!("<span class=\"error\">The search did not parse: {}</span>", esc(&a.error))
         };
         let placeholder = match q.kind.as_str() {
             "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
             "door" => "Search doors",
-            "circuit" => "Search circuits",
+            "circuit" => "Search circuits, or a value: L 12, N 3, latency 0",
             _ => "Search every build",
         };
         (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)

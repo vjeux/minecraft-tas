@@ -126,6 +126,7 @@ button { font: inherit; }
 .button, .filters .reset, #more {
   display: inline-block; border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 6px 14px; border-radius: 8px; cursor: pointer;
 }
+#more[hidden] { display: none; }
 .button:hover { text-decoration: none; filter: brightness(1.08); }
 .button.alt { background: var(--card); color: var(--accent); }
 .summary { color: var(--muted); margin: 0 0 12px; font-size: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -222,3 +223,14 @@ h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left:
 dl.glossary dt { font-weight: 700; margin-top: 10px; }
 dl.glossary dd { margin: 2px 0 0 0; color: var(--fg); }
 dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--accent-soft); }
+/* tunable groups: the member picker */
+section.group { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 16px 12px; margin: 0 0 14px; }
+section.group h2 { margin: 12px 0 4px; }
+nav.picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+a.pick { display: inline-flex; flex-direction: column; align-items: center; min-width: 64px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); line-height: 1.2; }
+a.pick:hover { border-color: var(--accent); text-decoration: none; }
+a.pick b { font-size: 14px; }
+a.pick span { font-size: 11px; color: var(--muted); }
+a.pick.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+a.pick.on span { color: #fff; opacity: .85; }
+details.layouts summary { font-weight: 600; }

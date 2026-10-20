@@ -222,6 +222,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     }
     if let Some(c) = &b.circuit {
         body.push_str(&circuit_intro(b, c));
+        body.push_str(&group_picker(site, b, prefix));
     }
     body.push_str(&viewer(prefix, b));
     if let Some(c) = &b.circuit {
@@ -258,6 +259,9 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         design_text.lines().count(),
         esc(design_text)
     ));
+    if b.circuit.is_some() {
+        body.push_str(&layouts(site, b, prefix));
+    }
     for (title, list) in similar(site, b) {
         if list.is_empty() {
             continue;
@@ -423,6 +427,9 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         if let Some(h) = &c.host {
             s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same kind and value)", link_build(site, h, prefix))));
         }
+        if let Some(h) = &c.layout_of {
+            s.push_str(&row("Another layout of", &format!("{} (the same kind, value, block count and block kinds)", link_build(site, h, prefix))));
+        }
         if !c.archived.is_empty() {
             s.push_str(&row("Archived", &esc(&c.archived)));
         }
@@ -458,12 +465,91 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
         near.truncate(12);
         out.push((format!("Other {} doors of similar size", b.group), near));
     } else {
-        let mut near: Vec<&Build> = others().filter(|o| o.group == b.group).collect();
+        // circuits: the other shown designs of the kind (not this one's group, layouts, variants)
+        let mine = b.circuit.as_ref().map(|c| c.tunable.clone()).unwrap_or_default();
+        let mut near: Vec<&Build> = others()
+            .filter(|o| o.group == b.group)
+            .filter(|o| o.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && (c.tunable.is_empty() || !c.span.is_empty()) && (mine.is_empty() || c.tunable != mine)))
+            .collect();
         near.sort_by_key(|o| (o.blocks, o.name.clone()));
         near.truncate(12);
-        out.push((format!("Other {} circuits", b.group), near));
+        out.push((format!("Other {} circuits", crate::explain::kind_title(&b.group).to_lowercase()), near));
     }
     out
+}
+
+/// A tunable group's picker (every member page and the shown design's): one link per member,
+/// its value and block count, the current one marked; following one swaps the 3D view, the
+/// numbers and the downloads to that member.
+fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
+    let Some(c) = &b.circuit else { return String::new() };
+    if c.tunable.is_empty() {
+        return String::new();
+    }
+    let mut members: Vec<&Build> = site
+        .builds
+        .iter()
+        .filter(|o| o.circuit.as_ref().is_some_and(|oc| oc.tunable == c.tunable && oc.host.is_none() && oc.layout_of.is_none()))
+        .collect();
+    members.sort_by_key(|o| (o.circuit.as_ref().and_then(|oc| oc.value).unwrap_or(i64::MAX), o.blocks, o.name.clone()));
+    if members.len() < 2 {
+        return String::new();
+    }
+    let span = members.iter().find_map(|o| o.circuit.as_ref().map(|oc| oc.span.clone()).filter(|s| !s.is_empty())).unwrap_or_default();
+    let title = {
+        let t = c.group_title.trim();
+        let mut ch = t.chars();
+        match ch.next() {
+            Some(f) => f.to_uppercase().collect::<String>() + ch.as_str(),
+            None => String::new(),
+        }
+    };
+    let label = |o: &Build| -> String {
+        let oc = o.circuit.as_ref();
+        let axis = oc.map(|oc| oc.axis.replace(" = ", " ")).unwrap_or_default();
+        if members.iter().all(|m| m.circuit.as_ref().map(|x| &x.axis) == oc.map(|x| &x.axis)) {
+            // one value, several versions (input device, layout): name them
+            o.name.clone()
+        } else {
+            axis
+        }
+    };
+    let chips: String = members
+        .iter()
+        .map(|o| {
+            let cur = o.id == b.id;
+            format!(
+                "<a class=\"pick{}\" href=\"{prefix}{}\"{}><b>{}</b><span>{}</span></a>",
+                if cur { " on" } else { "" },
+                esc(&o.page),
+                if cur { " aria-current=\"page\"" } else { "" },
+                esc(&label(o)),
+                esc(&site_model::html::blocks_word(o.blocks))
+            )
+        })
+        .collect();
+    format!(
+        "<section class=\"group\"><h2>{} <span class=\"count\">tunable group: {}</span></h2><p class=\"hint\">One mechanism with other repeater delays, comparator modes or a longer line. Pick a value: the 3D view, the numbers and the downloads follow.{}</p><nav class=\"picker\" aria-label=\"members\">{chips}</nav></section>\n",
+        esc(&title),
+        esc(&span),
+        if c.group_note.is_empty() { String::new() } else { format!(" ({})", esc(&c.group_note)) }
+    )
+}
+
+/// The equivalent layouts of a shown design (same kind, value, blocks and block kinds),
+/// collapsed.
+fn layouts(site: &Site, b: &Build, prefix: &str) -> String {
+    let list: Vec<&Build> = site.builds.iter().filter(|o| o.circuit.as_ref().is_some_and(|c| c.layout_of.as_deref() == Some(b.id.as_str()))).collect();
+    if list.is_empty() {
+        return String::new();
+    }
+    let cards: Vec<String> = list.iter().map(|o| build_card(o, prefix)).collect();
+    format!(
+        "<section><details class=\"layouts\"><summary>Also {} other layout{} (the same kind, value, block count and block kinds)</summary>{}</details></section>\n",
+        list.len(),
+        if list.len() == 1 { "" } else { "s" },
+        grid(&cards)
+    )
 }
 
 /// The page of an extendable family card: its formula, its two smallest members, its families
@@ -781,8 +867,21 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     }
     for k in &kinds {
         let of: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().next() == Some(k.as_str()))).collect();
-        let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(|c| c.host.is_none())).collect();
-        let variants = of.len() - reps.len();
+        let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && (c.tunable.is_empty() || !c.span.is_empty());
+        let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown)).collect();
+        let n_var = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_some())).count();
+        let n_lay = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_some())).count();
+        let n_mem = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty())).count();
+        let mut hidden: Vec<String> = Vec::new();
+        if n_mem > 0 {
+            hidden.push(format!("{n_mem} more member{} of the tunable groups (on each group's page)", if n_mem == 1 { "" } else { "s" }));
+        }
+        if n_lay > 0 {
+            hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
+        }
+        if n_var > 0 {
+            hidden.push(format!("{n_var} variant{} (extra block kinds)", if n_var == 1 { "" } else { "s" }));
+        }
         let heading = match k.as_str() {
             "counter" => "Counters".to_string(),
             "gate" => "Logic gates".to_string(),
@@ -795,10 +894,10 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             esc(&heading),
             esc(&first_upper(&crate::explain::kind_summary(k))),
             grid(&cards),
-            if variants > 0 {
-                format!("<p class=\"hint\">Also {variants} variant{} (the same kind and value with extra block kinds): <a href=\"{prefix}index.html#kind=circuit&amp;q={}&amp;variants=1\">show them in the index</a>.</p>", if variants == 1 { "" } else { "s" }, site_model::encode(folder))
-            } else {
+            if hidden.is_empty() {
                 String::new()
+            } else {
+                format!("<p class=\"hint\">Also {}: <a href=\"{prefix}index.html#kind=circuit&amp;q={}&amp;variants=1\">show them in the index</a>.</p>", hidden.join(", "), site_model::encode(folder))
             }
         ));
     }
@@ -838,7 +937,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         let mut cards: Vec<String> = Vec::new();
         for b in &list {
             let Some(c) = &b.circuit else { continue };
-            if c.host.is_some() || seen.contains(&c.kind) {
+            if c.host.is_some() || c.layout_of.is_some() || (!c.tunable.is_empty() && c.span.is_empty()) || seen.contains(&c.kind) {
                 continue;
             }
             seen.push(c.kind.clone());
