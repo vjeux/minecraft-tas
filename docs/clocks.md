@@ -278,9 +278,9 @@ after 5 minutes) and `PickupDelay:32767s`.
 
 The fluid census (P1, 2026-10-19: `clock census --palette 'core,minecraft:water[level=0],minecraft:soul_sand,minecraft:magma_block'`,
 59 states) finds NO clock with water or a bubble column in its family in 3x2x1, 3x1x2, 2x2x2,
-3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks: the core clocks again, some
-with soul sand or magma as an inert support): a water clock needs more room than 4 blocks (the
-smallest archived, clk-misc-bubble-flip, has 12).
+3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks) nor in 2x2x2 at k 5
+(3578429 clocks): the core clocks again, some with soul sand or magma as an inert support. A water
+clock needs more room (the smallest archived, clk-misc-bubble-flip, has 12 blocks).
 
 ## What redsim models exactly
 
