@@ -94,15 +94,16 @@ fn grid(cards: &[String]) -> String {
 }
 
 /// The viewer of a build page (a live view when the viewer bundle is there; the interim picture
-/// or the fallback text until then).
+/// or the fallback text until then). Clocks run by themselves: their viewer starts playing.
 fn viewer(prefix: &str, b: &Build) -> String {
     let trace = b.trace.as_ref().map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    let autoplay = if b.kind == "clock" { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&b.name)), " has-pic"),
         None => (String::new(), ""),
     };
     format!(
-        "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
+        "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
         esc(&format!("{prefix}{}", b.design)),
         esc(&b.kind),
@@ -690,7 +691,7 @@ mod tests {
         let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false });
         assert!(p.starts_with("<!DOCTYPE html>"));
         assert!(p.contains("<title>obs2 · REDSTONEPEDIA</title>"));
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("<a class=\"card\" href=\"../clocks/obs3.html\""), "similar builds link to the other clock of the period");
         assert!(p.contains("import init from \"../viewer/mcview.js\""));
