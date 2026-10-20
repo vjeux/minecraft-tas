@@ -12,7 +12,7 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 2 T flip-flops | tff | tff | mechanism family | latency, edge, min-pulse, min-period |
 | 3 delay lines | delay | delay | N | min-pulse, min-gap (one-edge delays flagged) |
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
-| 5 memory | memory | rs-latch, d-latch, counter N | the function (N) | latency, enable polarity, output style |
+| 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
 
@@ -27,7 +27,7 @@ The door/clock design text format (`crates/mctas/src/design.rs`: `name`, `origin
 ```text
 name: sub-rising-4
 circuit: rising-edge             # the kind (+ its argument: `gate xor`, `counter 4`, `piston-extender 3`)
-port input: 0 1 0                # one input; several: port input.<name>: (input.a / input.b, input.s / input.r, input.d / input.e)
+port input: 0 1 0                # one input; several: port input.<name>: (input.a / input.b, input.s / input.r, input.d / input.e, input.t / input.r, input.clk / input.d [/ input.e])
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
 ```
@@ -39,7 +39,7 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   design). `lever`: the design's lever there (off at rest), right-clicked at every edge. `button`:
   the design's button there, right-clicked at every rising edge (its own pulse length). Inputs
   change between ticks: on at frames t..t+L-1 is an L gt pulse. Latch inputs may be spelled
-  `set`/`reset`/`data`/`enable` (= s, r, d, e).
+  `set`/`reset`/`data`/`enable`/`clock`/`toggle` (= s, r, d, e, clk, t).
 * **Outputs** (`port output[.<name>]: x y z`), read every gt: redstone dust gives its power; a
   repeater, torch or observer its own output (15 when on); a comparator its strength; any other
   cell (air, a solid block, a lamp, a piston, a bulb) the best signal INTO it (what a lamp there
@@ -148,6 +148,36 @@ kick) before the first input.
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
   each pulse must repeat with period exactly N (`level`, comparator counters).
+* **tff-reset** (inputs r, t; [crate::seq](../crates/circuit/src/seq.rs)): pulses t, t, t, r, r,
+  t, r, t, t, r of 4 gt, then t, r, t, r of 20 gt, each followed by the gap: every t pulse must
+  change q exactly once, every r pulse must leave q off with one change from q = 1 and none from
+  q = 0 (so a reset from 0 and a repeated reset change nothing). Then t pulses of 3, 2, 1 gt (two
+  each) and an r pulse, for the metric only. `latency`: the worst toggle time of the 4 gt t
+  pulses; `reset`: the worst clear time from q = 1; `min-pulse`: the shortest t pulse from which
+  every longer one toggles.
+* **dff** (inputs clk, d): an edge-triggered D flip-flop (a 1-bit register). 8 clock cycles, each
+  4 steps held for the gap: d := a with the clock low, the clock rises, d := b, the clock falls,
+  with (a, b) = 10, 01, 11, 00, 10, 00, 01, 11. The run is compared with an ideal register run on
+  the same schedule (q takes d at each clock edge of its type, holds otherwise), for rising edges,
+  then falling edges: at the end of every step q must equal the ideal's q, steady over the second
+  half of the step, with exactly one change in a step where the ideal changes and none elsewhere
+  (a level latch fails: it follows d while transparent). The type that passes is reported
+  (`edge`). Then setup and hold sweeps, each test a prime clock pulse with d = !v (both types end
+  with q = !v) and then: `setup-r x` d := v x gt before a rising edge (x = 8, 4, 2, 1, 0: 0 = in
+  the edge's own frame), `setup-f x` the same before a falling edge, `hold-r x` / `hold-f x` d := v
+  well before the edge and back to !v x gt after it (x = 8, 4, 2, 1). The other type's tests must
+  match the ideal (d is steady around that type's edges); the own type's give `setup` / `hold`:
+  the smallest tested offset from which every larger one matches (`over 8 gt` when none).
+  `latency`: the worst edge-to-q time. **dff-enable** (inputs clk, d, e): the same main sequence
+  with e set at the start of each cycle, 10 cycles (a, b, e) = 101, 011, 110, 001, 100, 111, 000,
+  011, 110, 101: the ideal loads only when e is on at its edge; metrics `latency`, `edge`.
+* **shift N** (inputs clk, d): a shift register of N cells, q = d as sampled N clock edges ago. N +
+  12 clock cycles as for dff, with (a, b) taken from two offsets of a 31-bit pseudo-random
+  pattern (so each edge type shifts in a different sequence, and a register that samples on one
+  edge and shifts on the other fails); compared with an ideal N-cell register of each type (q
+  unknown, and free to take one value, until N edges have filled its cells). Metrics `N`,
+  `latency`, `edge`. A shift-register cell is judged as a chain of 2 (`shift 2`), so cells that
+  race through each other fail.
 * **piston-extender N** (payload, travel): 3 cycles of the input on for the gap then off for it
   (a button: one press, then 2 gaps). The payload's state must be unique in the design. Per
   cycle: from some frame after the on edge to the off edge (a button: at some frame) the payload
@@ -185,7 +215,8 @@ stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind an
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
 without stone"); the catalog shows them as "also found as". A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
-gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
+gates the function, T flip-flops their family, latches and registers the kind, `counter N`,
+`shift N`, extenders `N = <N>`,
 flying machines their speed (or `two-way`).
 
 `mctas circuit catalog [--root designs/circuits]` (no game) writes, per study,

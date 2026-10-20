@@ -253,8 +253,9 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");

@@ -168,6 +168,9 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 t += p + gap;
             }
         }
+        Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => {
+            t = crate::seq::stimulus(kind, &mut s, t, gap, button);
+        }
         Kind::PistonExtender(_) => {
             for k in 0..3 {
                 if button {
@@ -209,6 +212,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Tff => tff(c, s, t),
         Kind::RsLatch | Kind::DLatch => latch(c, kind, s, t),
         Kind::Counter(n) => counter(c, *n, s, t),
+        Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
     }
@@ -365,7 +369,7 @@ fn pext(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
 }
 
 /// The main output: `q` when there is one, else the first.
-fn main_output(c: &Circuit) -> usize {
+pub(crate) fn main_output(c: &Circuit) -> usize {
     c.outputs.iter().position(|o| o.name == "q").unwrap_or(0)
 }
 
@@ -554,7 +558,7 @@ fn delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
 
 /// For each phase of a steady-state test: the value at its end, the frame of its last change
 /// (`None`: no change), and the number of changes.
-fn settle(out: &[bool], from: usize, to: usize) -> (bool, Option<usize>, usize) {
+pub(crate) fn settle(out: &[bool], from: usize, to: usize) -> (bool, Option<usize>, usize) {
     let mut last = None;
     let mut changes = 0;
     for i in from.max(1)..to {
