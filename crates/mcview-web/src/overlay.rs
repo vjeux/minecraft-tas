@@ -63,6 +63,8 @@ pub struct Overlays {
     /// its box on the view, its distance.
     hits: Vec<(Key, Rect, f32)>,
     history: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
+    /// What the strip is (`output, last 2 s`), beside it.
+    history_caption: Option<HtmlElement>,
 }
 
 fn div(css: &str) -> HtmlElement {
@@ -138,6 +140,7 @@ impl Overlays {
             pinned: HashSet::new(),
             hits: Vec::new(),
             history: None,
+            history_caption: None,
         }
     }
 
@@ -194,6 +197,9 @@ impl Overlays {
         if let Some((c, _)) = self.history.take() {
             c.remove();
         }
+        if let Some(t) = self.history_caption.take() {
+            t.remove();
+        }
         if (!p.session.circuit_inputs.is_empty() || clock_out && p.session.simulated()) && !p.history.is_empty() {
             let c: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
             let rows = p.history.len() as u32;
@@ -202,6 +208,10 @@ impl Overlays {
             let _ = c.set_attribute("style", &format!("position:absolute;right:8px;top:34px;width:{}px;height:{}px;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
             c.set_title("the output: powered (red) or not, over the last 40 game ticks");
             let _ = self.layer.append_child(&c);
+            // what the strip is, beside it: the last 2 s (40 ticks)
+            let caption = span(&format!("position:absolute;right:{}px;top:32px;padding:0 4px;border-radius:3px;background:rgba(0,0,0,0.45);color:#e8e8e8;font:500 10px/12px system-ui,sans-serif;white-space:nowrap", 8 + HISTORY * 3 + 4), if rows > 1 { "outputs, last 2 s" } else { "output, last 2 s" });
+            let _ = self.layer.append_child(&caption);
+            self.history_caption = Some(caption);
             if let Some(ctx) = c.get_context("2d").ok().flatten().and_then(|x| x.dyn_into::<CanvasRenderingContext2d>().ok()) {
                 self.history = Some((c, ctx));
             }
@@ -314,10 +324,11 @@ impl Overlays {
             Some(b)
         };
         let mut layout = Layout::default();
-        // the history strip stays clear
+        // the history strip and its caption stay clear
         if let Some((c, _)) = &self.history {
             let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);
-            layout.obstacles.push(Rect { x0: w - 8.0 - cw, y0: 34.0, x1: w - 8.0, y1: 34.0 + ch });
+            let tw = self.history_caption.as_ref().map(|t| t.offset_width() as f64 + 4.0).unwrap_or(0.0);
+            layout.obstacles.push(Rect { x0: w - 8.0 - cw - tw, y0: 32.0, x1: w - 8.0, y1: 34.0 + ch.max(12.0) });
         }
         // what the containers hold (nearest first)
         let game = game_of(atlas);
@@ -403,7 +414,7 @@ impl Overlays {
             }
             k
         });
-        let safe = Rect { x0: 2.0, y0: 30.0, x1: w - 2.0, y1: h - 62.0 };
+        let safe = Rect { x0: 2.0, y0: 48.0, x1: w - 2.0, y1: h - 62.0 };
         for s in &now {
             let content = format!("{:?}{:?}", s.entries, self.icons_of);
             if !self.labels.contains_key(&s.key) {

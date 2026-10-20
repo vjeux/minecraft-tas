@@ -393,13 +393,14 @@ impl Player {
         }
     }
 
-    /// The tick counter: `123 gt · 6.15 s`, plus the ticks since the last flip for a door.
+    /// The tick counter: `6.15 s · 123 ticks` (plain words: seconds first), plus the ticks since
+    /// the last flip for a door.
     pub fn label(&self) -> String {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
-        let mut out = format!("{t} gt · {}", seconds(t));
+        let mut out = format!("{} · {t} ticks", seconds(t));
         if s.last_input.is_some() && s.mode.is_door() {
-            out.push_str(&format!(" · flip +{} gt", s.since_input()));
+            out.push_str(&format!(" · flip +{}", s.since_input()));
         }
         out
     }

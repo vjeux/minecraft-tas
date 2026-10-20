@@ -9,9 +9,9 @@ use crate::mesh::{self, Builder, EntityDraw, Item, Mesh, Vertex};
 use crate::session::{Session, bp};
 use redsim::Block;
 
-/// How far the viewer's grass reaches around the build: past the fog's end (the render distance,
-/// 6 chunks or more) from any camera that frames the build, so its edge never shows.
-pub const GROUND_REACH: f32 = 200.0;
+/// How far the viewer's grass reaches around the build: past the browser viewer's render
+/// distance (24 chunks, 384 blocks), so its fogged end sits at the horizon and no edge shows.
+pub const GROUND_REACH: f32 = 420.0;
 /// The real-game pictures' grass reach around a clock (`web compare`).
 pub const PICTURE_GROUND_REACH: f32 = 56.0;
 

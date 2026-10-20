@@ -222,7 +222,7 @@ pub fn start(app: &mut App, id: u32) {
             ("position", "absolute"),
             ("right", "8px"),
             ("top", "8px"),
-            ("min-width", "17ch"),
+            ("min-width", "21ch"),
             ("height", "20px"),
             ("line-height", "20px"),
             ("padding", "0 8px"),
@@ -238,14 +238,15 @@ pub fn start(app: &mut App, id: u32) {
             ("z-index", "2"),
         ],
     );
-    label.set_text_content(Some("0 gt · 0.00 s"));
+    label.set_text_content(Some("0.00 s · 0 ticks"));
     for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref(), containers.unchecked_ref()] {
         let _ = bar.append_child(c);
     }
     let _ = root.append_child(&bar);
     let _ = root.append_child(&label);
     let _ = flip.style().set_property("display", "none");
-    // what is shown: redsim, a recording, or the design as built
+    // what to do or what runs: up to two lines on a narrow viewer (a demo phase in words never
+    // ends in an ellipsis), sized once from its longest text so it never resizes
     let status = el("div");
     style(
         &status,
@@ -254,16 +255,17 @@ pub fn start(app: &mut App, id: u32) {
             ("left", "8px"),
             ("top", "8px"),
             ("max-width", "calc(100% - 200px)"),
-            ("height", "20px"),
-            ("line-height", "20px"),
-            ("padding", "0 8px"),
+            ("line-height", "16px"),
+            ("padding", "2px 8px"),
             ("border-radius", "8px"),
             ("background", "rgba(0,0,0,0.45)"),
             ("color", "#fff"),
             ("font", "12px system-ui, sans-serif"),
-            ("white-space", "nowrap"),
+            ("white-space", "normal"),
             ("overflow", "hidden"),
-            ("text-overflow", "ellipsis"),
+            ("display", "-webkit-box"),
+            ("-webkit-line-clamp", "2"),
+            ("-webkit-box-orient", "vertical"),
             ("pointer-events", "none"),
             ("z-index", "2"),
         ],
@@ -499,6 +501,9 @@ pub fn load(app: &mut App, id: u32) {
                     l.inputs.push((b, false));
                 }
             }
+            // a new design (a swap): the badge sized again from its own texts
+            let _ = l.status.style().remove_property("min-width");
+            let _ = l.status.style().remove_property("min-height");
             // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
             // actions at cells (data-events: a BUD switch's target and footprint probes)
             if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
@@ -540,18 +545,21 @@ pub fn load(app: &mut App, id: u32) {
                 }
                 if let Some(d) = demo {
                     p.session.attach_demo(d);
-                    // the badge shows each phase in turn: as wide as its widest label from the
-                    // start, so it never resizes while the demo plays
+                    // the badge shows each phase in turn: as wide (and as tall: two lines on a
+                    // narrow viewer) as its longest label from the start, so it never resizes
+                    // while the demo plays
                     let mut labels = vec![demo_text(&p, None)];
                     labels.extend(p.phases.iter().map(|(_, _, ph)| demo_text(&p, Some(ph))));
-                    let mut widest = 0i32;
+                    let (mut widest, mut tallest) = (0i32, 0i32);
                     for t in &labels {
                         l.status.set_text_content(Some(t));
                         widest = widest.max(l.status.offset_width());
+                        tallest = tallest.max(l.status.offset_height());
                     }
                     if widest > 0 {
-                        // offset_width counts the 8 px paddings: min-width is the content's
+                        // offset sizes count the paddings (8 px each side, 2 px top and bottom)
                         let _ = l.status.style().set_property("min-width", &format!("{}px", widest - 16));
+                        let _ = l.status.style().set_property("min-height", &format!("{}px", tallest - 4));
                     }
                     l.shown_status = String::from("\u{0}");
                 }
@@ -671,7 +679,7 @@ fn demo_text(p: &Player, phase: Option<&str>) -> String {
     let kind = p.session.design.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
     match phase {
         Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
-        None => "demo: the judge's test".to_string(),
+        None => "demo: the test sequence".to_string(),
     }
 }
 

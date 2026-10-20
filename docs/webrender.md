@@ -63,12 +63,13 @@ each build's page.
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
   speed: `Session::short_cycle`), flip the lever (f, doors); a strip under the counter shows
-  each output's last 40 gt (red: powered), on clocks and circuits; badges at the top: what to do or
-  what runs on the left (`tap the lever`, `press the inputs`, the demo's phase, `not simulated:
-  <reason>` for a design shown as built, `not simulated after tick N` when redsim meets something
-  it does not model during the run: the view stops at the last exact state), the tick counter in
-  gt and seconds on the
-  right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
+  each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
+  badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
+  sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
+  `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
+  meets something it does not model during the run: the view stops at the last exact state), the
+  time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
+  moves while it runs, `mctas web layout` checks it).
 * Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
   stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
@@ -150,8 +151,11 @@ each build's page.
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
   top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
-  5 blocks across and 3 high is framed as if it were that big (a 4-block clock stands in some
-  grass, its OUT box clear of the controls). The grass reaches 200 blocks around (past the fog's end: no edge shows); near
+  5 blocks across and 3 high in every direction is framed as if it were that big (a 4-block
+  clock stands in some grass, its OUT box clear of the controls). The browser draws like a
+  client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
+  pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
+  reaches 420 blocks around (past it); near
   the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
   the four air cells around it in the layer between the grass and the build (a covered column
   gets its neighbours' light less one), through the game's brightness curve at the default
