@@ -1,0 +1,123 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/flyq68/r69t.ideal: 11 input cells off the plane ([(1, 4), (2, 4), (2, -2), (1, -2), (1, -1), (0, 4), (-1, -1), (1, -3), (3, -1), (2, -3), (2, -1)]), 34 / 34 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/flyq68/r69a.txt: 27 blocks in the box, screen 9/79
+seed screen 79/79 with 11 inputs assisted
+windows (34 groups, 0.0 s):
+  input (1,4) open  t0 pulse 2 gt: window [+0, +0]
+  input (2,4) open  t0 pulse 2 gt: window [+0, +24]
+  input (2,-2) open  t0 pulse 2 gt: window [+0, +1]
+  input (1,-2) open  t0 pulse 2 gt: window [+0, +13]
+  input (1,-1) open  t2 pulse 2 gt: window [+0, +0]
+  input (1,-1) open  t4 pulse 2 gt: window [+0, +0]
+  input (0,4) open  t5 pulse 2 gt: window [+0, +4]
+  input (1,4) open  t9 pulse 2 gt: window [-5, +24]
+  input (-1,-1) open  t9 pulse 2 gt: window [-4, +24]
+  input (1,-3) open  t12 pulse 2 gt: window [-5, +1]
+  input (1,-2) open  t17 pulse 2 gt: window [-1, +0]
+  input (3,-1) open  t22 pulse 2 gt: window [+0, +0]
+  input (-1,-1) open  t24 pulse 2 gt: window [-19, +24]
+  input (2,-3) open  t25 pulse 2 gt: window [+0, +0]
+  input (2,-1) open  t26 pulse 2 gt: window [+0, +0]
+  input (2,-3) open  t29 pulse 2 gt: window [+0, +0]
+  input (2,-2) open  t33 pulse 2 gt: window [+0, +24]
+  input (1,4) close t0 pulse 2 gt: window [+0, +5]
+  input (2,4) close t0 pulse 2 gt: window [+0, +24]
+  input (2,-2) close t0 pulse 2 gt: window [+0, +7]
+  input (1,-2) close t0 pulse 2 gt: window [+0, +5]
+  input (1,-1) close t2 pulse 2 gt: window [-1, +0]
+  input (1,-1) close t4 pulse 2 gt: window [-3, +1]
+  input (0,4) close t5 pulse 2 gt: window [-5, +0]
+  input (1,4) close t9 pulse 2 gt: window [+0, +24]
+  input (-1,-1) close t9 pulse 2 gt: window [+0, +0]
+  input (1,-3) close t12 pulse 2 gt: window [+0, +0]
+  input (1,-2) close t17 pulse 2 gt: window [+0, +10]
+  input (3,-1) close t22 pulse 2 gt: window [-7, +0]
+  input (-1,-1) close t24 pulse 2 gt: window [+0, +1]
+  input (2,-3) close t25 pulse 2 gt: window [-3, +2]
+  input (2,-1) close t26 pulse 2 gt: window [-1, +4]
+  input (2,-3) close t29 pulse 2 gt: window [+0, +0]
+  input (2,-2) close t33 pulse 2 gt: window [+0, +0]
+16 pocket cells in 3 pockets; 34 lever candidates in the plane, 1 static front-face supports (+ the fillings' own blocks), polarity [false]; 38 swept cells
+  pocket 0: 6 cells [(-2, -3), (-2, -2), (-1, -3), (-1, -2), (0, -3), (0, -2)]
+  pocket 1: 8 cells [(-2, 5), (-1, 5), (0, 5), (1, 5), (2, 5), (3, 3), (3, 4), (3, 5)]
+  pocket 2: 2 cells [(3, -3), (3, -2)]
+  feed of the piston at (1,4): direct (1,5) pocket 1, QC (2,5) pocket 1, QC (0,5) pocket 1
+  feed of the piston at (2,4): direct (3,4) pocket 1, direct (2,5) pocket 1, QC (3,5) pocket 1, QC (1,5) pocket 1
+  feed of the piston at (2,-2): direct (3,-2) pocket 2
+  feed of the piston at (1,-2): direct (0,-2) pocket 0
+  feed of the piston at (1,-1): NO FREE CELL (only through door blocks or a moving source)
+  feed of the piston at (0,4): direct (0,5) pocket 1, QC (1,5) pocket 1, QC (-1,5) pocket 1
+  feed of the piston at (-1,-1): direct (-1,-2) pocket 0
+  feed of the piston at (1,-3): direct (0,-3) pocket 0, QC (0,-2) pocket 0
+  feed of the piston at (3,-1): direct (3,-2) pocket 2
+  feed of the piston at (2,-3): direct (3,-3) pocket 2, QC (3,-2) pocket 2
+  feed of the piston at (2,-1): NO FREE CELL (only through door blocks or a moving source)
+  load of pocket 0 (6 cells): forced [(1,-2) (-1,-1) (1,-3)] -> 10 distinct ticks (open 0 9 12 17 24 | close 0 9 12 17 24)
+  load of pocket 1 (8 cells): forced [(1,4) (2,4) (0,4)] -> 6 distinct ticks (open 0 5 9 | close 0 5 9)
+  load of pocket 2 (2 cells): forced [(2,-2) (3,-1) (2,-3)] -> 10 distinct ticks (open 0 22 25 29 33 | close 0 22 25 29 33)
+  island start, lever in pocket 0: NEVER start: pocket 1 on open (first forced pulse by t0), pocket 2 on open (first forced pulse by t1), pocket 2 on close (first forced pulse by t7)
+  island start, lever in pocket 1: NEVER start: pocket 0 on close (first forced pulse by t5), pocket 2 on open (first forced pulse by t1), pocket 2 on close (first forced pulse by t7)
+  island start, lever in pocket 2: NEVER start: pocket 0 on open (first forced pulse by t13), pocket 0 on close (first forced pulse by t5), pocket 1 on open (first forced pulse by t0)
+  island start, lever outside the pockets (its lever-time inputs only): NEVER start: pocket 0 on open (first forced pulse by t13), pocket 0 on close (first forced pulse by t5), pocket 1 on open (first forced pulse by t0), pocket 2 on open (first forced pulse by t1), pocket 2 on close (first forced pulse by t7)
+  island start: lever placements that start every pocket: NONE (no static wiring can run this plan)
+pocket 0: 6 cells, 32705 subset/lever items, 72186971 fillings to screen
+  pocket 0: 9677089 screened (3778 of 32705 items started), 2455505 keep the door working, 30 s
+  pocket 0: 20074270 screened (7869 of 32705 items started), 4776525 keep the door working, 60 s
+  pocket 0: 31585372 screened (12385 of 32705 items started), 6780818 keep the door working, 90 s
+  pocket 0: 41180745 screened (16058 of 32705 items started), 9112215 keep the door working, 120 s
+  pocket 0: 52332207 screened (20454 of 32705 items started), 11171385 keep the door working, 150 s
+  pocket 0: 63106049 screened (24547 of 32705 items started), 13366494 keep the door working, 180 s
+  pocket 0: 74073776 screened (28787 of 32705 items started), 15150768 keep the door working, 210 s
+  pocket 0: 82764392 screened (31949 of 32705 items started), 17058727 keep the door working, 240 s
+pocket 0: 84978634 screened, 17320673 keep the door working, 247.4 s; driven input sets: {(1,-3)o12 (1,-3)c12} x24 (best 4 blocks), {(-1,-1)o9 (-1,-1)o24} x24 (best 3 blocks), {(-1,-1)o9} x5 (best 4 blocks), {(1,-2)c0} x24 (best 3 blocks), {(1,-3)o12} x24 (best 3 blocks)
+pocket 1: 8 cells, 124066 subset/lever items, 273977476 fillings to screen
+  pocket 1: 10621099 screened (4218 of 124066 items started), 139256 keep the door working, 30 s
+  pocket 1: 21476784 screened (8647 of 124066 items started), 306659 keep the door working, 60 s
+  pocket 1: 31900528 screened (12782 of 124066 items started), 455289 keep the door working, 90 s
+  pocket 1: 42823339 screened (17372 of 124066 items started), 650911 keep the door working, 120 s
+  pocket 1: 53543928 screened (21806 of 124066 items started), 839542 keep the door working, 150 s
+  pocket 1: 64492891 screened (26181 of 124066 items started), 1017621 keep the door working, 180 s
+  pocket 1: 76620381 screened (30768 of 124066 items started), 1167489 keep the door working, 210 s
+  pocket 1: 86998222 screened (34518 of 124066 items started), 1573189 keep the door working, 240 s
+  pocket 1: 96616585 screened (37997 of 124066 items started), 2282397 keep the door working, 270 s
+  pocket 1: 102456718 screened (40177 of 124066 items started), 3920492 keep the door working, 300 s
+  pocket 1: 109261593 screened (42868 of 124066 items started), 5623886 keep the door working, 330 s
+  pocket 1: 117054786 screened (45909 of 124066 items started), 6910984 keep the door working, 360 s
+  pocket 1: 123225283 screened (48365 of 124066 items started), 8788968 keep the door working, 390 s
+  pocket 1: 130389471 screened (51204 of 124066 items started), 10509992 keep the door working, 420 s
+  pocket 1: 137475942 screened (53926 of 124066 items started), 12059496 keep the door working, 450 s
+  pocket 1: 145549775 screened (57046 of 124066 items started), 13657339 keep the door working, 480 s
+  pocket 1: 152022106 screened (59424 of 124066 items started), 15203686 keep the door working, 510 s
+  pocket 1: 157585392 screened (61662 of 124066 items started), 17196161 keep the door working, 540 s
+  pocket 1: 163853167 screened (64125 of 124066 items started), 19083970 keep the door working, 570 s
+  pocket 1: 169816573 screened (66499 of 124066 items started), 20839334 keep the door working, 600 s
+  pocket 1: 176251885 screened (69088 of 124066 items started), 22622931 keep the door working, 630 s
+  pocket 1: 183365832 screened (71721 of 124066 items started), 23947335 keep the door working, 660 s
+  pocket 1: 188506539 screened (73802 of 124066 items started), 26017598 keep the door working, 690 s
+  pocket 1: 194983848 screened (76365 of 124066 items started), 27736083 keep the door working, 720 s
+  pocket 1: 201503293 screened (78794 of 124066 items started), 29375261 keep the door working, 750 s
+  pocket 1: 208006215 screened (81266 of 124066 items started), 30951478 keep the door working, 780 s
+  pocket 1: 215612127 screened (83892 of 124066 items started), 32183365 keep the door working, 810 s
+  pocket 1: 220128933 screened (85666 of 124066 items started), 34329784 keep the door working, 841 s
+  pocket 1: 227051604 screened (88221 of 124066 items started), 36183936 keep the door working, 871 s
+  pocket 1: 233255830 screened (90435 of 124066 items started), 37849005 keep the door working, 901 s
+  pocket 1: 238751049 screened (92567 of 124066 items started), 39902638 keep the door working, 931 s
+  pocket 1: 245938599 screened (95231 of 124066 items started), 41647514 keep the door working, 961 s
+  pocket 1: 252673971 screened (97608 of 124066 items started), 43031978 keep the door working, 991 s
+  pocket 1: 258413027 screened (99877 of 124066 items started), 45127895 keep the door working, 1021 s
+  pocket 1: 265466047 screened (102520 of 124066 items started), 46896989 keep the door working, 1051 s
+  pocket 1: 272957700 screened (105226 of 124066 items started), 48472803 keep the door working, 1081 s
+  pocket 1: 279377769 screened (107636 of 124066 items started), 50283268 keep the door working, 1111 s
+  pocket 1: 285149814 screened (109607 of 124066 items started), 51882364 keep the door working, 1141 s
+  pocket 1: 289760985 screened (111322 of 124066 items started), 54194815 keep the door working, 1171 s
+  pocket 1: 295351911 screened (113518 of 124066 items started), 56543651 keep the door working, 1201 s
+  pocket 1: 300767786 screened (115500 of 124066 items started), 58664732 keep the door working, 1231 s
+  pocket 1: 307005073 screened (117740 of 124066 items started), 60456606 keep the door working, 1261 s
+  pocket 1: 312639201 screened (119823 of 124066 items started), 62419111 keep the door working, 1291 s
+  pocket 1: 318057121 screened (121762 of 124066 items started), 64354225 keep the door working, 1321 s
+  pocket 1: 323778738 screened (123733 of 124066 items started), 66063408 keep the door working, 1351 s
+pocket 1: 324806848 screened, 66261297 keep the door working, 1355.8 s; driven input sets: {(1,4)o9 (1,4)c9} x24 (best 2 blocks), {(2,4)o0 (2,4)c0} x24 (best 2 blocks), {(1,4)o9 (1,4)c0} x24 (best 3 blocks), {(2,4)o0} x24 (best 3 blocks), {(0,4)c5} x20 (best 4 blocks), {(0,4)o5} x1 (best 4 blocks), {(1,4)c0} x2 (best 4 blocks), {(1,4)o9} x2 (best 4 blocks), {(1,4)c9} x24 (best 4 blocks)
+pocket 2: 2 cells, 15 subset/lever items, 13677 fillings to screen
+pocket 2: 17312 screened, 2451 keep the door working, 1.0 s; driven input sets: none
+plan groups no filling drives: (1,4)o0 (2,-2)o0 (1,-2)o0 (1,-1)o2 (1,-1)o4 (1,-2)o17 (3,-1)o22 (2,-3)o25 (2,-1)o26 (2,-3)o29 (2,-2)o33 (2,-2)c0 (1,-1)c2 (1,-1)c4 (-1,-1)c9 (1,-2)c17 (3,-1)c22 (-1,-1)c24 (2,-3)c25 (2,-1)c26 (2,-3)c29 (2,-2)c33
+combination 1: true partial, 10 inputs still assisted [1,4 2,-2 1,-2 1,-1 0,4 -1,-1 1,-3 3,-1 2,-3 2,-1] (29 blocks)
+114707 combinations verified, 0 finds, 1664 s total
