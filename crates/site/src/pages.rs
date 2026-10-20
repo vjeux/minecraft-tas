@@ -499,7 +499,10 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         }
     }
     if let Some(c) = &b.clock {
-        s.push_str(&row("Pulses every", &esc(&crate::plain::ticks(&format!("{} gt", c.period)))));
+        s.push_str(&row("Pulses every", &esc(&crate::plain::ticks(&format!("{} gt", c.every())))));
+        if c.pulse_every.is_some() {
+            s.push_str(&row("Full cycle (its parts repeat)", &esc(&crate::plain::ticks(&format!("{} gt", c.period)))));
+        }
         s.push_str(&row("Made of (the blocks that change state)", &esc(&site_model::html::human_blocks(&b.group))));
         s.push_str(&row("Blocks placed", &b.blocks.to_string()));
         if let (Some(v), Some(dm)) = (b.volume, &b.dims) {
@@ -624,11 +627,12 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
         // size 1"): the smallest clock of each nearby period, then the same period's other
         // clocks, then the family's own other periods
         let shown = |o: &&Build| o.clock.as_ref().is_some_and(|oc| oc.host.is_none() && !oc.instance);
+        let every = c.every();
         let smallest_per_period = |pool: Vec<&'a Build>| -> Vec<&'a Build> {
             let mut best: BTreeMap<u32, &Build> = BTreeMap::new();
             for o in pool {
-                let p = o.clock.as_ref().map(|x| x.period).unwrap_or(0);
-                if p == c.period {
+                let p = o.clock.as_ref().map(|x| x.every()).unwrap_or(0);
+                if p == every {
                     continue;
                 }
                 let better = |cur: &&Build| (o.blocks, o.volume, &o.name) < (cur.blocks, cur.volume, &cur.name);
@@ -639,24 +643,36 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
             let mut v: Vec<&Build> = best.into_values().collect();
             // the 8 nearest periods, shown in order of period (critique: "5, 7, 4, 8 ticks")
             v.sort_by_key(|o| {
-                let p = o.clock.as_ref().map(|x| x.period).unwrap_or(0);
-                ((p as i64 - c.period as i64).abs(), p)
+                let p = o.clock.as_ref().map(|x| x.every()).unwrap_or(0);
+                ((p as i64 - every as i64).abs(), p)
             });
             v.truncate(8);
-            v.sort_by_key(|o| o.clock.as_ref().map(|x| x.period).unwrap_or(0));
+            v.sort_by_key(|o| o.clock.as_ref().map(|x| x.every()).unwrap_or(0));
             v
         };
         out.push(("Nearby periods (the smallest clock of each)".to_string(), smallest_per_period(others().filter(shown).collect())));
-        let mut same: Vec<&Build> = others().filter(shown).filter(|o| o.clock.as_ref().is_some_and(|oc| oc.period == c.period)).collect();
+        let mut same: Vec<&Build> = others().filter(shown).filter(|o| o.clock.as_ref().is_some_and(|oc| oc.every() == every)).collect();
         same.sort_by_key(|o| (o.blocks, o.volume, o.name.clone()));
         same.truncate(8);
-        out.push((format!("Other clocks pulsing every {}", crate::plain::ticks(&format!("{} gt", c.period))), same));
+        out.push((format!("Other clocks pulsing every {}", crate::plain::ticks(&format!("{every} gt"))), same));
         out.push((format!("Also made of {}, other periods", site_model::html::human_blocks(&b.group)), smallest_per_period(others().filter(shown).filter(|o| o.group == b.group).collect())));
     } else if b.kind == "door" {
         let v = b.volume.unwrap_or(u32::MAX) as i64;
         // not its own fill variants (the same stats again: critique) nor any folded variant
         let mut near: Vec<&Build> = others().filter(|o| o.group == b.group && !o.flags.iter().any(|f| f == "variant") && o.door.as_ref().is_none_or(|d| d.host.as_deref() != Some(b.id.as_str()))).collect();
         near.sort_by_key(|o| ((o.volume.unwrap_or(u32::MAX) as i64 - v).abs(), o.blocks, o.name.clone()));
+        // one card per box and block count (critique: four "7×8×1 · 40 blocks" in a row), none
+        // reading like this page's own door
+        let mut seen: Vec<(Option<String>, u32)> = vec![(b.dims.clone(), b.blocks)];
+        near.retain(|o| {
+            let k = (o.dims.clone(), o.blocks);
+            if seen.contains(&k) {
+                false
+            } else {
+                seen.push(k);
+                true
+            }
+        });
         near.truncate(12);
         out.push((format!("Other {} doors of a similar size", b.group), near));
     } else if let Some(c) = &b.circuit {
@@ -885,17 +901,28 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
     if warm > 0 {
         phases.push((0, warm, "starting up".to_string()));
     }
+    // every cycle labelled the same way (critique: "period 2", "period 3" but no "period 1")
     let mut t = warm;
     let mut k = 1;
     while t + c.period <= total {
-        phases.push((t, t + c.period, if k == 1 { format!("1 period: {} ticks", c.period) } else { format!("period {k}") }));
+        phases.push((t, t + c.period, format!("cycle {k}")));
         t += c.period;
         k += 1;
     }
     let wave = site_model::Wave { ticks: total, rows: vec![site_model::WaveRow::from_levels("out", false, &levels)], phases };
-    let on = if c.on > 0 && c.edges <= 1 { format!(", on for {} of them", crate::plain::ticks(&format!("{} gt", c.on))) } else if c.edges > 1 { format!(", {} pulses in each", c.edges) } else { String::new() };
+    let on = if c.pulse_every.is_some() {
+        format!(": its output pulses every {}, {} times in each cycle", crate::plain::ticks(&format!("{} gt", c.every())), c.edges)
+    } else if c.on > 0 && c.edges <= 1 {
+        format!(", on for {} of them", crate::plain::ticks(&format!("{} gt", c.on)))
+    } else if c.edges > 1 {
+        format!(", {} pulses in each", c.edges)
+    } else {
+        String::new()
+    };
+    // the grey start-up is said only when there is one (critique: "no grey is drawn")
+    let start = if warm > 0 { format!("the grey part is the clock starting up ({}), then ", crate::plain::ticks(&format!("{warm} gt"))) } else { String::new() };
     Ok(format!(
-        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, simulated like the 3D view runs it{picked}: the grey part is the clock starting up, then it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
+        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, simulated like the 3D view runs it{picked}: {start}it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
         crate::plain::ticks(&format!("{} gt", c.period)),
         crate::explain::wave_svg_fit(&wave, 340.0)
     ))
@@ -1134,7 +1161,9 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
     if all.is_empty() || !matches!(folder, "shulker" | "tnt" | "bud" | "pulsemult") {
         return String::new();
     }
-    let has_badge = |b: &Build, badge: &str| cmetric(b, "badges").split('+').any(|x| x == badge);
+    // a badge with a number (`tileable(9)`: tiles every 9 blocks) is that badge (critique: the
+    // tileable row said "none yet" next to three tileable designs)
+    let has_badge = |b: &Build, badge: &str| cmetric(b, "badges").split('+').any(|x| x == badge || x.split('(').next() == Some(badge));
     let mut rows = String::new();
     let link = format!("{REPO_URL}/blob/main/designs/circuits/{folder}/VARIATIONS.md");
     let head;
@@ -1309,13 +1338,27 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     };
     let uses = crate::explain::study_uses(folder);
     let list = study_builds(site, folder);
+    // the gates whose designs are being re-tested are named instead of promised (critique: the
+    // intro promised AND, XOR... while R7's re-judge held every one of them back)
+    let missing = if folder == "gates" {
+        let have: Vec<String> = list.iter().filter_map(|b| b.circuit.as_ref()).map(|c| c.kind.split_whitespace().nth(1).unwrap_or("").to_string()).collect();
+        let gone: Vec<String> = ["not", "and", "or", "xor", "xnor", "nand", "nor", "imply", "nimply"].iter().filter(|f| !have.iter().any(|h| h == *f)).map(|f| site_model::html::gate_label(f)).collect();
+        if gone.is_empty() {
+            String::new()
+        } else {
+            format!(" Not on the site right now: {}. Their designs are being re-tested with real levers and buttons in the game, and come back once they pass.", gone.join(", "))
+        }
+    } else {
+        String::new()
+    };
     // what you would use them for first; the designs right after (critique C6 / P5); how we test
     // and rank them folds at the end
     let mut body = format!(
-        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n",
+        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n",
         esc(&title),
         esc(&title),
         esc(if uses.is_empty() { &intro } else { uses }),
+        esc(&missing),
         site_model::encode(folder)
     );
     let mut after = String::new();

@@ -255,7 +255,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 if lever { "Flip its start lever (the lime IN button under the view). " } else { "It starts by itself. " }
             );
         }
-        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; watch the lamp marked OUT.".to_string(),
+        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
         _ => {}
     }
     if !c.unmodeled.is_empty() {
@@ -272,17 +272,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         (_, 1) => format!("Hold {} under the view for a long press, tap it for a short one", names[0]),
         _ => format!("Use the {} buttons under the view to drive the inputs", list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "and")),
     };
-    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the lamp marked OUT lights while the output is on" };
+    // the viewer draws the output as a box tagged OUT that turns red while powered (webrender
+    // 1742c0308)
+    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the box marked OUT turns red while the output is on" };
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
-        "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
+        "burst" => format!("each tap turns OUT red exactly {} times", number(&c.kind)),
         "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: press the speed button until it shows 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
-        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
-        "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
-        "off-delay" => "turn it on, then off: OUT stays lit a while after".to_string(),
-        "on-delay" => "a quick tap does nothing; hold it and OUT lights".to_string(),
-        "pulse-train" => "turn it on and OUT keeps flashing until you turn it off".to_string(),
+        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT red for a while; tapping again while it is red changes nothing".to_string(),
+        "monostable" => "a tap keeps OUT red for a while; tap again while it is red and it stays red longer".to_string(),
+        "off-delay" => "turn it on, then off: OUT stays red a while after".to_string(),
+        "on-delay" => "a quick tap does nothing; hold it and OUT turns red".to_string(),
+        "pulse-train" => "turn it on and OUT keeps flashing red until you turn it off".to_string(),
         "tff" | "tff-reset" => "each tap flips OUT on or off".to_string(),
         _ => String::new(),
     };
@@ -335,7 +337,10 @@ pub fn warning(b: &Build) -> Option<String> {
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
         if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
-            return Some("Uses a sculk sensor tuned so footsteps and other noises don't trigger it.".to_string());
+            return Some(format!(
+                "Uses a sculk sensor tuned so footsteps and other noises don't trigger it{}.",
+                if b.kinds.iter().any(|k| k == "chest") { ": the items in its chest set the one sound it listens to" } else { "" }
+            ));
         }
     }
     let robustness = match (&b.circuit, &b.clock) {
@@ -377,11 +382,13 @@ pub fn door(b: &Build) -> (String, String, String) {
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
 pub fn clock(b: &Build) -> (String, String, String) {
     let c = b.clock.as_ref();
-    let period = c.map(|c| ticks(&format!("{} gt", c.period))).unwrap_or_default();
+    let period = c.map(|c| ticks(&format!("{} gt", c.every()))).unwrap_or_default();
+    // an output that pulses several times in one cycle of its parts says both
+    let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Its output pulses by itself every {period}, forever.{start}"),
+        format!("Its output pulses by itself every {period}{cycle}, forever.{start}"),
         "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
@@ -397,7 +404,7 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         ),
         // the item counters: what sets the count (critique: "nothing says HOW to load the items")
         (Some(c), _) if !c.layout_key.is_empty() && base(&c.kind) == "counter" => format!(
-            "{} Its count is the number of items in its dropper: load another number of items (stone here) to make it react on that count.",
+            "{} Its count is the number of items in its droppers: they pass the items one way per pulse, and the numbers over them show how many each holds. Load another number of items (stone here) to make it react on that count.",
             try_it(c, has_viewer)
         ),
         (Some(c), _) => try_it(c, has_viewer),

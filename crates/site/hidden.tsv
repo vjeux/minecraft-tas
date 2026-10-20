@@ -63,6 +63,7 @@ gates/gate-xor-ring-14b	temporary (R7): passes only by the judge's old block pla
 gates/gate-xnor-ring-16b	temporary (R7): passes only by the judge's old block placement, not with a real input
 gates/gate-nor-torch-3b	temporary (R7, clk-item in the game): unsteady at rest under the real input driver
 gates/gate-imply-torch-3b	temporary (R7, clk-item in the game): unsteady at rest under the real input driver
+gates/gate-imply-ba-torch-3b	temporary (R7, the coordinator 16:36Z: clk-item found every old IMPLY invalid and replaced them in 9350c0628)
 memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input
 memory/dff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
 memory/dffe-window	temporary (R7): passes only by the judge's old block placement, not with a real input
