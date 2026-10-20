@@ -1,0 +1,32 @@
+# N=3 one-frame rider, wired. A (lever on its back) pushes a 5-slime row; the frame carries B, C
+# (latched at rel 1 and 2) and the payload (latched at rel 2..4). Inner train after each landing:
+# C1 from two observers hanging under S1/S2 (landing burst), B and C2 from a dust line over the
+# machine fed by an observer chain from the lever (pulses at t8 and t12 -> top observers t10, t14).
+name: pext-n3-rider-wired
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 4 2 0
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  O minecraft:observer[facing=down]
+  U minecraft:observer[facing=up]
+  W minecraft:observer[facing=west]
+  K minecraft:stone
+  r minecraft:redstone_wire[east=side,west=side]
+layer 0:
+  ...OO
+layer 1:
+  LASSSSS
+layer 2:
+  O.BBG
+layer 3:
+  O.UUKU
+layer 4:
+  OWrrrr
+layer 5:
+  .OWK

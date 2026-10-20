@@ -26,6 +26,31 @@ pub struct Prepared {
     pub target: BlockPos,
     pub min: BlockPos,
     pub size: [i32; 3],
+    /// Exploration only (`ideal:` header): scripted writes (phase "on"/"off"/"both", tick, cell,
+    /// state; air = clear), applied with updates right before that tick of the phase.
+    pub ideal: Vec<(String, u32, BlockPos, Block)>,
+}
+
+/// `ideal: both 5 set 4 1 1 minecraft:redstone_block; both 7 clear 4 1 1` (phases on, off, both).
+pub fn parse_ideal(s: &str) -> Result<Vec<(String, u32, BlockPos, Block)>, String> {
+    let mut out = Vec::new();
+    for item in s.split(';').map(str::trim).filter(|x| !x.is_empty()) {
+        let w: Vec<&str> = item.split_whitespace().collect();
+        let bad = || format!("ideal item {item:?}: <on|off|both> <tick> set x y z <state> | clear x y z");
+        if w.len() < 6 {
+            return Err(bad());
+        }
+        let t: u32 = w[1].parse().map_err(|_| bad())?;
+        let n = |i: usize| w[i].parse::<i32>().map_err(|_| bad());
+        let p = BlockPos::new(n(3)?, n(4)?, n(5)?);
+        let b = match (w[2], w.get(6)) {
+            ("set", Some(st)) => Block::parse(st)?,
+            ("clear", None) => Block::Air,
+            _ => return Err(bad()),
+        };
+        out.push((w[0].to_string(), t, p, b));
+    }
+    Ok(out)
 }
 
 pub fn bp(p: Pos) -> BlockPos {
@@ -63,6 +88,10 @@ impl Prepared {
             target: bp(p.target()),
             min: BlockPos::new(lo[0] - margin, lo[1] - margin, lo[2] - margin),
             size: [hi[0] - lo[0] + 1 + 2 * margin, hi[1] - lo[1] + 1 + 2 * margin, hi[2] - lo[2] + 1 + 2 * margin],
+            ideal: match p.design.meta.get("ideal") {
+                Some(s) => parse_ideal(s)?,
+                None => Vec::new(),
+            },
         })
     }
 }
@@ -185,6 +214,11 @@ fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace:
     let mut prev = if track { w.blocks() } else { Vec::new() };
     let mut ph = Phase { at: Vec::new(), changed: Vec::new() };
     for t in 1..=max {
+        for (when, at, p, b) in &prep.ideal {
+            if *at == t && (when == what || when == "both" || (when == "on" && what == "press")) {
+                w.set_block(*p, *b, redsim::world::flags::ALL);
+            }
+        }
         w.tick();
         check_world(w, t, what)?;
         // extended = the payload placed at the target with nothing moving (no moving_piston
@@ -200,7 +234,8 @@ fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace:
         } else {
             ph.changed.push(false);
         }
-        if w.idle() {
+        let pending_ideal = prep.ideal.iter().any(|(when, at, _, _)| *at > t && (when == what || when == "both" || (when == "on" && what == "press")));
+        if w.idle() && !pending_ideal {
             return Ok(ph);
         }
     }
