@@ -1,0 +1,24 @@
+# archived 2026-10-20T00:03Z from designs/clocks/tracks/clk-obs/families9/p21-bulb-note-obs-stk-8b-d8710a.txt by mctas clock archive
+# CLOCK: clk-obs-p21-bulb-note-obs-stk-8b-d8710a period 21 gt (1.05 s), on 8/21, edges 4, warmup 10, family copper_bulb+note_block+observer+sticky_piston, 8 blocks, 3x3x3, robust
+name: clk-obs-p21-bulb-note-obs-stk-8b-d8710a
+# clk-obs grow: P=21 (redsim), family note_block+observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 27.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:observer[facing=east,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:note_block[instrument=harp,note=0,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=north]
+layer -1:
+  ...
+  .D.
+  ...
+layer 0:
+  AE.
+  BF.
+  CGH

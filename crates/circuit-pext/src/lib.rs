@@ -13,6 +13,7 @@ pub mod game;
 pub mod rs;
 pub mod search;
 pub mod spec;
+pub mod trains;
 
 use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
@@ -90,6 +91,24 @@ enum Cmd {
         #[arg(long, default_value_t = 40)]
         show: usize,
     },
+    /// Pulse-toggle trains for a stack of n sticky pistons (abstract 1D model): every pulse
+    /// sequence that extends by n on one edge and retracts on the other, with each step's
+    /// positions on both edges.
+    Trains {
+        #[arg(long, default_value_t = 3)]
+        n: usize,
+        #[arg(long, default_value_t = 8)]
+        max: usize,
+        #[arg(long, default_value_t = 5)]
+        show: usize,
+        /// The frame's displacement on the on-edge (rider mode: 1 = the stack rides a frame that
+        /// the fixed piston moved first).
+        #[arg(long, default_value_t = 0)]
+        shift: i32,
+        /// Breadth-first search for the shortest train whose every step static cells can deliver.
+        #[arg(long)]
+        bfs: bool,
+    },
     /// Greedy shrink on redsim: remove blocks, or swap one for a palette state and remove
     /// another, while the extender keeps working; writes each step to --out.
     Minimize {
@@ -130,6 +149,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
+        }
+        Cmd::Trains { n, max, show, shift, bfs } => {
+            if bfs {
+                trains::report_bfs(n, shift, max)
+            } else {
+                trains::report(n, max, show, shift)
+            }
         }
         Cmd::Minimize { design, palette, threads, out } => {
             let p = Pext::load(&design)?;

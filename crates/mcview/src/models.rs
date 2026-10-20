@@ -154,6 +154,13 @@ impl Model {
     }
 }
 
+/// The orange output marker (a block of orange stained glass, as in the real-game pictures); lit
+/// (bright, glowing) while the output is on.
+pub fn marker_model(lit: bool) -> Model {
+    let p = Part::new([0.0, 0.0, 0.0], [16.0, 16.0, 16.0]).all(if lit { "marker_lit" } else { "orange_stained_glass" }).layer(Layer::Translucent);
+    Model::one(if lit { p.emissive(true) } else { p })
+}
+
 /// A state string's name and properties.
 pub struct St<'a> {
     pub name: &'a str,
@@ -279,16 +286,13 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
                 0
             };
             let lit = st.b("lit", false);
-            let tile: &'static str = match (k, lit) {
-                (0, false) => "bulb_0",
-                (0, true) => "bulb_0_lit",
-                (1, false) => "bulb_1",
-                (1, true) => "bulb_1_lit",
-                (2, false) => "bulb_2",
-                (2, true) => "bulb_2_lit",
-                (3, false) => "bulb_3",
-                _ => "bulb_3_lit",
-            };
+            const BULB: [[&str; 4]; 4] = [
+                ["bulb_0", "bulb_0_p", "bulb_0_lit", "bulb_0_lit_p"],
+                ["bulb_1", "bulb_1_p", "bulb_1_lit", "bulb_1_lit_p"],
+                ["bulb_2", "bulb_2_p", "bulb_2_lit", "bulb_2_lit_p"],
+                ["bulb_3", "bulb_3_p", "bulb_3_lit", "bulb_3_lit_p"],
+            ];
+            let tile = BULB[k][lit as usize * 2 + st.b("powered", false) as usize];
             let mut m = cube_all(tile);
             m.parts[0] = m.parts[0].clone().emissive(lit);
             m
@@ -416,11 +420,62 @@ pub fn model_for(state: &str, atlas: &Atlas) -> Option<Model> {
             m.parts[0] = m.parts[0].clone().emissive(true);
             m
         }
-        "water" | "lava" => {
+        "water" | "lava" | "bubble_column" => {
             let level = st.i("level", 0);
-            let h = if level == 0 || level >= 8 { 14.0 } else { (16.0 - level as f32 * 1.75).max(2.0) };
+            let h = if name == "bubble_column" || level == 0 || level >= 8 { if name == "bubble_column" { 16.0 } else { 14.0 } } else { (16.0 - level as f32 * 1.75).max(2.0) };
             let tint = if name == "lava" { [255, 120, 30] } else { [255, 255, 255] };
-            Model::one(Part::new([0.0, 0.0, 0.0], [16.0, h, 16.0]).all("water").tint(tint).layer(Layer::Translucent))
+            let tile = if name == "bubble_column" { "bubbles" } else { "water" };
+            Model::one(Part::new([0.0, 0.0, 0.0], [16.0, h, 16.0]).all(tile).tint(tint).layer(Layer::Translucent))
+        }
+        "magma_block" => {
+            let mut m = cube_all("magma");
+            m.parts[0] = m.parts[0].clone().emissive(true);
+            m
+        }
+        "big_dripleaf" => {
+            let tilt = match st.get("tilt").unwrap_or("none") {
+                "unstable" => 10.0,
+                "partial" => 22.5,
+                "full" => 45.0,
+                _ => 0.0,
+            };
+            // the leaf tips down toward `facing` (built for north) around its back edge
+            let leaf = Part::new([0.0, 15.0, 0.0], [16.0, 15.5, 16.0]).face(UP, "dripleaf_top").face(DOWN, "dripleaf_top").nocull().rotated(0, tilt, [8.0, 15.0, 16.0]);
+            let stem = Part::new([7.0, 0.0, 9.0], [9.0, 15.0, 11.0]).all("dripleaf_top").nocull();
+            Model { parts: vec![leaf, stem], ..Default::default() }.rotated((0, yturns(st.dir("facing", Dir::North))))
+        }
+        "tripwire" => {
+            let (ns, ew) = (st.b("north", false) || st.b("south", false), st.b("east", false) || st.b("west", false));
+            let y = if st.b("attached", false) { 1.5 } else { 1.0 };
+            let line = |rot: u8| Part::new([0.0, y, 0.0], [16.0, y, 16.0]).face(UP, "tripwire").face(DOWN, "tripwire").rot_uv(UP, rot).rot_uv(DOWN, rot).nocull().layer(Layer::Cutout).flat();
+            let mut parts = Vec::new();
+            if ew || !ns {
+                parts.push(line(0));
+            }
+            if ns {
+                parts.push(line(1));
+            }
+            Model { parts, ..Default::default() }
+        }
+        "tripwire_hook" => {
+            let f = st.dir("facing", Dir::North);
+            let parts = vec![
+                Part::new([6.2, 0.0, 14.0], [9.8, 9.0, 16.0]).all("oak_planks").nocull(),
+                Part::new([7.2, 6.0, 10.0], [8.8, 7.5, 14.0]).all("iron_block").nocull(),
+                Part::new([7.0, 5.0, 8.0], [9.0, 9.0, 10.0]).all("iron_block").nocull(),
+            ];
+            Model { parts, ..Default::default() }.rotated((0, yturns(f)))
+        }
+        n if n.ends_with("_wall_banner") => {
+            let color = n.trim_end_matches("_wall_banner");
+            let tint = match color {
+                "white" => [235, 235, 235],
+                "red" => [180, 40, 40],
+                "black" => [30, 30, 30],
+                "blue" => [50, 70, 170],
+                _ => name_color(color),
+            };
+            Model { parts: vec![Part::new([1.0, -14.0, 14.0], [15.0, 14.0, 15.0]).all("white_wool").tint(tint).nocull(), Part::new([0.0, 13.0, 13.5], [16.0, 15.0, 15.5]).all("oak_planks").nocull()], ..Default::default() }.rotated((0, yturns(st.dir("facing", Dir::North))))
         }
         "stone_pressure_plate" | "oak_pressure_plate" | "light_weighted_pressure_plate" | "heavy_weighted_pressure_plate" => {
             let down = st.b("powered", false) || st.i("power", 0) > 0;

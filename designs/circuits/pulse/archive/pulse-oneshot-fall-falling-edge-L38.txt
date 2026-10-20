@@ -1,0 +1,36 @@
+# archived 2026-10-20T00:16Z from designs/circuits/tracks/pulse/oneshot-fall/pulse-oneshot-fall-falling-edge-L38.txt by mctas circuit archive
+# CIRCUIT: pulse-oneshot-fall-falling-edge-L38 falling-edge L 38 gt, delay 7 gt, min-pulse 6 gt, 25 blocks, 4x2x6, robust
+name: pulse-oneshot-fall-falling-edge-L38
+# One-shot (falling-edge, L = 38 gt): a sticky piston pushes an observer away and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode fall --kind falling-edge --l-range 38..38.
+circuit: falling-edge
+origin: -1 0 0
+port input: -1 1 0
+port output: 2 1 1
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=north,powered=false]
+  V minecraft:observer[facing=west,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  W minecraft:redstone_wire
+  a minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  m minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  b minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  n minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  c minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  o minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+layer 0:
+  .....
+  ...SS
+  ..S.S
+  ..S.S
+  ..S.S
+  ..SSS
+layer 1:
+  .PO..
+  ..BCW
+  ..m.a
+  ..n.b
+  ..o.c
+  ..WWW

@@ -1,0 +1,15 @@
+study	family	group	kind	axis_formula	blocks_formula	n_lo	n_hi	base	rule	judged_n
+pulse	pulse-limiter-u4		pulse-limiter	16 + 16n	10 + 4n	0	10	pulse/archive/pulse-limiter-u4.txt	lengthen the U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-ext		pulse-extender	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-ext.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-fall		falling-edge	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-fall.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+pulse	pulse-oneshot-rise		rising-edge	18 + 16n	17 + 4n	0	10	pulse/archive/pulse-oneshot-rise.txt	lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column	0, 1, 2, 5, 10
+delay	delay-cmp		delay	2 + 2n	2 + 2n	0	10	delay/archive/delay-cmp-n0.txt	add one compare-mode comparator (on its stone) at the end	0, 1, 2, 5, 10
+delay	delay-piston-or11	delay-piston-or	delay	11 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or11-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
+delay	delay-piston-or5	delay-piston-or	delay	5 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or5-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
+delay	delay-piston-or7	delay-piston-or	delay	7 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or7-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
+delay	delay-piston-or9	delay-piston-or	delay	9 + 8n	13 + 2n	0	6	delay/archive/delay-piston-or9-n0.txt	add one delay-4 repeater (on its stone) at the end of the tail	0, 1, 2, 3, 6
+delay	delay-rep2	delay-repeater-line	delay	2 + 8n	2 + 2n	0	10	delay/archive/delay-rep2-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
+delay	delay-rep4	delay-repeater-line	delay	4 + 8n	2 + 2n	0	10	delay/archive/delay-rep4-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
+delay	delay-rep6	delay-repeater-line	delay	6 + 8n	2 + 2n	0	10	delay/archive/delay-rep6-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
+delay	delay-rep8	delay-repeater-line	delay	8 + 8n	2 + 2n	0	10	delay/archive/delay-rep8-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
+delay	delay-torch		delay	6 + 4n	6 + 4n	0	4	delay/archive/delay-torch-n0.txt	add two torches and two blocks to the tower	0, 1, 2, 4

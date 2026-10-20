@@ -1,0 +1,31 @@
+# archived 2026-10-20T00:13Z from designs/clocks/tracks/clk-obs/families9/p23-obs-pis-8b-6ebdc2.txt by mctas clock archive
+# CLOCK: clk-obs-p23-obs-pis-8b-6ebdc2 period 23 gt (1.15 s), on 10/23, edges 5, warmup 12, family observer+piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p23-obs-pis-8b-6ebdc2
+# clk-obs grow: P=23 (redsim), family observer+piston, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 -1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+  C minecraft:piston[extended=false,facing=down]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:piston[extended=false,facing=up]
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:stone
+layer -1:
+  .
+  A
+  B
+layer 0:
+  C
+  D
+  E
+layer 1:
+  F
+  A
+  .
+layer 2:
+  G
+  .
+  .

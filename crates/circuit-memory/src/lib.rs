@@ -3,7 +3,9 @@
 //!
 //! * [`specs`]: census specs for rs-latch, d-latch and counter N mirroring the judge's stimuli, run
 //!   on track tff's census engine (`circuit_tff::census`).
+//! * [`ring`]: dropper-ring counters around the input cell (`circuit memory ring --n N`).
 
+pub mod ring;
 pub mod specs;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -19,6 +21,21 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Dropper-ring counters: the smallest cycles dropper -> hopper -> ... whose droppers the
+    /// input cell fires (directly or through dust next to it), one design per ring (`--keep`).
+    Ring {
+        /// Counter sizes, comma-separated.
+        #[arg(long, value_delimiter = ',')]
+        n: Vec<usize>,
+        /// Most dust cells next to the input.
+        #[arg(long, default_value_t = 2)]
+        max_dust: usize,
+        /// Designs kept per N, smallest first.
+        #[arg(long, default_value_t = 3)]
+        keep: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Run a design under this track's census spec for its kind (`circuit:` header) and print the
     /// output's rest state, change frames, samples and the spec's verdict (debugging the census).
     Check { design: PathBuf, #[arg(long, default_value_t = 40)] gap: u32 },
@@ -58,6 +75,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
+        Cmd::Ring { n, max_dust, keep, out } => ring::run(&n, max_dust, keep, &out)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
