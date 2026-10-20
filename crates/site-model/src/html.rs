@@ -33,9 +33,9 @@ pub fn kind_title(kind: &str) -> &'static str {
 /// The size line of a build: `63b (7x9x1) · 43 blocks` (doors: the community's volume first).
 pub fn size_line(b: &Build) -> String {
     match (b.kind.as_str(), b.volume, b.dims.as_deref()) {
-        ("door", Some(v), Some(d)) => format!("{v}b ({d}) · {} blocks", b.blocks),
-        ("door", Some(v), None) => format!("{v}b · {} blocks", b.blocks),
-        _ => format!("{} blocks", b.blocks),
+        ("door", Some(v), Some(d)) => format!("{v}b ({d}) · {}", blocks_word(b.blocks)),
+        ("door", Some(v), None) => format!("{v}b · {}", blocks_word(b.blocks)),
+        _ => blocks_word(b.blocks),
     }
 }
 
@@ -50,7 +50,7 @@ pub fn headline(b: &Build) -> String {
     }
     match b.volume {
         Some(v) => format!("{v}b"),
-        None => format!("{} blocks", b.blocks),
+        None => blocks_word(b.blocks),
     }
 }
 
@@ -128,18 +128,18 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(format!("#1 {}", d.leads[0]));
         }
         if !d.seamless.is_empty() {
-            v.push(d.seamless.clone());
+            v.push(seamless_words(&d.seamless));
         }
     }
-    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite", "layout"] {
+    for (f, words) in [("slime-free", "no slime"), ("flat", "flat"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "variant"), ("composite", "several clocks in one"), ("layout", "another layout")] {
         if b.flags.iter().any(|x| x == f) {
-            v.push(f.to_string());
+            v.push(words.to_string());
         }
     }
-    // a tunable group's shown design: the group's span (`tunable: L 6-40 gt, 16 values`)
+    // a tunable group's shown design: the group's span (`13 versions, 12 to 36 ticks`)
     if let Some(c) = &b.circuit {
         if !c.span.is_empty() {
-            v.push(format!("tunable: {}", c.span));
+            v.push(span_words(&c.span));
         }
         // the machines' variations: a shulker loader's badges, what a BUD switch detects
         let m = |k: &str| c.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str()).unwrap_or("");
@@ -158,7 +158,7 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
-fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
+pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
     // the interim picture (until the 3D viewer renders): lazy, under the headline label
     let (pic, cls) = match picture {
@@ -178,46 +178,49 @@ fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>,
 /// family.
 pub fn fallback_line(b: &Build) -> String {
     match (b.kind.as_str(), &b.dims) {
-        ("door", Some(d)) => format!("{d} · {}", b.group),
-        _ => b.group.replace('+', " + "),
+        ("door", Some(d)) => format!("{} · {}", d.replace('x', "×"), door_category(&b.group)),
+        ("clock", _) => format!("made of {}", human_blocks(&b.group)),
+        _ => b.group.clone(),
     }
 }
 
 /// A circuit kind's base in words, singular (vjeux 12:15Z: "Circuit kind should be piston
-/// extender, not one per N"): `piston-extender 5` -> `Piston extender`, `divider 3` ->
-/// `Divider`, `gate and` -> `Logic gate`. The number is a property, not a kind.
+/// extender, not one per N"), in everyday words (13:06Z: "I have no clue what a monostable
+/// retriggerable system means"): `piston-extender 5` -> `Piston extender`, `monostable
+/// retriggerable` -> `One-shot timer`, `bud` -> `Block change detector`. The number is a
+/// property, not a kind; the jargon name is in the kind's title (crates/site explain::kind_title).
 pub fn kind_words(kind: &str) -> String {
     let base = kind.split_whitespace().next().unwrap_or("");
     let words = match base {
-        "rising-edge" => "Rising-edge detector",
-        "falling-edge" => "Falling-edge detector",
-        "dual-edge" => "Dual-edge detector",
-        "pulse-limiter" => "Pulse limiter",
-        "pulse-extender" => "Pulse extender",
-        "tff" => "T flip-flop",
-        "tff-reset" => "T flip-flop with reset",
-        "delay" => "Delay line",
+        "rising-edge" => "One pulse when switched on",
+        "falling-edge" => "One pulse when switched off",
+        "dual-edge" => "One pulse on every switch",
+        "pulse-limiter" => "Signal shortener",
+        "pulse-extender" => "Signal stretcher",
+        "tff" => "Toggle switch",
+        "tff-reset" => "Toggle switch with reset",
+        "delay" => "Delay",
         "gate" => "Logic gate",
-        "rs-latch" => "RS latch",
-        "d-latch" => "D latch",
-        "dff" => "D flip-flop",
-        "dff-enable" => "D flip-flop with enable",
-        "shift" => "Shift register",
+        "rs-latch" => "On/off memory",
+        "d-latch" => "Copy-and-hold memory",
+        "dff" => "Clocked memory",
+        "dff-enable" => "Clocked memory with enable",
+        "shift" => "Bit conveyor",
         "counter" => "Counter",
         "adder" => "Adder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
-        "shulker-loader" => "Shulker loader",
-        "shulker-unloader" => "Shulker unloader",
-        "bud" => "BUD switch",
+        "shulker-loader" => "Shulker box loader",
+        "shulker-unloader" => "Shulker box unloader",
+        "bud" => "Block change detector",
         "tnt-duper" => "TNT duper",
-        "tnt-duper-triggered" => "TNT duper (per pulse)",
-        "burst" => "Burst",
-        "divider" => "Divider",
-        "monostable" => "Monostable",
-        "off-delay" => "Off-delay timer",
-        "on-delay" => "On-delay timer",
-        "pulse-train" => "Pulse train",
+        "tnt-duper-triggered" => "TNT duper, one per press",
+        "burst" => "Pulses per press",
+        "divider" => "Clock slower",
+        "monostable" => "One-shot timer",
+        "off-delay" => "Stay-on timer",
+        "on-delay" => "Hold-to-activate",
+        "pulse-train" => "Rapid fire while on",
         _ => "",
     };
     if !words.is_empty() {
@@ -227,6 +230,94 @@ pub fn kind_words(kind: &str) -> String {
     let s = base.replace('-', " ");
     let mut ch = s.chars();
     ch.next().map(|f| f.to_uppercase().collect::<String>() + ch.as_str()).unwrap_or_default()
+}
+
+/// A tunable group's span in words: `L 12-36 gt, 13 values` -> `13 versions, 12 to 36 ticks`.
+pub fn span_words(span: &str) -> String {
+    let (range, count) = span.split_once(", ").unwrap_or((span, ""));
+    let n = count.split_whitespace().next().unwrap_or("");
+    let mut w = range.split_whitespace();
+    let (_letter, r, unit) = (w.next().unwrap_or(""), w.next().unwrap_or(""), w.next().unwrap_or(""));
+    let r = match r.split_once('-') {
+        Some((a, b)) => format!("{a} to {b}"),
+        None => r.to_string(),
+    };
+    let unit = if unit == "gt" { " ticks" } else if unit.is_empty() { "" } else { " " };
+    let unit_tail = if unit == " " { range.split_whitespace().nth(2).unwrap_or("") } else { "" };
+    if n.is_empty() { format!("versions {r}{unit}{unit_tail}") } else { format!("{n} versions, {r}{unit}{unit_tail}") }
+}
+
+/// The community's seamless tiers in words: `FULL` -> `fully seamless`.
+pub fn seamless_words(tier: &str) -> String {
+    match tier {
+        "SUPER" => "seamless, super tier".to_string(),
+        "FULL" => "fully seamless".to_string(),
+        "SEMI" => "semi seamless".to_string(),
+        "QUART" => "quarter seamless".to_string(),
+        "" => String::new(),
+        other => format!("{} seamless", other.to_lowercase()),
+    }
+}
+
+/// Block ids for people: `observer+redstone_lamp` -> `observer, redstone lamp`.
+pub fn human_blocks(ids: &str) -> String {
+    ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
+}
+
+/// A door's category in words (the kind line).
+pub fn door_category(group: &str) -> &'static str {
+    match group {
+        "solid" => "plain door blocks",
+        "sculk" => "triggered by a sculk sensor",
+        "gravity" => "sand or gravel door blocks",
+        "entity" => "uses moving entities",
+        _ => "",
+    }
+}
+
+/// `32 gt` -> `32 ticks` (a headline's time).
+fn tk(v: &str) -> String {
+    let v = v.trim().trim_end_matches(" (from the press)");
+    let mut w = v.split_whitespace();
+    let n = w.next().unwrap_or("");
+    if w.next() != Some("gt") {
+        return v.to_string();
+    }
+    if n == "1" { "1 tick".to_string() } else { format!("{} ticks", n.replace('-', " to ")) }
+}
+
+/// `3` -> `3rd`.
+fn nth(n: &str) -> String {
+    let v: u32 = n.parse().unwrap_or(0);
+    let suffix = match (v % 10, v % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{v}{suffix}")
+}
+
+/// A logic function by its rule (`nimply` -> `A AND NOT B`).
+pub fn gate_label(f: &str) -> String {
+    match f {
+        "not" => "NOT".into(),
+        "buffer" => "copy".into(),
+        "and" => "A AND B".into(),
+        "or" => "A OR B".into(),
+        "xor" => "A XOR B (one, not both)".into(),
+        "xnor" => "A same as B".into(),
+        "nand" => "NOT (A AND B)".into(),
+        "nor" => "NOT (A OR B)".into(),
+        "imply" => "NOT A OR B".into(),
+        "nimply" => "A AND NOT B".into(),
+        "imply-ba" => "A OR NOT B".into(),
+        "nimply-ba" => "B AND NOT A".into(),
+        "not-a" => "NOT A".into(),
+        "not-b" => "NOT B".into(),
+        other => other.to_uppercase(),
+    }
 }
 
 /// What a card leads with (vjeux 12:09Z: "put the focus on what are the properties of the build"):
@@ -246,69 +337,97 @@ fn cm<'a>(c: &'a crate::Circuit, k: &str) -> &'a str {
     c.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str()).unwrap_or("")
 }
 
-/// `label value` when the value exists.
-fn labeled(label: &str, v: &str) -> Option<String> {
-    let v = v.trim();
-    if v.is_empty() { None } else if label.is_empty() { Some(v.to_string()) } else { Some(format!("{label} {v}")) }
-}
-
-/// A circuit's main property, without its kind (`N = 3`, `÷3 · square`, `AND · instant`;
-/// empty when the kind has no number: a latch), and its secondary ones, from the judge's metrics.
+/// A circuit's main property in words, without its kind (`reach 3`, `slows by 3 · even on/off`,
+/// `A AND B · instant`; empty when the kind has no number: a latch), and its secondary ones, from
+/// the judge's metrics (vjeux 13:06Z: plain player language, no letters before meaning).
 fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
     let mut w = c.kind.split_whitespace();
     let (k0, k1) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
-    let l = cm(c, "L");
-    let short = |s: &str| s.trim_end_matches(" (from the press)").to_string();
-    let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| labeled(label, cm(c, k))).collect() };
+    let l = tk(cm(c, "L"));
+    let num = |s: &str| s.split_whitespace().next().unwrap_or("").to_string();
+    let said = |label: &str, k: &str| -> Option<String> {
+        let v = cm(c, k);
+        if v.is_empty() { None } else { Some(label.replace("{}", &tk(v))) }
+    };
+    let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| said(label, k)).collect() };
     match k0 {
-        "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" => (format!("L = {l}"), sub(&[("delay", "delay"), ("min-pulse", "min-pulse")])),
-        "tff" => (c.axis.replace('+', " + ").replace('_', " "), sub(&[("latency", "latency"), ("fastest", "min-period")])),
-        "delay" => (format!("N = {}", if cm(c, "N").is_empty() { c.axis.trim_start_matches("N = ").to_string() } else { cm(c, "N").to_string() }), sub(&[("min-pulse", "min-pulse"), ("min-gap", "min-gap")])),
+        "rising-edge" | "falling-edge" | "dual-edge" => (format!("{}-tick pulse", num(cm(c, "L"))), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
+        "pulse-limiter" => (format!("at most {l}"), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
+        "pulse-extender" => (format!("at least {l}"), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
+        "tff" => (human_blocks(&c.axis), sub(&[("reacts in {}", "latency"), ("follows presses {} apart", "min-period")])),
+        "delay" => (format!("{}-tick delay", if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) }), sub(&[("needs a {} input", "min-pulse"), ("keeps gaps of {}", "min-gap")])),
         "gate" => {
             let f = if cm(c, "function").is_empty() { k1 } else { cm(c, "function") };
             let instant = cm(c, "class") == "instant" || cm(c, "latency") == "0 gt";
-            (format!("{}{}", f.to_uppercase(), if instant { " · instant" } else { "" }), sub(&[("latency", "latency")]))
+            (format!("{}{}", gate_label(f), if instant { " · instant" } else { "" }), if instant { Vec::new() } else { sub(&[("reacts in {}", "latency")]) })
         }
-        "rs-latch" | "d-latch" | "dff" | "dff-enable" | "tff-reset" => (String::new(), sub(&[("latency", "latency"), ("enable", "enable"), ("edge", "edge"), ("reset", "reset")])),
-        "shift" => (format!("{k1}-bit"), sub(&[("latency", "latency")])),
-        "adder" => (format!("{k1}-bit"), sub(&[("latency", "latency")])),
-        "counter" => (format!("N = {k1}"), sub(&[("", "output"), ("latency", "latency")])),
+        "rs-latch" | "d-latch" | "dff" | "dff-enable" | "tff-reset" => {
+            let mut v = sub(&[("reacts in {}", "latency"), ("resets in {}", "reset")]);
+            match cm(c, "enable") {
+                "low" => v.push("enabled while E is off".into()),
+                "high" => v.push("enabled while E is on".into()),
+                _ => {}
+            }
+            match cm(c, "edge") {
+                "rising" => v.push("copies when the clock turns on".into()),
+                "falling" => v.push("copies when the clock turns off".into()),
+                _ => {}
+            }
+            (String::new(), v)
+        }
+        "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        "adder" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        "counter" => (format!("every {} pulse", nth(k1)), sub(&[("reacts in {}", "latency")])),
         "piston-extender" => {
-            let (e, r) = (short(cm(c, "extend")), short(cm(c, "retract")));
-            let timing = if e.is_empty() { None } else { Some(format!("extend {e} / retract {r}")) };
-            (format!("N = {k1}"), timing.into_iter().collect())
+            let (e, r) = (tk(cm(c, "extend")), tk(cm(c, "retract")));
+            let timing = if e.is_empty() { None } else { Some(format!("out in {e}, back in {r}")) };
+            (format!("reach {k1}"), timing.into_iter().collect())
         }
         "flying-machine" => {
             let two_way = c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way");
-            let dir = if two_way { "two-way".to_string() } else { c.direction.clone() };
-            let speed = cm(c, "speed");
-            ([dir, speed.to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("latency", "latency")]))
+            let dir = if two_way { "goes and comes back".to_string() } else { c.direction.clone() };
+            let speed = cm(c, "speed").split_whitespace().next().and_then(|g| g.parse::<f64>().ok()).filter(|g| *g > 0.0).map(|g| {
+                let s = format!("{:.2}", 20.0 / g);
+                format!("{} blocks a second", s.trim_end_matches('0').trim_end_matches('.'))
+            });
+            ([Some(dir), speed].into_iter().flatten().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("starts in {}", "latency")]))
         }
         "shulker-loader" | "shulker-unloader" => {
             let stack = match k1 {
-                "16" => "16-stack · ",
-                "1" => "unstackable · ",
+                "16" => "16-stack items · ",
+                "1" => "unstackable items · ",
                 _ => "",
             };
             let rate = cm(c, "items/s");
-            (if rate.is_empty() { stack.trim_end_matches(" · ").to_string() } else { format!("{stack}{rate} items/s") }, sub(&[("first box", "first box")]))
+            let first = cm(c, "first box").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("first box after {}", crate::real_time(g)));
+            (if rate.is_empty() { stack.trim_end_matches(" · ").to_string() } else { format!("{stack}{rate} items a second") }, first.into_iter().collect())
         }
         "bud" => {
-            let d: Vec<&str> = cm(c, "detects").split_whitespace().collect();
-            (if d.is_empty() { String::new() } else { format!("detects {}", d.join(", ")) }, sub(&[("latency", "latency"), ("re-arm", "re-arm"), ("footprint", "footprint")]))
+            let d: Vec<&str> = cm(c, "detects").split_whitespace().map(|k| match k {
+                "place" => "placed",
+                "remove" => "removed",
+                "state" => "changed",
+                "shape" => "grown",
+                "update" => "updated",
+                other => other,
+            }).collect();
+            (if d.is_empty() { String::new() } else { format!("notices blocks {}", d.join(", ")) }, sub(&[("reacts in {}", "latency"), ("ready again after {}", "re-arm")]))
         }
-        "tnt-duper" => (cm(c, "rate").to_string(), sub(&[("period", "period"), ("latency", "latency")])),
-        "tnt-duper-triggered" => (format!("{} TNT per pulse", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("latency", "latency"), ("gap", "gap")])),
-        "burst" => (format!("×{k1}"), sub(&[("every", "period"), ("latency", "latency")])),
-        "divider" => (format!("÷{k1}{}", if cm(c, "output") == "square" { " · square" } else { "" }), sub(&[("latency", "latency"), ("fastest clock", "min-period")])),
-        "monostable" => (format!("L = {l}{}", if k1 == "retriggerable" { " · retriggerable" } else if k1 == "non-retriggerable" { " · non-retriggerable" } else { "" }), sub(&[("delay", "delay"), ("re-arm", "re-arm")])),
-        "off-delay" => (format!("L = {l}"), sub(&[("latency", "latency"), ("min-pulse", "min-pulse")])),
-        "on-delay" => (format!("T = {}", cm(c, "T")), sub(&[("shortening", "shortening"), ("latency", "latency")])),
-        "pulse-train" => (format!("P = {}", cm(c, "P")), sub(&[("pulse", "pulse"), ("latency", "latency")])),
+        "tnt-duper" => (cm(c, "rate").to_string(), sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")])),
+        "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
+        "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
+        "divider" => (format!("slows by {k1}{}", if cm(c, "output") == "square" { " · even on/off" } else { "" }), sub(&[("follows clocks down to {}", "min-period")])),
+        "monostable" => (
+            format!("on for {l}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
+            sub(&[("starts after {}", "delay"), ("ready again after {}", "re-arm")]),
+        ),
+        "off-delay" => (format!("stays on {l} after"), sub(&[("needs a {} input", "min-pulse")])),
+        "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("comes out {} shorter", "shortening")])),
+        "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
         _ => {
             let axis = if c.axis == c.kind { String::new() } else { axis_shown(&c.kind, &c.axis).unwrap_or_default() };
             let n = if k1.is_empty() || axis.contains(k1) { String::new() } else { k1.to_string() };
-            ([n, axis].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("latency", "latency")]))
+            ([n, axis].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("reacts in {}", "latency")]))
         }
     }
 }
@@ -316,6 +435,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
 /// The card of a build, by its properties ([`Props`]).
 pub fn props(b: &Build) -> Props {
     let flags = |list: &[&str]| -> Vec<String> { list.iter().filter(|f| b.flags.iter().any(|x| x == *f)).map(|f| f.to_string()).collect() };
+    let dims = b.dims.as_deref().map(|d| d.replace('x', "×")).unwrap_or_default();
     match b.kind.as_str() {
         "door" => {
             let mut chips: Vec<String> = Vec::new();
@@ -323,37 +443,53 @@ pub fn props(b: &Build) -> Props {
                 if let Some(l) = d.leads.first() {
                     chips.push(format!("#1 {l}"));
                 }
-            }
-            // (the category is in the kind line)
-            if let Some(d) = &b.door {
                 if !d.seamless.is_empty() {
-                    chips.push(format!("{} seamless", d.seamless));
+                    chips.push(seamless_words(&d.seamless));
                 }
             }
-            chips.extend(flags(&["slime-free", "flat", "rotation-safe", "eligible", "variant"]));
-            let sub = b.door.as_ref().and_then(|d| Some(format!("open {} gt · close {} gt", d.open?, d.close?))).unwrap_or_default();
-            Props { kind: format!("Piston door · {}", b.group), title: size_line(b).replace('x', "×"), sub, chips }
+            for (f, words) in [("slime-free", "no slime"), ("flat", "flat"), ("rotation-safe", "any direction"), ("variant", "variant")] {
+                if b.flags.iter().any(|x| x == f) {
+                    chips.push(words.into());
+                }
+            }
+            let timing = b.door.as_ref().and_then(|d| Some(format!("opens in {} · closes in {}", crate::real_time(d.open?), crate::real_time(d.close?))));
+            let space = b.volume.map(|v| format!("{v} blocks of space"));
+            let sub = [timing, space].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+            let cat = door_category(&b.group);
+            let title = if dims.is_empty() { blocks_word(b.blocks) } else { format!("{dims} · {}", blocks_word(b.blocks)) };
+            Props { kind: if cat.is_empty() { "3×3 piston door".into() } else { format!("3×3 piston door · {cat}") }, title, sub, chips }
         }
         "clock" => {
             let c = b.clock.as_ref();
-            let period = c.map(|c| gt_time(c.period)).unwrap_or_default();
+            let period = c.map(|c| format!("every {} ({})", if c.period == 1 { "tick".to_string() } else { format!("{} ticks", c.period) }, crate::real_time(c.period))).unwrap_or_default();
             let pulse = c.and_then(|c| match c.edges {
                 0 => None,
-                1 if c.on > 0 => Some(format!("on {} gt", c.on)),
+                1 if c.on > 0 => Some(format!("on for {} of {} ticks", c.on, c.period)),
                 1 => None,
                 e => Some(format!("{e} pulses a cycle")),
             });
-            let sub = [pulse, Some(b.group.replace('+', " + "))].into_iter().flatten().collect::<Vec<_>>().join(" · ");
-            Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips: flags(&["flat", "slime-free", "self-starting", "extendable", "composite", "variant"]) }
+            let made = format!("made of {}", human_blocks(&b.group));
+            let sub = [Some(made), pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+            let mut chips: Vec<String> = Vec::new();
+            for (f, words) in [("flat", "flat"), ("slime-free", "no slime"), ("self-starting", "starts by itself"), ("extendable", "every size"), ("composite", "several clocks in one"), ("variant", "variant")] {
+                if b.flags.iter().any(|x| x == f) {
+                    chips.push(words.into());
+                }
+            }
+            Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips }
         }
         _ => match &b.circuit {
             Some(c) => {
                 let (main, sub) = circuit_props(c);
                 let mut chips: Vec<String> = Vec::new();
                 if !c.span.is_empty() {
-                    chips.push(format!("tunable: {}", c.span));
+                    chips.push(format!("{} versions", c.span.split(", ").last().unwrap_or("").trim_end_matches(" values").trim_end_matches(" versions")));
                 }
-                chips.extend(flags(&["button", "lever", "slime-free", "flat", "extendable", "variant", "layout"]));
+                for (f, words) in [("button", "own button"), ("lever", "own lever"), ("slime-free", "no slime"), ("flat", "flat"), ("extendable", "every size"), ("variant", "variant"), ("layout", "another layout")] {
+                    if b.flags.iter().any(|x| x == f) {
+                        chips.push(words.into());
+                    }
+                }
                 // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side)
                 if let Some(d) = &b.dims {
                     let n: Vec<u32> = d.split('x').filter_map(|v| v.trim().parse().ok()).collect();
@@ -374,6 +510,10 @@ pub fn props(b: &Build) -> Props {
                 if !c.direction.is_empty() && c.kind != "flying-machine" {
                     sub.insert(0, c.direction.clone());
                 }
+                // the box tells siblings apart (no design names in lists: vjeux 13:11Z)
+                if !dims.is_empty() {
+                    sub.push(format!("box {dims}"));
+                }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
                 Props { kind: kind_words(&c.kind), title, sub: sub.join(" · "), chips }
             }
@@ -386,18 +526,48 @@ pub fn props(b: &Build) -> Props {
 /// small at the bottom (and in the tooltip). `prefix` is the path from the page to the site root
 /// (`""`, `"../"`).
 pub fn build_card(b: &Build, prefix: &str) -> String {
+    build_card_opts(b, prefix, true, &[])
+}
+
+/// A card without what every card around it says (critique C43): no kind line under a heading
+/// that names the kind, and none of the chips shared by every card in view.
+pub fn build_card_opts(b: &Build, prefix: &str, show_kind: bool, shared: &[String]) -> String {
     let p = props(b);
-    let chips: String = p.chips.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect();
+    let chips: String = p.chips.iter().filter(|x| !shared.contains(x)).map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect();
     format!(
-        "<a class=\"card\" href=\"{}\" title=\"{}\">{}<div class=\"meta\"><div class=\"kind\">{}</div><div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div><div class=\"name\">{}</div></div></a>",
+        "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
-        esc(&b.name),
+        esc(&format!("{}: {}", p.kind, p.title)),
         thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
-        esc(&p.kind),
-        esc(&p.title),
-        if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&p.sub)) },
-        esc(&b.name)
+        if show_kind { format!("<div class=\"kind\">{}</div>", esc(&p.kind)) } else { String::new() },
+        esc(&keep_units(&p.title)),
+        if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }
     )
+}
+
+/// The chips every card of a list shares (to leave out: they tell nothing there).
+pub fn shared_chips(list: &[&Build]) -> Vec<String> {
+    if list.len() < 2 {
+        return Vec::new();
+    }
+    let first = props(list[0]).chips;
+    first.into_iter().filter(|c| list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+}
+
+/// A number keeps its unit on the same line (critique C42: "2 / blocks" wrapped): the space after
+/// a digit becomes a no-break space.
+pub fn keep_units(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut prev_digit = false;
+    for ch in s.chars() {
+        if ch == ' ' && prev_digit {
+            out.push('\u{a0}');
+        } else {
+            out.push(ch);
+        }
+        prev_digit = ch.is_ascii_digit();
+    }
+    out
 }
 
 /// The anchor of a member's row on its family card's page: `n<k>` for the card's first family,
@@ -416,32 +586,36 @@ pub fn member_href(m: &Member, site: &Site) -> String {
     }
 }
 
-/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks` (a
-/// circuit family's member: its axis value, `N = 26 gt`).
+/// A result card for an extendable family's member: its value and size lead (`every 48 ticks
+/// (2.4 s) · 24 blocks`; a circuit family's member: its axis value); no family id or n (vjeux:
+/// no ids in lists).
 pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
-    let group = site
+    let base = site
         .cards
         .iter()
         .find(|c| c.id == m.card)
         .and_then(|c| c.families.iter().find(|f| f.id == m.family))
-        .and_then(|f| site.builds.iter().find(|b| b.id == f.build))
-        .map(|b| b.group.replace('+', " + "))
-        .unwrap_or_default();
+        .and_then(|f| site.builds.iter().find(|b| b.id == f.build));
+    let group = base.map(|b| if b.kind == "clock" { format!("made of {}", human_blocks(&b.group)) } else { b.group.clone() }).unwrap_or_default();
     let status = format!("<span class=\"badge st-{}\">{}</span>", esc(&m.status), esc(status_label(&m.status)));
     let circuit = !m.axis.is_empty();
-    let (kind, big, value) = if circuit { ("circuit", m.axis.clone(), m.axis.clone()) } else { ("clock", format!("{} gt", m.period), gt_time(m.period)) };
-    // the member's value and size lead; its family and n are the secondary text
+    let (kind, big, value) = if circuit {
+        ("circuit", m.axis.clone(), axis_shown("", &m.axis).unwrap_or_else(|| m.axis.clone()))
+    } else {
+        ("clock", format!("{} gt", m.period), format!("every {} ticks ({})", m.period, crate::real_time(m.period)))
+    };
+    let kind_line = base.and_then(|b| b.circuit.as_ref().map(|c| kind_words(&c.kind))).unwrap_or_else(|| "Clock".into());
     format!(
-        "<a class=\"card member\" href=\"{}\" title=\"{} n = {}\">{}<div class=\"meta\"><div class=\"title\">{} · {}</div><div class=\"sub\">{}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div><div class=\"name\">{} <span class=\"n\">n = {}</span></div></div></a>",
+        "<a class=\"card member\" href=\"{}\" aria-label=\"{}: {} · {}\">{}<div class=\"meta\"><div class=\"kind\">{}</div><div class=\"title\">{} · {}</div><div class=\"sub\">{}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
-        esc(&m.family),
-        m.n,
-        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, &format!("{} n={}", m.family, m.n)),
+        esc(&kind_line),
         esc(&value),
         esc(&blocks_word(m.blocks)),
-        esc(&group),
-        esc(&m.family),
-        m.n
+        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, ""),
+        esc(&kind_line),
+        esc(&value),
+        esc(&blocks_word(m.blocks)),
+        esc(&group)
     )
 }
 
@@ -477,13 +651,14 @@ mod tests {
             ..Default::default()
         };
         let h = build_card(&b, "../");
-        assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" title=\"x&lt;1&gt;\">"), "{h}");
+        assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" aria-label=\"Clock: every 26 ticks (1.3 s) · 6 blocks\">"), "{h}");
         assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-kind=\"clock\""), "{h}");
-        // the properties lead, the name is small text
-        assert!(h.contains("<div class=\"title\">26 gt (1.3 s) · 6 blocks</div>"), "{h}");
-        assert!(h.contains("<div class=\"sub\">observer + redstone_lamp</div>"), "{h}");
-        assert!(h.contains("<div class=\"name\">x&lt;1&gt;</div>"), "{h}");
-        assert!(h.contains("<span class=\"badge\">self-starting</span>"), "{h}");
+        // the properties lead; no design name anywhere on the card (vjeux 13:11Z); numbers keep
+        // their units (no-break spaces)
+        assert!(h.contains("<div class=\"title\">every 26\u{a0}ticks (1.3\u{a0}s) · 6\u{a0}blocks</div>"), "{h}");
+        assert!(h.contains("<div class=\"sub\">made of observer, redstone lamp</div>"), "{h}");
+        assert!(!h.contains("x&lt;1&gt;") && !h.contains("class=\"name\""), "{h}");
+        assert!(h.contains("<span class=\"badge\">starts by itself</span>"), "{h}");
     }
 
     #[test]
@@ -492,6 +667,7 @@ mod tests {
             kind: "circuit".into(),
             name: "pext-n3-flat-cascade19".into(),
             blocks: 19,
+            dims: Some("9x6x1".into()),
             kinds: vec!["sticky_piston".into()],
             flags: vec!["button".into(), "flat".into()],
             circuit: Some(crate::Circuit { kind: "piston-extender 3".into(), axis: "N = 3".into(), metrics: vec![("N".into(), "3".into()), ("extend".into(), "27 gt".into()), ("retract".into(), "56 gt (from the press)".into())], ..Default::default() }),
@@ -499,13 +675,17 @@ mod tests {
         };
         let p = props(&ext);
         assert_eq!(p.kind, "Piston extender");
-        assert_eq!(p.title, "N = 3 · 19 blocks");
-        assert_eq!(p.sub, "extend 27 gt / retract 56 gt");
-        assert_eq!(p.chips, vec!["button".to_string(), "flat".to_string()]);
+        assert_eq!(p.title, "reach 3 · 19 blocks");
+        assert_eq!(p.sub, "out in 27 ticks, back in 56 ticks · box 9×6×1");
+        assert_eq!(p.chips, vec!["own button".to_string(), "flat".to_string()]);
         let div = Build { kind: "circuit".into(), blocks: 13, circuit: Some(crate::Circuit { kind: "divider 3".into(), metrics: vec![("output".into(), "square".into()), ("latency".into(), "37 gt".into())], ..Default::default() }), ..Default::default() };
-        assert_eq!((props(&div).kind.as_str(), props(&div).title.as_str()), ("Divider", "÷3 · square · 13 blocks"));
+        assert_eq!((props(&div).kind.as_str(), props(&div).title.as_str()), ("Clock slower", "slows by 3 · even on/off · 13 blocks"));
+        let mono = Build { kind: "circuit".into(), blocks: 21, circuit: Some(crate::Circuit { kind: "monostable retriggerable".into(), metrics: vec![("L".into(), "32 gt".into())], ..Default::default() }), ..Default::default() };
+        assert_eq!((props(&mono).kind.as_str(), props(&mono).title.as_str()), ("One-shot timer", "on for 32 ticks · restarts on every press · 21 blocks"));
         assert_eq!(kind_words("piston-extender 5"), "Piston extender");
         assert_eq!(kind_words("gate and"), "Logic gate");
         assert_eq!(kind_words("full-adder 4"), "Full adder");
+        assert_eq!(gate_label("nimply"), "A AND NOT B");
+        assert_eq!(human_blocks("observer+redstone_lamp"), "observer, redstone lamp");
     }
 }

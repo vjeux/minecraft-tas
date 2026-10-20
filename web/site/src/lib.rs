@@ -547,7 +547,7 @@ fn draw_dynamic() {
         let placeholder = match q.kind.as_str() {
             "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
             "door" => "Search doors",
-            "circuit" => "Search circuits, or a value: L 12, N 3, latency 0",
+            "circuit" => "Search: toggle, piston extender, timer, or a number like 12",
             _ => "Search every build",
         };
         (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)

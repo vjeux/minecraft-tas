@@ -155,6 +155,8 @@ struct Details {
     unmodeled: String,
     /// A shulker machine run like its 3D view runs it.
     view_run: Option<site_model::ViewRun>,
+    /// A counter's measured duty: (pulse windows the output is on, N).
+    counter_on: Option<(u32, u32)>,
 }
 
 /// Game ticks a shulker machine is run at most the way its 3D view runs it, until it has sent out
@@ -223,7 +225,7 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None };
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -315,6 +317,17 @@ fn details(c: &Design) -> Details {
                     let speed = metric("speed");
                     row.note = if speed.is_empty() { metric("two-way") } else { format!("1 block every {}", speed.trim_end_matches("/block")) };
                     rows.push(row);
+                }
+            }
+            Some(circuit::Kind::Counter(n)) if *n > 0 && !t.inputs.is_empty() && !t.levels.is_empty() => {
+                // a counter's duty, measured: in how many of every N pulse windows its output is
+                // on (sampled half-way between two input pulses, after the first N windows)
+                let input = &t.inputs[0];
+                let edges: Vec<usize> = (1..input.len()).filter(|&f| input[f] && !input[f - 1]).collect();
+                let windows: Vec<bool> = edges.windows(2).skip(*n as usize).map(|w| t.levels[0].get((w[0] + w[1]) / 2).is_some_and(|&l| l > 0)).collect();
+                if windows.len() >= *n as usize {
+                    let on = windows.iter().filter(|x| **x).count() as f64 / windows.len() as f64;
+                    d.counter_on = Some(((on * *n as f64).round() as u32, *n));
                 }
             }
             _ => {}
@@ -593,6 +606,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
+                    counter_on: det.as_ref().and_then(|d| d.counter_on),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),

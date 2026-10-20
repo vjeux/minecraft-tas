@@ -245,7 +245,7 @@ svg.wave .mk-update { stroke: #2d5b85; }
 .mk-update-t { color: #2d5b85; font-weight: 700; }
 table.metrics th { width: 120px; }
 table.metrics td.def { color: var(--muted); font-size: 13px; }
-h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; }
+h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; white-space: nowrap; display: inline-block; }
 dl.glossary dt { font-weight: 700; margin-top: 10px; }
 dl.glossary dd { margin: 2px 0 0 0; color: var(--fg); }
 dl.glossary dt:target, dl.glossary dt:target + dd { background: var(--accent-soft); }

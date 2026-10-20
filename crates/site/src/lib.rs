@@ -17,6 +17,7 @@ pub mod doors;
 pub mod explain;
 pub mod generate;
 pub mod pages;
+pub mod plain;
 pub mod serve;
 pub mod web;
 pub mod webkit;

@@ -305,6 +305,10 @@ pub struct Circuit {
     /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
     #[serde(skip)]
     pub extends: bool,
+    /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
+    /// only.
+    #[serde(skip)]
+    pub counter_on: Option<(u32, u32)>,
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
@@ -509,18 +513,18 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock,circuit"),
-    ("self-starting", "self-starting", "clock"),
-    ("kicked", "needs a start kick", "clock"),
-    ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock,circuit"),
+    ("robust", "works in any direction, anywhere", "clock,circuit"),
+    ("self-starting", "starts by itself", "clock"),
+    ("kicked", "needs one kick to start", "clock"),
+    ("chiral", "mirror image is a different design", "clock"),
+    ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
-    ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
+    ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
-    ("composite", "composite (beat)", "clock"),
-    ("instant", "instant (0 gt latency)", "circuit"),
-    ("button", "the design's own button as its input", "circuit"),
-    ("lever", "the design's own lever as its input", "circuit"),
+    ("composite", "several clocks in one", "clock"),
+    ("instant", "instant (reacts in the same tick)", "circuit"),
+    ("button", "its own button as the input", "circuit"),
+    ("lever", "its own lever as the input", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
