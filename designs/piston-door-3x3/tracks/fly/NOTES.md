@@ -249,6 +249,31 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Open problem (pockets3's island check): on the OPEN edge the two bottom areas see nothing
     from the top before their first pulses. The bottom-left (-1,-3..-1) only touches (0,-3),
     (0,-2), (0,-1) and a static, and its observers facing x=0 output out of the box.
+  - pockets3 (22:30Z): no lever placement starts every area. The areas form two groups,
+    TOP = sealed top-left + top-right and BOTTOM = bottom-left + bottom-right, with no visible link
+    between them. The stack doesn't bridge them: R0 is seen only from (4,-1) (bottom) and R2 only
+    from (4,3) (top).
+  - Per-group re-timing of p33: delaying the bottom inputs fails from d=1; delaying the top fails
+    from d=3. So with p33 the groups must start within 2 ticks, which no visible link
+    (observer + block move, at least 3-4 ticks) can deliver.
+  - But other schedules let one group wait. interleave --search with `--after=cell=6`:
+    - bottom held to t6 or later: ONE TRAIN, 26 pulses, open 40 / close 40
+      (wip/m69T/m69T-bot6-train.ideal);
+    - top held to t6 or later: ONE TRAIN, 26 pulses, open 43 / close 43
+      (wip/m69T/m69T-top6-train.ideal).
+    Both WORK at redsim 32 x 3. With the lever on R1's back, the bottom-right starts from R0
+    (observer at (4,-1)), so top6 needs only a bottom-to-top link before t6. bot6 is the mirror:
+    the top's (1,3) spit at t4 lands BM on (1,-1) at about t6, but no free cell touches (1,-1).
+  - Link candidates: the 3 extras may move mid-cycle (rules: in place when open and when closed).
+    m69T's extras column (-1,0..2) runs from the top-left to the bottom-left, so pushing it 1 down
+    (or up) is a visible crossing. Catch: a 1-wide column's arrival cell is seen only from the
+    column's continuation, because the side cells are outside the box or mechanism cells. That is
+    exactly where the restoring piston must sit. The same holds for the stack column (x=4).
+    `mechmut --reserve -1,3 --validate --repair` on mm02 (to free W's cell for a pusher): 0 of 14
+    neighbours work.
+  - General: every sub-56 box (6x9, 9x6, 7x7, 6x8) splits into two groups (top/bottom, or
+    left/right). The door's 3 rows plus the static/stack columns wall them off, so links must be
+    moving elements, and the schedule must let one group wait.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
