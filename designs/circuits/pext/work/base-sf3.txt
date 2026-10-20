@@ -1,0 +1,33 @@
+# N=3 SLIME-FREE extender (base for `pext spine`): plain stack A B C + payload; 12 pulsers fed by
+# one observer spine (added by mctas circuit pext spine) that sweeps the line five times: rail S
+# (z-2), rail N (z+2), rail B (y-1), rail T (y+3), back east; the train A A C B A C B C.
+name: pext-n3-sf-v1
+circuit: piston-extender 3
+travel: 1 0 0
+port input: -2 1 0 lever
+port payload: 4 1 0
+origin: -2 0 -2
+palette:
+  L minecraft:lever[face=floor,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  W minecraft:observer[facing=west]
+  N minecraft:observer[facing=north]
+  S minecraft:observer[facing=south]
+  D minecraft:observer[facing=down]
+  U minecraft:observer[facing=up]
+  E minecraft:observer[facing=east]
+layer 0:
+  .
+  .
+  K.....D
+layer 1:
+  .
+  ...N..NN
+  L.WAAAG
+  ...SSS
+layer 2:
+  .
+  .
+  ....UUEU

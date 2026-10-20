@@ -127,6 +127,18 @@ enum Cmd {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
+    /// Add an observer chain to a design: every cell of --path (`x,y,z;x,y,z;...`) gets an observer
+    /// watching the previous cell (the first one watches --from), so a change at --from runs down
+    /// the path 2 gt per cell.
+    Spine {
+        base: PathBuf,
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        path: String,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Trains {
         #[arg(long, default_value_t = 3)]
         n: usize,
@@ -263,6 +275,37 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     println!("removed {}", p.display());
                 }
             }
+            Ok(())
+        }
+        Cmd::Spine { base, from, path, out } => {
+            let mut d = mctas::design::Design::load(&base)?;
+            let parse = |s: &str| -> Result<Pos> {
+                let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                if v.len() != 3 {
+                    bail!("bad cell {s:?}");
+                }
+                Ok([v[0], v[1], v[2]])
+            };
+            let mut prev = parse(&from)?;
+            for (i, c) in path.split(';').filter(|s| !s.trim().is_empty()).enumerate() {
+                let p = parse(c)?;
+                let delta = [prev[0] - p[0], prev[1] - p[1], prev[2] - p[2]];
+                let facing = match delta {
+                    [1, 0, 0] => "east",
+                    [-1, 0, 0] => "west",
+                    [0, 1, 0] => "up",
+                    [0, -1, 0] => "down",
+                    [0, 0, 1] => "south",
+                    [0, 0, -1] => "north",
+                    _ => bail!("path cell {} {p:?} is not next to {prev:?}", i + 1),
+                };
+                if let Some(old) = d.blocks.insert(p, format!("minecraft:observer[facing={facing}]")) {
+                    bail!("path cell {} {p:?} is taken by {old}", i + 1);
+                }
+                prev = p;
+            }
+            d.save(&out)?;
+            println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
             Ok(())
         }
         Cmd::Trains { n, max, show, shift, bfs } => {
