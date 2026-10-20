@@ -267,9 +267,14 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
     let mut out = Vec::new();
     loop {
         let prep = Prepared::new(&cur, 2).map_err(|e| anyhow::anyhow!("not modeled: {e}"))?;
-        if !rs::judge(&prep, &Params::default(), false).0.works() {
+        let base_report = rs::judge(&prep, &Params::default(), false).0;
+        if !base_report.works() {
             bail!("{} does not work on redsim", cur.name());
         }
+        // the quick screen must outlast this design's own phases (a long extender would fail a
+        // fixed 120 gt screen and hide every candidate)
+        let longest = base_report.cycles.iter().map(|c| c.settle.max(c.retract)).max().unwrap_or(0);
+        let screen = Params { max_phase: Params::screen().max_phase.max(2 * longest + 20), ..Params::screen() };
         let positions: Vec<Pos> = cur.design.blocks.keys().copied().filter(|q| *q != cur.input && *q != cur.payload).collect();
         // 1. a single removal
         let removal = positions.iter().find_map(|q| {
@@ -346,7 +351,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
                         }
                         let Ok(np) = Pext::from_design(d) else { continue };
                         let Ok(pr) = Prepared::new(&np, 2) else { continue };
-                        if screen_ok(&Some(pr.clone())) && rs::judge(&pr, &Params::default(), false).0.works() {
+                        if rs::judge(&pr, &screen, false).0.works() && rs::judge(&pr, &Params::default(), false).0.works() {
                             let mut h = hit.lock().unwrap();
                             if h.as_ref().is_none_or(|(hi, _)| i < *hi) {
                                 *h = Some((i, np));
