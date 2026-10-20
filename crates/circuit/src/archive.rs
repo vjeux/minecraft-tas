@@ -424,6 +424,8 @@ pub fn type_key(c: &Circuit) -> String {
         };
         let dev = match &i.how {
             crate::InputHow::Block { on, .. } => id(on),
+            // the same type as the plain input it was (type keys stay stable across R7)
+            crate::InputHow::Driven { .. } => id(crate::INPUT_ON),
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
         };
@@ -652,9 +654,13 @@ fn read_instances(dir: &Path) -> Vec<Instance> {
 /// Judge the members `ns` of a family, built with its generator, in the game: each must pass with
 /// the formulas' axis value and block count.
 fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind, o: &Options) -> Result<Vec<Instance>> {
+    check_members(pool, path, f, kind, o, &f.judged_ns())
+}
+
+fn check_members(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind, o: &Options, ns: &[i64]) -> Result<Vec<Instance>> {
     let dir = mctas::paths::run_dir().join(format!("circuit-extend-{}", std::process::id()));
     let mut out = Vec::new();
-    for n in f.sample() {
+    for &n in ns {
         let p = f.build(path, n, &dir).with_context(|| format!("extend family {}: building n = {n}", f.id))?;
         let c = Circuit::load(&p)?;
         let rep = verify::verify_in_pool(pool, &c, o)?;
@@ -673,6 +679,169 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
 }
 
 pub const ALIASES: &str = "aliases.tsv";
+
+/// `mctas circuit r7`: every archived design with a plain input, run in redsim twice: with the
+/// judge's old input placement (a redstone block written into the input cell) and with real input
+/// devices (R7: the judge's stone powered by its repeater). One line per design whose verdict or
+/// metrics change: `PLACEMENT-ONLY` (passes only by the judge's block placement, with the first
+/// frame where an output differs between the two runs), `REFUSED` (no way in for the judge's
+/// repeater), `CHANGED` (passes both ways, other metrics); then a count per study.
+pub fn r7_compare(root: &Path, studies: &[String], o: &Options) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    let load = |path: &Path, block: bool| -> Result<Circuit> {
+        crate::set_input_device_block(block);
+        let c = Circuit::load(path);
+        crate::set_input_device_block(false);
+        c
+    };
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let (mut same, mut skipped, mut changed, mut only, mut refused) = (0, 0, 0, 0, 0);
+        for row in read_rows(&dir)? {
+            let path = dir.join(&row.file);
+            let Ok(old) = load(&path, true) else { continue };
+            if !old.inputs.iter().any(|i| matches!(&i.how, crate::InputHow::Block { on, off } if on == crate::INPUT_ON && mctas::blockstate::is_air(off))) {
+                skipped += 1;
+                continue;
+            }
+            let new = match load(&path, false) {
+                Ok(c) if c.input_refused.is_none() => c,
+                Ok(c) => {
+                    refused += 1;
+                    out.push(format!("REFUSED {study}/{}: {}", row.file, c.input_refused.unwrap_or_default()));
+                    continue;
+                }
+                Err(e) => {
+                    refused += 1;
+                    out.push(format!("REFUSED {study}/{}: {:#}", row.file, e));
+                    continue;
+                }
+            };
+            let (Ok(so), Ok(sn)) = (crate::verify::sim(&old, o), crate::verify::sim(&new, o)) else {
+                skipped += 1;
+                continue;
+            };
+            let (Some(oo), Some(on)) = (&so.outcome, &sn.outcome) else {
+                skipped += 1;
+                continue;
+            };
+            let metrics = |m: &[(String, String)]| m.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+            if oo.pass && !on.pass {
+                // a design whose input feeds a diode's side needs a signal source there (R7
+                // model B): the same design with dust in its input cells
+                let dusted = (|| -> Option<String> {
+                    let mut d = mctas::design::Design::load(&path).ok()?;
+                    for i in &new.inputs {
+                        if !d.blocks.contains_key(&i.pos) {
+                            d.blocks.insert(i.pos, "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into());
+                        }
+                    }
+                    let c = Circuit::from_design(d).ok()?;
+                    let r = crate::verify::sim(&c, o).ok()?;
+                    r.outcome.filter(|x| x.pass).map(|x| metrics(&x.metrics))
+                })();
+                if let Some(m) = dusted {
+                    changed += 1;
+                    out.push(format!("NEEDS-DUST {study}/{}: passes with dust in its input cell (+1 block per input; a diode side reads only a signal source): {m}", row.file));
+                    continue;
+                }
+                only += 1;
+                // the first frame where an output's level differs between the two runs
+                let first = match (&so.trace, &sn.trace) {
+                    (Ok(a), Ok(b)) => (0..a.frames().min(b.frames())).find(|f| a.levels.iter().zip(&b.levels).any(|(x, y)| x.get(*f) != y.get(*f))).map(|f| {
+                        let lv = |t: &crate::trace::Trace| t.levels.iter().map(|l| l.get(f).copied().unwrap_or(0).to_string()).collect::<Vec<_>>().join("/");
+                        format!("first difference at frame {f}: output {} with the block placement, {} with the repeater", lv(a), lv(b))
+                    }),
+                    _ => None,
+                };
+                out.push(format!("PLACEMENT-ONLY {study}/{}: passes only by the judge's block placement: {}{}", row.file, on.why, first.map(|f| format!("; {f}")).unwrap_or_default()));
+            } else if oo.pass && on.pass && oo.metrics != on.metrics {
+                changed += 1;
+                out.push(format!("CHANGED {study}/{}: {} -> {}", row.file, metrics(&oo.metrics), metrics(&on.metrics)));
+            } else {
+                same += 1;
+            }
+        }
+        out.push(format!("{study}: {only} pass only by the block placement, {refused} refused, {changed} changed, {same} unchanged, {skipped} without a plain input or a redsim verdict"));
+    }
+    Ok(out)
+}
+
+/// `mctas circuit captions <tsv>`: replace archived designs' captions, one
+/// `<study>/<file><TAB><caption>` per line (`#` lines and blank lines skipped). Each must name an
+/// archived design. Returns one line per caption set.
+pub fn set_captions(root: &Path, tsv: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for line in tsv.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let (spec, cap) = line.split_once('\t').ok_or_else(|| anyhow!("captions: no tab in `{line}`"))?;
+        let (study, file) = spec.split_once('/').ok_or_else(|| anyhow!("captions: `{spec}` is not <study>/<file>"))?;
+        let dir = archive_dir(root, study);
+        if !dir.join(file).exists() {
+            bail!("captions: {} is not archived", dir.join(file).display());
+        }
+        let cp = dir.join(CAPTIONS);
+        let old = if cp.exists() { std::fs::read_to_string(&cp)? } else { "file\tcaption\n".to_string() };
+        let cap = cap.trim().replace(['\t', '\n'], " ");
+        let mut found = false;
+        let mut caps = String::new();
+        for l in old.lines() {
+            if l.split('\t').next() == Some(file) {
+                caps.push_str(&format!("{file}\t{cap}\n"));
+                found = true;
+            } else {
+                caps.push_str(&format!("{l}\n"));
+            }
+        }
+        if !found {
+            caps.push_str(&format!("{file}\t{cap}\n"));
+        }
+        std::fs::write(&cp, caps)?;
+        out.push(format!("{study}/{file}: {}", cap.split(". ").next().unwrap_or(&cap)));
+    }
+    Ok(out)
+}
+
+/// `mctas circuit archive --fill-families`: judge in the game every member of each archived
+/// extendable family that extend.tsv does not list yet (every n of its range up to
+/// `clock::extend::EVERY_MAX` members: no unjudged step between judged ones), in the given studies
+/// (all when empty), and add the passing ones to extend.tsv. A member that fails is reported and
+/// not added (its family keeps its card; fix the generator or the range).
+pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        let mut instances = read_instances(&dir);
+        let mut added = 0;
+        for row in &rows {
+            let path = dir.join(&row.file);
+            let Ok(c) = Circuit::load(&path) else { continue };
+            let (Some(kind), Ok(Some(f))) = (c.kind.clone(), family_of(&c)) else { continue };
+            let have: Vec<i64> = instances.iter().filter(|i| i.family == f.id).map(|i| i.n).collect();
+            let missing: Vec<i64> = f.judged_ns().into_iter().filter(|n| !have.contains(n)).collect();
+            if missing.is_empty() {
+                continue;
+            }
+            match check_members(pool, &path, &f, &kind, o, &missing) {
+                Ok(new) => {
+                    out.push(format!("{study} {}: judged n = {} ({})", f.id, missing.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", "), new.iter().map(|i| i.axis.clone()).collect::<Vec<_>>().join(", ")));
+                    added += new.len();
+                    instances.extend(new);
+                }
+                Err(e) => out.push(format!("{study} {}: FAILED {e:#}", f.id)),
+            }
+        }
+        if added > 0 {
+            instances.sort_by(|a, b| (a.family.as_str(), a.n).cmp(&(b.family.as_str(), b.n)));
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(dir.join(EXTEND_TSV), all)?;
+        }
+    }
+    Ok(out)
+}
 
 /// `mctas circuit archive --rejudge`: judge every archived design again (the current judge, in
 /// the game; family bases with their sampled members) in the given studies (all when empty). A
@@ -897,9 +1066,28 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let f = &fams[c.members[0]].1;
         (f.period.eval(f.n_lo), f.id.clone())
     });
-    let judged = |f: &Family| -> String { instances.iter().filter(|i| i.family == f.id).map(|i| i.n.to_string()).collect::<Vec<_>>().join(", ") };
+    // the judged members by their axis value (`N = 2, 5, 8, 11, 14`), not by step n; a family
+    // whose value does not change with n (a longer flying-machine train: same speed) by n, and a
+    // run of every n as a range
+    let judged = |f: &Family| -> String {
+        let mut v: Vec<(i64, String)> = instances.iter().filter(|i| i.family == f.id).map(|i| (i.n, i.axis.clone())).collect();
+        v.sort();
+        let label = v.first().map(|(_, a)| axis_label(a).0).unwrap_or_default();
+        let nums: Vec<String> = v.iter().map(|(_, a)| a.split_once(" = ").map(|x| x.1.to_string()).unwrap_or_else(|| a.clone())).collect();
+        if nums.is_empty() {
+            return String::new();
+        }
+        let ns: Vec<i64> = v.iter().map(|(n, _)| *n).collect();
+        let every = ns.windows(2).all(|w| w[1] == w[0] + 1);
+        if nums.len() > 1 && nums.iter().all(|x| *x == nums[0]) {
+            let n = if every && ns.len() > 2 { format!("{}..{}", ns[0], ns[ns.len() - 1]) } else { ns.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ") };
+            return format!("n = {n} (every one {label} = {})", nums[0]);
+        }
+        format!("{label} = {}", nums.join(", "))
+    };
+    let judged_n = |f: &Family| -> String { instances.iter().filter(|i| i.family == f.id).map(|i| i.n.to_string()).collect::<Vec<_>>().join(", ") };
     let mut md = String::from(
-        "\n## Extendable families\n\nEach card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.\n",
+        "\n## Extendable families\n\nEach card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.\n",
     );
     for card in &cards {
         let (r, f, _) = &fams[card.members[0]];
@@ -918,7 +1106,7 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
                 f.n_hi,
                 val(f, f.n_lo),
                 val(f, f.n_hi),
-                if j.is_empty() { String::new() } else { format!("; judged in the game: n = {j}") }
+                if j.is_empty() { String::new() } else { format!("; judged in the game: {j}") }
             ));
         } else {
             // a group: the general formula when given, else the formulas
@@ -932,7 +1120,7 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
             let heading = fs.iter().find_map(|g| g.group_period.clone()).unwrap_or_else(|| texts.join(" · "));
             let title = fs.iter().find_map(|g| g.group_title.clone()).or_else(|| card.group.clone()).unwrap_or_else(|| format!("{} (one block swapped: {} versions)", f.id, fs.len()));
             let note = fs.iter().find_map(|g| g.group_note.clone()).map(|n| format!(" · {n}")).unwrap_or_default();
-            md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged n |\n|---|---|---|---|---|\n", fs.len()));
+            md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged in the game |\n|---|---|---|---|---|\n", fs.len()));
             for &i in &card.members {
                 let (mr, mf, _) = &fams[i];
                 md.push_str(&format!("| [{}](archive/{}) | {} | {} | {}..{} ({} .. {}) | {} |\n", mf.id, mr.file, mf.period.text(), mf.blocks.text(), mf.n_lo, mf.n_hi, mf.period.eval(mf.n_lo), mf.period.eval(mf.n_hi), judged(mf)));
@@ -941,7 +1129,7 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
     }
     for (r, f, _) in fams {
         ftsv.push_str(
-            &[study.to_string(), f.id.clone(), f.group.clone().unwrap_or_default(), r.kind.clone(), f.period.text(), f.blocks.text(), f.n_lo.to_string(), f.n_hi.to_string(), format!("{study}/archive/{}", r.file), f.rule.clone(), judged(f)]
+            &[study.to_string(), f.id.clone(), f.group.clone().unwrap_or_default(), r.kind.clone(), f.period.text(), f.blocks.text(), f.n_lo.to_string(), f.n_hi.to_string(), format!("{study}/archive/{}", r.file), f.rule.clone(), judged_n(f), judged(f)]
                 .map(|s| s.replace(['\t', '\n'], " "))
                 .join("\t"),
         );
@@ -1058,7 +1246,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         "# Contraption studies\n\nEvery design judged in the real game (`mctas circuit verify`: 4 positions x 4 rotations, [docs/circuits.md](../../docs/circuits.md)), by study; the data the website renders is [catalog.tsv](catalog.tsv). Generated by `mctas circuit catalog`.\n\n| study | designs | shown | variants |\n|---|---|---|---|\n",
     );
     let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\tgroup\n");
-    let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\n");
+    let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\tjudged_values\n");
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;

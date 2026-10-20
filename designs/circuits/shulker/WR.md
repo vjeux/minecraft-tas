@@ -59,11 +59,24 @@ So no binary signal says "full" for every item kind.
 What remains:
 - (a) Time it. Hopper pace is exact: a 64-stack box is full 13824 gt after its first item. That
   passes the base scenario but loses the 16-stack and unstackable badges to their time caps.
-- (b) A feed that drains faster than it is supplied, so that "feed not empty" means "full". That
-  needs a gated dropper that never fires into an empty cell. Box presence comes from the design's
-  own swap timing, and the feed hopper is locked during a swap so that no backlog is left to
-  drain.
-- (c) Pitch 2, with a box read: all badges.
+  Coordinator 2026-10-20: build it, labelled "64-stack items only" (a copper-bulb ripple counter).
+- (b) OPEN PATH, parked: a feed that drains faster than it is supplied, so that "feed not empty for
+  a while" means "full".
+  - The feed is a dropper fired by a clock and gated by its own comparator. The gate must never
+    fire into an empty cell, and the feed hopper is locked during swaps so no backlog is left to
+    drain.
+  - Blocker: the dropper's comparator and the clock need the feed stack's two horizontal faces, so
+    the gate has to cross over or under the box column.
+  - Going up needs torch towers that would toggle once per item and burn out. Going down needs a
+    piston elevator, a sticky piston moving a stone onto a torch, which worked in a draft.
+- (c) Pitch 2, with a box read: all badges. Coordinator: build it as the general-purpose record.
+
+The read-through test, and why it needs pitch 2:
+- A comparator reading a container through a block outputs that container's level, unless the
+  block is powered at 15; then it outputs 15. With an empty container behind the block, that
+  gives "15 or 0": a real ≥15 test on whatever powers the block.
+- It needs three horizontal sides around that block: the reader, the container, and the
+  comparator that powers it at the tested level. A 1-wide slice has two.
 
 ### Unloader: RECORD, `shulker-unloader-1wide`
 

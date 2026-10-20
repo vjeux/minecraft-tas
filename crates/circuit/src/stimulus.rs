@@ -50,6 +50,29 @@ impl Schedule {
         Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new() }
     }
 
+    /// Drop every phase whose inputs pulse or pause for less than `min` frames inside it, with its
+    /// edges (the frames stay idle). R7: a real input device (the judge's repeater, a button, an
+    /// observer line) cannot make a pulse or a gap shorter than 2 gt. A phase that leaves an input
+    /// in another state than it found it is kept.
+    pub fn drop_short(&mut self, min: u32) {
+        let mut keep = Vec::new();
+        for (from, to, label) in std::mem::take(&mut self.phases) {
+            let inside = |e: &(u32, bool)| e.0 >= from && e.0 < to;
+            let short = self.edges.iter().any(|es| {
+                let v: Vec<u32> = es.iter().filter(|e| inside(e)).map(|e| e.0).collect();
+                v.len() % 2 == 0 && v.windows(2).any(|w| w[1] - w[0] < min)
+            });
+            if short {
+                for es in &mut self.edges {
+                    es.retain(|e| !inside(e));
+                }
+            } else {
+                keep.push((from, to, label));
+            }
+        }
+        self.phases = keep;
+    }
+
     /// Input `i` on at frame `at` for `len` frames.
     pub fn pulse(&mut self, i: usize, at: u32, len: u32) {
         self.edges[i].push((at, true));

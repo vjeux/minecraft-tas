@@ -69,6 +69,15 @@ fn start(c: &Circuit) -> u32 {
 
 /// The stimulus `kind` is judged with.
 pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    let mut s = stimulus_kind(c, kind, z);
+    // R7: a driven input (the judge's repeater) makes no pulse or gap under 2 gt
+    if c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        s.drop_short(2);
+    }
+    s
+}
+
+fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
@@ -207,6 +216,35 @@ fn state_name(st: usize, n: usize) -> String {
 
 /// Judge a run of `kind`'s stimulus.
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    let mut out = check_kind(c, kind, s, t);
+    real_inputs(c, &mut out.metrics);
+    out
+}
+
+/// R7 (real input devices): a driven input's repeater cannot pulse or pause for less than 2 gt (it
+/// stretches a 1 gt pulse to 2 gt and swallows a 1 gt gap), so a measured minimum below that came
+/// from a stretched input: it is reported as the shortest a real input makes. A driven input fed
+/// through the build's own air cells (no side of it leads straight out) says so.
+fn real_inputs(c: &Circuit, metrics: &mut Vec<(String, String)>) {
+    if !c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        return;
+    }
+    for (k, v) in metrics.iter_mut() {
+        let floor = match k.as_str() {
+            "min-pulse" | "min-gap" => 2,
+            "min-period" => 4,
+            _ => continue,
+        };
+        if v.strip_suffix(" gt").and_then(|x| x.trim().parse::<u32>().ok()).is_some_and(|n| n <= floor) {
+            *v = format!("{floor} gt (the shortest a real input makes)");
+        }
+    }
+    if c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { through: true, .. })) && !metrics.is_empty() {
+        metrics.push(("input".into(), "fed through the build".into()));
+    }
+}
+
+fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     if let Some((name, p, id)) = c.passive_output() {
         return Outcome::fail(format!("output {name} at {p:?} holds {id}, which drives nothing by itself: leave the output cell air (the judge puts a lamp there) or put a consumer there"), Vec::new());
     }

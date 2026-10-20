@@ -50,6 +50,8 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
     let (from, to) = watch_box(c, margin);
     // the judge's consumer in every air output cell (crate::CONSUMER)
     let cc = if consumers { c.with_consumers().map_err(|e| format!("{e:#}"))? } else { c.clone() };
+    // the judge's input devices (R7): the driven inputs' stones and repeaters
+    let cc = cc.with_drivers();
     if let Some((p, st)) = clock::sim::unsupported(&cc.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
@@ -93,7 +95,7 @@ fn frame_cells(f: &Region, extras: &HashMap<Pos, String>) -> Vec<(Pos, String)> 
 
 fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Pos, margin: i32) -> Result<std::result::Result<Trace, String>> {
     // the judge's consumer in every air output cell (crate::CONSUMER)
-    let cc = c.with_consumers()?;
+    let cc = c.with_consumers()?.with_drivers();
     clock::verify::place(w, sb, &cc.clock)?;
     // every block must be able to stand where it is (a player could build it): the placement
     // removes a floating dust (its shape update) and keeps a floating lever, torch or repeater,

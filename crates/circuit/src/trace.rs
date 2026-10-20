@@ -58,6 +58,20 @@ impl Trace {
         let mut names: Vec<String> = Vec::new();
         let mut ids: HashMap<String, u32> = HashMap::new();
         let mut t = Trace { inputs: vec![Vec::with_capacity(cells.len()); c.inputs.len()], levels: vec![Vec::with_capacity(cells.len()); c.outputs.len()], ..Default::default() };
+        // the judge's input devices (R7: a driven input's repeater, its support and its switch)
+        // are not the circuit's: read for the input's state, then left out of the recorded cells
+        let judge: Vec<Pos> = c
+            .inputs
+            .iter()
+            .filter_map(|i| match i.how {
+                InputHow::Driven { dir, .. } => {
+                    let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+                    Some([r, sup, sw])
+                }
+                _ => None,
+            })
+            .flatten()
+            .collect();
         for (f, frame) in cells.into_iter().enumerate() {
             let get = |p: Pos| frame.binary_search_by_key(&p, |(q, _)| *q).ok().map(|i| frame[i].1.as_str());
             for (k, inp) in c.inputs.iter().enumerate() {
@@ -65,6 +79,8 @@ impl Trace {
                 let on = match &inp.how {
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
+                    // the judge's repeater powering the input stone
+                    InputHow::Driven { dir, .. } => get(crate::driver_cells(inp.pos, *dir).0).is_some_and(|s| s.contains("powered=true")),
                 };
                 t.inputs[k].push(on);
             }
@@ -74,6 +90,7 @@ impl Trace {
             }
             let v: Vec<(Pos, u32)> = frame
                 .into_iter()
+                .filter(|(p, _)| !judge.contains(p))
                 .map(|(p, s)| {
                     let id = match ids.get(&s) {
                         Some(id) => *id,
