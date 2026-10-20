@@ -842,6 +842,26 @@ basin: 6000 cases, 0 mismatches, 2026-10-19).
   water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
   support goes away turns back into water 5 gt after its shape update.
 
+## TNT and dead coral fans (`TntBlock`, `BaseCoralFanBlock`, `PistonBaseBlock.moveBlocks`) — redsim (track tnt)
+
+Modeled in `crates/redsim/src/tnt.rs` (study 9, TNT dupers: designs/circuits/tnt/VARIATIONS.md),
+checked by `redsim-fuzz fuzz --palette core,piston:6,simple:6,tnt:4,coral:4` (12000 cases, 0
+mismatches) and the exact trace of the real-game dupe tnt-c1.
+
+* A TNT primes on placement (a different old block) or any neighbor update while it has a neighbor
+  signal, then is removed (`removeBlock`, flags 3). It is not a conductor. In redsim a prime is a
+  record (`World::primed`: tick, cell), not an entity (the `PrimedTnt`'s kick draws from
+  `level.random`); a primed TNT reaching its explosion tick is an UNMODELED note unless the caller
+  removes primed TNT first (the TNT judge does).
+* Dead coral fans are pushable (slime drags them), have no collision and drop nothing; a floor fan
+  pops on a DOWN shape update without a sturdy top below, a wall fan on the update from its back.
+* The dupe: `moveBlocks` copies every pushed state first and blanks the sources last. A fan
+  riding the structure pops when the cell under it turns `moving_piston` (the flag-324 write
+  updates shapes before the block entity exists) and updates a TNT still at its source; if the
+  TNT is powered then, it primes while its moving copy lands. A TNT can never rest next to power,
+  so the power must appear inside the push: a dust whose connections change (it computes them on
+  the fly) is the source every duper found so far uses.
+
 ## 12. redsim: the exact model (track redmodel)
 
 `crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,

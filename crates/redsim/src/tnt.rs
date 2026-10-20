@@ -30,9 +30,11 @@ use crate::world::World;
 /// The dead coral fan kinds (`dead_<kind>_coral_fan`), by `Block::CoralFan::kind`.
 pub const DEAD_CORALS: [&str; 5] = ["tube", "brain", "bubble", "fire", "horn"];
 
-/// `TntBlock.prime(level, pos)` with no source: the primed TNT (recorded) and `PRIME_FUSE`.
+/// `TntBlock.prime(level, pos)` with no source: the primed TNT (recorded; the `PrimedTnt` takes an
+/// entity id when constructed, so later entities keep the game's ids) and `PRIME_FUSE`.
 fn prime(w: &mut World, p: BlockPos) -> bool {
     w.primed.push((w.time, p));
+    w.entities.next_id += 1;
     w.game_event("prime_fuse", p);
     true
 }

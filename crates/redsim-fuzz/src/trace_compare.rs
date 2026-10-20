@@ -282,13 +282,16 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             }
         }
         let mut ed = Vec::new();
+        // (a TNT is first seen one tick after it spawned and may already have been pushed one
+        // cell by the machine: counts per tick must match, cells within 1)
         let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
         let mut game_spawns: Vec<[i32; 3]> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
         let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().map(|(_, p)| [p.x, p.y, p.z]).collect();
         primed_seen = w.primed.len();
         game_spawns.sort();
         sim_spawns.sort();
-        if game_spawns != sim_spawns {
+        let near = |a: &[i32; 3], b: &[i32; 3]| (0..3).all(|i| (a[i] - b[i]).abs() <= 1);
+        if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
             ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
         }
         let others: Vec<TraceEntity> = ents.iter().filter(|e| !is_tnt(e)).cloned().collect();
