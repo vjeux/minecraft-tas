@@ -42,6 +42,16 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   w1-k2 and m69T mm02 only; the rest stall 2-12 cells off (`INTERLEAVE_DEBUG=1` prints the cells;
   6x7-u1 is one block in the wrong place on one edge). `--groups` (the plan's tick groups as moves)
   and `--pairs` (two inputs at once) widen the moves.
+* m69T mm02 wiring (pockets3's satwire recipe, `--sat-loop` runs it in a loop: search a train,
+  satwire it, double the search cost of the inputs next to the core pistons, repeat): the right
+  stack and the bottom left left the cores once the trains respected pocket budgets (`--pocket
+  cells=k`: top-left {(-2,3),(0,4,1)} <= 3 and bottom-left {(-1,-2),(-1,-1)} <= 3 ticks:
+  `m69T-mm02-train-p33.ideal`); every train since has its core in the TOP-LEFT (close (-1,3) W,
+  close (0,4), open (1,3)+(1,4), open (-1,3)+(1,5)), 10 trains, until the search runs out. The
+  sealed 3-cell pocket (-1,4)(-1,5)(0,5) sees neither the lever nor another pocket.
+  `--observe` (every observer filling of the pocket added to the design, W's and/or (0,4)'s
+  inputs dropped, a train searched for the rest): 0 of 124 fillings, each way. c70b is searching
+  mechmut variants with one more free cell in the top-left (lever-held right stack kept).
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,
