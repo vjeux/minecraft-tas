@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:03Z from designs/circuits/delay/tracks/delay/delay-piston-or-3.txt by mctas circuit archive
-# CIRCUIT: delay-piston-or-3 delay N 3 gt, min-pulse 4 gt, min-gap 3 gt, 9 blocks, 3x2x4, robust
+# CIRCUIT: delay-piston-or-3 delay N 2 gt, min-pulse 4 gt, min-gap 3 gt, 9 blocks, 3x2x4, robust
 # Delay line N = 3 gt (track delay): a sticky piston pushes a redstone block one cell (it arrives 3
 # gt after the input rises and leaves 1 gt after it falls); the output touches the block's new cell,
 # and a repeater behind that cell feeds the output again 2 gt later through a stone and two dusts:

@@ -1,5 +1,5 @@
 # archived 2026-10-20T12:04Z from designs/circuits/pulsemult/tracks/timer/nonretrig/mono-nonretrig-ring-L18.txt by mctas circuit archive
-# CIRCUIT: mono-nonretrig-ring-L18 monostable non-retriggerable L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 1 gt, 29 blocks, 3x2x9, robust
+# CIRCUIT: mono-nonretrig-ring-L18 monostable non-retriggerable L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes), 29 blocks, 3x2x9, robust
 name: mono-nonretrig-ring-L18
 circuit: monostable non-retriggerable
 group: mono-nonretrig-ring

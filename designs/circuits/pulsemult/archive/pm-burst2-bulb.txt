@@ -1,5 +1,5 @@
 # archived 2026-10-20T10:58Z from designs/circuits/pulsemult/tracks/pulsemult/pm-burst2-bulb.txt by mctas circuit archive
-# CIRCUIT: pm-burst2-bulb burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1, robust
+# CIRCUIT: pm-burst2-bulb burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1, robust
 name: pm-burst2-bulb
 circuit: burst 2
 # a copper bulb toggles on each rising edge, its comparator changes, an observer turns that into

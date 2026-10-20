@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:02Z from designs/circuits/delay/tracks/delay/delay-piston-qc-1.txt by mctas circuit archive
-# CIRCUIT: delay-piston-qc-1 delay N 1 gt, min-pulse 3 gt, min-gap 3 gt, 6 blocks, 3x2x2, robust
+# CIRCUIT: delay-piston-qc-1 delay N 0 gt, min-pulse 4 gt, min-gap 3 gt, 6 blocks, 3x2x2, robust
 # Delay line N = 1 gt, update-correct (track delay): the input (a redstone block written above dust
 # E) powers E (15), which feeds dust D (14) between it and the output cell; at rest a redstone block
 # south of D powers it (15) and bends it north-south. The input also reaches the sticky piston beside
