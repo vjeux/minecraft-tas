@@ -13,7 +13,7 @@ judge is linked, not repeated; each new kind lists how its judge measures it.
 | x2 frequency multiplier | study 1, `dual-edge` | one pulse per input edge: on a square clock its pulses are evenly spaced, 2 per input period |
 | divide by 2 | study 2, `tff` (with `min-period`) | a T flip-flop is the /2 divider of a clock, its fastest train measured |
 | /N of slow pulses | study 5, `counter N` ([memory](../memory/CATALOG.md)) | counts isolated 4 gt pulses (toggles every N, pulses every N, or a level of period N); the divider below is judged on a running CLOCK instead (duty cycle, fastest input) |
-| self-running clocks | the clock study ([clocks](../../clocks/archive/README.md)) | no enable input; the gated pulse train below starts and stops on an input |
+| self-running clocks | the clock study ([clocks](../../clocks/CATALOG.md)) | no enable input; the gated pulse train below starts and stops on an input |
 
 ## New kinds
 
