@@ -60,11 +60,13 @@ is the short version for whoever picks the work up.
 
 ## Open
 
-- `mctas web compare` on the 8-clock set: pixel diff 7.7, coarse 5.5 (8.2 before the game's
-  block models; the grass itself is texel-exact: bottom band diff ~3). What is left: per-batch
-  floor edges and black bands in some real pictures (the top band alone: 14-43; not modelable),
-  texture noise, the leaves' brightness. Entity clocks compare worse (10.5 on the cart loops)
-  only because the picture's moment differs (the cart is elsewhere on its loop); the models
-  match the pictures.
+- `mctas web compare` on the 8-clock set: pixel diff 6.5, coarse 3.9 (8.2 before the game's
+  block models, 7.7 with them, 7.3 with the game's back-face culling of translucent faces, 6.5
+  with the game's fog; over 63 random clock pictures 8.3; the grass itself is texel-exact: bottom
+  band diff ~3). What is left: per-batch floor edges, neighbouring clocks and black bands in
+  some real pictures (the top band alone: 10-38; not modelable), texture noise. Entity clocks
+  compare worse (10.5 on the cart loops) only because the picture's moment differs (the cart is
+  elsewhere on its loop); the models match the pictures. `--floor-margin` measures the floor's
+  reach (56 stays the best mean).
 - Dropped non-block items are flat double-sided sprites (the game extrudes them 1 px thick).
 - The "use your own Minecraft .jar" picker is dropped (the mcmeta textures replace it).

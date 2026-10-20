@@ -532,7 +532,7 @@ pub fn cmd_lose(url: &str, window: &str, browser: &Path) -> Result<()> {
     if r.len() != 4 {
         bail!("no live viewer");
     }
-    let mut measure = |b: &mut Browser| -> Result<f64> {
+    let measure = |b: &mut Browser| -> Result<f64> {
         b.drain(Duration::from_millis(300));
         let shot = b.call("Page.captureScreenshot", json!({ "format": "png", "clip": { "x": r[0] + 2.0, "y": r[1] + 2.0, "width": r[2] - 4.0, "height": r[3] - 4.0, "scale": 0.5 } }))?;
         let (rgba, _, _) = mcview::tools::decode_png(&base64_decode(shot["data"].as_str().unwrap_or(""))?).map_err(anyhow::Error::msg)?;

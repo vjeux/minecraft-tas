@@ -158,7 +158,12 @@ each build's page.
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
   `PistonHeadRenderer`, translucent faces sorted back to front, a floor of grass blocks.
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
-  mipmapped texture array (no bleeding between tiles), sky gradient and distance fog.
+  mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
+  faces culled in both passes like the game's chunk render types (a glass block shows its three
+  near faces only), and the game's fog (`fog.glsl` + `FogRenderer.setupFog`): the overworld's
+  environment fog (spherical distance, linear from 0 to 1024 blocks) and the render distance's
+  (cylindrical distance `max(|xz|, |y|)`, from 6 chunks minus a tenth to 6 chunks; a zoomed-out
+  camera pushes the render distance back so the build is never cut), toward the sky colour.
 
 ## Commands
 
@@ -166,7 +171,7 @@ each build's page.
 |---|---|
 | `mctas web shot <designs> -o <png or dir>` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir>` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera, with a pixel difference |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |

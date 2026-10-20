@@ -21,6 +21,8 @@ pub struct Look {
     pub outlines: Vec<Pos>,
     /// The ground's top (None: no ground).
     pub ground: Option<f32>,
+    /// How far the ground reaches around the build (None: 110 around a door, 56 otherwise).
+    pub floor_margin: Option<f32>,
 }
 
 /// Where the real-game pictures put the orange marker (`clock/src/shot.rs::marker_cell`): the
@@ -80,7 +82,7 @@ pub fn default_look(s: &Session) -> Look {
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32 - 1.0) }
+    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
 }
 
 /// The frame of a session at `partial` (0..1) after its current tick.
@@ -117,7 +119,7 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         // `web compare`'s pictures); `door video` fills 110 blocks around a door; a travelling
         // design's whole path
         let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
-        let margin = if s.mode.is_door() { 110.0 } else { 56.0 };
+        let margin = look.floor_margin.unwrap_or(if s.mode.is_door() { 110.0 } else { 56.0 });
         let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin);
         m.solid.extend_from_slice(&g);
     }

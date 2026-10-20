@@ -50,10 +50,16 @@ fn vs(@location(0) pos: vec3<f32>, @location(1) uv: vec2<f32>, @location(2) laye
     return o;
 }
 
+/// The game's fog (`fog.glsl`): the environment's (the overworld's: linear over the spherical
+/// distance from 0 to 1024 blocks) and the render distance's (linear over the cylindrical
+/// distance, `max(|xz|, |y|)`, from `FogRenderer`'s start to the render distance), the larger.
 fn fogged(c: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
-    let d = distance(world, u.eye.xyz);
-    let f = clamp((d - u.fog.x) / max(u.fog.y - u.fog.x, 0.001), 0.0, 1.0);
-    return mix(c, u.sky_low.rgb, f);
+    let rel = world - u.eye.xyz;
+    let spherical = length(rel);
+    let cylindrical = max(length(rel.xz), abs(rel.y));
+    let env = clamp(spherical / max(u.fog.w, 0.001), 0.0, 1.0);
+    let rd = clamp((cylindrical - u.fog.x) / max(u.fog.y - u.fog.x, 0.001), 0.0, 1.0);
+    return mix(c, u.sky_low.rgb, max(env, rd));
 }
 
 @fragment
@@ -272,7 +278,9 @@ impl Renderer {
                 label: Some(label),
                 layout: Some(&layout),
                 vertex: wgpu::VertexState { module: &shader, entry_point: Some("vs"), compilation_options: Default::default(), buffers: &[Some(vlayout.clone())] },
-                primitive: wgpu::PrimitiveState { cull_mode: if blend { None } else { Some(wgpu::Face::Back) }, ..Default::default() },
+                // back faces culled in both passes, like the game's chunk render types (translucent
+                // included: a glass block shows its three near faces, never its far ones from inside)
+                primitive: wgpu::PrimitiveState { cull_mode: Some(wgpu::Face::Back), ..Default::default() },
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth24Plus,
                     depth_write_enabled: Some(!blend),
@@ -386,15 +394,17 @@ impl Renderer {
         let vp = frame.camera.view_proj(aspect);
         let eye = frame.camera.eye();
         let d = frame.camera.dist;
-        // the pictures' client: render distance 6 chunks (the square beyond which the sky shows)
-        // and the terrain fog toward it; a farther camera (zoomed out) pushes both back so the
-        // build stays clear
+        // the pictures' client: render distance 6 chunks (nothing beyond: the sky shows) with the
+        // game's fog (FogRenderer.setupFog: from the render distance minus a tenth of it, 4..64
+        // blocks, to the render distance; the overworld's environment fog from 0 to 1024); a
+        // farther camera (zoomed out) pushes the render distance back so the build stays clear
         let chunks = (((d * 2.0 + 16.0) / 16.0).ceil()).max(6.0);
-        let fog_end = chunks * 16.0 * 1.5;
+        let blocks = chunks * 16.0;
+        let span = (blocks / 10.0).clamp(4.0, 64.0);
         let u = Uniforms {
             vp,
             eye: [eye[0], eye[1], eye[2], 1.0],
-            fog: [fog_end * 0.55, fog_end, chunks, 0.0],
+            fog: [blocks - span, blocks, chunks, 1024.0],
             sky_top: [0.55, 0.70, 1.0, 1.0],
             sky_low: [0.70, 0.81, 1.0, 1.0],
             inv_vp: invert(&vp),

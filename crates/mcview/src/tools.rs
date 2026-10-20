@@ -21,11 +21,13 @@ pub struct ShotOptions {
     pub pitch: Option<f32>,
     /// As the game pictures it: without the viewer's own marks (the lime outlines on the inputs).
     pub picture: bool,
+    /// The ground's reach around the build (default: the viewer's).
+    pub floor_margin: Option<f32>,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None }
     }
 }
 
@@ -56,6 +58,7 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     if o.picture {
         look.outlines.clear();
     }
+    look.floor_margin = o.floor_margin;
     // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
     let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
     if o.yaw.is_some() || o.pitch.is_some() {
@@ -94,7 +97,7 @@ pub struct Comparison {
     pub note: String,
 }
 
-pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Result<Comparison, String> {
+pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>) -> Result<Comparison, String> {
     let mut dec = jpeg_decoder::Decoder::new(jpg);
     let px = dec.decode().map_err(|e| format!("jpeg: {e}"))?;
     let info = dec.info().ok_or("jpeg: no info")?;
@@ -107,7 +110,7 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
     // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
     // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
     let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
-    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, ..Default::default() })?;
+    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, floor_margin, ..Default::default() })?;
     let mine = lanczos_resize(&big, bw, bh, w, h);
     let mut out = vec![0u8; (2 * w * h * 4) as usize];
     let mut diff = 0f64;
