@@ -87,7 +87,15 @@ pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
     let mut blocked: BTreeSet<Pos> = (0..=target_x + 1).map(|x| [x, 1, 0]).collect();
     // pulser slots per cell, in order of use
     let slots = |x: i32| -> Vec<(Pos, &'static str, Pos)> {
-        let mut v = vec![([x, 1, 1], "south", [x, 1, 2]), ([x, 1, -1], "north", [x, 1, -2]), ([x, 2, 0], "up", [x, 3, 0]), ([x, 0, 0], "down", [x, -1, 0])];
+        let mut v = vec![
+            ([x, 1, 1], "south", [x, 1, 2]),
+            ([x, 1, -1], "north", [x, 1, -2]),
+            ([x, 2, 0], "up", [x, 3, 0]),
+            ([x, 0, 0], "down", [x, -1, 0]),
+            // quasi-connectivity through the cell above the piston
+            ([x, 2, 1], "south", [x, 2, 2]),
+            ([x, 2, -1], "north", [x, 2, -2]),
+        ];
         if x == 1 {
             v.insert(0, ([0, 1, 0], "west", [-1, 1, 0]));
         }
