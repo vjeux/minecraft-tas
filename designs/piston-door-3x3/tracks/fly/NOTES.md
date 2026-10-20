@@ -7,6 +7,24 @@ macrosat, pockets3, d67) ran under the slime-free model. My angle: slime / obser
 "flying" sub-assemblies (one piston moving a whole group, self-timed by observers riding the
 moving parts), and box shapes nobody tried.
 
+## q68: a 6x8 = 48 mechanism, FULL frame, ideal inputs WORK (2026-10-20 19:08Z)
+`wip/q68.txt` + `wip/q68.ideal`: x -2..3, y -3..4 (the slime fills x = -2 only when open), 9
+sticky pistons + 6 slime + 3 static stones (right wall). `door ideal-rs` WORKS at 32 positions x 3
+cycles, `door ideal` (the real game) WORKS at 4 x 2; frame 12/12 when open (trace).
+* Left: slime column (-1,0..4) + (0,3), pushed west by Pl (0,4): TL ML BL into the wall in one
+  move, and the (0,3) slime drags TM from (1,3) into (0,3).
+* Center (vertical Q trick): Qv (1,-1) pushes BM C TM up and pulls BM back (C on (1,2), TM on
+  (1,3)); after the slime move P_T (1,4) pulls C into (1,3); B1 (1,-3, extended at rest) pulls Qv
+  down to (1,-2) and Qv pulls BM into (1,-1); G (-1,-1, extended at rest: immovable while the slime
+  moves) pulls BM on into (0,-1).
+* Right (box edge x = 3, static wall): P_TR (2,4) pulls TR into (2,3); A (2,-2) pulls BR into
+  (2,-1); K (3,-1) spits BR west into (1,-1); B (2,-3) lifts A, A pulls MR to (2,0), B lowers A, A
+  pulls MR into (2,-1) (e78k's elevator on the right column).
+* Close: the reverse with spits; L's return drags TM back to (1,3), and P_T pushes the column
+  TM C BM down by one into its rest (the column was rebuilt contiguous at (1,1..3)).
+Open 18 inputs, close 17 (one per piston action). Next: wiring inside the 48 cells.
+`wip/vq78.*`: the same center in a 7x8 with classic right pullers (7 pistons), WORKS 32 x 3.
+
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
 * depth 2: only 5x5x2 = 50 (5x6x2 = 60). Never tried (the smallest 3D door on the boards is
@@ -68,6 +86,15 @@ the ceiling and one below the floor, so a single pull reaches only 1 cell.
 * Vertical version (Q in the floor middle pushing BM C TM up, TM dragged into (0,3) by the left
   corner slime, P_T pulling C into (1,3)) works up to Q's escape: Q must leave (1,-1) downward,
   and a down-moving slime next to Q needs a pusher in a cell the wall structures need.
+
+* Reversibility (paper, 19:00Z): the horizontal Q push sends MR into (3,1); on close MR needs a
+  westward force, which only a piece in the outer column (4,1) can give, so a 6-wide box can't
+  close it. Vertical version with an e78k-style escape: Q_v sticky up at (1,-1), B1 sticky up at
+  (1,-3) EXTENDED at rest holding Q_v; open: Q_v pushes BM C TM up, pulls BM back, the left
+  structure's (0,3) slime drags TM into (0,3), P_T (1,4) pulls C into (1,3), B1 pulls Q_v down to
+  (1,-2) and Q_v pulls BM into (1,-1); close: L returns TM to (1,3), Q_v + B1 push BM up 2, P_T
+  pushes TM C BM down 1 = rest. Fits y -3..4; open problem there: the right column in 6 wide
+  (MR has no frame cell 1 move away once (3,1) is static).
 
 ### Searches
 * `fullmech --anneal 7x7 --slime --helpers` from scratch, all offsets, 30 min: nothing.
