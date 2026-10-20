@@ -69,6 +69,10 @@ enum Cmd {
         workers: usize,
         #[arg(long, default_value = "26.3")]
         version: String,
+        /// What charges the ring: `input` (an off-delay: the input beside a line dust) or `retrig`
+        /// (a retriggerable monostable: the copper-bulb two-observer edge front).
+        #[arg(long, default_value = "input")]
+        front: String,
     },
 }
 
@@ -76,7 +80,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit timer".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
         Cmd::As { kind, designs, out, prefix, quiet, margin, version } => rehead::run(&kind, &designs, out.as_deref(), &prefix, quiet, margin, &version),
-        Cmd::Rings { out, max_line, workers, version } => rings::run(&out, max_line, workers, &version),
+        Cmd::Rings { out, max_line, workers, version, front } => rings::run(&out, max_line, workers, &version, rings::Front::parse(&front)?),
         Cmd::Cells { design, stimulus, from, to, margin } => cells::run(&design, &stimulus, from, to, margin),
     }
 }
