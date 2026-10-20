@@ -2,10 +2,10 @@ name: shulker-loader-pitch3-flush
 circuit: shulker-loader
 tile: 3 0 0
 # Experiment (clk-rt, 2026-10-20): shulker-loader-pitch3 plus an hourglass flush that outlasts
-# the restart pause. A barrel holds 420 stone over a hopper that drains it into a sink barrel
+# the restart pause. A chest holds 420 stone over a hopper that drains it into a sink chest
 # only while the items chest is empty (a comparator on the items chest locks it otherwise).
 # 420 items take 3360 gt to drain: longer than the restart pause (3000 gt), well inside the flush
-# deadline (6000 gt). When the barrel runs empty, its comparator turns off, the wall torch on
+# deadline (6000 gt). When the chest runs empty, its comparator turns off, the wall torch on
 # its output stone lights and powers a dust staircase down to a repeater that feeds the full
 # line: the piston breaks the last partial box. The hourglass expires once, at the end of a batch.
 port boxes: 1 1 1
@@ -31,7 +31,7 @@ palette:
   o minecraft:observer[facing=north,powered=false]
   w minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
   s minecraft:stone
-  b minecraft:barrel[facing=up,open=false]
+  b minecraft:chest[facing=north,type=single,waterlogged=false]
   g minecraft:comparator[facing=north,mode=compare,powered=true]
   t minecraft:redstone_wall_torch[facing=south,lit=false]
   d minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]

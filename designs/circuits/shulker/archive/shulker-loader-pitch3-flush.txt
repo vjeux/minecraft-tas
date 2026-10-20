@@ -1,4 +1,4 @@
-# archived 2026-10-20T20:08Z from designs/circuits/shulker/tracks/shulker/loader-pitch3-flush.txt by mctas circuit archive
+# archived 2026-10-20T20:16Z from designs/circuits/shulker/tracks/shulker/loader-pitch3-flush.txt by mctas circuit archive
 # CIRCUIT: shulker-loader-pitch3-flush shulker-loader boxes/min 0.087, items/s 2.50, first box 13867 gt, cycle 13840 gt, hoppers awake 5, badges always-on+16-stack+unstackable+colours+restart+top-up+flush+box-starved+drop-free+tileable(3), bill 26 iron, 8 quartz, 47 redstone, 1 slime, 40 blocks, 3x6x7, robust
 name: shulker-loader-pitch3-flush
 circuit: shulker-loader
@@ -33,7 +33,7 @@ palette:
   o minecraft:observer[facing=north,powered=false]
   w minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
   s minecraft:stone
-  b minecraft:barrel[facing=up,open=false]
+  b minecraft:chest[facing=north,type=single,waterlogged=false]
   g minecraft:comparator[facing=north,mode=compare,powered=true]
   t minecraft:redstone_wall_torch[facing=south,lit=false]
   d minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
