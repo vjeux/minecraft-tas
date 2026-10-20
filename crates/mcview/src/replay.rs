@@ -169,7 +169,7 @@ impl Replay {
                     }
                     _ => (e.pos, e.yaw),
                 };
-                EntityDraw { kind: e.kind.clone(), pos, yaw }
+                EntityDraw { kind: e.kind.clone(), pos, yaw, ..Default::default() }
             })
             .collect()
     }

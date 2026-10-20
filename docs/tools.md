@@ -28,6 +28,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `mctas setup` | once per machine: installs Java 25, the 26.3 server jar and libraries, and compiles the bridge (everything lives in `$MCTAS_HOME`, default `~/.cache/mctas`) |
 | `mctas src decompile` | once: readable game source in `$MCTAS_HOME` (Vineflower) |
 | `mctas src grep\|find\|show\|path` | to read the ground truth for a mechanic: `src grep 'class PistonBaseBlock'`, `src show PistonBaseBlock --grep getNeighborSignal -C 12` |
+| `mctas src --client decompile\|grep\|find\|show` | the CLIENT jar's source (models, renderers: `src --client show BoatModel`), decompiled once from the client jar already downloaded (`versions/<v>/client.jar`) |
 | `mctas sim repl` / `sim place` | talk to a simulator in JSON lines ([internals.md](internals.md#bridge-protocol)) / place a design and show what is pending |
 | `mctas bench` | measure throughput and memory with many workers and sandboxes |
 
