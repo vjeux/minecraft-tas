@@ -49,7 +49,10 @@ each build's page.
   clocks' and circuits', turns red (outline, a translucent red fill, its tag's text) while the
   output is powered: its own power state when it has one (a lamp lit, dust with power, a
   powered repeater or observer), else a redstone signal into its cell (a big dripleaf, a solid
-  block); air never is (`Session::output_powered`, redsim's state every tick). Lime outlines on
+  block); air never is (`Session::output_powered`, redsim's state every tick). A clock's empty
+  output cell holds the clock judge's lamp (`clock::sim::judge_lamp`, clocks only: not a design
+  with a `circuit:` kind or an input port), placed after the design's blocks; its OUT signal is
+  the power delivered into the cell, not the lamp's lit state. Lime outlines on
   levers / buttons / input ports. The complete build shows from tick
   0: the `port start` kick (a block placed last, a button pressed) is applied before tick 0 is shown,
   in the clock judge's order.
@@ -77,8 +80,14 @@ each build's page.
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
   ...`), `data-input-mode` = `pulse` | `toggle` (default from the kind: edges, limiters,
   extenders, T flip-flops, delays, RS latches and counters pulse; gates, D latches and piston
-  extenders toggle). Inputs are driven like `Circuit::actions` (the cell written with updates,
-  default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
+  extenders toggle). Inputs are driven like `Circuit::actions`: a plain input like a real build
+  (the judge's R7, 2026-10-20: `circuit::assign_drivers` ported as `mcview::circuit::inputs`):
+  the judge's delay-1 repeater in the first free side cell out of the build, a smooth stone under
+  it, the judge's smooth stone in an empty input cell (or the design's own receiving block), and a
+  redstone block one cell further out as its switch, placed or removed 2 gt before each input edge
+  in the demo (the input cell's power changes at the stimulus tick) and at once on a tap (2 gt
+  later through the repeater); an input with no way in keeps the old cell writing (the judge
+  refuses the design); `lever` used at every edge; `button` used at rising edges. One
   44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
   on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
   the input's cell, its device or its tag does the same, and a press held there past 250 ms

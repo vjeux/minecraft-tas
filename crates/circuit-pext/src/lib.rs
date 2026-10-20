@@ -252,6 +252,10 @@ enum Cmd {
         /// its unit observers).
         #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
         keep_y: Vec<i32>,
+        /// The input lever may move: it is removable like any block, and a subset that removes it
+        /// grows it back anywhere (lever states join the palette; the lever is never counted).
+        #[arg(long)]
+        free_lever: bool,
         /// Region where blocks grow back (default: the design's box grown by 2).
         #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
         lo: Option<Pos>,
@@ -291,8 +295,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             cmd_grow(&base, &o, show)
         }
         Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
-        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, lo, hi, out_dir } => {
-            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, region: (lo, hi), out_dir };
+        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, lo, hi, out_dir } => {
+            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, region: (lo, hi), out_dir };
             cmd_lns(&design, &o)
         }
         Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
@@ -503,6 +507,7 @@ struct LnsOptions {
     near: i32,
     keep: Option<String>,
     keep_y: Vec<i32>,
+    free_lever: bool,
     region: (Option<Pos>, Option<Pos>),
     out_dir: Option<PathBuf>,
 }
@@ -516,11 +521,18 @@ fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
         Some(s) => s.split(';').map(|c| parse_pos(c).map_err(|e| anyhow!("{e}"))).collect::<Result<_>>()?,
         None => Vec::new(),
     };
-    let removable: Vec<Pos> = p.design.blocks.keys().copied().filter(|q| *q != p.input && *q != p.payload && !keep.contains(q) && !o.keep_y.contains(&q[1])).collect();
+    let removable: Vec<Pos> =
+        p.design.blocks.keys().copied().filter(|q| (o.free_lever || *q != p.input) && *q != p.payload && !keep.contains(q) && !o.keep_y.contains(&q[1])).collect();
     let mut pal = search::palette(&o.palette)?;
     if plane_z.is_some() {
         pal.retain(|s| !s.contains("facing=north") && !s.contains("facing=south"));
     }
+    // a subset that removes the lever grows it back from these (in-plane when flat)
+    let mut levers = search::palette("minecraft:lever[face=wall,facing=east],minecraft:lever[face=wall,facing=west],minecraft:lever[face=floor,facing=north],minecraft:lever[face=ceiling,facing=north]")?;
+    if plane_z.is_none() {
+        levers.extend(search::palette("minecraft:lever[face=wall,facing=north],minecraft:lever[face=wall,facing=south]")?);
+    }
+    let pal_lever: Vec<String> = pal.iter().cloned().chain(levers).collect();
     let (threads, near) = (o.threads, o.near);
     let (lo, hi) = p.design.bounds().unwrap_or(([0; 3], [0; 3]));
     let lo = region.0.unwrap_or([lo[0] - 2, lo[1] - 2, plane_z.unwrap_or(lo[2] - 2)]);
@@ -542,12 +554,19 @@ fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
                     break;
                 }
                 let mut d = p.design.clone();
+                let mut lever_out = false;
                 for &i in &subsets[si] {
                     d.blocks.remove(&removable[i]);
+                    if removable[i] == p.input {
+                        lever_out = true;
+                        d.ports.remove("input");
+                        d.meta.remove("port input");
+                    }
                 }
                 d.name = format!("{}-lns{si}", p.name());
                 if let Ok(base) = Pext::base(d) {
-                    let go = search::GrowOptions { lo, hi, palette: pal.clone(), k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near) };
+                    let palette = if lever_out { pal_lever.clone() } else { pal.clone() };
+                    let go = search::GrowOptions { lo, hi, palette, k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near) };
                     match search::grow(&base, &go, &|_, _, _| {}) {
                         Ok(finds) => found.lock().unwrap().extend(finds.into_iter().map(|f| (si, f, Pext::base(base.design.clone()).expect("reparse")))),
                         Err(e) => *failed.lock().unwrap() = Some(e),

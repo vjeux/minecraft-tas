@@ -1282,14 +1282,16 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a label every 5, 10, 20, 50, 100... gt (at least 60 px apart)
+    // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
+    // once on the first step (critique: "5 gt, 10 gt, 15 gt")
     let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
     let mut t = 0u32;
     let ya = height - 6.0;
     while (t as f64) <= ticks {
         // (a label that would run past the right edge is left out)
-        if t == 0 || x(t as f64) + 34.0 <= width {
-            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        let label = if t == 0 { "0".to_string() } else if t == step { format!("{t} ticks") } else { t.to_string() };
+        if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
+            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }
         t += step;
     }

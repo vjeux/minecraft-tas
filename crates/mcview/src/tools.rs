@@ -64,10 +64,9 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
     let mut cam = if o.picture {
         scene::picture_camera(&s, &look, aspect)
-    } else if s.mode.is_door() {
-        scene::camera_showing_inputs(atlas, &s, &look, aspect, scene::THUMB_WINDOW)
     } else {
-        scene::view_camera(&s, &look, aspect, crate::camera::CAM_DIR, scene::THUMB_WINDOW)
+        // the viewer's thumbnail camera (a door: the side its lever is seen from)
+        scene::thumb_camera(atlas, &s, &look, aspect)
     };
     if o.yaw.is_some() || o.pitch.is_some() {
         if let Some(y) = o.yaw {

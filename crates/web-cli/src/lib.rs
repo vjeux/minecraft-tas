@@ -1126,14 +1126,30 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
     session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
+    // the judge's input devices (R7: a driven input's repeater, support and switch) are not the
+    // circuit's: circuit sim leaves them out of its frames
+    let judge: Vec<mcview::design::Pos> = session
+        .circuit_inputs
+        .iter()
+        .filter_map(|i| match i.how {
+            mcview::circuit::InputHow::Driven { dir, .. } => {
+                let (r, sup, sw) = mcview::circuit::driver_cells(i.pos, dir);
+                Some([r, sup, sw])
+            }
+            _ => None,
+        })
+        .flatten()
+        .collect();
     let frames = trace.cells.len();
     for (f, cells) in trace.cells.iter().enumerate() {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();
         let mine_all = session.cell_states();
-        let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p)).map(|(p, s)| (*p, s.as_str())).collect();
+        let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p) && !judge.contains(p)).map(|(p, s)| (*p, s.as_str())).collect();
         if theirs != mine {
-            let diff = theirs.iter().find(|x| !mine.contains(x)).map(|(p, s)| format!("{p:?} {s} in circuit sim")).or_else(|| mine.iter().find(|x| !theirs.contains(x)).map(|(p, s)| format!("{p:?} {s} in the viewer"))).unwrap_or_default();
-            return Err(format!("frame {f} differs from circuit sim's ({diff})"));
+            let only = |a: &Vec<(mcview::design::Pos, &str)>, b: &Vec<(mcview::design::Pos, &str)>| a.iter().filter(|x| !b.contains(x)).take(6).map(|(p, s)| format!("{p:?} {s}")).collect::<Vec<_>>().join(", ");
+            let diff = format!("circuit sim only: {}; the viewer only: {}", only(&theirs, &mine), only(&mine, &theirs));
+            let hows = |a: String, b: String| if a == b { String::new() } else { format!("; inputs: circuit sim {a}, the viewer {b}") };
+            return Err(format!("frame {f} differs from circuit sim's ({diff}){}", hows(format!("{:?}", c.inputs.iter().map(|i| format!("{} {:?}", i.name, i.how)).collect::<Vec<_>>()), format!("{:?}", session.circuit_inputs.iter().map(|i| format!("{} {:?}", i.name, i.how)).collect::<Vec<_>>()))));
         }
         // and what the viewer draws is that state (vjeux: nothing animated by the viewer itself)
         session.drawn_matches_simulation().map_err(|e| format!("frame {f}: drawn differs from redsim: {e}"))?;
@@ -1176,7 +1192,17 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         return Ok(None);
     }
     let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
-    let Ok(c) = clock::Clock::from_design(d) else { return Ok(None) };
+    // a TNT circuit as its judge builds it: its consumers and its driven inputs' devices (R7)
+    let c = match circuit::Circuit::from_design(d.clone()) {
+        Ok(cc) => match cc.with_consumers() {
+            Ok(cc) => cc.with_drivers().clock,
+            Err(_) => cc.with_drivers().clock,
+        },
+        Err(_) => match clock::Clock::from_design(d) {
+            Ok(c) => c,
+            Err(_) => return Ok(None),
+        },
+    };
     let (lo, size) = (s.world.min, s.world.size);
     let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
     let chunks = redsim::redstone::shulker::chunk_range(from, to);
