@@ -168,6 +168,25 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   2 gt train). `door interleave --search 1M --levels --segments`: no train for q68f / q68g /
   q69j / q69m (18-20 cells off). Next: toggle-form plans (every input a 2 gt pulse), designed so
   that the open train replayed closes.
+* r69 (21:20Z, 6x9 = 54b, frame 12/12, 9 pistons): built from the self-inverse toggle idea.
+  - Pieces: top elevator M (1,5) + P_T for C; the slime for the left column and TM; Qv (1,-2)
+    pulls BM; A pulls BR; K pushes BR + BM west; bottom elevator A + B for MR; P_TR pulls TR; G
+    (-1,-1) is a sticky that rides the slime (dragged to (-2,-1) on open, brought home on close)
+    and pushes BM back east on close.
+  - Runs from ONE hand-made train of 15 2-gt pulses, the same on both edges.
+  - WORKS: redsim 32 x 3 and the game 32 x 2, open 87 / close 87.
+  - Unwireable top: P_T (1,4) is boxed by Pl, P_TR and M. Its only feed is QC through (1,5),
+    which also powers M, and M is updated first and pushes P_T away (clk-obs).
+  - Co-firing A with B (A's feed into (2,-2) QCs B) is harmless in redsim.
+* r69a: r69 without M. Qv (1,-1) touches BM at rest (its spit raises the middle column so P_T
+  reaches C), and B1 (1,-3) drops Qv. P_T is fed from (1,5) and the top is one area. 2 gt
+  pulses, with different open and close sequences. WORKS redsim 32 x 3.
+* r69t: `door interleave --search` found ONE train for r69a in 19k pairs.
+  - 17 2-gt pulses, the same ticks on both edges, last pulse t33, open 36 / close 32.
+  - WORKS: redsim 32 x 3 and the game 32 x 2.
+  - Train: P_T 0 9 | P_TR 0 | Pl 5 | Qv@(1,-1) 2 4 | Qv@(1,-2) 0 17 | B1 12 | G 9 24 | K 22 |
+    B 25 29 | A 0 33 | A@(2,-1) 26.
+  - The first single-train sub-56 door. Wiring next: island-aware trains, pockets3 / clk-obs.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
