@@ -64,6 +64,11 @@ pub struct MechmutArgs {
     /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
     #[arg(long)]
     no_inside: bool,
+    /// Neighbours also ADD one piece (a piston of any kind in any free cell outside the 3x3, a
+    /// stone in a free ring cell): completion search from partial designs (with --repair and
+    /// --keep for the fixed part).
+    #[arg(long)]
+    add: bool,
     /// With --max-actions: at most this many actions per edge beyond one per piston.
     #[arg(long)]
     extra_actions: Option<usize>,
@@ -73,7 +78,8 @@ pub struct MechmutArgs {
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, extra_actions, max_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, extra_actions, max_unfed } = args;
+    crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);

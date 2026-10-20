@@ -25,6 +25,9 @@ pub type Sched = Vec<(Pc, Act)>;
 pub struct Var {
     pub bx: Bx,
     pub pieces: Vec<Pc>,
+    /// `--add` growth: 3x3 cells still filled in the best reachable state of a mechanism that
+    /// does not solve yet (0 = solved; partial variants only steer the beam, never kept).
+    pub missing: usize,
     /// Pistons no free cell can feed (families' wiring analysis of the solved cycle).
     pub unfed: usize,
     pub class: char,
@@ -55,7 +58,7 @@ pub struct Var {
 }
 
 impl Var {
-    pub fn key(&self) -> (bool, usize, bool, usize, usize, usize, usize, u8, usize) {
+    pub fn key(&self) -> (usize, bool, usize, bool, usize, usize, usize, usize, u8, usize, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
@@ -65,9 +68,9 @@ impl Var {
         if RANK_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
             // --rank-unfed: the fewest pistons with no free feed cell first (pockets3's bar), then
             // the fewest actions of one piston on one edge
-            return (self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.maxp, self.inside, self.never, self.weak, cr, self.events);
+            return (self.missing, self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons);
         }
-        (self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events)
+        (self.missing, self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events, 0)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -345,6 +348,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     Some(Var {
         bx,
         pieces: m.pieces.clone(),
+        missing: 0,
         unfed,
         class: w.class,
         pistons: pieces.iter().filter(|p| matches!(p.k, K::Piston { .. })).count(),
@@ -404,8 +408,43 @@ pub fn neighbours(bx: Bx, pieces: &[Pc], keep: &[Pc], reserve: &[(i8, i8)]) -> V
         with(Pc { x: p.x, y: p.y, k: K::Piston { sticky: !sticky, f, ext } });
         with(Pc { x: p.x, y: p.y, k: K::Piston { sticky, f, ext: !ext } });
     }
+    if ADD.load(std::sync::atomic::Ordering::Relaxed) {
+        // add one piece: a piston (sticky or normal, any facing, retracted or extended at rest)
+        // in any free cell outside the 3x3, or a stone in a free ring cell (completion search
+        // from partial designs: w86's fixed lever trio + side pullers)
+        let used: HashSet<(i8, i8)> = pieces.iter().flat_map(|p| p.cells()).collect();
+        for y in bx.y0..bx.y0 + bx.h {
+            for x in bx.x0..bx.x0 + bx.w {
+                if fam::in_t(x, y) || used.contains(&(x, y)) || reserve.contains(&(x, y)) {
+                    continue;
+                }
+                let mut adds: Vec<Pc> = Vec::new();
+                for sticky in [true, false] {
+                    for f in 0..4u8 {
+                        for ext in [false, true] {
+                            adds.push(Pc { x, y, k: K::Piston { sticky, f, ext } });
+                        }
+                    }
+                }
+                if fam::in_r(x, y) {
+                    adds.push(Pc { x, y, k: K::Stone });
+                }
+                for q in adds {
+                    let mut v = pieces.to_vec();
+                    v.push(q);
+                    v.sort();
+                    if fits(&v) {
+                        out.push((v, Some((q, Some(q)))));
+                    }
+                }
+            }
+        }
+    }
     out
 }
+
+/// `--add`: neighbours also add one piece (see [`neighbours`]).
+pub static ADD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Lines `W H x0 y0 piece piece ...` (`#` comments).
 pub fn parse_lines(text: &str) -> Result<Vec<(Bx, Vec<Pc>)>> {
@@ -438,6 +477,45 @@ pub struct Opts {
     pub reserve: Vec<(i8, i8)>,
 }
 
+/// A placeholder variant for a mechanism that does not solve (beam steering only; fewer pieces
+/// first among equal growth).
+fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
+    let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
+}
+
+/// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
+/// BFS over every pulse / level, the `--no-inside` bar applied, `cap` states) + 1 (1 = opens fully
+/// but does not solve; 10 = nothing moves).
+fn progress(bx: Bx, p: &[Pc], cap: usize) -> usize {
+    let Some((m, rest)) = Mech::new(bx, p) else { return 10 };
+    let no_in = fam::CONS_NO_INSIDE.load(std::sync::atomic::Ordering::Relaxed);
+    let evs = m.events(true);
+    let filled = |s: &St| (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).filter(|&(x, y)| s.g[bx.idx(x, y)] != fam::AIR).count();
+    let mut seen: HashSet<St> = HashSet::new();
+    let mut q = std::collections::VecDeque::from([rest.clone()]);
+    seen.insert(rest.clone());
+    let mut best = filled(&rest);
+    while let Some(s) = q.pop_front() {
+        for &e in &evs {
+            if no_in {
+                let (x, y) = bx.xy(s.pp[e.id as usize] as usize);
+                if fam::in_t(x, y) {
+                    continue;
+                }
+            }
+            let Out::Ok(n) = m.apply(&s, e) else { continue };
+            if seen.len() >= cap || !seen.insert(n.clone()) {
+                continue;
+            }
+            best = best.min(filled(&n));
+            q.push_back(n);
+        }
+    }
+    // + 1: a partial variant ranks after every solved one even when it opens fully (no close)
+    best + 1
+}
+
 /// Beam search from every input mechanism; returns every kept variant, best first.
 pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
     let mut seen: HashSet<Vec<Pc>> = HashSet::new();
@@ -467,8 +545,12 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                 if o.repair {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
-                    let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() });
+                    let mut v = partial(*bx, p, 10);
+                    if ADD.load(std::sync::atomic::Ordering::Relaxed) {
+                        v.missing = progress(*bx, p, o.bfs_cap.max(100_000));
+                        eprintln!("[mechmut]   (growth from it: {} 3x3 cells stay filled at best)", v.missing);
+                    }
+                    beam.push(v);
                 }
             }
         }
@@ -486,14 +568,25 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
             break;
         }
         let t0 = std::time::Instant::now();
+        let grow = ADD.load(std::sync::atomic::Ordering::Relaxed);
         let res = cs::par_map(&cand, o.threads, |(k, p, ch)| {
             let parent = &beam[*k];
-            eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &o.reserve)
+            match eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &o.reserve) {
+                Some(v) => Some(v),
+                // --add growth: an unsolved neighbour steers the beam by how far it opens, only
+                // when it opens strictly further than its (unsolved) parent
+                None if grow && parent.missing > 0 => {
+                    let mi = progress(parent.bx, p, o.bfs_cap.clamp(20_000, 200_000));
+                    (mi < parent.missing || (mi == parent.missing && mi < 10)).then(|| partial(parent.bx, p, mi))
+                }
+                None => None,
+            }
         });
         let new: Vec<Var> = res.into_iter().flatten().collect();
         let nrep = new.iter().filter(|v| v.replayed).count();
-        eprintln!("[mechmut] round {round}: {} neighbours, {} kept ({} by replay) ({:.0}s)", cand.len(), new.len(), nrep, t0.elapsed().as_secs_f64());
-        kept.extend(new.iter().cloned());
+        let npart = new.iter().filter(|v| v.missing > 0).count();
+        eprintln!("[mechmut] round {round}: {} neighbours, {} kept ({} by replay{}) ({:.0}s)", cand.len(), new.len() - npart, nrep, if grow { format!("; {npart} partial growths") } else { String::new() }, t0.elapsed().as_secs_f64());
+        kept.extend(new.iter().filter(|v| v.missing == 0).cloned());
         let mut next = new;
         next.sort_by_key(|v| v.key());
         beam = next.into_iter().take(o.beam).collect();
@@ -502,7 +595,11 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
         }
         let b = &beam[0];
         let nreal = beam.iter().filter(|v| v.real == Some(true)).count();
-        eprintln!("[mechmut]   best ({nreal} of the beam WORK in redsim): redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}: {}", b.real, b.connect, b.never, b.unfed, b.class, b.pistons, b.events, b.line());
+        if b.missing > 0 {
+            eprintln!("[mechmut]   best is partial ({} 3x3 cells stay filled at best, + 1): {}", b.missing, b.line());
+        } else {
+            eprintln!("[mechmut]   best ({nreal} of the beam WORK in redsim): redsim {:?} connect {} never-fed {} unfed {} ({}) max-actions {} class {} pistons {} events {}: {}", b.real, b.connect, b.never, b.unfed, b.unfed_at, b.maxp, b.class, b.pistons, b.events, b.line());
+        }
     }
     kept.sort_by_key(|v| v.key());
     kept
