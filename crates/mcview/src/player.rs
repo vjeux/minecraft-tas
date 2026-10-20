@@ -25,6 +25,10 @@ pub struct Player {
     mesh_key: (u32, u32),
     /// Something changed since the last frame.
     pub dirty: bool,
+    /// Seconds spent at a flying machine's end before it starts again.
+    hold: f32,
+    /// A travelling design's last centre: the camera follows it.
+    follow: Option<[f32; 3]>,
 }
 
 impl Player {
@@ -33,7 +37,36 @@ impl Player {
         session.find_auto_output(20_000);
         let look = scene::default_look(&session);
         let camera = scene::default_camera(&session, &look, aspect);
-        Ok(Player { session, look, home: camera, camera, playing: false, tps: 20.0, acc: 0.0, partial: 0.0, mesh: None, mesh_key: (u32::MAX, 0), dirty: true })
+        let mut p = Player { session, look, home: camera, camera, playing: false, tps: 20.0, acc: 0.0, partial: 0.0, mesh: None, mesh_key: (u32::MAX, 0), dirty: true, hold: 0.0, follow: None };
+        p.follow_machine();
+        Ok(p)
+    }
+
+    /// A travelling design (a flying machine): move the camera with its centre (moving blocks at
+    /// their drawn offset, `stop:` blocks left out).
+    fn follow_machine(&mut self) {
+        if self.session.corridor.is_none() {
+            return;
+        }
+        let blocks = self.session.render_blocks(self.partial);
+        let stops: Vec<Pos> = self.session.design.stops.iter().map(|(p, _)| *p).collect();
+        let (mut c, mut n) = ([0f32; 3], 0usize);
+        for b in blocks.iter().filter(|b| !(b.offset == [0.0; 3] && stops.contains(&b.cell))) {
+            for i in 0..3 {
+                c[i] += b.cell[i] as f32 + b.offset[i] + 0.5;
+            }
+            n += 1;
+        }
+        if n == 0 {
+            return;
+        }
+        let c = c.map(|v| v / n as f32);
+        if let Some(prev) = self.follow {
+            for i in 0..3 {
+                self.camera.target[i] += c[i] - prev[i];
+            }
+        }
+        self.follow = Some(c);
     }
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
@@ -41,9 +74,21 @@ impl Player {
         if !self.playing || !self.session.playable() {
             return std::mem::take(&mut self.dirty);
         }
+        // a flying machine at its judge's end (the corridor's end): a pause, then again
+        if let Some(e) = self.session.end_tick
+            && self.session.tick >= e
+        {
+            self.hold += dt.min(0.25);
+            if self.hold < 1.0 {
+                return std::mem::take(&mut self.dirty);
+            }
+            self.hold = 0.0;
+            self.reset();
+            return true;
+        }
         self.acc += dt.min(0.25) * self.tps;
         let mut n = 0;
-        while self.acc >= 1.0 && n < 5000 {
+        while self.acc >= 1.0 && n < 5000 && self.session.end_tick.is_none_or(|e| self.session.tick < e) {
             self.session.step();
             self.acc -= 1.0;
             n += 1;
@@ -53,6 +98,7 @@ impl Player {
         }
         // interpolate moving blocks only at watchable speeds
         self.partial = if self.tps <= 40.0 { self.acc.clamp(0.0, 0.999) } else { 0.0 };
+        self.follow_machine();
         self.dirty = false;
         true
     }
@@ -62,6 +108,7 @@ impl Player {
         self.session.step();
         self.acc = 0.0;
         self.partial = 0.0;
+        self.follow_machine();
         self.invalidate();
     }
 
@@ -69,6 +116,7 @@ impl Player {
         self.session.reset();
         self.acc = 0.0;
         self.partial = 0.0;
+        self.follow_machine();
         self.invalidate();
     }
 

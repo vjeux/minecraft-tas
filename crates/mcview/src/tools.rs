@@ -137,33 +137,35 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
 /// clock from its still moment; `step` game ticks between frames (fractions show moving blocks
 /// mid-way). Returns the grid's RGBA and its size.
 pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u32, step: f32, w: u32, h: u32) -> Result<(Vec<u8>, u32, u32), String> {
-    let mut s = Session::new(text, &Options::default())?;
-    if !s.mode.is_door() {
-        s.go_to_still(20_000);
+    // the browser's player, played at 20 gt/s: the same camera (inputs in view, a flying
+    // machine followed), the same interpolation
+    let aspect = w as f32 / h as f32;
+    let mut p = crate::player::Player::new(text, aspect)?;
+    p.show_inputs(atlas, aspect);
+    if p.session.mode.is_door() {
+        p.flip();
+    } else {
+        p.session.go_to_still(20_000);
+        p.invalidate();
     }
-    let look = scene::default_look(&s);
-    let cam = scene::default_camera(&s, &look, w as f32 / h as f32);
-    if let crate::session::Mode::Door { lever, .. } = s.mode {
-        s.toggle(lever);
-    }
+    p.playing = true;
     let (gw, gh) = (cols * w, rows * h);
     let mut grid = vec![0u8; (gw * gh * 4) as usize];
-    let mut t = 0.0f32;
     for i in 0..cols * rows {
-        while (s.tick - s.rest_tick) as f32 + 1.0 <= t && s.tick < 100_000 {
-            s.step();
-        }
-        let partial = t - (s.tick - s.rest_tick) as f32;
-        let mesh = scene::build(atlas, &s, partial.clamp(0.0, 0.999), &look);
-        let (solid, translucent) = scene::triangles(&mesh, &cam);
-        let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: w, height: h })?;
+        let (solid, translucent) = p.triangles(atlas);
+        let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: p.camera, width: w, height: h })?;
         let (ox, oy) = ((i % cols) * w, (i / cols) * h);
         for y in 0..h {
             let src = &rgba[(y * w * 4) as usize..((y + 1) * w * 4) as usize];
             let o = (((oy + y) * gw + ox) * 4) as usize;
             grid[o..o + (w * 4) as usize].copy_from_slice(src);
         }
-        t += step;
+        let mut left = step / p.tps;
+        while left > 1e-6 {
+            let d = left.min(0.25);
+            p.update(d);
+            left -= d;
+        }
     }
     Ok((grid, gw, gh))
 }
@@ -260,6 +262,8 @@ pub struct WasmProbe {
     memory: wasmi::Memory,
     alloc: wasmi::TypedFunc<u32, u32>,
     period: wasmi::TypedFunc<(u32, u32, u32), u64>,
+    fly_end: wasmi::TypedFunc<(u32, u32), u32>,
+    digest: wasmi::TypedFunc<(u32, u32, u32), u64>,
 }
 
 impl WasmProbe {
@@ -278,7 +282,30 @@ impl WasmProbe {
         let memory = instance.get_memory(&store, "memory").ok_or("no exported memory")?;
         let alloc = instance.get_typed_func::<u32, u32>(&store, "mcview_alloc").map_err(|e| format!("mcview_alloc: {e}"))?;
         let period = instance.get_typed_func::<(u32, u32, u32), u64>(&store, "mcview_clock_period").map_err(|e| format!("mcview_clock_period: {e}"))?;
-        Ok(WasmProbe { store, memory, alloc, period })
+        let fly_end = instance.get_typed_func::<(u32, u32), u32>(&store, "mcview_fly_end").map_err(|e| format!("mcview_fly_end: {e}"))?;
+        let digest = instance.get_typed_func::<(u32, u32, u32), u64>(&store, "mcview_frames_digest").map_err(|e| format!("mcview_frames_digest: {e}"))?;
+        Ok(WasmProbe { store, memory, alloc, period, fly_end, digest })
+    }
+
+    /// Copy a text into the wasm's memory: (pointer, length).
+    fn put(&mut self, text: &str) -> Result<(u32, u32), String> {
+        let len = text.len() as u32;
+        let ptr = self.alloc.call(&mut self.store, len).map_err(|e| format!("alloc: {e}"))?;
+        self.memory.write(&mut self.store, ptr as usize, text.as_bytes()).map_err(|e| format!("write: {e}"))?;
+        Ok((ptr, len))
+    }
+
+    /// A flying machine's end tick in the wasm (None: not simulated).
+    pub fn fly_end(&mut self, text: &str) -> Result<Option<u32>, String> {
+        let (ptr, len) = self.put(text)?;
+        let t = self.fly_end.call(&mut self.store, (ptr, len)).map_err(|e| format!("fly_end: {e}"))?;
+        Ok((t != u32::MAX).then_some(t))
+    }
+
+    /// The wasm's frames digest over ticks 0..=`ticks`.
+    pub fn frames_digest(&mut self, text: &str, ticks: u32) -> Result<u64, String> {
+        let (ptr, len) = self.put(text)?;
+        self.digest.call(&mut self.store, (ptr, len, ticks)).map_err(|e| format!("digest: {e}"))
     }
 
     /// (state warmup, state period, warmup, period), or None when the wasm finds no clock.

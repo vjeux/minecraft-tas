@@ -224,6 +224,36 @@ pub unsafe extern "C" fn mcview_clock_period(ptr: *mut u8, len: usize, horizon: 
     }
 }
 
+/// For `mctas web check --wasm`: a flying machine's end tick in THIS wasm's session (the judge's
+/// corridor end), or u32::MAX. Takes back and frees the text like [`mcview_clock_period`].
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_fly_end(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()) {
+        Ok(s) if s.simulated() => s.end_tick.unwrap_or(u32::MAX),
+        _ => u32::MAX,
+    }
+}
+
+/// For `mctas web check --wasm`: the digest of this wasm's frames 0..=`ticks`
+/// ([`mcview::session::Session::frames_digest`]), or 0.
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_frames_digest(ptr: *mut u8, len: usize, ticks: u32) -> u64 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()) {
+        Ok(s) if s.simulated() => s.frames_digest(ticks),
+        _ => 0,
+    }
+}
+
 /// Register every viewer element in (and including) `root`.
 fn scan(root: &Element) {
     let mut found: Vec<HtmlElement> = Vec::new();

@@ -73,7 +73,7 @@ pub fn default_look(s: &Session) -> Look {
             outlines.push(*p);
         }
     }
-    let (lo, _) = s.frame_box();
+    let (lo, _) = s.path_box();
     Look { marker, outlines, ground: Some(lo[1] as f32) }
 }
 
@@ -102,7 +102,8 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let mut m = b.mesh;
     if let Some(y) = look.ground {
         let (lo, hi) = s.frame_box();
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, 48.0);
+        // far enough that the fog hides its edge (one quad, the tile repeated)
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, 512.0);
         m.solid.extend_from_slice(&g);
     }
     m

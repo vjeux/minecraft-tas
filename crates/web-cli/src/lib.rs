@@ -549,7 +549,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut bad, mut skipped) = (0, 0, 0);
+    let (mut ok, mut flyers, mut bad, mut skipped) = (0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -557,7 +557,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             println!("FAIL {} parse: {e}", d.display());
             continue;
         }
-        let line = match clock_pair(&text, horizon, probe.as_mut()) {
+        let fly = is_flying_machine(&text);
+        let line = match if fly { fly_pair(&text, probe.as_mut()) } else { clock_pair(&text, horizon, probe.as_mut()) } {
             Ok(Some(l)) => l,
             Ok(None) => {
                 skipped += 1;
@@ -572,16 +573,65 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
                 continue;
             }
         };
-        ok += 1;
+        if fly {
+            flyers += 1;
+        } else {
+            ok += 1;
+        }
         if !quiet {
             println!("ok   {} {line}", d.display());
         }
     }
-    println!("web check: {ok} clocks agree{}, {skipped} parse-only, {bad} failures", if probe.is_some() { " (native viewer, wasm viewer and clock sim)" } else { "" });
+    println!(
+        "web check: {ok} clocks (same period as clock sim) and {flyers} flying machines (same frames and end as circuit fly sim) agree{}, {skipped} parse-only, {bad} failures",
+        if probe.is_some() { " in the native and the wasm viewer" } else { "" }
+    );
     if bad > 0 {
         bail!("{bad} failures");
     }
     Ok(())
+}
+
+/// A design whose `circuit:` header says flying machine.
+fn is_flying_machine(text: &str) -> bool {
+    mcview::Design::parse(text).is_ok_and(|d| d.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")))
+}
+
+/// A flying machine in `circuit fly sim` and in the viewer (and the wasm when given): the same
+/// end tick (the corridor's end, rest, or a break) and the same frames up to it.
+fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    use circuit_fly::report::{End, Verdict};
+    let m = circuit_fly::machine::Machine::parse(text).map_err(|e| format!("{e:#}"))?;
+    let o = circuit_fly::sim::SimOptions::default();
+    let r = circuit_fly::sim::simulate(&m, &o);
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    if r.verdict == Verdict::Unmodeled {
+        return if s.simulated() { Err(format!("circuit fly sim: unmodeled ({}) but the viewer simulates it", r.why)) } else { Ok(None) };
+    }
+    let end = match r.end {
+        End::Idle(t) | End::Edge(t) | End::Horizon(t) | End::Drop(t, _) | End::Error(t, _) => t,
+    };
+    let frames = circuit_fly::sim::frames(&m, &o, end)?;
+    let ticks = frames.len().saturating_sub(1) as u32;
+    let theirs = frames.iter().fold(0xcbf29ce484222325u64, |h, f| mcview::session::frame_hash(h, f));
+    let mine_end = s.end_tick.ok_or("the viewer found no corridor end")?;
+    if mine_end != end {
+        return Err(format!("circuit fly sim ends at tick {end} ({:?}) but the viewer at {mine_end}", r.end));
+    }
+    let ours = s.frames_digest(ticks);
+    if ours != theirs {
+        return Err(format!("frames 0..={ticks} differ from circuit fly sim's"));
+    }
+    if let Some(p) = probe {
+        let wend = p.fly_end(text)?;
+        if wend != Some(end) {
+            return Err(format!("circuit fly sim ends at tick {end} but the wasm viewer at {wend:?}"));
+        }
+        if p.frames_digest(text, ticks)? != theirs {
+            return Err(format!("the wasm viewer's frames 0..={ticks} differ from circuit fly sim's"));
+        }
+    }
+    Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they

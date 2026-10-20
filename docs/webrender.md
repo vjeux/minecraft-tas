@@ -64,6 +64,13 @@ each build's page.
 * `mcview::replay` plays a real-game recording (JSON Lines from `mctas clock misc trace-export`:
   changed cells and every entity per tick), once through the warmup, then one period looped, with
   entities interpolated between ticks.
+* A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
+  corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
+  cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
+  first; the floor goes under the whole path; the camera follows a flying machine; it loops where
+  `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
+  every archived flying machine against `circuit fly sim`: same end tick and same frames, native
+  and wasm.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
   sculk, hoppers, doors, trapdoors, rails, ...) and 16x16 textures drawn procedurally (no game asset
