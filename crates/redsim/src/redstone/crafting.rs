@@ -178,7 +178,7 @@ mod tests {
     fn grid(items: &[(usize, &str)]) -> Vec<Option<Stack>> {
         let mut g = vec![None; 9];
         for (slot, name) in items {
-            g[*slot] = Some(Stack { item: item_id(name).unwrap(), count: 1 });
+            g[*slot] = Some(Stack::new(item_id(name).unwrap(), 1));
         }
         g
     }

@@ -344,6 +344,15 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// A redsim world over `from..=to` with the design placed as the real-game judge places it (its
+/// block entities and entities too), before any tick: for callers that drive the run themselves
+/// (the shulker judge's replay, `mctas circuit shulker compare`).
+pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
+}
+
 /// The design's blocks that cannot stand where they are once placed like the judge places them:
 /// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
 /// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
