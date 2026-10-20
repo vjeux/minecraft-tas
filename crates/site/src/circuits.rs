@@ -232,10 +232,14 @@ fn details(c: &Design) -> Details {
         }
     };
     d.summary = r.summary(c);
+    // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
+    // demo badge and the timing diagram
+    let kind_name = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label(&kind_name, l))).collect();
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
     }
-    d.phases = r.schedule.phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
+    d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
     // the judge's actions at the BUD's target and probe cells, in the design's coordinates
     let probes = c.probe_cells();
     d.events = r
@@ -316,7 +320,7 @@ fn details(c: &Design) -> Details {
             _ => {}
         }
         if !rows.is_empty() && t.frames() > 1 {
-            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: r.schedule.phases.clone() });
+            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: phases.clone() });
         }
     }
     d
@@ -616,8 +620,13 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         values.sort();
         values.dedup();
         let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
+        // `L = 12 gt retriggerable` -> (`L`, ` gt`); `off L = 12 gt` -> (`L`, ` gt`): the letter
+        // before ` = ` (study 11 puts `on` / `off` in front) and the unit after the number
         let (prefix, unit) = match axis.split_once(" = ") {
-            Some((p, v)) => (p.to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
+            Some((p, v)) => (
+                p.split_whitespace().last().unwrap_or("").to_string(),
+                if v.split_whitespace().nth(1) == Some("gt") { " gt" } else { "" },
+            ),
             None => (String::new(), ""),
         };
         let span = match (values.first(), values.last()) {

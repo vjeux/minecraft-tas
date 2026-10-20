@@ -363,13 +363,28 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
     // the machines' studies: a variations table with the best design per variation
-    for folder in ["shulker", "tnt", "bud"] {
+    for folder in ["shulker", "tnt", "bud", "pulsemult"] {
         if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
             let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
             let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
             let best = table.matches("<a href=").count();
             check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
         }
+    }
+    // study 11: the rows earlier studies answer point at their pages; every kind explains itself
+    if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
+        let page = std::fs::read_to_string(dir.join("circuits/pulsemult/index.html")).unwrap_or_default();
+        let linked: Vec<&str> = ["circuits/pulse/index.html", "circuits/tff/index.html", "circuits/memory/index.html"].into_iter().filter(|p| page.contains(p)).collect();
+        check("study 11: linked rows point at studies 1, 2 and 5", linked.len() == 3, format!("{linked:?}"));
+        let mut bare: Vec<String> = Vec::new();
+        for b in site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
+            let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+            let what = html.split("<section class=\"what\">").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+            if what.matches("<b>").count() == 0 || what.contains("<p></p>") {
+                bare.push(b.name.clone());
+            }
+        }
+        check("study 11: every design page says what it does with its numbers", bare.is_empty(), if bare.is_empty() { "all".into() } else { bare.join(", ") });
     }
     // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
     // different sizes, not others of size 1"): every card there has another value

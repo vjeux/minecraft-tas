@@ -79,7 +79,9 @@ pub fn subline(b: &Build) -> String {
                     parts.push(c.direction.clone());
                 }
                 if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(c.axis.as_str()) && !c.axis.starts_with("detects") {
-                    parts.push(c.axis.clone());
+                    if let Some(a) = axis_shown(&c.kind, &c.axis) {
+                        parts.push(a);
+                    }
                 }
                 // a machine's speed: a shulker loader's items per second
                 if let Some((_, v)) = c.metrics.iter().find(|(n, _)| n == "items/s") {
@@ -94,6 +96,26 @@ pub fn subline(b: &Build) -> String {
 }
 
 /// `1 block`, `3 blocks`.
+/// The axis as a card shows it: `L = 12 gt` of `off L = 12 gt` or `L = 12 gt retriggerable` (the
+/// kind already says on / off / retriggerable), nothing when the kind already carries the number
+/// (`divider 3` with `N = 3`).
+pub fn axis_shown(kind: &str, axis: &str) -> Option<String> {
+    let Some((head, value)) = axis.split_once(" = ") else {
+        return Some(axis.to_string());
+    };
+    let letter = head.split_whitespace().last().unwrap_or(head);
+    let mut v = value.split_whitespace();
+    let n = v.next().unwrap_or("");
+    let unit = match v.next() {
+        Some("gt") => " gt",
+        _ => "",
+    };
+    if kind.split_whitespace().nth(1) == Some(n) {
+        return None;
+    }
+    Some(format!("{letter} = {n}{unit}"))
+}
+
 pub fn blocks_word(n: u32) -> String {
     if n == 1 { "1 block".to_string() } else { format!("{n} blocks") }
 }

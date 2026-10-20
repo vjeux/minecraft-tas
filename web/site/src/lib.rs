@@ -513,7 +513,9 @@ fn draw_dynamic() {
                         site_model::ValueField::Latency => "a latency",
                         site_model::ValueField::L => "L",
                         site_model::ValueField::N => "N",
-                        site_model::ValueField::Axis => "L / N",
+                        site_model::ValueField::T => "T",
+                        site_model::ValueField::P => "P",
+                        site_model::ValueField::Axis => "L / N / T / P",
                     };
                     let range = if lo == hi { format!("= {lo}") } else if hi == u32::MAX { format!("from {lo}") } else { format!("from {lo} to {hi}") };
                     (format!("with {what} {range}"), false)

@@ -559,25 +559,39 @@ pub fn parse_time_query(q: &str) -> Result<(u32, u32), String> {
 }
 
 /// What a circuit value search compares: the study's axis value (any study, or only the studies
-/// whose axis is L, the output pulse length, or N: a delay, a count, a reach) or the latency.
+/// whose axis is L, the output pulse length or a timer's hold, N: a delay, a count, a reach, T: an
+/// on-delay's threshold, P: a pulse train's period) or the latency.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValueField {
     Axis,
     L,
     N,
+    T,
+    P,
     Latency,
 }
 
 /// Parse a circuit value search: an optional field (`L` = an output pulse length, `N` = a delay
-/// line's delay, a counter's count or an extender's reach, `reach` / `speed` / `delay` = the
-/// study's axis value; `latency` / `lat` = the latency), an optional `=` or `:`, then a number,
-/// a time or a range as [`parse_time_query`] reads them (`L 12`, `N=3`, `12`, `10-20 gt`, `lat 0`).
+/// line's delay, a counter's count or an extender's reach, `T` = an on-delay's threshold, `P` = a
+/// pulse train's period, `reach` / `speed` / `delay` = the study's axis value; `latency` / `lat`
+/// = the latency), an optional `=` or `:`, then a number, a time or a range as
+/// [`parse_time_query`] reads them (`L 12`, `N=3`, `T 10`, `12`, `10-20 gt`, `lat 0`).
 pub fn parse_value_query(q: &str) -> Result<(ValueField, u32, u32), String> {
     let t = q.trim();
     let lower = t.to_lowercase();
     let mut field = ValueField::Axis;
     let mut rest = lower.as_str();
-    for (word, f) in [("latency", ValueField::Latency), ("lat", ValueField::Latency), ("reach", ValueField::N), ("speed", ValueField::Axis), ("delay", ValueField::N), ("l", ValueField::L), ("n", ValueField::N)] {
+    for (word, f) in [
+        ("latency", ValueField::Latency),
+        ("lat", ValueField::Latency),
+        ("reach", ValueField::N),
+        ("speed", ValueField::Axis),
+        ("delay", ValueField::N),
+        ("l", ValueField::L),
+        ("n", ValueField::N),
+        ("t", ValueField::T),
+        ("p", ValueField::P),
+    ] {
         if let Some(r) = rest.strip_prefix(word) {
             // the word must stand alone: `l 12`, `l=12`, `l12`, not `lever`
             if r.is_empty() || r.starts_with([' ', '=', ':']) || r.starts_with(|c: char| c.is_ascii_digit()) {
@@ -893,7 +907,7 @@ impl Site {
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
-                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").map(|(l, _)| l.trim()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
+                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
             }
             Hit::Member(i) => {
@@ -920,7 +934,7 @@ impl Site {
                     variant: false,
                     member: false,
                     latency: None,
-                    axis_letter: m.axis.split_once(" = ").map(|(l, _)| l.trim()).unwrap_or(""),
+                    axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                 })
             }
         }
@@ -962,6 +976,8 @@ impl Site {
                     ValueField::Axis => v.main,
                     ValueField::L => v.main.filter(|_| v.axis_letter == "L"),
                     ValueField::N => v.main.filter(|_| v.axis_letter == "N"),
+                    ValueField::T => v.main.filter(|_| v.axis_letter == "T"),
+                    ValueField::P => v.main.filter(|_| v.axis_letter == "P"),
                     ValueField::Latency => v.latency,
                 };
                 match x {
@@ -1265,6 +1281,9 @@ mod tests {
         assert_eq!(parse_value_query("N=3").unwrap(), (ValueField::N, 3, 3));
         assert_eq!(parse_value_query("12").unwrap(), (ValueField::Axis, 12, 12));
         assert_eq!(parse_value_query("lat 0").unwrap(), (ValueField::Latency, 0, 0));
+        assert_eq!(parse_value_query("T 10").unwrap(), (ValueField::T, 10, 10));
+        assert_eq!(parse_value_query("p=8").unwrap(), (ValueField::P, 8, 8));
+        assert!(parse_value_query("pulse").is_err());
         // `N 12` asks for an N axis: the L = 12 member does not answer it
         assert!(names(&Query { kind: "circuit".into(), value: "N 12".into(), ..Default::default() }).is_empty());
         assert!(parse_value_query("lever").is_err());

@@ -597,6 +597,14 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
             }
         }
     }
+    // study 11: a divider (its demo is a running clock) and a monostable (pulse pairs), else a
+    // burst
+    let first_of = |kind: &str| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult" && c.host.is_none() && c.layout_of.is_none() && c.kind.split_whitespace().next() == Some(kind)));
+    for (what, b) in [("study 11 divider", first_of("divider")), ("study 11 timer", first_of("monostable").or_else(|| first_of("burst")))] {
+        if let Some(b) = b {
+            pages.push((format!("{what} {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
+        }
+    }
     if entity == 0 {
         if let Some(b) = site.builds.iter().find(|b| b.kind == "clock" && b.trace.is_some()) {
             pages.push((format!("entity clock {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
