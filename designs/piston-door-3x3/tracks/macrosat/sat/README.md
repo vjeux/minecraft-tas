@@ -19,6 +19,6 @@ print wiring as `%` and add a `wiring: (x,y) ...` line.
 | `7x7-private` | v3 + `--private` (a wiring cell feeds one piston cell); its export is cands/m7-a (works with ideal inputs in redsim and the game; fails island start) |
 | `48` | v3 + island start; this is m86-a (works with ideal inputs, not wirable: see ../NOTES.md) |
 | `v6` | + the lever as a level and the vertical-plane strong-power rule (8e2cced03 without --strict); 6x8 (-1..4, -2..5): fails `--strict` on its layout and its replay breaks |
-| `v8` | v6 with the corrected strong-power rule (dust fed from above or below): the same 6x8 (-1..4, -2..5) layout again at h 6 (1322 s); UNSAT with `--physics` on its layout (h 8): not replayable |
+| `v8` | v6 with the corrected strong-power rule (dust fed from above or below): the same 6x8 (-1..4, -2..5) layout again at h 6 (1322 s) and h 8; UNSAT with `--physics` on its layout (h 8): not replayable. Also SAT: 7x7 (-2..4, -2..4) h 6 (19975 s) and 8x6 (-3..4, -1..4) h 6 (22846 s); both layouts are UNSAT under `--physics` with the hold / redstone-block / arming rules at h 8 and h 12 |
 
 None of these passes `--strict` (w86's wirability rules); the `--strict` sweeps have no SAT yet.
