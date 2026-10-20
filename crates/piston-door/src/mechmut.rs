@@ -40,19 +40,21 @@ pub struct Var {
     pub connect: String,
     /// Pistons no lever-woken free-cell region ever feeds (connect; w86's metric).
     pub never: usize,
+    /// `--validate`: the schedule WORKS in redsim (None = not checked).
+    pub real: Option<bool>,
     pub so: Sched,
     pub sc: Sched,
 }
 
 impl Var {
-    pub fn key(&self) -> (bool, usize, usize, usize, u8, usize) {
+    pub fn key(&self) -> (bool, bool, usize, usize, usize, u8, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
             'C' => 2,
             _ => 3,
         };
-        (self.connect != "WIRABLE", self.never, self.unfed, self.pistons, cr, self.events)
+        (self.real == Some(false), self.connect != "WIRABLE", self.never, self.unfed, self.pistons, cr, self.events)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -61,6 +63,23 @@ impl Var {
 
 /// A piece change from the parent: (old piece, its replacement or None = dropped).
 pub type Change = Option<(Pc, Option<Pc>)>;
+
+/// `--validate`: keep a variant only when its macro schedule, as a `door ideal` plan (between-
+/// ticks inputs; hallway test inputs allowed), WORKS in redsim at the 4 base positions.
+pub static VALIDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> bool {
+    crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
+    let (wld, map) = fam::to_world(m);
+    for (_, msol) in fam::ideal_solutions(m, rest, sol, &map) {
+        let Ok(p) = crate::mechsynth::ideal_plan(&wld, &msol, false, 6, "validate") else { continue };
+        let s = crate::ideal::Schedule::from_events(p.design, &p.events);
+        if crate::ideal_rs::run(&s, &std::collections::BTreeMap::new(), &crate::ideal::offsets(0), 1, false).is_ok() {
+            return true;
+        }
+    }
+    false
+}
 
 fn to_sched(m: &Mech, seq: &[fam::E]) -> Sched {
     seq.iter().map(|e| (m.pieces[m.pid[e.id as usize]], e.act)).collect()
@@ -139,6 +158,8 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         }
     }
     let sol = fam::Sol { open: open_e.clone(), close: close_e.clone(), sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
+    // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
+    let real = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
     let w = fam::wiring(&m, &rest, &sol);
     // families' wiring counts only free off-ring cells as feeds; a piston next to (or under, by
     // quasi-connectivity) a STATIC ring stone that a free off-ring cell can strongly power is fed
@@ -204,6 +225,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         replayed,
         connect,
         never,
+        real,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
     })
@@ -292,7 +314,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
         seen.insert(p.clone());
         match res {
             Some(v) => {
-                eprintln!("[mechmut] seed {}: connect {} never-fed {} unfed {} class {} pistons {} events {}", v.line(), v.connect, v.never, v.unfed, v.class, v.pistons, v.events);
+                eprintln!("[mechmut] seed {}: redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}", v.line(), v.real, v.connect, v.never, v.unfed, v.class, v.pistons, v.events);
                 beam.push(v.clone());
                 kept.push(v);
             }
@@ -302,7 +324,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, so: Vec::new(), sc: Vec::new() });
+                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, so: Vec::new(), sc: Vec::new() });
                 }
             }
         }
@@ -335,7 +357,8 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
             break;
         }
         let b = &beam[0];
-        eprintln!("[mechmut]   best: connect {} never-fed {} unfed {} class {} pistons {} events {}: {}", b.connect, b.never, b.unfed, b.class, b.pistons, b.events, b.line());
+        let nreal = beam.iter().filter(|v| v.real == Some(true)).count();
+        eprintln!("[mechmut]   best ({nreal} of the beam WORK in redsim): redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}: {}", b.real, b.connect, b.never, b.unfed, b.class, b.pistons, b.events, b.line());
     }
     kept.sort_by_key(|v| v.key());
     kept
@@ -380,9 +403,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("connect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
+    let mut tsv = String::from("redsim\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
     for v in &kept {
-        tsv.push_str(&format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
+        let rs = match v.real {
+            Some(true) => "WORKS",
+            Some(false) => "BROKEN",
+            None => "-",
+        };
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,
