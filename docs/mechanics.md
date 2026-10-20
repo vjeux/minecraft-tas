@@ -772,10 +772,13 @@ behaves identically in the official server.**
   hold it up.
 * A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
   item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
-* **Known gap (2026-10-19, not chased):** `door redsim-verify` FAILS 8 of the 12 archived gravity
-  doors that pass the real judge (g1-67b, g1-69b, g3-60b, g4-51b, g6-49b, sf1-66b, sf1-68b,
-  sf3-64b; g7, g8, g9, g10 pass): redsim's falling-block model (`gravity.rs`, pistmodel) is
-  stricter than the game somewhere in these doors. As a search pre-screen it would reject them.
+* `door redsim-verify` on the 12 archived gravity doors: g7-g10 PASS; the other 8 (g1-67b,
+  g1-69b, g3-60b, g4-51b, g6-49b, sf1-66b, sf1-68b, sf3-64b) fail only the "nothing in front of
+  or behind the door" rule (2026-10-18 16:40Z: their lever port `1 0 -2` stands in front), which
+  today's `door verify` applies too; their archived verdicts predate it. With
+  `--legacy-walkway` (both judges skip that rule) all 8 PASS in redsim at 32 positions with the
+  real judge's open/close ticks (`--judge`: 0 disagreements; clk-misc's diagnosis, 2026-10-20).
+  So redsim's falling-block model agrees with the game on all 12.
 * In redsim, falling blocks take their ids from the counter every entity shares and tick with the
   other entities in spawn order (`entity::tick_phase`); they do not run `applyEffectsFromBlocks`
   (plates, tripwires and bubble columns do not see them).

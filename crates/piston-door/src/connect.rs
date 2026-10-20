@@ -775,24 +775,117 @@ fn try_lever(l: &Layout, rest: &World, start: u64, label: &str, cap: usize) -> R
     Err((msg, capped_c, true, never.len()))
 }
 
+/// One `door connect` job: a mechanism (rest state + macro run) in one placement of a box.
+struct Job {
+    id: String,
+    rest: World,
+    sol: Solution,
+    lo: [i8; 2],
+    hi: [i8; 2],
+    tag: String,
+}
+
+/// Jobs from a `door mechmut` TSV (columns `mechanism` = `W H x0 y0 piece...`, `open`, `close`):
+/// each variant in its own box (pieces as mechmut writes them: pistons, `stone(x,y)`,
+/// `obsidian(x,y)`). Ids are `row<N>` (1-based data rows) with the redsim verdict when present.
+fn mechmut_jobs(text: &str, only: &[String]) -> anyhow::Result<Vec<Job>> {
+    let mut lines = text.lines();
+    let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
+    let col = |name: &str| header.iter().position(|h| *h == name);
+    let (cm, cop, ccl) = (col("mechanism").context_none("mechanism")?, col("open").context_none("open")?, col("close").context_none("close")?);
+    let crs = col("redsim");
+    let mut jobs = Vec::new();
+    for (n, line) in lines.enumerate() {
+        let f: Vec<&str> = line.split('\t').collect();
+        if f.len() <= cm.max(cop).max(ccl) {
+            continue;
+        }
+        let id = format!("row{}{}", n + 1, crs.and_then(|c| f.get(c)).map(|v| format!("[{v}]")).unwrap_or_default());
+        if !only.is_empty() && !only.iter().any(|o| id.starts_with(o.as_str())) {
+            continue;
+        }
+        let t: Vec<&str> = f[cm].split_whitespace().collect();
+        if t.len() < 4 {
+            continue;
+        }
+        let (w, h, x0, y0): (i8, i8, i8, i8) = (t[0].parse()?, t[1].parse()?, t[2].parse()?, t[3].parse()?);
+        let mut b: Vec<(P, Kind)> = Vec::new();
+        for x in 0..3 {
+            for y in 0..3 {
+                b.push(([x, y, 0], Kind::Door));
+            }
+        }
+        for tok in &t[4..] {
+            let static_kind = |name: &str| tok.strip_prefix(name).and_then(|r| r.strip_prefix('(')).and_then(|r| r.strip_suffix(')')).and_then(|r| r.split_once(','));
+            if let Some((xs, ys)) = static_kind("stone") {
+                b.push(([xs.trim().parse()?, ys.trim().parse()?, 0], Kind::Stone));
+            } else if let Some((xs, ys)) = static_kind("obsidian") {
+                b.push(([xs.trim().parse()?, ys.trim().parse()?, 0], Kind::Obsidian));
+            } else {
+                b.push(crate::topology::parse_piece(tok)?);
+            }
+        }
+        b.sort();
+        let pow = World::rest_pow(&b);
+        let rest = World { b, pow };
+        let seq = |s: &str| -> anyhow::Result<Vec<Ev>> { s.split_whitespace().map(|tk| crate::topology::parse_event(&rest, tk)).collect() };
+        let (Ok(open), Ok(close)) = (seq(f[cop]), seq(f[ccl])) else {
+            println!("{id}: skipped (sequences)");
+            continue;
+        };
+        let (lo, hi) = ([x0, y0], [x0 + w - 1, y0 + h - 1]);
+        jobs.push(Job { id, rest, sol: Solution { open, close, sym: None, states: 0 }, lo, hi, tag: format!("{w}x{h} x {}..{} y {}..{}", lo[0], hi[0], lo[1], hi[1]) });
+    }
+    Ok(jobs)
+}
+
+trait ContextNone<T> {
+    fn context_none(self, what: &str) -> anyhow::Result<T>;
+}
+impl<T> ContextNone<T> for Option<T> {
+    fn context_none(self, what: &str) -> anyhow::Result<T> {
+        self.ok_or_else(|| anyhow::anyhow!("no column {what}"))
+    }
+}
+
+/// Check every job in parallel; one line each (the verdict's last report line), then a summary.
+fn run_jobs(jobs: Vec<Job>, cap: usize, threads: usize, verbose: bool) -> anyhow::Result<()> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|sc| {
+        for _ in 0..threads.max(1) {
+            sc.spawn(|| loop {
+                let k = next.fetch_add(1, Ordering::Relaxed);
+                let Some(j) = jobs.get(k) else { break };
+                let v = check(&j.rest, &j.sol, j.lo, j.hi, cap);
+                let line = format!("{} in {}: {}", j.id, j.tag, v.report.lines().last().unwrap_or("").trim());
+                println!("{line}");
+                if verbose {
+                    print!("{}", v.report);
+                }
+                results.lock().unwrap().push((j.id.clone(), j.tag.clone(), v.ok));
+            });
+        }
+    });
+    let res = results.into_inner().unwrap();
+    let ok: Vec<String> = res.iter().filter(|r| r.2).map(|r| format!("{} ({})", r.0, r.1)).collect();
+    println!("{} placements checked, {} wirable (connectivity + order): {}", res.len(), ok.len(), ok.join(", "));
+    Ok(())
+}
+
 /// `mctas door connect <catalog.tsv> --boxes 7x9 [--only ids]`: every entry, every placement of its
-/// footprint in each box.
+/// footprint in each box; a `door mechmut` TSV (a `mechanism` column): each variant in its own box.
 pub fn catalog_cli(path: &std::path::Path, only: &[String], boxes: &[(i8, i8)], cap: usize, threads: usize, verbose: bool) -> anyhow::Result<()> {
     mechsynth::SEAMLESS.store(true, Ordering::Relaxed);
     mechsynth::SEAMLESS_OPEN.store(true, Ordering::Relaxed);
     let text = std::fs::read_to_string(path)?;
     let mut lines = text.lines();
     let header: Vec<&str> = lines.next().unwrap_or_default().split('\t').collect();
+    if header.contains(&"mechanism") {
+        return run_jobs(mechmut_jobs(&text, only)?, cap, threads, verbose);
+    }
     let col = |name: &str| header.iter().position(|h| *h == name).ok_or_else(|| anyhow::anyhow!("no column {name}"));
     let (ci, cb, co, cp, cop, ccl, cs) = (col("id")?, col("box")?, col("door_offset")?, col("pieces")?, col("open")?, col("close")?, col("sym")?);
-    struct Job {
-        id: String,
-        rest: World,
-        sol: Solution,
-        lo: [i8; 2],
-        hi: [i8; 2],
-        tag: String,
-    }
     let mut jobs: Vec<Job> = Vec::new();
     for line in lines {
         let f: Vec<&str> = line.split('\t').collect();
@@ -868,25 +961,5 @@ pub fn catalog_cli(path: &std::path::Path, only: &[String], boxes: &[(i8, i8)], 
             }
         }
     }
-    let next = std::sync::atomic::AtomicUsize::new(0);
-    let results = std::sync::Mutex::new(Vec::new());
-    std::thread::scope(|sc| {
-        for _ in 0..threads.max(1) {
-            sc.spawn(|| loop {
-                let k = next.fetch_add(1, Ordering::Relaxed);
-                let Some(j) = jobs.get(k) else { break };
-                let v = check(&j.rest, &j.sol, j.lo, j.hi, cap);
-                let line = format!("{} in {}: {}", j.id, j.tag, if v.ok { format!("WIRABLE (lever K{})", v.lever.unwrap_or(0)) } else { v.report.lines().last().unwrap_or("").trim().to_string() });
-                println!("{line}");
-                if verbose {
-                    print!("{}", v.report);
-                }
-                results.lock().unwrap().push((j.id.clone(), j.tag.clone(), v.ok));
-            });
-        }
-    });
-    let res = results.into_inner().unwrap();
-    let ok: Vec<String> = res.iter().filter(|r| r.2).map(|r| format!("{} ({})", r.0, r.1)).collect();
-    println!("{} placements checked, {} wirable (connectivity + order): {}", res.len(), ok.len(), ok.join(", "));
-    Ok(())
+    run_jobs(jobs, cap, threads, verbose)
 }

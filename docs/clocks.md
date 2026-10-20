@@ -134,7 +134,9 @@ layer 0:
   port, 2026-10-19) as far as their blocks and kinds are modeled (else UNMODELED with what is
   missing); an entity's exact doubles never repeat, so for designs with entities the period comes
   from the blocks by the real-game judge's own rule (every cell's state repeating for 3 periods
-  within 4000 gt, the smallest warmup then period): every traced entity clock (the 50 exact traces
+  within 4000 gt, the smallest warmup then period, and the period holding over at least the
+  second half of the horizon: a drifting entity can show a short block pattern near the end of
+  any window, 2026-10-20): every traced entity clock (the exact traces
   in `designs/clocks/traces/exact`, all tick-identical under `redsim-fuzz trace-compare`) gives
   the same CLOCK line as the game. Example: a minecart on a 3x3
   rail loop with two powered rails on redstone blocks over a detector rail is a robust P476 clock
@@ -245,7 +247,8 @@ item or entity: the `core` palette plus honey, obsidian, oak and iron trapdoors,
 activator rails, fence gates, droppers, leaves; ~100 states; self-start or one block placed last;
 a candidate whose whole state does not repeat within 12 gt is dropped early) finds NO clock of
 period 2 or 3 in: 2x1x1 (k 2), 3x1x1 (k 3), 2x2x1, 2x1x2, 3x2x1, 3x1x2, 2x2x2, 3x3x1, 3x2x2, 3x1x3
-(k 4), 3x3x2 (k 3). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
+(k 4), 3x3x2 (k 3), nor in 2x2x2 at k 5 (every filling of the cube with 5 blocks of the ~100
+states: 4984 chunks, 5.6 h on 96 threads, 0 clocks). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
 observer + piston types in 3x2x1), so the pruning keeps real clocks. The game-source arguments for
 the families that cannot reach P2/P3 at any size are in `designs/clocks/impossible.tsv` (clk-rt,
 clk-obs).
@@ -270,7 +273,7 @@ type; `summary.md`; `designs/`), archived as `kit-<kit>-<entity>-p<P>-<n>b`.
 | kit | space | candidates, run | clock types | archived (the smallest per period and entity) |
 |---|---|---|---|---|
 | K1 `shuttle` | straight track of 2-7 rails (plain, powered, detector) on stone or (powered rails) redstone blocks, stone bumper or nothing at each end, a minecart on a rail at rest or at 0.4 b/t either way | 27.4 M, 70 s on 28 threads | 1289 | 28 periods from 25 to 197 gt: 11 pieces (P25, P30: `S P P D P S`), 13 (P28, 29, 33, 40, 66), 15, 17 |
-| K2 `bouncer` | an oak boat (2x2 pool), item or armor stand on a 1-2 deep bubble column over soul sand or magma, walled; a tripwire across at height 1-4 (either axis, either row), an optional cap (stone, slabs, trapdoor, lantern) 1-2 above it | 5 k, 60 s | 343 | 13: boats P72, 73, 74, 77, 81 (19 pieces), P82 (18, one less than clk-misc-boat-bouncer), P134; items P26, P133, P621 (11 pieces), P12, P887, P991 |
+| K2 `bouncer` | an oak boat (2x2 pool), item or armor stand on a 1-2 deep bubble column over soul sand or magma, walled; a tripwire across at height 1-4 (either axis, either row), an optional cap (stone, slabs, trapdoor, lantern) 1-2 above it | 5 k, 60 s | 343 | 12: boats P72, 73, 74, 77, 81 (19 pieces), P82 (18, one less than clk-misc-boat-bouncer), P134; items P26, P133, P621 (11 pieces), P887, P991 (the item "P12", archived 03:57Z, was a horizon artifact: its item never repeats exactly, so a short block pattern near the end of the window looked periodic; un-archived 2026-10-20 when the entity rule began requiring the period over the second half of the horizon, clk-misc's find; its exact trace stays as a redsim test, tick-identical over 4101 gt) |
 | K3 `dripleaf` | a big dripleaf on dirt with an entity on its leaf (armor stand, item, oak boat), an observer watching the leaf, and up to 3 dust / stone / repeater or 4 dust / stone in a 5x4x4 box | 15 M, 23 min | 6 | 3: P4, 8 pieces, with each entity (the leaf tilts under any of them) |
 
 The items of the kits carry `Age:-32768s` (else an item despawns after 6000 gt and the clock stops
@@ -278,9 +281,9 @@ after 5 minutes) and `PickupDelay:32767s`.
 
 The fluid census (P1, 2026-10-19: `clock census --palette 'core,minecraft:water[level=0],minecraft:soul_sand,minecraft:magma_block'`,
 59 states) finds NO clock with water or a bubble column in its family in 3x2x1, 3x1x2, 2x2x2,
-3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks: the core clocks again, some
-with soul sand or magma as an inert support): a water clock needs more room than 4 blocks (the
-smallest archived, clk-misc-bubble-flip, has 12).
+3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks) nor in 2x2x2 at k 5
+(3578429 clocks): the core clocks again, some with soul sand or magma as an inert support. A water
+clock needs more room (the smallest archived, clk-misc-bubble-flip, has 12 blocks).
 
 ## What redsim models exactly
 

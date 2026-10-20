@@ -151,6 +151,8 @@ struct Details {
     output_lamp: bool,
     /// The judge's actions at the target / probe cells (`data-events`).
     events: String,
+    /// Why redsim cannot run the design (empty: it can).
+    unmodeled: String,
 }
 
 fn details(c: &Design) -> Details {
@@ -169,15 +171,20 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new() };
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new() };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
             d.summary = format!("simulation failed: {e:#}");
+            d.unmodeled = format!("{e:#}");
             return d;
         }
     };
     d.summary = r.summary(c);
+    if let Err(e) = &r.trace {
+        // `not modeled by redsim: block "oak_fence" is not modeled by redsim` -> the reason
+        d.unmodeled = e.rsplit(": ").next().unwrap_or(e).replace(" by redsim", "").trim().to_string();
+    }
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
     }
@@ -433,6 +440,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
                     output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
+                    unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
