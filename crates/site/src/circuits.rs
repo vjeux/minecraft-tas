@@ -1,9 +1,9 @@
 //! The circuits (the contraption studies, docs/circuits.md): every design the judge archived in
 //! `designs/circuits/<study>/archive/` (its `verdicts.tsv` row: kind, axis, metrics, robustness,
-//! the judge line; `captions.tsv`), with the variants folded as `mctas circuit catalog` folds them
-//! (within one kind and axis value, a design that only adds block kinds to a smaller one), plus
-//! the judge's calibration circuits in `designs/circuits/calibration/` (metrics from the redsim
-//! screen, `mctas circuit sim`, run here).
+//! the judge line; `captions.tsv`), with the catalog's folds (`catalog.tsv`: equivalent layouts,
+//! tunable groups; the dominance fold within one kind and axis value), the judge's own test run
+//! here for each page (the viewer's demo and the timing diagram), and the extendable families
+//! expanded to every member. The judge's calibration and selftest designs are not published.
 
 use anyhow::Result;
 use circuit::Circuit as Design;
@@ -72,23 +72,36 @@ fn number(v: &str) -> Option<i64> {
     s.parse().ok()
 }
 
-/// What a design file adds to its row: block kinds, input and output names, its box.
+/// What a design file adds to its row: block kinds, input and output names, its box, a machine's
+/// travel direction in words.
 struct Parsed {
     kinds: Vec<String>,
     inputs: Vec<String>,
     outputs: Vec<String>,
     dims: Option<(String, u32)>,
+    direction: String,
 }
 
 fn parse(path: &Path) -> Option<(Design, Parsed)> {
     let c = Design::load(path).ok()?;
     let (lo, hi) = c.bounds();
     let d = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    // only flying machines travel on their own; an extender's `travel` is its push direction
+    let direction = match (&c.kind, c.travel) {
+        (Some(circuit::Kind::FlyingMachine), Some(t)) => match t[1] {
+            1 => "up",
+            -1 => "down",
+            _ => "horizontal",
+        }
+        .to_string(),
+        _ => String::new(),
+    };
     let p = Parsed {
         kinds: c.kinds().into_iter().collect(),
         inputs: c.inputs.iter().map(|i| i.name.clone()).collect(),
         outputs: c.outputs.iter().map(|o| o.name.clone()).collect(),
         dims: Some((format!("{}x{}x{}", d[0], d[1], d[2]), (d[0] * d[1] * d[2]).max(0) as u32)),
+        direction,
     };
     Some((c, p))
 }
@@ -112,7 +125,7 @@ struct Details {
     phases: String,
     wave: Option<site_model::Wave>,
     table: Vec<String>,
-    /// The redsim screen's metrics when it passes (the calibration designs show these).
+    /// The judge's metrics when its run on the redsim screen passes.
     metrics: Option<Vec<(String, String)>>,
     /// The redsim screen's one-line verdict.
     summary: String,
@@ -162,11 +175,89 @@ fn details(c: &Design) -> Details {
         for (k, o) in c.outputs.iter().enumerate() {
             rows.push(site_model::WaveRow::from_levels(&o.name, false, &t.levels[k]));
         }
+        // the machines' position tracks (vjeux: "Can you put the position of the block?")
+        let metric = |k: &str| r.outcome.as_ref().and_then(|o| o.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())).unwrap_or_default();
+        match &c.kind {
+            Some(circuit::Kind::PistonExtender(n)) => {
+                if let Some(row) = payload_track(c, t, *n) {
+                    let mut row = row;
+                    let (ext, ret) = (metric("extend"), metric("retract"));
+                    if !ext.is_empty() {
+                        row.note = format!("out to N = {n} in {ext}, back in {ret}");
+                    }
+                    rows.push(row);
+                }
+            }
+            Some(circuit::Kind::FlyingMachine) => {
+                if let Some(mut row) = flight_track(c, t) {
+                    let speed = metric("speed");
+                    row.note = if speed.is_empty() { metric("two-way") } else { format!("1 block every {}", speed.trim_end_matches("/block")) };
+                    rows.push(row);
+                }
+            }
+            _ => {}
+        }
         if !rows.is_empty() && t.frames() > 1 {
             d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: r.schedule.phases.clone() });
         }
     }
     d
+}
+
+/// A piston extender's payload position per frame along its push direction (0 = home .. N =
+/// extended); while it moves (carried inside a moving piston) the last position holds.
+fn payload_track(c: &Design, t: &circuit::trace::Trace, n: u32) -> Option<site_model::WaveRow> {
+    let d = c.travel?;
+    let p0 = c.payloads.first()?.pos;
+    let rest_at = (c.clock.free_from() + circuit::stimulus::SETTLE).saturating_sub(1) as usize;
+    let payload = t.state(rest_at.min(t.frames().saturating_sub(1)), p0)?.to_string();
+    let id = t.names.iter().position(|s| *s == payload)? as u32;
+    let mut last = 0i32;
+    let mut levels: Vec<u8> = Vec::with_capacity(t.frames());
+    let mut top = n as i32;
+    for f in 0..t.frames() {
+        let here: Vec<&circuit::Pos> = t.cells[f].iter().filter(|(_, x)| *x == id).map(|(p, _)| p).collect();
+        if here.len() == 1 {
+            let p = here[0];
+            last = (p[0] - p0[0]) * d[0] + (p[1] - p0[1]) * d[1] + (p[2] - p0[2]) * d[2];
+        }
+        top = top.max(last);
+        levels.push(last.clamp(0, 255) as u8);
+    }
+    let mut row = site_model::WaveRow::from_levels("payload", false, &levels);
+    row.scale = top.max(1) as u32;
+    row.target = Some(n);
+    Some(row)
+}
+
+/// A flying machine's displacement along its travel per frame (cells from where it was built);
+/// while it moves between intact positions the last one holds.
+fn flight_track(c: &Design, t: &circuit::trace::Trace) -> Option<site_model::WaveRow> {
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let kick = match &c.clock.kick {
+        Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
+        _ => None,
+    };
+    let mut rec = circuit::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
+    for f in 0..t.frames() {
+        rec.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    let mut last = 0i32;
+    let mut top = 1i32;
+    let mut levels: Vec<u8> = Vec::with_capacity(t.frames());
+    for s in &rec.shifts {
+        if let Some(s) = s {
+            last = (s[0] * travel[0] + s[1] * travel[1] + s[2] * travel[2]).abs();
+        }
+        top = top.max(last);
+        levels.push(last.clamp(0, 255) as u8);
+    }
+    if top <= 1 && levels.iter().all(|l| *l == 0) {
+        return None;
+    }
+    let mut row = site_model::WaveRow::from_levels("moved", false, &levels);
+    row.scale = top as u32;
+    Some(row)
 }
 
 /// The archived circuits of every study.
@@ -236,6 +327,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     verdict: r.summary.clone(),
                     inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),
                     outputs: parsed.as_ref().map(|p| p.outputs.clone()).unwrap_or_default(),
+                    direction: parsed.as_ref().map(|p| p.direction.clone()).unwrap_or_default(),
                     family: r.family.clone(),
                     robustness: r.robustness.clone(),
                     host: host_id,
@@ -255,83 +347,14 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
     out
 }
 
-/// The judge's calibration circuits (verified in the game by clockinfra; metrics from redsim).
-fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
-    let mut out = Vec::new();
-    let dir = root.join("calibration");
-    let Ok(rd) = std::fs::read_dir(&dir) else { return out };
-    let mut files: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
-    files.sort();
-    for path in files {
-        let file = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-        let stem = file.trim_end_matches(".txt").to_string();
-        let text = std::fs::read_to_string(&path).unwrap_or_default();
-        let Some((c, p)) = parse(&path) else {
-            notes.push(format!("{}: does not parse as a circuit", path.display()));
-            continue;
-        };
-        let Some(kind) = c.kind.clone() else {
-            notes.push(format!("{}: no `circuit:` kind", path.display()));
-            continue;
-        };
-        let kind_name = kind.name();
-        let det = details(&c);
-        if let Some(why) = &det.fails {
-            notes.push(format!("{}: redsim screen fails: {why}", path.display()));
-        }
-        let metrics = det.metrics.clone().unwrap_or_default();
-        let verdict = format!("{} (simulated at site build time)", det.summary.trim_end().trim_end_matches("redsim").trim_end_matches([',', ' ']));
-        // the axis as the archive writes it (`L = 2 gt`, `N = 4 gt`, the gate's function)
-        let outcome = det.metrics.clone().map(|m| circuit::check::Outcome { pass: true, metrics: m, ..Default::default() });
-        let axis = match &outcome {
-            Some(o) => circuit::archive::axis(&kind, o, &p.kinds.join("+")),
-            None => kind_name.clone(),
-        };
-        let mut flags = flags_of(&metrics, "", &verdict);
-        flags.push("calibration".into());
-        let id = format!("circuits/calibration/{stem}");
-        let (dims, volume) = p.dims.clone().unzip();
-        out.push(Build {
-            id: id.clone(),
-            kind: "circuit".into(),
-            group: kind_name.clone(),
-            name: stem,
-            page: format!("{id}.html"),
-            design: format!("designs/circuits/calibration/{file}"),
-            blocks: c.blocks() as u32,
-            volume,
-            dims,
-            kinds: p.kinds.clone(),
-            caption: comment_caption(&text),
-            flags,
-            circuit: Some(Circuit {
-                study: kind.study().to_string(),
-                kind: kind_name,
-                value: number(&axis),
-                axis,
-                metrics,
-                verdict,
-                inputs: p.inputs,
-                outputs: p.outputs,
-                devices: det.devices,
-                stimulus: det.stimulus,
-                phases: det.phases,
-                wave: det.wave,
-                table: det.table,
-                ..Default::default()
-            }),
-            ..Default::default()
-        });
-    }
-    out
-}
-
+/// Every archived circuit of the studies. The judge's calibration and selftest designs
+/// (`designs/circuits/calibration/`, `selftest/`) stay in the repository for the judge and are
+/// not published (vjeux: "They are not useful to people").
 pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
     let mut builds = archived(&root, &mut notes);
     apply_catalog(&root, &mut builds, &mut notes);
-    builds.extend(calibration(&root, &mut notes));
     builds.sort_by(|a, b| {
         let s = |x: &Build| x.circuit.as_ref().map(|c| (c.study.clone(), c.value.unwrap_or(i64::MAX))).unwrap_or_default();
         (s(a), &a.group, a.blocks, &a.name).cmp(&(s(b), &b.group, b.blocks, &b.name))
@@ -442,6 +465,15 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.group_note = note.clone();
             }
         }
+        // what the members differ in, from their designs (vjeux: say WHAT differs)
+        let feats: Vec<VariantFeatures> = members.iter().map(|&i| Design::load(&root.join(repo_path_rel(&builds[i]))).map(|d| variant_features(&d)).unwrap_or_default()).collect();
+        let (differs, labels) = variant_differences(&feats);
+        for (k, &i) in members.iter().enumerate() {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.group_differs = differs.clone();
+                c.variant_label = labels[k].clone();
+            }
+        }
         if let Some(c) = builds[rep].circuit.as_mut() {
             c.span = span;
         }
@@ -452,6 +484,96 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
 /// A circuit build's design path relative to designs/circuits.
 fn repo_path_rel(b: &Build) -> String {
     repo_path(b).trim_start_matches(&format!("{ROOT}/")).to_string()
+}
+
+/// What can differ between the members of a tunable group, read from one member's design.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct VariantFeatures {
+    /// How the inputs are driven: `lever`, `stone button`, `oak button`, `redstone block`.
+    device: String,
+    /// Every repeater's delay, sorted.
+    repeaters: Vec<u32>,
+    /// Comparators in subtract mode, of how many.
+    subtract: usize,
+    comparators: usize,
+    blocks: usize,
+}
+
+fn variant_features(c: &Design) -> VariantFeatures {
+    let blocks = &c.clock.design.blocks;
+    let word = |s: &str| s.split(['[', '{']).next().unwrap_or(s).trim_start_matches("minecraft:").replace('_', " ");
+    let device = c
+        .inputs
+        .iter()
+        .map(|i| match &i.how {
+            circuit::InputHow::Lever => "lever".to_string(),
+            circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
+            circuit::InputHow::Block { on, .. } => word(on),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut repeaters: Vec<u32> = blocks
+        .values()
+        .filter(|s| s.starts_with("minecraft:repeater"))
+        .map(|s| s.split("delay=").nth(1).and_then(|r| r.split([',', ']']).next()).and_then(|d| d.parse().ok()).unwrap_or(1))
+        .collect();
+    repeaters.sort();
+    let comparators: Vec<&String> = blocks.values().filter(|s| s.starts_with("minecraft:comparator")).collect();
+    VariantFeatures { device, repeaters, subtract: comparators.iter().filter(|s| s.contains("mode=subtract")).count(), comparators: comparators.len(), blocks: c.blocks() }
+}
+
+/// What a group's members differ in, and each member's label for it (in `feats` order).
+fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
+    let varies = |f: &dyn Fn(&VariantFeatures) -> String| feats.iter().map(f).collect::<BTreeSet<_>>().len() > 1;
+    let device = varies(&|x| x.device.clone());
+    let rep_count = varies(&|x| x.repeaters.len().to_string());
+    // the delays differ beyond the count: two members with as many repeaters, other delays
+    let rep_delays = feats.iter().enumerate().any(|(i, a)| feats[i + 1..].iter().any(|b| a.repeaters.len() == b.repeaters.len() && a.repeaters != b.repeaters)) || (!rep_count && varies(&|x| format!("{:?}", x.repeaters)));
+    let cmp = varies(&|x| format!("{}/{}", x.subtract, x.comparators));
+    let length = varies(&|x| x.blocks.to_string());
+    let mut aspects: Vec<&str> = Vec::new();
+    if device {
+        aspects.push("the input device");
+    }
+    if rep_delays {
+        aspects.push("the repeater delays");
+    }
+    if rep_count {
+        aspects.push("the length of the repeater line");
+    }
+    if cmp {
+        aspects.push("the comparator modes");
+    }
+    if aspects.is_empty() && length {
+        aspects.push("the length");
+    }
+    if aspects.is_empty() {
+        aspects.push("their layout");
+    }
+    let text = match aspects.len() {
+        1 => aspects[0].to_string(),
+        n => format!("{} and {}", aspects[..n - 1].join(", "), aspects[n - 1]),
+    };
+    let labels = feats
+        .iter()
+        .map(|x| {
+            let mut parts: Vec<String> = Vec::new();
+            if device {
+                parts.push(x.device.clone());
+            }
+            if rep_count || rep_delays {
+                parts.push(if x.repeaters.is_empty() { "no repeater".to_string() } else { format!("delays {}", x.repeaters.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("+")) });
+            }
+            if cmp {
+                parts.push(if x.subtract == 0 { "compare".to_string() } else { format!("{} subtract", x.subtract) });
+            }
+            if parts.is_empty() {
+                parts.push(format!("{} blocks", x.blocks));
+            }
+            parts.join(", ")
+        })
+        .collect();
+    (text, labels)
 }
 
 /// How the extendable circuit families are expanded at build time.
@@ -481,7 +603,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
     let mut fams: Vec<Fam> = Vec::new();
     for (i, b) in builds.iter().enumerate() {
         let Some(c) = &b.circuit else { continue };
-        if c.study.is_empty() || b.page.starts_with("circuits/calibration/") {
+        if c.study.is_empty() {
             continue;
         }
         let path = repo.join(repo_path(b));
@@ -632,11 +754,9 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
 
 /// The repository path of a circuit build's design (for the GitHub link and the page's text).
 pub fn repo_path(b: &Build) -> String {
-    // designs/circuits/<sub>/<file> on the site; calibration designs live in the same place in
-    // the repository, archived ones under <study>/archive/
+    // designs/circuits/<study>/<file> on the site, <study>/archive/<file> in the repository
     let rest = b.design.trim_start_matches("designs/circuits/");
     match rest.split_once('/') {
-        Some(("calibration", f)) => format!("{ROOT}/calibration/{f}"),
         Some((study, f)) => format!("{ROOT}/{study}/archive/{f}"),
         None => b.design.clone(),
     }
@@ -645,6 +765,19 @@ pub fn repo_path(b: &Build) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn group_differences_name_what_varies() {
+        let f = |device: &str, reps: &[u32], blocks: usize| VariantFeatures { device: device.into(), repeaters: reps.to_vec(), blocks, ..Default::default() };
+        let (t, l) = variant_differences(&[f("lever", &[], 7), f("stone button", &[], 7), f("oak button", &[], 7)]);
+        assert_eq!(t, "the input device");
+        assert_eq!(l, vec!["lever", "stone button", "oak button"]);
+        let (t, l) = variant_differences(&[f("redstone block", &[1, 4], 17), f("redstone block", &[4, 4], 17), f("redstone block", &[4, 4, 4], 21)]);
+        assert_eq!(t, "the repeater delays and the length of the repeater line");
+        assert_eq!(l[2], "delays 4+4+4");
+        let (t, _) = variant_differences(&[f("redstone block", &[2], 5), f("redstone block", &[4], 5)]);
+        assert_eq!(t, "the repeater delays");
+    }
 
     #[test]
     fn verdict_metrics() {

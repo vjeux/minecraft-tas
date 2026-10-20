@@ -307,6 +307,30 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
+    // different sizes, not others of size 1"): every card there has another value
+    if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let mine = b.circuit.as_ref().and_then(|c| c.value);
+        let section = page.split("<h2>Piston extenders of other reaches").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+        let values: Vec<Option<i64>> = section
+            .split("href=\"")
+            .skip(1)
+            .filter_map(|s| s.split('"').next())
+            .filter_map(|h| site.builds.iter().find(|o| h.ends_with(&o.page)))
+            .map(|o| o.circuit.as_ref().and_then(|c| c.value))
+            .collect();
+        let distinct: std::collections::BTreeSet<Option<i64>> = values.iter().copied().collect();
+        check(
+            "circuit page: the related list walks the axis (other reaches, one each)",
+            values.len() >= 2 && !values.contains(&mine) && distinct.len() == values.len(),
+            format!("{}: N = {:?}", b.page, values.iter().map(|v| v.unwrap_or(-1)).collect::<Vec<_>>()),
+        );
+    }
+    // the judge's calibration / selftest designs are not published (vjeux 02:40Z)
+    let calib = site.builds.iter().filter(|b| b.page.starts_with("circuits/calibration/") || b.page.starts_with("circuits/selftest/")).count();
+    let calib_dir = dir.join("circuits/calibration").exists() || dir.join("circuits/selftest").exists() || dir.join("designs/circuits/calibration").exists();
+    check("no calibration or selftest circuit published", calib == 0 && !calib_dir, format!("{calib} builds, folders: {calib_dir}"));
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
     let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
