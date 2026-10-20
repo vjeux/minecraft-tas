@@ -282,41 +282,72 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             out.push(cur.design.clone());
             continue;
         }
-        // 2. a substitution plus a removal
+        // 2. a substitution plus a removal; 3. a block placed in an empty cell next to the design
+        // plus two removals (a move that frees a block)
         let states = &o.palette;
-        let mut tries: Vec<(Pos, String, Pos)> = Vec::new();
-        for a in &positions {
-            for s in states {
-                for b in &positions {
-                    if b != a {
-                        tries.push((*a, s.clone(), *b));
+        let (lo, hi) = cur.design.bounds().unwrap_or(([0; 3], [0; 3]));
+        let path = path_cells(&cur);
+        let mut empties: Vec<Pos> = Vec::new();
+        for y in lo[1] - 1..=hi[1] + 1 {
+            for z in lo[2] - 1..=hi[2] + 1 {
+                for x in lo[0] - 1..=hi[0] + 1 {
+                    let c = [x, y, z];
+                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) {
+                        empties.push(c);
+                    }
+                }
+            }
+        }
+        let n = positions.len();
+        let mut tries: Vec<(Pos, usize, usize, Option<usize>)> = Vec::new();
+        for (ai, a) in positions.iter().enumerate() {
+            for si in 0..states.len() {
+                for bi in 0..n {
+                    if bi != ai {
+                        tries.push((*a, si, bi, None));
+                    }
+                }
+            }
+        }
+        let subs = tries.len();
+        for c in &empties {
+            for si in 0..states.len() {
+                for b1 in 0..n {
+                    for b2 in b1 + 1..n {
+                        tries.push((*c, si, b1, Some(b2)));
                     }
                 }
             }
         }
         let next = AtomicUsize::new(0);
-        let hit: Mutex<Option<Pext>> = Mutex::new(None);
+        let hit: Mutex<Option<(usize, Pext)>> = Mutex::new(None);
         std::thread::scope(|s| {
             for _ in 0..o.threads.max(1) {
                 s.spawn(|| {
                     loop {
-                        if hit.lock().unwrap().is_some() {
-                            break;
-                        }
                         let i = next.fetch_add(1, Ordering::Relaxed);
                         if i >= tries.len() {
                             break;
                         }
-                        let (a, st, b) = &tries[i];
+                        // the substitutions first: stop at the first hit of the earlier phase
+                        if let Some((hi, _)) = &*hit.lock().unwrap() {
+                            if *hi < subs || i >= subs {
+                                break;
+                            }
+                        }
+                        let (a, si, b1, b2) = &tries[i];
                         let mut d = cur.design.clone();
-                        d.blocks.insert(*a, st.clone());
-                        d.blocks.remove(b);
+                        d.blocks.insert(*a, states[*si].clone());
+                        d.blocks.remove(&positions[*b1]);
+                        if let Some(b2) = b2 {
+                            d.blocks.remove(&positions[*b2]);
+                        }
                         let Ok(np) = Pext::from_design(d) else { continue };
                         let Ok(pr) = Prepared::new(&np, 2) else { continue };
                         if screen_ok(&Some(pr.clone())) && rs::judge(&pr, &Params::default(), false).0.works() {
                             let mut h = hit.lock().unwrap();
-                            if h.is_none() {
-                                *h = Some(np);
+                            if h.as_ref().is_none_or(|(hi, _)| i < *hi) {
+                                *h = Some((i, np));
                             }
                         }
                     }
@@ -324,7 +355,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             }
         });
         match hit.into_inner().unwrap() {
-            Some(np) => {
+            Some((_, np)) => {
                 cur = np;
                 out.push(cur.design.clone());
             }
