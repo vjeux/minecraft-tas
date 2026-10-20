@@ -604,24 +604,33 @@ fn checks() -> Vec<Check> {
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
-    // chests, every item and box counted): the reference loader and unloader with unstackables
-    // (27 items per box: a fast run), and a loader that breaks its boxes early refused
+    // chests, every item and box counted): track shulker's always-on loader and unloader with
+    // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
+    // boxes early refused
     v.push(Check {
         name: "circuit:verify-shulker".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on track shulker's reference loader and unloader with unstackables: 3 boxes, robust, hopper pace (cycle 224 / 220 gt); a loader that breaks its boxes at the first item refused; `circuit sim` says redsim does not model them yet",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on track shulker's always-on loader and unloader with unstackables: 3 boxes, robust, hopper pace (cycle 224 / 220 gt), every badge they claim (always-on, colours, restart, box-starved, drop-free); a loader that breaks its boxes at the first item refused; `circuit sim` says redsim does not model them yet",
         quick: false,
         jvm: true,
         steps: vec![
-            args("?circuit verify --positions 1 --workers 4 designs/circuits/shulker/tracks/shulker/ref-loader-1.txt designs/circuits/shulker/tracks/shulker/ref-unloader-1.txt designs/circuits/selftest/shulker-early-loader.txt"),
-            args("circuit sim designs/circuits/shulker/tracks/shulker/ref-loader-1.txt"),
+            args("?circuit verify --positions 1 --workers 4 designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt designs/circuits/selftest/shulker-early-loader.txt"),
+            args("circuit sim designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
         ],
-        timeout: 600,
+        timeout: 900,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: shulker-ref-loader-1 shulker-loader 1 boxes/min 5.357, items/s 2.41, first box 239 gt, cycle 224 gt, 29 blocks, 6x4x5, robust")?;
-            has(&o[0], "CIRCUIT: shulker-ref-unloader-1 shulker-unloader 1 boxes/min 5.455, items/s 2.45, first box 238 gt, cycle 220 gt, 47 blocks, 6x5x8, robust")?;
+            // the drop's random offset can move a median time by a gt: match around the times
+            let line = |name: &str| o[0].lines().find(|l| l.starts_with(&format!("CIRCUIT: {name} "))).unwrap_or("").to_string();
+            let l = line("shulker-auto-loader-1");
+            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.5") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
+                return Err(format!("auto loader: {l:?}: {}", tail(&o[0])));
+            }
+            let l = line("shulker-auto-unloader-1");
+            if !(l.contains("shulker-unloader 1 boxes/min ") && l.contains("items/s 2.4") && l.contains("cycle 22") && l.contains("badges always-on+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 35 redstone, 1 slime, 49 blocks, 5x6x8, robust")) {
+                return Err(format!("auto unloader: {l:?}: {}", tail(&o[0])));
+            }
             has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
-            has(&o[1], "UNMODELED: shulker-ref-loader-1: redsim does not model shulker boxes")?;
-            Ok("reference loader and unloader robust at hopper pace; the early breaker refused".into())
+            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not model shulker boxes")?;
+            Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
         }),
     });
     v
