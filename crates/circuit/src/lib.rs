@@ -635,9 +635,18 @@ impl Circuit {
                 v.push((t, a));
             }
         }
-        for (t, i, op) in &s.events {
-            let Some(tg) = self.targets.get(*i) else { continue };
-            let pos = tg.pos;
+        let probes = if s.events.iter().any(|e| matches!(e.1, stimulus::EventAt::Probe(_))) { self.probe_cells() } else { Vec::new() };
+        for (t, at, op) in &s.events {
+            let pos = match at {
+                stimulus::EventAt::Target(i) => match self.targets.get(*i) {
+                    Some(tg) => tg.pos,
+                    None => continue,
+                },
+                stimulus::EventAt::Probe(k) => match probes.get(*k) {
+                    Some(p) => *p,
+                    None => continue,
+                },
+            };
             let a = match op {
                 stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
                 stimulus::TargetOp::Clear => Action::Clear { pos },
@@ -648,6 +657,23 @@ impl Circuit {
         }
         v.sort_by_key(|(t, _)| *t);
         v
+    }
+
+    /// The air cells next to the design (face neighbors of its blocks) that are no port of it, in
+    /// position order: where the BUD judge probes the footprint.
+    pub fn probe_cells(&self) -> Vec<Pos> {
+        let d = &self.clock.design;
+        let ports: BTreeSet<Pos> = d.ports.values().copied().collect();
+        let mut out: BTreeSet<Pos> = BTreeSet::new();
+        for p in d.blocks.keys() {
+            for (dx, dy, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let q = [p[0] + dx, p[1] + dy, p[2] + dz];
+                if !d.blocks.contains_key(&q) && !ports.contains(&q) {
+                    out.insert(q);
+                }
+            }
+        }
+        out.into_iter().collect()
     }
 }
 

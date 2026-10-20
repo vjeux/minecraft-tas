@@ -16,7 +16,7 @@
 //! which both events are detected). Read VARIATIONS.md (designs/circuits/bud/) for why these five.
 
 use crate::check::{Outcome, Sizing};
-use crate::stimulus::{SETTLE, Schedule, TargetOp};
+use crate::stimulus::{EventAt, SETTLE, Schedule, TargetOp};
 use crate::trace::{Trace, runs};
 use crate::{Circuit, Pos};
 use anyhow::{Result, bail};
@@ -81,7 +81,7 @@ pub fn check_ports(c: &Circuit) -> Result<()> {
 }
 
 fn ev(s: &mut Schedule, t: u32, span: u32, i: usize, op: TargetOp, label: String) {
-    s.events.push((t, i, op));
+    s.events.push((t, EventAt::Target(i), op));
     s.phase(t, t + span, label);
 }
 
@@ -124,6 +124,16 @@ pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
     }
     s.phase(t, t + 2 * gap, "idle");
     t += 2 * gap;
+    // the footprint: place, remove and a pure update at every cell around the design (the cells
+    // that trigger it, the targets aside); a probe that leaves the output on ends it
+    let a0 = c.targets.first().map(|t| t.a.clone()).unwrap_or_else(|| DEFAULT_A.to_string());
+    for k in 0..c.probe_cells().len() {
+        for (op, what) in [(TargetOp::Place(a0.clone()), "place"), (TargetOp::Clear, "remove"), (TargetOp::Update, "update")] {
+            s.events.push((t, EventAt::Probe(k), op));
+            s.phase(t, t + gap, format!("probe {k} {what}"));
+            t += gap;
+        }
+    }
     // re-arm pairs, last (a pair too close together may jam a design: nothing after a jam is
     // measured): two events g apart then the gap, from the longest g down, every family at each g
     for g in REARM_GAPS.iter().rev().copied() {
@@ -140,8 +150,8 @@ pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
                     ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("rsetup {fam} {n}"));
                     t += gap;
                 }
-                s.events.push((t, i, e1));
-                s.events.push((t + g, i, e2));
+                s.events.push((t, EventAt::Target(i), e1));
+                s.events.push((t + g, EventAt::Target(i), e2));
                 s.phase(t, t + g + gap, format!("rearm {fam} {g} {n}"));
                 t += g + gap;
                 if setup {
@@ -175,6 +185,8 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     // per class: (event frame, pulses starting in its window)
     let mut events: Vec<(&'static str, u32, Vec<(usize, usize)>)> = Vec::new();
     let mut rearm: Vec<(String, u32, usize, bool)> = Vec::new();
+    // footprint probes: (cell index, pulses, off at the end)
+    let mut probes: Vec<(usize, usize, bool)> = Vec::new();
     for (a, b, label) in &s.phases {
         let ps = starting(*a, *b);
         let end = (*b as usize).saturating_sub(1).min(out.len().saturating_sub(1));
@@ -185,6 +197,10 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             continue;
         }
         if w.first() == Some(&"rsetup") {
+            continue;
+        }
+        if w.first() == Some(&"probe") {
+            probes.push((w.get(1).and_then(|k| k.parse().ok()).unwrap_or(0), ps.len(), !out[end]));
             continue;
         }
         // the output must be off again before the next event
@@ -313,6 +329,24 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if let Some((fam, g)) = jam {
         // two updates this close leave it stuck on (it needs a block update to recover)
         metrics.push(("jams".to_string(), format!("{fam} pair {g} gt apart")));
+    }
+    // footprint: the targets plus every cell around the design where a place, a removal or a pure
+    // update gives a pulse; counting stops at a probe that leaves the output on
+    let mut hit: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+    let mut stuck = false;
+    for (k, n, off) in &probes {
+        if *n > 0 {
+            hit.insert(*k);
+        }
+        if !*off {
+            stuck = true;
+            break;
+        }
+    }
+    if !probes.is_empty() {
+        let cells = c.targets.len() + hit.len();
+        table.push(format!("  footprint: {} target(s) + probe cells {:?} of {}{}", c.targets.len(), hit, probes.len() / 3, if stuck { " (a probe jammed it)" } else { "" }));
+        metrics.push(("footprint".to_string(), format!("{}{cells} cell{}", if stuck { ">= " } else { "" }, if cells == 1 { "" } else { "s" })));
     }
     Outcome { pass: true, why: String::new(), metrics, table }
 }
