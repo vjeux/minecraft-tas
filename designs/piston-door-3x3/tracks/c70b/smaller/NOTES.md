@@ -208,4 +208,8 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   it), which also powers its cell and QC-arms a retracted piston below; macrosat's own exports
   feed through the cell above where its model chose a QC feed (+ a glass update). So mechmut's
   redsim verdict is pessimistic for stacked pistons fed by QC (7x7-private / m7-a: clockinfra's
-  export WORKS, mechmut's re-export of the same schedule is BROKEN).
+  export WORKS, mechmut's re-export of the same schedule is BROKEN). Fixed for qc-off mechanisms
+  (macrosat seeds): the plan generator feeds a piston that stands above a retracted one through
+  the cell above it (input at z = +-1) with a glass update beside it; m7-a's schedule then opens
+  in redsim (its close still fails: the non-physics model). A dump's own export pair is judged
+  directly at load (redsim, strict feeds, extent; CANDIDATE when all pass).
