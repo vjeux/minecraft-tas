@@ -195,3 +195,29 @@ inactive: +0, +10/30, +20/40, each +2).
 So sculk cannot rescue u0 / u2's islands: they need late, edge-specific spits. A sculk 7x7 needs a
 mechanism whose sculk-fed pistons act early (or at +20 / +40), do holds or non-sticky pushes, and
 differ between edges only through the door's state.
+
+## m86-a (macrosat's first 48, 2026-10-20): unwirable, retracted
+
+clockinfra's macrosat found an 8x6 = 48 FULL-frame flat mechanism with every firing "fed" and an
+island start (explore/clockinfra fcfd9b057; copy in `m86/`). It works with ideal inputs (redsim 32
+positions, game 4). It cannot be wired:
+- **The lever.** macrosat hangs it on (2,4) = SD(2,4). There it powers SD(2,4) directly for the
+  whole open edge, and from the top face it also QC-powers SD(1,4) through (1,5). But the plan
+  PULSE-PULLs SD(2,4) at open t11 and t51 and retracts SD(1,4) at open t11 and t51. Checked
+  exactly with the real lever: `door ideal-rs m86/m86-a-lever-real.ideal --vary
+  '2,5,0=lever[face=floor,facing=north,powered=false]'` (the lever added in memory, `open 0 use` /
+  `close 0 use` in the plan): cycle 0 not open. The redstone-block stand-ins `m86-a-lever.ideal`
+  ((2,5)) and `m86-a-leverz.ideal` ((2,4,-1)) break the same way. This recipe screens any
+  candidate's lever spot exactly.
+- **SE(-1,1) has no feed in the box.** `door feeds`: its only option is QC through (-1,3), which
+  needs strong power from (-1,4). Nothing in-plane at (-1,4) can give it: repeaters and comparators
+  face only east/west here, an up-facing observer would watch (-1,5) outside the box, and a torch
+  strongly powers only the block above it. This is w86's wide satwire core. pockets3's core is open
+  (3,-1), fed only through the non-static (3,1).
+- **Region A2 {(-3,3),(-3,4)} sees nothing change during the open edge.** Its feeds all go through
+  one obsidian (-3,2), which powers SE(-3,0) (by QC), SE(-3,1), SE(-2,2) and SE(-2,1) at once, but
+  they need different timings (w86's plain core).
+- pext: no one-train schedule in 3M pairs.
+
+clockinfra retracted m86-a and is adding three rules to macrosat: the lever is a level, static
+conductors need strong power oriented as above, and per-region tick budgets.
