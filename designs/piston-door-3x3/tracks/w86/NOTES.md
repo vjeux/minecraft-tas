@@ -125,6 +125,16 @@
    Ways out under study: (a) a redstone block shuttled into (1,-2) along the bottom row (a clean level for P from
    below) and BM's down-puller carried into (1,-2) afterwards (one carrier push of the line [puller, block] swaps
    them); (b) F1's final block not BM (BM sideways: one more ring-resting piston, corner conflicts so far).
+4. (a) fails on room (23:35Z): a redstone block may never touch a non-front face of a piston that must rest
+   unpowered, and in w1 every free bottom cell touches one ((-2,-2) L, (-1,-2) BL's puller, (3,-2) BR's puller,
+   (4,-2) R, (-1,-1) Q's back); the only safe rest is the corner (3,-1) = P's escape spot. A block lane through F2
+   (from (3,-1) or (2,-2)) collides with P's escape corner or BR's puller; through F0 with Q / Q's corner; through
+   (1,-2) needs [BL puller, BM puller, BR puller, block] in one 7-cell row with a pusher, and every one-shift
+   arrangement leaves the block on BL's or BR's puller cell at the end. In short the bottom row has 2 corners for
+   3 jobs (P's escape spot, Q's escape spot, the block's lane). c70b's `mechmut --add --add-redstone` from w1 /
+   w1-12 (3 rounds, beam 12, 64 threads, 26 min): 2917 variants kept, none with a redstone block, unfed stays 2
+   (P and BM's down-puller). Also: a lever may hang on a block's front/back face (rules.md), but on a moving block
+   or a piston's side face it pops, and P and its neighbours all move.
 
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
