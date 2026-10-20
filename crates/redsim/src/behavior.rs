@@ -189,6 +189,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::DaylightDetector { .. } => face == Dir::Down,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
+        // ---- fences (clk-misc): support shape = the 24 px post + arms ----
+        Block::Fence { .. } => crate::fence::sturdy(s, face, support),
         _ => false,
     }
 }
@@ -326,6 +328,14 @@ pub fn instrument(s: &Block) -> Instrument {
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         // ---- TNT dupers (track tnt) ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => Instrument::Basedrum,
+        // ---- fences (clk-misc): BASS, the nether brick fence BASEDRUM ----
+        Block::Fence { kind, .. } => {
+            if crate::fence::wooden(kind) {
+                Instrument::Bass
+            } else {
+                Instrument::Basedrum
+            }
+        }
         _ => Instrument::Harp,
     }
 }
@@ -443,6 +453,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
                 vec![[6, 10, 0, 24, 0, 16]]
             }
         }
+        // ---- fences (clk-misc): post + arms, 24 px tall ----
+        Block::Fence { north, east, south, west, .. } => crate::fence::collision_boxes(north, east, south, west),
         Block::Slab { kind } => match kind {
             0 => vec![[0, 16, 0, 8, 0, 16]],
             1 => vec![[0, 16, 8, 16, 0, 16]],
@@ -613,6 +625,8 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::BubbleColumn { .. } => crate::fluid::bubble_update_shape(w, s, p, d, ns),
         // ---- TNT dupers (track tnt) ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => crate::tnt::fan_update_shape(w, s, p, d),
+        // ---- fences (clk-misc) ----
+        Block::Fence { .. } => crate::fence::update_shape(w, s, p, d, np, ns),
         _ => s,
     }
 }
