@@ -73,3 +73,18 @@ Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use;
 
 The best design of each variation is archived (`mctas circuit archive`); a design that is bigger
 and slower than an archived one of the same variation is dominated and stays out.
+
+## Results so far (2026-10-20, explore/tnt)
+
+| variation | status | design / measure |
+|---|---|---|
+| smallest, self-running | 12 blocks, 200 TNT/min, P6, robust | archive/tnt-duper-12b (local search `circuit tnt improve`: 3.5M distinct dupers seen, none under 12 in this family) |
+| smallest, per pulse | 13 blocks, 1 TNT per pulse, latency 1 gt, robust | archive/tnt-duper-triggered-13b |
+| rate | 200 TNT/min per duper: the sticky piston's push + pull take 6 gt, 1 TNT each | tiles below scale it |
+| TILEABLE | yes, robust in the game: 4 copies touching along the push axis (step 4, 3x2x16) or with a 1-block gap across it (step 4, 15x2x4): 800 TNT/min; touching across (step 3) or stacked: they interfere | `circuit tnt tile` + `circuit verify` |
+| direction | both archived dupers DROP their TNT (it falls from the cell it was primed in) | `circuit tnt precision` |
+| PRECISE | not yet: at first sight the spread is 0.039 across (the random 0.02 kick) and 0.55 along the push. Why (`PistonMovingBlockEntity.moveCollidedEntities`): a moving block pushes only entities in the cells it moves INTO; the primed TNT sits in the cell its moved copy leaves, so it is pushed only when its random kick takes it 0.01 out of that cell toward the push (about half the cycles). A 1x1 shaft under it does not catch it (the pushed half lands off it) | `circuit tnt precision`; the code's way to exact: a push the TNT always meets (an upward push: its 0.2 upward motion is not random), then a push against a wall on each horizontal axis (a piston push stops at the wall: that coordinate becomes exact and the collision zeroes that motion) |
+| item-free | yes (dead coral fans drop nothing) | |
+| MOVABLE | not found, and the code leaves no room for it: inside a push, only a dust's connection change (computed on the fly) gives a TNT power without updating it first, and dust cannot ride a piston; the other silent source is an observer landing powered on a cell with a pending observer tick, but a landing happens after that tick's phase, so the tick an observer scheduled there is already gone | analysis (track NOTES.md) |
+| BURST | same tick, different cells: the tiled 12b primes 4 TNT in the same tick from 4 engines (robust). One push priming 2 TNT: a second dust beside the same redstone block, its TNT and its fan push the frame past the 12-block push limit; 12.8M redsim samples from the 12b found none. Same position needs the aligner of PRECISE | `circuit tnt search --min-per 2` |
+| lever on/off, slime-free | open (honey: a floor fan cannot stand on honey, whose top is not sturdy) | |

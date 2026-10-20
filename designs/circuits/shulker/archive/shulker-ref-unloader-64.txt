@@ -1,5 +1,5 @@
 # archived 2026-10-20T05:21Z from designs/circuits/shulker/tracks/shulker/ref-unloader-64.txt by mctas circuit archive
-# CIRCUIT: shulker-ref-unloader-64 shulker-unloader boxes/min 0.087, items/s 2.50, first box 13846 gt, cycle 13828 gt, 47 blocks, 6x5x8, robust
+# CIRCUIT: shulker-ref-unloader-64 shulker-unloader boxes/min 0.087, items/s 2.50, first box 13846 gt, cycle 13828 gt, hoppers awake 3, badges 16-stack+unstackable+colours+drop-free, bill 16 iron, 4 quartz, 34 redstone, 1 slime, 47 blocks, 6x5x8, robust
 # Reference shulker unloader (track shulker, hand-built). The dispenser above the box cell X places
 # a full box; the hopper under X empties it into the items chest. A comparator reads X through a
 # stone; a repeater squares it (15 while the box holds anything) onto a dust that feeds a subtract

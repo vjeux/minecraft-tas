@@ -352,7 +352,7 @@ pub fn metric_value(v: &str) -> String {
 }
 
 /// The studies, in order: (folder, title, what it collects and how designs are ranked).
-pub const STUDIES: [(&str, &str, &str); 7] = [
+pub const STUDIES: [(&str, &str, &str); 8] = [
     (
         "pulse",
         "Pulse circuits",
@@ -387,6 +387,11 @@ pub const STUDIES: [(&str, &str, &str); 7] = [
         "fly",
         "Flying machines",
         "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, two-way machines) and speed in game ticks per block; ranked by blocks placed.",
+    ),
+    (
+        "tnt",
+        "TNT dupers",
+        "Machines that keep making lit TNT without using up their TNT block. A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every input pulse. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in designs/circuits/tnt/VARIATIONS.md.",
     ),
 ];
 

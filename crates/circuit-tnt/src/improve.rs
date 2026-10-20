@@ -99,9 +99,23 @@ pub fn improve(o: &ImproveOptions) -> Result<usize> {
                 let mut r = Rng(o.rng.wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(wi as u64 * 104729 + 7) | 1);
                 let ti = wi % starts.len();
                 let base = &starts[ti];
+                // a triggered duper is scored by the judge's own redsim check (its value: TNT
+                // per pulse); a self-running one by the fast screen (its value: TNT per minute)
+                let triggered = base.design.meta.get("circuit").is_some_and(|k| k.trim() == "tnt-duper-triggered");
                 let eval = |b: &BTreeMap<Pos, String>| -> Option<(u32, usize)> {
                     let mut d = base.design.clone();
                     d.blocks = b.clone();
+                    if triggered {
+                        let c = circuit::Circuit::from_design(d).ok()?;
+                        let rep = circuit::verify::sim(&c, &circuit::verify::Options::default()).ok()?;
+                        let out = rep.outcome?;
+                        if !out.pass {
+                            return None;
+                        }
+                        let per: usize = out.metrics.iter().find(|(n, _)| n == "per pulse")?.1.parse().ok()?;
+                        // a pulse is 1 "period" of 1200 gt: rate() = per pulse
+                        return Some((1200, per));
+                    }
                     let c = Clock::from_design(d).ok()?;
                     dupes(&c, &[], o.ticks)
                 };

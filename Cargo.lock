@@ -278,6 +278,7 @@ dependencies = [
  "circuit-memory",
  "circuit-pext",
  "circuit-pulse",
+ "circuit-shulker",
  "circuit-tff",
  "circuit-tnt",
  "clap",
@@ -356,6 +357,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-shulker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-tff"
 version = "0.1.0"
 dependencies = [
@@ -372,6 +384,7 @@ name = "circuit-tnt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
  "clock",
  "mctas",

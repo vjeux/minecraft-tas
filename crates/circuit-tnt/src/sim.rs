@@ -137,6 +137,21 @@ fn tnt_count(w: &World) -> usize {
     w.blocks().iter().filter(|(_, b)| matches!(b, Block::Tnt { .. })).count()
 }
 
+/// The design repeated `n` times, copy k moved by k x `offset` (the TILEABLE check: side by side
+/// copies must each keep duping); ports and the kick stay the first copy's.
+pub fn tiled(c: &Clock, n: usize, offset: Pos) -> anyhow::Result<Clock> {
+    let mut d = c.design.clone();
+    for k in 1..n as i32 {
+        for (p, s) in &c.design.blocks {
+            let q = [p[0] + k * offset[0], p[1] + k * offset[1], p[2] + k * offset[2]];
+            if d.blocks.insert(q, s.clone()).is_some() {
+                anyhow::bail!("copy {k} overlaps the design at {q:?}");
+            }
+        }
+    }
+    Clock::from_design(d)
+}
+
 /// Run `ticks` gt (unless `full`, stops once a period is found and run 2 more periods). `trace`:
 /// print every cell change of the first N ticks.
 pub fn run(c: &Clock, ticks: u32, margin: i32, trace: u32, full: bool) -> TntRun {

@@ -234,13 +234,55 @@ kick) before the first input.
   * an unloader delivers 3 empty boxes, and every item reaches `items`;
   * nothing else reaches an output, no item or box is left in the machine, no entity is alive at
     the end, and the design stands still for 400 gt (it gets up to 5 windows to settle).
-  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `boxes/min`, `items/s` and
-  `cycle` over the first to the last box, and `first box` (the gt from the start). A piston drops
-  the box at a random offset with a random drift, which can shift a pickup by a gt. Builds within
-  4 gt of the base build are the same circuit (`robust`), and the reported times are the builds'
-  medians. `circuit sim` reports UNMODELED until redsim models shulker boxes and chests.
+  The run is capped at one hopper's pace x 1.25 + 2000 gt. Metrics: `items/s` is the steady
+  flow: the items moved (what left a loader's source chests, what reached an unloader's items
+  chests, from per-gt block-entity frames) between 10% and 90% of the total, over the gt between
+  those two moments; `boxes/min` is that flow over the items per box; `cycle` is the first to the
+  last box over the boxes between; `first box` is the gt from the start. A piston drops the box at
+  a random offset with a random drift, which can shift a pickup by a gt. Builds within 4 gt (and
+  3% of the flow) of the base build are the same circuit (`robust`), and the reported metrics are
+  the builds' medians. `circuit sim` reports UNMODELED until redsim models shulker boxes and chests.
+  A design that passes its BASE also gets the line `badges`: the variations below it handles, each
+  judged at 4 rotations with unstackables (27 items per box: fast runs), unless noted:
+  * `always-on`: no start lever;
+  * `16-stack` and `unstackable` (64 kinds): the same run with snowballs or iron shovels;
+  * `colours`: the boxes are red, blue, a plain one named "Box A", then plain, and each delivered
+    box is one the judge supplied, with its colour and name;
+  * `restart` (loaders): the source stops for 3000 gt once 1.5 boxes' worth was supplied;
+  * `top-up` (loaders): the 3 supplied boxes already hold 10 stacks and a half, 1 item and 26
+    stacks (no spare: the dispenser places a random slot), and must leave full;
+  * `flush` (loaders): 2.5 boxes' worth: the half box must arrive within 6000 gt after the source
+    runs dry for good (longer than `restart`'s pause: a design that waits 3000 to 6000 gt gets
+    both; one that flushes at once cannot have `restart`);
+  * `mixed` (loaders): 3 iron ingots once, then 16 rounds of cobblestone 64, snowballs 16, dirt
+    37, cobblestone 20, snowballs 5, dirt 64 (6 empty boxes): every item must end in a delivered
+    box, every box but the last with 27 occupied slots, the last within 6000 gt of the source
+    running dry. The rare item's slot stays partial for good, so a design that waits for a box to
+    read full jams;
+  * `box-starved`: 2 boxes at the start (empty or full); the judge adds the rest 3000 gt after the
+    2nd box arrives;
+  * `drop-free`: entities polled every gt: every item entity is picked up within 8 gt and never
+    touches the ground;
+  * `tileable(N)` (a `tile: dx dy dz [copies]` header, the step between copies, N its length):
+    the judge builds the copies (3 by default) side by side, each copy's ports renamed
+    `<port>.t<k>`, and each copy must deliver its own 3 boxes from its own chests (no block or
+    port may land on another copy).
+  The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
+  (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
+  comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
+  and wire 1 dust). `hoppers awake` (lag) counts the design's hoppers left unlocked at rest: each
+  looks for items every gt. What a design's own container entities (a hopper minecart) hold at
+  the end counts as left in the machine. The table adds `badge X: yes` or `no (why)` lines.
   `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
-  snapshots of a..b) add what changed to `--table`: a design aid.
+  snapshots of a..b) add what changed to `--table`: a design aid. `MCTAS_SHULKER_BADGE=<badge>`
+  judges that badge's scenario in place of the base (with its tables), the way to see why a badge
+  fails. Each build seeds the level's random from where it stands, so the 16 builds and the badge
+  runs sample different drops (a drop's offset and drift are random): a design that loses a drop
+  now and then shows up as a failing build or a missing badge.
+  `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
+  greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
+  badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
+  design another one dominates out of the archive.
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
   [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states

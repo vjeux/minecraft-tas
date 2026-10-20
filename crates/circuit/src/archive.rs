@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 9] = [
+pub const STUDIES: [(&str, &str); 10] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -27,6 +27,7 @@ pub const STUDIES: [(&str, &str); 9] = [
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
     ("shulker", "Shulker loaders and unloaders"),
+    ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
 ];
 
@@ -140,6 +141,52 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .filter_map(|l| l.split_once('\t'))
         .map(|(f, c)| (f.to_string(), c.to_string()))
         .collect()
+}
+
+/// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
+/// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
+/// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
+/// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. Other kinds
+/// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
+/// carry adds that metric here.
+pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
+    // where the host does (study 10)
+    if b.kind == "bud" && a.kind == "bud" {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
+    }
+    if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
+        return false;
+    }
+    if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
+        if fb > fa * 1.01 {
+            return true;
+        }
+    }
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
+/// dominates): the file, its verdict row and its caption.
+pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
+    let (study, file) = spec.split_once('/').ok_or_else(|| anyhow::anyhow!("--remove {spec}: want <study>/<file>"))?;
+    let dir = archive_dir(root, study);
+    let rows = read_rows(&dir)?;
+    if !rows.iter().any(|r| r.file == file) {
+        anyhow::bail!("--remove {spec}: no such row in {}", dir.join(VERDICTS).display());
+    }
+    write_rows(&dir, &rows.into_iter().filter(|r| r.file != file).collect::<Vec<_>>())?;
+    let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| l.split('\t').next() != Some(file)).map(|l| format!("{l}\n")).collect();
+    std::fs::write(dir.join(CAPTIONS), caps)?;
+    let _ = std::fs::remove_file(dir.join(file));
+    Ok(format!("REMOVED {}", dir.join(file).display()))
 }
 
 /// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
@@ -274,7 +321,8 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
-        Kind::TntDuper | Kind::TntDuperTriggered => m("rate"),
+        Kind::TntDuper => m("rate"),
+        Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }
 }
 
@@ -892,7 +940,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
             for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
-                if let Some(h) = h {
+                // a design better than its host on a variation metric (shulker: flow, badges,
+                // lag) is its own card, never a variant
+                if let Some(h) = h.filter(|h| !beats_on_variation(g[i], g[*h])) {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
@@ -1014,7 +1064,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             let mut folded = 0usize;
             for v in g.values() {
                 let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-                folded += clock::catalog::fold_hosts(&items).into_iter().filter(|h| h.is_some()).count();
+                folded += clock::catalog::fold_hosts(&items).into_iter().enumerate().filter(|(i, h)| h.is_some_and(|h| !beats_on_variation(v[*i], v[h]))).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };
