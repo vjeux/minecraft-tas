@@ -186,23 +186,28 @@ pub fn decode_image(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     decode_png(bytes)
 }
 
-/// Decode a PNG to RGBA8 (any color type, 8-bit).
-pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
-    let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
-    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-    let mut r = dec.read_info().map_err(|e| e.to_string())?;
-    let mut buf = vec![0; r.output_buffer_size().ok_or("png too big")?];
-    let info = r.next_frame(&mut buf).map_err(|e| e.to_string())?;
-    let (w, h) = (info.width, info.height);
-    let px = &buf[..info.buffer_size()];
-    let rgba: Vec<u8> = match info.color_type {
-        png::ColorType::Rgba => px.to_vec(),
-        png::ColorType::Rgb => px.chunks(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
-        png::ColorType::GrayscaleAlpha => px.chunks(2).flat_map(|c| [c[0], c[0], c[0], c[1]]).collect(),
-        png::ColorType::Grayscale => px.iter().flat_map(|v| [*v, *v, *v, 255]).collect(),
-        png::ColorType::Indexed => return Err("indexed png not expanded".into()),
+pub use crate::atlas::vanilla::decode_png;
+
+/// The game's block atlas of misode/mcmeta (`atlas::vanilla`), downloaded once into mctas's cache
+/// (LOCAL use: comparisons with the real-game pictures; the browser fetches it itself): the PNG
+/// bytes and the index text.
+pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
+    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
+        let p = dir.join(name);
+        if !p.exists() {
+            let out = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(url).output().map_err(|e| format!("curl: {e}"))?;
+            if !out.status.success() {
+                let _ = std::fs::remove_file(&p);
+                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&out.stderr)));
+            }
+        }
+        std::fs::read(&p).map_err(|e| e.to_string())
     };
-    Ok((rgba, w, h))
+    let png = get(crate::atlas::vanilla::ATLAS_URL, "atlas.png")?;
+    let index = String::from_utf8(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?).map_err(|e| e.to_string())?;
+    Ok((png, index))
 }
 
 /// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the

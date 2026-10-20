@@ -2009,6 +2009,7 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "circuit-fly",
  "clap",
  "clock",

@@ -907,10 +907,52 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     out
 }
 
+/// One layer's mip levels (16, 8, 4, 2, 1 px), box-filtered with premultiplied alpha.
+fn layer_mips(px: &[Rgba; TILE * TILE]) -> Vec<Vec<u8>> {
+    let mut level: Vec<[f32; 4]> = px
+        .iter()
+        .map(|c| {
+            let a = c[3] as f32 / 255.0;
+            [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
+        })
+        .collect();
+    let mut n = TILE;
+    let mut out = Vec::new();
+    for _ in 0..MIPS {
+        let mut bytes = Vec::with_capacity(n * n * 4);
+        for p in &level {
+            let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
+            bytes.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
+        }
+        out.push(bytes);
+        if n > 1 {
+            let m = n / 2;
+            let mut next = vec![[0f32; 4]; m * m];
+            for y in 0..m {
+                for x in 0..m {
+                    let mut s = [0f32; 4];
+                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                        let q = level[(2 * y + dy) * n + 2 * x + dx];
+                        for c in 0..4 {
+                            s[c] += q[c] / 4.0;
+                        }
+                    }
+                    next[y * m + x] = s;
+                }
+            }
+            level = next;
+            n = m;
+        }
+    }
+    out
+}
+
 mod art;
+pub mod vanilla;
 
 /// The textures as an array (one 16x16 layer per tile, so filtering never bleeds between
 /// tiles): RGBA pixels per mip level of every layer, and each name's layer.
+#[derive(Clone)]
 pub struct Atlas {
     pub names: HashMap<&'static str, u16>,
     /// Number of layers.
@@ -927,38 +969,20 @@ impl Atlas {
         let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|_| Vec::new()).collect();
         for (i, (name, t)) in tiles.iter().enumerate() {
             names.insert(*name, i as u16);
-            // level 0, then box-filter (premultiplied alpha)
-            let mut level: Vec<[f32; 4]> = t.px.iter().map(|c| {
-                let a = c[3] as f32 / 255.0;
-                [c[0] as f32 * a, c[1] as f32 * a, c[2] as f32 * a, a]
-            }).collect();
-            let mut n = TILE;
-            for mip in mips.iter_mut() {
-                for p in &level {
-                    let (r, g, b) = if p[3] > 0.0 { (p[0] / p[3], p[1] / p[3], p[2] / p[3]) } else { (0.0, 0.0, 0.0) };
-                    mip.extend_from_slice(&[r.round().clamp(0.0, 255.0) as u8, g.round().clamp(0.0, 255.0) as u8, b.round().clamp(0.0, 255.0) as u8, (p[3] * 255.0).round().clamp(0.0, 255.0) as u8]);
-                }
-                if n > 1 {
-                    let m = n / 2;
-                    let mut next = vec![[0f32; 4]; m * m];
-                    for y in 0..m {
-                        for x in 0..m {
-                            let mut s = [0f32; 4];
-                            for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                                let q = level[(2 * y + dy) * n + 2 * x + dx];
-                                for c in 0..4 {
-                                    s[c] += q[c] / 4.0;
-                                }
-                            }
-                            next[y * m + x] = s;
-                        }
-                    }
-                    level = next;
-                    n = m;
-                }
+            for (k, level) in layer_mips(&t.px).into_iter().enumerate() {
+                mips[k].extend_from_slice(&level);
             }
         }
         Atlas { names, layers: tiles.len(), mips }
+    }
+
+    /// Replace one layer's pixels (16x16 RGBA) and its mip levels.
+    pub fn set_layer(&mut self, layer: u16, px: &[Rgba; TILE * TILE]) {
+        for (k, level) in layer_mips(px).into_iter().enumerate() {
+            let n = level.len();
+            let o = layer as usize * n;
+            self.mips[k][o..o + n].copy_from_slice(&level);
+        }
     }
 
     /// The tile of a name (the generic white tile for unknown names).

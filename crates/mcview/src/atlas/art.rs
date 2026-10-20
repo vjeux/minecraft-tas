@@ -9,7 +9,6 @@ type Painter = Box<dyn Fn(&mut Tile)>;
 
 /// The stone of the game: 3 grays in their shares, in short horizontal streaks.
 const STONE: &[(u32, f32)] = &[(0x727272, 0.34), (0x7f7f7f, 0.46), (0x8f8f8f, 0.20)];
-const COBBLE: &[(u32, f32)] = &[(0x5f5f5f, 0.28), (0x6e6d6d, 0.19), (0x888788, 0.30), (0xacacac, 0.23)];
 
 /// A dark-seamed cobble pattern (the game's cobblestone and the stone faces of redstone parts):
 /// mostly light stones (between `mid` and `light`), a highlight under the seam above, a shadow
