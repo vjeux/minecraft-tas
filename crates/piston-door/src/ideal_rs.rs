@@ -20,8 +20,37 @@ fn add(a: Pos, b: Pos) -> Pos {
 
 type Ev = (u32, Pos, Option<String>);
 
+/// `--extent`: the door-plane bounding box of every non-air cell seen while a plan replays (at
+/// rest and after every tick), the plan's own input cells and the lever it uses excluded (the
+/// judge's volume ignores the lever; the inputs stand in for wiring). Catches a piston head or
+/// a moved block leaving the intended box, which the open/close checks alone do not.
+#[derive(Default)]
+pub struct ExtentAcc {
+    pub skip: std::collections::BTreeSet<Pos>,
+    pub plane_z: i32,
+    pub lohi: Option<(Pos, Pos)>,
+}
+
+impl ExtentAcc {
+    fn add_snap(&mut self, s: &Snap, off: Pos) {
+        for (q, b) in s.iter() {
+            if b == Block::Air {
+                continue;
+            }
+            let r = [q[0] - off[0], q[1] - off[1], q[2] - off[2]];
+            if r[2] != self.plane_z || self.skip.contains(&r) {
+                continue;
+            }
+            self.lohi = Some(match self.lohi {
+                None => (r, r),
+                Some((lo, hi)) => ([lo[0].min(r[0]), lo[1].min(r[1]), lo[2].min(r[2])], [hi[0].max(r[0]), hi[1].max(r[1]), hi[2].max(r[2])]),
+            });
+        }
+    }
+}
+
 /// One run at one position. Ok((worst open ticks, worst close ticks)).
-fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool, mut ext: Option<&mut ExtentAcc>) -> std::result::Result<(u32, u32), String> {
     let blocks: Vec<(Pos, Block)> = blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
     let spec = spec.translated(off);
     let (mut w, (wlo, whi), idle) = cs::place_and_settle(&blocks, &spec, 400);
@@ -32,6 +61,9 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
         return Err("never settles after placement".into());
     }
     let rest = Snap::take(&w, wlo, whi);
+    if let Some(e) = ext.as_deref_mut() {
+        e.add_snap(&rest, off);
+    }
     let problems = cs::closed_problems(&rest, &spec);
     if !problems.is_empty() {
         return Err(format!("not closed at rest: {}", problems.join("; ")));
@@ -93,12 +125,18 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
                 w.tick();
                 t += 1;
                 ok.push(flag(&w));
+                if let Some(e) = ext.as_deref_mut() {
+                    e.add_snap(&Snap::take(&w, wlo, whi), off);
+                }
                 show(&w, format!("t{t}"), &mut prev);
             }
             let mut tt = t;
             let (n, idle) = cs::step_until_idle(&mut w, 300, |w| {
                 ok.push(flag(w));
                 tt += 1;
+                if let Some(e) = ext.as_deref_mut() {
+                    e.add_snap(&Snap::take(w, wlo, whi), off);
+                }
                 show(w, format!("t{tt}"), &mut prev);
             });
             if !w.errors.is_empty() {
@@ -163,10 +201,34 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
     }
     let mut worst = (0u32, 0u32);
     for (oi, off) in offsets.iter().enumerate() {
-        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0).map_err(|e| format!("at offset {off:?}: {e}"))?;
+        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0, None).map_err(|e| format!("at offset {off:?}: {e}"))?;
         worst = (worst.0.max(o), worst.1.max(c));
     }
     Ok(worst)
+}
+
+/// `door ideal-rs --extent`: one cycle at the plan's own position; the door-plane bounding box
+/// of every non-air cell at rest and after every tick (`ExtentAcc`: inputs and lever excluded).
+pub fn extent(s: &Schedule, vars: &BTreeMap<String, i64>) -> std::result::Result<(Pos, Pos), String> {
+    let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
+    let door = *d.ports.get("door").ok_or("design has no door port")?;
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
+    if spec.along_z {
+        return Err("--extent: only for doors in the x-y plane".into());
+    }
+    let mut blocks = Vec::new();
+    for (p, st) in &d.blocks {
+        blocks.push((*p, cs::convert_state(st).map_err(|e| format!("{st} at {p:?}: {e}"))?));
+    }
+    let mut acc = ExtentAcc { plane_z: door[2], ..Default::default() };
+    for (_, p, _) in open_ev.iter().chain(close_ev.iter()) {
+        acc.skip.insert(*p);
+    }
+    // the lever (the judge's volume leaves it out), whether the plan uses it or not
+    acc.skip.extend(d.ports.get("lever").copied());
+    acc.skip.extend(d.blocks.iter().filter(|(_, st)| st.trim_start_matches("minecraft:").starts_with("lever")).map(|(p, _)| *p));
+    run_at(&blocks, &spec, [0, 0, 0], &open_ev, &close_ev, 1, false, Some(&mut acc))?;
+    acc.lohi.ok_or_else(|| "nothing in the door plane".to_string())
 }
 
 /// `--vary` axis: `x,y[,z]=alt|alt|...` (door-plane coordinates of the design; z defaults to 0).
