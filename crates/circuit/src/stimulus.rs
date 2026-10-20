@@ -17,11 +17,28 @@ pub struct Schedule {
     pub ticks: u32,
     /// Labeled spans for the checker and the report: (from, to, label).
     pub phases: Vec<(u32, u32, String)>,
+    /// Other actions the judge performs between ticks at a design's TARGET cells (the BUD kind's
+    /// block updates), by target index (the cells move and turn with each build): frame, target,
+    /// what.
+    pub events: Vec<(u32, usize, TargetOp)>,
+}
+
+/// What the judge does at a target cell ([`Schedule::events`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TargetOp {
+    /// Place this state with updates (flags 3, like a player).
+    Place(String),
+    /// Remove the block with updates.
+    Clear,
+    /// Change to this state with shape updates only (flags 2).
+    Shape(String),
+    /// A pure block update around the cell.
+    Update,
 }
 
 impl Schedule {
     pub fn new(inputs: usize) -> Schedule {
-        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new() }
+        Schedule { edges: vec![Vec::new(); inputs], ticks: 0, phases: Vec::new(), events: Vec::new() }
     }
 
     /// Input `i` on at frame `at` for `len` frames.
