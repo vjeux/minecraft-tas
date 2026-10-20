@@ -33,6 +33,11 @@ enum Cmd {
         /// box-starved, drop-free, tileable, 16-stack, unstackable); `always-on` is kept anyway.
         #[arg(long, default_value = "")]
         badges: String,
+        /// Every removal must also keep the plain scenario's items/s (64-stack, rotation 0) at or
+        /// above this. Without it a speed design loses a feed line: the badges still pass at a
+        /// lower rate.
+        #[arg(long)]
+        min_rate: Option<f64>,
         #[arg(long, default_value_t = 8)]
         workers: usize,
         #[arg(long, default_value = "26.3")]
@@ -66,13 +71,13 @@ enum Cmd {
 pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit shulker".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
-        Cmd::Shrink { design, out, badges, workers, version, margin } => {
+        Cmd::Shrink { design, out, badges, min_rate, workers, version, margin } => {
             let keep: Vec<String> = badges.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
             });
-            shrink::shrink(&design, &out, &keep, workers, &version, margin)
+            shrink::shrink(&design, &out, &keep, min_rate, workers, &version, margin)
         }
         Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
     }
