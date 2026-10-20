@@ -105,10 +105,16 @@ direct feed, behind its above cell for a QC feed plus a glass block placed and r
 
 | run | result |
 |---|---|
-| lever-level rule (no --strict), 7x7 | UNSAT (-2..4, -3..3) h 6, (-3..3, -2..4) h 6 |
-| lever-level rule, 6x8 (-1..4, -2..5) | SAT h 6 (968 s), but its layout is UNSAT under `--strict` (h 8) and its replay breaks |
-| `--strict`, 48 | UNSAT 6x8 (-1..4, -1..6), (-1..4, -4..3), 8x6 (-4..3, -1..4), (-4..3, -2..3) at h 6 and h 8; the rest solving |
-| `--strict`, 7x7 | running |
+| lever-level rule (no --strict; v6, then v8 with the corrected strong-power rule), 7x7 | UNSAT at h 6: (-2..4, -3..3), (-3..3, -2..4), (-2..4, -1..5); with the island-start runs: 5 of the 6 placements UNSAT at h 6, (-3..3, -3..3) and (-3..3, -1..5) also at h 8; (-2..4, -2..4) still solving |
+| lever-level rule, 6x8 (-1..4, -2..5) | SAT at h 6 and h 8, but its layout is UNSAT under `--strict` / `--physics` (h 8) and its replay breaks: not physical |
+| `--strict`, 48 | UNSAT 6x8 (-1..4, -1..6), (-1..4, -4..3), (-1..4, -3..4), (-1..4, -2..5), 8x6 (-4..3, -1..4), (-4..3, -2..3), (-3..4, -2..3), (-3..4, -1..4) at h 6; most also at h 8; h 10 / h 12 on clk-misc's box (2 UNSAT so far) |
+| `--strict`, 7x7 | UNSAT at h 6 in every placement but (-2..4, -2..4); (-3..3, -3..3), (-3..3, -1..5), (-2..4, -3..3) also at h 8 |
+| `--physics --max-pistons 14` (c70b's seeds) | UNSAT everywhere at h 6 / h 8 so far |
+
+**What the bounds mean.** Every UNSAT is bounded by H parallel steps per edge. c70b's working
+(unwired) mm01-7x7 needs 20 steps in this model (UNSAT at h 10, SAT at h 20), so these results only
+rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A real proof needs much
+longer horizons (h 10 takes hours per placement) or an unbounded method.
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step

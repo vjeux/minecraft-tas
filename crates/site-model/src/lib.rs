@@ -292,6 +292,10 @@ pub struct Circuit {
     /// only.
     #[serde(skip)]
     pub stimulus: String,
+    /// A strength input's values over the judge's test (`<frame> <input> <value>; ...`, the hex
+    /// kinds), for the viewer's demo (`data-levels`). Pages only.
+    #[serde(skip)]
+    pub levels: String,
     #[serde(skip)]
     pub phases: String,
     /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
