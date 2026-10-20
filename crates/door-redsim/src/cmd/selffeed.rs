@@ -131,10 +131,21 @@ pub struct InterleaveArgs {
     /// --search also offers level moves: an input switched on (left on) and, later, off.
     #[arg(long)]
     levels: bool,
+    /// Cells emptied in both rest states, `x,y,z` (repeatable): e.g. a trigger block a plan input
+    /// leaves behind.
+    #[arg(long)]
+    clear: Vec<String>,
+    /// The cells the train pulses instead of the plan's inputs, `x,y,z;x,y,z;...` (feed cells).
+    #[arg(long)]
+    cells: Option<String>,
+    /// Also offer pulses on ONE edge only (wiring gates them on the lever's state) at this search
+    /// cost per pulse (0 = none): the fewest such pulses a mostly-shared train needs.
+    #[arg(long, default_value_t = 0)]
+    edge_cost: usize,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket, sat_loop, sat_args, fix, drop, observe, levels, clear, cells, edge_cost } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -159,6 +170,11 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         fixes.push((parse_pos(p)?, st));
     }
     let drops: Vec<[i32; 3]> = drop.iter().map(|d| parse_pos(d)).collect::<Result<_>>()?;
+    let clears: Vec<[i32; 3]> = clear.iter().map(|d| parse_pos(d)).collect::<Result<_>>()?;
+    let only: Vec<[i32; 3]> = match &cells {
+        Some(c) => c.split(';').map(parse_pos).collect::<Result<_>>()?,
+        None => Vec::new(),
+    };
     let mut sets = Vec::new();
     for m in &merge {
         let mut set = Vec::new();
@@ -170,7 +186,7 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads } };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost };
     if let Some(cells) = observe {
         let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
         anyhow::ensure!(search.is_some(), "--observe needs --search");

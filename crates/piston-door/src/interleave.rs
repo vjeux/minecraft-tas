@@ -30,16 +30,27 @@ macro_rules! say {
 }
 
 /// One step: the input events of one tick group of a plan, ticks relative to the group's start.
-#[derive(Clone, Debug, PartialEq)]
+/// `edge`: 0 = fires on both lever edges (the train's normal move), 1 = only while opening, 2 =
+/// only while closing (`--edge-cost`: a pulse wiring must gate on the lever's state).
+#[derive(Clone, Debug, PartialEq, Default)]
 struct Step {
     evs: Vec<(u32, Pos, Option<String>)>,
+    edge: u8,
 }
 
 impl Step {
+    fn new(evs: Vec<(u32, Pos, Option<String>)>) -> Step {
+        Step { evs, edge: 0 }
+    }
     fn label(&self) -> String {
         let mut cells: Vec<String> = self.evs.iter().filter(|e| e.2.is_some()).map(|e| format!("{},{},{}", e.1[0], e.1[1], e.1[2])).collect();
         cells.dedup();
-        format!("[{}]", cells.join(" "))
+        let tag = match self.edge {
+            1 => "open-only ",
+            2 => "close-only ",
+            _ => "",
+        };
+        format!("[{tag}{}]", cells.join(" "))
     }
     fn len(&self) -> u32 {
         self.evs.iter().map(|e| e.0).max().unwrap_or(0)
@@ -63,7 +74,7 @@ fn steps(evs: &[(u32, Pos, Option<String>)], split: bool) -> Vec<Step> {
                 continue;
             }
             seen.push(c);
-            out.push(Step { evs: g.evs.iter().filter(|e| e.1 == c).cloned().collect() });
+            out.push(Step::new(g.evs.iter().filter(|e| e.1 == c).cloned().collect()));
         }
     }
     out
@@ -80,7 +91,7 @@ fn steps_grouped(evs: &[(u32, Pos, Option<String>)]) -> Vec<Step> {
                 let i = match out.iter().position(|(t0, _)| *t0 == t) {
                     Some(i) => i,
                     None => {
-                        out.push((t, Step { evs: Vec::new() }));
+                        out.push((t, Step::new(Vec::new())));
                         out.len() - 1
                     }
                 };
@@ -97,7 +108,7 @@ fn steps_grouped(evs: &[(u32, Pos, Option<String>)]) -> Vec<Step> {
                     let i = match out.iter().position(|(t0, _)| *t0 == t) {
                         Some(i) => i,
                         None => {
-                            out.push((t, Step { evs: Vec::new() }));
+                            out.push((t, Step::new(Vec::new())));
                             out.len() - 1
                         }
                     };
@@ -179,6 +190,9 @@ fn train_plan(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, train: 
     for (st, t) in train.iter().zip(times) {
         for (dt, c, s) in &st.evs {
             for open in [true, false] {
+                if (st.edge == 1 && !open) || (st.edge == 2 && open) {
+                    continue;
+                }
                 let e = (open, *t + dt, *c, s.clone());
                 if !all.contains(&e) {
                     all.push(e);
@@ -296,9 +310,16 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
             }
         }
         let res = cs::par_map(&jobs, limits.threads.max(1), |(id, mi, _)| {
-            let (wa, wb) = (sim.rebuild(&nodes[*id].0), sim.rebuild(&nodes[*id].1));
-            match (sim.apply(&wa, &moves[*mi]), sim.apply(&wb, &moves[*mi])) {
-                (Ok(a2), Ok(b2)) => Some((sim.sparse(&a2), sim.sparse(&b2))),
+            let m = &moves[*mi];
+            // an edge-specific move leaves the other edge's world as it is
+            let side = |s: &Sparse, on: bool| -> Option<Sparse> {
+                if !on {
+                    return Some(s.clone());
+                }
+                sim.apply(&sim.rebuild(s), m).ok().map(|w| sim.sparse(&w))
+            };
+            match (side(&nodes[*id].0, m.edge != 2), side(&nodes[*id].1, m.edge != 1)) {
+                (Some(a2), Some(b2)) => Some((a2, b2)),
                 _ => None,
             }
         });
@@ -375,6 +396,12 @@ pub struct Options {
     pub levels: bool,
     /// Threads simulating each batch of the search's expansions (1 in batch mode).
     pub search_threads: usize,
+    /// Cells emptied in both rest states (a plan input's leftover block, e.g. a trigger).
+    pub clear: Vec<Pos>,
+    /// The cells the train pulses, instead of the plan's inputs (feed cells in the box).
+    pub cells: Vec<Pos>,
+    /// Offer one-edge pulses (wiring gates them on the lever's state) at this search cost; 0 = off.
+    pub edge_cost: usize,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -676,13 +703,17 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             bail!("the open plan never settles");
         }
     }
-    let (w0, wopen) = if o.fix.is_empty() {
+    let (w0, wopen) = if o.fix.is_empty() && o.clear.is_empty() {
         (w0, wopen)
     } else {
+        // `--fix` blocks placed and `--clear` cells emptied, raw, in both rest states
         let with_fix = |w: &World| -> Result<World> {
             let mut w = w.clone();
             for (p, st) in &o.fix {
                 w.set_block(cs::bp(*p), cs::convert_state(st).map_err(|e| anyhow::anyhow!("{st}: {e}"))?, redsim::world::flags::RAW);
+            }
+            for p in &o.clear {
+                w.set_block(cs::bp(*p), Block::Air, redsim::world::flags::RAW);
             }
             Ok(w)
         };
@@ -692,7 +723,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         let mut cells: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).filter(|e| e.2.is_some()).map(|e| e.1).collect();
         cells.sort();
         cells.dedup();
-        cells.retain(|c| !o.drop.contains(c));
+        cells.retain(|c| !o.drop.contains(c) && !o.clear.contains(c));
         // lever-held inputs: cells whose block differs between the open and the closed rest
         // (levels the plan leaves on): the lever itself sets them at t0 of each edge, the train
         // never touches them
@@ -704,6 +735,11 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             .map(|c| (*c, rs.get(*c).unwrap_or(Block::Air), os_.get(*c).unwrap_or(Block::Air)))
             .collect();
         cells.retain(|c| !lever.iter().any(|l| l.0 == *c) && !uses.contains(c));
+        // `--cells`: the train pulses exactly these cells (feed cells in the box) instead of the
+        // plan's ideal inputs (lever-held inputs and the real lever stay as they are)
+        if !o.cells.is_empty() {
+            cells = o.cells.clone();
+        }
         let flip = |w: &World, to_open: bool| -> Result<World> {
             let mut w = w.clone();
             for (c, closed, open) in &lever {
@@ -741,7 +777,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         for set in &o.merge {
             let mut evs: Vec<(u32, Pos, Option<String>)> = set.iter().map(|c| (0, *c, rbs())).collect();
             evs.extend(set.iter().map(|c| (2, *c, None)));
-            moves.push(Step { evs });
+            moves.push(Step::new(evs));
             pocket_of.push(None);
         }
         // `--pocket`: the inputs a small pocket feeds fire at most `budget` times in the whole
@@ -752,13 +788,13 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 let sub: Vec<Pos> = (0..set.len()).filter(|i| mask >> i & 1 == 1).map(|i| set[i]).collect();
                 let mut evs: Vec<(u32, Pos, Option<String>)> = sub.iter().map(|c| (0, *c, rbs())).collect();
                 evs.extend(sub.iter().map(|c| (2, *c, None)));
-                moves.push(Step { evs });
+                moves.push(Step::new(evs));
                 pocket_of.push(Some(pi));
             }
         }
         for &c in &cells {
             if !o.merge.iter().any(|s| s.contains(&c)) && !o.pockets.iter().any(|(s, _)| s.contains(&c)) {
-                moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)] });
+                moves.push(Step::new(vec![(0, c, rbs()), (2, c, None)]));
                 pocket_of.push(None);
             }
         }
@@ -780,7 +816,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                         continue;
                     }
                     let rb = || Some("minecraft:redstone_block".to_string());
-                    moves.push(Step { evs: vec![(0, a, rb()), (0, b, rb()), (2, a, None), (2, b, None)] });
+                    moves.push(Step::new(vec![(0, a, rb()), (0, b, rb()), (2, a, None), (2, b, None)]));
                     pocket_of.push(None);
                 }
             }
@@ -791,14 +827,29 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 if in_pocket(&c) {
                     continue;
                 }
-                moves.push(Step { evs: vec![(0, c, rbs())] });
+                moves.push(Step::new(vec![(0, c, rbs())]));
                 pocket_of.push(None);
-                moves.push(Step { evs: vec![(0, c, None)] });
+                moves.push(Step::new(vec![(0, c, None)]));
                 pocket_of.push(None);
             }
         }
+        if o.edge_cost > 0 {
+            // a pulse on one edge only (wiring gates it on the lever's state), at a higher cost
+            for &c in &cells {
+                for edge in [1u8, 2] {
+                    moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)], edge });
+                    pocket_of.push(None);
+                }
+            }
+        }
         // a move's cost: 1, or the largest `--cost` of the cells it pulses
-        let costs: Vec<usize> = moves.iter().map(|m| m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1)).collect();
+        let costs: Vec<usize> = moves
+            .iter()
+            .map(|m| {
+                let base = m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1);
+                if m.edge != 0 { base.max(o.edge_cost) } else { base }
+            })
+            .collect();
         let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect(), threads: o.search_threads };
         let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, &limits, cap, o.weight);
         return match found {
