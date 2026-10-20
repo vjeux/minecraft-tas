@@ -54,11 +54,8 @@ pub fn critical_points(outcome: impl Fn(f64) -> u64, samples: usize, tol: f64) -
             } else if om == ohi {
                 hi = mid;
             } else {
-                // a third outcome in between: two changes
+                // a third outcome in between: two changes, each bisected on its own
                 stack.push((mid, om, hi, ohi));
-                hi = mid;
-                let _ = om;
-                // the left half keeps olo .. om
                 stack.push((lo, olo, mid, om));
                 break;
             }

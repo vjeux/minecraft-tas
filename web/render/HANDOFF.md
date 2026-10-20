@@ -63,6 +63,16 @@ is the short version for whoever picks the work up.
   as built with `not simulated: <reason>`, never animated by viewer-side logic.
   `Session::drawn_matches_simulation` (run by `web check` on every tick) enforces it; the audit
   and what the client's own rendering may add are in docs/webrender.md#only-what-redsim-simulates.
+- The viewer mirrors the judges, which keep changing on main: the clock judge's lamp in an empty
+  output cell (clocks only), R7's input devices (`circuit::assign_drivers` ported as
+  `mcview::circuit::inputs`), strength inputs (`data-levels`), consumer lamps. `web check`
+  catches the drift (thousands of failures after a judge change): read the judge's commit, port
+  the rule, never weaken the check. Its mismatch lines name both sides' input devices and every
+  differing cell.
+- Coordinator protocol (vjeux 14:23Z): before reporting a commit, merge the latest origin/main
+  and run the FULL selftest, `web check --wasm` on every archived clock and circuit, and `web
+  luma` (native and --url); the browser gates (click / hold / swap / lose / layout) stay cheap
+  insurance. Main moves every ~20 min: merge, gate, push, report the main commit merged.
 - No attribution text in the UI (vjeux): the badge only says what to do.
 - House rules: Rust only (no scripts, no Python), edit with the editor tools, never touch ~/bin
   or dotfiles, never message humans, commit as Christopher Chedeau <vjeuxx@gmail.com>.

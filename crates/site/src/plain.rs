@@ -358,6 +358,59 @@ pub fn warning(b: &Build) -> Option<String> {
     None
 }
 
+/// What a build needs to work where you build it, for its opening lines (critique, real-world
+/// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
+/// height above the ground (`safe drop`), the items its containers start with (the design's
+/// `nbt:` lines), water, open sky.
+pub fn needs(b: &Build, design: &str) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Some(c) = &b.circuit {
+        if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
+            match drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()) {
+                Some(0) => v.push("Works standing on the ground.".to_string()),
+                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT lands under it and blows it up.")),
+                None => {}
+            }
+        }
+    }
+    // the items its containers start with, summed per item
+    let mut items: Vec<(String, u64)> = Vec::new();
+    for line in design.lines().filter_map(|l| l.trim_start().strip_prefix("nbt:")) {
+        for part in line.split("id:\"").skip(1) {
+            let id = part.split('"').next().unwrap_or("").trim_start_matches("minecraft:").replace('_', " ");
+            let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|c| c.parse::<u64>().ok()).unwrap_or(1);
+            match items.iter_mut().find(|(i, _)| *i == id) {
+                Some(e) => e.1 += count,
+                None => items.push((id, count)),
+            }
+        }
+    }
+    if !items.is_empty() {
+        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
+        v.push(format!("Comes loaded with {} in its containers: the download includes them; building it by hand, put them in first.", list.join(" and ")));
+    }
+    if b.kinds.iter().any(|k| k == "water") {
+        v.push("Needs water where the view shows it.".to_string());
+    }
+    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
+        v.push("Needs open sky above its daylight sensor.".to_string());
+    }
+    v
+}
+
+/// `1111` -> `1,111`.
+fn thousands(n: u64) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
+}
+
 /// A door's plain lines: (what it does, why you would build it, how to try it).
 pub fn door(b: &Build) -> (String, String, String) {
     let d = b.door.as_ref();
@@ -459,6 +512,18 @@ mod tests {
 
     fn circuit(kind: &str, metrics: &[(&str, &str)]) -> Circuit {
         Circuit { kind: kind.into(), metrics: metrics.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), ..Default::default() }
+    }
+
+    #[test]
+    fn needs_say_what_the_build_needs() {
+        // a TNT duper's safe height, and the items its containers start with
+        let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
+        let design = "nbt: 2 0 3 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:64},{Slot:1b,id:\"minecraft:cobblestone\",count:1047}]}";
+        let v = needs(&b, design);
+        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT lands under it and blows it up.");
+        assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
+        let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
+        assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
     }
 
     #[test]

@@ -565,6 +565,22 @@ pub fn load(app: &mut App, id: u32) {
                     l.shown_status = String::from("\u{0}");
                 }
             }
+            // a door with data-autoplay: its lever flipped like the record videos (the door
+            // demo), the badge sized once from its four texts
+            if v.autoplay && p.session.mode.is_door() && p.session.simulated() {
+                p.start_door_demo();
+                let (mut widest, mut tallest) = (0i32, 0i32);
+                for t in mcview::player::DoorDemo::ALL_WORDS {
+                    l.status.set_text_content(Some(t));
+                    widest = widest.max(l.status.offset_width());
+                    tallest = tallest.max(l.status.offset_height());
+                }
+                if widest > 0 {
+                    let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
+                    let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
+                }
+                l.shown_status = String::from("\u{0}");
+            }
             l.overlays.setup(&p);
             // the contents button: shown with containers, gold while every container is labelled
             let has = mcview::labels::has_containers(&p.session);
@@ -853,6 +869,7 @@ impl Live {
                 format!("not simulated after {}", why.split(':').next().unwrap_or("this tick"))
             }
             Some(p) if p.session.demo.is_some() => demo_text(p, p.phase()),
+            Some(p) if p.door_demo.is_some() => p.door_demo.map(|d| d.words()).unwrap_or_default().to_string(),
             _ => self.base_status.clone(),
         };
         if text != self.shown_status {

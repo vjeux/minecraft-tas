@@ -35,7 +35,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 4] = ["first box", "per pulse", "per period", "hoppers awake"];
+const MULTI_WORD_METRICS: [&str; 5] = ["first box", "per pulse", "per period", "hoppers awake", "safe drop"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -580,6 +580,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             if took > 10.0 {
                 notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
             }
+            // a flying machine that drags extra blocks (`port payload`) or flies between stations
+            let (cargo, stations) = loaded.as_ref().map(|(c, _)| (!c.payloads.is_empty(), !c.stations.is_empty())).unwrap_or((false, false));
             let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
             let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
@@ -595,6 +597,15 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 } else if d.devices.iter().any(|x| x == "lever") {
                     flags.push("lever".into());
                 }
+            }
+            // what sets such a flying machine apart from the 6-block one (critique C13: fly cards
+            // of 6, 7, 15 and 24 blocks said the same); an extender's pushed block is a payload too
+            let flying = r.kind.starts_with("flying-machine");
+            if cargo && flying {
+                flags.push("cargo".into());
+            }
+            if stations && flying {
+                flags.push("there-and-back".into());
             }
             let id = id_of(r);
             let basics = (study == "gates" && flags.iter().any(|f| f == "lever")) || (r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand"));
@@ -708,8 +719,34 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             }
         }
         let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        // what each card adds over the smaller ones at least as fast (critique: cards of 31, 37
+        // and 65 blocks all led with the same rate): its new badges, else the variation it is the
+        // best design for
         for &i in &list {
-            let lead = if Some(i) == fastest { Some("fastest".to_string()) } else { badges_of(i).into_iter().find(|bd| best.get(bd) == Some(&i)) };
+            let smaller: Vec<usize> = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name) && rate(&builds[j]) >= rate(&builds[i])).collect();
+            let covered: BTreeSet<String> = smaller.iter().flat_map(|&j| badges_of(j)).collect();
+            let mine = badges_of(i);
+            let new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
+            // (no new badge alone: a pair no smaller card has together, "restarts + flushes")
+            let pair = || -> Option<String> {
+                for (x, a) in mine.iter().enumerate() {
+                    for b in &mine[x + 1..] {
+                        if !smaller.iter().any(|&j| { let o = badges_of(j); o.contains(a) && o.contains(b) }) {
+                            return Some(format!("{} + {}", site_model::html::badge_words(a), site_model::html::badge_words(b)));
+                        }
+                    }
+                }
+                None
+            };
+            let lead = if Some(i) == fastest {
+                Some("fastest".to_string())
+            } else if !new.is_empty() {
+                Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
+            } else if let Some(p) = pair() {
+                Some(p)
+            } else {
+                mine.iter().find(|bd| best.get(*bd) == Some(&i)).map(|bd| site_model::html::badge_words(bd))
+            };
             if let Some(l) = lead {
                 leads.push((i, l));
             }
@@ -718,6 +755,37 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     for (i, l) in leads {
         if let Some(c) = builds[i].circuit.as_mut() {
             c.lead = l;
+        }
+    }
+    // a gate and its mirror (A AND (NOT B) / B AND (NOT A)) are one card: the bigger folds under
+    // the smaller as a variant, the kept one says it comes mirrored (critique: two cards with one
+    // picture and one subtitle)
+    let gate_fn = |b: &Build| b.circuit.as_ref().filter(|c| c.kind.starts_with("gate ")).map(|c| c.kind.split_whitespace().nth(1).unwrap_or("").to_string());
+    let mut mirrors: Vec<(usize, usize)> = Vec::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(f) = gate_fn(b) else { continue };
+        let Some(plain) = f.strip_suffix("-ba") else { continue };
+        if !shown(b) {
+            continue;
+        }
+        let best_plain = builds.iter().enumerate().filter(|(_, o)| shown(o) && gate_fn(o).as_deref() == Some(plain) && o.flags.iter().any(|x| x == "lever") == b.flags.iter().any(|x| x == "lever")).min_by_key(|(_, o)| (o.blocks, o.name.clone())).map(|(j, _)| j);
+        if let Some(j) = best_plain {
+            // (keep the smaller; a tie keeps the plain function)
+            if builds[i].blocks < builds[j].blocks {
+                mirrors.push((j, i));
+            } else {
+                mirrors.push((i, j));
+            }
+        }
+    }
+    for (fold, keep) in mirrors {
+        let keep_id = builds[keep].id.clone();
+        builds[fold].flags.push("variant".into());
+        if let Some(c) = builds[fold].circuit.as_mut() {
+            c.host = Some(keep_id);
+        }
+        if !builds[keep].flags.iter().any(|f| f == "mirrored") {
+            builds[keep].flags.push("mirrored".into());
         }
     }
     // one build archived under two kinds (the same blocks and ports: `same_build`) shows once on
@@ -766,7 +834,9 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     for list in by_kind.values_mut() {
         list.sort_by_key(|&i| {
             let c = builds[i].circuit.as_ref();
-            (c.map(|c| c.order).unwrap_or(0), c.and_then(|c| c.value).unwrap_or(i64::MAX), builds[i].blocks, builds[i].name.clone())
+            // (gates: the most common function first, critique)
+            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
@@ -1126,7 +1196,8 @@ fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
         aspects.push("the number of stages");
     }
     if aspects.is_empty() && length {
-        aspects.push("the length");
+        // (not "the length": next to timer lengths it read as the timer's, critique C49)
+        aspects.push("their size in blocks");
     }
     if aspects.is_empty() {
         aspects.push("their layout");

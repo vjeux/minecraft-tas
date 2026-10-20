@@ -45,12 +45,14 @@ A design's own dust AT the input cell does not fix it (measured: the judge drive
 
 Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blocks, latency 4 gt, robust. The same shape rebuilds AND (two subtract comparators, the second's side fed by the first's dust) and NAND; XOR and XNOR need a different mechanism entirely, since the dust ring is gone.
 
-## Priorities (rewritten after R7)
+## Priorities (rewritten after R7, updated as they are done)
 
-1. Rebuild AND and NAND on the repeater-at-the-input shape (the NIMPLY pair is the template).
-2. XOR and XNOR from scratch: nothing in the archive claims them any more.
-3. IMPLY, NOR and NOT, where only the lever and torch versions survive.
-4. Then the tileable rows and the original shrink targets.
+Done: AND 7b (torch), NOR 3b, IMPLY and IMPLY-BA 4b, NIMPLY and NIMPLY-BA 6b, XOR 32b — all with real signal inputs, all judged robust.
+
+1. XNOR: the XOR core plus one inverter. The torch must hang on a block the XOR's output dust powers, and in the current 5x5 footprint every neighbour of that block is a floor stone carrying a dust; run the output dust one cell out into free space first, then invert there.
+2. Shrink the XOR below 32 blocks. 16 of the 32 are floor stones, so a layout sharing floor lands near 24. The two detours are not optional: each input must reach the far comparator's side at full strength, which is what the repeaters restore.
+3. NAND (6b, torch) and AND (7b) both survived or were rebuilt and look at the bar.
+4. Re-measure the tile pitches for the rebuilt gates.
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
@@ -62,3 +64,7 @@ Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blo
 - A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+- A comparator's or repeater's `facing` is the direction it READS (its back); its output goes the opposite way. Getting this backwards silently gives a dead gate, and cost me several builds.
+- A dust input at a driven cell works (clk-rt's driver is right): what fails is dust that does not POINT into its reader. Dust only connects to a neighbour it points at, so a comparator's side sees 0 unless the dust's shape bends into it.
+- An exact comparator gate needs both inputs to arrive at the SAME strength: a detour costs 1 per cell, so the detoured branch must pass through a repeater, which restores 15. Without it the gate degrades to OR.
+- Minimality is measured, not claimed: `mctas circuit shrink <design>` (added 2026-10-20) greedily removes blocks and keeps only removals whose judge verdict has the SAME metrics. gate-xor-r7-32b, gate-xnor-r7-34b and gate-and-torch-7b are each irreducible under it, so a smaller design must be a different layout, not a trimmed one.
