@@ -22,11 +22,21 @@ pub struct Scripts {
 
 /// A whole page around `body`. `prefix` is the path from the page to the site root.
 pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site) -> String {
+    shell_with(title, description, prefix, body, scripts, site, None)
+}
+
+/// [`shell`] with a preview image for link unfurls (Open Graph).
+pub fn shell_with(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site, image: Option<&str>) -> String {
     let mut s = String::with_capacity(body.len() + 4096);
     s.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
     s.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
-    s.push_str(&format!("<title>{}</title>\n", esc(&if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") })));
+    let full_title = if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") };
+    s.push_str(&format!("<title>{}</title>\n", esc(&full_title)));
     s.push_str(&format!("<meta name=\"description\" content=\"{}\">\n", esc(description)));
+    s.push_str(&format!("<meta property=\"og:title\" content=\"{}\">\n<meta property=\"og:description\" content=\"{}\">\n<meta property=\"og:site_name\" content=\"{SITE_NAME}\">\n", esc(&full_title), esc(description)));
+    if let Some(img) = image {
+        s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
+    }
     s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css\">\n"));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
@@ -165,7 +175,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
     }
     let desc = format!("{}: {}. {}", b.name, lede(b), b.caption.chars().take(160).collect::<String>());
-    shell(&b.name, &desc, prefix, &body, scripts, site)
+    shell_with(&b.name, &desc, prefix, &body, scripts, site, b.picture.as_deref())
 }
 
 /// One line under a build's title.
@@ -403,8 +413,9 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
+        let download = if m.design.is_empty() { "-".to_string() } else { format!("<a href=\"{prefix}{}\" download>.txt</a>", esc(&m.design)) };
         body.push_str(&format!(
-            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td><a href=\"{prefix}{}\" download>.txt</a></td></tr>\n",
+            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
             esc(&site_model::html::member_anchor(m, site)),
             m.n,
             esc(&gt_time(m.period)),
@@ -412,7 +423,6 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             esc(m.dims.as_deref().unwrap_or("")),
             esc(&m.status),
             esc(status_label(&m.status)),
-            esc(&m.design)
         ));
     }
     body.push_str("</tbody></table></section>\n");

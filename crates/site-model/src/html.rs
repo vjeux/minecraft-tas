@@ -100,9 +100,10 @@ fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>,
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
         None => (String::new(), ""),
     };
+    // no design file (a member listed from its formula only): no 3D view
+    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
     format!(
-        "<div class=\"thumb k-{kind}\" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
-        esc(&format!("{prefix}{design}")),
+        "<div class=\"thumb k-{kind}\"{view}><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
         esc(big),
         esc(small)
     )
