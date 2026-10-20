@@ -1,0 +1,14 @@
+name: base-loop
+# Base for `bud census --base`: two non-sticky pistons; P pushes the slime + redstone block package
+# east, Q (armed by its pushed redstone block) must push it back once P's head is gone.
+port target: 0 0 0
+origin: 1 0 0
+palette:
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  R minecraft:redstone_block
+  Q minecraft:piston[extended=false,facing=west]
+layer 0:
+  PS.Q
+layer 1:
+  .R..
