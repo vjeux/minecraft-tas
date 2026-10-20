@@ -77,8 +77,10 @@ them for this board), pistons facing out of the plane.
 | 6x6 (both placements), no feed, h 8 | UNSAT in 66 s each: no 6x6 macro mechanism within 8 parallel steps per edge |
 | 7x7 (all 6 placements: x0 -2 / -3 (the mirror of -1), y0 -3 / -2 / -1), no feed, h 8 | SAT in all 6 (23-54 min) |
 | 7x7, literal feed (any free cell / QC path; before the redstone-block and start rules) | SAT within 6 steps in (-2,-2), (-2,-3), (-3,-2), (-2,-1); UNSAT (-3,-3) and (-3,-1) at h 6 |
-| 7x7, + `--private` | SAT (-2,-2) h 6 (355 s): carries a piston into the square at (0,0), fed through the stone frame cell below it (a wiring cell at (0,-2) powers it); UNSAT (-3,-3) h 6 / h 8, (-3,-1) h 6 |
-| 7x7, + island start | running |
+| 7x7, + `--private` | SAT (-2,-2) h 6 (355 s): carries a piston into the square at (0,0), fed through the stone frame cell below it (a wiring cell at (0,-2) powers it); UNSAT (-3,-3) h 6 / h 8, (-3,-1) h 6. Exported as cands/m7-a: WORKS with ideal inputs in redsim (32 positions) and the real game (4 positions), open 56 / close 54, but its layout fails island start (UNSAT at h 6 / 8): u0-like |
+| 7x7, + island start (with and without `--private`) | UNSAT so far: (-3..3, -3..3) and (-3..3, -1..5) at h 6 and h 8 (both); (-2..4, -3..3) and (-3..3, -2..4) at h 6 (private); the rest solving |
+| 48 (6x8: x -1..4 (the mirror of -2..3) x y -4..-1 offsets; 8x6: x -4 / -3 (mirrors of -1 / -2) x y -2 / -1), feed + island start | **SAT 8x6 (-3..4, -1..4) at h 6 (1138 s): cands/m86-a, WORKS with ideal inputs in redsim (32 positions) and the real game (4 positions), open 56 / close 54, 7 reserved wiring cells, lever on (2,4)'s top: handed to pockets3 + clk-misc for wiring**; UNSAT 6x8 (-1..4, -1..6) and (-1..4, -4..3), 8x6 (-4..3, -1..4) and (-4..3, -2..3) at h 6 / h 8 |
+| w86 s1 (6x8) layout, feed + island start, h 10 | UNSAT (138 s); SAT before the start rule: island start sees w86's argument |
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
