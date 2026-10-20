@@ -194,6 +194,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
+        Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
     }
     s.ticks = t;
     s
@@ -223,6 +224,8 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
+        Kind::TntDuper => crate::tnt::check_duper(c, s, t),
+        Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
     }
 }
 

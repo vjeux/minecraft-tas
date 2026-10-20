@@ -13,6 +13,12 @@
 //!   to that region, or a DOOR BLOCK (at that moment) next to a free cell of that region (the region
 //!   strongly powers the door block, the door block powers the piston: conduction). A piston whose
 //!   only quasi feed goes through another piston's cell fires together with it (a stack event).
+//! * SEALED cells (track d67): a free cell that is a region on its own, with no hop next to it and
+//!   no neighbor that stays put (nothing to power, hang a torch on, or stand dust or a repeater
+//!   on) can only hold an observer, which outputs into the cell OPPOSITE the one it watches: it
+//!   feeds `c + d` only after `c - d` changed, and it cannot read a powered door block. Each
+//!   direction is its own awake bit (a lever in the cell powers all of them). 6x7-in2's (-2,4)
+//!   (between two pistons, the box edge on its other two sides) feeds nothing.
 //! * The lever is in one region (outside the box on a boundary cell, or inside on a free cell). Each
 //!   edge starts with only the lever's region AWAKE. An event (a 2 gt pulse or a level toggle of one
 //!   piston, the macro model of `door mech-synth`) may happen only if its piston is fed from an awake
@@ -56,6 +62,7 @@ fn occupied(w: &World) -> HashMap<P, (usize, bool)> {
     m
 }
 
+#[derive(Clone)]
 pub struct Layout {
     pub lo: [i8; 2],
     pub hi: [i8; 2],
@@ -69,34 +76,94 @@ pub struct Layout {
     pub lv: u64,
     /// The catalog run did not replay to rest in this macro model (footprint from what replayed).
     pub diverged: bool,
+    /// SEALED free cells (track d67, 2026-10-20): a region of one cell with no hop next to it and
+    /// no neighbor that stays put (no stone to power or to hang a torch on, no support for dust or
+    /// a repeater). Only an observer can work there, and an observer powers the cell OPPOSITE the
+    /// one it watches: such a cell does not feed every neighbor, it feeds `c + d` only after the
+    /// cell `c - d` changed. Each usable direction is its own awake bit (`virt`), after the
+    /// regions' bits. (6x7-in2's (-2,4) between h and i feeds nothing; its (-2,2) between f and h
+    /// only relays f <-> h.)
+    pub sealed: HashSet<P>,
+    /// (sealed cell, PLANE direction of the observer's output) -> awake bit.
+    pub virt: HashMap<(P, usize), usize>,
+    /// The directions whose watched cell changes during the run (report only).
+    pub watchable: HashSet<(P, usize)>,
+    /// Cells whose block never leaves during the run (no head ever there): its kind at rest.
+    pub stay: HashMap<P, Kind>,
+    /// The lever OUTSIDE the box (track d67): its cell and, when it hangs on a plain block that
+    /// stays, that block (strongly powered by the lever). On a piston's back face the lever
+    /// powers that piston and, by quasi-connectivity, the pistons whose above cell touches it
+    /// (e88's lever on top of the middle of a down-facing top trio holds all three).
+    pub lever_out: Option<(P, Option<P>)>,
+    /// The outside lever's awake bit.
+    pub lever_bit: usize,
 }
 
 impl Layout {
     fn in_box(&self, p: P) -> bool {
         p[2] == 0 && (self.lo[0]..=self.hi[0]).contains(&p[0]) && (self.lo[1]..=self.hi[1]).contains(&p[1])
     }
-    /// Regions next to a cell (its free neighbors).
-    fn regions_around(&self, c: P) -> u64 {
+    /// The awake bit of free cell `f` acting on its neighbor `target` (a sealed cell only through
+    /// an observer facing away from `target`).
+    fn free_bit(&self, f: P, target: P) -> u64 {
+        let Some(k) = self.comp.get(&f) else { return 0 };
+        if !self.sealed.contains(&f) {
+            return 1 << k;
+        }
+        PLANE.iter().find(|&&d| addp(f, D[d]) == target).and_then(|d| self.virt.get(&(f, *d))).map_or(0, |b| 1u64 << b)
+    }
+    /// Regions that can output INTO cell `c` from a free cell next to it.
+    fn powering(&self, c: P) -> u64 {
+        PLANE.iter().fold(0u64, |m, d| m | self.free_bit(addp(c, D[*d]), c))
+    }
+    /// Regions that wake when cell `x` changes: an observer next to it sees the change (a sealed
+    /// cell's observer then outputs straight away from `x`).
+    fn watching(&self, x: P) -> u64 {
         let mut m = 0u64;
         for d in PLANE {
-            if let Some(k) = self.comp.get(&addp(c, D[d])) {
-                m |= 1 << k;
+            let f = addp(x, D[d]);
+            if let Some(k) = self.comp.get(&f) {
+                if self.sealed.contains(&f) {
+                    if let Some(b) = self.virt.get(&(f, d)) {
+                        m |= 1 << b;
+                    }
+                } else {
+                    m |= 1 << k;
+                }
             }
         }
         m
     }
-    /// Regions that can power cell `c` in state `occ` (a component in `c`'s free cell, a hop, or a
-    /// door block powered from a free cell next to it).
-    fn sources(&self, c: P, w: &World, occ: &HashMap<P, (usize, bool)>) -> u64 {
-        if let Some(k) = self.comp.get(&c) {
-            return 1 << k;
+    /// Regions that can read a powered block at `c` (dust, a repeater, a torch next to it; not a
+    /// sealed cell, which has no support for them).
+    fn sensing(&self, c: P) -> u64 {
+        PLANE.iter().filter_map(|d| {
+            let f = addp(c, D[*d]);
+            (!self.sealed.contains(&f)).then(|| self.comp.get(&f)).flatten()
+        }).fold(0u64, |m, k| m | 1 << k)
+    }
+    /// The bits awake at the start of an edge when the lever is in region `k` (a lever in a sealed
+    /// cell powers every neighbor of it).
+    fn lever_mask(&self, k: usize) -> u64 {
+        self.virt.iter().filter(|((c, _), _)| self.comp.get(c) == Some(&k)).fold(1u64 << k, |m, (_, b)| m | 1 << b)
+    }
+    /// Regions that can power `target` through cell `c` in state `occ` (a component in `c`'s free
+    /// cell, a hop, or a door block powered from a free cell next to it).
+    fn sources(&self, c: P, target: P, w: &World, occ: &HashMap<P, (usize, bool)>) -> u64 {
+        if let Some((lv, st)) = self.lever_out {
+            if c == lv || st == Some(c) {
+                return 1u64 << self.lever_bit;
+            }
+        }
+        if self.comp.contains_key(&c) {
+            return self.free_bit(c, target);
         }
         if let Some(ks) = self.hops.get(&c) {
             return ks.iter().fold(0u64, |m, k| m | 1 << k);
         }
         if let Some((i, false)) = occ.get(&c) {
             if matches!(w.b[*i].1, Kind::Door) {
-                return self.regions_around(c);
+                return self.powering(c);
             }
         }
         0
@@ -116,24 +183,33 @@ pub fn layout(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Result<
             fp.insert(*p);
         }
     };
+    // what every state holds where (block, head?, kind): which cells ever change, which blocks
+    // never leave their cell (the sealed-cell rule below)
+    let snap = |w: &World| -> HashMap<P, (usize, bool, Kind)> { occupied(w).into_iter().map(|(p, (i, h))| (p, (i, h, w.b[i].1))).collect() };
+    let mut snaps = vec![snap(&cur)];
+    // a 2 gt pulse leaves its piston as it was: its cell and head cell change inside the event
+    let mut pulsed: HashSet<P> = HashSet::new();
     mark(&cur, &mut fp);
     for seq in seqs {
         for e in seq {
             let (p, k) = cur.b[e.id as usize];
             if let (Act::P, Kind::Piston { f, .. }) = (e.act, k) {
                 fp.insert(addp(p, D[f as usize]));
+                pulsed.insert(p);
+                pulsed.insert(addp(p, D[f as usize]));
             }
             if let Some(n) = cur.apply(*e) {
                 cur = n;
             }
             mark(&cur, &mut fp);
+            snaps.push(snap(&cur));
         }
     }
     // families v3 plans include quasi-connectivity coupling that this macro model does not replay;
     // keep the footprint of what did replay and say so (the order search below is this model's own).
     let diverged = cur != *rest;
     let lv = rest.b.iter().enumerate().filter(|(_, (_, k))| matches!(k, Kind::Piston { ext: true, .. })).fold(0u64, |m, (i, _)| m | 1u64 << i);
-    let mut l = Layout { lo, hi, comp: HashMap::new(), hops: HashMap::new(), nregions: 0, footprint: fp, lv, diverged };
+    let mut l = Layout { lo, hi, comp: HashMap::new(), hops: HashMap::new(), nregions: 0, footprint: fp, lv, diverged, sealed: HashSet::new(), virt: HashMap::new(), watchable: HashSet::new(), stay: HashMap::new(), lever_out: None, lever_bit: 0 };
     for p in &l.footprint {
         if !in_t(*p) && !l.in_box(*p) {
             return Err(format!("mechanism outside the box at {:?}", p));
@@ -219,7 +295,71 @@ pub fn layout(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2]) -> Result<
     if l.nregions > 60 {
         return Err("too many regions".into());
     }
+    seal(&mut l, &snaps, &pulsed);
     Ok(l)
+}
+
+/// Mark the sealed free cells and give each usable observer direction its own awake bit (see
+/// `Layout::sealed`). A cell is NOT sealed when a neighbor could carry another component: a hop,
+/// a plain block that never leaves its cell (a torch on it, or it powers a component), or a
+/// support below that never leaves (dust, a repeater: a plain block, a piston facing down, whose
+/// top is its back face, or a piston that never fires). An observer direction is usable when
+/// both the cell it outputs into and the cell it watches are in the box and the watched cell
+/// changes during the run. Falls back to no sealing past 64 bits.
+fn seal(l: &mut Layout, snaps: &[HashMap<P, (usize, bool, Kind)>], pulsed: &HashSet<P>) {
+    let changing: HashSet<P> = l.footprint.iter().copied().filter(|p| pulsed.contains(p) || snaps.iter().any(|s| s.get(p) != snaps[0].get(p))).collect();
+    l.stay = snaps[0]
+        .iter()
+        .filter(|(p, (i, h, _))| !h && snaps.iter().all(|s| s.get(*p).is_some_and(|v| v.0 == *i && !v.1)))
+        .map(|(p, (_, _, k))| (*p, *k))
+        .collect();
+    let stay = l.stay.clone();
+    let stays = |p: &P| -> Option<Kind> { stay.get(p).copied() };
+    let mut sizes = vec![0usize; l.nregions];
+    for k in l.comp.values() {
+        sizes[*k] += 1;
+    }
+    let mut cells: Vec<P> = l.comp.iter().filter(|(_, k)| sizes[**k] == 1).map(|(c, _)| *c).collect();
+    cells.sort();
+    let mut sealed = HashSet::new();
+    for c in cells {
+        let nb: Vec<P> = PLANE.iter().map(|d| addp(c, D[*d])).collect();
+        if nb.iter().any(|q| l.hops.contains_key(q) || stays(q).is_some_and(|k| !matches!(k, Kind::Piston { .. }))) {
+            continue;
+        }
+        let below = addp(c, D[3]);
+        if stays(&below).is_some_and(|k| match k {
+            Kind::Piston { f, .. } => f == 3 || !changing.contains(&below),
+            _ => true,
+        }) {
+            continue;
+        }
+        sealed.insert(c);
+    }
+    let mut ordered: Vec<P> = sealed.iter().copied().collect();
+    ordered.sort();
+    // one bit per output direction into the box: `watching` sets it only when the watched cell
+    // (behind the observer) changed, `lever_mask` sets all of a lever cell's
+    let mut virt = HashMap::new();
+    let mut watchable = HashSet::new();
+    let mut next = l.nregions;
+    for c in ordered {
+        for d in PLANE {
+            let out = addp(c, D[d]);
+            if l.in_box(out) || in_t(out) {
+                virt.insert((c, d), next);
+                next += 1;
+                if changing.contains(&[c[0] - D[d][0], c[1] - D[d][1], c[2] - D[d][2]]) {
+                    watchable.insert((c, d));
+                }
+            }
+        }
+    }
+    if next <= 64 {
+        l.sealed = sealed;
+        l.virt = virt;
+        l.watchable = watchable;
+    }
 }
 
 /// One gated event: a piston event, or a stack event (the piston below fired by quasi-connectivity
@@ -240,7 +380,7 @@ fn feeds(l: &Layout, w: &World, occ: &HashMap<P, (usize, bool)>, i: usize) -> (u
     for d in PLANE {
         let c = addp(pos, D[d]);
         if c != front && !(ext && c == front) {
-            m |= l.sources(c, w, occ);
+            m |= l.sources(c, pos, w, occ);
         }
     }
     let q = addp(pos, UP);
@@ -252,7 +392,7 @@ fn feeds(l: &Layout, w: &World, occ: &HashMap<P, (usize, bool)>, i: usize) -> (u
         for d in PLANE {
             let c = addp(q, D[d]);
             if c != pos {
-                m |= l.sources(c, w, occ);
+                m |= l.sources(c, q, w, occ);
             }
         }
     }
@@ -274,19 +414,20 @@ fn changed_regions(l: &Layout, a: &World, b: &World, ev_cells: &[P]) -> u64 {
             cells.insert(*p);
         }
     }
-    cells.iter().fold(0u64, |m, c| m | l.regions_around(*c))
+    cells.iter().fold(0u64, |m, c| m | l.watching(*c))
 }
 
-/// Door blocks bridging an awake region to another one.
+/// Door blocks bridging an awake region to another one: a component of an awake region powers
+/// the door block, a component next to it in another region reads it.
 fn bridge(l: &Layout, w: &World, awake: u64) -> u64 {
     let mut m = awake;
     loop {
         let mut grew = false;
         for (p, k) in &w.b {
-            if matches!(k, Kind::Door) && !in_t(*p) {
-                let r = l.regions_around(*p);
-                if r & m != 0 && r & !m != 0 {
-                    m |= r;
+            if matches!(k, Kind::Door) && !in_t(*p) && l.powering(*p) & m != 0 {
+                let s = l.sensing(*p);
+                if s & !m != 0 {
+                    m |= s;
                     grew = true;
                 }
             }
@@ -367,8 +508,8 @@ fn apply_g(w: &World, g: GEv) -> Option<(World, Vec<P>)> {
 /// state was already reached with a superset of awake regions (more awake regions never forbid
 /// an event).
 #[allow(clippy::type_complexity)]
-fn edge(l: &Layout, start: &World, lever: usize, goal: &dyn Fn(&World) -> bool, cap: usize, want_all: bool, fired: &std::cell::RefCell<std::collections::BTreeSet<u8>>) -> (Vec<(World, Vec<(GEv, u64)>)>, bool, u64) {
-    let a0 = bridge(l, start, 1u64 << lever);
+fn edge(l: &Layout, start: &World, a_start: u64, goal: &dyn Fn(&World) -> bool, cap: usize, want_all: bool, fired: &std::cell::RefCell<std::collections::BTreeSet<u8>>) -> (Vec<(World, Vec<(GEv, u64)>)>, bool, u64) {
+    let a0 = bridge(l, start, a_start);
     let mut seen: HashMap<World, Vec<u64>> = HashMap::new();
     let mut par: HashMap<(World, u64), (World, u64, GEv)> = HashMap::new();
     let mut nseen = 1usize;
@@ -455,6 +596,19 @@ pub fn check(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2], cap: usize)
         sizes[*k] += 1;
     }
     report.push_str(&format!("{} free cells, {} regions {:?}, {} hops{}\n", l.comp.len(), l.nregions, sizes, l.hops.len(), if l.diverged { " (catalog run diverged in this macro model: footprint partial)" } else { "" }));
+    if !l.sealed.is_empty() {
+        let mut cells: Vec<P> = l.sealed.iter().copied().collect();
+        cells.sort();
+        let names = ["E", "W", "U", "D"];
+        let txt: Vec<String> = cells
+            .iter()
+            .map(|c| {
+                let dirs: Vec<&str> = PLANE.iter().filter(|d| l.watchable.contains(&(*c, **d))).map(|d| names[*d]).collect();
+                format!("({},{})->{}", c[0], c[1], if dirs.is_empty() { "nothing".to_string() } else { dirs.join("") })
+            })
+            .collect();
+        report.push_str(&format!("  sealed cells (observer only, outputs): {}\n", txt.join(" ")));
+    }
     // map: region digit per free cell, h = hop, # = footprint, o = opening
     for y in (l.lo[1]..=l.hi[1]).rev() {
         let mut row = format!("  {y:3} ");
@@ -476,79 +630,149 @@ pub fn check(rest: &World, sol: &Solution, lo: [i8; 2], hi: [i8; 2], cap: usize)
         report.push_str(&row);
         report.push('\n');
     }
-    let is_rest = |w: &World| *w == *rest;
     let mut best_fail = String::new();
     let mut undecided = false;
+    // the lever in each region; then outside the box (the volume excludes it) on the back face of
+    // a piston that never moves or on the outer face of a plain block that stays (e88's lever on
+    // the top trio: connect said NOT wirable for e78s-56b-43 and t7b before)
+    let bit = l.nregions + l.virt.len();
+    let outs: Vec<Layout> = if bit < 64 {
+        outside_levers(&l, rest)
+            .into_iter()
+            .map(|lo| {
+                let mut o = l.clone();
+                o.lever_out = Some(lo);
+                o.lever_bit = bit;
+                o
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut trials: Vec<(String, &Layout, u64)> = (0..l.nregions).map(|k| (format!("K{k}"), &l, l.lever_mask(k))).collect();
+    for o in &outs {
+        let (lv, st) = o.lever_out.unwrap_or_default();
+        let on = st.map_or("on a piston's back face".to_string(), |s| format!("on ({},{})", s[0], s[1]));
+        trials.push((format!("at ({},{}) {on}", lv[0], lv[1]), o, (1u64 << o.lever_bit) | o.watching(lv)));
+    }
+    // the most telling failure: one that opened, else the one with the fewest pistons never fed
+    let mut best_key = (false, usize::MAX);
+    for (idx, (label, lay, mask)) in trials.iter().enumerate() {
+        match try_lever(lay, rest, *mask, label, cap) {
+            Ok(txt) => {
+                report.push_str(&txt);
+                return Verdict { ok: true, lever: Some(idx), report };
+            }
+            Err((msg, capped, opened, never)) => {
+                undecided |= capped;
+                if best_fail.is_empty() || (opened && !best_key.0) || (opened == best_key.0 && never < best_key.1) {
+                    best_fail = msg.clone();
+                    best_key = (opened, never);
+                }
+                report.push_str(&format!("  {msg}\n"));
+            }
+        }
+    }
+    let verdict = if undecided { "UNDECIDED (cap hit somewhere)" } else { "NOT wirable" };
+    Verdict { ok: false, lever: None, report: format!("{report}  {verdict}: {best_fail}\n") }
+}
+
+/// Where a lever can hang outside the box: behind every piston that never moves (its back face
+/// stays a full face while it extends and retracts; a side face does not), and on the outer face
+/// of every plain block that stays (statics). Returns (lever cell, the plain block it powers).
+fn outside_levers(l: &Layout, rest: &World) -> Vec<(P, Option<P>)> {
+    let out = |p: P| p[2] == 0 && !l.in_box(p) && !in_t(p);
+    let mut v = Vec::new();
+    for (p, k) in &rest.b {
+        if !l.stay.contains_key(p) {
+            continue;
+        }
+        match k {
+            Kind::Piston { f, .. } => {
+                let d = D[*f as usize];
+                let back = [p[0] - d[0], p[1] - d[1], p[2] - d[2]];
+                if out(back) {
+                    v.push((back, None));
+                }
+            }
+            Kind::Stone | Kind::Obsidian => {
+                for d in PLANE {
+                    let q = addp(*p, D[d]);
+                    if out(q) {
+                        v.push((q, Some(*p)));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// One lever placement: the open edge from the rest state with `start` awake, then the close
+/// edge back. Ok(the witness orders and the WIRABLE line), or Err((the failure line, cap hit,
+/// whether it opened, how many pistons were never fed)).
+fn try_lever(l: &Layout, rest: &World, start: u64, label: &str, cap: usize) -> Result<String, (String, bool, bool, usize)> {
     let name = |i: u8| -> String {
         let (p, k) = rest.b[i as usize];
         format!("{}@({},{})", k.code(), p[0], p[1])
     };
-    for lever in 0..l.nregions {
-        let fired = std::cell::RefCell::new(std::collections::BTreeSet::new());
-        let (opens, capped_o, aw_o) = edge(&l, rest, lever, &|w: &World| w.is_open(), cap, true, &fired);
-        if opens.is_empty() {
-            undecided |= capped_o;
-            let never: Vec<String> = rest.pistons().into_iter().map(|i| i as u8).filter(|i| !fired.borrow().contains(i)).map(name).collect();
-            let msg = format!(
-                "lever K{lever}: no open state reachable{} (regions ever awake {:#b}; pistons never fed from an awake region: {})",
-                if capped_o { " (cap hit)" } else { "" },
-                aw_o,
-                if never.is_empty() { "none".into() } else { never.join(" ") }
-            );
-            if best_fail.is_empty() || (!capped_o && best_fail.contains("cap hit")) {
-                best_fail = msg.clone();
-            }
-            report.push_str(&format!("  {msg}\n"));
-            continue;
-        }
-        let mut closed = false;
-        let mut capped_c = false;
-        let mut aw_c = 0u64;
-        let fired_c = std::cell::RefCell::new(std::collections::BTreeSet::new());
-        let fmt_g = |w0: &World, path: &[(GEv, u64)]| -> String {
-            let mut w = w0.clone();
-            let mut out = Vec::new();
-            for (g, a) in path {
-                let evs = match g {
-                    GEv::One(e) => vec![*e],
-                    GEv::Stack(x, y) => vec![*x, *y],
-                };
-                let txt: Vec<String> = evs.iter().map(|e| mechsynth::fmt_ev(&w, e)).collect();
-                out.push(format!("{}[awake {:b}]", txt.join("+"), a));
-                if let Some((n, _)) = apply_g(&w, *g) {
-                    w = n;
-                }
-            }
-            out.join(" ")
-        };
-        for (o, opath) in opens.iter().take(64) {
-            let (back, cc, ac) = edge(&l, o, lever, &is_rest, cap, false, &fired_c);
-            capped_c |= cc;
-            aw_c |= ac;
-            if let Some((_, cpath)) = back.first() {
-                closed = true;
-                report.push_str(&format!("  open order:  {}\n  close order: {}\n", fmt_g(rest, opath), fmt_g(o, cpath)));
-                break;
-            }
-        }
-        if closed {
-            report.push_str(&format!("  lever K{lever}: WIRABLE (connectivity + order): {} open states reachable\n", opens.len()));
-            return Verdict { ok: true, lever: Some(lever), report };
-        }
-        undecided |= capped_c;
-        let never: Vec<String> = rest.pistons().into_iter().map(|i| i as u8).filter(|i| !fired_c.borrow().contains(i)).map(name).collect();
+    let is_rest = |w: &World| *w == *rest;
+    let fired = std::cell::RefCell::new(std::collections::BTreeSet::new());
+    let (opens, capped_o, aw_o) = edge(l, rest, start, &|w: &World| w.is_open(), cap, true, &fired);
+    if opens.is_empty() {
+        let never: Vec<String> = rest.pistons().into_iter().map(|i| i as u8).filter(|i| !fired.borrow().contains(i)).map(name).collect();
         let msg = format!(
-            "lever K{lever}: opens ({} open states) but cannot close{} (regions ever awake on close {:#b}; pistons never fed on close: {})",
-            opens.len(),
-            if capped_c { " (cap hit)" } else { "" },
-            aw_c,
+            "lever {label}: no open state reachable{} (regions ever awake {:#b}; pistons never fed from an awake region: {})",
+            if capped_o { " (cap hit)" } else { "" },
+            aw_o,
             if never.is_empty() { "none".into() } else { never.join(" ") }
         );
-        best_fail = msg.clone();
-        report.push_str(&format!("  {msg}\n"));
+        return Err((msg, capped_o, false, never.len()));
     }
-    let verdict = if undecided { "UNDECIDED (cap hit somewhere)" } else { "NOT wirable" };
-    Verdict { ok: false, lever: None, report: format!("{report}  {verdict}: {best_fail}\n") }
+    let mut capped_c = false;
+    let mut aw_c = 0u64;
+    let fired_c = std::cell::RefCell::new(std::collections::BTreeSet::new());
+    let fmt_g = |w0: &World, path: &[(GEv, u64)]| -> String {
+        let mut w = w0.clone();
+        let mut out = Vec::new();
+        for (g, a) in path {
+            let evs = match g {
+                GEv::One(e) => vec![*e],
+                GEv::Stack(x, y) => vec![*x, *y],
+            };
+            let txt: Vec<String> = evs.iter().map(|e| mechsynth::fmt_ev(&w, e)).collect();
+            out.push(format!("{}[awake {:b}]", txt.join("+"), a));
+            if let Some((n, _)) = apply_g(&w, *g) {
+                w = n;
+            }
+        }
+        out.join(" ")
+    };
+    for (o, opath) in opens.iter().take(64) {
+        let (back, cc, ac) = edge(l, o, start, &is_rest, cap, false, &fired_c);
+        capped_c |= cc;
+        aw_c |= ac;
+        if let Some((_, cpath)) = back.first() {
+            return Ok(format!(
+                "  open order:  {}\n  close order: {}\n  lever {label}: WIRABLE (connectivity + order): {} open states reachable\n",
+                fmt_g(rest, opath),
+                fmt_g(o, cpath),
+                opens.len()
+            ));
+        }
+    }
+    let never: Vec<String> = rest.pistons().into_iter().map(|i| i as u8).filter(|i| !fired_c.borrow().contains(i)).map(name).collect();
+    let msg = format!(
+        "lever {label}: opens ({} open states) but cannot close{} (regions ever awake on close {:#b}; pistons never fed on close: {})",
+        opens.len(),
+        if capped_c { " (cap hit)" } else { "" },
+        aw_c,
+        if never.is_empty() { "none".into() } else { never.join(" ") }
+    );
+    Err((msg, capped_c, true, never.len()))
 }
 
 /// `mctas door connect <catalog.tsv> --boxes 7x9 [--only ids]`: every entry, every placement of its

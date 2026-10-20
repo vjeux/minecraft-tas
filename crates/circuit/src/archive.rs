@@ -274,6 +274,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper | Kind::TntDuperTriggered => m("rate"),
     }
 }
 

@@ -279,6 +279,7 @@ dependencies = [
  "circuit-pext",
  "circuit-pulse",
  "circuit-tff",
+ "circuit-tnt",
  "clap",
  "clock",
  "mctas",
@@ -360,6 +361,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-tnt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "clap",
  "clock",
  "mctas",
