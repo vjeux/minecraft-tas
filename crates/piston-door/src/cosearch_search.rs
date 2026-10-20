@@ -2501,15 +2501,10 @@ fn measure_windows(p: &Problem, seed: &Grid, groups: &mut [PGroup], win: i32, th
 /// input must fall in the window of one of that input's groups (one real pulse per group, width
 /// within tolerance); a real edge no group explains rejects the filling (None). Returns the
 /// covered groups (bit = index in `groups`).
-/// POCKET LOAD (after the feed report): per pocket, the plan groups it must make. An input whose
-/// piston touches (directly or through the cell above it) ONE pocket only is that pocket's forced
-/// load; inputs it can share with another pocket are listed apart. A filling sees only its own
-/// neighbourhood, so every distinct pulse tick of its load needs its own event source: a 1-3-cell
-/// pocket with 6 forced ticks is a wall before any search runs (the sub-56 screens, 10-20).
-fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup], names: &[String]) {
+/// Per plan input: the pockets touching its piston directly or through the cell above it.
+fn pocket_feeders(p: &Problem, pockets: &[Vec<(i32, i32)>]) -> Vec<Vec<usize>> {
     let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
-    let feeders: Vec<Vec<usize>> = p
-        .assist_pistons
+    p.assist_pistons
         .iter()
         .map(|&(px, py)| {
             let mut v: Vec<usize> = n4(px, py)
@@ -2521,7 +2516,16 @@ fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup
             v.dedup();
             v
         })
-        .collect();
+        .collect()
+}
+
+/// POCKET LOAD (after the feed report): per pocket, the plan groups it must make. An input whose
+/// piston touches (directly or through the cell above it) ONE pocket only is that pocket's forced
+/// load; inputs it can share with another pocket are listed apart. A filling sees only its own
+/// neighbourhood, so every distinct pulse tick of its load needs its own event source: a 1-3-cell
+/// pocket with 6 forced ticks is a wall before any search runs (the sub-56 screens, 10-20).
+fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup], names: &[String]) {
+    let feeders = pocket_feeders(p, pockets);
     let ticks = |ks: &[usize]| -> (Vec<u32>, Vec<u32>) {
         let mut t: [Vec<u32>; 2] = [Vec::new(), Vec::new()];
         for g in groups.iter().filter(|g| ks.contains(&g.k)) {
@@ -2553,6 +2557,193 @@ fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], groups: &[PGroup
             fmt(&c),
             if shared.is_empty() { String::new() } else { format!("; can also feed [{}]", label(&shared)) }
         );
+    }
+}
+
+/// The plan replayed on `g` (its assisted inputs only): the given cells' states at rest after the
+/// flip (index 0) and after every tick, per phase. None when the build does not settle.
+fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos]) -> Option<[Vec<Vec<Block>>; 2]> {
+    let list = g.blocks();
+    let (wlo, whi) = cs::watch_box(&list, &p.spec);
+    let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
+    let mut placed: Vec<(BlockPos, Block)> = list.iter().map(|(q, b)| (cs::bp(*q), *b)).collect();
+    placed.extend(assist_world_rest(p, g.assist));
+    w.place_like_judge(&placed);
+    let (_, idle) = cs::step_until_idle(&mut w, p.max_ticks, |_| {});
+    if !idle {
+        return None;
+    }
+    let lever = g.lever_pos();
+    let snap = |w: &World| cells.iter().map(|q| w.get(*q)).collect::<Vec<Block>>();
+    let mut out: [Vec<Vec<Block>>; 2] = [Vec::new(), Vec::new()];
+    for (phase, o) in out.iter_mut().enumerate() {
+        w.use_block(lever);
+        o.push(snap(&w));
+        let mut v = Vec::new();
+        run_phase(p, g, &mut w, phase, None, |w| v.push(snap(w)));
+        o.extend(v);
+    }
+    Some(out)
+}
+
+/// ISLAND START (after the load report; clk-misc's islands, 10-20): a pocket's wiring can only
+/// start from a change it can observe (a cell next to it that changes: a piston's base or head, a
+/// moved block) or from the lever hanging in it; pockets joined by a static conductor count as one
+/// island. Every change next to each pocket is attributed to the plan inputs it depends on (the
+/// replay without that one input has no change there at that tick). A pocket starts on an edge
+/// when some change next to it, no later than its first forced pulse can come (its window's far
+/// end), depends only on inputs fed by pockets already started and on none of its own forced
+/// inputs; the lever's pocket starts at the flip. Optimistic on purpose (no observer delay, a
+/// change no single input explains counts as available), so a NEVER is a wall: printed per lever
+/// pocket (u0/u2-7x7: the right pockets see only their own pistons).
+fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], groups: &[PGroup]) {
+    let feeders = pocket_feeders(p, pockets);
+    let forced: Vec<Vec<usize>> = (0..pockets.len()).map(|i| (0..feeders.len()).filter(|k| feeders[*k] == [i]).collect()).collect();
+    // the latest tick each pocket's first forced pulse may come (its window's far end): a trigger
+    // after it is too late on that edge
+    let first: Vec<[Option<u32>; 2]> = forced
+        .iter()
+        .map(|ks| {
+            let f = |ph: usize| groups.iter().filter(|g| g.phase == ph && ks.contains(&g.k)).map(|g| (g.t as i32 + g.hi.max(0)) as u32).min();
+            [f(0), f(1)]
+        })
+        .collect();
+    // the cells next to each pocket
+    let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
+    let mut cells: Vec<(i32, i32)> = Vec::new();
+    let near: Vec<Vec<usize>> = pockets
+        .iter()
+        .map(|pk| {
+            let mut v = Vec::new();
+            for &(x, y) in pk {
+                for c in n4(x, y) {
+                    if pk.contains(&c) {
+                        continue;
+                    }
+                    let ci = cells.iter().position(|q| *q == c).unwrap_or_else(|| {
+                        cells.push(c);
+                        cells.len() - 1
+                    });
+                    if !v.contains(&ci) {
+                        v.push(ci);
+                    }
+                }
+            }
+            v
+        })
+        .collect();
+    let pos: Vec<BlockPos> = cells.iter().map(|(x, y)| BlockPos::new(*x, *y, seed.z)).collect();
+    let Some(base) = replay_cells(p, seed, &pos) else {
+        println!("  island start: the seed does not settle");
+        return;
+    };
+    let inputs: Vec<usize> = (0..p.assist_pistons.len()).filter(|k| (seed.assist >> k) & 1 == 1).collect();
+    let without: Vec<Option<[Vec<Vec<Block>>; 2]>> = inputs
+        .iter()
+        .map(|&k| {
+            let mut g = seed.clone();
+            g.assist &= !(1u64 << k);
+            replay_cells(p, &g, &pos)
+        })
+        .collect();
+    // the changes next to the pockets: (cell, phase, tick, inputs it depends on)
+    let mut changes: Vec<(usize, usize, u32, Vec<usize>)> = Vec::new();
+    for ph in 0..2 {
+        for t in 1..base[ph].len() {
+            for ci in 0..cells.len() {
+                if base[ph][t][ci] == base[ph][t - 1][ci] {
+                    continue;
+                }
+                // an observer only needs SOME change of the cell at that tick
+                let moved = |r: &[Vec<Block>]| matches!((r.get(t), r.get(t - 1)), (Some(a), Some(b)) if a[ci] != b[ci]);
+                let deps: Vec<usize> = inputs.iter().zip(&without).filter(|(_, r)| r.as_ref().is_some_and(|r| !moved(&r[ph]))).map(|(k, _)| *k).collect();
+                changes.push((ci, ph, t as u32, deps));
+            }
+        }
+    }
+    let mut all_start: Vec<usize> = Vec::new();
+    // islands: pockets joined by a static conductor next to both (a block that never changes:
+    // power crosses it, from a lever on its face or a dust / repeater / torch into it)
+    let mut root: Vec<usize> = (0..pockets.len()).collect();
+    fn find(root: &mut [usize], mut a: usize) -> usize {
+        while root[a] != a {
+            a = root[a];
+        }
+        a
+    }
+    for ci in 0..cells.len() {
+        let s0 = base[0][0][ci];
+        let constant = base.iter().all(|ph| ph.iter().all(|s| s[ci] == s0));
+        if !constant || matches!(s0, Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. }) || !redsim::behavior::conductor_of(&s0) {
+            continue;
+        }
+        let qs: Vec<usize> = (0..pockets.len()).filter(|q| near[*q].contains(&ci)).collect();
+        for w in qs.windows(2) {
+            let (a, b) = (find(&mut root, w[0]), find(&mut root, w[1]));
+            if a != b {
+                root[a] = b;
+            }
+        }
+    }
+    let roots: Vec<usize> = (0..pockets.len()).map(|q| find(&mut root, q)).collect();
+    if roots.iter().enumerate().any(|(q, r)| *r != q) {
+        let mut groups_of: Vec<Vec<usize>> = Vec::new();
+        for r in 0..pockets.len() {
+            let g: Vec<usize> = (0..pockets.len()).filter(|q| roots[*q] == r).collect();
+            if g.len() > 1 {
+                groups_of.push(g);
+            }
+        }
+        println!("  island start: pockets joined through a static conductor: {groups_of:?}");
+    }
+    // pockets mode places the lever in a pocket (one line per choice); --keep-lever keeps the
+    // seed's own lever, whose effects are the changes no plan input explains
+    let choices: Vec<Option<usize>> = if p.no_lever { (0..pockets.len()).map(Some).collect() } else { vec![None] };
+    for lever in choices {
+        let mut started: Vec<bool> = (0..pockets.len()).map(|q| lever.is_some_and(|l| roots[q] == roots[l])).collect();
+        loop {
+            let avail: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k].iter().any(|q| started[*q])).collect();
+            let mut grew = false;
+            for q in 0..pockets.len() {
+                if started[q] || forced[q].is_empty() {
+                    continue;
+                }
+                let ok = (0..2).all(|ph| match first[q][ph] {
+                    None => true,
+                    Some(tf) => changes.iter().any(|(ci, cph, t, deps)| {
+                        // (a change no single plan input explains comes from the seed's own wiring or
+                        // lever; a pushed power source can act on its own tick, so no observer delay)
+                        *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k))
+                    }),
+                });
+                if ok {
+                    for (r, s) in started.iter_mut().enumerate() {
+                        if roots[r] == roots[q] {
+                            *s = true;
+                        }
+                    }
+                    grew = true;
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+        let never: Vec<usize> = (0..pockets.len()).filter(|q| !started[*q] && !forced[*q].is_empty()).collect();
+        if never.is_empty()
+            && let Some(l) = lever
+        {
+            all_start.push(l);
+        }
+        let fmt_first = |q: usize| format!("first forced tick open {} / close {}", first[q][0].map_or("-".into(), |t| t.to_string()), first[q][1].map_or("-".into(), |t| t.to_string()));
+        println!(
+            "  island start, {}: {}",
+            lever.map_or("the seed's lever".to_string(), |l| format!("lever in pocket {l}")),
+            if never.is_empty() { "every pocket with forced ticks starts".to_string() } else { format!("NEVER start: {}", never.iter().map(|q| format!("pocket {q} ({})", fmt_first(*q))).collect::<Vec<_>>().join(", ")) }
+        );
+    }
+    if p.no_lever {
+        println!("  island start: lever pockets that start every pocket: {}", if all_start.is_empty() { "NONE (no static wiring can run this plan)".to_string() } else { format!("{all_start:?}") });
     }
 }
 
@@ -3028,6 +3219,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
     pocket_load_report(&prob, &pockets, &groups, &names);
+    island_start_report(&prob, &seed, &pockets, &groups);
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {
