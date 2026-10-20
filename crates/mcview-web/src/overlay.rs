@@ -67,6 +67,9 @@ pub struct Overlays {
     history_caption: Option<HtmlElement>,
     /// The viewer's own controls over the view (the Record button): no tag or label goes there.
     pub keep_clear: Vec<HtmlElement>,
+    /// A TNT duper standing above its judge's ground: its height in words and the line from the
+    /// design's bottom down to the ground (top and bottom points).
+    drop: Option<(HtmlElement, [f32; 3], [f32; 3])>,
 }
 
 fn div(css: &str) -> HtmlElement {
@@ -144,6 +147,7 @@ impl Overlays {
             history: None,
             history_caption: None,
             keep_clear: Vec::new(),
+            drop: None,
         }
     }
 
@@ -190,10 +194,39 @@ impl Overlays {
             self.tags.push(t);
         }
         // a circuit's other ports: its outputs, a shulker design's chests (same-kind neighbours
-        // share one tag), a BUD switch's target
+        // share one tag), a BUD switch's target; a shulker design's judge chests say what the
+        // judge does to them (critique: an ITEMS count that never goes down): it keeps a loader's
+        // sources and every box chest full, and empties the outputs, the rejects and an
+        // unloader's item chests
+        let kind = p.session.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default();
         for g in mcview::circuit::port_groups(&p.session.design) {
             let t = make(&self.layer, &g.label, g.colour, g.cells);
+            let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
+                ("shulker-loader", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
+                ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") => Some("emptied"),
+                _ => None,
+            };
+            if let Some(r) = role {
+                let note = span("color:#d8d8d8;font-weight:500;letter-spacing:0", r);
+                let _ = t.el.insert_before(&note, Some(&t.contents));
+            }
             self.tags.push(t);
+        }
+        // a TNT duper standing above its judge's ground (critique: from above it looked like it
+        // sat on the grass): how high, by a dashed line from its bottom down to the ground
+        if let Some(d) = self.drop.take() {
+            d.0.remove();
+        }
+        if let Some(f) = &p.session.floor {
+            let (lo, hi) = f.design_box;
+            let up = lo[1] - 1 - f.hi[1];
+            if up > 0 {
+                let el = div("position:absolute;display:none;align-items:center;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:#fff;font:600 10px/14px system-ui,sans-serif;white-space:nowrap;width:max-content");
+                el.set_text_content(Some(&format!("{up} block{} above the ground", if up == 1 { "" } else { "s" })));
+                let _ = self.layer.append_child(&el);
+                let (x, z) = ((lo[0] + hi[0] + 1) as f32 / 2.0, (lo[2] + hi[2] + 1) as f32 / 2.0);
+                self.drop = Some((el, [x, lo[1] as f32, z], [x, f.hi[1] as f32 + 1.0, z]));
+            }
         }
         // a clock's output: the circuits' OUT box and tag (vjeux: instead of the orange glass)
         let clock_out = !p.session.design.meta.contains_key("circuit") && !p.session.mode.is_door();
@@ -291,9 +324,10 @@ impl Overlays {
             };
             let _ = el.append_child(&icon);
             let _ = el.append_child(&span("margin-right:2px", &labels::entry_text(e)));
-            // several boxes: how full they are, as a bar
+            // several boxes: how full they are, as a bar (not when all are empty: nothing to show)
             if let Entry::Boxes { n, used, slots, .. } = e
                 && *n > 1
+                && *used > 0
             {
                 let bar = div("width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,0.25);overflow:hidden;flex:none;margin-right:2px");
                 let fill = div(&format!("height:100%;width:{:.0}%;background:#d9a8ff", *used as f64 * 100.0 / (*slots).max(1) as f64));
@@ -412,6 +446,22 @@ impl Overlays {
             show_at(&tg.el, &rect);
         }
         // the outlined cells: no label covers one
+        // (a TNT duper's height over its ground first: its dashed line and words beside it)
+        let mut dashed: Vec<((f64, f64), (f64, f64))> = Vec::new();
+        if let Some((el, top, bottom)) = &self.drop {
+            match (project(*top), project(*bottom)) {
+                (Some(a), Some(b)) if (b.1 - a.1).abs() > 12.0 => {
+                    dashed.push((a, b));
+                    let (wt, ht) = measure(el);
+                    let (mx, my) = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+                    let right = Rect { x0: mx + 6.0, y0: my - ht / 2.0, x1: mx + 6.0 + wt, y1: my + ht / 2.0 };
+                    let r = if right.x1 > w - 4.0 { Rect { x0: mx - 6.0 - wt, y0: right.y0, x1: mx - 6.0, y1: right.y1 } } else { right };
+                    layout.texts.push(r);
+                    show_at(el, &r);
+                }
+                _ => hide(el),
+            }
+        }
         for c in p.look.outlines.iter().copied().chain(p.look.port_outlines.iter().map(|(c, _)| *c)) {
             if let Some(b) = cell_box(c) {
                 layout.obstacles.push(b);
@@ -474,7 +524,7 @@ impl Overlays {
                 None => hide(&l.el),
             }
         }
-        self.draw_leaders(&layout.lines, w, h);
+        self.draw_leaders(&layout.lines, &dashed, w, h);
         // the outputs' history
         if let Some((c, ctx)) = &self.history {
             let (cw, ch) = (c.width() as f64, c.height() as f64);
@@ -490,8 +540,9 @@ impl Overlays {
         }
     }
 
-    /// A thin line from each moved tag or label down to its cell, with a dot there.
-    fn draw_leaders(&self, lines: &[((f64, f64), (f64, f64))], w: f64, h: f64) {
+    /// A thin line from each moved tag or label down to its cell, with a dot there; `dashed`: a
+    /// TNT duper's height over its ground.
+    fn draw_leaders(&self, lines: &[((f64, f64), (f64, f64))], dashed: &[((f64, f64), (f64, f64))], w: f64, h: f64) {
         let Some((c, ctx)) = &self.leaders else { return };
         let dpr = crate::window().device_pixel_ratio().clamp(1.0, 3.0);
         let (pw, ph) = ((w * dpr).round().max(1.0) as u32, (h * dpr).round().max(1.0) as u32);
@@ -500,6 +551,18 @@ impl Overlays {
             c.set_height(ph);
         }
         ctx.clear_rect(0.0, 0.0, pw as f64, ph as f64);
+        if !dashed.is_empty() {
+            ctx.set_line_width(1.5 * dpr);
+            ctx.set_stroke_style_str("rgba(255,255,255,0.9)");
+            let _ = ctx.set_line_dash(&js_sys::Array::of2(&(4.0 * dpr).into(), &(3.0 * dpr).into()));
+            for ((ax, ay), (x, y)) in dashed {
+                ctx.begin_path();
+                ctx.move_to(ax * dpr, ay * dpr);
+                ctx.line_to(x * dpr, y * dpr);
+                ctx.stroke();
+            }
+            let _ = ctx.set_line_dash(&js_sys::Array::new());
+        }
         if lines.is_empty() {
             return;
         }

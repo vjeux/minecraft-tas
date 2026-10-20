@@ -401,6 +401,17 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
         }
     }
+    // a TNT duper standing above its judge's ground (8 blocks or less): the ground under it is in
+    // the picture, so its height shows (critique: from above it looked like it sat on the grass)
+    if let Some(f) = &s.floor {
+        let (lo, hi) = f.design_box;
+        let up = lo[1] - 1 - f.hi[1];
+        if up > 0 && up as f32 <= VIEW_REACH {
+            for (x, z) in [(lo[0], lo[2]), (hi[0] + 1, hi[2] + 1)] {
+                pts.push([x as f32, f.hi[1] as f32 + 1.0, z as f32]);
+            }
+        }
+    }
     // a tiny build (smaller than MIN_VIEW_W in every direction): framed as if MIN_VIEW_W blocks
     // across and MIN_VIEW_H high, around its middle (a thin tower is not tiny: no padding)
     if !pts.is_empty() {
