@@ -3,7 +3,7 @@ name: cal-torch-repeater
 # points into B, which turns the torch off; the ring goes dark, the repeater lets go, the torch
 # relights. Self-starting (the judge's self updates light the ring). Delay 4 keeps the torch under
 # its burnout limit (8 toggles in 60 gt).
-port output: 1 1 0
+port output: 0 -1 2
 palette:
   S minecraft:stone
   B minecraft:stone

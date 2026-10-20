@@ -48,6 +48,18 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   droppers and crafters triggered, leaves distance < 7, scaffolding distance > 0, else `lit`, then
   `power > 0`, then `powered`; a plain block: present. An output cell holding a plain block or air
   reads the power it receives (`getBestNeighborSignal > 0`).
+* **Evenly spaced output** (coordinator's decision, 2026-10-20, from vjeux's site critique C38: a
+  P476 minecart loop whose output pulses every 52..71 gt is no 24 s clock): the judge and redsim
+  also record the GAPS, the ticks between the output's rising edges over one period
+  (`CellWave::gaps`; verdicts-v1.tsv's 17th column, `[6, 6]`). With N equal gaps g the output is a
+  clock of period g for a builder (g can be shorter than the state period); unequal gaps are an
+  UNEVEN output: `clock archive` refuses it (naming a cell of the clock that pulses evenly, to
+  declare as `port output` instead), `clock catalog` and the site leave such rows out (they stay in
+  the repository). `clock gaps [--write]` backfills the column from redsim; `clock retap [--write]`
+  moves an uneven clock's `port output` to a cell that always holds the same component and pulses
+  evenly (the longest such period), judges it again in the game and rewrites its design and row
+  when the period holds with an even output; `clock sim --irregular` lists the uneven ones. On
+  2026-10-20: 2544 of 4051 archived clocks were uneven before the retap batch.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
   strength, a container's contents), plus a redstone block that moves (a moving power source),
@@ -340,8 +352,14 @@ by `rt-tnt-floor`, `-obsidian`, `-water`, `-chain`, `-push` and `-items` (exact 
 level random checked every frame). For robustness over every random outcome (vjeux): injected
 kicks and chain fuses per TNT (`World::tnt_kicks`, `chain_fuses`), `Rolls::Max` (every ray at the
 largest roll: surviving it is surviving every roll), and `robust::critical_points` (a kick sweep
-with every change bisected). Not modeled (a model error): an explosion near sculk sensors, a
-container's spilled contents, a moving piston it destroys, a vehicle or armor stand it breaks
+with every change bisected). An explosion destroying a moving block drops what it moves
+(`MovingPistonBlock.getDrops`) and runs `finalTick` on an air cell; rays stop at the build height
+(-64..=319: a TNT that fell into the void destroys nothing); entities only tick in the sandbox's
+forced chunks (`World::entity_chunks`, set with the level random: a TNT or item flying out of them
+freezes, like `ServerLevel.tick`'s entity-ticking range). The 7 TNT archive designs are exact
+traces too (200 gt: blasts breaking moving pistons, void blasts, frozen TNT). Not modeled (a model
+error): an explosion near sculk sensors, a
+container's spilled contents, a vehicle or armor stand it breaks
 (their drops use the item's own random). Anything else (unwaxed copper, other items' dispenser
 behaviors, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and

@@ -1,0 +1,63 @@
+macrosat: box 7x7 at (-2,-2), h 6 per edge, feed true, lever true, parallel steps, fix false: 224898 vars, 1941030 clauses, built in 1.8 s
+SAT in 355.4 s: a mechanism with every firing fed within 6 steps per edge
+rest:
+  4 w  w  #  D* D* w  w  
+  3 w  E* }  v  v  D  w  
+  2 w  #  #  #  #  #  w  
+  1 E  .  #  #  #  W  W  
+  0 E  U  #  #  #  .  W  
+ -1 w  ^  #  .  .  ^  W  
+ -2 w  U* w  U  w  U* w  
+lever on the block at (4, 0) (its front/back face, or its outer face at the box edge)
+open  step  0: PULSE (-2, 0) east line 4  [fed from (-2, 2)]
+open  step  0: EXTEND (3, 1) west line 3  [fed from (4, 2)]
+open  step  0: RETRACT (-1, 3) east  [fed from (-2, 4)]
+open  step  1: PULSE-PULL (1, -2) up line 0 (pulls)  [fed from (2, -2)]
+open  step  1: RETRACT (3, -2) up (pulls)  [fed from (4, -2)]
+open  step  1: PULSE-PULL (0, 0) up line 2  [fed from (0, -1)]
+open  step  1: RETRACT (3, 1) west (pulls)  [fed from (4, 2)]
+open  step  2: PULSE-PULL (-2, 0) east line 0 (pulls)  [fed from (-2, 2)]
+open  step  2: PULSE-PULL (3, 3) down line 2  [fed from (4, 4)]
+open  step  2: RETRACT (1, 4) down (pulls)  [fed from (0, 4)]
+open  step  2: RETRACT (2, 4) down (pulls)  [fed from (3, 4)]
+open  step  3: RETRACT (-1, -2) up (pulls)  [fed from (-2, -2)]
+open  step  3: PULSE (4, -1) west line 1  [fed from (4, 0)]
+open  step  3: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step  4: PULSE-PULL (3, -2) up line 0 (pulls)  [fed from (4, -2)]
+open  step  4: PULSE-PULL (-1, -1) up line 0 (pulls)  [fed from (-2, -1)]
+open  step  4: PULSE (4, 1) west line 1  [fed from (4, 3)]
+open  step  5: PULSE-PULL (4, 0) west line 0 (pulls)  [fed from (4, 0)]
+open  step  5: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-2, 3)]
+open  step  5: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+close step  6: PULSE (-2, 0) east line 1  [fed from (-2, 2)]
+close step  6: PULSE (4, 1) west line 1  [fed from (4, 3)]
+close step  6: PULSE (1, 4) down line 1  [fed from (0, 4)]
+close step  7: PULSE (1, -2) up line 1  [fed from (2, -1)]
+close step  7: PULSE (3, -2) up line 2  [fed from (4, -2)]
+close step  7: PULSE-PULL (-1, -1) up line 0 (pulls)  [fed from (-2, -1)]
+close step  7: EXTEND (-1, 3) east line 1  [fed from (-2, 4)]
+close step  8: PULSE (-1, -2) up line 2  [fed from (-2, -2)]
+close step  8: PULSE-PULL (4, -1) west line 0 (pulls)  [fed from (4, 0)]
+close step  8: PULSE (4, 0) west line 1  [fed from (4, 0)]
+close step  8: PULSE (1, 4) down line 2  [fed from (0, 4)]
+close step  8: PULSE (2, 4) down line 1  [fed from (3, 4)]
+close step  9: EXTEND (-1, -2) up line 0  [fed from (-2, -2)]
+close step  9: PULSE (-2, 0) east line 4  [fed from (-2, 2)]
+close step  9: PULSE (4, 1) west line 3  [fed from (4, 3)]
+close step  9: PULSE-PULL (1, 4) down line 0 (pulls)  [fed from (0, 4)]
+close step 10: PULSE (3, -2) up line 2  [fed from (4, -2)]
+close step 10: PULSE (0, 0) up line 1  [fed from (0, -1)]
+close step 10: EXTEND (2, 4) down line 0  [fed from (3, 4)]
+close step 11: EXTEND (3, -2) up line 0  [fed from (4, -2)]
+close step 11: PULSE (4, 0) west line 4  [fed from (4, 0)]
+close step 11: PULSE (-2, 1) east line 1  [fed from (-2, 3)]
+close step 11: EXTEND (1, 4) down line 1  [fed from (0, 4)]
+open:
+  4 w  w  #  D  D  w  w  
+  3 w  E  #  #  #  D  w  
+  2 w  #  .  .  .  #  w  
+  1 E  #  .  .  .  #  W  
+  0 E  #  .  .  .  #  W  
+ -1 w  U  #  #  #  W  W  
+ -2 w  U  w  U  w  U  w  
+exported /home/vjeux/macrosat/7x7-private/export/c--2_-2_4_4-h6.txt + /home/vjeux/macrosat/7x7-private/export/c--2_-2_4_4-h6.ideal

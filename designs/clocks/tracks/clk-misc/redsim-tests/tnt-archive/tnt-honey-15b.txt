@@ -1,0 +1,28 @@
+# archived 2026-10-20T09:16Z from designs/circuits/tracks/tnt/tnt-honey-15b.txt by mctas circuit archive
+# CIRCUIT: tnt-honey-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 15 blocks, 3x2x6, robust (slime-free: a honey frame)
+name: tnt-honey-15b
+circuit: tnt-duper
+origin: 1 0 -3
+palette:
+  D minecraft:dead_tube_coral_wall_fan[facing=south,waterlogged=false]
+  H minecraft:honey_block
+  O minecraft:obsidian
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=north]
+  T minecraft:tnt[unstable=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:stone
+layer 0:
+  .H
+  .H
+  .
+  HHH
+  SOH
+  ..H
+layer 1:
+  .s
+  .D
+  .T
+  .
+  .rR
+  ..s

@@ -1143,8 +1143,18 @@ fn first_cap(s: &str) -> String {
 /// inputs, orange for outputs (an output's height = its strength 0..15), the checker's phases
 /// as separators with labels when they fit. Pixel sizes fixed (scrolls when long).
 pub fn wave_svg(w: &Wave) -> String {
+    wave_svg_sized(w, 960.0, false)
+}
+
+/// A timing diagram drawn about `target` px wide that scales to its container (`class="wave
+/// fit"`): a clock's timeline fits a phone and fills a desktop column.
+pub fn wave_svg_fit(w: &Wave, target: f64) -> String {
+    wave_svg_sized(w, target, true)
+}
+
+fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
     let ticks = w.ticks.max(1) as f64;
-    let px = (960.0 / ticks).clamp(0.6, 12.0);
+    let px = (target / ticks).clamp(if fit { 0.2 } else { 0.6 }, 12.0);
     let label_w = 64.0;
     let top = 22.0;
     // a position track is taller (its values 0..N each get a step)
@@ -1152,12 +1162,19 @@ pub fn wave_svg(w: &Wave) -> String {
     let width = label_w + ticks * px + 8.0;
     let height = top + w.rows.iter().map(height_of).sum::<f64>() + 22.0;
     let x = |t: f64| label_w + t * px;
-    let mut s = format!(
-        "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
-    );
-    // phases: a separator at each start, a label when it fits
+    let mut s = if fit {
+        format!("<svg class=\"wave fit\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram\">")
+    } else {
+        format!(
+            "<svg class=\"wave\" xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"timing diagram of the judge's test\">"
+        )
+    };
+    // phases: a separator at each start, a label when it fits; a start-up span is shaded
     for (from, to, label) in &w.phases {
         let (a, b) = (x(*from as f64), x(*to as f64));
+        if label.starts_with("starting") {
+            s.push_str(&format!("<rect class=\"warm\" x=\"{a:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\"/>", top - 4.0, (b - a).max(0.0), height - top - 14.0));
+        }
         s.push_str(&format!("<line class=\"ph\" x1=\"{a:.1}\" y1=\"{:.1}\" x2=\"{a:.1}\" y2=\"{:.1}\"/>", top - 4.0, height - 18.0));
         if (b - a) >= label.len() as f64 * 6.2 + 6.0 {
             s.push_str(&format!("<text class=\"phl\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", a + 3.0, top - 8.0, esc(label)));
@@ -1216,12 +1233,15 @@ pub fn wave_svg(w: &Wave) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a tick every 20, 100 or 500 gt
-    let step = [20u32, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
+    // a time axis: a label every 5, 10, 20, 50, 100... gt (at least 60 px apart)
+    let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
     let mut t = 0u32;
     let ya = height - 6.0;
     while (t as f64) <= ticks {
-        s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        // (a label that would run past the right edge is left out)
+        if t == 0 || x(t as f64) + 34.0 <= width {
+            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        }
         t += step;
     }
     s.push_str("</svg>");
