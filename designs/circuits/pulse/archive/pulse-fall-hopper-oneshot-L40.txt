@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:57Z from designs/circuits/tracks/pulse/wr/pulse-fall-hopper-oneshot-L40.txt by mctas circuit archive
-# CIRCUIT: pulse-fall-hopper-oneshot-L40 falling-edge L 40 gt, delay 7 gt, min-pulse 6 gt, 13 blocks, 3x4x3, robust
+# CIRCUIT: pulse-fall-hopper-oneshot-L40 falling-edge L 40 gt, delay 6 gt, min-pulse 6 gt, 13 blocks, 3x4x3, robust
 name: pulse-fall-hopper-oneshot-L40
 circuit: falling-edge
 group: hopper-oneshot-fall

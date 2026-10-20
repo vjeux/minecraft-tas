@@ -85,7 +85,19 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   and properties fold under the smallest (listed on its page as its versions), clocks with the
   same period, blocks, parts and output carry the `twin` flag, and census clocks the `census`
   flag unless one is the record of its period; both are hidden from the default lists like the
-  variants. A bigger design strictly faster than every smaller one of its kind and value gets
+  variants. Clocks follow the clock catalog's own rule (`clock::catalog::Row::shown`): a clock
+  ruled out of a normal survival world (the verdicts' hidden column) or whose output pulses
+  unevenly (clockinfra's `gaps` column; the coordinator's C38: a clock on the site delivers evenly
+  spaced pulses at its output) is not published, and an output pulsing several times evenly per
+  cycle shows that period as the clock's time (`ClockInfo::pulse_every`, `every()`; the cycle is
+  its "full cycle"). Every build page says what the build needs in its opening lines
+  (`plain::needs`: a TNT duper's height above the ground from its safe-drop metric, the items its
+  containers start with from the design's `nbt:` lines, water, open sky) next to its warning
+  (sculk, facing one way, one spot in the world). One build archived under two kinds (`same_build`)
+  shows once on the Circuits tab (`kind-twin`, hidden unless its own kind is picked) with an
+  "also a ..." chip on the other; shulker machines timed with other items (the same blocks) are
+  one group ("works with any stack size"), and each shulker card leads with the variation it is
+  the best design for (`Circuit::lead`). A bigger design strictly faster than every smaller one of its kind and value gets
   the `faster` flag ("faster than the smallest", `audit::mark_faster`). Circuits sort by
   `Circuit::rank` first (the first design of every kind, then the second...), then their study's
   place (`Circuit::order`; the gates with their own levers and the sand elevators are each

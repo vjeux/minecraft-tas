@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:23Z from designs/circuits/tracks/pulse/cards/oneshot-ext.txt by mctas circuit archive
-# CIRCUIT: pulse-oneshot-ext pulse-extender L 18 gt, delay 7 gt, min-pulse 4 gt, 17 blocks, 5x2x4, robust
+# CIRCUIT: pulse-oneshot-ext pulse-extender L 18 gt, delay 6 gt, min-pulse 4 gt, 17 blocks, 5x2x4, robust
 name: pulse-oneshot-ext
 # Extendable family oneshot-ext (n = 0): pulse-extender with L = 18 + 16n gt, 17 + 4n blocks. the rising-edge bulb one-shot (oneshot-rise) judged as an extender: every input pulse, short or long, gives one output pulse of L from its rising edge. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family oneshot-ext --n N --out FILE.
 circuit: pulse-extender

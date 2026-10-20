@@ -20,22 +20,23 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n3-sf-v1](archive/pext-n3-sf-v1.txt) | 62 | stone |
 | [pext-n3-sf38](archive/pext-n3-sf38.txt) | 38 | repeater, stone |
 
-**[pext-n4-flat-cascade26](archive/pext-n4-flat-cascade26.txt)** (piston-extender 4, N = 4; 26 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston, stone):
+**[pext-n4-flat-cascade23](archive/pext-n4-flat-cascade23.txt)** (piston-extender 4, N = 4; 23 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n4-cascade-v1](archive/pext-n4-cascade-v1.txt) | 40 | redstone_lamp |
-| [pext-n4-cascade30](archive/pext-n4-cascade30.txt) | 30 | - |
-| [pext-n4-sf-sweep96](archive/pext-n4-sf-sweep96.txt) | 96 | - |
+| [pext-n4-cascade-v1](archive/pext-n4-cascade-v1.txt) | 40 | redstone_lamp, stone |
+| [pext-n4-cascade30](archive/pext-n4-cascade30.txt) | 30 | stone |
+| [pext-n4-sf-sweep96](archive/pext-n4-sf-sweep96.txt) | 96 | stone |
+| [pext-n4-sf60](archive/pext-n4-sf60.txt) | 60 | stone |
 
-**[pext-n5-flat-cascade33](archive/pext-n5-flat-cascade33.txt)** (piston-extender 5, N = 5; 33 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston, stone):
+**[pext-n5-flat-cascade31](archive/pext-n5-flat-cascade31.txt)** (piston-extender 5, N = 5; 31 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n5-cascade-v1](archive/pext-n5-cascade-v1.txt) | 52 | - |
-| [pext-n5-cascade38](archive/pext-n5-cascade38.txt) | 38 | - |
-| [pext-n5-sf-sweep136](archive/pext-n5-sf-sweep136.txt) | 136 | - |
-| [pext-n5-sf105](archive/pext-n5-sf105.txt) | 105 | - |
+| [pext-n5-cascade-v1](archive/pext-n5-cascade-v1.txt) | 52 | stone |
+| [pext-n5-cascade38](archive/pext-n5-cascade38.txt) | 38 | stone |
+| [pext-n5-sf-sweep136](archive/pext-n5-sf-sweep136.txt) | 136 | stone |
+| [pext-n5-sf105](archive/pext-n5-sf105.txt) | 105 | stone |
 
 **[pext-n6-flat-cascade39](archive/pext-n6-flat-cascade39.txt)** (piston-extender 6, N = 6; 39 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston, stone):
 

@@ -1,0 +1,33 @@
+# archived 2026-10-20T17:00Z from designs/circuits/gates/tracks/gates/gate-xnor-r7-34b.txt by mctas circuit archive
+# CIRCUIT: gate-xnor-r7-34b gate xnor function xnor, latency 6 gt, 34 blocks, 5x3x5, robust
+# XNOR with real signal inputs: the XOR core (two subtract comparators, each reading one input at its back and the other at its side, restored to full strength by a repeater on the detour) pointing into a stone instead of an air cell, with a torch on top of that stone: the stone is powered exactly when the inputs differ, so the torch is lit exactly when they agree. 6 gt.
+name: gate-xnor-r7-34b
+circuit: gate xnor
+port input.a: 2 1 0
+port input.b: 2 1 4
+port output: 2 3 2
+origin: 0 0 0
+palette:
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=false]
+  P minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  Q minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:stone
+  T minecraft:redstone_torch[lit=true]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  SSS..
+  S.SSS
+  S...S
+  SSS.S
+  ..SSS
+layer 1:
+  rrr..
+  r.CQr
+  r.S.r
+  rPD.r
+  ..rrr
+layer 2:
+  .....
+  .....
+  ..T..

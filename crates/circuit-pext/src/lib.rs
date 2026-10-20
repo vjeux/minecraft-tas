@@ -256,6 +256,10 @@ enum Cmd {
         /// grows it back anywhere (lever states join the palette; the lever is never counted).
         #[arg(long)]
         free_lever: bool,
+        /// Start again from each pass's best smaller find until a pass finds nothing smaller
+        /// (each best saved as `best-<blocks>b-pass<n>.txt` in --out-dir).
+        #[arg(long)]
+        repeat: bool,
         /// Region where blocks grow back (default: the design's box grown by 2).
         #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
         lo: Option<Pos>,
@@ -295,8 +299,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             cmd_grow(&base, &o, show)
         }
         Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
-        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, lo, hi, out_dir } => {
-            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, region: (lo, hi), out_dir };
+        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, lo, hi, out_dir } => {
+            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, region: (lo, hi), out_dir };
             cmd_lns(&design, &o)
         }
         Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
@@ -508,15 +512,35 @@ struct LnsOptions {
     keep: Option<String>,
     keep_y: Vec<i32>,
     free_lever: bool,
+    repeat: bool,
     region: (Option<Pos>, Option<Pos>),
     out_dir: Option<PathBuf>,
 }
 
 /// `pext lns`: remove r blocks, grow back at most `add` (see `Cmd::Lns`).
 fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
+    let mut p = Pext::load(path)?;
+    for pass in 1.. {
+        let Some(d) = lns_pass(&p, o, pass)? else { break };
+        if !o.repeat {
+            break;
+        }
+        // go on from the pass's best (fewest blocks, then fastest), saved beside the finds
+        let next = Pext::from_design(d)?;
+        if let Some(dir) = o.out_dir.as_deref() {
+            std::fs::create_dir_all(dir)?;
+            next.design.save(&dir.join(format!("best-{}b-pass{pass}.txt", next.blocks())))?;
+        }
+        println!("pass {pass}: going on from {} blocks", next.blocks());
+        p = next;
+    }
+    Ok(())
+}
+
+/// One `pext lns` pass; the best smaller find (renamed), if any.
+fn lns_pass(p: &Pext, o: &LnsOptions, pass: usize) -> Result<Option<mctas::design::Design>> {
     let (r, add, plane_z, region) = (o.r, o.add, o.plane_z, o.region);
     let out_dir = o.out_dir.as_deref();
-    let p = Pext::load(path)?;
     let keep: Vec<Pos> = match &o.keep {
         Some(s) => s.split(';').map(|c| parse_pos(c).map_err(|e| anyhow!("{e}"))).collect::<Result<_>>()?,
         None => Vec::new(),
@@ -593,12 +617,15 @@ fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
         best = best.min(f.blocks);
         if let Some(dir) = out_dir {
             std::fs::create_dir_all(dir)?;
-            let name = format!("{}-{}b-s{si}-{}", p.name(), f.blocks, i + 1);
+            let name = format!("{}-{}b-p{pass}-s{si}-{}", p.name(), f.blocks, i + 1);
             search::find_design(base, f, &name).save(&dir.join(format!("{name}.txt")))?;
         }
     }
     println!("best: {best} blocks ({:.0} s)", t0.elapsed().as_secs_f64());
-    Ok(())
+    Ok(found.first().filter(|(_, f, _)| f.blocks < p.blocks()).map(|(_, f, base)| {
+        let name = p.name().split("-lns").next().unwrap_or(p.name()).to_string();
+        search::find_design(base, f, &name)
+    }))
 }
 
 /// `pext topo`: the N = 2 1-wide topology sweep (see `Cmd::Topo`).

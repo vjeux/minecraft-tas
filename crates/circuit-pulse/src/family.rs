@@ -143,9 +143,9 @@ pub const FAMILIES: &[Family] = &[
         name: "dual-edge-reset",
         kind: "dual-edge",
         l: "30 + 16n",
-        blocks: "32 + 4n",
+        blocks: "33 + 4n",
         rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
-        how: "an observer watching the input fires on both edges through a repeater into a copper bulb (locked by a comparator reading the bulb while it is lit); the comparator also feeds a U of delay-4 repeaters into a second bulb, read by a comparator that an observer watches: its back faces the first bulb, so each loop sends one 2 gt reset pulse that turns the bulb off",
+        how: "an observer watching the copper bulb in the input cell (the input powers it, and its state changes on both edges) fires on both edges through a repeater into a copper bulb (locked by a comparator reading the bulb while it is lit); the comparator also feeds a U of delay-4 repeaters into a second bulb, read by a comparator that an observer watches: its back faces the first bulb, so each loop sends one 2 gt reset pulse that turns the bulb off",
     },
     Family {
         name: "dual-edge-reset1",
@@ -159,15 +159,15 @@ pub const FAMILIES: &[Family] = &[
         name: "dual-lock",
         kind: "dual-edge",
         l: "?",
-        blocks: "23 + 4n",
+        blocks: "24 + 4n",
         rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
-        how: "an observer watching the input fires on both edges through a repeater into a copper bulb; a comparator reads the bulb and feeds a lock (a repeater pointing into the trigger repeater's side: triggers are ignored while the bulb is lit) and a U of delay-4 repeaters back into the bulb, which turns it off one loop later",
+        how: "an observer watching the copper bulb in the input cell (the input powers it, and its state changes on both edges) fires on both edges through a repeater into a copper bulb; a comparator reads the bulb and feeds a lock (a repeater pointing into the trigger repeater's side: triggers are ignored while the bulb is lit) and a U of delay-4 repeaters back into the bulb, which turns it off one loop later",
     },
     Family {
         name: "dual-lock1",
         kind: "dual-edge",
         l: "?",
-        blocks: "23 + 4n",
+        blocks: "24 + 4n",
         rule: "lengthen the repeater U by one row: one more delay-1 repeater (on stone) in each column",
         how: "the dual-lock with delay-1 repeaters",
     },
@@ -395,7 +395,7 @@ pub fn dual_lock_text(name: &str, k: usize, d: u8) -> String {
     let mut l1: Vec<String> = Vec::new();
     for z in zmin..=3 {
         let (r0, r1) = match z {
-            3 => ("....", "...."),
+            3 => ("....", ".P.."),
             2 => ("....", ".V.."),
             1 => (".SSS", ".TLW"),
             0 => (".SSS", ".BCW"),
@@ -405,8 +405,10 @@ pub fn dual_lock_text(name: &str, k: usize, d: u8) -> String {
         l0.push(format!("  {r0}"));
         l1.push(format!("  {r1}"));
     }
+    // R7: the input cell holds a copper bulb (the judge's repeater powers it; its `powered` state
+    // changes on both edges, which the observer sees: it cannot see the judge's stone)
     format!(
-        "name: {name}\ncircuit: dual-edge\norigin: 1 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        "name: {name}\ncircuit: dual-edge\norigin: 1 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  P minecraft:waxed_copper_bulb[lit=false,powered=false]\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
         l0.join("\n"),
         l1.join("\n")
     )
@@ -477,7 +479,7 @@ pub fn dual_lock2_text(name: &str, k: usize, d: u8) -> String {
     let mut l1: Vec<String> = Vec::new();
     for z in zmin..=3 {
         let (r0, r1) = match z {
-            3 => (".....", "....."),
+            3 => (".....", "..P.."),
             2 => (".....", "..V.."),
             1 => ("..SSS", "..TLW"),
             0 => ("S..SS", "KOBCW"),
@@ -488,8 +490,9 @@ pub fn dual_lock2_text(name: &str, k: usize, d: u8) -> String {
         l0.push(format!("  {r0}"));
         l1.push(format!("  {r1}"));
     }
+    // R7: the input cell holds a copper bulb the observer watches (see `dual_lock_text`)
     format!(
-        "name: {name}\ncircuit: dual-edge\norigin: 0 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=west,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        "name: {name}\ncircuit: dual-edge\norigin: 0 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  P minecraft:waxed_copper_bulb[lit=false,powered=false]\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=west,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
         l0.join("\n"),
         l1.join("\n")
     )
