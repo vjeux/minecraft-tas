@@ -46,6 +46,8 @@ pub struct Var {
     pub inside: usize,
     /// Receivers (piston at a firing cell) whose largest feeding free region has < 3 cells.
     pub weak: usize,
+    /// The firing cells of the unfed receivers (families' wiring analysis).
+    pub unfed_at: String,
     pub so: Sched,
     pub sc: Sched,
 }
@@ -58,6 +60,10 @@ impl Var {
             'C' => 2,
             _ => 3,
         };
+        if RANK_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
+            // --rank-unfed: the fewest pistons with no free feed cell first (pockets3's bar)
+            return (self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.inside, self.never, self.weak, self.pistons, cr, self.events);
+        }
         (self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events)
     }
     pub fn line(&self) -> String {
@@ -73,6 +79,8 @@ pub type Change = Option<(Pc, Option<Pc>)>;
 pub static VALIDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--outside-only`: reject variants with a piston firing from inside the 3x3.
 pub static OUTSIDE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--rank-unfed`: rank by unfed pistons right after the redsim verdict (instead of inside firings).
+pub static RANK_UNFED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> bool {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -315,6 +323,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         fam::F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
     });
     let unfed = unfed_list.len() - usize::from(lever_ok);
+    let unfed_at = unfed_list.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" ") + if lever_ok { " [one may be the lever's]" } else { "" };
     // `door connect` (connect.rs): free-cell regions after the run's footprint, each piston fed
     // from a region next to it (or its quasi cell, a plain ring stone, a door block), a region
     // wakes only when it can watch a change, every event order from the lever's region: the
@@ -354,6 +363,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         real,
         inside,
         weak: w.weak,
+        unfed_at,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
     })
@@ -452,7 +462,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, so: Vec::new(), sc: Vec::new() });
+                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() });
                 }
             }
         }
@@ -531,14 +541,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,
