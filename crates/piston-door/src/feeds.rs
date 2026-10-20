@@ -61,9 +61,35 @@ pub fn parse_box(s: &str) -> Result<(i32, i32, i32, i32)> {
     Ok((x0, y0, x1, y1))
 }
 
+/// What [`analyze`] finds: the per-firing table (`text`, the lines `door feeds` prints) and its
+/// summary, for searches that rank mechanisms by how feedable their firings are.
+#[derive(Clone, Debug, Default)]
+pub struct FeedReport {
+    pub firings: usize,
+    /// Firings with no option at all.
+    pub none: Vec<String>,
+    /// Firings whose options are all flagged (no observer/repeater can drive them from inside
+    /// the box: dust or a torch at best).
+    pub weak: Vec<String>,
+    /// Cells that are the only clean option of firings needing different targets.
+    pub conflicts: Vec<String>,
+    pub text: Vec<String>,
+}
+
+/// `door feeds`: print [`analyze`]'s table for one schedule file.
 pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let s = Schedule::parse_with(&text, &BTreeMap::new())?;
+    let r = analyze(&text, &path.display().to_string(), bx)?;
+    for l in &r.text {
+        println!("{l}");
+    }
+    Ok(())
+}
+
+/// The feed table of an ideal schedule (its text; `label` names it in the header).
+pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
+    let mut out: Vec<String> = Vec::new();
+    let s = Schedule::parse_with(text, &BTreeMap::new())?;
     let vars = s.vars().clone();
     let (d, open_ev, close_ev, _) = s.realize(&vars)?;
     let door = *d.ports.get("door").context("design has no door port")?;
@@ -101,8 +127,12 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
     };
     let mut held: BTreeMap<P2, Block> = BTreeMap::new();
     let mut all: Vec<BTreeMap<P2, Block>> = vec![snap(&w, &held)];
+    // per edge, the plane after t ticks (index t), for the observer timing
+    let mut edge_snaps: [Vec<BTreeMap<P2, Block>>; 2] = [Vec::new(), Vec::new()];
     let mut firings: Vec<Firing> = Vec::new();
     for (open, evs) in [(true, &open_ev), (false, &close_ev)] {
+        let es = if open { 0 } else { 1 };
+        edge_snaps[es].push(snap(&w, &held));
         let (mut t, mut i) = (0u32, 0usize);
         while i < evs.len() {
             while i < evs.len() && evs[i].0 == t {
@@ -133,9 +163,16 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
             }
             w.tick();
             t += 1;
-            all.push(snap(&w, &held));
+            let s = snap(&w, &held);
+            all.push(s.clone());
+            edge_snaps[es].push(s);
         }
-        let (_, idle) = cs::step_until_idle(&mut w, 300, |w| all.push(snap(w, &held)));
+        let es_v = &mut edge_snaps[es];
+        let (_, idle) = cs::step_until_idle(&mut w, 300, |w| {
+            let s = snap(w, &held);
+            all.push(s.clone());
+            es_v.push(s);
+        });
         ensure!(idle && w.errors.is_empty(), "still moving 300 ticks after the last event: {}", w.errors.join("; "));
     }
     // components that never move (observers of the design): their output cell
@@ -214,12 +251,27 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
         }
     };
     let regions: BTreeMap<char, usize> = region.values().map(|(l, n)| (*l, *n)).collect();
-    println!("# door feeds {} (box x {x0}..{x1}, y {y0}..{y1}; {} firings)", path.display(), firings.len());
-    println!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" "));
-    println!("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M");
-    println!("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)");
+    out.push(format!("# door feeds {label} (box x {x0}..{x1}, y {y0}..{y1}; {} firings)", firings.len()));
+    out.push(format!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" ")));
+    out.push("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M".to_string());
+    out.push("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)".to_string());
+    out.push("# timing of a clean option (an observer there): @ = the cell it watches changes the tick before the firing (fires with the plan), ~ = it changes only at other ticks; none = a free cell (other wiring drives it)".to_string());
     let mut none: Vec<String> = Vec::new();
     let mut weak: Vec<String> = Vec::new();
+    // cell -> (targets, firing) of the firings whose clean options are all in that cell
+    let mut sole: BTreeMap<P2, Vec<(BTreeSet<P2>, String)>> = BTreeMap::new();
+    // an observer in m pointing into t watches w = 2m - t: "@" if w changes in the tick before the
+    // firing's (it then fires with the plan's input), "~" if w changes only at other ticks (the
+    // schedule would have to follow w), nothing if w is a free cell (other wiring drives it)
+    let timing = |e: usize, t: u32, m: P2, tg: P2| -> &'static str {
+        let w = (2 * m.0 - tg.0, 2 * m.1 - tg.1);
+        if !dynamic.contains(&w) {
+            return "";
+        }
+        let s = &edge_snaps[e];
+        let t = t as usize;
+        if t >= 2 && t < s.len() + 1 && s.get(t - 1).map(|m| m.get(&w)) != s.get(t - 2).map(|m| m.get(&w)) { "@" } else { "~" }
+    };
     for f in &firings {
         let i2 = (f.input[0], f.input[1]);
         let in_plane = f.input[2] == z;
@@ -254,42 +306,50 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
                     obs.push(format!("observer ({},{}) {v}, watching {}", c.0, c.1, cell(watch)));
                 }
             }
-            // (text, drive flag): "" drivable from inside the box, "!" / "?" see `drive`
-            let mut ok_any = !obs.is_empty();
-            let mut flagged_any = false;
-            let mut tag = |s: String, fl: &'static str, ok_any: &mut bool, flagged_any: &mut bool| -> String {
-                if fl.is_empty() {
-                    *ok_any = true;
-                } else {
-                    *flagged_any = true;
-                }
-                format!("{s}{fl}")
-            };
+            // options (QC?, text, component cell M, its target T): direct ones into X or into a
+            // conductor next to X, QC ones into A or into a conductor next to A
+            let mut opts: Vec<(bool, String, P2, P2)> = Vec::new();
             for n in nbrs(x) {
                 if Some(n) == front {
                     continue;
                 }
                 if free.contains(&n) {
-                    direct.push(tag(cell(n), drive(n, x), &mut ok_any, &mut flagged_any));
+                    opts.push((false, cell(n), n, x));
                 } else if conductor(n) {
                     for m in nbrs(n) {
                         if m != x && free.contains(&m) {
-                            direct.push(tag(format!("via ({},{})<-{}", n.0, n.1, cell(m)), drive(m, n), &mut ok_any, &mut flagged_any));
+                            opts.push((false, format!("via ({},{})<-{}", n.0, n.1, cell(m)), m, n));
                         }
                     }
                 }
             }
-            let mut qc: Vec<String> = Vec::new();
             for q in [(above.0, above.1 + 1), (above.0 - 1, above.1), (above.0 + 1, above.1)] {
                 if free.contains(&q) {
-                    qc.push(tag(cell(q), drive(q, above), &mut ok_any, &mut flagged_any));
+                    opts.push((true, cell(q), q, above));
                 } else if conductor(q) {
                     for m in nbrs(q) {
                         if m != above && free.contains(&m) {
-                            qc.push(tag(format!("via ({},{})<-{}", q.0, q.1, cell(m)), drive(m, q), &mut ok_any, &mut flagged_any));
+                            opts.push((true, format!("via ({},{})<-{}", q.0, q.1, cell(m)), m, q));
                         }
                     }
                 }
+            }
+            let e = if f.open { 0 } else { 1 };
+            let mut ok_any = !obs.is_empty();
+            let mut flagged_any = false;
+            let mut clean: Vec<(P2, P2)> = Vec::new();
+            let mut qc: Vec<String> = Vec::new();
+            for (is_qc, text, m, tg) in opts {
+                let fl = drive(m, tg);
+                let s = if fl.is_empty() {
+                    ok_any = true;
+                    clean.push((m, tg));
+                    format!("{text}{}", timing(e, f.t, m, tg))
+                } else {
+                    flagged_any = true;
+                    format!("{text}{fl}")
+                };
+                if is_qc { qc.push(s) } else { direct.push(s) }
             }
             let how = if direct_i { "direct" } else { "qc" };
             let own = if in_plane && free.contains(&i2) { ", the plan's input cell is free" } else { "" };
@@ -311,6 +371,14 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
                 if obs.is_empty() { String::new() } else { format!("; {}", obs.join("; ")) }
             ));
             let label = format!("{} t{} {}({},{})", if f.open { "open" } else { "close" }, f.t, short(b), x.0, x.1);
+            // a firing whose clean options all sit in one cell depends on that cell's one component
+            if obs.is_empty() && !clean.is_empty() {
+                let cells: BTreeSet<P2> = clean.iter().map(|c| c.0).collect();
+                if cells.len() == 1 {
+                    let targets: BTreeSet<P2> = clean.iter().map(|c| c.1).collect();
+                    sole.entry(clean[0].0).or_default().push((targets, label.clone()));
+                }
+            }
             match verdict {
                 "NONE" => none.push(label),
                 "weak" => weak.push(label),
@@ -320,13 +388,22 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
         let edge = if f.open { "open" } else { "close" };
         let at = format!("({},{},{})", f.input[0], f.input[1], f.input[2]);
         if lines.is_empty() {
-            println!("{edge} t{} input {at}: powers no piston in the plane", f.t);
+            out.push(format!("{edge} t{} input {at}: powers no piston in the plane", f.t));
         }
         for l in lines {
-            println!("{edge} t{} input {at} -> {l}", f.t);
+            out.push(format!("{edge} t{} input {at} -> {l}", f.t));
         }
     }
-    println!("# no feed at all: {}", if none.is_empty() { "none".to_string() } else { none.join(", ") });
-    println!("# only flagged options (weak): {}", if weak.is_empty() { "none".to_string() } else { weak.join(", ") });
-    Ok(())
+    out.push(format!("# no feed at all: {}", if none.is_empty() { "none".to_string() } else { none.join(", ") }));
+    out.push(format!("# only flagged options (weak): {}", if weak.is_empty() { "none".to_string() } else { weak.join(", ") }));
+    let mut conflicts: Vec<String> = Vec::new();
+    for (m, deps) in &sole {
+        let common = deps.iter().skip(1).fold(deps[0].0.clone(), |acc, d| acc.intersection(&d.0).copied().collect::<BTreeSet<P2>>());
+        if deps.len() > 1 && common.is_empty() {
+            let who: Vec<String> = deps.iter().map(|(ts, l)| format!("{l} -> {}", ts.iter().map(|t| format!("({},{})", t.0, t.1)).collect::<Vec<_>>().join("/"))).collect();
+            conflicts.push(format!("({},{}): {}", m.0, m.1, who.join(", ")));
+        }
+    }
+    out.push(format!("# one cell, several targets (its one component cannot feed them all): {}", if conflicts.is_empty() { "none".to_string() } else { conflicts.join("; ") }));
+    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, text: out })
 }
