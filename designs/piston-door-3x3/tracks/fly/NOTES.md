@@ -283,6 +283,27 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
     piston at (-1,5) pushes the column back down.
     Cost: in m69T those cells hold W / U / the (1,3) and (0,-1) pistons. An observer at (1,-1)
     breaks bot6 in every facing (redsim), so it needs a mechanism redesign.
+  - bot11p (wip/m69T/m69T-bot11p-train.ideal): with the centre spit forced at t0 (`--prefix
+    1,3,1@0`) and the bottom held to t11 or later, a 21-pulse train works (open 31 / close 31).
+    BM sits on (1,-1) from t3, but only U, K's front and the (0,-1) B piston border it, and U
+    can't go: C's descent at t17 needs a puller below. clk-obs: the bottom's first pulse may
+    only come at t0-4, t8, t9 or t11, while an observer on (1,-2) would fire at t5. m69T stopped.
+  - Tool fix: interleave's --after was not enforced on the evenly spaced start (compaction only
+    pulls steps earlier), so trains made before ab90d91ce8 could fire below their floor.
+* Ranking by pockets3's corrected island check (23:14Z):
+  1. q69m: the only one whose islands pass (lever in the top-right; the slime column links top
+     and bottom). Pulse shapes fail in every area.
+  2. s69: every area starts except the bottom-right 2-cell corner, with the lever outside on L1's
+     back. Exhaustive pockets: the corner drives ONE of K o48 / B c42. Never drivable: Qv (1,-1)
+     o6/o18 (boxed, no feed cell), B1 o24/c66, P_T's t0 pulses, A and A@(2,-1) entirely,
+     B o54/o66/c54, K c36. Drivable: L2 t0, P_T t12, P_TR o78+c60, P_C t6, G o36+c24, L0 t0,
+     Qv@(1,-2) o30 or c18.
+  - Why the box-edge column is load-bound: its middle block needs an elevator (2 pistons, about
+    4 events), and those pistons are fed only from x=3 (the blind corner) or x=1. The centre's
+    own elevator holds x=1 ((1,-2) is needed for BM's descent in every allocation I tried).
+  - clockinfra's macrosat now has movable and riding observers (`--observers`; s69o checks SAT).
+    It is running s69 with x 1..3 of the bottom and the top-right free, corner budget 1 action
+    per edge, observers on, `--physics`.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
