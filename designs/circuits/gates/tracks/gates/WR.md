@@ -18,6 +18,13 @@ Signal inputs (R7), judged robust in the game. The table further down is the pre
 
 The `-ba` mirror kinds (nimply-ba, imply-ba) and the own-lever basics (or/not/nor with levers) are still archived as their own kinds; folding them is a catalog decision left to the coordinator.
 
+### Why AND stays at 5 (2026-10-20, from the source)
+
+AND needs one input inverted (a - NOT b at a subtract comparator, or NOT(NOT a OR NOT b) with torches), and every way to carry an inverted signal costs a block more than the others:
+- A torch at a comparator's side reads 0: SignalGetter.getControlInputSignal takes a torch's getDirectSignal, which RedstoneTorchBlock gives only DOWN (to the block above it). So NOT b must reach the side as a dust or a diode, which needs its own support.
+- A torch powers a solid block only from directly below it, so two torches cannot both power one block; the classic AND joins them with a dust on a stone (gate-and-5b-r7).
+- The judge's input blocks can serve as floors (that is what made OR 1 and NOR 2), but any dust standing on an input block carries that input, not its inverse; and a comparator standing on b's block (a free support) leaves no cell where a torch on b's block can reach the comparator's side dust.
+
 ### Why the XOR's outputs cannot meet (2026-10-20)
 
 Each comparator reads one input behind it and must read the other at its SIDE at full strength (a weaker side leaks 1 when both are on), which means a dust or repeater touching that input's block. Solving the geometry for every direct-feed layout — flat, or with one comparator a level up — gives only layouts whose two outputs point in opposite directions from cells 3 apart (`f2 = -f1`, `e2 = -e1`), and no layout where both point into one cell or one above the other. So every comparator XOR of this family pays for a merge; the 21-block one routes the upper output over the top of the core, onto the lamp.
