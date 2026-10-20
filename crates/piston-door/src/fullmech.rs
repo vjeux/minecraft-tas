@@ -1859,9 +1859,15 @@ pub struct CliOpts {
     pub replay_ideal: Option<std::path::PathBuf>,
 }
 
+/// `fullmech --check --keep-stone`: keep the design's plain stones / obsidian as pieces (static
+/// frame stones of an ideal-input design: without them the solver may push door blocks into the
+/// frame cells they hold).
+pub static KEEP_STONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
     let d = crate::cli::load_design(path)?;
     let w = crate::mechsynth::world_of_design(&d)?;
+    let keep = KEEP_STONE.load(std::sync::atomic::Ordering::Relaxed);
     let mut pieces = Vec::new();
     for (p, k) in &w.b {
         if p[2] != 0 {
@@ -1869,6 +1875,8 @@ fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
         }
         use crate::mechsynth::Kind;
         let k = match k {
+            Kind::Stone if keep => FK::Stone,
+            Kind::Obsidian if keep => FK::Obsidian,
             Kind::Door | Kind::Stone | Kind::Obsidian => continue,
             Kind::Piston { sticky, f, ext } => FK::Piston { sticky: *sticky, f: *f, ext: *ext },
             k => anyhow::bail!("unsupported block {k:?}"),
@@ -2011,6 +2019,17 @@ pub fn cli(o: &CliOpts) -> Result<()> {
         match r {
             Ok(Some(f)) => {
                 println!("  {} [{:.1}s]", describe(&ctx, &f), t0.elapsed().as_secs_f64());
+                // --export with --check: this design's exact mechanism as a design + `door ideal` plan
+                if let Some(dir) = &o.export {
+                    std::fs::create_dir_all(dir)?;
+                    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("check");
+                    let dpath = dir.join(format!("{stem}-fm.txt"));
+                    if let Some((d, plan)) = export(&ctx, &rest, &f, &format!("{stem}-fm"), &dpath.display().to_string(), 2) {
+                        std::fs::write(&dpath, d)?;
+                        std::fs::write(dir.join(format!("{stem}-fm.ideal")), plan)?;
+                        println!("  exported {} (+ .ideal)", dpath.display());
+                    }
+                }
                 if o.groups {
                     let (gs, gf) = merge_on_solution(&ctx, &rest, &f);
                     let pid = |i: usize| ctx.pieces.iter().filter(|p| matches!(p.k, FK::Piston { .. })).nth(i).map(|p| p.code()).unwrap_or_default();

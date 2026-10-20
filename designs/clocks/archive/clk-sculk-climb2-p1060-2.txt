@@ -1,0 +1,23 @@
+# archived 2026-10-20T00:39Z from /tmp/gen/arch5/climb2-p1060-2.txt by mctas clock archive
+# CLOCK: clk-sculk-climb2-p1060-2 period 1060 gt (53 s), on 720/1060, edges 24, warmup 0, family calibrated_sculk_sensor+dispenser+observer+piston+sculk_sensor, 6 blocks, 3x2x3, robust
+# Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design (climb from census-p292-calibrated_sculk_sensor-dispenser-observer-piston-sculk_sensor-6b (walker 71))
+name: clk-sculk-climb2-p1060-2
+# how: climb from census-p292-calibrated_sculk_sensor-dispenser-observer-piston-sculk_sensor-6b (walker 71)
+# how: climb from census-p292-calibrated_sculk_sensor-dispenser-observer-piston-sculk_sensor-6b (walker 71)
+# how: climb from census-p292-calibrated_sculk_sensor-dispenser-observer-piston-sculk_sensor-6b (walker 71)
+port start: 0 0 0 last
+origin: 0 0 -1
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dispenser[facing=north,triggered=false]
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer -1:
+  S
+  .
+  .
+layer 0:
+  .
+  COD
+  .SP

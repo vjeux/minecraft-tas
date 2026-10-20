@@ -1,0 +1,28 @@
+name: pulse-dual-lamp-repeater-L6
+circuit: dual-edge
+group: pulse-dual-lamp-repeater
+group title: lamp + observer + repeater dual-edge
+group note: the lamp's 4 gt fall separates the two edges of short inputs; L set by the repeater delay
+# The input lights a redstone lamp at once; the lamp goes out 4 gt after the input falls, so even a
+# 1 gt input makes two lamp changes 5 gt apart. An observer watching the lamp fires 2 gt on each
+# change, and a delay-3 repeater on its back stretches each pulse to 6 gt.
+origin: 0 -1 -2
+port input: 0 0 2
+port output: 0 0 -2
+palette:
+  S minecraft:stone
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:redstone_lamp[lit=false]
+  R minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
+layer 0:
+  .
+  S
+  .
+  .
+  .
+layer 1:
+  .
+  R
+  A
+  B
+  .

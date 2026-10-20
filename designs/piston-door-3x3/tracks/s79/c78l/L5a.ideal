@@ -1,0 +1,8 @@
+# c78l L5a: TP + L1/L2 + s2 REAL: calibrated sensor (0,5) facing west (back to M) wakes t7 -> waxed bulb (-1,5) -> comparator (-2,5) facing east -> observer (-2,4) up -> wool (-2,3) (TP, L2, L1 at t11); observer (0,4) up on the sensor -> TM at (0,3) -> s lowered. M ideal (in-plane (2,5)).
+design designs/piston-door-3x3/tracks/s79/c78l/L5a.txt
+let mo = 15
+let ml = 10
+open 0 use 5 -1 0
+open mo set 2 5 0 minecraft:redstone_block
+open mo+ml clear 2 5 0
+close 0 use 5 -1 0

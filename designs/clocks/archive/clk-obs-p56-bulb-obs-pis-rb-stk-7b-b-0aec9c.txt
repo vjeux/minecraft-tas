@@ -1,0 +1,31 @@
+# archived 2026-10-19T20:31Z from designs/clocks/tracks/clk-obs/mech2/p56-bulb-obs-pis-rb-stk-7b-b-0aec9c.txt by mctas clock archive
+# CLOCK: clk-obs-p56-bulb-obs-pis-rb-stk-7b-b-0aec9c period 56 gt (2.8 s), on 24/56, edges 12, warmup 6, family copper_bulb+observer+piston+redstone_block+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p56-bulb-obs-pis-rb-stk-7b-b-0aec9c
+# P56: 1 copper bulb, 2 observers, 2 pistons, 1 redstone block, 1 sticky piston; changing in place: copper_bulb, observer, piston, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:redstone_block
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:piston[extended=false,facing=up]
+  F minecraft:piston[extended=false,facing=down]
+  G minecraft:observer[facing=south,powered=false]
+layer -2:
+  .
+  A
+  .
+layer -1:
+  .
+  .
+  B
+layer 0:
+  C
+  D
+  E
+layer 1:
+  F
+  G
+  .

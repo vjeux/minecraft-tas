@@ -1,0 +1,50 @@
+# N=8 CASCADE extender, minimized (mctas circuit pext minimize) from the generated one
+# (mctas circuit pext cascade --n 8, 85 blocks): the same units and round starts; the minimizer
+# replaced the spine's towers by repeaters and some triggers by sticky pistons.
+name: pext-n8-cascade66
+circuit: piston-extender 8
+travel: 1 0 0
+port input: 22 3 3 lever
+port payload: 16 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:sticky_piston[facing=east]
+  E minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+  r minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  .O.O.O.O.O.O.O
+  .
+  .
+  .
+layer 1:
+  DSDSDSDSDSDSDSDG
+  .
+  .
+  .
+layer 2:
+  C
+  ..B...B.BBB.B..B..B..B
+  ..C...C.CCC.C..C..s..s
+  .....................E
+layer 3:
+  r
+  B
+  AP.p.ARARARAoA.pAA.AA
+  .....................L
+layer 4:
+  .
+  .
+  ..AOAO
+  .

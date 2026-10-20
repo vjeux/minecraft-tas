@@ -9,6 +9,7 @@
 pub mod blockstate;
 pub mod bridge;
 pub mod design;
+pub mod fabric;
 pub mod mcfont;
 pub mod net;
 pub mod paths;

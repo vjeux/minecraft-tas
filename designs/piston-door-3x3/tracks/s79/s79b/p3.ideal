@@ -1,0 +1,27 @@
+# s79b p3: c78z with U driven by three pulses at the SAME plan ticks on both edges (what a bottom-right that only hears the door could give): a (width aw), a+g (width bw), z (width zw); R0 2 gt at r0.
+design designs/piston-door-3x3/tracks/s79/c78z.txt
+let a = 4
+let aw = 2
+let g = 3
+let bw = 2
+let z = 24
+let zw = 2
+let r0 = 4
+open 0 use 4 6 0
+open a set 1 -2 -1 minecraft:redstone_block
+open a+aw clear 1 -2 -1
+open a+g set 1 -2 -1 minecraft:redstone_block
+open a+g+bw clear 1 -2 -1
+open z set 1 -2 -1 minecraft:redstone_block
+open z+zw clear 1 -2 -1
+open r0 set 4 0 -1 minecraft:redstone_block
+open r0+2 clear 4 0 -1
+close 0 use 4 6 0
+close r0 set 4 0 -1 minecraft:redstone_block
+close r0+2 clear 4 0 -1
+close a set 1 -2 -1 minecraft:redstone_block
+close a+aw clear 1 -2 -1
+close a+g set 1 -2 -1 minecraft:redstone_block
+close a+g+bw clear 1 -2 -1
+close z set 1 -2 -1 minecraft:redstone_block
+close z+zw clear 1 -2 -1

@@ -17,6 +17,11 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Mutex;
 
+/// Exact real-game traces of entity / fluid clocks replayed in redsim (track clk-misc).
+pub mod trace_compare;
+pub mod recipes_gen;
+pub mod archive_check;
+
 /// splitmix64.
 #[derive(Clone)]
 pub struct Rng(u64);
@@ -403,6 +408,13 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("piston", 0),
         // droppers/hoppers with items: `--palette core,container:12`
         ("container", 0),
+        // fluids (redsim M1): `--palette core,water:12,soulsand:2,magma:2`
+        ("water", 0),
+        ("soulsand", 0),
+        ("magma", 0),
+        // plain and detector rails (redsim M4)
+        ("plainrail", 0),
+        ("detrail", 0),
     ];
     let mut out: Vec<(String, u32)> = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -499,6 +511,29 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
             let shape = *r.pick(&["north_south", "east_west", "north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]);
             st(format!("{}[powered={},shape={shape},waterlogged=false]", if r.chance(0.7) { "powered_rail" } else { "activator_rail" }, tf(r, 0.2)))
         }
+        // plain rails (curves too) and detector rails (redsim M4: rails.rs): `--palette
+        // stone:6,plainrail:6,detrail:3,rail:3,...`
+        "plainrail" => {
+            let shape = *r.pick(&[
+                "north_south",
+                "east_west",
+                "north_south",
+                "east_west",
+                "ascending_east",
+                "ascending_west",
+                "ascending_north",
+                "ascending_south",
+                "south_east",
+                "south_west",
+                "north_west",
+                "north_east",
+            ]);
+            st(format!("rail[shape={shape},waterlogged=false]"))
+        }
+        "detrail" => {
+            let shape = *r.pick(&["north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]);
+            st(format!("detector_rail[powered={},shape={shape},waterlogged=false]", tf(r, 0.15)))
+        }
         "dispenser" => st(format!("{}[facing={},triggered={}]", if r.chance(0.5) { "dispenser" } else { "dropper" }, anydir(r), tf(r, 0.15))),
         // item transfer: droppers and hoppers (contents from `container_items`)
         "container" => {
@@ -511,6 +546,11 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "crafter" => st(format!("crafter[crafting=false,orientation={},triggered={}]", r.pick(&redsim::block::ORIENTATIONS), tf(r, 0.15))),
         "hopper" => st(format!("hopper[enabled={},facing={}]", tf(r, 0.8), r.pick(&["down", "north", "east", "south", "west"]))),
         "slab" => st(format!("smooth_stone_slab[type={},waterlogged=false]", r.pick(&["bottom", "top", "top", "double"]))),
+        // water (redsim M1): mostly sources; flowing and falling levels too (they recompute at
+        // their first fluid tick)
+        "water" => st(format!("water[level={}]", if r.chance(0.6) { 0 } else { r.range(1, 15) })),
+        "soulsand" => st("soul_sand".into()),
+        "magma" => st("magma_block".into()),
         "leaves" => st(format!("oak_leaves[distance={},persistent=true,waterlogged=false]", r.range(1, 7))),
         // scaffolding: distance 7 (only from placement) makes it fall as an entity at its first
         // tick (`scaffold7:1` adds those)
@@ -533,6 +573,27 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         }
         _ => Vec::new(),
     }
+}
+
+/// [`random_case`] in a stone basin: the compared box's floor and four side walls are stone
+/// (levers kept), so water stays inside it (redsim's fluids, M1).
+pub fn basin_case(r: &mut Rng, pal: &[(String, u32)], size: [i32; 3], density: f64) -> Case {
+    let mut c = random_case(r, pal, size, density);
+    let (lo, hi) = (c.lo, c.hi);
+    let wall = |p: &Pos| p[1] < hi[1] && (p[1] == lo[1] || p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2]);
+    let levers: Vec<Pos> = c.blocks.iter().filter(|(_, s)| s.contains("lever")).map(|(p, _)| *p).collect();
+    c.blocks.retain(|(p, s)| !wall(p) || s.contains("lever"));
+    for y in lo[1]..hi[1] {
+        for z in lo[2]..=hi[2] {
+            for x in lo[0]..=hi[0] {
+                let p = [x, y, z];
+                if wall(&p) && !levers.contains(&p) {
+                    c.blocks.push((p, "minecraft:stone".into()));
+                }
+            }
+        }
+    }
+    c
 }
 
 /// A random case: a box of random components, 1-2 input levers on solid blocks, flips.
@@ -966,7 +1027,18 @@ pub fn fuzz(pool: &Pool, o: &FuzzOptions, log: &dyn Fn(&str)) -> Result<(usize, 
     };
     let mut rng = Rng::new(o.seed);
     let cases: Vec<(usize, Case)> = (0..o.n)
-        .map(|i| (i, if o.generator == "containers" { container_case(&mut rng, o.size) } else { random_case(&mut rng, &o.palette, o.size, o.density) }))
+        .map(|i| {
+            (
+                i,
+                match o.generator.as_str() {
+                    "containers" => container_case(&mut rng, o.size),
+                    // water (redsim M1): a random circuit in a stone basin (floor and four
+                    // walls), so no water leaves the compared box
+                    "basin" => basin_case(&mut rng, &o.palette, o.size, o.density),
+                    _ => random_case(&mut rng, &o.palette, o.size, o.density),
+                },
+            )
+        })
         .collect();
     if let Some((_, c)) = cases.first() {
         std::fs::write(o.out.join(format!("sample-{}.txt", o.seed)), c.to_text())?;

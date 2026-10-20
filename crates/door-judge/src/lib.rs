@@ -41,6 +41,11 @@ pub enum DoorCmd {
     /// every bound relaxed in turn) with the bounds its real moves break, (3) the blocks and
     /// mechanics each wiring tool cannot represent, (4) every hard-coded rule (file:line, live).
     Audit(cmd::checks::AuditArgs),
+    /// Which archived doors are ours and which derive from community designs (provenance.rs):
+    /// a name / archive provenance naming a root (c79, community), or a mechanism (redsim cycle,
+    /// wiring ignored, mirrors merged) within --near pieces of a root's; writes
+    /// archive/provenance.tsv (name, origin = ours | community-derived, reason) + a summary.
+    Provenance(cmd::checks::ProvenanceArgs),
     /// Write a design turned and/or mirrored (the game's own block-state rotate/mirror). A turn
     /// of 90 or 270 degrees gives an east/west-facing door (`door-axis: z` in the file), which
     /// every tool judges in that orientation: the way to build a variant for that direction.
@@ -109,6 +114,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Shapes(a) => cmd::boards::cmd_shapes(version, a),
         DoorCmd::Leaderboard(a) => cmd::boards::cmd_leaderboard(version, a),
         DoorCmd::Audit(a) => cmd::checks::cmd_audit(version, a),
+        DoorCmd::Provenance(a) => cmd::checks::cmd_provenance(a),
         DoorCmd::Turn(a) => cmd::design::cmd_turn(version, a),
         DoorCmd::Gen(a) => cmd::design::cmd_gen(version, a),
         DoorCmd::Patch(a) => cmd::design::cmd_patch(version, a),

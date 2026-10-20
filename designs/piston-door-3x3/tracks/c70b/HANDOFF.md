@@ -1,39 +1,41 @@
-# HANDOFF: track c70b (c070x, 8x7 = 56), 2026-10-19
+# HANDOFF: track c70b, 2026-10-19 (newest first)
 
-## State
-- No working door. c70's m2 (explore/c70 tracks/c70/wip/m2.txt, only BL ideal) is still the best partial.
-- `wip/m2x.txt` + `ideal/m2x.ideal`: m2 with U's chain removed and U driven by an off-plane test observer X
-  (plan toggles (-1,-1,2) at gu/guc). Windows: open gu = 9 EXACTLY (U at t11), close guc 6..32 (gaps 18, 20,
-  21, 30); BL (0,-2) open 4..40 (not 31), close 4..~40. BL is wide once the bottom-left sensor loop is gone.
-- `wip/m2w.txt`: m2 with WOOL door blocks + frame (the door occludes the lever for the whole bottom-left).
-- `wip/w1b.txt` (+ ideal/w1b.ideal, no ideal input): wool; plain sensor (-2,-2) hears E1 at t8 -> normal piston
-  (-3,-2) up -> its head into (-3,-1) at t9 -> observer (-2,-1) facing west fires U at t11; observer (-1,-2)
-  facing west on the sensor fires BL at t10. Open works to t39; then the sensor's cooldown/inactive taps move BL
-  twice more and it re-arms on BL's puller (d=2): endless loop; on close the piston's retraction gives a second
-  U pulse after E2 (fatal, see NOTES 1).
+## 5. Provenance (vjeux 2026-10-20: the site publishes only our own doors)
+- `mctas door provenance` -> designs/piston-door-3x3/archive/provenance.tsv (name, origin = ours |
+  community-derived, reason). Rules: (a) name / `archived from` path / a pockets run's seed names a
+  root or a community lineage (c79, community, c88, m79s, m10top, s79, c78z, s26/s27, closed-b,
+  c77's comm-/cst-/c47- runs); (b) mechanism (audit's redsim cycle, mirrors merged) within 2 pieces
+  of a root's, or the same door-block paths; (c) lineage to a fixpoint (a run's outputs inherit an
+  archived seed's origin; mechanisms within 2 pieces of a community-derived design).
+- Main's archive (1694): 1175 ours, 519 community-derived. The 257 pockets-63b-43-* are ours: their
+  runs (rf-lw-k4, t7b-lw-k3, t7b-rw-k3) are seeded by t7b (e88's record from flat-seam e89b, which
+  predates the c79 reproduction); "63b" = the 7x9 volume.
 
-## Why it is stuck (NOTES.md 1)
-- M is lever-locked at 4/14/24 -> U must be exactly 11 (or 21).
-- BL's puller is fed only from (-1,-2); U only from (-2,-1) or (-1,-2). The only ONE-SHOT source for U in the
-  bottom-left is c70's moving observer landing at (-1,-2) (facing down). Every sensor-based source changes 2-3
-  times and an extra U pulse on close after E2 makes the watcher fire D once (E pushed alone into (-1,1), spit).
-- So U (one-shot, needs (-1,-2)) and BL (needs a static east-pointing block at (-1,-2)) cannot both be wired in
-  the 8x7 bottom-left with this mechanism, unless a new trick gives a one-shot from (-2,-1).
+## 4. Smaller than 56 (QUESTION 1: does any mechanism exist per box): smaller/NOTES.md
+- Per box (ideal inputs): 7x7 YES (c77 w1; mechmut mm01 11 pistons), 8x6 YES (w86 a3r), 6x8 OPEN,
+  7x6 YES (w86 a3s; a3s-11), **6x7 YES** (a3s turned + repaired: 9 variants WORK in redsim, 4 in
+  the real game; not wirable as found: pistons fire inside the door square), 6x9 YES (c78l m69a/T/V),
+  9x6 YES (m69a turned, fullmech plan WORKS; m69g-12), 6x6 no within families two <= 3, 10x5 / 5x10 /
+  7x5 / 5x7 NO in the strip model (exact re-run).
+- Tools: families --ring-escape / --feedable; door audit --member + g7; `door mechmut` (local search
+  from known mechanisms: --validate redsim replay, --keep / --reserve / --repair / --outside-only /
+  --lever-held, ranked by redsim, inside firings, door connect, never-fed, weak feeds, unfed,
+  pistons, events; exports FULL designs + ideal plans); fullmech --check --export / --keep-stone;
+  families' Wire.weak.
+- 6x7 wirability (finished): inside firings bottom out at 1, unfed receivers at (0,1) + (1,-2), and
+  the pistons pulse 3-9 times per edge from 1-2-cell pockets: the a3s family is not wirable by
+  repair; a 6x7 with ~1-2 actions per piston per edge needs a new family (smaller/NOTES.md).
+- Wiring status: everything with pockets3 (the wiring service); satwire cores so far: 6x7 mm01
+  (1,-2), mm02/03 (3,-1), mm05 (2,2); 9x6 m69g-12 W' (3,-1); m69T variants need lever-faithful plans
+  (the macro model refuses a held piston that extends late).
 
-## Searches (all 0)
-- mine: m2 KEEP k<=3 over 10 cells (4.6M); m2w k<=5 on the 5 bottom-left cells (147M, 42 states).
-- pockets3 (runs on explore/pockets): m2 cross-region KEEP k<=3 over all 23 wiring cells (47.1M): 0;
-  m2w same and m2 bottom-left k<=5 with 50 states (255M): running at 16:10Z.
+## 3. Generator: extended-at-rest pullers by default (merged)
+- families / mechspace / fullmech: `--ext-max 3`, adjacent (`--ext-dist 1`); docs/audit.md section 2.
 
-## Next ideas (not tried)
-- A one-shot at (-3,-1) for the (-2,-1) observer: a normal piston pushing a block INTO (-3,-1) (the block stays)
-  has no room (the push line comes from (-3,-3) or D), a pulled block needs (-3,0) = D's feed.
-- D driven from the top-left as a HOLD (instead of the blocked-push watcher) widens M's window and frees (-2,0)/(-3,0),
-  but the hold sensor hears E1 first, and on close E2 must be swallowed by the hold (q > 37) while on open E2
-  must come after it.
-- c077w: same exact 3-tick coupling; its top-left one-shot for S (moving observer (-2,4) -> (-1,4) pushed by a
-  piston at (-3,4)) can only be fed from (-3,3), where any sensor powers D's feed (-3,2) (strongly, or by QC
-  through an air cell).
+## 2. The community 7x8 (SacredRedstone) reproduced (community/NOTES.md); community-derived now
+- `community-7x8.txt` WORKS at 32 positions; the site no longer publishes it (provenance).
+
+## 1. Parked: t7b in 8 rows (partials/t7b8.md), c070x (partials/c070x.md)
 
 ## Running processes
-None of mine.
+- None (every c70b search has finished).

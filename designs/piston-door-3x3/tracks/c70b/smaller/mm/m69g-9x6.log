@@ -1,0 +1,8 @@
+[mechmut] seed 9 6 -3 -1 SE(-3,1) SE(-2,0) SE(-2,1) SD(-1,3) stone(0,-1) SD+(0,4) stone(1,-1) SD+(1,4) stone(2,-1) SD+(2,4) SU(3,-1) SD(3,3) SW(4,0) SW(4,1) SW(5,0): unfed 2 class X pistons 12 events 25
+[mechmut] round 1: 73 neighbours, 17 kept (1 by replay) (246s)
+[mechmut]   best: unfed 2 class X pistons 11 events 25: 9 6 -3 -1 SE(-2,0) SE(-2,1) SD(-1,3) stone(0,-1) SD+(0,4) stone(1,-1) SD+(1,4) stone(2,-1) SD+(2,4) SU(3,-1) SD(3,3) SW(4,0) SW(4,1) SW(5,0)
+[mechmut] round 2: 281 neighbours, 58 kept (17 by replay) (811s)
+[mechmut]   best: unfed 1 class X pistons 12 events 26: 9 6 -3 -1 SE(-3,0) SE(-2,0) SE(-2,1) SD(-1,3) stone(0,-1) SD+(0,4) stone(1,-1) SD+(1,4) stone(2,-1) SD+(2,4) SU(3,-1) SW(3,0) SD(3,3) SW(4,1) SW(5,0)
+[mechmut] round 3: 267 neighbours, 50 kept (2 by replay) (805s)
+[mechmut]   best: unfed 1 class X pistons 11 events 34: 9 6 -3 -1 SE(-3,0) SE(-2,0) SE(-2,1) SD(-1,3) stone(0,-1) SD+(0,4) stone(1,-1) SD+(1,4) stone(2,-1) SD+(2,4) SU(3,-1) SW(4,0) SW(5,0) SW(5,1)
+[mechmut] 126 variants kept

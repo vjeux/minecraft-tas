@@ -23,6 +23,8 @@ pub mod canon;
 pub mod catalog;
 pub mod census;
 pub mod extend;
+pub mod ident;
+pub mod kits;
 pub mod shot;
 pub mod sim;
 pub mod verify;
@@ -168,8 +170,31 @@ impl Clock {
 
     /// Blocks placed: every block of the design except piston heads (part of their piston), as
     /// the door boards count; a temporary start block is not counted.
+    /// The kinds of blocks the clock is built with (ids without `minecraft:`; a wall torch is a
+    /// torch, every waxed copper bulb a copper bulb, a piston head part of its piston) plus its
+    /// entities' kinds: the catalog's dominance fold compares these sets.
+    pub fn kinds(&self) -> std::collections::BTreeSet<String> {
+        let norm = |s: &str| -> Option<String> {
+            let id = s.split('[').next().unwrap_or(s);
+            let id = id.strip_prefix("minecraft:").unwrap_or(id);
+            if id == "piston_head" || id == "moving_piston" || id == "air" {
+                return None;
+            }
+            Some(if id == "redstone_wall_torch" {
+                "redstone_torch".to_string()
+            } else if id.contains("copper_bulb") {
+                "copper_bulb".to_string()
+            } else {
+                id.to_string()
+            })
+        };
+        self.design.blocks.values().filter_map(|s| norm(s)).chain(self.design.entities.iter().filter_map(|e| norm(&e.kind))).collect()
+    }
+
+    /// Placed pieces: blocks (a piston head is part of its piston) plus design entities (a minecart
+    /// counts one).
     pub fn blocks(&self) -> usize {
-        self.design.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count()
+        self.design.blocks.values().filter(|s| !s.starts_with("minecraft:piston_head")).count() + self.design.entities.len()
     }
 
     /// The design's bounding box with the start cell.
@@ -273,6 +298,31 @@ pub fn rotate_pos(p: Pos, turns: u8) -> Pos {
         q = [-q[2], q[1], q[0]];
     }
     q
+}
+
+/// An entity's SNBT with its `Motion:[x,y,z]` turned `turns` quarter turns clockwise like
+/// [`rotate_pos`] turns positions ((x, z) -> (-z, x)); unchanged without a readable Motion.
+pub fn turn_motion(snbt: &str, turns: u8) -> String {
+    let Some(i) = snbt.find("Motion:[") else {
+        return snbt.to_string();
+    };
+    let start = i + "Motion:[".len();
+    let Some(len) = snbt[start..].find(']') else {
+        return snbt.to_string();
+    };
+    let parts: Vec<&str> = snbt[start..start + len].split(',').map(str::trim).collect();
+    let num = |s: &str| s.trim_end_matches(['d', 'D', 'f', 'F']).parse::<f64>().ok();
+    let (Some(mut x), Some(y), Some(mut z)) = (parts.first().and_then(|s| num(s)), parts.get(1).and_then(|s| num(s)), parts.get(2).and_then(|s| num(s))) else {
+        return snbt.to_string();
+    };
+    if parts.len() != 3 {
+        return snbt.to_string();
+    }
+    for _ in 0..turns % 4 {
+        (x, z) = (-z, x);
+    }
+    let f = |v: f64| if v == 0.0 { "0.0d".to_string() } else { format!("{v}d") };
+    format!("{}{},{},{}{}", &snbt[..start], f(x), f(y), f(z), &snbt[start + len..])
 }
 
 /// `n` deterministic pseudo-random extra test positions on top of the default four (the door

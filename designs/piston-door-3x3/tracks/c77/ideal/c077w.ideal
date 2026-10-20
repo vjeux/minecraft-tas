@@ -1,0 +1,40 @@
+# ceil c077o: c077 with D on OPEN only (2 taps), E1 and E2 on BOTH edges through an observer (-2,3)
+# facing up (QC + update of E through (-2,2)), M through the BL gate (observer (-1,-1) facing down,
+# BL parked at (-1,0) = its puller's front). The plan toggles the observers' watched cells.
+design designs/piston-door-3x3/tracks/c77/wip/c077w.txt
+let bl = 2
+let e1 = 4
+let s = 10
+let gm = 22
+let e2 = 34
+let e2c = 20
+let bm = 20
+let r = 8
+open 0 use 1 5 0
+open bl set -2 -1 0 minecraft:redstone_block
+open bl+2 clear -2 -1 0
+open e1-2 set -2 4 0 minecraft:glass
+open s set -1 3 1 minecraft:redstone_block
+open s+2 clear -1 3 1
+open gm-2 set -1 -2 0 minecraft:glass
+open e2-2 clear -2 4 0
+open bm set 1 -2 1 minecraft:redstone_block
+open bm+2 clear 1 -2 1
+open r set 4 1 1 minecraft:redstone_block
+open r set 4 0 1 minecraft:redstone_block
+open r+2 clear 4 1 1
+open r+2 clear 4 0 1
+close 0 use 1 5 0
+close bl set -2 -1 0 minecraft:redstone_block
+close bl+2 clear -2 -1 0
+close e1-2 set -2 4 0 minecraft:glass
+close s set -1 3 1 minecraft:redstone_block
+close s+2 clear -1 3 1
+close gm-2 clear -1 -2 0
+close e2c-2 clear -2 4 0
+close bm set 1 -2 1 minecraft:redstone_block
+close bm+2 clear 1 -2 1
+close r set 4 1 1 minecraft:redstone_block
+close r set 4 0 1 minecraft:redstone_block
+close r+2 clear 4 1 1
+close r+2 clear 4 0 1

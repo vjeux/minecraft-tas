@@ -1,0 +1,6 @@
+fill designs/piston-door-3x3/tracks/c77/community-56b-47-elig.txt: 8 region cells (8 free, 0 fixed), base 40 blocks (design 47), k 0..=5, global palette 31 states, gaps allowed
+125 subsets pass the connectivity rule; 1356423755 fillings to screen in 1411475 work items
+[   600s] 86438645 screened (144053/s), 262497421 pruned, item 363133/1411475, 0 pass the 1-position screen, 0 finds
+[  1200s] 172006389 screened (143316/s), 595840106 pruned, item 799048/1411475, 0 pass the 1-position screen, 0 finds
+[  1800s] 257382916 screened (142964/s), 1017584624 pruned, item 1326747/1411475, 0 pass the 1-position screen, 0 finds
+done in 1888 s: 269535149 screened, 1086888606 pruned, 0 passed the screen, 0 finds

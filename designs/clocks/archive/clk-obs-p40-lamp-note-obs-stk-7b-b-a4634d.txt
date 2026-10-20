@@ -1,0 +1,25 @@
+# archived 2026-10-19T20:22Z from designs/clocks/tracks/clk-obs/mech2/p40-lamp-note-obs-stk-7b-b-a4634d.txt by mctas clock archive
+# CLOCK: clk-obs-p40-lamp-note-obs-stk-7b-b-a4634d period 40 gt (2 s), on 12/40, edges 6, warmup 0, family note_block+observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p40-lamp-note-obs-stk-7b-b-a4634d
+# P40: 1 note block, 4 observers, 1 redstone lamp, 1 sticky piston; changing in place: note_block, observer, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 -1 1
+port start: 0 1 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:redstone_lamp[lit=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  .
+  A
+  .
+layer 0:
+  B
+  A
+  C
+layer 1:
+  D
+  C
+  E

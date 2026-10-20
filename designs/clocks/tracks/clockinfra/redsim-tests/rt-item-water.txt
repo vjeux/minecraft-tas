@@ -1,0 +1,18 @@
+name: rt-item-water
+# redsim test scene (not a clock): a stone item dropped into a walled channel of flowing water
+# (the current, water movement x0.99 and the 5e-4 lift, the fluid interaction).
+entity: minecraft:item 1.5 2.0 1.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767s}
+palette:
+  S minecraft:stone
+  w minecraft:water[level=0]
+  f minecraft:water[level=1]
+  g minecraft:water[level=2]
+  h minecraft:water[level=3]
+layer 0:
+  SSSSSSS
+  SSSSSSS
+  SSSSSSS
+layer 1:
+  SSSSSSS
+  SwfghSS
+  SSSSSSS

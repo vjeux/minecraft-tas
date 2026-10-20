@@ -221,10 +221,14 @@ pub enum Simple {
     Mud,
     // ---- pistmodel ----
     CryingObsidian,
+    // ---- entity-reacting blocks (clk-misc) ----
+    Dirt,
+    // ---- fluids (clockinfra): what turns water above into a bubble column ----
+    MagmaBlock,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 62] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -291,6 +295,10 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
     (Simple::Mud, "mud", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- pistmodel ----
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
+    // ---- entity-reacting blocks (clk-misc) ----
+    (Simple::Dirt, "dirt", true, true, Instrument::Harp, PushReaction::PushPull),
+    // ---- fluids (clockinfra) ----
+    (Simple::MagmaBlock, "magma_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
 ];
 
 impl Simple {
@@ -355,14 +363,23 @@ pub enum RailShape {
     AscendingWest,
     AscendingNorth,
     AscendingSouth,
+    // ---- entity-reacting blocks (clk-misc): the plain rail's curves ----
+    SouthEast,
+    SouthWest,
+    NorthWest,
+    NorthEast,
 }
-const RAIL_SHAPES: [(RailShape, &str); 6] = [
+const RAIL_SHAPES: [(RailShape, &str); 10] = [
     (RailShape::NorthSouth, "north_south"),
     (RailShape::EastWest, "east_west"),
     (RailShape::AscendingEast, "ascending_east"),
     (RailShape::AscendingWest, "ascending_west"),
     (RailShape::AscendingNorth, "ascending_north"),
     (RailShape::AscendingSouth, "ascending_south"),
+    (RailShape::SouthEast, "south_east"),
+    (RailShape::SouthWest, "south_west"),
+    (RailShape::NorthWest, "north_west"),
+    (RailShape::NorthEast, "north_east"),
 ];
 impl RailShape {
     pub fn name(self) -> &'static str {
@@ -373,6 +390,10 @@ impl RailShape {
     }
     pub fn is_ascending(self) -> bool {
         matches!(self, RailShape::AscendingEast | RailShape::AscendingWest | RailShape::AscendingNorth | RailShape::AscendingSouth)
+    }
+    /// A curve (plain rails only).
+    pub fn is_curve(self) -> bool {
+        matches!(self, RailShape::SouthEast | RailShape::SouthWest | RailShape::NorthWest | RailShape::NorthEast)
     }
 }
 
@@ -441,6 +462,44 @@ pub enum Block {
     /// its back, the frequency input, at `facing.opposite()`; a plain sensor keeps North).
     /// `phase`: 0 inactive, 1 active, 2 cooldown (`SculkSensorPhase`).
     Sculk { calibrated: bool, facing: Dir, phase: u8, power: u8 },
+    // ---- entity-reacting blocks (clk-misc) ----
+    /// Pressure plate (`react::plate`): `kind` 0 oak, 1 stone (`powered`: power 0 or 15), 2 light /
+    /// 3 heavy weighted (`power` 0-15).
+    Plate { kind: u8, power: u8 },
+    /// Tripwire string (`react::tripwire`).
+    Tripwire { powered: bool, attached: bool, disarmed: bool, north: bool, east: bool, south: bool, west: bool },
+    /// Tripwire hook (`react::hook`), hung on the block at `facing.opposite()`.
+    TripwireHook { facing: Dir, powered: bool, attached: bool },
+    /// White wall banner, hung on the block at `facing.opposite()`: no collision, solid (water
+    /// cannot enter it).
+    WallBanner { facing: Dir },
+    /// Lantern, hanging from the block above or standing.
+    Lantern { hanging: bool },
+    /// Stone slab: 0 bottom, 1 top, 2 double (the shapes of `Slab`).
+    StoneSlab { kind: u8 },
+    /// Plain rail (`RailBlock`: curves too), `react::rails`.
+    PlainRail { shape: RailShape },
+    /// Detector rail (`DetectorRailBlock`: straight shapes), `react::rails`.
+    DetectorRail { shape: RailShape, powered: bool },
+    /// Big dripleaf (the leaf; `react::dripleaf`): `tilt` 0 none, 1 unstable, 2 partial, 3 full.
+    BigDripleaf { facing: Dir, tilt: u8, waterlogged: bool },
+    /// Chiseled bookshelf: `slots` = the six `slot_N_occupied` flags (bit N); its 6-slot container
+    /// and `last_interacted_slot` live in the block entity.
+    ChiseledBookshelf { facing: Dir, slots: u8 },
+    /// Daylight detector (`daylight.rs`): its power from the sky light every 20 gt.
+    DaylightDetector { inverted: bool, power: u8 },
+    /// Powder snow (placed and picked up by dispensers' buckets): no collision without an
+    /// entity, not solid, not a conductor.
+    PowderSnow,
+    /// Jukebox: `has_record`; its record and song live in the block entity (`container.rs`).
+    Jukebox { has_record: bool },
+    // ---- fluids (clockinfra, `fluid/`) ----
+    /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
+    /// falling (`getLegacyLevel`).
+    Water { level: u8 },
+    /// A bubble column (`BubbleColumnBlock`, a water source): `drag` = down (magma below), else up
+    /// (soul sand below).
+    BubbleColumn { drag: bool },
 }
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
@@ -492,6 +551,23 @@ pub enum Kind {
     Falling(u8),
     /// Sculk sensor (true: calibrated).
     Sculk(bool),
+    // ---- entity-reacting blocks (clk-misc) ----
+    /// Pressure plate, by `Block::Plate::kind`.
+    Plate(u8),
+    Tripwire,
+    TripwireHook,
+    WallBanner,
+    Lantern,
+    StoneSlab,
+    PlainRail,
+    DetectorRail,
+    BigDripleaf,
+    ChiseledBookshelf,
+    DaylightDetector,
+    PowderSnow,
+    Jukebox,
+    Water,
+    BubbleColumn,
 }
 
 fn b(s: bool) -> &'static str {
@@ -539,6 +615,22 @@ impl Block {
             Block::MovingPiston { .. } => Kind::MovingPiston,
             Block::Falling { id } => Kind::Falling(id),
             Block::Sculk { calibrated, .. } => Kind::Sculk(calibrated),
+            // ---- entity-reacting blocks (clk-misc) ----
+            Block::Plate { kind, .. } => Kind::Plate(kind),
+            Block::Tripwire { .. } => Kind::Tripwire,
+            Block::TripwireHook { .. } => Kind::TripwireHook,
+            Block::WallBanner { .. } => Kind::WallBanner,
+            Block::Lantern { .. } => Kind::Lantern,
+            Block::StoneSlab { .. } => Kind::StoneSlab,
+            Block::PlainRail { .. } => Kind::PlainRail,
+            Block::DetectorRail { .. } => Kind::DetectorRail,
+            Block::BigDripleaf { .. } => Kind::BigDripleaf,
+            Block::ChiseledBookshelf { .. } => Kind::ChiseledBookshelf,
+            Block::DaylightDetector { .. } => Kind::DaylightDetector,
+            Block::PowderSnow => Kind::PowderSnow,
+            Block::Jukebox { .. } => Kind::Jukebox,
+            Block::Water { .. } => Kind::Water,
+            Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
     }
 
@@ -704,11 +796,34 @@ impl Block {
                     activator: name == "activator_rail",
                     shape: match get("shape") {
                         None => RailShape::NorthSouth,
-                        Some(v) => RailShape::parse(v).ok_or_else(|| format!("bad shape={v}"))?,
+                        Some(v) => RailShape::parse(v).filter(|s| !s.is_curve()).ok_or_else(|| format!("bad shape={v}"))?,
                     },
                     powered: bool_of("powered", false)?,
                 }
             }
+            "big_dripleaf" => Block::BigDripleaf {
+                facing: hdir_of("facing", Dir::North)?,
+                tilt: match get("tilt") {
+                    None | Some("none") => 0,
+                    Some("unstable") => 1,
+                    Some("partial") => 2,
+                    Some("full") => 3,
+                    Some(v) => return Err(format!("bad tilt={v}")),
+                },
+                waterlogged: bool_of("waterlogged", false)?,
+            },
+            "chiseled_bookshelf" => {
+                let mut slots = 0u8;
+                for n in 0..6 {
+                    if bool_of(&format!("slot_{n}_occupied"), false)? {
+                        slots |= 1 << n;
+                    }
+                }
+                Block::ChiseledBookshelf { facing: hdir_of("facing", Dir::North)?, slots }
+            }
+            "daylight_detector" => Block::DaylightDetector { inverted: bool_of("inverted", false)?, power: int_of("power", 0, 0, 15)? },
+            "powder_snow" => Block::PowderSnow,
+            "jukebox" => Block::Jukebox { has_record: bool_of("has_record", false)? },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -791,6 +906,61 @@ impl Block {
                         Some(v) => SCULK_PHASES.iter().position(|p| *p == v).ok_or_else(|| format!("bad sculk_sensor_phase={v}"))? as u8,
                     },
                     power: int_of("power", 0, 0, 15)?,
+                }
+            }
+            // ---- entity-reacting blocks (clk-misc) ----
+            "oak_pressure_plate" | "stone_pressure_plate" => {
+                Block::Plate { kind: if name == "oak_pressure_plate" { 0 } else { 1 }, power: if bool_of("powered", false)? { 15 } else { 0 } }
+            }
+            "light_weighted_pressure_plate" | "heavy_weighted_pressure_plate" => {
+                Block::Plate { kind: if name == "light_weighted_pressure_plate" { 2 } else { 3 }, power: int_of("power", 0, 0, 15)? }
+            }
+            "tripwire" => Block::Tripwire {
+                powered: bool_of("powered", false)?,
+                attached: bool_of("attached", false)?,
+                disarmed: bool_of("disarmed", false)?,
+                north: bool_of("north", false)?,
+                east: bool_of("east", false)?,
+                south: bool_of("south", false)?,
+                west: bool_of("west", false)?,
+            },
+            "tripwire_hook" => Block::TripwireHook { facing: hdir_of("facing", Dir::North)?, powered: bool_of("powered", false)?, attached: bool_of("attached", false)? },
+            "white_wall_banner" => Block::WallBanner { facing: hdir_of("facing", Dir::North)? },
+            "lantern" => {
+                waterlogged_ok()?;
+                Block::Lantern { hanging: bool_of("hanging", false)? }
+            }
+            "stone_slab" => {
+                waterlogged_ok()?;
+                Block::StoneSlab {
+                    kind: match get("type") {
+                        None | Some("bottom") => 0,
+                        Some("top") => 1,
+                        Some("double") => 2,
+                        Some(v) => return Err(format!("bad type={v}")),
+                    },
+                }
+            }
+            "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
+            "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
+            // ---- entity-reacting blocks (clk-misc): rails ----
+            "rail" => {
+                waterlogged_ok()?;
+                Block::PlainRail {
+                    shape: match get("shape") {
+                        None => RailShape::NorthSouth,
+                        Some(v) => RailShape::parse(v).ok_or_else(|| format!("bad shape={v}"))?,
+                    },
+                }
+            }
+            "detector_rail" => {
+                waterlogged_ok()?;
+                Block::DetectorRail {
+                    shape: match get("shape") {
+                        None => RailShape::NorthSouth,
+                        Some(v) => RailShape::parse(v).filter(|s| !s.is_curve()).ok_or_else(|| format!("bad shape={v}"))?,
+                    },
+                    powered: bool_of("powered", false)?,
                 }
             }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
@@ -902,6 +1072,49 @@ impl fmt::Display for Block {
                 facing.name(),
                 SCULK_PHASES[phase as usize]
             ),
+            // ---- entity-reacting blocks (clk-misc) ----
+            Block::Plate { kind, power } => {
+                let name = crate::react::plate::NAMES[kind as usize];
+                if kind < 2 { write!(f, "minecraft:{name}[powered={}]", b(power > 0)) } else { write!(f, "minecraft:{name}[power={power}]") }
+            }
+            Block::Tripwire { powered, attached, disarmed, north, east, south, west } => write!(
+                f,
+                "minecraft:tripwire[attached={},disarmed={},east={},north={},powered={},south={},west={}]",
+                b(attached),
+                b(disarmed),
+                b(east),
+                b(north),
+                b(powered),
+                b(south),
+                b(west)
+            ),
+            Block::TripwireHook { facing, powered, attached } => {
+                write!(f, "minecraft:tripwire_hook[attached={},facing={},powered={}]", b(attached), facing.name(), b(powered))
+            }
+            Block::WallBanner { facing } => write!(f, "minecraft:white_wall_banner[facing={}]", facing.name()),
+            Block::Lantern { hanging } => write!(f, "minecraft:lantern[hanging={},waterlogged=false]", b(hanging)),
+            Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
+            Block::PlainRail { shape } => write!(f, "minecraft:rail[shape={},waterlogged=false]", shape.name()),
+            Block::DetectorRail { shape, powered } => write!(f, "minecraft:detector_rail[powered={},shape={},waterlogged=false]", b(powered), shape.name()),
+            Block::BigDripleaf { facing, tilt, waterlogged } => write!(
+                f,
+                "minecraft:big_dripleaf[facing={},tilt={},waterlogged={}]",
+                facing.name(),
+                ["none", "unstable", "partial", "full"][tilt as usize],
+                b(waterlogged)
+            ),
+            Block::ChiseledBookshelf { facing, slots } => {
+                write!(f, "minecraft:chiseled_bookshelf[facing={}", facing.name())?;
+                for n in 0..6 {
+                    write!(f, ",slot_{n}_occupied={}", b(slots & (1 << n) != 0))?;
+                }
+                write!(f, "]")
+            }
+            Block::DaylightDetector { inverted, power } => write!(f, "minecraft:daylight_detector[inverted={},power={power}]", b(inverted)),
+            Block::PowderSnow => write!(f, "minecraft:powder_snow"),
+            Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
+            Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
+            Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }
     }
 }

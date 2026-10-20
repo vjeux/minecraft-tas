@@ -1,0 +1,32 @@
+# archived 2026-10-20T01:02Z from designs/clocks/tracks/clk-obs/families9/p41-bulb-lamp-obs-pis-stk-9b-67f89b.txt by mctas clock archive
+# CLOCK: clk-obs-p41-bulb-lamp-obs-pis-stk-9b-67f89b period 41 gt (2.05 s), on 18/41, edges 9, warmup 4, family copper_bulb+observer+piston+redstone_lamp+sticky_piston, 9 blocks, 1x4x3, robust
+name: clk-obs-p41-bulb-lamp-obs-pis-stk-9b-67f89b
+# clk-obs grow: P=41 (redsim), family observer+piston+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:piston[extended=false,facing=down]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:redstone_lamp[lit=false]
+  H minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -1:
+  A
+  .
+  B
+layer 0:
+  C
+  D
+  .
+layer 1:
+  E
+  E
+  F
+layer 2:
+  .
+  G
+  H

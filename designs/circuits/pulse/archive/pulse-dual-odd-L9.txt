@@ -1,0 +1,27 @@
+# archived 2026-10-20T03:07Z from designs/circuits/tracks/pulse/odd/pulse-dual-odd-L9.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-odd-L9 dual-edge L 9 gt, delay 10 gt, min-pulse 20 gt, 11 blocks, 2x2x5, robust
+name: pulse-dual-odd-L9
+circuit: dual-edge
+# Odd dual-edge pulses: one observer watches the input cell, the other a sticky piston the input
+# moves (a piston's block event runs in the tick after the input changes), so they fire 1 gt apart
+# on each edge; each feeds a delay-4 repeater (8 gt pulses) into one dust line, where the two
+# pulses overlap into 8 + 1 = 9 gt.
+origin: 0 0 0
+port input: 1 1 0
+port output: 1 1 3
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=north]
+  O minecraft:observer[facing=north,powered=false]
+  R minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  W minecraft:redstone_wire
+layer 0:
+  ...
+  ...
+  .SS
+  .SS
+layer 1:
+  ..P
+  .OO
+  .RR
+  .WW

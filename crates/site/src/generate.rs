@@ -1,0 +1,404 @@
+//! `mctas site build`: everything into one folder.
+
+use crate::pages::{self, Scripts};
+use crate::{BuildArgs, circuits, clocks, doors, web};
+use anyhow::{Context, Result, bail};
+use site_model::{Build, DATA_VERSION, Member, Site};
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+pub const STYLE: &str = include_str!("../assets/style.css");
+pub const FAVICON: &str = include_str!("../assets/favicon.svg");
+
+/// The repository commit (HEAD), or `unknown`.
+pub fn commit(repo: &Path) -> String {
+    std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "unknown".into())
+}
+
+/// Empty `out`, refusing to delete a folder that is not a previous site build.
+fn fresh_dir(out: &Path) -> Result<()> {
+    if out.exists() {
+        let empty = std::fs::read_dir(out)?.next().is_none();
+        if !empty && !out.join("data/site.json").exists() {
+            bail!("{} exists and is not a site build (no data/site.json): refusing to replace it", out.display());
+        }
+        std::fs::remove_dir_all(out).with_context(|| format!("removing {}", out.display()))?;
+    }
+    std::fs::create_dir_all(out)?;
+    Ok(())
+}
+
+fn write(path: &Path, text: &str) -> Result<()> {
+    if let Some(p) = path.parent() {
+        std::fs::create_dir_all(p)?;
+    }
+    std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Copy every regular file of `from` (not recursive) into `to`.
+pub fn copy_files(from: &Path, to: &Path, ext: Option<&str>) -> Result<usize> {
+    std::fs::create_dir_all(to)?;
+    let mut n = 0;
+    for e in std::fs::read_dir(from).with_context(|| format!("reading {}", from.display()))?.flatten() {
+        let p = e.path();
+        if !p.is_file() || ext.is_some_and(|x| p.extension().is_none_or(|pe| pe != x)) {
+            continue;
+        }
+        std::fs::copy(&p, to.join(e.file_name()))?;
+        n += 1;
+    }
+    Ok(n)
+}
+
+/// Copy `<git ref>:web/viewer/*` into `to` (git ls-tree + git show, bytes as committed).
+pub fn viewer_from_ref(repo: &Path, r: &str, to: &Path) -> Result<usize> {
+    let n = files_from_ref(repo, r, "web/viewer/", to)?;
+    if !to.join("mcview.js").exists() {
+        bail!("{r}: no web/viewer/mcview.js");
+    }
+    Ok(n)
+}
+
+/// Copy the files of `<git ref>:<folder>` (not recursive into subfolders' names: flattened) into `to`.
+pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<usize> {
+    let git = |args: &[&str]| -> Result<Vec<u8>> {
+        let o = std::process::Command::new("git").arg("-C").arg(repo).args(args).output()?;
+        if !o.status.success() {
+            bail!("git {}: {}", args.join(" "), String::from_utf8_lossy(&o.stderr).trim());
+        }
+        Ok(o.stdout)
+    };
+    let list = String::from_utf8(git(&["ls-tree", "-r", "--name-only", r, folder])?)?;
+    std::fs::create_dir_all(to)?;
+    let mut n = 0;
+    for path in list.lines().filter(|l| !l.is_empty()) {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        std::fs::write(to.join(name), git(&["show", &format!("{r}:{path}")])?)?;
+        n += 1;
+    }
+    if n == 0 {
+        bail!("{r}: nothing under {folder}");
+    }
+    Ok(n)
+}
+
+/// The repository path of a build's design file.
+pub fn repo_design_path(b: &Build) -> String {
+    match b.kind.as_str() {
+        "door" => format!("{}/{}.txt", doors::ARCHIVE, b.name),
+        "circuit" => circuits::repo_path(b),
+        _ => format!("{}/{}", clocks::ARCHIVE, b.design.rsplit('/').next().unwrap_or("")),
+    }
+}
+
+/// The site path of the `.litematic` next to a design file (`designs/doors/x.txt` ->
+/// `designs/doors/x.litematic`).
+pub fn litematic_path(design: &str) -> String {
+    match design.strip_suffix(".txt") {
+        Some(stem) => format!("{stem}.litematic"),
+        None => format!("{design}.litematic"),
+    }
+}
+
+/// How to use a build once pasted, for the schematic's description.
+fn usage_note(b: &Build) -> String {
+    match (&b.door, &b.clock, &b.circuit) {
+        (Some(_), _, _) => "Flip the lever to open the door, again to close it.".into(),
+        (_, Some(c), _) => match c.start.strip_prefix("kick: last ") {
+            Some(cell) => format!("Kicked clock: after pasting, break and re-place the block at {cell} (relative to the design's origin) to start it."),
+            None if c.start.starts_with("self") => "Self-starting clock.".into(),
+            None => format!("Start: {}.", c.start),
+        },
+        (_, _, Some(c)) => format!("{}: inputs {}, outputs {}.", c.kind, c.inputs.join(", "), c.outputs.join(", ")),
+        _ => String::new(),
+    }
+}
+
+/// Write `<design>.litematic` next to every build's and every member's design in the site.
+fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
+    let time = litematic::now_ms();
+    let mut n = 0;
+    for b in &site.builds {
+        let path = repo_design_path(b);
+        let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
+        let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
+        let desc = [b.caption.as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
+        write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
+        n += 1;
+    }
+    // members: the generated ones (a member that is its family's archived base design shares that
+    // build's file, already written)
+    let build_designs: std::collections::BTreeSet<&str> = site.builds.iter().map(|b| b.design.as_str()).collect();
+    for m in site.members.iter().filter(|m| !m.design.is_empty() && !build_designs.contains(m.design.as_str())) {
+        let text = std::fs::read_to_string(out.join(&m.design)).with_context(|| format!("reading {}", m.design))?;
+        let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {}", m.design))?;
+        let fam = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family));
+        let desc = format!(
+            "{} n = {}: period {} gt ({}), {} blocks ({}). {}REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/families/{}.html",
+            m.family,
+            m.n,
+            m.period,
+            site_model::real_time(m.period),
+            m.blocks,
+            site_model::status_label(&m.status),
+            fam.map(|f| format!("Extend: {}. ", f.rule)).unwrap_or_default(),
+            m.card
+        );
+        let name = format!("{}-n{}", m.family, m.n);
+        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
+        write_bytes(&out.join(litematic_path(&m.design)), &bytes)?;
+        n += 1;
+    }
+    Ok(n)
+}
+
+fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(p) = path.parent() {
+        std::fs::create_dir_all(p)?;
+    }
+    std::fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))
+}
+
+pub fn build(a: &BuildArgs) -> Result<()> {
+    let repo = PathBuf::from(".");
+    if !repo.join(doors::ARCHIVE).is_dir() || !repo.join(clocks::ARCHIVE).is_dir() {
+        bail!("run from the repository root (no {} or {} here)", doors::ARCHIVE, clocks::ARCHIVE);
+    }
+    let t0 = std::time::Instant::now();
+    fresh_dir(&a.out)?;
+    let out = &a.out;
+    // the doors
+    let release_assets = if a.release.is_empty() { Default::default() } else { piston_door::showcase::release_assets(&a.release) };
+    if !a.release.is_empty() && release_assets.is_empty() {
+        eprintln!("warning: no assets in release {} (gh): no video links", a.release);
+    }
+    let (door_builds, uncached, not_ours) = doors::export(&repo, &doors::DoorOptions { release_assets, release_tag: a.release.clone() })?;
+    if !uncached.is_empty() {
+        eprintln!("{} archived doors have no cached verdict from main's judge yet (left out): {}", uncached.len(), uncached.join(", "));
+    }
+    if !not_ours.is_empty() {
+        let by_prov = repo.join(doors::ARCHIVE).join(doors::PROVENANCE).exists();
+        let conflicts: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("CONFLICT")).map(|(s, _)| s).collect();
+        let unlisted: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("not listed")).map(|(s, _)| s).collect();
+        eprintln!(
+            "{} archived doors left out as community work ({}; only our own designs are published)",
+            not_ours.len(),
+            if by_prov { "by provenance.tsv + the seed rule" } else { "no provenance.tsv yet: by the seed rule (community*, c79*, closed-b-fill*, satwire-c79*, satwire-63b*, c88*, fills of community designs)" }
+        );
+        if !conflicts.is_empty() {
+            eprintln!(
+                "  WARNING: {} doors marked ours in provenance.tsv match the seed rule and stay out (e.g. {}): fix provenance.tsv or the seed rule (site/src/doors.rs COMMUNITY_PREFIXES)",
+                conflicts.len(),
+                conflicts.iter().take(3).map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
+        if !unlisted.is_empty() {
+            eprintln!("  WARNING: {} archived doors are not in provenance.tsv and stay out until listed: {}", unlisted.len(), unlisted.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+        }
+    }
+    // only the published doors' design files (never the community ones)
+    for b in &door_builds {
+        let to = out.join(&b.design);
+        if let Some(p) = to.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::copy(repo.join(doors::ARCHIVE).join(format!("{}.txt", b.name)), &to).with_context(|| format!("copying {}", b.name))?;
+    }
+    eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
+    // the clocks
+    let members_dir = (!a.no_members).then(|| out.join("designs/clocks/members"));
+    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir, sim_horizon: a.sim_horizon, threads: a.threads })?;
+    copy_files(&repo.join(clocks::ARCHIVE), &out.join("designs/clocks"), Some("txt"))?;
+    eprintln!(
+        "clocks: {} builds, {} extendable cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
+        ce.builds.len(),
+        ce.cards.len(),
+        ce.members.len(),
+        ce.members.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
+        ce.members.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
+        ce.members.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
+        t0.elapsed().as_secs_f64()
+    );
+    for n in &ce.notes {
+        eprintln!("  note: {n}");
+    }
+    if repo.join(clocks::TRACES).is_dir() {
+        let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
+        eprintln!("clock traces: {n} real-game recordings");
+    }
+    // the circuits
+    let (circuit_builds, cnotes) = circuits::export(&repo)?;
+    for b in &circuit_builds {
+        let to = out.join(&b.design);
+        if let Some(p) = to.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::copy(repo.join(circuits::repo_path(b)), &to).with_context(|| format!("copying {}", circuits::repo_path(b)))?;
+    }
+    eprintln!("circuits: {} builds ({:.1}s)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    for n in &cnotes {
+        eprintln!("  note: {n}");
+    }
+    // the extendable circuit families: every member generated and screened in redsim
+    let fo = circuits::FamilyOptions { members_dir: (!a.no_members).then(|| out.join("designs/circuits/members")), threads: a.threads };
+    let (ccards, cmembers, fnotes) = circuits::families(&repo, &circuit_builds, &ce.cards, &fo);
+    eprintln!(
+        "circuit families: {} cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
+        ccards.len(),
+        cmembers.len(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
+        t0.elapsed().as_secs_f64()
+    );
+    for n in &fnotes {
+        eprintln!("  note: {n}");
+    }
+    // one card per family in the grids: the card's first base design stands for it
+    let mut circuit_builds = circuit_builds;
+    for card in &ccards {
+        for (fi, f) in card.families.iter().enumerate() {
+            if let Some(b) = circuit_builds.iter_mut().find(|b| b.id == f.build) {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.card = card.id.clone();
+                    c.card_member = fi > 0;
+                }
+                if fi == 0 && !b.flags.iter().any(|x| x == "extendable") {
+                    b.flags.push("extendable".into());
+                }
+            }
+        }
+    }
+    let mut builds = door_builds;
+    builds.extend(ce.builds);
+    builds.extend(circuit_builds);
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
+    let mut cards = ce.cards;
+    cards.extend(ccards);
+    let mut members = ce.members;
+    members.extend(cmembers);
+    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
+    // data: the door properties tables live on the build pages only (the UI never reads them)
+    let mut slim = site.clone();
+    for b in &mut slim.builds {
+        if let Some(d) = &mut b.door {
+            d.props.clear();
+        }
+    }
+    write(&out.join("data/site.json"), &serde_json::to_string(&slim)?)?;
+    drop(slim);
+    // the viewer (webrender's bundle: --viewer, --viewer-ref, else the checkout's web/viewer/)
+    // and the UI
+    let checkout_viewer = repo.join("web/viewer");
+    let viewer_dir = a.viewer.clone().or_else(|| (a.viewer_ref.is_none() && !a.no_viewer && checkout_viewer.join("mcview.js").is_file()).then(|| checkout_viewer.clone()));
+    let viewer = match (&viewer_dir, &a.viewer_ref) {
+        _ if a.no_viewer => false,
+        (Some(dir), _) => {
+            let n = copy_files(dir, &out.join("viewer"), None)?;
+            if !out.join("viewer/mcview.js").exists() {
+                bail!("{}: no mcview.js in the viewer bundle", dir.display());
+            }
+            eprintln!("viewer: {n} files from {}", dir.display());
+            true
+        }
+        (None, Some(r)) => {
+            let n = viewer_from_ref(&repo, r, &out.join("viewer"))?;
+            eprintln!("viewer: {n} files from {r}:web/viewer");
+            true
+        }
+        (None, None) => false,
+    };
+    let app = if a.no_wasm {
+        false
+    } else {
+        match (&a.pkg, &a.pkg_ref) {
+            (Some(dir), _) => {
+                copy_files(dir, &out.join("pkg"), None)?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &dir.display().to_string())?;
+                true
+            }
+            (None, Some(r)) => {
+                let n = files_from_ref(&repo, r, "pkg/", &out.join("pkg"))?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &format!("{r}:pkg"))?;
+                eprintln!("UI: {n} files from {r}:pkg (not rebuilt)");
+                true
+            }
+            (None, None) => {
+                web::build_ui(&repo, &out.join("pkg"))?;
+                true
+            }
+        }
+    };
+    let scripts = Scripts { viewer, app: false, ui: app };
+    // pages
+    write(&out.join("style.css"), STYLE)?;
+    write(&out.join("favicon.svg"), FAVICON)?;
+    // cache-busting: the pages load every bundle, the CSS and the data by a content hash
+    pages::set_versions(pages::Versions {
+        css: pages::bytes_hash(STYLE.as_bytes()),
+        viewer_js: pages::file_hash(&out.join("viewer/mcview.js")),
+        viewer_wasm: pages::file_hash(&out.join("viewer/mcview_bg.wasm")),
+        ui_js: pages::file_hash(&out.join(format!("pkg/{}.js", web::UI_NAME))),
+        ui_wasm: pages::file_hash(&out.join(format!("pkg/{}_bg.wasm", web::UI_NAME))),
+        data: pages::file_hash(&out.join("data/site.json")),
+    });
+    // GitHub Pages: serve every file as is (no Jekyll)
+    write(&out.join(".nojekyll"), "")?;
+    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
+    write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
+    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
+    write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
+    write(&out.join("404.html"), &pages::not_found_page(&site))?;
+    // Litematica schematics of every build and every generated family member (a design that
+    // cannot be exported fails the build: nothing is dropped silently)
+    let n = write_litematics(&site, &repo, out)?;
+    eprintln!("litematic: {n} schematics ({:.1}s)", t0.elapsed().as_secs_f64());
+    for b in &site.builds {
+        let repo_path = repo_design_path(b);
+        let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
+        write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
+    }
+    // the obvious per-kind URLs resolve (/doors/, /clocks/); /circuits/ is the studies' overview
+    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock")] {
+        write(&out.join(folder).join("index.html"), &pages::redirect_page(&site, "../", title, &format!("kind={kind}")))?;
+    }
+    write(&out.join("circuits/index.html"), &pages::circuits_index(&site, scripts))?;
+    let mut subs: Vec<String> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| sub.to_string())).collect();
+    subs.sort();
+    subs.dedup();
+    for sub in &subs {
+        write(&out.join("circuits").join(sub).join("index.html"), &pages::study_page(&site, sub, scripts))?;
+    }
+    let mut by_card: BTreeMap<String, Vec<&Member>> = BTreeMap::new();
+    for m in &site.members {
+        by_card.entry(m.card.clone()).or_default().push(m);
+    }
+    for c in &site.cards {
+        let ms = by_card.get(&c.id).cloned().unwrap_or_default();
+        write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
+    }
+    write(&out.join("families/index.html"), &pages::families_index(&site, &by_card, scripts))?;
+    eprintln!(
+        "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
+        out.display(),
+        site.builds.len(),
+        site.cards.len(),
+        site.members.len(),
+        if viewer { "yes" } else { "no (text cards)" },
+        if app { "yes" } else { "no" },
+        t0.elapsed().as_secs_f64()
+    );
+    Ok(())
+}

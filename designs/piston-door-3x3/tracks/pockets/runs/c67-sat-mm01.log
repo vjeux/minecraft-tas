@@ -1,0 +1,6 @@
+open: 105 frames, powered piston-ticks t1:1,4 t1:1,-2 t1:0,-2 t2:1,4 t2:1,-2 t2:0,-2 t7:-2,2 t7:-2,1 t8:-2,1 t8:-2,2 t13:0,0 t14:0,0 t19:0,-2 t20:0,-2 t25:-2,-1 t26:-2,-1 t31:-1,-1 t32:-1,-1 t37:-2,1 t37:-2,-1 t38:-2,-1 t38:-2,1 t43:-1,1 t44:-1,1 t49:0,-2 t49:0,-1 t50:0,-2 t50:0,-1 t55:-2,-1 t55:-2,1 t56:-2,-1 t56:-2,1 t61:0,1 t62:0,1 t67:-2,1 t68:-2,1 t73:0,-2 t73:-1,1 t74:-1,1 t74:0,-2 t79:-1,-1 t80:-1,-1 t85:-1,2 t86:-1,2 t91:-1,4 t91:-1,-1 t92:-1,-1 t92:-1,4 t97:-2,1 t97:-2,2 t97:2,-2 t97:2,4 t98:2,4 t98:-2,2 t98:2,-2 t98:-2,1
+close: 33 frames, powered piston-ticks t1:0,-2 t1:-2,1 t2:-2,1 t2:0,-2 t7:-2,2 t7:-2,1 t7:-1,-1 t8:-2,1 t8:-1,-1 t8:-2,2 t13:-2,-1 t13:1,-2 t13:2,4 t13:-2,1 t13:2,-2 t14:-2,-1 t14:2,-2 t14:1,-2 t14:-2,1 t14:2,4 t19:-1,3 t20:-1,3 t25:-1,3 t25:2,4 t25:-1,4 t25:1,4 t26:2,4 t26:-1,4 t26:1,4
+3 independent-timing clusters: c1: 1,-2 1,-1 1,0 | c2: -2,-1 -2,1 -2,2 -1,-1 -1,0 -1,1 -1,2 -1,3 -1,4 0,-2 0,-1 0,0 0,1 0,2 0,3 1,1 1,2 1,3 1,4 2,1 2,2 2,3 2,4 | c3: 2,-2 2,-1 2,0
+[   1.4s] encoded: 10 free cells, 40 lever candidates, offsets 0..=8, horizon 118 ticks, 519456 vars, 1974409 clauses
+[   1.4s] UNSAT (solve 0.0s): no wiring exists within this palette, box and model (wiring <= 10, 0 judged designs blocked)
+  core (pistons whose recorded power cannot be produced together): open piston (1,-2)

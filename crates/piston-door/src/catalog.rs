@@ -23,8 +23,9 @@ pub struct CatalogOptions<'a> {
 }
 
 /// The verdict of each `door buildable` script next to the archive (`../tracks/buildable/scripts`),
-/// by design stem: (short verdict, script path relative to the archive).
-fn buildability(archive: &Path) -> HashMap<String, (String, String)> {
+/// by design stem: (short verdict, script path relative to the archive). Also read by `mctas site
+/// build`.
+pub fn buildability(archive: &Path) -> HashMap<String, (String, String)> {
     let mut m = HashMap::new();
     let dir = archive.parent().unwrap_or(Path::new(".")).join("tracks/buildable/scripts");
     let Ok(rd) = std::fs::read_dir(&dir) else { return m };

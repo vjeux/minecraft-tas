@@ -260,6 +260,9 @@ pub struct EntityInfo {
     pub kind: String,
     pub pos: [f64; 3],
     pub uuid: String,
+    /// `Entity.getId()`: the server's network id (a counter; some ticks read it).
+    #[serde(default)]
+    pub net_id: i64,
     #[serde(default)]
     pub motion: [f64; 3],
     #[serde(default)]
@@ -666,6 +669,12 @@ impl Worker {
     pub fn camera(&mut self, sandbox: u32, pos: [f64; 3], yaw: f32, pitch: f32) -> Result<()> {
         self.call(json!({"op": "camera", "sandbox": sandbox, "pos": pos, "yaw": yaw, "pitch": pitch}))?;
         Ok(())
+    }
+
+    /// Every connected client's game mode (`creative`, `spectator`, ...) and, with `op`, operator
+    /// status (a client mod pasting with commands needs both).
+    pub fn viewer_mode(&mut self, mode: &str, op: bool) -> Result<u32> {
+        Ok(self.call(json!({"op": "viewer_mode", "mode": mode, "operator": op}))?["changed"].as_u64().unwrap_or(0) as u32)
     }
 
     /// How many chunks around a viewer the sandbox's level sends (2 by default: a viewer sees a

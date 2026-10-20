@@ -6,6 +6,9 @@ name: clk-item-hopper-ring
 extend base: 0
 extend blocks: 4 + 2n
 extend family: clk-item-hopper-ring
+extend group: clk-item-hopper-ring
+extend group title: hopper ring
+extend group note: one item going round (14 + 14n), or two items half a ring apart (7 + 7n)
 extend generator: mctas clock item gen loop --n {n} --out {out}
 extend n: 0..40
 extend period: 14 + 14n

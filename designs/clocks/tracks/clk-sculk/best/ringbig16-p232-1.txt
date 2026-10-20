@@ -1,0 +1,93 @@
+# Ring of 16 calibrated sensors on a circle (r 40.51), hops [14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15], first resonator a note block (the kick), the others amethyst: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
+name: clk-sculk-ringbig16-p232-1
+# how: ring of 16 calibrated sensors on a circle (r 40.51), hops [14,15,14,15,14,15,14,15,14,15,14,15,14,15,14,15], first resonator a note block (the kick), the others amethyst
+port output: 33 0 23
+port start: 32 0 23 use
+origin: -40 0 -40
+palette:
+  A minecraft:amethyst_block
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  c minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .................................CA.............CA
+  .
+  .
+  .
+  .
+  .
+  ..................CA
+  ...............................................................CA
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .......CA
+  ..........................................................................C
+  ..........................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  A
+  C
+  ................................................................................C
+  ................................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  A
+  C
+  ................................................................................C
+  ................................................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ......A
+  ......C
+  ........................................................................Nc
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ................AC
+  .............................................................AC
+  .
+  .
+  .
+  .
+  .
+  ...............................AC.............AC

@@ -1,0 +1,21 @@
+# flies down: sticky piston facing back + sticky piston facing forward; observers watching sideways + sideways; 2 slime
+
+# census: 6 blocks, 10 gt per 1 cell(s), first move t2
+name: fly-down-6b-10gt-711a4b
+circuit: flying-machine
+distance: 24
+travel: 0 -1 0
+port start: 3 1 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=south,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  SA
+  o
+layer 1:
+  sSO
+  .

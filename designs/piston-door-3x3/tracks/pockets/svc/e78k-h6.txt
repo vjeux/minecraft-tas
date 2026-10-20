@@ -1,0 +1,41 @@
+# verified WORKS: 42 blocks, open after 29 ticks, closed after 15 ticks
+# archived 2026-10-19 17:33Z from designs/piston-door-3x3/tracks/q78/e78s/h6.txt (repo at 1cea5476)
+name: e78k-h6
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:dropper[facing=north,triggered=false]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  d minecraft:dropper[facing=up,triggered=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -3:
+  sodsooD
+layer -2:
+  .RBsOO
+layer -1:
+  BAF..CA
+layer 0:
+  S.FFF.C
+layer 1:
+  S.FFF.C
+layer 2:
+  FFFFFFA
+layer 3:
+  roPPPBN
+layer 4:
+  ..EEE
+layer 5:
+  ...L

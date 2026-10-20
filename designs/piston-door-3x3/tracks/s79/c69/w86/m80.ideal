@@ -1,0 +1,51 @@
+# m79.ideal: lever flip + ideal inputs (redstone blocks at z = -1 behind the piston's current cell).
+# QC couplings used on purpose: MB1 (-3,1) over MB0 (-3,0); U1 (-2,1) over U0 (-2,0); carried U1 (-1,1) over
+# carried U0 (-1,0); s1 (4,1) over RP0 (4,0).
+design designs/piston-door-3x3/tracks/s79/c69/w86/m80.txt
+phase between
+open 0 use 1 5 0
+# U1 pulls ML to (-1,1) (QC: U0 pulls BL to (-1,0)); P3b' lifts ML to (-1,2)
+open 2 set -2 1 -1 minecraft:redstone_block
+open 4 clear -2 1 -1
+open 8 set -1 3 -1 minecraft:redstone_block
+open 10 clear -1 3 -1
+# MB1 level [14,36) (QC: MB0): U1 into (-1,1); U0 + BL pushed: U0 into (-1,0), BL back to (0,0)
+open 14 set -3 1 -1 minecraft:redstone_block
+# carried U1 pulls C to (0,1) (QC: carried U0 spits the bottom row right, BR into (3,0))
+open 20 set -1 1 -1 minecraft:redstone_block
+open 22 clear -1 1 -1
+# carried U1 long (pushes C and pulls it back) (QC: carried U0 pulls BL back to (0,0))
+open 26 set -1 1 -1 minecraft:redstone_block
+open 32 clear -1 1 -1
+open 36 clear -3 1 -1
+# U1 pulls C into (-1,1) (QC: U0 pulls BL into (-1,0))
+open 40 set -2 1 -1 minecraft:redstone_block
+open 42 clear -2 1 -1
+# W' spits BR up to (3,1); P3t' pulls it to (3,2)
+open 44 set 3 -1 -1 minecraft:redstone_block
+open 46 clear 3 -1 -1
+open 50 set 3 3 -1 minecraft:redstone_block
+open 52 clear 3 3 -1
+# s1 pulls MR into (3,1) (QC: RP0 pulls BM into (3,0))
+open 56 set 4 1 -1 minecraft:redstone_block
+open 58 clear 4 1 -1
+# close
+close 0 use 1 5 0
+# s1 spits MR (QC: RP0 spits BM to (2,0)); U1 spits C to (0,1) (QC: U0 spits BL to (0,0))
+close 2 set 4 1 -1 minecraft:redstone_block
+close 4 clear 4 1 -1
+close 2 set -2 1 -1 minecraft:redstone_block
+close 4 clear -2 1 -1
+# P3t' spits BR to (3,1); P3b' spits ML to (-1,1)
+close 8 set 3 3 -1 minecraft:redstone_block
+close 10 clear 3 3 -1
+close 8 set -1 3 -1 minecraft:redstone_block
+close 10 clear -1 3 -1
+# W' pulls BR down to (3,0); MB1 level [14,22) line-pushes U1 + ML + C (ML to (0,1), C to (1,1)) (QC: MB0 carries U0, harmless)
+close 14 set 3 -1 -1 minecraft:redstone_block
+close 16 clear 3 -1 -1
+close 14 set -3 1 -1 minecraft:redstone_block
+close 22 clear -3 1 -1
+# RP0 alone spits BR + BM left (BR to (2,0), BM to (1,0))
+close 20 set 4 0 -1 minecraft:redstone_block
+close 22 clear 4 0 -1

@@ -1,0 +1,19 @@
+# archived 2026-10-20T01:56Z from designs/circuits/gates/tracks/gates/gate-nimply-ba-bump-4b.txt by mctas circuit archive
+# CIRCUIT: gate-nimply-ba-bump-4b gate nimply-ba function nimply-ba, latency 0 gt, class instant, 4 blocks, 2x2x1, robust
+# NIMPLY gate b AND NOT a, instant and update-correct (track gates): the mirror of
+# gate-nimply-bump-4b (inputs swapped): input b powers a dust (15) feeding a second dust (14) that
+# points into the output cell; input a bends the second dust AND raises it to 15 (a block update).
+# 0 gt.
+name: gate-nimply-ba-bump-4b
+circuit: gate nimply-ba
+port input.a: 2 1 1
+port input.b: 0 1 0
+port output: 3 1 0
+origin: 1 0 0
+palette:
+  S minecraft:stone
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  SS
+layer 1:
+  rr

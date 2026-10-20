@@ -1,0 +1,17 @@
+name: clk-misc-leaf-chain6
+# A leaf delay line of 6 persistent oak leaves: a sticky piston spits a log under the first leaf and pulls it back; the distance
+# wave runs one leaf per gt (1 gt scheduled leaf ticks) to the sixth leaf, which an observer watches, its back powering the piston.
+# When the log leaves, the distances count up to 7 and the sixth leaf changes once more.
+port start: -1 0 0 minecraft:redstone_block 2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:oak_log[axis=y]
+  C minecraft:observer[facing=east,powered=false]
+  D minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+layer 0:
+  ACD
+  B
+layer 1:
+  ..D
+  ..D
+  DDD

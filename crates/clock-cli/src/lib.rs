@@ -90,6 +90,25 @@ pub enum ClockCmd {
     /// period, waveform, family, blocks, box, start, type key, canonical encoding), a design per
     /// smallest clock of each (period, family) in <out>/designs/, <out>/summary.md. Resumable
     /// (<out>/parts/, one file per finished chunk). The ground truth of the small clocks.
+    /// Structured census of ENTITY clocks on redsim (kits.rs): one mechanism's design space in its
+    /// own coordinates, one candidate per mirror class, screened then judged by the real-game
+    /// judge's rule for designs with entities. Kits: `shuttle` (K1: a straight track of plain /
+    /// powered / detector rails over stone or redstone blocks, bumpers, one minecart). Writes
+    /// <out>/clocks.tsv, summary.md, designs/ (every minimal clock).
+    Kit {
+        kit: String,
+        /// The longest track (`shuttle`).
+        #[arg(long, default_value_t = 7)]
+        max_len: usize,
+        /// Ticks of the quick screen (comes to rest / no late block change: dropped).
+        #[arg(long, default_value_t = 1000)]
+        screen: u32,
+        /// Threads (default: every core but 4).
+        #[arg(long)]
+        workers: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Census {
         /// Box as AxBxC (x, y, z).
         #[arg(long = "box")]
@@ -152,6 +171,10 @@ pub enum ClockCmd {
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
+        /// Take again only the pictures that are missing or bad (nearly uniform, dark, or with a
+        /// dark band across the top).
+        #[arg(long)]
+        redo_bad: bool,
     },
     /// Compare the pictures of a directory with the same-named ones of another (SSIM, lowest
     /// first): checks one shooter's output against a trusted set.
@@ -206,6 +229,28 @@ pub enum ClockCmd {
         dirs: Vec<PathBuf>,
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Set the catalog card group of extendable family base designs (archived copies, track
+    /// sources): `extend group: <id>` (+ optional title, general period formula, note) after their
+    /// `extend family:` line; families of one group share one card. `--clear` removes the group.
+    Group {
+        /// Family base designs (files with `extend family:`).
+        designs: Vec<PathBuf>,
+        /// The group id (e.g. `clk-item-dropring`).
+        #[arg(long)]
+        id: Option<String>,
+        /// The card's title (e.g. "dropper ring").
+        #[arg(long)]
+        title: Option<String>,
+        /// The general period formula, the card's heading (e.g. "20 + 14 (W - 3) + ...").
+        #[arg(long)]
+        period: Option<String>,
+        /// One line under the title (e.g. "every P >= 42 together").
+        #[arg(long)]
+        note: Option<String>,
+        /// Remove the group headers.
+        #[arg(long)]
+        clear: bool,
     },
     /// Judge instances of an extendable family (a design with `extend` headers) in the game:
     /// build each n with its generator, verify it, compare period and blocks with the formulas.
@@ -344,17 +389,53 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
+            let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 if let Some(h) = std::fs::read_to_string(p).ok().as_deref().and_then(clock::shot::judge_hint) {
                     hints.insert(stem.clone(), h);
                 }
-                items.push((stem, Clock::load(p)?));
+                let c = Clock::load(p)?;
+                // an extendable family's base: its two smallest members are pictured too, built
+                // with the family's generator (`<stem>.n<k>.jpg`; the base's own n is `<stem>.jpg`)
+                if let Ok(Some(f)) = clock::extend::Family::of(&c) {
+                    for n in [f.n_lo, f.n_lo + 1] {
+                        if n > f.n_hi || n == f.base {
+                            continue;
+                        }
+                        let mstem = format!("{stem}.n{n}");
+                        if !redo && !redo_bad && clock::shot::shot_path(&out_dir, &mstem).exists() {
+                            continue;
+                        }
+                        match f.build(p, n, &build_dir).and_then(|bp| Clock::load(&bp)) {
+                            Ok(mc) => items.push((mstem, mc)),
+                            Err(e) => println!("SKIP {mstem}: {e:#}"),
+                        }
+                    }
+                }
+                items.push((stem, c));
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, hints, ..Default::default() };
+            // --redo-bad: only the pictures that are missing or bad (checked 16 at a time)
+            if redo_bad {
+                let paths: Vec<std::path::PathBuf> = items.iter().map(|(s, _)| clock::shot::shot_path(&out_dir, s)).collect();
+                let bad: Vec<Option<String>> = std::thread::scope(|sc| {
+                    let parts: Vec<&[std::path::PathBuf]> = paths.chunks(paths.len().div_ceil(16).max(1)).collect();
+                    let hs: Vec<_> = parts.into_iter().map(|part| sc.spawn(move || part.iter().map(|p| clock::shot::bad_picture(p)).collect::<Vec<_>>())).collect();
+                    hs.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+                });
+                let mut kept = Vec::new();
+                for ((stem, c), why) in items.into_iter().zip(bad) {
+                    if let Some(why) = why {
+                        println!("BAD {stem}: {why}");
+                        kept.push((stem, c));
+                    }
+                }
+                items = kept;
+            }
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, ..Default::default() };
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
@@ -408,6 +489,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 None => print!("{md}"),
             }
         }
+        ClockCmd::Group { designs, id, title, period, note, clear } => {
+            if id.is_none() && !clear {
+                anyhow::bail!("give --id <group> (or --clear)");
+            }
+            let id = if clear { None } else { id };
+            for d in &designs {
+                clock::extend::set_group(d, id.as_deref(), title.as_deref(), period.as_deref(), note.as_deref())?;
+                println!("{}: {}", d.display(), id.as_deref().map(|g| format!("extend group: {g}")).unwrap_or_else(|| "group cleared".into()));
+            }
+        }
         ClockCmd::ExtendCheck { design, n, positions, workers, record, dir } => {
             let c = Clock::load(&design)?;
             let f = clock::extend::Family::of(&c)?.ok_or_else(|| anyhow::anyhow!("{}: no `extend family:` header", design.display()))?;
@@ -435,6 +526,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Kit { kit, max_len, screen, workers, out } => {
+            let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
+            let o = clock::kits::KitOptions { kit, max_len, workers, out, screen };
+            let t0 = std::time::Instant::now();
+            let all = clock::kits::run(&o, &|done, total, n| eprintln!("  {done}/{total} candidates, {n} clocks, {:.0} s", t0.elapsed().as_secs_f64()))?;
+            let best = clock::kits::best_per_period(&o, &all);
+            let (n, written) = clock::kits::write_outputs(&o, &all, &best)?;
+            println!("kit {}: {n} clock types, {written} designs (the smallest per period) in {:.1} s: {}", o.kit, t0.elapsed().as_secs_f64(), o.out.display());
         }
         ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;

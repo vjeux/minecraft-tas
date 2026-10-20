@@ -1,0 +1,22 @@
+name: pulse-rise-psub-L9
+circuit: rising-edge
+group: pulse-rise-psub
+# Odd pulses (rising-edge, L = 9 gt): a subtract comparator's rear gets a redstone block that a sticky piston pushes behind it (the piston moves in the tick after the input changes and the block lands in the block-entity phase: an odd delay), its side gets the input through two repeaters (delays 3 and 3: an even delay); the output is on from the rear's arrival until the side's: L = 2 x (3 + 3) - 3 = 9 gt. An observer watching the input holds the piston through dust for 2 gt more, so a 1 gt input cannot make it leave its block behind the comparator (its retraction is cancelled until the block has landed).
+origin: -2 0 0
+port input: 0 1 0
+port output: 4 1 1
+palette:
+  S minecraft:stone
+  W minecraft:redstone_wire
+  O minecraft:observer[facing=east,powered=false]
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:redstone_block
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  Q minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  U minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+layer 0:
+  S..SSS.
+  SS...S.
+layer 1:
+  WO.QUW.
+  WWAB.C.
