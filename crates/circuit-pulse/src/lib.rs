@@ -4,6 +4,7 @@
 //! redsim screen that reads EVERY cell around a design at once (to find where its output is),
 //! `census` enumerates small structures with an input cell and keeps the best of each (kind, L).
 
+pub mod family;
 pub mod screen;
 
 use clap::{Parser, Subcommand};
@@ -23,6 +24,8 @@ enum Cmd {
     /// Every structure of k blocks + an input cell, every output cell: the best designs of each
     /// (kind, L), written as circuit designs (`circuit:` header, input and output ports)
     Census(screen::PulseCensusArgs),
+    /// Extendable families: the instance for any n, or the family card (`extend` headers)
+    Family(family::FamilyArgs),
 }
 
 /// `mctas circuit pulse <args...>`.
@@ -31,5 +34,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Screen(a) => screen::run(a),
         Cmd::Census(a) => screen::census(a),
+        Cmd::Family(a) => family::run(a),
     }
 }
