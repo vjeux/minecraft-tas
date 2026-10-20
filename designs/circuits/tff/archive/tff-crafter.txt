@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:18Z from designs/circuits/tff/tracks/tff/tff-crafter.txt by mctas circuit archive
-# CIRCUIT: tff-crafter tff latency 21 gt, edge rising, min-pulse 1 gt, min-period over 30 gt, 8 blocks, 2x2x4, robust
+# CIRCUIT: tff-crafter tff latency 21 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period over 30 gt, 8 blocks, 2x2x4, robust
 # Crafter T flip-flop, 8 blocks (track tff): a crafter holding nine iron ingots faces a hopper that feeds back into it. A pulse crafts an iron block into the hopper, which hands it back 8 gt later; the next pulse crafts the block back into nine ingots, which the hopper returns one by one (the crafter spreads them over its nine slots, ready for the next block). A comparator reads the crafter (filled slots: 9 or 1) and two dust turn that into 8 or 0; the output is back on once two ingots have returned. Latency 21 gt, 1 gt pulses; the ingot return (72 gt) makes it slow (min period over 30 gt).
 name: tff-crafter
 circuit: tff
