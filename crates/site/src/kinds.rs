@@ -371,8 +371,18 @@ pub fn select_clocks(builds: &mut Vec<Build>, cards: &mut Vec<site_model::Card>,
     }
     let fams: BTreeSet<(String, String)> = cards.iter().flat_map(|c| c.families.iter().map(move |f| (c.id.clone(), f.id.clone()))).collect();
     members.retain(|m| !m.axis.is_empty() || fams.contains(&(m.card.clone(), m.family.clone())));
-    // the card: the smallest kept clock (robust first); the others are rows of its table
-    let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some() && kept.contains(&b.id)).min_by_key(|(_, b)| (!robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
+    // the card: the smallest kept clock that survives a chunk reload (critique: the one clock a
+    // visitor sees first changed its period when they walked away), robust first; the others are
+    // rows of its table (the 6-tick row keeps its smaller clock, with its warning)
+    let reload_rank = |b: &Build| match b.clock.as_ref().map(|c| c.reload.split(" in ").next().unwrap_or("").trim().to_string()).unwrap_or_default().as_str() {
+        "ok" => 0,
+        "glitch then resumes" => 1,
+        "" => 2,
+        _ => 3,
+    };
+    // (and nothing around it can disturb it: no sculk sensor, tripwire or daylight detector)
+    let world = |b: &Build| b.kinds.iter().any(|k| k.contains("sculk_sensor") || k.starts_with("tripwire") || k.starts_with("daylight_detector"));
+    let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some() && kept.contains(&b.id)).min_by_key(|(_, b)| (reload_rank(b), world(b), !robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
     let periods: Vec<u32> = best.keys().copied().collect();
     // the card's range reaches as far as the families do (critique: "4 to 10816 ticks" over
     // families up to 312816): `lo-hi:tested`
