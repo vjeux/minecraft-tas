@@ -273,7 +273,7 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf => crate::redstone::container::remove(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
         }
@@ -284,7 +284,7 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf => crate::redstone::container::create(self, pos, &state),
             Kind::Sculk(_) => crate::sculk::create(self, pos),
             _ => {}
         }

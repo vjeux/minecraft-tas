@@ -6,6 +6,13 @@
 //! `setChanged` is replayed in the game's order (each change notifies the comparators next to
 //! the container or behind a conductor next to it).
 //!
+//! Containers are block entities (by position) or container entities (clk-misc: chest boats and
+//! hopper minecarts, by entity id: [`CRef`]), found the game's way
+//! (`HopperBlockEntity.getContainerAt`: the block's container, else a container entity touching
+//! the 1x1x1 box around the point). The chiseled bookshelf (books only, one per slot, its block
+//! state and `last_interacted_slot` updated on every change) and the hopper minecart's pull
+//! (`MinecartHopper.suckInItems`) are clk-misc's too.
+//!
 //! Out of scope (a model note is recorded): a dropper whose 2+ non-empty slots make it pick a
 //! RANDOM slot, a dropper or dispenser spitting an item into the world (item entities), item
 //! entities sucked by hoppers, composters and crafters as targets.
@@ -13,22 +20,34 @@
 use crate::block::{Block, Kind};
 use crate::pos::{BlockPos, Dir};
 use crate::world::World;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-/// Items with their max stack sizes.
+/// Items with their max stack sizes (the fuzzer picks among these).
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
+/// More items (ids from 6 on), for the entity clocks' contents (clk-misc).
+pub const MORE_ITEMS: [(&str, u8); 2] = [("book", 64), ("cobblestone", 64)];
+
+fn item_entry(id: u8) -> (&'static str, u8) {
+    let i = id as usize;
+    if i < ITEMS.len() { ITEMS[i] } else { MORE_ITEMS[i - ITEMS.len()] }
+}
 
 pub fn item_id(name: &str) -> Option<u8> {
     let n = name.strip_prefix("minecraft:").unwrap_or(name);
-    ITEMS.iter().position(|(i, _)| *i == n).map(|i| i as u8)
+    ITEMS.iter().chain(MORE_ITEMS.iter()).position(|(i, _)| *i == n).map(|i| i as u8)
 }
 
 pub fn item_name(id: u8) -> &'static str {
-    ITEMS[id as usize].0
+    item_entry(id).0
 }
 
 fn max_stack(id: u8) -> u8 {
-    ITEMS[id as usize].1
+    item_entry(id).1
+}
+
+/// `#bookshelf_books` among the modeled items.
+fn is_book(id: u8) -> bool {
+    item_name(id) == "book"
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -37,7 +56,8 @@ pub struct Stack {
     pub count: u8,
 }
 
-/// A container block entity (dropper, dispenser: 9 slots; hopper: 5 slots + cooldown).
+/// A container block entity (dropper, dispenser: 9 slots; hopper: 5 slots + cooldown; chiseled
+/// bookshelf: 6 slots + last interacted slot) or a container entity's contents.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct ContainerBe {
     pub slots: Vec<Option<Stack>>,
@@ -46,11 +66,22 @@ pub struct ContainerBe {
     /// `HopperBlockEntity.tickedGameTime`.
     pub ticked: i64,
     pub hopper: bool,
+    /// A chiseled bookshelf (`ChiseledBookShelfBlockEntity`).
+    pub bookshelf: bool,
+    /// Its `lastInteractedSlot` (-1 at first).
+    pub last_slot: i32,
 }
 
 impl ContainerBe {
     fn new(hopper: bool) -> ContainerBe {
-        ContainerBe { slots: vec![None; if hopper { 5 } else { 9 }], cooldown: -1, ticked: 0, hopper }
+        ContainerBe { slots: vec![None; if hopper { 5 } else { 9 }], cooldown: -1, ticked: 0, hopper, bookshelf: false, last_slot: -1 }
+    }
+    fn bookshelf() -> ContainerBe {
+        ContainerBe { slots: vec![None; 6], cooldown: -1, ticked: 0, hopper: false, bookshelf: true, last_slot: -1 }
+    }
+    /// A container entity's contents (chest boat: 27 slots, hopper minecart: 5).
+    pub fn entity(size: usize) -> ContainerBe {
+        ContainerBe { slots: vec![None; size], cooldown: -1, ticked: 0, hopper: false, bookshelf: false, last_slot: -1 }
     }
     pub fn is_empty(&self) -> bool {
         self.slots.iter().all(|s| s.is_none())
@@ -63,13 +94,35 @@ impl ContainerBe {
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct Containers {
     pub map: HashMap<BlockPos, ContainerBe>,
+    /// Container entities' contents, by entity id (clk-misc).
+    pub entities: BTreeMap<u32, ContainerBe>,
     /// Hopper tickers in tick order (position, live).
     tickers: Vec<(BlockPos, bool)>,
     pending: Vec<(BlockPos, bool)>,
     ticking: bool,
 }
 
+/// A container: a block entity at a position or a container entity (by id).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CRef {
+    Block(BlockPos),
+    Entity(u32),
+}
+
 impl Containers {
+    pub fn get(&self, r: CRef) -> Option<&ContainerBe> {
+        match r {
+            CRef::Block(p) => self.map.get(&p),
+            CRef::Entity(id) => self.entities.get(&id),
+        }
+    }
+    fn get_mut(&mut self, r: CRef) -> Option<&mut ContainerBe> {
+        match r {
+            CRef::Block(p) => self.map.get_mut(&p),
+            CRef::Entity(id) => self.entities.get_mut(&id),
+        }
+    }
+
     /// Every container (by position: slots, hopper cooldown, `tickedGameTime` relative to `now`)
     /// and the live hopper ticker order, for [`crate::world::World::state_key`].
     pub(crate) fn key_into<H: std::hash::Hasher>(&self, now: i64, h: &mut H) {
@@ -80,21 +133,34 @@ impl Containers {
             // tickedGameTime only matters (and only advances) for hoppers: a dropper's stays 0
             let ticked = if c.hopper { now - c.ticked } else { 0 };
             (p, &c.slots, c.cooldown, ticked, c.hopper).hash(h);
+            if c.bookshelf {
+                c.last_slot.hash(h);
+            }
         }
         0xfeu8.hash(h);
         let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
         order.hash(h);
+        if !self.entities.is_empty() {
+            0xfdu8.hash(h);
+            for (id, c) in &self.entities {
+                (id, &c.slots).hash(h);
+            }
+        }
     }
 }
 
 /// Blocks whose block entity is a container we model.
 pub fn is_container_block(s: &Block) -> bool {
-    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. })
+    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. })
 }
 
 /// The block entity appears (`LevelChunk.setBlockState` creating it).
 pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
     if w.containers.map.contains_key(&pos) {
+        return;
+    }
+    if let Block::ChiseledBookshelf { .. } = s {
+        w.containers.map.insert(pos, ContainerBe::bookshelf());
         return;
     }
     let hopper = matches!(s, Block::Hopper { .. });
@@ -124,9 +190,25 @@ pub fn set_changed(w: &mut World, pos: BlockPos) {
     }
 }
 
-/// `getRedstoneSignalFromContainer` (floats as in the game).
+/// `Container.setChanged` of any container (a container entity's does nothing).
+fn changed(w: &mut World, r: CRef) {
+    if let CRef::Block(p) = r {
+        set_changed(w, p);
+    }
+}
+
+/// `getRedstoneSignalFromContainer` (floats as in the game); a chiseled bookshelf reads
+/// `lastInteractedSlot + 1`.
 pub fn analog_output(w: &World, pos: BlockPos) -> i32 {
     let Some(c) = w.containers.map.get(&pos) else { return 0 };
+    if c.bookshelf {
+        return c.last_slot + 1;
+    }
+    signal_of(c)
+}
+
+/// `AbstractContainerMenu.getRedstoneSignalFromContainer` of any container's contents.
+pub fn signal_of(c: &ContainerBe) -> i32 {
     let mut total: f32 = 0.0;
     for s in c.slots.iter().flatten() {
         total += s.count as f32 / (max_stack(s.item).min(99) as f32);
@@ -135,54 +217,161 @@ pub fn analog_output(w: &World, pos: BlockPos) -> i32 {
     (total * 14.0).floor() as i32 + if total > 0.0 { 1 } else { 0 }
 }
 
-/// The container a dropper or hopper can reach at `p` (`HopperBlockEntity.getContainerAt`):
-/// Some(true) = a modeled container, None = none (then entities would be searched: none here).
-fn container_at(w: &mut World, p: BlockPos) -> Option<BlockPos> {
+/// The container a dropper or hopper can reach at `p` (`HopperBlockEntity.getContainerAt`).
+fn container_at(w: &mut World, p: BlockPos) -> Option<CRef> {
+    container_at_point(w, p, [p.x as f64 + 0.5, p.y as f64 + 0.5, p.z as f64 + 0.5])
+}
+
+/// `getContainerAt(level, pos, state, x, y, z)`: the block's container, else a container entity
+/// (alive) touching the 1x1x1 box centered on the point.
+fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
     let s = w.get(p);
     match s {
         Block::Composter { .. } | Block::Crafter { .. } => {
             w.errors.push(format!("item transfer into {s} at {p} is not modeled"));
             None
         }
-        _ if w.containers.map.contains_key(&p) => Some(p),
-        _ => None,
+        _ if w.containers.map.contains_key(&p) => Some(CRef::Block(p)),
+        _ => {
+            let bb = crate::entity::Aabb::new(c[0] - 0.5, c[1] - 0.5, c[2] - 0.5, c[0] + 0.5, c[1] + 0.5, c[2] + 0.5);
+            let found: Vec<u32> = w.get_entities(bb, |e| w_has_container(e)).into_iter().map(|i| w.entities.list[i].id).collect();
+            let found: Vec<u32> = found.into_iter().filter(|id| w.containers.entities.contains_key(id)).collect();
+            if found.len() > 1 {
+                w.errors.push(format!("{} container entities at {p}: the game picks one at random (not modeled)", found.len()));
+            }
+            found.first().map(|id| CRef::Entity(*id))
+        }
     }
 }
 
-/// `setItem`: a dropper notifies (`setChanged`); a hopper's override does not.
-fn set_item(w: &mut World, pos: BlockPos, slot: usize, st: Option<Stack>) {
+/// `EntitySelector.CONTAINER_ENTITY_SELECTOR`: a container entity, alive.
+fn w_has_container(e: &crate::entity::Entity) -> bool {
+    !e.removed
+        && match e.kind {
+            crate::entity::EntityKind::Boat(b) => b.chest,
+            crate::entity::EntityKind::Minecart(m) => m.hopper,
+            _ => false,
+        }
+}
+
+/// `ChiseledBookShelfBlockEntity.updateState(slot)`: the slot flags follow the contents, then
+/// `setBlockAndUpdate` and a BLOCK_CHANGE vibration.
+fn bookshelf_update_state(w: &mut World, pos: BlockPos, slot: usize) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    c.last_slot = slot as i32;
+    let mut flags = 0u8;
+    for (n, s) in c.slots.iter().enumerate() {
+        if s.is_some() {
+            flags |= 1 << n;
+        }
+    }
+    let Block::ChiseledBookshelf { facing, .. } = w.get(pos) else { return };
+    let ns = Block::ChiseledBookshelf { facing, slots: flags };
+    w.set_block_and_update(pos, ns);
+    w.game_event_state("block_change", pos, ns);
+}
+
+/// `setItem`: a dropper notifies (`setChanged`); a hopper's override does not; a chiseled
+/// bookshelf takes books only and updates its state; a container entity just stores it.
+fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
+    if let CRef::Block(pos) = r
+        && w.containers.map.get(&pos).is_some_and(|c| c.bookshelf)
+    {
+        match st {
+            Some(s) if is_book(s.item) => {
+                w.containers.map.get_mut(&pos).unwrap().slots[slot] = st;
+                bookshelf_update_state(w, pos, slot);
+            }
+            None => {
+                bookshelf_remove(w, pos, slot);
+            }
+            Some(_) => {}
+        }
+        return;
+    }
     let mut hopper = false;
-    if let Some(c) = w.containers.map.get_mut(&pos) {
+    if let Some(c) = w.containers.get_mut(r) {
         c.slots[slot] = st;
         hopper = c.hopper;
     }
     if !hopper {
-        set_changed(w, pos);
+        changed(w, r);
     }
 }
 
-/// `removeItem(slot, 1)`: the split item (the original keeps count - 1, maybe 0 = empty); a
-/// dropper notifies, a hopper's override does not.
-fn remove_one(w: &mut World, pos: BlockPos, slot: usize) -> Option<Stack> {
+/// `ChiseledBookShelfBlockEntity.removeItem(slot, count)`: the whole slot, then its state.
+fn bookshelf_remove(w: &mut World, pos: BlockPos, slot: usize) -> Option<Stack> {
     let c = w.containers.map.get_mut(&pos)?;
+    let got = c.slots[slot].take();
+    if got.is_some() {
+        bookshelf_update_state(w, pos, slot);
+    }
+    got
+}
+
+/// `removeItem(slot, 1)`: the split item (the original keeps count - 1, maybe 0 = empty); a
+/// dropper notifies, a hopper's override does not, a bookshelf gives its whole slot.
+fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
+    if let CRef::Block(pos) = r
+        && w.containers.map.get(&pos).is_some_and(|c| c.bookshelf)
+    {
+        return bookshelf_remove(w, pos, slot);
+    }
+    let c = w.containers.get_mut(r)?;
     let s = c.slots[slot]?;
     c.slots[slot] = if s.count > 1 { Some(Stack { item: s.item, count: s.count - 1 }) } else { None };
     if !c.hopper {
-        set_changed(w, pos);
+        changed(w, r);
     }
     Some(Stack { item: s.item, count: 1 })
 }
 
+/// The item taken out by [`remove_one`] did not fit: `itemStack.setCount(originalCount)` on the
+/// stack still in the slot (a bookshelf's left the slot), then `setItem` when it was a single item.
+fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
+    let bookshelf = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf));
+    if !bookshelf && let Some(c) = w.containers.get_mut(r) {
+        c.slots[slot] = Some(Stack { item: st.item, count: original });
+    }
+    if original == 1 {
+        set_item(w, r, slot, Some(st));
+    }
+}
+
+/// `canPlaceItem`: a bookshelf takes a book into an empty slot; the others anything.
+fn can_place_item(w: &World, r: CRef, slot: usize, st: Stack) -> bool {
+    match w.containers.get(r) {
+        Some(c) if c.bookshelf => is_book(st.item) && c.slots[slot].is_none(),
+        _ => true,
+    }
+}
+
+/// `canTakeItem(into, slot, stack)`: a bookshelf only gives an item that `into` can hold.
+fn can_take_item(w: &World, from: CRef, into: CRef, st: Stack) -> bool {
+    let bookshelf = w.containers.get(from).is_some_and(|c| c.bookshelf);
+    if !bookshelf {
+        return true;
+    }
+    let Some(c) = w.containers.get(into) else { return false };
+    c.slots.iter().any(|t| match t {
+        None => true,
+        Some(t) => t.item == st.item && t.count as u32 + st.count as u32 <= max_stack(t.item).min(99) as u32,
+    })
+}
+
 /// `HopperBlockEntity.addItem(from, container, stack, direction)`: the rest that did not fit.
-fn add_item(w: &mut World, from: Option<BlockPos>, into: BlockPos, mut st: Stack) -> Option<Stack> {
-    let size = w.containers.map.get(&into).map(|c| c.slots.len()).unwrap_or(0);
+fn add_item(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack) -> Option<Stack> {
+    let size = w.containers.get(into).map(|c| c.slots.len()).unwrap_or(0);
     for slot in 0..size {
         if st.count == 0 {
             break;
         }
         // tryMoveInItem
+        if !can_place_item(w, into, slot, st) {
+            continue;
+        }
         let (current, was_empty) = {
-            let c = &w.containers.map[&into];
+            let c = w.containers.get(into).unwrap();
             (c.slots[slot], c.is_empty())
         };
         let mut success = false;
@@ -196,7 +385,7 @@ fn add_item(w: &mut World, from: Option<BlockPos>, into: BlockPos, mut st: Stack
                 let space = max_stack(st.item).saturating_sub(cur.count);
                 let n = st.count.min(space);
                 st.count -= n;
-                if let Some(c) = w.containers.map.get_mut(&into) {
+                if let Some(c) = w.containers.get_mut(into) {
                     c.slots[slot] = Some(Stack { item: cur.item, count: cur.count + n });
                 }
                 success = n > 0;
@@ -204,8 +393,8 @@ fn add_item(w: &mut World, from: Option<BlockPos>, into: BlockPos, mut st: Stack
             _ => {}
         }
         if success {
-            let from_ticked = from.and_then(|f| w.containers.map.get(&f)).filter(|c| c.hopper).map(|c| c.ticked);
-            if let Some(c) = w.containers.map.get_mut(&into)
+            let from_ticked = from.and_then(|f| w.containers.get(f)).filter(|c| c.hopper).map(|c| c.ticked);
+            if let Some(c) = w.containers.get_mut(into)
                 && was_empty
                 && c.hopper
                 && c.cooldown <= 8
@@ -216,7 +405,7 @@ fn add_item(w: &mut World, from: Option<BlockPos>, into: BlockPos, mut st: Stack
                 };
                 c.cooldown = 8 - skip;
             }
-            set_changed(w, into);
+            changed(w, into);
         }
     }
     (st.count > 0).then_some(st)
@@ -235,6 +424,7 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let slot = filled[0];
     let st = c.slots[slot].unwrap();
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
+    let me = CRef::Block(pos);
     let remaining = match container_at(w, pos.rel(facing)) {
         None => {
             // the item flies out as an entity: harmless to blocks unless a hopper can catch it
@@ -244,14 +434,14 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
             (st.count > 1).then_some(Stack { item: st.item, count: st.count - 1 })
         }
         Some(into) => {
-            if add_item(w, Some(pos), into, Stack { item: st.item, count: 1 }).is_none() {
+            if add_item(w, Some(me), into, Stack { item: st.item, count: 1 }).is_none() {
                 (st.count > 1).then_some(Stack { item: st.item, count: st.count - 1 })
             } else {
                 Some(st)
             }
         }
     };
-    set_item(w, pos, slot, remaining);
+    set_item(w, me, slot, remaining);
 }
 
 /// A dispenser (not a dropper) firing with items: its dispense behaviors spawn entities.
@@ -324,50 +514,94 @@ fn try_move_items(w: &mut World, pos: BlockPos) -> bool {
 fn eject_items(w: &mut World, pos: BlockPos, facing: Dir) -> bool {
     let Some(into) = container_at(w, pos.rel(facing)) else { return false };
     // isFullContainer
-    if w.containers.map[&into].slots.iter().all(|s| s.is_some_and(|s| s.count >= max_stack(s.item))) {
+    if w.containers.get(into).unwrap().slots.iter().all(|s| s.is_some_and(|s| s.count >= max_stack(s.item))) {
         return false;
     }
+    let me = CRef::Block(pos);
     for slot in 0..5 {
         let Some(st) = w.containers.map[&pos].slots[slot] else { continue };
         let original = st.count;
-        let one = remove_one(w, pos, slot).unwrap();
-        if add_item(w, Some(pos), into, one).is_none() {
-            set_changed(w, into);
+        let one = remove_one(w, me, slot).unwrap();
+        if add_item(w, Some(me), into, one).is_none() {
+            changed(w, into);
             return true;
         }
-        // restore the stack (count back); a 1-stack goes back through setItem
-        if let Some(c) = w.containers.map.get_mut(&pos) {
-            c.slots[slot] = Some(Stack { item: st.item, count: original });
+        restore(w, me, slot, st, original);
+    }
+    false
+}
+
+/// `HopperBlockEntity.suckInItems(level, hopper)` of a hopper block.
+fn suck_in_items(w: &mut World, pos: BlockPos) -> bool {
+    let above = pos.above();
+    match container_at(w, above) {
+        Some(from) => suck_from(w, CRef::Block(pos), from),
+        None => {
+            // isBlocked: a full-collision block above (not in #does_not_block_hoppers) hides the
+            // items above a hopper block
+            let s = w.get(above);
+            let blocked = crate::behavior::full_cube(&s);
+            !blocked && item_entities_above(w, CRef::Block(pos))
         }
-        if original == 1 {
-            set_item(w, pos, slot, Some(st));
+    }
+}
+
+/// `suckInItems` with a source container: the first slot whose item moves (`tryTakeInItemFromSlot`
+/// over the source's slots, from above: `Direction.DOWN`).
+fn suck_from(w: &mut World, into: CRef, from: CRef) -> bool {
+    let size = w.containers.get(from).map(|c| c.slots.len()).unwrap_or(0);
+    for slot in 0..size {
+        if try_take_in_item_from_slot(w, into, from, slot) {
+            return true;
         }
     }
     false
 }
 
-fn suck_in_items(w: &mut World, pos: BlockPos) -> bool {
-    let above = pos.above();
-    let Some(from) = container_at(w, above) else {
-        return false; // item entities above: not modeled
-    };
-    let size = w.containers.map[&from].slots.len();
-    for slot in 0..size {
-        let Some(st) = w.containers.map[&from].slots[slot] else { continue };
-        let original = st.count;
-        let one = remove_one(w, from, slot).unwrap();
-        if add_item(w, Some(from), pos, one).is_none() {
-            set_changed(w, from);
-            return true;
-        }
-        if let Some(c) = w.containers.map.get_mut(&from) {
-            c.slots[slot] = Some(Stack { item: st.item, count: original });
-        }
-        if original == 1 {
-            set_item(w, from, slot, Some(st));
-        }
+/// `tryTakeInItemFromSlot(hopper, container, slot, direction)`.
+fn try_take_in_item_from_slot(w: &mut World, into: CRef, from: CRef, slot: usize) -> bool {
+    let Some(st) = w.containers.get(from).and_then(|c| c.slots[slot]) else { return false };
+    if !can_take_item(w, from, into, st) {
+        return false;
     }
+    let original = st.count;
+    let Some(one) = remove_one(w, from, slot) else { return false };
+    if add_item(w, Some(from), into, one).is_none() {
+        changed(w, from);
+        return true;
+    }
+    restore(w, from, slot, st, original);
     false
+}
+
+/// ---- item entities (clockinfra): the item entities a hopper (block or minecart) with no
+/// container above it would pull (`getItemsAtAndAbove` + `addItem(container, itemEntity)`, and
+/// `MinecartHopper.suckInItems`'s inflated box). None are modeled here yet: nothing moves.
+fn item_entities_above(_w: &mut World, _hopper: CRef) -> bool {
+    false
+}
+
+/// `MinecartHopper.suckInItems` of entity `i` (`HopperBlockEntity.suckInItems` with the cart as
+/// the hopper: the point `(x, y + 0.5 + 1, z)`, then item entities): whether an item moved.
+pub fn hopper_minecart_suck(w: &mut World, i: usize) -> bool {
+    let e = &w.entities.list[i];
+    let me = CRef::Entity(e.id);
+    let (x, y, z) = (e.pos.x, e.pos.y + 0.5 + 1.0, e.pos.z);
+    let p = BlockPos::new(crate::entity::mth::floor(x), crate::entity::mth::floor(y), crate::entity::mth::floor(z));
+    match container_at_point(w, p, [x, y, z]) {
+        Some(from) if from != me => suck_from(w, me, from),
+        // a minecart is not grid-aligned: never blocked
+        _ => item_entities_above(w, me),
+    }
+}
+
+/// A container entity's contents from its `Items` NBT (clk-misc: chest boats, hopper minecarts).
+pub fn entity_items(nbt: &str) -> Result<Vec<(usize, Stack)>, String> {
+    let Snbt::Compound(fields) = parse_snbt(nbt)? else { return Err("not a compound".into()) };
+    match fields.iter().find(|(k, _)| k == "Items") {
+        Some((_, v)) => snbt_items(v),
+        None => Ok(Vec::new()),
+    }
 }
 
 /// Fill a container (the `data merge block` the fuzzer uses: contents replaced, then setChanged).
@@ -552,6 +786,7 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let Some(c) = w.containers.map.get(&pos) else { return Err(format!("nbt at {pos}: {} has no modeled block entity", w.get(pos))) };
     let mut slots = c.slots.clone();
     let mut cooldown = c.cooldown;
+    let mut last_slot = c.last_slot;
     for (k, v) in &fields {
         match (k.as_str(), v) {
             ("Items", v) => {
@@ -563,14 +798,16 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
                 }
             }
             ("TransferCooldown", Snbt::Int(n)) if c.hopper => cooldown = *n as i32,
+            ("last_interacted_slot", Snbt::Int(n)) if c.bookshelf => last_slot = *n as i32,
             (other, _) => return Err(format!("nbt at {pos}: key {other} is not modeled here")),
         }
     }
-    let changed = slots != c.slots || cooldown != c.cooldown;
+    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot;
     if changed {
         let c = w.containers.map.get_mut(&pos).unwrap();
         c.slots = slots;
         c.cooldown = cooldown;
+        c.last_slot = last_slot;
         set_changed(w, pos);
     }
     Ok(changed)
@@ -586,7 +823,7 @@ pub fn apply_block_entities<'a>(w: &mut World, lines: impl IntoIterator<Item = (
 }
 
 pub fn kind_is_container(k: Kind) -> bool {
-    matches!(k, Kind::Dispenser(_) | Kind::Hopper)
+    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf)
 }
 
 #[cfg(test)]

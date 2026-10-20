@@ -557,6 +557,9 @@ public final class Protocol {
         a.add(p.z);
         j.add("pos", a);
         j.addProperty("uuid", e.getStringUUID());
+        // the network id (Entity.getId(): a server-wide counter), which some ticks read
+        // (ItemEntity's 1-in-4 rest moves)
+        j.addProperty("net_id", e.getId());
         Vec3 m = e.getDeltaMovement();
         JsonArray mv = new JsonArray();
         mv.add(m.x);

@@ -260,6 +260,9 @@ pub struct EntityInfo {
     pub kind: String,
     pub pos: [f64; 3],
     pub uuid: String,
+    /// `Entity.getId()`: the server's network id (a counter; some ticks read it).
+    #[serde(default)]
+    pub net_id: i64,
     #[serde(default)]
     pub motion: [f64; 3],
     #[serde(default)]
