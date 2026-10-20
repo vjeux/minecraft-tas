@@ -102,6 +102,64 @@ The read-through test, and why it needs pitch 2:
   power the boxes hopper above the dispenser. That fires the dispenser by quasi-connectivity: an
   observer's output into a hopper is no power source for the neighbouring copies.
 
+#### Shrink attempts (vjeux 2026-10-20: "still pretty big")
+
+Budget of the 24 blocks:
+- 5 for the box path: boxes hopper, dispenser, emptying hopper, output hopper, drop wall.
+- 2 for the break: sticky piston, pushed stone.
+- 11 for "empty" to the pulse: comparator, repeater, 4 stones, 2 torches, bulb, its comparator,
+  observer.
+- 6 for the dispenser triggers: 2 after each break, 4 for start and refills.
+
+Results:
+- Greedy in-game shrink (`circuit shulker shrink`, every badge, rate at least 2.45/s): no single
+  block can go.
+- Two-observer clock firing the dispenser every 4 gt, in place of the 6 trigger blocks (20
+  blocks): fails. Two observers facing each other never start as placed, so the dispenser never
+  fires.
+
+Why the obvious shortcuts fail:
+- Piston next to X, with its head breaking the box (saves the pushed stone):
+  - Whatever fires the dispenser strongly from above the piston makes the dispenser a powered
+    conductor.
+  - That quasi-powers the piston, which gets its update when its head leaves X, so it re-extends.
+  - Firing through the boxes hopper does not work from there: an observer above the piston
+    outputs upward, into a block that is not the hopper, and the dispenser then gets no update.
+- One pulse per box from a torch-inverted copper bulb (n, block, torch, bulb, observer: 5 blocks
+  instead of 11):
+  - An observer pulse is 2 gt, and a sticky piston spits its stone on 2 gt, so a delay-2 repeater
+    has to stretch it.
+  - In a 1-wide slice that repeater can only stand behind the piston, and the torch needs a free
+    face of the comparator's block. No layout found where all of them fit.
+
+## Pitch 2 (`tile: 2 0 0`): what crosses between the two columns
+
+A diode or observer that moves a signal along x always takes its input from, or puts its output
+into, the neighbouring station's column. Dust connects across, and a powered block powers both
+columns. Dynamic signals therefore cannot cross between the columns, except:
+- Items: a hopper in column 1 pushes west into X.
+- A comparator in column 1 facing west reads X directly. Its output goes into the neighbour's
+  box, harmlessly.
+- A wall torch in one column attached to a block in the other. It turns off when that block is
+  powered. The neighbour's torch hangs on its own block, so it is unaffected.
+- Constant 15 side inputs. A redstone block in column 1 feeds the side of a column-0 comparator,
+  and the neighbour's identical one feeds the other side with the same 15.
+
+The box read and the drop exit can share one face of X:
+- Compare-mode comparator next to X, with a redstone block on its column-1 side: 15 only when the
+  box is full.
+- The moving stone pushes the drop out over that comparator.
+- A hopper under the comparator collects it. The hopper's pickup box covers the cell above it,
+  comparator included.
+- The hopper does not pull from the box, which is not above it.
+
+What that leaves:
+- The piston breaks from the opposite face.
+- Feed and placement take up and down: a dispenser below X facing up, its boxes hopper in
+  column 1, and the boxes chest on X's east face. A chest does not mind the redstone block next
+  to it.
+- The open problem is routing the full signal from the read side to the piston side, around X.
+
 ## Speed per 1-wide slice (ceilings)
 
 - **Unloader:** the only way out of X is down. A hopper minecart pulls 20/s, but in-slice it

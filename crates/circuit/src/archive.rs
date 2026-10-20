@@ -712,6 +712,39 @@ fn check_members(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kin
 
 pub const ALIASES: &str = "aliases.tsv";
 
+/// The first frame where an output's level differs between a run with the judge's old block
+/// placement (`a`) and one with real input devices (`b`, R7).
+fn first_difference(a: &std::result::Result<crate::trace::Trace, String>, b: &std::result::Result<crate::trace::Trace, String>) -> Option<String> {
+    let (Ok(a), Ok(b)) = (a, b) else { return None };
+    (0..a.frames().min(b.frames())).find(|f| a.levels.iter().zip(&b.levels).any(|(x, y)| x.get(*f) != y.get(*f))).map(|f| {
+        let lv = |t: &crate::trace::Trace| t.levels.iter().map(|l| l.get(f).copied().unwrap_or(0).to_string()).collect::<Vec<_>>().join("/");
+        format!("first difference at frame {f}: output {} with the block placement, {} with the repeater", lv(a), lv(b))
+    })
+}
+
+/// R7's note for a design the current judge refuses (`mctas circuit archive --rejudge`): when it
+/// passes with the judge's old block placement on redsim, `needs the judge's block placement
+/// (R7): <first difference>`, so a removed design explains itself.
+pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
+    crate::set_input_device_block(true);
+    let old = Circuit::load(path);
+    crate::set_input_device_block(false);
+    let new = Circuit::load(path).ok()?;
+    let old = old.ok()?;
+    if !old.inputs.iter().any(|i| matches!(&i.how, crate::InputHow::Block { on, .. } if on == crate::INPUT_ON)) {
+        return None;
+    }
+    let so = crate::verify::sim(&old, o).ok()?;
+    if !so.outcome.as_ref().is_some_and(|x| x.pass) {
+        return None;
+    }
+    let sn = crate::verify::sim(&new, o).ok()?;
+    if sn.outcome.as_ref().is_some_and(|x| x.pass) {
+        return None;
+    }
+    Some(format!("needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input){}", first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()))
+}
+
 /// `mctas circuit r7`: every archived design with a plain input, run in redsim twice: with the
 /// judge's old input placement (a redstone block written into the input cell) and with real input
 /// devices (R7: the judge's stone powered by its repeater). One line per design whose verdict or
@@ -778,15 +811,7 @@ pub fn r7_compare(root: &Path, studies: &[String], o: &Options) -> Result<Vec<St
                     continue;
                 }
                 only += 1;
-                // the first frame where an output's level differs between the two runs
-                let first = match (&so.trace, &sn.trace) {
-                    (Ok(a), Ok(b)) => (0..a.frames().min(b.frames())).find(|f| a.levels.iter().zip(&b.levels).any(|(x, y)| x.get(*f) != y.get(*f))).map(|f| {
-                        let lv = |t: &crate::trace::Trace| t.levels.iter().map(|l| l.get(f).copied().unwrap_or(0).to_string()).collect::<Vec<_>>().join("/");
-                        format!("first difference at frame {f}: output {} with the block placement, {} with the repeater", lv(a), lv(b))
-                    }),
-                    _ => None,
-                };
-                out.push(format!("PLACEMENT-ONLY {study}/{}: passes only by the judge's block placement: {}{}", row.file, on.why, first.map(|f| format!("; {f}")).unwrap_or_default()));
+                out.push(format!("PLACEMENT-ONLY {study}/{}: passes only by the judge's block placement: {}{}", row.file, on.why, first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()));
             } else if oo.pass && on.pass && oo.metrics != on.metrics {
                 changed += 1;
                 out.push(format!("CHANGED {study}/{}: {} -> {}", row.file, metrics(&oo.metrics), metrics(&on.metrics)));
@@ -920,6 +945,11 @@ pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Res
             };
             let text = std::fs::read_to_string(&path)?;
             if let Some(why) = failure {
+                // R7: a design that passed only by the judge's block placement says so
+                let why = match r7_note(&path, o) {
+                    Some(n) => format!("{n}: {why}"),
+                    None => why,
+                };
                 // back to the track it came from, with why
                 let from = text.lines().find_map(|l| l.strip_prefix("# archived ").and_then(|r| r.split(" from ").nth(1)).map(|r| r.trim_end_matches(" by mctas circuit archive").to_string()));
                 let sub = if why.contains("update-less output") { "update-less" } else { "rejudged" };

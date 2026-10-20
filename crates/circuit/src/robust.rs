@@ -164,8 +164,57 @@ fn tnt_robust_at(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, sample
         metrics = Some(m);
         parts.push(format!("{}: {pieces} piece(s), {bounds} boundary kick(s)", g.name()));
     }
-    Ok(format!("robust over every kick on both grounds ({}), all `{}`", parts.join("; "), metrics.unwrap_or_default()))
+    // each TNT its own kick: PER_SPAWN_RUNS runs where the k-th TNT's kick is drawn on its own
+    // (a fixed generator, the same every time), on both grounds; every run passes with the same
+    // metrics (the shared-kick sweep above ties every TNT of a run to one angle)
+    let m = metrics.clone().unwrap_or_default();
+    let jobs: Vec<(crate::Ground, u64)> = crate::Ground::ALL.iter().flat_map(|&g| (0..PER_SPAWN_RUNS as u64).map(move |r| (g, r))).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let bad: Mutex<Option<String>> = Mutex::new(None);
+    std::thread::scope(|sc| {
+        for _ in 0..workers.max(1) {
+            let (jobs, next, bad, m) = (&jobs, &next, &bad, &m);
+            sc.spawn(move || {
+                loop {
+                    if bad.lock().unwrap().is_some() {
+                        break;
+                    }
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let (g, run) = jobs[i];
+                    // splitmix64 per run: 400 kicks (more than any run spawns)
+                    let mut x = 0x9E3779B97F4A7C15u64.wrapping_mul(run + 1);
+                    let kicks: Vec<f64> = (0..400)
+                        .map(|_| {
+                            x = x.wrapping_add(0x9E3779B97F4A7C15);
+                            let mut z = x;
+                            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+                            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+                            ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
+                        })
+                        .collect();
+                    let out = c.kind.clone().ok_or_else(|| "no kind".to_string()).and_then(|k| crate::run::tnt_kicks_trace(c, s, margin, KICK_DEFAULT_PER_SPAWN, &kicks, g).map(|t| check::check(c, &k, s, &t)));
+                    let (_, text) = code(&out);
+                    let mt = text.trim_end_matches(" precise").to_string();
+                    if !text.starts_with("pass") || mt != *m {
+                        *bad.lock().unwrap() = Some(format!("per-spawn kicks, run {run} on {}: {text}", g.name()));
+                    }
+                }
+            });
+        }
+    });
+    if let Some(why) = bad.into_inner().unwrap() {
+        return Err(why);
+    }
+    Ok(format!("robust over every kick on both grounds ({}; and {PER_SPAWN_RUNS} runs per ground with every TNT its own kick), all `{}`", parts.join("; "), metrics.unwrap_or_default()))
 }
+
+/// Runs per ground with every TNT its own random kick ([`tnt_robust`]).
+pub const PER_SPAWN_RUNS: usize = 64;
+/// The kick of a TNT past the per-spawn list (never reached: 400 kicks per run).
+const KICK_DEFAULT_PER_SPAWN: f64 = 0.5;
 
 /// One ground's sweep: (pieces, boundary kicks, the passing outcome).
 fn sweep(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, g: crate::Ground, samples: usize, workers: usize) -> Result<(usize, usize, String), String> {

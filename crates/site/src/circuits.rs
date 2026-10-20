@@ -503,6 +503,8 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
 /// The archived circuits of every study.
 fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
     let mut out = Vec::new();
+    // every archived (study, file, class), to report hidden.tsv lines that match nothing
+    let mut all_rows: Vec<(String, String, String)> = Vec::new();
     for (study, _title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = match read_rows(&dir) {
@@ -512,6 +514,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 continue;
             }
         };
+        all_rows.extend(rows.iter().map(|r| (study.to_string(), r.file.clone(), r.axis.clone())));
         // the designs the site does not publish (crates/site/hidden.tsv)
         let before = rows.len();
         let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).collect();
@@ -580,6 +583,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             if took > 10.0 {
                 notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
             }
+            // a flying machine that drags extra blocks (`port payload`) or flies between stations
+            let (cargo, stations) = loaded.as_ref().map(|(c, _)| (!c.payloads.is_empty(), !c.stations.is_empty())).unwrap_or((false, false));
             let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
             let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
@@ -595,6 +600,15 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 } else if d.devices.iter().any(|x| x == "lever") {
                     flags.push("lever".into());
                 }
+            }
+            // what sets such a flying machine apart from the 6-block one (critique C13: fly cards
+            // of 6, 7, 15 and 24 blocks said the same); an extender's pushed block is a payload too
+            let flying = r.kind.starts_with("flying-machine");
+            if cargo && flying {
+                flags.push("cargo".into());
+            }
+            if stations && flying {
+                flags.push("there-and-back".into());
             }
             let id = id_of(r);
             let basics = (study == "gates" && flags.iter().any(|f| f == "lever")) || (r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand"));
@@ -654,6 +668,26 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             });
         }
     }
+    // a hidden.tsv line that matches no archived design is stale: its designs left or were
+    // renamed, and its pattern would hide a future design by the same name (take it out)
+    if !keep_hidden {
+        let stale: Vec<String> = hidden_lines()
+            .into_iter()
+            .filter(|(_, s, p, _)| {
+                !all_rows.iter().any(|(study, file, class)| {
+                    (s == study || s == "*")
+                        && match p.strip_prefix('@') {
+                            Some(c) => class.split(", ").any(|x| x.trim() == c),
+                            None => glob(p, file) || glob(&format!("{p}.txt"), file),
+                        }
+                })
+            })
+            .map(|(ex, s, p, _)| format!("{}{s}/{p}", if ex { "!" } else { "" }))
+            .collect();
+        if !stale.is_empty() {
+            notes.push(format!("hidden.tsv: {} lines match no archived design (take them out; a stale pattern hides a future design): {}", stale.len(), stale.join(", ")));
+        }
+    }
     out
 }
 
@@ -708,8 +742,40 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             }
         }
         let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        // what each card adds over the smaller ones at least as fast (critique: cards of 31, 37
+        // and 65 blocks all led with the same rate): its new badges, else the variation it is the
+        // best design for
         for &i in &list {
-            let lead = if Some(i) == fastest { Some("fastest".to_string()) } else { badges_of(i).into_iter().find(|bd| best.get(bd) == Some(&i)) };
+            let smaller: Vec<usize> = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name) && rate(&builds[j]) >= rate(&builds[i])).collect();
+            let covered: BTreeSet<String> = smaller.iter().flat_map(|&j| badges_of(j)).collect();
+            let mine = badges_of(i);
+            let new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
+            // (no new badge alone: a pair no smaller card has together, "restarts + flushes")
+            let pair = || -> Option<String> {
+                for (x, a) in mine.iter().enumerate() {
+                    for b in &mine[x + 1..] {
+                        if !smaller.iter().any(|&j| { let o = badges_of(j); o.contains(a) && o.contains(b) }) {
+                            return Some(format!("{} + {}", site_model::html::badge_words(a), site_model::html::badge_words(b)));
+                        }
+                    }
+                }
+                None
+            };
+            // the metric it wins comes before shared badges (critique: the 96-block speed loader
+            // led with the 31-block auto loader's badges; what it adds is 3× the speed)
+            let max_smaller = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name)).map(|j| rate(&builds[j])).fold(0.0f64, f64::max);
+            let speedup = if max_smaller > 0.0 { rate(&builds[i]) / max_smaller } else { 0.0 };
+            let lead = if Some(i) == fastest {
+                Some("fastest".to_string())
+            } else if speedup >= 1.5 {
+                Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
+            } else if !new.is_empty() {
+                Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
+            } else if let Some(p) = pair() {
+                Some(p)
+            } else {
+                mine.iter().find(|bd| best.get(*bd) == Some(&i)).map(|bd| site_model::html::badge_words(bd))
+            };
             if let Some(l) = lead {
                 leads.push((i, l));
             }
@@ -718,6 +784,37 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     for (i, l) in leads {
         if let Some(c) = builds[i].circuit.as_mut() {
             c.lead = l;
+        }
+    }
+    // a gate and its mirror (A AND (NOT B) / B AND (NOT A)) are one card: the bigger folds under
+    // the smaller as a variant, the kept one says it comes mirrored (critique: two cards with one
+    // picture and one subtitle)
+    let gate_fn = |b: &Build| b.circuit.as_ref().filter(|c| c.kind.starts_with("gate ")).map(|c| c.kind.split_whitespace().nth(1).unwrap_or("").to_string());
+    let mut mirrors: Vec<(usize, usize)> = Vec::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(f) = gate_fn(b) else { continue };
+        let Some(plain) = f.strip_suffix("-ba") else { continue };
+        if !shown(b) {
+            continue;
+        }
+        let best_plain = builds.iter().enumerate().filter(|(_, o)| shown(o) && gate_fn(o).as_deref() == Some(plain) && o.flags.iter().any(|x| x == "lever") == b.flags.iter().any(|x| x == "lever")).min_by_key(|(_, o)| (o.blocks, o.name.clone())).map(|(j, _)| j);
+        if let Some(j) = best_plain {
+            // (keep the smaller; a tie keeps the plain function)
+            if builds[i].blocks < builds[j].blocks {
+                mirrors.push((j, i));
+            } else {
+                mirrors.push((i, j));
+            }
+        }
+    }
+    for (fold, keep) in mirrors {
+        let keep_id = builds[keep].id.clone();
+        builds[fold].flags.push("variant".into());
+        if let Some(c) = builds[fold].circuit.as_mut() {
+            c.host = Some(keep_id);
+        }
+        if !builds[keep].flags.iter().any(|f| f == "mirrored") {
+            builds[keep].flags.push("mirrored".into());
         }
     }
     // one build archived under two kinds (the same blocks and ports: `same_build`) shows once on
@@ -766,7 +863,9 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     for list in by_kind.values_mut() {
         list.sort_by_key(|&i| {
             let c = builds[i].circuit.as_ref();
-            (c.map(|c| c.order).unwrap_or(0), c.and_then(|c| c.value).unwrap_or(i64::MAX), builds[i].blocks, builds[i].name.clone())
+            // (gates: the most common function first, critique)
+            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
@@ -1126,7 +1225,8 @@ fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
         aspects.push("the number of stages");
     }
     if aspects.is_empty() && length {
-        aspects.push("the length");
+        // (not "the length": next to timer lengths it read as the timer's, critique C49)
+        aspects.push("their size in blocks");
     }
     if aspects.is_empty() {
         aspects.push("their layout");

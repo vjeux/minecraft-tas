@@ -432,6 +432,13 @@ fn more() {
     }
 }
 
+/// A search that names one gate function (`xor`, `xor gate`, `nand`): the function.
+fn gate_word(text: &str) -> Option<&'static str> {
+    let t = text.trim().to_lowercase();
+    let t = t.strip_suffix(" gate").unwrap_or(&t).trim().to_string();
+    ["xor", "xnor", "and", "nand", "or", "nor", "not", "imply", "nimply"].into_iter().find(|f| *f == t)
+}
+
 /// No result: for a time search, the nearest periods that exist (links); else a hint.
 fn empty_message(a: &App) -> String {
     if !a.q.time.trim().is_empty() {
@@ -543,6 +550,23 @@ fn draw_dynamic() {
             // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
             if a.hits.is_empty() && !q.text.trim().is_empty() {
                 s.push_str(&format!(". Try: {}", nearest_searches(&q.text)));
+            }
+            // nothing found for a time: the nearest period in the count line too (critique: "1
+            // minute" gave "0 results" and nothing else on its line)
+            if a.hits.is_empty() && !q.time.trim().is_empty() {
+                if let Ok((lo, hi)) = site_model::parse_time_query(&q.time) {
+                    if let Some((p, _)) = a.site.nearest_periods(lo, hi, 1).first() {
+                        s.push_str(&format!(". Nearest: {}", gt_time(*p)));
+                    }
+                }
+            }
+            // a gate function with no design on the site (being re-tested) says so (critique:
+            // "xor" listed 13 other gates)
+            if let Some(f) = gate_word(&q.text) {
+                let has = a.site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}")));
+                if !has {
+                    s.push_str(&format!(". No {} gate on the site right now (its designs are being re-tested in the game); other logic gates", f.to_uppercase()));
+                }
             }
             s
         } else {

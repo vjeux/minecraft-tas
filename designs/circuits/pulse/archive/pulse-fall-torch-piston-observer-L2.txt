@@ -1,0 +1,22 @@
+# archived 2026-10-20T17:05Z from designs/circuits/tracks/pulse/wr/pulse-fall-torch-piston-observer-L2.txt by mctas circuit archive
+# CIRCUIT: pulse-fall-torch-piston-observer-L2 falling-edge L 2 gt, delay 2 gt, min-pulse 3 gt, 4 blocks, 2x2x2, robust
+name: pulse-fall-torch-piston-observer-L2
+circuit: falling-edge
+# The fastest falling-edge detector: a 2-tick pulse 2 ticks after the input turns off, 4 blocks.
+# A torch on the input block lights when the input turns off; the input also holds a sticky piston
+# out, and an observer above the piston fires when the piston moves back. Detail: the torch stands
+# on the input block (counted: the design's own block in its input cell); inputs of 3 ticks or more.
+origin: 0 0 0
+port output: 0 1 1
+port input: 0 0 0
+palette:
+  I minecraft:stone
+  A minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:redstone_torch[lit=true]
+  C minecraft:observer[facing=down,powered=false]
+layer 0:
+  I
+  A
+layer 1:
+  B
+  C

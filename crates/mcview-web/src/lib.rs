@@ -914,6 +914,7 @@ impl App {
             // a thumbnail is a picture, nothing to press: no outlines over a small build (the
             // live viewer has them, with its tags)
             look.outlines.clear();
+            look.input_spans.clear();
             look.port_outlines.clear();
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
