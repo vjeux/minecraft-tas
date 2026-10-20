@@ -66,7 +66,10 @@ pub fn ends_traced(c: &Clock, u: f64, ticks: u32, follow: bool) -> Result<Vec<En
         for e in w.entities.list.iter_mut() {
             if let EntityKind::PrimedTnt(s) = e.kind {
                 born.entry(e.id).or_insert(t + 1);
-                if follow && born.len() == 1 {
+                let nth: usize = std::env::var("MCTAS_FOLLOW_NTH").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+                let mut ids: Vec<u32> = born.keys().copied().collect();
+                ids.sort();
+                if follow && ids.get(nth) == Some(&e.id) {
                     println!("  gt {}: fuse {} pos ({:.4}, {:.4}, {:.4}) motion ({:.4}, {:.4}, {:.4}){}", t + 1, s.fuse, e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z, if e.on_ground { " ground" } else { "" });
                 }
                 if s.fuse <= 1 && !e.removed {

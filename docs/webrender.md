@@ -102,6 +102,11 @@ each build's page.
   `demo: all inputs off`, `circuit::phase_words`; as wide as its widest phase from the start so it
   never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
   then the inputs are theirs.
+* Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
+  video`): 1.5 s closed, the lever on until the door settles open (`Session::idle`), 1.2 s open,
+  the lever off until it settles closed, again; lever uses only (what runs is redsim's), the
+  badge saying the stage (`demo: lever on, the door opens`, `demo: the door, open`, ...); the
+  person's first flip, tap or bar input stops it.
 * `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
   `data-stimulus`: after placement): the judge's actions at cells besides the inputs
   (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed
