@@ -233,6 +233,22 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
 * `fullmech --complete` cannot check the box-edge column claim at this size: calibration with
   r69a's own 4 right pieces (k=4) refinds nothing (the exact solver's horizon is shorter than
   r69a's 17-pulse sequence).
+* m69T (c70b's 6x9, pext's one-train p33; with pockets3, 22:10-22:30Z). New `door shift-plan`
+  re-times a plan; a shift can be `@name` for `ideal-rs --sweep`. Results, redsim 32 positions:
+  - Whole train delayed k = 1..6 behind the R0..R2 levels: WORKS.
+  - R0 or R2 as a TOGGLE (retracted at rest, one late pulse) fails after tick 1.
+  - As LEVELS (extended at rest, as in mm02), the stack is TIMING-FREE: R1+R2 switch at tick r,
+    R0 at tick q, after each flip. All 1681 combinations of r, q in 0..40 WORK (the open just
+    ends at max(33, r+1)); the real game agrees at r=17 q=29 (32 x 2).
+    wip/m69T/m69T-p33-stackfree.ideal.
+  - So the stack needs no flip-time signal. R0 takes a level into (4,-1) from the bottom-right.
+    R2+R1 take a level into dust at (4,3) on R2 (R2 directly, R1 by QC through R2's cell), or
+    the lever on R2's back.
+  - Each end can be a toggle clocked once per edge by anything its own area sees. The lever can
+    go where the areas' island starts need it.
+  - Open problem (pockets3's island check): on the OPEN edge the two bottom areas see nothing
+    from the top before their first pulses. The bottom-left (-1,-3..-1) only touches (0,-3),
+    (0,-2), (0,-1) and a static, and its observers facing x=0 output out of the box.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.

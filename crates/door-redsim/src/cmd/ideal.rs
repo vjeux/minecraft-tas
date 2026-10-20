@@ -22,12 +22,13 @@ pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
 pub struct ShiftPlanArgs {
     /// The `door ideal` plan.
     schedule: PathBuf,
-    /// Move every event of this input cell by k ticks, `x,y,z=k` (repeatable; k may be negative).
+    /// Move every event of this input cell, `x,y,z=k` (k ticks, may be negative) or
+    /// `x,y,z=@name` (a variable, `let name = 0`, for `ideal-rs --sweep name=lo..hi`); repeatable.
     #[arg(long, allow_hyphen_values = true)]
     shift: Vec<String>,
-    /// Move every event of the other cells by this many ticks.
-    #[arg(long, default_value_t = 0, allow_hyphen_values = true)]
-    rest: i64,
+    /// Move every event of the other cells: a number of ticks or `@name`.
+    #[arg(long, default_value = "0", allow_hyphen_values = true)]
+    rest: String,
     /// Write the shifted plan here (default: stdout).
     #[arg(long)]
     out: Option<PathBuf>,
@@ -41,10 +42,10 @@ pub fn cmd_shift_plan(args: ShiftPlanArgs) -> Result<()> {
         let (c, k) = s.split_once('=').ok_or_else(|| anyhow::anyhow!("--shift x,y,z=k: {s}"))?;
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
         anyhow::ensure!(v.len() == 3, "--shift x,y,z=k: {s}");
-        shifts.push(([v[0], v[1], v[2]], k.trim().parse::<i64>()?));
+        shifts.push(([v[0], v[1], v[2]], k.trim().to_string()));
     }
     let text = std::fs::read_to_string(&schedule)?;
-    let shifted = crate::ideal::Schedule::shift_text(&text, &shifts, rest)?;
+    let shifted = crate::ideal::Schedule::shift_text(&text, &shifts, rest.trim())?;
     match out {
         Some(p) => std::fs::write(p, shifted)?,
         None => print!("{shifted}"),
