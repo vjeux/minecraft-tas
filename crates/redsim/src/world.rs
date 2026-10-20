@@ -88,6 +88,9 @@ pub struct World {
     pub time: i64,
     sub_tick: i64,
     pub ticks: LevelTicks,
+    /// Scheduled fluid ticks (`ServerLevel.fluidTicks`), keyed by the fluid type; run after the
+    /// block ticks (`fluid/`).
+    pub fluid_ticks: LevelTicks<crate::fluid::Fluid>,
     pub events: BlockEvents,
     nu_stack: Vec<Nu>,
     nu_added: Vec<Nu>,
@@ -131,6 +134,7 @@ impl World {
             time: 0,
             sub_tick: 0,
             ticks: LevelTicks::default(),
+            fluid_ticks: LevelTicks::default(),
             events: BlockEvents::default(),
             nu_stack: Vec::new(),
             nu_added: Vec::new(),
@@ -526,6 +530,14 @@ impl World {
         self.ticks.has_scheduled_tick(pos, kind)
     }
 
+    /// `scheduleTick(pos, fluid, delay)` (the fluid tick list; priority normal; the sub-tick
+    /// counter is the level's, shared with block ticks).
+    pub fn schedule_fluid_tick(&mut self, pos: BlockPos, fluid: crate::fluid::Fluid, delay: i32) {
+        let sub = self.sub_tick;
+        self.sub_tick += 1;
+        self.fluid_ticks.schedule(fluid, pos, self.time + delay as i64, Priority::Normal, sub);
+    }
+
     pub fn will_tick_this_tick(&self, pos: BlockPos, kind: Kind) -> bool {
         self.ticks.will_tick_this_tick(pos, kind)
     }
@@ -550,6 +562,15 @@ impl World {
             }
         }
         self.ticks.end_tick();
+        // ServerLevel.tick: fluidTicks right after blockTicks (`tickFluid` checks the type)
+        if self.fluid_ticks.count() > 0 {
+            let due = self.fluid_ticks.collect(self.time);
+            for t in due {
+                self.fluid_ticks.start_running(&t);
+                crate::fluid::tick(self, t.pos, t.kind);
+            }
+            self.fluid_ticks.end_tick();
+        }
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {
@@ -571,7 +592,7 @@ impl World {
     /// Nothing pending: no scheduled ticks, no block events, no moving blocks, no falling
     /// blocks (the bridge's `Sandbox.idle` for a design without entities).
     pub fn idle(&self) -> bool {
-        self.ticks.count() == 0 && self.events.is_empty() && crate::piston::is_idle(self) && crate::gravity::is_idle(self)
+        self.ticks.count() == 0 && self.fluid_ticks.count() == 0 && self.events.is_empty() && crate::piston::is_idle(self) && crate::gravity::is_idle(self)
     }
 
     /// `Level.gameEvent` with no affected state (`GameEvent.Context.of(entity=null)`): recorded,
@@ -625,7 +646,7 @@ impl World {
                 self.set_block(pos, Block::Door { iron: false, facing, upper, hinge_right, open: !open, powered }, flags::CLIENTS | flags::IMMEDIATE);
                 self.game_event(if open { "block_close" } else { "block_open" }, pos);
             }
-            Block::Trapdoor { .. } | Block::Door { .. } | Block::Air => {}
+            Block::Trapdoor { .. } | Block::Door { .. } | Block::Air | Block::Water { .. } | Block::BubbleColumn { .. } => {}
             _ => {
                 self.errors.push(format!("use on {s} at {pos} is not modeled"));
                 return false;

@@ -69,6 +69,22 @@ impl World {
         for e in self.events.iter() {
             e.hash(h);
         }
+        // fluid ticks (only when there are any: designs without water keep their keys)
+        let fticks = self.fluid_ticks.all();
+        if !fticks.is_empty() {
+            0xf1u8.hash(h);
+            (fticks.len() as u32).hash(h);
+            let mut rank = 0u32;
+            let mut last_trigger = i64::MIN;
+            for t in &fticks {
+                if t.trigger != last_trigger {
+                    rank = 0;
+                    last_trigger = t.trigger;
+                }
+                (t.trigger - now, rank, t.pos, t.kind).hash(h);
+                rank += 1;
+            }
+        }
         let mut comps: Vec<_> = self.comparator_out.iter().map(|(p, v)| (*p, *v)).collect();
         comps.sort();
         comps.hash(h);
