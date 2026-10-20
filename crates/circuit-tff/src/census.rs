@@ -415,14 +415,38 @@ pub struct TffSpec {
     pub len: u32,
     pub period: u32,
     pub count: u32,
+    /// Two pulses this long after the train (0: none).
+    pub long: u32,
+}
+
+impl TffSpec {
+    /// Each pulse: (start, length).
+    fn pulses(&self) -> Vec<(u32, u32)> {
+        let mut v: Vec<(u32, u32)> = (0..self.count).map(|i| (crate::tff::SETTLE + i * self.period, self.len)).collect();
+        if self.long > 0 {
+            let gap = self.period.max(self.long + 30);
+            let mut t = crate::tff::SETTLE + (self.count - 1) * self.period + self.period.max(self.len + 30);
+            for _ in 0..2 {
+                v.push((t, self.long));
+                t += gap;
+            }
+        }
+        v
+    }
 }
 
 impl Spec for TffSpec {
     fn events(&self) -> Vec<Event> {
-        crate::rs::pulses(0, crate::tff::SETTLE, self.len, self.period, self.count)
+        let mut ev = Vec::new();
+        for (t, l) in self.pulses() {
+            ev.push(Event { t, input: 0, on: true });
+            ev.push(Event { t: t + l, input: 0, on: false });
+        }
+        ev
     }
     fn frames(&self) -> u32 {
-        crate::tff::SETTLE + (self.count - 1) * self.period + self.period.max(self.len) + 40
+        let (t, l) = *self.pulses().last().unwrap();
+        t + l + 40
     }
     fn watch_from(&self) -> u32 {
         crate::tff::SETTLE - crate::tff::REST
@@ -433,16 +457,19 @@ impl Spec for TffSpec {
         crate::tff::SETTLE + 16.min(self.period - 1)
     }
     fn judge(&self, _rest_on: bool, changes: &[u32], _samples: &[u8]) -> Option<u32> {
-        if changes.len() != self.count as usize {
+        let p = self.pulses();
+        if changes.len() != p.len() {
             return None;
         }
         let mut worst = 0;
         for (i, &t) in changes.iter().enumerate() {
-            let r = crate::tff::SETTLE + i as u32 * self.period;
-            if t < r || t - r > crate::tff::MAX_LATENCY {
+            let r = p[i].0;
+            if t < r || t - r > crate::tff::MAX_LATENCY + p[i].1 || p.get(i + 1).is_some_and(|n| t >= n.0) {
                 return None;
             }
-            worst = worst.max(t - r);
+            if i < self.count as usize {
+                worst = worst.max(t - r);
+            }
         }
         Some(worst)
     }

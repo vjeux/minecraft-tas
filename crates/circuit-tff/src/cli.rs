@@ -74,6 +74,10 @@ pub enum Cmd {
         period: u32,
         #[arg(long, default_value_t = 4)]
         count: u32,
+        /// After the train, two pulses this long must toggle too (the judge fails a T flip-flop
+        /// whose 10 gt pulses do not toggle it: a held lever); 0 skips them.
+        #[arg(long, default_value_t = 12)]
+        long: u32,
         #[arg(long, default_value_t = 160)]
         jobs: usize,
         #[arg(long)]
@@ -301,7 +305,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
                 println!("{}: {} blocks, family {}: {}; {verdict}", d.display(), c.blocks(), c.family(), m.summary());
             }
         }
-        Cmd::Census { dims, input, k, palette, len, period, count, jobs, out, skeleton, free: free_box } => {
+        Cmd::Census { dims, input, k, palette, len, period, count, long, jobs, out, skeleton, free: free_box } => {
             let d: Vec<i32> = dims.split('x').map(|t| t.parse::<i32>()).collect::<Result<_, _>>().context("--box AxBxC")?;
             if d.len() != 3 {
                 bail!("--box AxBxC");
@@ -363,7 +367,7 @@ pub fn run(cmd: Cmd) -> Result<()> {
             };
             let (pal, pal_be) = parse_palette(&palette)?;
             let (k_min, k_max) = parse_k(&k)?;
-            let spec = crate::census::TffSpec { len, period, count };
+            let spec = crate::census::TffSpec { len, period, count, long };
             let mut all: std::collections::BTreeMap<String, (redsim::BlockPos, crate::census::Found)> = std::collections::BTreeMap::new();
             for inp in &inputs {
                 eprintln!("input {},{},{}: {} free cells, {} palette states, k {k_min}..={k_max}", inp.x, inp.y, inp.z, free.len(), pal.len());

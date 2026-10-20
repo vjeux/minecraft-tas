@@ -22,6 +22,7 @@ bells, leaves, scaffolding, crafters) and clk-item (crafters, chiseled bookshelf
 | REDSTONE-LESS vertical boat loops: boat-lift-l{3,4}h{2..6} | 161, 165, 167, 173, 175, 178, 181, 186, 188, 190 | 97-169 | oak_boat+oak_pressure_plate (+ soul sand, wall banners) |
 | boat-lift-l{3,4}h2-tripwire | 173, 188 | 103, 111 | oak_boat+oak_pressure_plate+tripwire+tripwire_hook |
 | boat-lift-l{3,4}h2-dripleaf | 187, 201 | 99, 107 | big_dripleaf+oak_boat+oak_pressure_plate |
+| boat-lift-l{3,4}h2-chest1 | 173, 188 | 97, 105 | hopper+oak_chest_boat+oak_pressure_plate (an item loop lifted by a chest boat; one hopper in the upper floor) |
 | item loops with a minecart lift: bookshelf-cart, -b2, hopper-cart | 56, 28, 46 | 20, 20, 17 | chiseled_bookshelf+hopper+hopper_minecart, hopper+hopper_minecart |
 | clk-misc-bubble-flip | 16 | 12 | bubble_column+observer+redstone_wire+sticky_piston |
 | clk-misc-dripleaf-stand | 4 | 8 (7 + an armor stand) | armor_stand+big_dripleaf+observer+redstone_wire |
@@ -37,7 +38,7 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
 - `clock misc ring --relay R --n N [--check K]`: relay rings.
 - `clock misc crafter-loop --n N`, `clock misc cart-pingpong --n N [--bare|--short|--track S/P/D/L...]`,
   `clock misc cart-loop --n N [--three|--long-only]`, `clock misc boat-ring --a A --b B`,
-  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf]`: generators (judge with `clock verify`: redsim models
+  `clock misc boat-lift --l L --h H [--tripwire] [--dripleaf] [--chest N]`: generators (judge with `clock verify`: redsim models
   neither crafting nor entities).
 - `clock misc trace <design> [--ticks N] [--every K] [--only prefixes]`: built like the judge, prints every entity's
   position / motion and the changed cells per tick (how the boat rings were found).

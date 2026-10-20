@@ -1,0 +1,31 @@
+# archived 2026-10-19T23:54Z from designs/clocks/tracks/clk-obs/families9/p192-lamp-note-obs-stk-9b-3d366d.txt by mctas clock archive
+# CLOCK: clk-obs-p192-lamp-note-obs-stk-9b-3d366d period 192 gt (9.6 s), on 80/192, edges 40, warmup 12, family note_block+observer+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
+name: clk-obs-p192-lamp-note-obs-stk-9b-3d366d
+# clk-obs grow: P=192 (redsim), family note_block+observer+redstone_lamp+sticky_piston, kick last 0 0 2, swept volume 15.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:observer[facing=down,powered=false]
+layer 0:
+  A
+  B
+  A
+layer 1:
+  C
+  D
+  E
+layer 2:
+  F
+  D
+  .
+layer 3:
+  G
+  .
+  .
