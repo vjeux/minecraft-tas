@@ -1,41 +1,34 @@
-# HANDOFF: track c70b, 2026-10-19 (newest first)
+# HANDOFF: track c70b, 2026-10-20 (newest first)
+
+## 6. Wirable smaller doors (coordinator 2026-10-20 04:00Z: NEW families built for wirability)
+- Bars on every solve (families + mechmut): `--max-actions K` (pulses / level toggles per piston
+  per edge), `--extra-actions B` (actions beyond one per piston, per edge), `--pareto N` (64 makes
+  the constrained search exact on everything tried), `--no-inside`; filters families `--fed`,
+  mechmut `--max-unfed N`. Unfed count = families::unfed_cells (free cells over the cycle, c77's
+  static-ring-stone feed, lever outside the box on a never-moved piston's back face, valid only
+  when every piston it powers, beside it or by QC, is lever-held: d67/w86/pockets3 game checks).
+- mechmut `--add` (+ `--add-redstone`): completion search, one piece per round, unsolved variants
+  steer the beam by growth.
+- Results (smaller/NOTES.md "Wirability bars"): families 7x7 ring-escape P12 + P13 at K=1:
+  0 of 2.39M; P12 at K=2 + 1 extra: 0 of 263,924; w1 local search under K=2 + no-inside:
+  109 variants, P (1,-1) + SU(1,-2) always unfed (w86's argument: the middle-frame piston that
+  fires from the frame cannot be fed). The hole I reported: pistons carried INTO the door square
+  (a3s/mm01 class) can be fed (d67), but every such mechanism so far needs 3-7 actions per piston.
+- New 7x7: smaller/mm/t1-r22/mm01 (12 sticky, from w86's t1 with (-2,2) reserved): WORKS in
+  redsim + game; unfed (1,-1), Q (-1,0), (0,4) (its lever at (0,5) also arms (-1,4)/(1,4));
+  up to 5 actions per piston per edge.
+- Running at handoff: families 6x7/7x6/8x6 ring-escape P12 at K=2 + 1 extra (bars/f4-3boxes*);
+  mechmut from t1-r22 ranked by unfed with (-2,2) reserved (mm/t1r22-u*).
 
 ## 5. Provenance (vjeux 2026-10-20: the site publishes only our own doors)
-- `mctas door provenance` -> designs/piston-door-3x3/archive/provenance.tsv (name, origin = ours |
-  community-derived, reason). Rules: (a) name / `archived from` path / a pockets run's seed names a
-  root or a community lineage (c79, community, c88, m79s, m10top, s79, c78z, s26/s27, closed-b,
-  c77's comm-/cst-/c47- runs); (b) mechanism (audit's redsim cycle, mirrors merged) within 2 pieces
-  of a root's, or the same door-block paths; (c) lineage to a fixpoint (a run's outputs inherit an
-  archived seed's origin; mechanisms within 2 pieces of a community-derived design).
-- Main's archive (1694): 1175 ours, 519 community-derived. The 257 pockets-63b-43-* are ours: their
-  runs (rf-lw-k4, t7b-lw-k3, t7b-rw-k3) are seeded by t7b (e88's record from flat-seam e89b, which
-  predates the c79 reproduction); "63b" = the 7x9 volume.
+- `mctas door provenance` -> designs/piston-door-3x3/archive/provenance.tsv (1175 ours, 519
+  community-derived on main's archive; pockets runs inherit their seed's origin).
 
-## 4. Smaller than 56 (QUESTION 1: does any mechanism exist per box): smaller/NOTES.md
-- Per box (ideal inputs): 7x7 YES (c77 w1; mechmut mm01 11 pistons), 8x6 YES (w86 a3r), 6x8 OPEN,
-  7x6 YES (w86 a3s; a3s-11), **6x7 YES** (a3s turned + repaired: 9 variants WORK in redsim, 4 in
-  the real game; not wirable as found: pistons fire inside the door square), 6x9 YES (c78l m69a/T/V),
-  9x6 YES (m69a turned, fullmech plan WORKS; m69g-12), 6x6 no within families two <= 3, 10x5 / 5x10 /
-  7x5 / 5x7 NO in the strip model (exact re-run).
-- Tools: families --ring-escape / --feedable; door audit --member + g7; `door mechmut` (local search
-  from known mechanisms: --validate redsim replay, --keep / --reserve / --repair / --outside-only /
-  --lever-held, ranked by redsim, inside firings, door connect, never-fed, weak feeds, unfed,
-  pistons, events; exports FULL designs + ideal plans); fullmech --check --export / --keep-stone;
-  families' Wire.weak.
-- 6x7 wirability (finished): inside firings bottom out at 1, unfed receivers at (0,1) + (1,-2), and
-  the pistons pulse 3-9 times per edge from 1-2-cell pockets: the a3s family is not wirable by
-  repair; a 6x7 with ~1-2 actions per piston per edge needs a new family (smaller/NOTES.md).
-- Wiring status: everything with pockets3 (the wiring service); satwire cores so far: 6x7 mm01
-  (1,-2), mm02/03 (3,-1), mm05 (2,2); 9x6 m69g-12 W' (3,-1); m69T variants need lever-faithful plans
-  (the macro model refuses a held piston that extends late).
+## 4. Smaller than 56, mechanism existence (QUESTION 1): smaller/NOTES.md
+- 7x7 YES (w1, t1, t1-r22), 8x6 YES (a3r), 6x8 YES (w86 s1), 7x6 YES (a3s), 6x7 YES (a3s turned +
+  repaired, real game), 6x9 YES (m69a/T/V), 9x6 YES, 6x6 none within families two <= 3, 10x5 /
+  5x10 / 7x5 / 5x7 NO in the strip model.
 
 ## 3. Generator: extended-at-rest pullers by default (merged)
-- families / mechspace / fullmech: `--ext-max 3`, adjacent (`--ext-dist 1`); docs/audit.md section 2.
-
-## 2. The community 7x8 (SacredRedstone) reproduced (community/NOTES.md); community-derived now
-- `community-7x8.txt` WORKS at 32 positions; the site no longer publishes it (provenance).
-
+## 2. The community 7x8 reproduced (community-derived now, not published)
 ## 1. Parked: t7b in 8 rows (partials/t7b8.md), c070x (partials/c070x.md)
-
-## Running processes
-- None (every c70b search has finished).
