@@ -274,6 +274,46 @@ pub fn span_words(span: &str) -> String {
     if n.is_empty() { format!("versions {r}{unit}") } else { format!("{n} versions, {r}{unit}") }
 }
 
+/// The words a player may search a build by, beyond its name and caption: the community's names
+/// for its kind (critique C12: "toggle", "one shot", "hidden door" found nothing useful).
+pub fn search_aliases(b: &Build) -> &'static str {
+    match b.kind.as_str() {
+        "door" => "3x3 piston door hidden secret entrance",
+        "clock" => "clock timer pulser oscillator repeating",
+        _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
+            "rising-edge" => "rising edge detector pulse on press",
+            "falling-edge" => "falling edge detector pulse on release",
+            "dual-edge" => "dual edge detector both edges",
+            "pulse-limiter" => "pulse limiter shortener",
+            "pulse-extender" => "pulse extender stretcher",
+            "tff" => "toggle t flip-flop tff on off switch",
+            "tff-reset" => "toggle t flip-flop tff reset",
+            "delay" => "delay line repeater",
+            "gate" => "logic gate and or not xor nand nor xnor imply nimply",
+            "rs-latch" => "rs latch sr latch set reset memory",
+            "d-latch" => "d latch data memory",
+            "dff" => "d flip-flop dff clocked memory",
+            "dff-enable" => "d flip-flop dff enable",
+            "shift" => "shift register",
+            "counter" => "counter divider frequency divider",
+            "piston-extender" => "piston extender double triple quadruple dpe tpe qpe",
+            "flying-machine" => "flying machine flier engine",
+            "shulker-loader" => "shulker box loader filler packer",
+            "shulker-unloader" => "shulker box unloader emptier",
+            "bud" => "bud switch block update detector",
+            "tnt-duper" => "tnt duper duplicator world eater",
+            "tnt-duper-triggered" => "tnt duper duplicator cannon",
+            "burst" => "burst pulse multiplier",
+            "divider" => "clock divider frequency divider",
+            "monostable" => "monostable one shot one-shot timer",
+            "off-delay" => "off delay off-delay timer stay on",
+            "on-delay" => "on delay on-delay hold to activate pulse filter",
+            "pulse-train" => "pulse train rapid fire gated clock",
+            _ => "",
+        },
+    }
+}
+
 /// The community's seamless tiers in words (properties.rs `seamless`: QUART = closed, nothing of
 /// the machine shows on one side; SEMI = that and open; FULL = both sides, closed and open; SUPER
 /// = FULL and every tick of the motion).

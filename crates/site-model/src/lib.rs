@@ -795,6 +795,30 @@ impl Sort {
     }
 }
 
+/// A query with the players' words for a piston extender's reach (critique C12: "double piston
+/// extender" found nothing): `double` / `triple` / `quadruple piston extender`, `dpe` / `tpe` /
+/// `qpe` search the piston extenders of that reach.
+pub fn with_synonyms(q: &Query) -> Query {
+    let mut q = q.clone();
+    let lower = q.text.to_lowercase();
+    let words: Vec<&str> = lower.split_whitespace().collect();
+    let reach = |w: &str| match w {
+        "double" | "dpe" => Some(2),
+        "triple" | "tpe" => Some(3),
+        "quadruple" | "qpe" => Some(4),
+        _ => None,
+    };
+    let extender = words.iter().any(|w| *w == "extender" || *w == "dpe" || *w == "tpe" || *w == "qpe");
+    if let Some(n) = words.iter().find_map(|w| reach(w)).filter(|_| extender) {
+        let rest: Vec<&str> = words.iter().copied().filter(|w| reach(w).is_none() && *w != "piston" && *w != "extender").collect();
+        q.text = std::iter::once("piston extender").chain(rest).collect::<Vec<_>>().join(" ");
+        if q.value.trim().is_empty() {
+            q.value = format!("N {n}");
+        }
+    }
+    q
+}
+
 /// What the person asked for. Facets: `groups` (OR), block kinds and flags as include (all
 /// required) / exclude (none allowed) sets, numeric ranges, a free-text search, and the clock
 /// time search, which also expands extendable families to their members.
@@ -867,7 +891,7 @@ struct View<'a> {
     close: Option<i64>,
     kinds: &'a [String],
     flags: &'a [String],
-    text: [&'a str; 4],
+    text: [&'a str; 5],
     variant: bool,
     /// A tunable group's member other than its shown design (hidden unless a value search hits
     /// it), and the circuit's latency in gt.
@@ -929,7 +953,7 @@ impl Site {
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&b.name, &b.caption, &b.group, &b.page],
+                    text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census"),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
@@ -956,7 +980,7 @@ impl Site {
                     close: None,
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&m.family, &b.caption, &b.name, ""],
+                    text: [&m.family, &b.caption, &b.name, "", html::search_aliases(b)],
                     variant: false,
                     member: false,
                     latency: None,
@@ -970,6 +994,7 @@ impl Site {
     /// clocks of those periods plus every extendable family's members that hit them (an archived
     /// design that is exactly a member shows once, as the member); without one, the builds.
     pub fn run(&self, q: &Query) -> Result<(Vec<Hit>, Facets), String> {
+        let q = &with_synonyms(q);
         let index = self.index();
         let time = if q.time.trim().is_empty() { None } else { Some(parse_time_query(&q.time)?) };
         let value = if q.value.trim().is_empty() { None } else { Some(parse_value_query(&q.value)?) };
@@ -1068,7 +1093,26 @@ impl Site {
         }
         let mut hits: Vec<(Hit, &View)> = views.iter().filter(|(_, v)| pass(v, Skip::None)).map(|(h, v)| (*h, v)).collect();
         let big = i64::MAX;
+        // a text search ranks what the words name first (critique C12: "toggle" led with doors):
+        // the kind's words and aliases, then the name, then the rest (captions)
+        let relevance = |v: &View| -> u8 {
+            if words.is_empty() {
+                return 0;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            if words.iter().all(|w| kind.contains(w.as_str())) {
+                0
+            } else if words.iter().all(|w| v.text[0].to_lowercase().contains(w.as_str())) {
+                1
+            } else {
+                2
+            }
+        };
         hits.sort_by(|(ha, a), (hb, b)| {
+            let rel = relevance(a).cmp(&relevance(b));
+            if rel != std::cmp::Ordering::Equal {
+                return rel;
+            }
             let primary = match q.sort {
                 Sort::Main => {
                     // doors: the solid ones first (the community's main ranking; sculk doors can
@@ -1473,6 +1517,17 @@ mod tests {
         assert_eq!(f.kinds.get("clock"), Some(&3));
         assert_eq!(f.kinds.get("door"), Some(&1));
         assert_eq!(f.block_kinds.get("slime_block"), Some(&1));
+    }
+
+    #[test]
+    fn players_words_for_extenders() {
+        let q = Query { text: "Double Piston Extender".into(), ..Default::default() };
+        let s = with_synonyms(&q);
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender", "N 2"));
+        let s = with_synonyms(&Query { text: "tpe flat".into(), ..Default::default() });
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender flat", "N 3"));
+        // "double" alone is not an extender search
+        assert_eq!(with_synonyms(&Query { text: "double".into(), ..Default::default() }).value, "");
     }
 
     #[test]
