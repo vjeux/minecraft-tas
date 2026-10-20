@@ -345,7 +345,8 @@ kick) before the first input.
   minecart pushing entities are not modeled. The judge itself stays in the game. The in-browser
   viewer runs the designs live with the same driver of the judge's chests (endless, docs/webrender.md).
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
-  [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
+  [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input (a latched
+  design: one reset input, below); one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states
   `oak_log[axis=y]` / `[axis=x]`), and one output; optional claims `bud: place remove state shape
   update`. The judge performs five classes of block update at every target, 3 times each with a
@@ -357,16 +358,25 @@ kick) before the first input.
   length (some but not all: `unreliable`; changing: `unsteady`), not detected when none does; at
   least one class must be detected, every claimed class too; idle gives nothing (`false trigger`)
   and the output is off at the end of every gap (`latches`). Then pairs of events 30, 20, 15, 10,
-  8, 6, 4, 2 gt apart (per family: update, state, shape, place/remove) give the `re-arm` time (the
-  shortest gap down to which both events give their own pulse); a pair that leaves the output on
-  JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
+  8, 6, 4, 2 gt apart (per family: update, state, shape; place, remove, place for the presence
+  family, so a place-only or remove-only design is measured too) give the `re-arm` time (the
+  shortest gap down to which every detected event gives its own pulse); a pair that leaves the
+  output on JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is
+  measured).
+  LATCHED designs (manual reset): one input, `port input.reset: x y z [<on-state> <off-state>]`
+  (any states: `minecraft:air minecraft:redstone_block` makes the reset take a redstone block away).
+  The judge pulses it (4 gt) once right after placement and half a gap after every event, probe and
+  re-arm event; the output must hold from detection until that reset and go off after it (`not
+  latched` otherwise), and hold through a removal while it is on (`not a latch`: a toggle lets
+  go). `reset` replaces `pulse`: how long after the reset starts the output goes off; `re-arm`:
+  how soon after the reset ends the next event is seen. The axis says `latched (manual reset)`.
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
   the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
-  leave the design as it was (every cell as at rest once its block is gone): one that does not
-  (the design carried the probe block away, or broke) makes it `fragile`, and the later probes and
-  the re-arm pairs are not measured. The box leaves out the target cells and the probe block in
-  the probe cells.
+  leave the design as it found it (every cell as just before the probe once its block is gone):
+  one that does not (the design carried the probe block away, or broke) makes it `fragile`, and the
+  later probes and the re-arm pairs are not measured. The box leaves out the target cells and the
+  probe block in the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
   `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`

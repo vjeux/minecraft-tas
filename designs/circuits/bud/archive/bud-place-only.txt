@@ -1,0 +1,24 @@
+# archived 2026-10-20T09:23Z from designs/circuits/tracks/bud/bud-place-only.txt by mctas circuit archive
+# CIRCUIT: bud-place-only bud detects place, latency 5 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 4 blocks, 2x4x1, robust
+name: bud-place-only
+circuit: bud
+# A place-only detector: the redstone torch under the target powers a solid block placed there,
+# which powers the sticky piston beside it; the piston lifts its observer into the output cell,
+# where the observer fires (a 2 gt pulse, 5 gt after the placement). On removal the piston pulls
+# the observer back down and it fires one cell lower, unseen by the output: the torch presence
+# detector feeding the pulse study's 2-block rising-edge detector. Turning the block in place, a
+# shape-only change or a pure update leaves it powered: not detected.
+origin: 0 -1 0
+port target: 0 0 0
+port output: 1 2 0
+palette:
+  T minecraft:redstone_wall_torch[facing=west,lit=true]
+  B minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=up,powered=false]
+layer 0:
+  TB
+layer 1:
+  .P
+layer 2:
+  .O
