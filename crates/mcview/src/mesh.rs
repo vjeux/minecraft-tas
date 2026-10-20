@@ -26,12 +26,15 @@ pub struct Quad {
     pub center: [f32; 3],
 }
 
-/// Something to draw besides blocks: an entity (feet position in blocks, yaw in degrees).
-#[derive(Clone, Debug)]
+/// Something to draw besides blocks: an entity (feet position in blocks, yaw in degrees), with
+/// its pitch (a minecart on a slope) and age in ticks (a dropped item's bob and spin).
+#[derive(Clone, Debug, Default)]
 pub struct EntityDraw {
     pub kind: String,
     pub pos: [f32; 3],
     pub yaw: f32,
+    pub pitch: f32,
+    pub age: f32,
 }
 
 /// Everything a frame needs.
@@ -126,11 +129,14 @@ pub struct Builder<'a> {
     pub ground: Option<i32>,
     cache: HashMap<String, Option<Model>>,
     pub mesh: Mesh,
+    /// A transform for the block model being drawn as part of an entity (a minecart's hopper, a
+    /// dropped block item): its unit cube goes through it.
+    xf: Option<crate::entitymodel::M>,
 }
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None }
     }
 
     fn occupied(&self, c: Pos) -> bool {
@@ -198,6 +204,15 @@ impl<'a> Builder<'a> {
 
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        let game = self.atlas.game.clone();
+        if let Some(g) = &game {
+            if !g.entities {
+                // drawn with the viewer's stand-in until the page loads the game's entity textures
+                g.wants_entities.set(true);
+            } else if self.game_entity(g, e) {
+                return;
+            }
+        }
         // an item entity: a small cube of its block's texture, else of its color
         if let Some(id) = e.kind.strip_prefix("item:") {
             let n = id.strip_prefix("minecraft:").unwrap_or(id);
@@ -212,6 +227,63 @@ impl<'a> Builder<'a> {
         if let Some(m) = models::entity_model(&e.kind) {
             self.add_model(&m, e.pos, None, Some(e.yaw));
         }
+    }
+
+    /// An entity drawn like the game: its own model and texture (boats, minecarts with their
+    /// display block, armor stands), a falling block's block model, a dropped item (a block
+    /// item's block model, else its sprite). False when the viewer has nothing for it.
+    fn game_entity(&mut self, g: &crate::atlas::GameAssets, e: &EntityDraw) -> bool {
+        use crate::entitymodel as em;
+        let push = |b: &mut Self, tris: Vec<Vertex>| {
+            for v in &tris {
+                for k in 0..3 {
+                    b.mesh.lo[k] = b.mesh.lo[k].min(v.pos[k]);
+                    b.mesh.hi[k] = b.mesh.hi[k].max(v.pos[k]);
+                }
+            }
+            b.mesh.solid.extend_from_slice(&tris);
+        };
+        if let Some(state) = e.kind.strip_prefix("falling:") {
+            // FallingBlockRenderer: the block model, half a block back
+            if let Some(m) = self.model(state) {
+                self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, None);
+            }
+            return true;
+        }
+        if let Some(id) = e.kind.strip_prefix("item:") {
+            let name = id.strip_prefix("minecraft:").unwrap_or(id);
+            if g.tex.contains_key(&format!("item/{name}")) {
+                if let Some(t) = em::item_sprite_triangles(g, id, e.pos, e.age) {
+                    push(self, t);
+                    return true;
+                }
+            } else if let Some(m) = self.model(&format!("minecraft:{name}")) {
+                self.xf = Some(em::item_block_transform(e.pos, e.age));
+                self.add_model(&m, [0.0; 3], None, None);
+                self.xf = None;
+                return true;
+            }
+            return false;
+        }
+        let Some(tris) = em::entity_triangles(g, &e.kind, e.pos, e.yaw, e.pitch) else { return false };
+        push(self, tris);
+        // a hopper minecart's hopper (display offset 1), a chest minecart's chest...
+        let k = e.kind.strip_prefix("minecraft:").unwrap_or(&e.kind);
+        let display = match k {
+            "hopper_minecart" => Some(("minecraft:hopper[enabled=true,facing=down]", 1)),
+            "chest_minecart" => Some(("minecraft:chest[facing=north,type=single,waterlogged=false]", 8)),
+            "tnt_minecart" => Some(("minecraft:tnt[unstable=false]", 6)),
+            "furnace_minecart" => Some(("minecraft:furnace[facing=north,lit=false]", 6)),
+            _ => None,
+        };
+        if let Some((state, offset)) = display
+            && let Some(m) = self.model(state)
+        {
+            self.xf = Some(em::minecart_block_transform(e.pos, e.yaw, e.pitch, offset));
+            self.add_model(&m, [0.0; 3], None, None);
+            self.xf = None;
+        }
+        true
     }
 
     /// A water (or bubble column) cell like the game draws fluids: its surface at each corner the
@@ -262,7 +334,7 @@ impl<'a> Builder<'a> {
         let h = [corner(0, 0), corner(0, 1), corner(1, 1), corner(1, 0)];
         let tile = self.atlas.tile("water") as u32;
         let (x, y, z) = (cell[0] as f32, cell[1] as f32, cell[2] as f32);
-        let mut quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
+        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
             let l = shade(n);
             let c = (255.0 * l).round() as u8;
             let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer: tile, color: [c, c, c, 255] });
@@ -365,10 +437,15 @@ impl<'a> Builder<'a> {
             };
             let c = [c[0] / 16.0, c[1] / 16.0, c[2] / 16.0];
             let c = quarter(c, qx, qy);
-            match yaw {
+            let c = match yaw {
                 // entities: their model is built around x = z = 0 (the entity's position); the
                 // game's yaw turns clockwise
                 Some(y) => rotate(c, 1, -y, [0.0, 0.0, 0.0]),
+                None => c,
+            };
+            // a block model drawn as part of an entity (its unit cube through the transform)
+            match &self.xf {
+                Some(m) => m.point(c),
                 None => c,
             }
         });
@@ -445,7 +522,7 @@ impl<'a> Builder<'a> {
             None
         };
         // the game's own texture (a game model's face): its place in the game texture
-        let game = self.atlas.game.as_ref().and_then(|g| g.models.tex.get(f.tile).map(|t| (t.rect, g.width as f32, g.height as f32)));
+        let game = self.atlas.game.as_ref().and_then(|g| g.tex.get(f.tile).map(|t| (t.rect, g.width as f32, g.height as f32)));
         let (layer, uv): (u32, [[f32; 2]; 4]) = match game {
             Some((rect, w, h)) => {
                 let s = rect[2] as f32 / 16.0;

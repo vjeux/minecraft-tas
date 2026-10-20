@@ -125,11 +125,10 @@ pub(crate) struct App {
     /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
     /// (applied, or unavailable: the hand-drawn tiles stay).
     textures_pending: bool,
+    /// The game's entity textures were asked for (the first entity drawn without them).
+    entities_requested: bool,
 }
 
-/// Where the game's block atlas comes from: `data-mcview-textures` on the page's root element
-/// (`none` = the hand-drawn tiles only; else the directory of `atlas.png` and `data.min.json`),
-/// by default misode/mcmeta's atlas of the judge's version.
 /// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
 /// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
 /// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default misode/mcmeta's
@@ -144,6 +143,51 @@ fn texture_urls() -> Option<[String; 4]> {
         }
         _ => Some([mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string(), mcview::gamemodel::DEFS_URL.to_string(), mcview::gamemodel::MODELS_URL.to_string()]),
     }
+}
+
+/// The game's entity and item atlases (`entities.png`, `entities.min.json`, `items.png`,
+/// `items.min.json` in a `data-mcview-textures` directory; misode/mcmeta's by default), loaded
+/// the first time a page draws an entity.
+fn entity_urls() -> Option<[String; 4]> {
+    use mcview::atlas::vanilla::*;
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some([format!("{base}/entities.png"), format!("{base}/entities.min.json"), format!("{base}/items.png"), format!("{base}/items.min.json")])
+        }
+        _ => Some([ENTITY_ATLAS_URL.to_string(), ENTITY_INDEX_URL.to_string(), ITEM_ATLAS_URL.to_string(), ITEM_INDEX_URL.to_string()]),
+    }
+}
+
+/// Load the game's entity and item textures into the game texture (boats, minecarts, armor
+/// stands and dropped items drawn with the viewer's stand-ins until then).
+async fn load_entity_textures() {
+    let Some([ep, ei, ip, ii]) = entity_urls() else { return };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    let (ep, ei, ip, ii) = futures_join4(fetch_cached(&ep), fetch_cached(&ei), fetch_cached(&ip), fetch_cached(&ii)).await;
+    let got = (|| {
+        let (er, ew, eh) = mcview::atlas::vanilla::decode_png(&ep?)?;
+        let (ir, iw, ih) = mcview::atlas::vanilla::decode_png(&ip?)?;
+        Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
+    })();
+    with_app(|a| match got {
+        Ok((er, ew, eh, ei, ir, iw, ih, ii)) => {
+            let mut atlas = (*a.atlas).clone();
+            match atlas.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii)) {
+                Ok(n) => {
+                    if debug() {
+                        log(&format!("the game's entity textures ({n}) and items"));
+                    }
+                    a.set_atlas(atlas);
+                }
+                Err(e) => log(&format!("the game's entity textures: {e} (the viewer's stand-ins)")),
+            }
+        }
+        Err(e) => log(&format!("the game's entity textures unavailable: {e} (the viewer's stand-ins)")),
+    });
+    ensure_frame();
 }
 
 /// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
@@ -291,6 +335,7 @@ pub fn start() {
         frame_scheduled: false,
         work_scheduled: false,
         textures_pending: true,
+        entities_requested: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
     // the game's textures (hand-drawn tiles if they do not come within a few seconds)
@@ -466,9 +511,25 @@ fn scan(root: &Element) {
     }
 }
 
+/// An entity was drawn without the game's entity textures: load them (once).
+fn maybe_load_entities() {
+    let want = with_app(|a| {
+        let want = !a.entities_requested && a.atlas.game.as_ref().is_some_and(|g| !g.entities && g.wants_entities.get());
+        if want {
+            a.entities_requested = true;
+        }
+        want
+    })
+    .unwrap_or(false);
+    if want {
+        wasm_bindgen_futures::spawn_local(load_entity_textures());
+    }
+}
+
 /// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
 /// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
+    maybe_load_entities();
     let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
     if work {
         let cb = Closure::once_into_js(move || {
@@ -477,6 +538,7 @@ pub(crate) fn ensure_frame() {
                 a.thumbs()
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }
@@ -491,6 +553,7 @@ pub(crate) fn ensure_frame() {
                 a.live_frames(ts)
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }

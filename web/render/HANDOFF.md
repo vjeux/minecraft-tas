@@ -9,9 +9,9 @@ is the short version for whoever picks the work up.
 
 | What | Where |
 |---|---|
-| Core (platform independent): design parser, redsim session, models, atlas, camera, mesh, renderer, live player | `crates/mcview/src/` (`session.rs`, `player.rs`, `scene.rs`, `models.rs`, `mesh.rs`, `atlas.rs` + `atlas/art.rs` hand-drawn tiles + `atlas/vanilla.rs` game textures, `circuit.rs`, `replay.rs`, `render.rs`, `tools.rs`) |
+| Core (platform independent): design parser, redsim session, models, atlas, camera, mesh, renderer, live player | `crates/mcview/src/` (`session.rs`, `player.rs`, `scene.rs`, `models.rs` the viewer's own models, `gamemodel.rs` the game's block geometry, `entitymodel.rs` the game's entity models, `mesh.rs`, `atlas.rs` + `atlas/art.rs` hand-drawn tiles + `atlas/vanilla.rs` game textures, `circuit.rs`, `replay.rs`, `render.rs`, `tools.rs`) |
 | Browser glue: DOM scan, thumbnails, live viewer UI, overlays | `crates/mcview-web/src/` (`lib.rs`, `live.rs`, `overlay.rs`, `gpu.rs`) |
-| Commands (`mctas web ...`): shot, check, bundle, demo, serve, compare, fit, layout, click, snap, strip, palette, reference | `crates/web-cli/src/lib.rs`, headless Chromium driver `cdp.rs` |
+| Commands (`mctas web ...`): shot, check, bundle, demo, serve, compare, fit, layout, click, snap, strip, palette, reference, game-texture, luma, swap, lose | `crates/web-cli/src/lib.rs`, headless Chromium driver `cdp.rs` |
 | The shipped bundle (committed; the site copies it) | `web/viewer/mcview.js`, `web/viewer/mcview_bg.wasm` |
 
 ## Build, test, ship
@@ -60,11 +60,11 @@ is the short version for whoever picks the work up.
 
 ## Open
 
-- `mctas web compare` on the 8-clock set: pixel diff 8.2, coarse 5.8 (target < 10 met; the
-  grass itself is texel-exact: bottom band diff ~3). What is
-  left: per-batch floor edges and black bands in some real pictures (not modelable), texture
-  noise, the leaves' brightness, the minecart / boat / armor stand models (block tiles; the
-  entity textures are in misode/mcmeta's `entities/atlas.png`, not used yet), model geometry from
-  the game's model JSON (piston head, repeater, comparator, hopper, dust).
-- Water surfaces are flat per cell (the game slopes them by the neighbours' levels).
+- `mctas web compare` on the 8-clock set: pixel diff 7.7, coarse 5.5 (8.2 before the game's
+  block models; the grass itself is texel-exact: bottom band diff ~3). What is left: per-batch
+  floor edges and black bands in some real pictures (the top band alone: 14-43; not modelable),
+  texture noise, the leaves' brightness. Entity clocks compare worse (10.5 on the cart loops)
+  only because the picture's moment differs (the cart is elsewhere on its loop); the models
+  match the pictures.
+- Dropped non-block items are flat double-sided sprites (the game extrudes them 1 px thick).
 - The "use your own Minecraft .jar" picker is dropped (the mcmeta textures replace it).

@@ -9,6 +9,12 @@ mod cdp;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
+    /// Write the game texture the viewer samples (the game's block atlas, with the entity and
+    /// item textures packed below it) to a PNG, and list where the entity textures went.
+    GameTexture {
+        #[arg(long, short)]
+        out: PathBuf,
+    },
     /// Render designs to PNG offscreen with the browser viewer's renderer (wgpu, Vulkan headless:
     /// lavapipe on a GPU-less box). Clocks at their most active moment (like `clock shot`), doors
     /// at rest; `--tick N` runs N ticks first, `--flips N` flips a door's lever N times.
@@ -295,6 +301,15 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
                         Ok(n) => eprintln!("the game's block models ({n} textures)"),
                         Err(e) => eprintln!("the game's block models unavailable ({e}): the viewer's models"),
                     }
+                    // the entity and item textures (boats, minecarts, armor stands, dropped items)
+                    let r = mcview::tools::vanilla_entity_assets().and_then(|((ep, ei), (ip, ii))| {
+                        let (er, ew, eh) = mcview::tools::decode_png(&ep)?;
+                        let (ir, iw, ih) = mcview::tools::decode_png(&ip)?;
+                        a.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii))
+                    });
+                    if let Err(e) = r {
+                        eprintln!("the game's entity textures unavailable ({e}): the viewer's stand-ins");
+                    }
                 }
             }
             Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
@@ -305,7 +320,7 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
@@ -321,6 +336,18 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 mcview::render::headless::write_png(&out.join(format!("{name}.png")), 16, 16, px).map_err(anyhow::Error::msg)?;
             }
             println!("{} tiles in {}", names.len(), out.display());
+            Ok(())
+        }
+        WebCmd::GameTexture { out } => {
+            let a = atlas(false);
+            let g = a.game.as_ref().ok_or_else(|| anyhow::anyhow!("no game assets"))?;
+            mcview::render::headless::write_png(&out, g.width, g.height, &g.mips[0]).map_err(anyhow::Error::msg)?;
+            let mut ent: Vec<_> = g.tex.iter().filter(|(k, _)| k.starts_with("entity/")).map(|(k, t)| format!("{k} {:?}", t.rect)).collect();
+            ent.sort();
+            for l in &ent {
+                println!("{l}");
+            }
+            println!("{} ({}x{}, entities packed: {})", out.display(), g.width, g.height, g.entities);
             Ok(())
         }
         WebCmd::Palette { pngs, k, tint, crop } => {

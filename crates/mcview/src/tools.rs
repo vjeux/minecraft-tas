@@ -19,11 +19,13 @@ pub struct ShotOptions {
     /// Camera yaw / pitch in degrees (default: the real-game pictures' direction).
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
+    /// As the game pictures it: without the viewer's own marks (the lime outlines on the inputs).
+    pub picture: bool,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false }
     }
 }
 
@@ -50,7 +52,10 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         }
     }
     let aspect = o.width as f32 / o.height as f32;
-    let look = scene::default_look(&s);
+    let mut look = scene::default_look(&s);
+    if o.picture {
+        look.outlines.clear();
+    }
     // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
     let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
     if o.yaw.is_some() || o.pitch.is_some() {
@@ -102,7 +107,7 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
     // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
     // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
     let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
-    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, ..Default::default() })?;
+    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, ..Default::default() })?;
     let mine = lanczos_resize(&big, bw, bh, w, h);
     let mut out = vec![0u8; (2 * w * h * 4) as usize];
     let mut diff = 0f64;
@@ -388,6 +393,28 @@ pub fn vanilla_assets() -> Result<(Vec<u8>, String, String, String), String> {
     let defs = text(get(crate::gamemodel::DEFS_URL, "block_definition.min.json")?)?;
     let models = text(get(crate::gamemodel::MODELS_URL, "model.min.json")?)?;
     Ok((png, index, defs, models))
+}
+
+/// The game's entity and item atlases (PNG bytes, index), cached like [`vanilla_assets`].
+pub fn vanilla_entity_assets() -> Result<((Vec<u8>, String), (Vec<u8>, String)), String> {
+    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
+    let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
+        let p = dir.join(name);
+        if !p.exists() {
+            let out = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(url).output().map_err(|e| format!("curl: {e}"))?;
+            if !out.status.success() {
+                let _ = std::fs::remove_file(&p);
+                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&out.stderr)));
+            }
+        }
+        std::fs::read(&p).map_err(|e| e.to_string())
+    };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    use crate::atlas::vanilla::*;
+    Ok((
+        (get(ENTITY_ATLAS_URL, "entities.png")?, text(get(ENTITY_INDEX_URL, "entities.min.json")?)?),
+        (get(ITEM_ATLAS_URL, "items.png")?, text(get(ITEM_INDEX_URL, "items.min.json")?)?),
+    ))
 }
 
 /// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the

@@ -991,14 +991,21 @@ pub struct Atlas {
 /// A vertex `layer` that samples the game texture instead of the tile array.
 pub const GAME_LAYER: u32 = 65535;
 
-/// The game's models with its block atlas as one 2D texture and that texture's mip levels.
+/// The game's models with its block atlas as one 2D texture and that texture's mip levels (and,
+/// once loaded, the game's entity and item textures packed below the block atlas).
 pub struct GameAssets {
-    pub models: crate::gamemodel::GameModels,
+    pub models: std::rc::Rc<crate::gamemodel::GameModels>,
+    /// Every texture in the game texture: `block/...`, and `entity/...` / `item/...` once packed.
+    pub tex: HashMap<String, crate::gamemodel::TexRect>,
     pub width: u32,
     pub height: u32,
     /// `mips[k]`: the (width >> k) x (height >> k) RGBA level (sprites sit on a 16-pixel grid:
     /// [`MIPS`] levels never mix two sprites).
     pub mips: Vec<Vec<u8>>,
+    /// The entity and item textures are in (`add_game_entities`).
+    pub entities: bool,
+    /// An entity was drawn without its texture: the page should load them.
+    pub wants_entities: std::cell::Cell<bool>,
 }
 
 /// Mip levels of an RGBA image (box filter, premultiplied alpha).
@@ -1040,7 +1047,74 @@ impl Atlas {
     pub fn set_game(&mut self, rgba: &[u8], w: u32, h: u32, index: &str, defs: &str, models: &str) -> Result<usize, String> {
         let m = crate::gamemodel::GameModels::parse(defs, models, index, rgba, w, h)?;
         let n = m.tex.len();
-        self.game = Some(std::rc::Rc::new(GameAssets { models: m, width: w, height: h, mips: image_mips(rgba, w, h, MIPS) }));
+        let tex = m.tex.clone();
+        self.game = Some(std::rc::Rc::new(GameAssets { models: std::rc::Rc::new(m), tex, width: w, height: h, mips: image_mips(rgba, w, h, MIPS), entities: false, wants_entities: Default::default() }));
+        Ok(n)
+    }
+
+    /// Pack the game's entity textures (boats, chest boats, the minecart, the armor stand: from
+    /// misode/mcmeta's entity atlas) and its whole item atlas below the block atlas: a new game
+    /// texture. Returns how many textures were packed.
+    pub fn add_game_entities(&mut self, ent: (&[u8], u32, u32, &str), items: (&[u8], u32, u32, &str)) -> Result<usize, String> {
+        let Some(g) = self.game.clone() else { return Err("no game assets".into()) };
+        let (bw, bh) = (g.width, g.height);
+        let parse = |index: &str| -> Result<Vec<(String, [u32; 4])>, String> {
+            let j = crate::json::Json::parse(index).map_err(|e| format!("index: {e}"))?;
+            let mut v = Vec::new();
+            if let crate::json::Json::Obj(kv) = j {
+                for (k, r) in kv {
+                    let r: Vec<u32> = r.as_arr().unwrap_or(&[]).iter().filter_map(|x| x.as_f64()).map(|x| x as u32).collect();
+                    if r.len() == 4 {
+                        v.push((k, [r[0], r[1], r[2], r[3]]));
+                    }
+                }
+            }
+            Ok(v)
+        };
+        let ent_rects: Vec<(String, [u32; 4])> = parse(ent.3)?
+            .into_iter()
+            .filter(|(k, r)| (k.starts_with("entity/boat/") || k.starts_with("entity/chest_boat/") || k == "entity/minecart/minecart" || k == "entity/armorstand/armorstand") && r[0] + r[2] <= ent.1 && r[1] + r[3] <= ent.2)
+            .collect();
+        // items: the whole atlas at (0, bh); entities shelf-packed at x >= its width
+        let (iw, ih) = (items.1, items.2);
+        let x_start = iw.div_ceil(64) * 64;
+        let mut order = ent_rects.clone();
+        order.sort_by(|a, b| b.1[3].cmp(&a.1[3]).then(a.0.cmp(&b.0)));
+        let (mut x, mut y, mut row_h) = (x_start, bh, 0u32);
+        let mut placed: Vec<(String, [u32; 4], [u32; 2])> = Vec::new();
+        for (k, r) in order {
+            if x + r[2] > bw {
+                x = x_start;
+                y += row_h;
+                row_h = 0;
+            }
+            placed.push((k, r, [x, y]));
+            x += r[2];
+            row_h = row_h.max(r[3]);
+        }
+        let height = (y + row_h).max(bh + ih).div_ceil(16) * 16;
+        let mut img = vec![0u8; (bw * height * 4) as usize];
+        img[..(bw * bh * 4) as usize].copy_from_slice(&g.mips[0]);
+        let mut blit = |src: &[u8], sw: u32, sx: u32, sy: u32, w: u32, h: u32, dx: u32, dy: u32| {
+            for row in 0..h {
+                let s = (((sy + row) * sw + sx) * 4) as usize;
+                let d = (((dy + row) * bw + dx) * 4) as usize;
+                img[d..d + (w * 4) as usize].copy_from_slice(&src[s..s + (w * 4) as usize]);
+            }
+        };
+        blit(items.0, iw, 0, 0, iw.min(bw), ih, 0, bh);
+        let mut tex = g.tex.clone();
+        for (k, r) in parse(items.3)? {
+            if r[0] + r[2] <= iw && r[1] + r[3] <= ih {
+                tex.insert(k, crate::gamemodel::TexRect { rect: [r[0], bh + r[1], r[2], r[2].min(r[3])], transparent: true });
+            }
+        }
+        for (k, r, [dx, dy]) in &placed {
+            blit(ent.0, ent.1, r[0], r[1], r[2], r[3], *dx, *dy);
+            tex.insert(k.clone(), crate::gamemodel::TexRect { rect: [*dx, *dy, r[2], r[3]], transparent: true });
+        }
+        let n = placed.len();
+        self.game = Some(std::rc::Rc::new(GameAssets { models: g.models.clone(), tex, width: bw, height, mips: image_mips(&img, bw, height, MIPS), entities: true, wants_entities: Default::default() }));
         Ok(n)
     }
 
