@@ -263,6 +263,30 @@ pub fn start() {
     let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
     canvas.set_width(240);
     canvas.set_height(180);
+    // the shared thumbnail context lost (a GPU reset, too many contexts on iOS): thumbnails wait
+    // and the context is made again once the canvas is restored (drawn pictures stay)
+    {
+        let lost = Closure::<dyn FnMut(web_sys::Event)>::new(|e: web_sys::Event| {
+            e.prevent_default();
+            with_app(|a| a.thumb = ThumbGpu::Pending);
+            log("the thumbnails' WebGL context was lost; waiting for it to come back");
+        });
+        let _ = canvas.add_event_listener_with_callback("webglcontextlost", lost.as_ref().unchecked_ref());
+        lost.forget();
+        let c2 = canvas.clone();
+        let restored = Closure::<dyn FnMut(web_sys::Event)>::new(move |_e: web_sys::Event| {
+            let c3 = c2.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let Some(atlas) = with_app(|a| a.atlas.clone()) else { return };
+                if let Ok(g) = gpu::Gpu::new(c3, &atlas).await {
+                    with_app(|a| a.thumb = ThumbGpu::Ready(g));
+                    ensure_frame();
+                }
+            });
+        });
+        let _ = canvas.add_event_listener_with_callback("webglcontextrestored", restored.as_ref().unchecked_ref());
+        restored.forget();
+    }
     wasm_bindgen_futures::spawn_local(async move {
         let g = gpu::Gpu::new(canvas, &atlas).await;
         with_app(|a| {
@@ -282,6 +306,14 @@ pub fn start() {
         let mut removed = false;
         for r in records.iter() {
             let r: MutationRecord = r.unchecked_into();
+            if r.type_() == "attributes" {
+                if let Some(t) = r.target()
+                    && let Ok(e) = t.dyn_into::<HtmlElement>()
+                {
+                    with_app(|a| a.src_changed(&e));
+                }
+                continue;
+            }
             let added = r.added_nodes();
             for i in 0..added.length() {
                 if let Some(n) = added.item(i)
@@ -302,6 +334,9 @@ pub fn start() {
     let init = web_sys::MutationObserverInit::new();
     init.set_child_list(true);
     init.set_subtree(true);
+    // a viewer's design swapped in place (the site's variant picker): `data-src` set last
+    init.set_attributes(true);
+    init.set_attribute_filter(&js_sys::Array::of1(&JsValue::from_str("data-src")));
     let _ = mo.observe_with_options(&document().document_element().unwrap(), &init);
     ensure_frame();
 }
@@ -434,6 +469,38 @@ fn attr_f32(el: &Element, k: &str) -> Option<f32> {
 }
 
 impl App {
+    /// A viewer's `data-src` changed (a design swapped in place): every `data-*` attribute is read
+    /// again; a live viewer loads the new design keeping its camera when `data-keep-camera` is
+    /// set (and its play state and speed), its buttons, tags and overlays rebuilt; a thumbnail is
+    /// drawn again.
+    fn src_changed(&mut self, el: &HtmlElement) {
+        let Some(id) = el.get_attribute("data-mcview-id").and_then(|s| s.parse::<u32>().ok()) else { return };
+        let Some(v) = self.views.get_mut(&id) else { return };
+        let src = el.get_attribute("data-src").filter(|s| !s.is_empty());
+        if src.is_none() || (src == v.src && v.live.as_ref().is_some_and(|l| l.has_player())) {
+            return;
+        }
+        v.src = src;
+        v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
+        v.trace = el.get_attribute("data-trace").filter(|s| !s.is_empty());
+        v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
+        v.autoplay = el.has_attribute("data-autoplay");
+        v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
+        v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
+        v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
+        v.yaw = attr_f32(el, "data-yaw");
+        v.pitch = attr_f32(el, "data-pitch");
+        let keep = el.has_attribute("data-keep-camera");
+        if let Some(l) = v.live.as_mut() {
+            l.begin_reload(keep);
+        }
+        let _ = el.class_list().remove_1("mcview-error");
+        v.done = false;
+        if v.full || v.visible {
+            self.queue.push_back(id);
+        }
+    }
+
     /// New tiles (the game's textures arrived): every context uploads them, every picture is
     /// drawn again.
     fn set_atlas(&mut self, atlas: Atlas) {
