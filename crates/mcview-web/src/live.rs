@@ -547,7 +547,14 @@ pub fn load(app: &mut App, id: u32) {
         h if h > 0 => h as f32,
         _ => v.h.max(1) as f32,
     };
-    let window = mcview::scene::live_window(css_h);
+    // a phone's viewer (narrow): the Record button sits over the view's bottom right, above the
+    // bar, wider than the margin beside the build: the build stays clear of it too (critique: it
+    // touched an OUT chest's outline)
+    let narrow_view = match v.canvas.client_width() {
+        w if w > 0 => (w as f64) < NARROW_PX,
+        _ => (v.w as f64) < NARROW_PX,
+    };
+    let window = if narrow_view { mcview::scene::live_window_with(css_h, 74.0 + 40.0) } else { mcview::scene::live_window(css_h) };
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -574,11 +581,7 @@ pub fn load(app: &mut App, id: u32) {
             // a narrow viewer (a phone): the time badge on two lines, seconds over ticks
             // (critique: at 390 px it took half the width and squeezed the demo badge), the badge
             // on the left as wide as the rest of the top
-            let css_w = match v.canvas.client_width() {
-                w if w > 0 => w as f64,
-                _ => v.w as f64,
-            };
-            l.narrow = css_w < NARROW_PX;
+            l.narrow = narrow_view;
             let time_style: &[(&str, &str)] = if l.narrow {
                 &[("height", "auto"), ("line-height", "16px"), ("padding", "2px 8px"), ("min-width", "11ch"), ("white-space", "pre-line")]
             } else {

@@ -145,10 +145,11 @@ pub fn thousands(n: u32) -> String {
 /// What the label of one entry says next to its icon: `1,344`; one box `12/27`; several `×3`.
 pub fn entry_text(e: &Entry) -> String {
     match e {
-        // how many of the icon's item (critique: a bare "27" read as stacks or items)
-        Entry::Items { count, .. } => format!("×{}", thousands(*count)),
-        Entry::Boxes { n: 1, used, slots, .. } => format!("{used}/{slots}"),
-        Entry::Boxes { n, .. } => format!("×{n}"),
+        // with its unit (critique: "×27" read as stacks beside a hopper's "×9" items)
+        Entry::Items { count: 1, .. } => "1 item".into(),
+        Entry::Items { count, .. } => format!("{} items", thousands(*count)),
+        Entry::Boxes { n: 1, used, slots, .. } => format!("{used}/{slots} slots"),
+        Entry::Boxes { n, .. } => format!("{n} boxes"),
     }
 }
 
@@ -364,7 +365,10 @@ mod tests {
         assert_eq!(e[0], Entry::Boxes { id: item_name(boxid), n: 1, used: 12, slots: 27 });
         assert_eq!(e[1], Entry::Items { id: "redstone", count: 67 });
         assert_eq!(e[2], Entry::Items { id: "iron_shovel", count: 2 });
-        assert_eq!(entry_text(&e[0]), "12/27");
+        assert_eq!(entry_text(&e[0]), "12/27 slots");
+        assert_eq!(entry_text(&e[1]), "67 items");
+        assert_eq!(entry_text(&Entry::Items { id: "redstone", count: 1 }), "1 item");
+        assert_eq!(entry_text(&Entry::Boxes { id: item_name(boxid), n: 27, used: 0, slots: 729 }), "27 boxes");
         assert_eq!(thousands(1344), "1,344");
         assert_eq!(thousands(999), "999");
         assert_eq!(thousands(1_000_000), "1,000,000");

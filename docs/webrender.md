@@ -150,7 +150,9 @@ each build's page.
   TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
   ticks (the judge's stimulus replayed for a triggered or switchable duper), at most 96 (cached
   per design: `Session::with_ground`). Its TNT land, bounce and explode on it and the craters
-  show: the ground's cells that changed (`Floor::changed`, rescanned every tick) and their
+  show: the ground's cells that changed (`Floor::changed`, followed from the world's write log,
+  redsim's opt-in `World::log_writes`: no scan of the big world per tick; a block written
+  outside the machine's box and the ground is drawn too, `Session::outside`) and their
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
   box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
@@ -188,7 +190,8 @@ each build's page.
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
-  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
+  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom (114 on a
+  phone's viewer, where the Record button sits above the bar beside the build: `live_window_with`), 46 px of the
   top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
   the badges on a phone), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
   only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
@@ -206,7 +209,7 @@ each build's page.
   gets its neighbours' light less one), through the game's brightness curve at the default
   brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
   fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
-  world's (`Session::floor_drawn` in `drawn_matches_simulation`).
+  world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
@@ -216,7 +219,7 @@ each build's page.
   labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
   gold while all are labelled) labels them all or only the story's. A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
-  and total count (`×1,344`: how many of that item); shulker boxes first, as `12/27` slots filled for one box or `×3`
+  and total count with its unit (`1,344 items`); shulker boxes first, as `12/27 slots` filled for one box or `3 boxes`
   with a fill bar for several (none while they are all empty); at most two kinds, then `+n`. A shulker design's same-kind port
   chests that stand together share one tag with their letters (ITEMS A–C over the three chests
   a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
