@@ -281,6 +281,7 @@ dependencies = [
  "circuit-pulsemult",
  "circuit-shulker",
  "circuit-tff",
+ "circuit-timer",
  "circuit-tnt",
  "clap",
  "clock",
@@ -384,6 +385,18 @@ dependencies = [
 
 [[package]]
 name = "circuit-tff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-timer"
 version = "0.1.0"
 dependencies = [
  "anyhow",

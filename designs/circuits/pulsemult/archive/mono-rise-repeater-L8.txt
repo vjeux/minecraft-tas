@@ -1,0 +1,23 @@
+# archived 2026-10-20T10:39Z from designs/circuits/pulsemult/tracks/timer/mono/mono-rise-repeater-L8.txt by mctas circuit archive
+# CIRCUIT: mono-rise-repeater-L8 monostable L 8 gt, delay 13 gt, retrigger non-retriggerable, re-arm 16 gt, min-pulse 4 gt, 4 blocks, 3x2x2, robust
+# study 1's pulse-rise-repeater-L8.txt (track pulse, a rising-edge detector) judged as a monostable: a second
+# rising edge inside its pulse is ignored (the observer is already firing / the repeater already on)
+name: mono-rise-repeater-L8
+circuit: monostable
+# A sticky piston pushes an observer (facing sideways) whose back then faces a repeater: the
+# observer fires 2 gt after it lands and the delay-4 repeater stretches its pulse to 8 gt; on the
+# falling edge the observer is pulled back and fires into the empty cell beside the repeater.
+origin: -1 0 0
+port input: -1 1 0
+port output: 2 1 2
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=north,powered=false]
+  R minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+layer 0:
+  ....
+  ...S
+layer 1:
+  .PO.
+  ...R
