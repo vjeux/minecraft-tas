@@ -278,6 +278,14 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
             Action::Clear { pos } => {
                 s.world.set_block(bp(pos), Block::Air, flags::ALL);
             }
+            Action::ShapeSet { pos, state } => {
+                let b = Block::parse(&state).map_err(|e| (Verdict::Unmodeled, e))?;
+                s.world.set_block(bp(pos), b, flags::CLIENTS);
+            }
+            Action::Update { pos } => {
+                let src = s.world.get(bp(pos)).kind();
+                s.world.update_neighbors_at(bp(pos), src);
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -389,7 +397,7 @@ pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], fro
 pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool) -> Result<Driven, (Verdict, String)> {
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
-        if let Action::Place { state, .. } = a {
+        if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
             Block::parse(state).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
         }
     }

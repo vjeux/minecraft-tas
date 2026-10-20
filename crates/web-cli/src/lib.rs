@@ -9,6 +9,18 @@ mod cdp;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
+    /// The viewer's entities (redsim, what the browser draws) tick by tick, next to a real-game
+    /// trace's (`designs/clocks/traces/<stem>.trace`, `mctas clock misc trace-export`) with the
+    /// distance between them; ends with the largest distance over the ticks shown.
+    Entities {
+        design: PathBuf,
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        from: u32,
+        #[arg(long, default_value_t = 40)]
+        to: u32,
+    },
     /// Write the game texture the viewer samples (the game's block atlas, with the entity and
     /// item textures packed below it) to a PNG, and list where the entity textures went.
     GameTexture {
@@ -340,6 +352,51 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 mcview::render::headless::write_png(&out.join(format!("{name}.png")), 16, 16, px).map_err(anyhow::Error::msg)?;
             }
             println!("{} tiles in {}", names.len(), out.display());
+            Ok(())
+        }
+        WebCmd::Entities { design, trace, from, to } => {
+            let text = std::fs::read_to_string(&design)?;
+            let mut s = mcview::Session::new(&text, &mcview::Options::default()).map_err(anyhow::Error::msg)?;
+            let replay = match &trace {
+                Some(p) => Some(mcview::replay::Replay::parse(&std::fs::read_to_string(p)?).map_err(anyhow::Error::msg)?),
+                None => None,
+            };
+            while s.tick < from {
+                s.step();
+            }
+            let mut worst = 0f32;
+            while s.tick <= to {
+                // the simulated positions at the end of the tick (the trace's convention; the
+                // renderer draws a minecart on a rail at the rail's line instead, like
+                // AbstractMinecartRenderer.oldRender, so the drawn pose is not compared)
+                let mine: Vec<(String, [f32; 3], f32)> = s
+                    .world
+                    .entities
+                    .list
+                    .iter()
+                    .filter(|e| !e.removed)
+                    .zip(s.entities(1.0))
+                    .map(|(e, d)| (d.kind, [e.pos.x as f32, e.pos.y as f32, e.pos.z as f32], e.y_rot))
+                    .collect();
+                let line: Vec<String> = mine.iter().map(|(k, p, yaw)| format!("{k} ({:.4}, {:.4}, {:.4}) yaw {yaw:.1}", p[0], p[1], p[2])).collect();
+                println!("t {}: {}", s.tick, line.join("; "));
+                if let Some(r) = &replay {
+                    let theirs = r.entities_at(s.tick);
+                    let mut parts = Vec::new();
+                    for (k, e) in theirs.iter().enumerate() {
+                        let d = mine.get(k).map(|(_, m, _)| ((m[0] - e.pos[0]).powi(2) + (m[1] - e.pos[1]).powi(2) + (m[2] - e.pos[2]).powi(2)).sqrt());
+                        if let Some(d) = d {
+                            worst = worst.max(d);
+                        }
+                        parts.push(format!("{} ({:.4}, {:.4}, {:.4}) yaw {:.1}{}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw, d.map(|d| format!(" [{d:.4}]")).unwrap_or_default()));
+                    }
+                    println!("  game: {}", parts.join("; "));
+                }
+                s.step();
+            }
+            if replay.is_some() {
+                println!("largest distance to the game: {worst:.4} blocks over ticks {from}..={to}");
+            }
             Ok(())
         }
         WebCmd::GameTexture { out } => {

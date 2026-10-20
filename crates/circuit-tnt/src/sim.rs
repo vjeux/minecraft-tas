@@ -119,6 +119,8 @@ fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Result<
             Action::Clear { pos } => {
                 w.set_block(bp(pos), Block::Air, flags::ALL);
             }
+            // the BUD judge's inputs: no TNT design uses them
+            other => return Err(format!("{other:?}: not an input of the TNT runner")),
         }
     }
     Ok(())

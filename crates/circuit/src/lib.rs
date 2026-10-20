@@ -15,6 +15,7 @@
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
 pub mod archive;
+pub mod bud;
 pub mod check;
 pub mod fly;
 pub mod run;
@@ -109,6 +110,9 @@ pub enum Kind {
     /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
     /// without one, every TNT block surviving (`tnt.rs`).
     TntDuperTriggered,
+    /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
+    /// at its `port target:` cells (place, remove, state, shape, update).
+    Bud,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -181,8 +185,9 @@ impl Kind {
             }
             "tnt-duper" => Kind::TntDuper,
             "tnt-duper-triggered" => Kind::TntDuperTriggered,
+            "bud" => Kind::Bud,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
             ),
         })
     }
@@ -214,6 +219,7 @@ impl Kind {
             Kind::ShulkerUnloader(s) => format!("shulker-unloader {s}"),
             Kind::TntDuper => "tnt-duper".into(),
             Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
+            Kind::Bud => "bud".into(),
         }
     }
 
@@ -229,6 +235,7 @@ impl Kind {
             Kind::FlyingMachine => "fly",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
+            Kind::Bud => "bud",
         }
     }
 
@@ -289,6 +296,11 @@ pub struct Circuit {
     /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
     /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
     pub stores: Vec<Store>,
+    /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
+    /// judge performs its block updates.
+    pub targets: Vec<bud::Target>,
+    /// The update classes a BUD switch claims to detect (`bud: place remove ...`).
+    pub bud_claims: Vec<String>,
 }
 
 /// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
@@ -314,6 +326,7 @@ impl Circuit {
         let mut payloads = Vec::new();
         let mut stations = Vec::new();
         let mut stores = Vec::new();
+        let mut targets = Vec::new();
         for (name, pos) in &design.ports {
             let args = design.meta.get(&format!("port {name}")).cloned().unwrap_or_default();
             let (base, sub) = match name.split_once('.') {
@@ -334,6 +347,7 @@ impl Circuit {
                     }
                     stations.push(*pos);
                 }
+                "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
                 "items" | "boxes" | "reject" => {
                     if design.blocks.contains_key(pos) {
@@ -341,9 +355,10 @@ impl Circuit {
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject)"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, target[.name])"),
             }
         }
+        targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
         inputs.sort_by(|a, b| a.name.cmp(&b.name));
         outputs.sort_by(|a, b| a.name.cmp(&b.name));
         payloads.sort_by(|a, b| a.name.cmp(&b.name));
@@ -366,8 +381,9 @@ impl Circuit {
         };
         let distance = design.meta.get("distance").map(|d| d.trim().parse::<u32>().with_context(|| format!("distance: {d:?}"))).transpose()?;
         let stimulus = design.meta.get("stimulus").cloned();
+        let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -377,6 +393,12 @@ impl Circuit {
         let Some(k) = &self.kind else {
             return Ok(());
         };
+        if *k == Kind::Bud {
+            return bud::check_ports(self);
+        }
+        if !self.targets.is_empty() {
+            bail!("{}: target ports are for the bud kind", k.name());
+        }
         let names: Vec<&str> = self.inputs.iter().map(|i| i.name.as_str()).collect();
         match k.inputs_needed() {
             Some(need) => {
@@ -626,6 +648,17 @@ impl Circuit {
                 };
                 v.push((t, a));
             }
+        }
+        for (t, i, op) in &s.events {
+            let Some(tg) = self.targets.get(*i) else { continue };
+            let pos = tg.pos;
+            let a = match op {
+                stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
+                stimulus::TargetOp::Clear => Action::Clear { pos },
+                stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
+                stimulus::TargetOp::Update => Action::Update { pos },
+            };
+            v.push((*t, a));
         }
         v.sort_by_key(|(t, _)| *t);
         v
