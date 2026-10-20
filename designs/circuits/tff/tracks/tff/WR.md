@@ -23,3 +23,7 @@ What a world-record entry means here, per variation. "Blocks" is `mctas circuit 
 - A waxed copper bulb toggles LIT on every rising edge of its power, within the same update, and its lit state is readable by a comparator at 15/0. That is why 3 blocks is the floor: state block, comparator, support.
 - A comparator's own delay is 2 gt, so no TFF whose output is read by a comparator can have latency below 2 gt.
 - The same 3-block build is archived twice, as `tff-bulb` here and as `counter2-bulb` in study 5 (a TFF is a counter 2). Each page says so; do not count it as two designs.
+
+## ONE design (vjeux 21:47Z, 2026-10-20)
+
+The T flip-flop kind is tff-bulb alone: 3 blocks, 2 ticks, pulses every 4 ticks, tileable every 2. The eight other archived TFFs (observer + piston 4-5 blocks, snow/dispenser 6-7, dropper ring 8, crafter 7-8, the flat falling-edge observer 5) lost to it on size and latency and are removed. The falling-edge toggle is tff-bulb behind the 1-block NOT (a wall torch on the input), which its caption says. Open: a flat (1-high) TFF smaller than 5 — the census found none at 4 blocks without a bulb, and a bulb design needs the comparator's support.

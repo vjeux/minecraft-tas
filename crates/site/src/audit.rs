@@ -57,25 +57,27 @@ pub fn mark_faster(builds: &mut [Build]) -> usize {
         if smaller.is_empty() {
             continue;
         }
-        // strictly better than each smaller design on one speed metric, never worse on another
+        // strictly better than each smaller design on the study's first speed metric (a shulker
+        // machine's items a second, an extender's time out...), never worse on another (critique:
+        // "faster than smaller versions" at the same 2.50 items a second, only its first box sooner)
         let beats = |y: &Build| {
-            let mut better = false;
-            for (m, higher) in metrics {
+            let mut primary_better = false;
+            for (n, (m, higher)) in metrics.iter().enumerate() {
                 match (number(x, m), number(y, m)) {
                     (Some(a), Some(b)) => {
                         let (a, b) = if *higher { (-a, -b) } else { (a, b) };
                         if a > b {
                             return false;
                         }
-                        if a < b {
-                            better = true;
+                        if n == 0 && a < b {
+                            primary_better = true;
                         }
                     }
                     (None, Some(_)) => return false,
                     _ => {}
                 }
             }
-            better
+            primary_better
         };
         if smaller.iter().all(|y| beats(y)) {
             marked.push(i);
@@ -104,12 +106,20 @@ const MATERIALS: [(&str, &[&str]); 5] = [
 /// extendable family, one button, 1 wide...) and its categorical metrics (a counter's output, a
 /// flip-flop's edge, a burst's re-trigger class), the bookkeeping and the material ones aside.
 fn properties(b: &Build) -> BTreeSet<String> {
-    let mut s: BTreeSet<String> = site_model::html::props(b).chips.into_iter().filter(|c| !c.starts_with("tunable") && !c.starts_with('+') && !matches!(c.as_str(), "variant" | "layout")).collect();
+    let mut s: BTreeSet<String> = site_model::html::props(b).chips.into_iter().filter(|c| !c.starts_with("tunable") && !c.starts_with('+') && !matches!(c.as_str(), "variant" | "a bigger version" | "another layout" | "layout")).collect();
     s.extend(b.flags.iter().filter(|f| !matches!(f.as_str(), "variant" | "layout" | "tunable")).cloned());
     if let Some(c) = &b.circuit {
         // the base design of an extendable family grows by one unit per n: a builder's property
         if c.extends {
             s.insert("extendable".into());
+        }
+        // what its card leads with is a property too (its chips leave out what the lead says)
+        for part in c.lead.split([',', '+', '·']).map(str::trim).filter(|p| !p.is_empty()) {
+            s.insert(part.to_string());
+        }
+        // what a machine carries or pulls (a flying machine's cargo) is its own property
+        if !c.feature.is_empty() {
+            s.insert(format!("feature={}", c.feature));
         }
         for (k, v) in &c.metrics {
             match k.as_str() {
@@ -148,6 +158,10 @@ pub enum Pattern {
     SlowerMaterial,
     /// Bigger, the same speed, only a material restriction in its favour.
     SameSpeedMaterial,
+    /// Bigger and no faster, with nothing in its favour, not even a material (vjeux's own words:
+    /// "bigger and slower than the other ones we have"; the coordinator 19:05Z: a slime-free
+    /// extender beaten by a smaller slime-free one at the same reach).
+    Plain,
 }
 
 /// Every circuit X beaten by a smaller, at-least-as-fast Y of the same kind and main value, with
@@ -157,10 +171,21 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
     let circuits: Vec<&Build> = site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_none())).collect();
     for x in &circuits {
         let cx = x.circuit.as_ref().unwrap();
+        // (a design already folded under another is off the lists)
+        if cx.host.is_some() {
+            continue;
+        }
         let mut best: Option<Dominated> = None;
         for y in &circuits {
             let cy = y.circuit.as_ref().unwrap();
             if y.id == x.id || cy.study != cx.study || cy.kind != cx.kind || cy.axis != cx.axis || cy.direction != cx.direction || y.blocks >= x.blocks {
+                continue;
+            }
+            // only within its own group and with the same kind of input (a sand elevator never
+            // beats a general extender; a lever basic never beats a gate taking a real signal: the
+            // V18 rule)
+            let device = |b: &Build| ["lever", "button"].into_iter().find(|f| b.flags.iter().any(|x| x == f));
+            if y.group != x.group || device(x) != device(y) {
                 continue;
             }
             // at least as fast everywhere
@@ -186,6 +211,7 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
             let fits = match pattern {
                 Pattern::SlowerMaterial => !slower.is_empty() && !avoids.is_empty(),
                 Pattern::SameSpeedMaterial => slower.is_empty() && !avoids.is_empty(),
+                Pattern::Plain => avoids.is_empty(),
             };
             if !fits {
                 continue;
@@ -208,11 +234,11 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
 /// re-archives; the build does it every time).
 pub fn notes(site: &Site) -> Vec<String> {
     let mut out = Vec::new();
-    for (pattern, what) in [(Pattern::SlowerMaterial, "bigger AND slower"), (Pattern::SameSpeedMaterial, "bigger, the same speed")] {
+    for (pattern, what) in [(Pattern::SlowerMaterial, "bigger AND slower"), (Pattern::SameSpeedMaterial, "bigger, the same speed"), (Pattern::Plain, "bigger and no faster")] {
         for d in dominated(site, pattern) {
             out.push(format!(
-                "dominated ({what}, only avoids {}): {}/{} ({} blocks) is beaten by {} ({} blocks){}: check it, then hide it in crates/site/hidden.tsv (mctas site dominated)",
-                d.avoids.join(", "),
+                "dominated ({what}, {}): {}/{} ({} blocks) is beaten by {} ({} blocks){}: check it, then hide it in crates/site/hidden.tsv (mctas site dominated)",
+                if d.avoids.is_empty() { "nothing in its favour".to_string() } else { format!("only avoids {}", d.avoids.join(", ")) },
                 d.x.circuit.as_ref().map(|c| c.study.as_str()).unwrap_or(""),
                 d.x.name,
                 d.x.blocks,
@@ -249,6 +275,7 @@ pub fn report(site: &Site) -> String {
     for (pattern, title) in [
         (Pattern::SlowerMaterial, "bigger AND slower, only a material restriction in their favour"),
         (Pattern::SameSpeedMaterial, "bigger, the same speed (or no speed metric), only a material restriction in their favour"),
+        (Pattern::Plain, "bigger and no faster, nothing in their favour (not even a material)"),
     ] {
         let list = dominated(site, pattern);
         s.push_str(&format!("# {title}: {}\n", list.len()));

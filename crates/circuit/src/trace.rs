@@ -28,6 +28,35 @@ pub struct Trace {
     pub explosions: Vec<u32>,
     /// Burning TNT removed 16+ blocks from the design (harmless to it: `run::OUT_OF_RANGE`).
     pub out_of_range: u32,
+    /// Every explosion (explosions on): where it went off and whether it was any use as a TNT
+    /// (the TNT judge's rule: none may go off in a fluid or where it would destroy nothing).
+    pub blasts: Vec<BlastUse>,
+}
+
+/// One explosion of a TNT duper's run: its frame, its center (the real game: the TNT's last
+/// sighting, at fuse 1, plus its last move), whether a fluid fills its cell (water, lava, a
+/// waterlogged block: it destroys nothing) and the blocks it would destroy on open ground
+/// (`redsim::explosion::open_ground`, its weakest rolls).
+#[derive(Clone, Debug, Default)]
+pub struct BlastUse {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub in_fluid: bool,
+    pub open_ground: usize,
+}
+
+impl BlastUse {
+    /// The judge's verdict on it: `None` when it is a useful explosion, else why not.
+    pub fn useless(&self) -> Option<String> {
+        let at = format!("frame {} at ({:.1}, {:.1}, {:.1})", self.frame, self.pos[0], self.pos[1], self.pos[2]);
+        if self.in_fluid {
+            Some(format!("a TNT explodes in a fluid ({at}): it destroys nothing, a duper whose TNT explodes in water is useless"))
+        } else if self.open_ground == 0 {
+            Some(format!("a TNT explodes where it would destroy nothing even on open ground ({at}: fluid all around it)"))
+        } else {
+            None
+        }
+    }
 }
 
 /// One primed TNT: the frame it first appears in, and where it is and how it moves there (the

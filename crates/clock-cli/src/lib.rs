@@ -137,6 +137,9 @@ pub enum ClockCmd {
         dir: PathBuf,
         #[arg(long)]
         write: bool,
+        /// Clear the hidden column of the rows whose reason starts with one of these.
+        #[arg(long, num_args = 1..)]
+        unhide: Vec<String>,
     },
     /// Archived clocks whose output pulses unevenly: move `port output` to a cell of the clock
     /// that pulses evenly (redsim picks the longest such period), judge again in the game, and with
@@ -545,7 +548,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
         }
-        ClockCmd::Hidden { dir, write } => {
+        ClockCmd::Hidden { dir, write, unhide } => {
+            if !unhide.is_empty() {
+                let files = clock::gaps::unhide(&dir, &unhide)?;
+                println!("unhidden: {} ({})", files.len(), files.join(", "));
+            }
             let (md, counts) = clock::gaps::hidden_report(&dir)?;
             for (reason, n) in &counts {
                 println!("{n:5} {reason}");
@@ -619,6 +626,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                         println!("HIDE {f}: {why}");
                     }
                     Ok(clock::gaps::Retap::Skip(why)) => println!("SKIP {f}: {why}"),
+                    Ok(clock::gaps::Retap::Reload(v)) => {
+                        if v != "ok" {
+                            println!("RELOAD {f}: {v}");
+                        }
+                    }
                     Err(e) => println!("ERROR {f}: {e:#}"),
                 }
             }

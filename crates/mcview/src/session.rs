@@ -44,18 +44,123 @@ pub enum Mode {
 }
 
 /// Knobs of [`Session::new`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Options {
     /// Free cells around the design in the simulated world (the clock judge uses 4).
     pub margin: i32,
     /// Ticks a door may take to settle after placement.
     pub settle: u32,
+    /// A TNT duper's ground reach (None: the reach its judge would grow the ground to,
+    /// [`Session::with_ground`]).
+    pub ground_reach: Option<i32>,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { margin: 4, settle: 400 }
+        Options { margin: 4, settle: 400, ground_reach: None }
     }
+}
+
+/// A TNT duper's ground (`Circuit::ground_blocks`, the judge's: grass over two dirt over
+/// bedrock), real blocks of the simulated world: `lo..=hi` (x, y, z), its top layer at `hi[1]`.
+#[derive(Clone, Debug)]
+pub struct Floor {
+    pub lo: Pos,
+    pub hi: Pos,
+    /// Its layers, top first: the block of each and its name.
+    pub layers: Vec<(Block, String)>,
+    /// How far it reaches around the design's box, and that box (the design as written).
+    pub reach: i32,
+    pub design_box: (Pos, Pos),
+    /// Its cells that no longer hold their layer's block (a crater, something fallen in) and what
+    /// they hold now; kept up to date from the world's write log after every tick
+    /// ([`Session::take_writes`]).
+    pub changed: std::collections::BTreeMap<Pos, Block>,
+}
+
+impl Floor {
+    /// The judge's ground layers (`Ground::Grass`), top first.
+    pub const LAYERS: [&'static str; 4] = ["minecraft:grass_block", "minecraft:dirt", "minecraft:dirt", "minecraft:bedrock"];
+
+    /// The ground `reach` blocks around the design box `lo..=hi`, its top `drop` air blocks under
+    /// the design's lowest layer (`Circuit::ground_blocks`).
+    pub fn grass(lo: Pos, hi: Pos, reach: i32, drop: i32) -> Result<Floor, String> {
+        let layers = Floor::LAYERS.iter().map(|s| Block::parse(s).map(|b| (b, b.to_string())).map_err(|e| format!("ground {s}: {e}"))).collect::<Result<Vec<_>, _>>()?;
+        let top = lo[1] - 1 - drop;
+        let n = layers.len() as i32;
+        Ok(Floor { lo: [lo[0] - reach, top - n + 1, lo[2] - reach], hi: [hi[0] + reach, top, hi[2] + reach], layers, reach, design_box: (lo, hi), changed: Default::default() })
+    }
+
+    pub fn contains(&self, p: Pos) -> bool {
+        (0..3).all(|i| p[i] >= self.lo[i] && p[i] <= self.hi[i])
+    }
+
+    /// The layer's block of a cell at height `y` (in the ground).
+    pub fn layer(&self, y: i32) -> &(Block, String) {
+        &self.layers[((self.hi[1] - y) as usize).min(self.layers.len() - 1)]
+    }
+
+    /// Every cell of the ground as laid (before anything runs).
+    pub fn blocks(&self) -> Vec<(BlockPos, Block)> {
+        let mut v = Vec::new();
+        for y in self.lo[1]..=self.hi[1] {
+            let b = self.layer(y).0;
+            for x in self.lo[0]..=self.hi[0] {
+                for z in self.lo[2]..=self.hi[2] {
+                    v.push((BlockPos::new(x, y, z), b));
+                }
+            }
+        }
+        v
+    }
+
+    /// What a cell of the ground holds now (its layer's block unless it changed).
+    pub fn now(&self, p: Pos) -> Block {
+        match self.changed.get(&p) {
+            Some(b) => *b,
+            None => self.layer(p[1]).0,
+        }
+    }
+
+    /// Whether a cell of the ground changed (a crater, something fallen in).
+    pub fn is_changed(&self, p: Pos) -> bool {
+        self.changed.contains_key(&p)
+    }
+
+    /// The state drawn at a cell of the ground (None: air).
+    pub fn shown(&self, p: Pos) -> Option<String> {
+        let b = self.now(p);
+        if b == Block::Air {
+            None
+        } else if b == self.layer(p[1]).0 {
+            Some(self.layer(p[1]).1.clone())
+        } else {
+            Some(b.to_string())
+        }
+    }
+}
+
+/// The reach a TNT duper's judge lays its ground at first, the widest it grows it to (it doubles
+/// the reach while a burning TNT leaves the ground: `circuit::run::{GROUND_REACH,
+/// MAX_GROUND_REACH}`), and the ticks the viewer runs to choose it.
+pub const GROUND_REACH: i32 = 24;
+pub const MAX_GROUND_REACH: i32 = 96;
+pub const GROUND_PROBE: u32 = 600;
+
+/// A TNT duper with its explosions (`Circuit::explodes`): it stands on its judge's ground.
+pub fn ground_duper(d: &Design) -> bool {
+    let kind = d.meta.get("circuit").and_then(|c| c.split_whitespace().next().map(str::to_string)).unwrap_or_default();
+    (kind == "tnt-duper" || kind == "tnt-duper-triggered") && d.meta.get("explode").is_none_or(|v| v.trim() != "off")
+}
+
+/// The safe drop an archived TNT duper's judge found (`# CIRCUIT: ... safe drop N blocks`: the
+/// air blocks between its lowest layer and the ground); 0 (on the ground) when not written.
+pub fn safe_drop(text: &str) -> i32 {
+    text.lines()
+        .filter(|l| l.starts_with("# CIRCUIT:"))
+        .find_map(|l| l.split("safe drop ").nth(1).and_then(|r| r.split_whitespace().next()).and_then(|n| n.parse::<i32>().ok()))
+        .unwrap_or(0)
+        .max(0)
 }
 
 pub struct Session {
@@ -114,6 +219,16 @@ pub struct Session {
     shulker_initial: Option<redsim::redstone::shulker::Chests>,
     /// The judge's visit is due before the next tick (it follows each tick's frame).
     visit_due: bool,
+    /// A TNT duper's ground (its judge's: real blocks of the world, drawn from the world); None:
+    /// no ground (nothing solid is drawn where redsim has void).
+    pub floor: Option<Floor>,
+    /// With a ground: the part of the world the machine lives in (the design's box and margin),
+    /// where the blocks are drawn, hashed and framed from (the ground is drawn on its own); None:
+    /// the whole world box.
+    pub machine_box: Option<(BlockPos, [i32; 3])>,
+    /// With a ground: the blocks outside the machine's box and the ground (something thrown or
+    /// pushed there), followed from the world's write log and drawn with the machine's.
+    pub outside: std::collections::BTreeMap<Pos, Block>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -278,6 +393,17 @@ impl Session {
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
         }
+        if o.ground_reach.is_none() && ground_duper(&design) {
+            return Session::with_ground(text, o);
+        }
+        // the design's box as written (a TNT duper's ground is laid around it)
+        let written = design.blocks.keys().fold(None, |acc: Option<(Pos, Pos)>, p| match acc {
+            None => Some((*p, *p)),
+            Some((mut lo, mut hi)) => {
+                grow(&mut lo, &mut hi, *p);
+                Some((lo, hi))
+            }
+        });
         // a circuit's inputs as its judge reads them, on the design as written (before its
         // consumers: the drivers' directions depend on the build's own box)
         let circuit_inputs = crate::circuit::inputs(&design);
@@ -357,6 +483,25 @@ impl Session {
             min = BlockPos::new(clo[0], clo[1], clo[2]);
             size = [chi[0] - clo[0] + 1, chi[1] - clo[1] + 1, chi[2] - clo[2] + 1];
         }
+        // a TNT duper with its explosions stands on its judge's ground (coordinator 2026-10-20,
+        // after vjeux 17:53Z "Please don't put a fake ground if the tnt goes through it"): real
+        // blocks of the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`:
+        // `Circuit::ground_blocks`, `reach` around the design as written, its top the archived
+        // safe drop under it) in the judge's world box around it; the machine keeps its own box
+        let mut floor = None;
+        let mut machine_box = None;
+        if let (Some(r), true, Some((wlo, whi))) = (o.ground_reach, ground_duper(&design), written) {
+            let drop = safe_drop(text);
+            floor = Some(Floor::grass(wlo, whi, r, drop)?);
+            let from = [wlo[0] - r - 2, wlo[1] - 6 - drop, wlo[2] - r - 2];
+            let to = [whi[0] + r + 2, whi[1] + 16, whi[2] + r + 2];
+            // the machine's box, within the world's
+            let mlo = [min.x.max(from[0]), min.y.max(from[1]), min.z.max(from[2])];
+            let mhi = [(min.x + size[0] - 1).min(to[0]), (min.y + size[1] - 1).min(to[1]), (min.z + size[2] - 1).min(to[2])];
+            machine_box = Some((BlockPos::new(mlo[0], mlo[1], mlo[2]), [mhi[0] - mlo[0] + 1, mhi[1] - mlo[1] + 1, mhi[2] - mlo[2] + 1]));
+            min = BlockPos::new(from[0], from[1], from[2]);
+            size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
+        }
         let mut world = World::new(min, size);
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
@@ -424,15 +569,19 @@ impl Session {
             shulker: None,
             shulker_initial: None,
             visit_due: false,
+            floor,
+            machine_box,
+            outside: Default::default(),
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
-            // to drive: no inputs).
+            // to drive: no inputs). No ground: nothing falls on it.
             world.place_raw(&as_built(&blocks));
             s.world = world;
             s.unsimulated = Some(unsimulated.join("; "));
             s.circuit_inputs.clear();
             s.input_on.clear();
+            s.floor = None;
             return Ok(s);
         }
         if let Err(e) = s.place(&mut world, &blocks, o) {
@@ -443,6 +592,7 @@ impl Session {
             s.unsimulated = Some(e);
             s.circuit_inputs.clear();
             s.input_on.clear();
+            s.floor = None;
             return Ok(s);
         }
         // a shulker loader or unloader runs like its judge: the chests placed raw after the
@@ -490,6 +640,14 @@ impl Session {
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
         // the world box's chunks, like the clock traces): `explosion::explode_on`
+        // a TNT duper's ground, raw, once the design stands (`clock::sim::drive_tnt`'s order);
+        // from then on the world logs what it writes (the ground and anything outside the
+        // machine's box are followed from that log: `take_writes`)
+        if let Some(f) = &s.floor {
+            world.place_raw(&f.blocks());
+            world.log_writes = true;
+            world.writes.clear();
+        }
         if is_tnt_design(&s.design) {
             let to = [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1];
             redsim::explosion::explode_on(&mut world, 0, redsim::redstone::shulker::chunk_range([min.x, min.y, min.z], to));
@@ -498,10 +656,141 @@ impl Session {
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
+        s.take_writes();
         if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
             s.end_tick = Some(s.fly_end());
         }
         Ok(s)
+    }
+
+    /// A TNT duper on its judge's ground at the reach its judge grows the ground to: 24, doubled
+    /// while a burning TNT leaves it within the first [`GROUND_PROBE`] ticks (the judge's stimulus
+    /// replayed for a triggered or switchable duper), at most 96; cached per design text.
+    fn with_ground(text: &str, o: &Options) -> Result<Session, String> {
+        thread_local! {
+            static REACH: std::cell::RefCell<HashMap<u64, i32>> = std::cell::RefCell::new(HashMap::new());
+        }
+        let key = {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            text.hash(&mut h);
+            h.finish()
+        };
+        if let Some(r) = REACH.with(|m| m.borrow().get(&key).copied()) {
+            return Session::new(text, &Options { ground_reach: Some(r), ..*o });
+        }
+        let mut r = GROUND_REACH;
+        loop {
+            let mut s = Session::new(text, &Options { ground_reach: Some(r), ..*o })?;
+            if r >= MAX_GROUND_REACH || s.floor.is_none() || !s.tnt_leaves_ground(GROUND_PROBE) {
+                s.reset();
+                REACH.with(|m| m.borrow_mut().insert(key, r));
+                return Ok(s);
+            }
+            r *= 2;
+        }
+    }
+
+    /// Whether a burning TNT goes past the ground's reach within `ticks` (`TntOptions::escape`:
+    /// more than `reach - 1` blocks sideways from the design's box), the judge's stimulus replayed
+    /// (`circuit::tnt::stimulus`: a triggered duper's 4 gt pulses 100 gt apart, a switchable one
+    /// off then on 400 gt each). The session is left where the probe stopped.
+    fn tnt_leaves_ground(&mut self, ticks: u32) -> bool {
+        let Some(((lo, hi), reach)) = self.floor.as_ref().map(|f| (f.design_box, f.reach as f64 - 1.0)) else { return false };
+        let triggered = self.design.meta.get("circuit").is_some_and(|c| c.split_whitespace().next() == Some("tnt-duper-triggered"));
+        let t0 = self.free_from() + 20;
+        let end = self.tick + ticks;
+        while self.tick < end && self.halted.is_none() {
+            if !self.circuit_inputs.is_empty() && self.tick >= t0 {
+                let k = self.tick - t0;
+                let on = if triggered { k % 104 < 4 } else { (k / 400) % 2 == 1 };
+                if self.input_on.first() != Some(&on) {
+                    self.set_input(0, on);
+                }
+            }
+            self.step();
+            for e in self.world.entities.list.iter().filter(|e| !e.removed) {
+                if matches!(e.kind, redsim::entity::EntityKind::PrimedTnt(_)) {
+                    let p = [e.pos.x, e.pos.y, e.pos.z];
+                    let side = |i: usize| (lo[i] as f64 - p[i]).max(p[i] - (hi[i] as f64 + 1.0)).max(0.0);
+                    if side(0).max(side(2)) > reach {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// The cells the last ticks wrote (the world's write log, on with a TNT duper's ground): a
+    /// ground cell that no longer holds its layer's block joins [`Floor::changed`] (and leaves it
+    /// once it holds it again); a cell outside the machine's box and the ground joins `outside`
+    /// while it holds a block (drawn with the machine's). No scan of the big world per tick.
+    fn take_writes(&mut self) {
+        if !self.world.log_writes {
+            return;
+        }
+        let writes = std::mem::take(&mut self.world.writes);
+        let (min, size) = self.machine();
+        let in_machine = |p: BlockPos| p.x >= min.x && p.y >= min.y && p.z >= min.z && p.x < min.x + size[0] && p.y < min.y + size[1] && p.z < min.z + size[2];
+        for p in writes {
+            let b = self.world.get(p);
+            let c = p.arr();
+            match self.floor.as_mut() {
+                Some(f) if f.contains(c) => {
+                    if b == f.layer(c[1]).0 {
+                        f.changed.remove(&c);
+                    } else {
+                        f.changed.insert(c, b);
+                    }
+                }
+                _ if !in_machine(p) => {
+                    if b == Block::Air {
+                        self.outside.remove(&c);
+                    } else {
+                        self.outside.insert(c, b);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Start over from the world as placed: nothing changed in the ground, nothing outside.
+    fn clear_writes(&mut self) {
+        self.world.writes.clear();
+        self.outside.clear();
+        if let Some(f) = self.floor.as_mut() {
+            f.changed.clear();
+        }
+    }
+
+    /// The part of the world the machine's blocks are drawn and hashed from: its box, the ground
+    /// left out.
+    pub fn machine(&self) -> (BlockPos, [i32; 3]) {
+        self.machine_box.unwrap_or((self.world.min, self.world.size))
+    }
+
+    fn in_floor(&self, p: Pos) -> bool {
+        self.floor.as_ref().is_some_and(|f| f.contains(p))
+    }
+
+    /// The machine's non-air cells (the ground left out).
+    pub fn machine_blocks(&self) -> Vec<(BlockPos, Block)> {
+        let (min, size) = self.machine();
+        let mut v = Vec::new();
+        for y in 0..size[1] {
+            for z in 0..size[2] {
+                for x in 0..size[0] {
+                    let q = min.offset(x, y, z);
+                    let b = self.world.get(q);
+                    if b != Block::Air && !self.in_floor(q.arr()) {
+                        v.push((q, b));
+                    }
+                }
+            }
+        }
+        v
     }
 
     fn place(&mut self, w: &mut World, blocks: &[(BlockPos, Block)], o: &Options) -> Result<(), String> {
@@ -601,6 +890,8 @@ impl Session {
             self.visit_due = false;
             self.apply_due();
             self.inputs_due();
+            self.clear_writes();
+            self.take_writes();
         }
     }
 
@@ -692,6 +983,7 @@ impl Session {
         self.tick += 1;
         self.apply_due();
         self.inputs_due();
+        self.take_writes();
         // redsim met something it does not model: the view stops at the last exact state
         if let Some(e) = self.world.errors.first() {
             self.halted = Some(format!("tick {}: {e}", self.tick));
@@ -885,7 +1177,7 @@ impl Session {
         let mut f = self.fresh();
         let mut h = Vec::new();
         for _ in 0..ticks {
-            h.push(frame_hash(0xcbf29ce484222325, &f.world.blocks()));
+            h.push(frame_hash(0xcbf29ce484222325, &f.machine_blocks()));
             f.step();
             if f.halted.is_some() {
                 return None;
@@ -921,30 +1213,43 @@ impl Session {
                 return Err(format!("{:?} drawn twice ({prev}, {})", b.cell, b.state));
             }
         }
+        let floor = self.floor.as_ref();
+        // every block drawn is redsim's block there (a ground cell is drawn by the ground alone)
+        let want = |c: Pos, wb: &Block| match (wb, self.overlay.get(&c)) {
+            (Block::Simple(redsim::block::Simple::Stone), Some(name)) => name.clone(),
+            _ => wb.to_string(),
+        };
+        for (c, s) in &still {
+            if floor.is_some_and(|f| f.contains(*c)) {
+                return Err(format!("{c:?} drawn twice ({s}, ground)"));
+            }
+            let wb = w.get(bp(*c));
+            if wb == Block::Air {
+                return Err(format!("{c:?}: {s} drawn where redsim has air"));
+            }
+            if *s != want(*c, &wb) {
+                return Err(format!("{c:?}: drawn {s}, redsim has {}", want(*c, &wb)));
+            }
+        }
+        // and every block of redsim's world is drawn: the ground (a TNT duper's, drawn on its
+        // own) cell by cell as it draws it (its layer's block or what changed there), any other
+        // block among the blocks drawn
         for y in 0..w.size[1] {
             for z in 0..w.size[2] {
                 for x in 0..w.size[0] {
                     let q = w.min.offset(x, y, z);
-                    let c = q.arr();
                     let wb = w.get(q);
-                    match wb {
-                        Block::Air => {
-                            if let Some(s) = still.get(&c) {
-                                return Err(format!("{c:?}: {s} drawn where redsim has air"));
-                            }
+                    if let Some(f) = floor
+                        && f.contains(q.arr())
+                    {
+                        let drawn = f.now(q.arr());
+                        if drawn != wb {
+                            return Err(format!("{:?}: the ground drawn as {drawn}, redsim has {wb}", q.arr()));
                         }
-                        Block::MovingPiston { .. } => {}
-                        _ => {
-                            let want = match (&wb, self.overlay.get(&c)) {
-                                (Block::Simple(redsim::block::Simple::Stone), Some(name)) => name.clone(),
-                                _ => wb.to_string(),
-                            };
-                            match still.get(&c) {
-                                Some(s) if *s == want => {}
-                                Some(s) => return Err(format!("{c:?}: drawn {s}, redsim has {want}")),
-                                None => return Err(format!("{c:?}: redsim has {want}, nothing drawn")),
-                            }
-                        }
+                        continue;
+                    }
+                    if !matches!(wb, Block::Air | Block::MovingPiston { .. }) && !still.contains_key(&q.arr()) {
+                        return Err(format!("{:?}: redsim has {}, nothing drawn", q.arr(), want(q.arr(), &wb)));
                     }
                 }
             }
@@ -1100,26 +1405,37 @@ impl Session {
             return out;
         }
         let w = &self.world;
-        let min = w.min;
-        for y in 0..w.size[1] {
-            for z in 0..w.size[2] {
-                for x in 0..w.size[0] {
-                    let q = min.offset(x, y, z);
-                    let b = w.get(q);
-                    match b {
-                        Block::Air => {}
-                        Block::MovingPiston { .. } => {
-                            if let Some(be) = w.piston.be(q) {
-                                moving_parts(q.arr(), be, partial, &mut out);
-                            }
-                        }
-                        Block::Simple(redsim::block::Simple::Stone) if self.overlay.contains_key(&q.arr()) => {
-                            out.push(RBlock { cell: q.arr(), offset: [0.0; 3], state: self.overlay[&q.arr()].clone() });
-                        }
-                        _ => out.push(RBlock { cell: q.arr(), offset: [0.0; 3], state: b.to_string() }),
+        // the machine's part of the world (a TNT duper's ground is drawn on its own: `mesh::floor`),
+        // then the blocks redsim wrote outside it (`outside`)
+        let (min, size) = self.machine();
+        let cell = |q: BlockPos, out: &mut Vec<RBlock>| {
+            let b = w.get(q);
+            match b {
+                Block::Air => {}
+                Block::MovingPiston { .. } => {
+                    if let Some(be) = w.piston.be(q) {
+                        moving_parts(q.arr(), be, partial, out);
                     }
                 }
+                Block::Simple(redsim::block::Simple::Stone) if self.overlay.contains_key(&q.arr()) => {
+                    out.push(RBlock { cell: q.arr(), offset: [0.0; 3], state: self.overlay[&q.arr()].clone() });
+                }
+                _ => out.push(RBlock { cell: q.arr(), offset: [0.0; 3], state: b.to_string() }),
             }
+        };
+        for y in 0..size[1] {
+            for z in 0..size[2] {
+                for x in 0..size[0] {
+                    let q = min.offset(x, y, z);
+                    if self.in_floor(q.arr()) {
+                        continue;
+                    }
+                    cell(q, &mut out);
+                }
+            }
+        }
+        for c in self.outside.keys() {
+            cell(bp(*c), &mut out);
         }
         out
     }
@@ -1339,14 +1655,20 @@ fn be_extra(w: &World, p: BlockPos, b: &Block) -> Option<String> {
     }
 }
 
-fn frame_digest(w: &World) -> u128 {
+/// The machine's visible state this tick (every cell of its box with its comparator strength or
+/// container contents; a TNT duper's ground left out, like its judge's frames).
+fn frame_digest(s: &Session) -> u128 {
     use std::hash::Hash;
     let mut h = H128::default();
-    let min = w.min;
-    for y in 0..w.size[1] {
-        for z in 0..w.size[2] {
-            for x in 0..w.size[0] {
+    let w = &s.world;
+    let (min, size) = s.machine();
+    for y in 0..size[1] {
+        for z in 0..size[2] {
+            for x in 0..size[0] {
                 let q = min.offset(x, y, z);
+                if s.in_floor(q.arr()) {
+                    continue;
+                }
                 let b = w.get(q);
                 b.hash(&mut h);
                 be_extra(w, q, &b).hash(&mut h);
@@ -1380,7 +1702,7 @@ impl Session {
             for t in 0..=ENTITY_HORIZON {
                 s.apply_due();
                 s.check(t)?;
-                let d = frame_digest(&s.world);
+                let d = frame_digest(&s);
                 let n = ids.len() as u64;
                 frames.push(*ids.entry(d).or_insert(n));
                 if t < ENTITY_HORIZON {
@@ -1418,7 +1740,7 @@ impl Session {
         for t in 0..=(w0 + p) {
             s.apply_due();
             s.check(t)?;
-            frames.push(frame_digest(&s.world));
+            frames.push(frame_digest(&s));
             if t == w0 + p {
                 break;
             }
@@ -1483,8 +1805,16 @@ impl Session {
             shulker: self.shulker_initial.clone(),
             shulker_initial: None,
             visit_due: false,
+            floor: self.floor.clone(),
+            machine_box: self.machine_box,
+            outside: Default::default(),
         };
+        // the world as placed: its ground intact
+        if let Some(f) = s.floor.as_mut() {
+            f.changed.clear();
+        }
         s.apply_due();
+        s.take_writes();
         s
     }
 
@@ -1620,7 +1950,7 @@ impl Session {
         let mut s = self.fresh();
         let end = r.state_warmup + r.state_period;
         loop {
-            for (q, _) in s.world.blocks() {
+            for (q, _) in s.machine_blocks() {
                 grow(&mut lo, &mut hi, q.arr());
             }
             if s.tick >= end {
@@ -1656,22 +1986,22 @@ impl Session {
     }
 }
 
-/// Fold one frame (non-air cells, any order) into an FNV-1a digest: the cells sorted by position,
-/// each as `x,y,z=state;`, then `|`.
-pub fn frame_hash(mut h: u64, cells: &[(BlockPos, Block)]) -> u64 {
-    let mut v: Vec<(BlockPos, String)> = cells.iter().map(|(p, b)| (*p, b.to_string())).collect();
-    v.sort_by_key(|(p, _)| (p.x, p.y, p.z));
-    let mut eat = |bytes: &[u8]| {
-        for b in bytes {
-            h ^= *b as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-    };
-    for (p, s) in &v {
-        eat(format!("{},{},{}={s};", p.x, p.y, p.z).as_bytes());
+/// Fold one frame (non-air cells, any order) into a digest: the cells sorted by position, each
+/// position and block state hashed ([`H128`]: the same on the native and the wasm build), then
+/// `|`. No strings: a TNT duper's ground puts 150,000 cells in every frame.
+pub fn frame_hash(h: u64, cells: &[(BlockPos, Block)]) -> u64 {
+    use std::hash::Hash;
+    let mut v: Vec<&(BlockPos, Block)> = cells.iter().collect();
+    v.sort_unstable_by_key(|(p, _)| (p.x, p.y, p.z));
+    let mut st = H128 { a: h, b: h.rotate_left(32) ^ 0x84222325cbf29ce4 };
+    for (p, b) in v {
+        st.write_i32(p.x);
+        st.write_i32(p.y);
+        st.write_i32(p.z);
+        b.hash(&mut st);
     }
-    eat(b"|");
-    h
+    st.write_u8(b'|');
+    st.a ^ st.b.rotate_left(13)
 }
 
 /// Every live entity (falling blocks included) folded into `h` in spawn order: its kind and the
@@ -1931,6 +2261,41 @@ mod tests {
             assert!(s.halted.is_none(), "{file}: {:?}", s.halted);
             assert!(entities > 0 || file.contains("shulker"), "{file}: no entity drawn");
         }
+    }
+
+    /// vjeux 17:53Z: "Please don't put a fake ground if the tnt goes through it". A TNT duper
+    /// stands on its judge's ground, real blocks of its world: grass over two dirt over bedrock,
+    /// its top the archived safe drop under the design (tnt-launch-15b: a few blocks), the judge's
+    /// reach around it; its TNT land and explode on it (craters: ground cells that changed), and
+    /// what is drawn of it is the world's every tick. A clock has no ground at all.
+    #[test]
+    fn tnt_dupers_stand_on_their_judges_ground() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-launch-15b.txt")).unwrap();
+        let drop = safe_drop(&text);
+        assert!(drop > 0, "tnt-launch-15b needs a drop");
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let f = s.floor.clone().expect("a TNT duper's ground");
+        let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+        assert_eq!(f.hi[1], lowest - 1 - drop, "the top {drop} air blocks under the design");
+        assert_eq!(f.hi[1] - f.lo[1], 3, "4 layers");
+        assert!([GROUND_REACH, 2 * GROUND_REACH, MAX_GROUND_REACH].contains(&f.reach), "reach {}", f.reach);
+        assert_eq!(s.world.get(BlockPos::new(f.lo[0], f.hi[1], f.lo[2])).to_string(), Block::parse("minecraft:grass_block").unwrap().to_string());
+        assert_eq!(s.world.get(BlockPos::new(f.hi[0], f.lo[1], f.hi[2])), Block::parse("minecraft:bedrock").unwrap());
+        let mut craters = 0;
+        for _ in 0..300 {
+            s.drawn_matches_simulation().unwrap_or_else(|e| panic!("tick {}: {e}", s.tick));
+            craters = craters.max(s.floor.as_ref().unwrap().changed.len());
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        assert!(craters > 0, "no TNT went off on the ground");
+        // the reset lays it back as it was
+        s.reset();
+        assert!(s.floor.as_ref().unwrap().changed.is_empty());
+        let clock = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-dripleaf-stand.txt")).unwrap();
+        let c = Session::new(&clock, &Options::default()).unwrap();
+        assert!(c.floor.is_none() && crate::scene::viewer_look(&c).ground.is_none());
     }
 
     /// vjeux: a clock's OUT box is red while its output is powered. The dripleaf stand's big

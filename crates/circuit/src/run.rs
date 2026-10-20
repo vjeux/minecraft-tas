@@ -144,6 +144,7 @@ fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Sche
         t.exploded = d.explosions.len() as u32;
         t.explosions = d.explosions;
         t.out_of_range = d.out_of_range;
+        t.blasts = d.blasts.iter().zip(&d.blast_use).map(|(&(frame, pos, _, _), &(in_fluid, open_ground))| crate::trace::BlastUse { frame, pos, in_fluid, open_ground }).collect();
         return Ok(t);
     }
 }
@@ -228,6 +229,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut out_of_range = 0u32;
     let design_box: ([i32; 3], [i32; 3]) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
     let mut explosions: Vec<u32> = Vec::new();
+    let mut blasts: Vec<crate::trace::BlastUse> = Vec::new();
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -268,6 +270,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
             let ents = w.entities(sb)?;
             let alive: std::collections::HashSet<&str> = ents.iter().filter(|e| e.kind.trim_start_matches("minecraft:") == "tnt").map(|e| e.uuid.as_str()).collect();
             let mut vanished_early: Option<(String, i32)> = None;
+            let mut went_off: Vec<String> = Vec::new();
             burning.retain(|u, last_fuse| {
                 let gone = !alive.contains(u.as_str());
                 if gone {
@@ -276,12 +279,28 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     if *last_fuse <= 1 {
                         exploded += 1;
                         explosions.push(next as u32);
+                        went_off.push(u.clone());
                     } else if vanished_early.is_none() {
                         vanished_early = Some((u.clone(), *last_fuse));
                     }
                 }
                 !gone
             });
+            // where each went off: its last sighting (fuse 1) plus its last move (gravity first,
+            // as `PrimedTnt.tick`; a TNT at rest stays), the fluid in that cell and what the blast
+            // would destroy on open ground there (the TNT judge's usefulness rule)
+            for u in &went_off {
+                let Some(&k) = tnt_index.get(u) else { continue };
+                let (p, m) = primed[k].end.unwrap_or((primed[k].last_pos, [0.0; 3]));
+                let mv = [m[0], m[1] - 0.04, m[2]];
+                let moving = mv.iter().map(|v| v * v).sum::<f64>() >= 0.05 * 0.05;
+                let at = if moving { [p[0] + mv[0], p[1] + mv[1], p[2] + mv[2]] } else { p };
+                let center = redsim::entity::Vec3::new(at[0], at[1] + 0.98f32 as f64 * 0.0625, at[2]);
+                let fluid: std::collections::HashSet<Pos> = cells.last().map(|f| f.iter().filter(|(_, s)| is_fluid_state(s)).map(|(q, _)| *q).collect()).unwrap_or_default();
+                let fluid_at = |q: redsim::pos::BlockPos| fluid.contains(&[q.x, q.y, q.z]);
+                let cell = redsim::pos::BlockPos::new(center.x.floor() as i32, center.y.floor() as i32, center.z.floor() as i32);
+                blasts.push(crate::trace::BlastUse { frame: next, pos: [center.x, center.y, center.z], in_fluid: fluid_at(cell), open_ground: redsim::explosion::open_ground(center, redsim::explosion::TNT_POWER, &fluid_at) });
+            }
             if let Some((u, f)) = vanished_early {
                 return Ok(Err(format!("frame {next}: a primed TNT ({u}) vanished with fuse {f} left (out of the loaded world?), not an explosion")));
             }
@@ -386,5 +405,13 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     t.exploded = exploded;
     t.out_of_range = out_of_range;
     t.explosions = explosions;
+    t.blasts = blasts;
     Ok(Ok(t))
+}
+
+/// A cell state (a frame's string) holding a fluid: water, lava, a bubble column, a waterlogged
+/// block.
+fn is_fluid_state(s: &str) -> bool {
+    let n = s.trim_start_matches("minecraft:");
+    n.starts_with("water") || n.starts_with("lava") || n.starts_with("bubble_column") || s.contains("waterlogged=true")
 }

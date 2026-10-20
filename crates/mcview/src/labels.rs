@@ -145,9 +145,11 @@ pub fn thousands(n: u32) -> String {
 /// What the label of one entry says next to its icon: `1,344`; one box `12/27`; several `×3`.
 pub fn entry_text(e: &Entry) -> String {
     match e {
-        Entry::Items { count, .. } => thousands(*count),
-        Entry::Boxes { n: 1, used, slots, .. } => format!("{used}/{slots}"),
-        Entry::Boxes { n, .. } => format!("×{n}"),
+        // with its unit (critique: "×27" read as stacks beside a hopper's "×9" items)
+        Entry::Items { count: 1, .. } => "1 item".into(),
+        Entry::Items { count, .. } => format!("{} items", thousands(*count)),
+        Entry::Boxes { n: 1, used, slots, .. } => format!("{used}/{slots} slots"),
+        Entry::Boxes { n, .. } => format!("{n} boxes"),
     }
 }
 
@@ -277,12 +279,15 @@ impl Layout {
         cands.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
         for (_, k, c) in cands {
             let y1 = ay - GAP - k as f64 * (h + GAP);
-            let x0 = ax - w / 2.0 + c as f64 * (w + 4.0);
+            // centred over its point, or a whole width aside; centred but past the view's edge:
+            // slid back inside (a long tag near the edge)
+            let centred = ax - w / 2.0;
+            let x0 = if c == 0 && safe.x1 - safe.x0 >= w { centred.min(safe.x1 - w).max(safe.x0) } else { centred + c as f64 * (w + 4.0) };
             let r = Rect { x0, y0: y1 - h, x1: x0 + w, y1 };
             if !r.inside(safe) || self.obstacles.iter().chain(self.texts.iter()).any(|p| p.overlaps(&r)) || self.lines.iter().any(|(a, b)| seg_hits(*a, *b, &r)) {
                 continue;
             }
-            let moved = k > 0 || c != 0;
+            let moved = k > 0 || c != 0 || (x0 - centred).abs() > w / 4.0;
             if moved {
                 let end = leader_end(ax, ay, &r);
                 if self.texts.iter().any(|t| seg_hits((ax, ay), end, t)) {
@@ -363,7 +368,10 @@ mod tests {
         assert_eq!(e[0], Entry::Boxes { id: item_name(boxid), n: 1, used: 12, slots: 27 });
         assert_eq!(e[1], Entry::Items { id: "redstone", count: 67 });
         assert_eq!(e[2], Entry::Items { id: "iron_shovel", count: 2 });
-        assert_eq!(entry_text(&e[0]), "12/27");
+        assert_eq!(entry_text(&e[0]), "12/27 slots");
+        assert_eq!(entry_text(&e[1]), "67 items");
+        assert_eq!(entry_text(&Entry::Items { id: "redstone", count: 1 }), "1 item");
+        assert_eq!(entry_text(&Entry::Boxes { id: item_name(boxid), n: 27, used: 0, slots: 729 }), "27 boxes");
         assert_eq!(thousands(1344), "1,344");
         assert_eq!(thousands(999), "999");
         assert_eq!(thousands(1_000_000), "1,000,000");

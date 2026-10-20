@@ -92,7 +92,7 @@ safe on the ground; more than 40 = fails). A lower safe height beats a smaller m
 |---|---|---|---|---|
 | tnt-triggered-launch-16b | 16 | one per pulse | **0: safe on the ground** | 14.2 to 18.5 blocks away (grass), 14.2 (obsidian); 0 machine blocks destroyed |
 | tnt-slow-launch-30b | 30 | 13.2/min | **0: safe on the ground** | 14.2 to 18.5 (grass), 14.2 (obsidian): one TNT at a time (a 91-tick clock) |
-| tnt-precise-slow-43b | 43 | 13.2/min, precise | **0: safe on the ground** | all in its own water channel (water: no block breaks); 0 destroyed, also over 10 minutes |
+| tnt-precise-slow-43b | 43 | 13.2/min, precise | REMOVED (2026-10-20, the usefulness rule) | all in its own water channel (water: no block breaks): every TNT explodes in water, so it is useless (designs/circuits/tnt/tracks/rejudged/) |
 | tnt-lever-launch-15b | 15 | 200/min, switchable | 6 blocks | (at its safe drop) 13.7 to 49.3 (grass), 9.5 to 41.3 (obsidian) |
 | tnt-launch-15b | 15 | 200/min | 8 blocks | (at its safe drop) 11.8 to 54.3 (grass), 11.7 to 59.1 (obsidian); 0 destroyed over 10 minutes |
 | tnt-drop-16b | 16 | 200/min, dropped | 31 blocks | (at its safe drop) 23.6 to 35.7 blocks away: it only works over a deep pit |
@@ -118,7 +118,17 @@ designs archived before, in the real game at 16 builds:
 | tnt-launch-15b | survives: all 96 TNT leave out of range | archived: the SMALLEST survivable duper |
 | tnt-drop-16b | survives: all TNT fall straight down out of range | archived |
 
-PRECISE under explosions: DONE by slowing it down (coordinator): archive/tnt-precise-slow-43b — the
+PRECISE under explosions: DONE by slowing it down (coordinator), then REMOVED (2026-10-20: every TNT
+of it explodes in its water aligner, and the judge's usefulness rule fails a duper whose TNT explodes
+in water; the precise record is tnt-airburst, which launches each TNT out of the water first: 58
+blocks since 2026-10-20, designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt, after fly's 75-block
+tnt-airburst-75b. Straight up from an aligner right at the duper (2 blocks north) the TNT peaks
+only ~6 blocks above the machine's top slime, inside the blast's 6.9-block reach, so the aligner sits
+4 blocks north; its x stop is a fence post, not a wall, so the TNT rests over obsidian (no slime
+slowdown) and the first launch tick, still sliding along the post, closes the last 0.0003 of a block
+that a TNT pushed by the current can stop short of (Entity.move drops a collided move under 3.2e-4
+blocks): every kick ends at one point):
+tnt-precise-slow-43b — the
 precise water-channel aligner on a slow engine (a 7-block crafter-loop clock, period 91 gt, holds
 the sticky piston and releases it for 6 gt: one push a period), so one TNT is alive at a time
 (91 gt > its 80 gt fuse): no blast knocks the next one, each goes off in the water (no block

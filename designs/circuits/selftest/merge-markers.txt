@@ -1,0 +1,20 @@
+# A design file left with unresolved merge markers. The judge must refuse it rather than parse
+# the HEAD half silently: on 2026-10-20 a marker-carrying design reached main and broke the site
+# build, because nothing in the tooling looked at designs/ for markers.
+name: cal-merge-markers
+circuit: tff
+<<<<<<< HEAD
+port input: -1 1 0
+=======
+port input: -1 1 1
+>>>>>>> origin/main
+port output: 2 1 0
+origin: 0 0 0
+palette:
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  .S
+layer 1:
+  WC

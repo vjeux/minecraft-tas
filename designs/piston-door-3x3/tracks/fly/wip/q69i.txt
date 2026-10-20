@@ -1,0 +1,38 @@
+name: fly-q69i
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  S minecraft:slime_block
+  R minecraft:redstone_block
+  w minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  q minecraft:sticky_piston[extended=false,facing=down]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=true,facing=up]
+  h minecraft:piston_head[facing=up,short=false,type=sticky]
+  O minecraft:observer[facing=west,powered=false]
+  W minecraft:piston[extended=false,facing=east]
+  N minecraft:piston[extended=false,facing=up]
+layer -3:
+  ..EE
+  ..RR
+layer -2:
+  .Nhhu
+layer -1:
+  .WOu.w
+layer 0:
+  .SFFFF
+layer 1:
+  .SFFFF
+layer 2:
+  .SFFFF
+layer 3:
+  .SSHq
+layer 4:
+  .SwDH
+  ...R
+layer 5:
+  ....D
+  ....R
