@@ -171,3 +171,12 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   validated plan (none / conflicts / weak in the TSV and the --rank-unfed key); ISLAND START in
   families' wiring analysis (per lever region and edge, a firing needs a started feed region,
   regions next to a change start; u0 / u2 = 6), the rank key right after unfed.
+- Island-start-ranked search from u2/u0 (+ SD+(1,4) lever-QC variants), 3 rounds: 88 WORKING
+  7x7 variants with every receiver fed, best macro island start 3 (5 actions per piston);
+  pext's `door interleave --islands` finds no island-respecting train for the batch (best 2 cells
+  off), but u-island mm02 runs from ONE train with no one-edge pulse (explore/pext 53ce91c84).
+  The walls left are pulse counts: the left column SE(-2,0)/SE(-2,1) and the bottom-left
+  SU(-1,-2) (4-6 pulses per edge into the 2-cell island (-2,-2),(-2,-1)). Their level versions
+  (extended at rest) collide with Q at L0. w86 continues this search (devvm59213).
+- 8x6 from w86's a3r with `--no-inside --repair --add` (1 round, 363 neighbours, 1807 s): no
+  variant solves without W's inside firing; growth stays at 2 cells filled (BM and C); killed.

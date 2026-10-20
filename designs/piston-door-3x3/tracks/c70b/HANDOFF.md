@@ -25,7 +25,7 @@
   for pext: bars/u-max2, mm/u-island (island-start-ranked search).
 - Tools added late: d67's `door feeds` (merged; mechmut ranks by none/conflicts/weak), families'
   pocket load and ISLAND START (macro, one schedule), mechmut `--connect-cap`.
-- Running at handoff: mechmut from w86's a3s (7x6) with --no-inside --repair --add (mm/a3s-noin*).
+- Running at handoff: nothing (8x6 a3r no-inside completion search killed: no growth).
 
 ## 5. Provenance (vjeux 2026-10-20: the site publishes only our own doors)
 - `mctas door provenance` -> designs/piston-door-3x3/archive/provenance.tsv (1175 ours, 519
