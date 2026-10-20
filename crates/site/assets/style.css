@@ -183,11 +183,13 @@ button { font: inherit; }
 /* cards */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .grid.two { grid-template-columns: repeat(auto-fill, minmax(320px, 420px)); }
-/* a study's kind with its one card: the words beside the card on a wide screen, stacked on a phone */
-.kind-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 380px); gap: 12px 28px; align-items: start; margin: 18px 0; }
-.kind-row .kind-text h2 { margin-top: 0; }
-.grid.one { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 700px) { .kind-row { grid-template-columns: minmax(0, 1fr); } }
+/* a study page's kinds, one card each: a grid of cells, each kind's words above its card, the
+   cards lined up at the bottom of each row */
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px 22px; margin: 18px 0; align-items: stretch; }
+.kind-cell { display: flex; flex-direction: column; min-width: 0; }
+.kind-cell h2 { margin: 0 0 4px; font-size: 18px; }
+.kind-cell > p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+.kind-cell > .card { margin-top: auto; }
 .card {
   display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; color: var(--fg); box-shadow: var(--shadow); transition: transform .08s ease, border-color .08s ease;
