@@ -452,6 +452,14 @@ impl Worker {
         Ok(())
     }
 
+    /// The sandbox's level random state (`LegacyRandomSource.seed`, the 48-bit LCG state), read
+    /// without advancing it: redsim's level-random mirror is checked against it (trace-export's
+    /// "rng").
+    pub fn random_state(&mut self, sandbox: u32) -> Result<i64> {
+        let v = self.call(json!({"op": "random_state", "sandbox": sandbox}))?;
+        v["seed"].as_i64().context("random_state: no seed")
+    }
+
     /// Write blocks. Returns how many positions changed.
     pub fn set_blocks<S: AsRef<str>>(&mut self, sandbox: u32, blocks: &[(Pos, S)], mode: PlaceMode) -> Result<u32> {
         let list: Vec<Value> = blocks.iter().map(|(p, s)| json!([p[0], p[1], p[2], s.as_ref()])).collect();

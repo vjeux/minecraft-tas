@@ -753,8 +753,18 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
 /// A block event (`triggerEvent`).
 pub fn trigger_event(w: &mut World, s: Block, p: BlockPos, a: i32, b: i32) -> bool {
     match s {
-        // Note blocks: the sound only.
-        Block::Note { .. } => true,
+        // Note blocks: the sound only (`playSeededSound` takes `level.getRandom().nextLong()`; a
+        // custom-head note block without a head sound returns before it: redsim's player heads
+        // carry none)
+        Block::Note { instrument, .. } => {
+            if instrument == crate::block::Instrument::CustomHead {
+                return false;
+            }
+            if let Some(r) = w.rng() {
+                r.next_long();
+            }
+            true
+        }
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::trigger_event(w, s, p, a, b),
         _ => false,
     }

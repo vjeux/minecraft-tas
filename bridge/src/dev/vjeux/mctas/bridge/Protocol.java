@@ -164,6 +164,7 @@ public final class Protocol {
             case "exec" -> exec(r);
             case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
+            case "random_state" -> randomState(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "viewer_mode" -> viewerMode(r);
@@ -312,6 +313,14 @@ public final class Protocol {
         JsonObject o = new JsonObject();
         o.add("positions", out);
         o.add("random", random);
+        return o;
+    }
+
+    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}). */
+    private JsonObject randomState(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonObject o = new JsonObject();
+        o.addProperty("seed", sb.randomState());
         return o;
     }
 

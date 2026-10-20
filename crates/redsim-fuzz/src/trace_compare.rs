@@ -41,6 +41,13 @@ pub struct Trace {
     pub to: [i32; 3],
     /// Per tick: the cells that changed (all non-air cells at t = 0), and every entity.
     pub frames: Vec<(Vec<([i32; 3], String)>, Vec<TraceEntity>)>,
+    /// The sandbox seed and forced chunk box `[minX, minZ, maxX, maxZ]` (header `seed`,
+    /// `chunks`): with both, redsim mirrors the level random (`World::mirror_level_random`).
+    pub seed: Option<i64>,
+    pub chunks: Option<[i32; 4]>,
+    /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
+    /// with `random_state`), checked against the mirror every frame.
+    pub rng: Vec<Option<i64>>,
 }
 
 fn f3(v: &serde_json::Value) -> Option<[f64; 3]> {
@@ -66,6 +73,12 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         from: i3(&bx[0]).context("header: box")?,
         to: i3(&bx[1]).context("header: box")?,
         frames: Vec::new(),
+        seed: h["seed"].as_i64(),
+        chunks: h["chunks"].as_array().and_then(|a| {
+            let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        }),
+        rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
         let v: serde_json::Value = serde_json::from_str(line).with_context(|| format!("line {}", i + 2))?;
@@ -89,6 +102,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             });
         }
         t.frames.push((blocks, ents));
+        t.rng.push(v["rng"].as_i64());
     }
     Ok(t)
 }
@@ -233,6 +247,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let mut w = World::new(bp(from), size);
     // TNT entities (their kick replaced: each new one takes the game's state when first seen)
     w.tnt_kick = Some(0.0);
+    // the level random, mirrored from the sandbox's seed and forced chunks (before placement:
+    // placement can draw, e.g. a powered door's sound)
+    if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
+        w.mirror_level_random(seed, chunks);
+    }
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
     match c.placement {
@@ -337,6 +356,13 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
         }
         entity_diffs(ents, &entities_of(&w), &mut ed);
+        // the level random after this frame (exact traces with `rng`): a drift shows on the tick
+        // it starts, not later through behavior
+        if let (Some(game), Some(r)) = (trace.rng.get(t).copied().flatten(), w.level_random.as_ref()) {
+            if let Some(d) = redsim::rng::state_diff(game, r.state()) {
+                ed.push(d);
+            }
+        }
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {
