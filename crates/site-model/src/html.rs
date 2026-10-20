@@ -68,10 +68,19 @@ pub fn subline(b: &Build) -> String {
         }
         "clock" => {
             let p = b.clock.as_ref().map(|c| gt_time(c.period)).unwrap_or_default();
-            format!("{p} · {} blocks · {}", b.blocks, b.group.replace('+', " + "))
+            format!("{p} · {} · {}", blocks_word(b.blocks), b.group.replace('+', " + "))
         }
-        _ => format!("{} · {} blocks", b.group, b.blocks),
+        _ => match &b.circuit {
+            // `rising-edge · L = 2 gt · 3 blocks`
+            Some(c) if c.axis.contains('=') => format!("{} · {} · {}", b.group, c.axis, blocks_word(b.blocks)),
+            _ => format!("{} · {}", b.group, blocks_word(b.blocks)),
+        },
     }
+}
+
+/// `1 block`, `3 blocks`.
+pub fn blocks_word(n: u32) -> String {
+    if n == 1 { "1 block".to_string() } else { format!("{n} blocks") }
 }
 
 /// Badges shown on a card (short).
