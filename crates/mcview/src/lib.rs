@@ -26,7 +26,6 @@ pub mod render;
 pub mod replay;
 pub mod scene;
 pub mod session;
-pub mod tnt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tools;
 
