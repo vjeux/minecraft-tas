@@ -410,6 +410,9 @@ pub fn palette(spec: &str) -> Result<Vec<(String, u32)>> {
         ("water", 0),
         ("soulsand", 0),
         ("magma", 0),
+        // plain and detector rails (redsim M4)
+        ("plainrail", 0),
+        ("detrail", 0),
     ];
     let mut out: Vec<(String, u32)> = Vec::new();
     for tok in spec.split(',').map(str::trim).filter(|t| !t.is_empty()) {
@@ -505,6 +508,29 @@ fn random_state(r: &mut Rng, fam: &str) -> Vec<String> {
         "rail" => {
             let shape = *r.pick(&["north_south", "east_west", "north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]);
             st(format!("{}[powered={},shape={shape},waterlogged=false]", if r.chance(0.7) { "powered_rail" } else { "activator_rail" }, tf(r, 0.2)))
+        }
+        // plain rails (curves too) and detector rails (redsim M4: rails.rs): `--palette
+        // stone:6,plainrail:6,detrail:3,rail:3,...`
+        "plainrail" => {
+            let shape = *r.pick(&[
+                "north_south",
+                "east_west",
+                "north_south",
+                "east_west",
+                "ascending_east",
+                "ascending_west",
+                "ascending_north",
+                "ascending_south",
+                "south_east",
+                "south_west",
+                "north_west",
+                "north_east",
+            ]);
+            st(format!("rail[shape={shape},waterlogged=false]"))
+        }
+        "detrail" => {
+            let shape = *r.pick(&["north_south", "east_west", "ascending_east", "ascending_west", "ascending_north", "ascending_south"]);
+            st(format!("detector_rail[powered={},shape={shape},waterlogged=false]", tf(r, 0.15)))
         }
         "dispenser" => st(format!("{}[facing={},triggered={}]", if r.chance(0.5) { "dispenser" } else { "dropper" }, anydir(r), tf(r, 0.15))),
         // item transfer: droppers and hoppers (contents from `container_items`)
