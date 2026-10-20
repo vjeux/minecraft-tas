@@ -747,7 +747,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
 /// (`designs/circuits/calibration/`, `selftest/`) stay in the repository for the judge and are
 /// not published (vjeux: "They are not useful to people").
 pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
-    export_with(repo, false)
+    let (mut builds, mut notes) = export_with(repo, false)?;
+    // one world-best design per kind (vjeux 21:47Z); the rest stay in the repository
+    notes.extend(crate::kinds::select_circuits(&mut builds));
+    Ok((builds, notes))
 }
 
 /// [`export`], with the designs crates/site/hidden.tsv keeps off the site too (`keep_hidden`:
