@@ -472,14 +472,16 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 let n = t.round().max(0.0) as u32;
                 format!("{n} gt ({})", real_time(n))
             };
-            let timing = match c.view_run.as_ref().map(|v| (v.first, v.cycle)) {
-                Some((Some(f), Some(cy))) => format!(
-                    " In the view the first box goes out {} after the machine starts, then one every {}{}.",
+            let timing = match c.view_run.as_ref().map(|v| (v.first, v.cycle, v.lines)) {
+                Some((Some(f), Some(cy), lines)) => format!(
+                    " In the view the first box goes out {} after the machine starts, then {}one every {}{}{}.",
                     gt(f as f64),
+                    if lines > 1 { format!("from its {lines} lines together, ") } else { String::new() },
                     gt(cy),
+                    if lines > 1 { " on average" } else { "" },
                     if cy >= 1200.0 { format!(", or one every {:.0} s at 100× speed", cy / 2000.0) } else { String::new() }
                 ),
-                Some((Some(f), None)) => format!(" In the view the first box goes out {} after the machine starts.", gt(f as f64)),
+                Some((Some(f), None, _)) => format!(" In the view the first box goes out {} after the machine starts.", gt(f as f64)),
                 _ => String::new(),
             };
             s.push_str(&format!("<p><b>The machine runs in the view.</b> {supply}{what}{timing} The numbers over each chest, hopper and dispenser show what it holds. Speed it up with the bar's speed button (up to 100×).</p>"));
@@ -610,7 +612,7 @@ pub fn metric_value(v: &str) -> String {
 }
 
 /// The studies, in order: (folder, title, what it collects and how designs are ranked).
-pub const STUDIES: [(&str, &str, &str); 10] = [
+pub const STUDIES: [(&str, &str, &str); 11] = [
     (
         "pulse",
         "Pulse circuits",
@@ -660,6 +662,11 @@ pub const STUDIES: [(&str, &str, &str); 10] = [
         "bud",
         "BUD switches",
         "Block update detectors: a block placed, removed or changed at the target cell fires the output, although nothing there powers it. The judge tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design detects, its latency, its pulse, how soon it can fire again (re-arm) and its footprint. Designs are ranked by what they detect, then blocks placed.",
+    ),
+    (
+        "pulsemult",
+        "Pulse multipliers, dividers and monostables",
+        "Timing circuits. A burst generator turns one input pulse into exactly N output pulses (N dispenser shots, N items, N piston pushes); a frequency divider slows a running clock by N; a monostable makes one pulse of length L per trigger, and either ignores triggers while it is on (non-retriggerable) or stays on until L after the last one (retriggerable); an off-delay keeps the output on L longer than the input, an on-delay ignores inputs shorter than T; a pulse train pulses every P gt while its input is on. The judge measures each one's main number (N, L, T or P) and how it behaves under fast or repeated inputs; designs are ranked by blocks placed for each value.",
     ),
 ];
 

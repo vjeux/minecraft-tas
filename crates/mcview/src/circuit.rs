@@ -174,6 +174,24 @@ pub fn shulker_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::endless(loader, item, cells("items"), cells("boxes"), cells("output"), rejects))
 }
 
+/// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
+/// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
+/// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
+/// (`web check` compares it with the circuit crate's box for every shulker design).
+pub fn judge_box(d: &Design) -> Option<(Pos, Pos)> {
+    let m = redsim::redstone::shulker::JUDGE_MARGIN;
+    let mut pts = d.blocks.keys().copied().chain(d.ports.values().map(|(p, _)| *p));
+    let first = pts.next()?;
+    let (mut lo, mut hi) = (first, first);
+    for p in pts {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    Some(([lo[0] - m, lo[1] - m, lo[2] - m], [hi[0] + m, hi[1] + m, hi[2] + m]))
+}
+
 /// Where a shulker design's box stands while it is filled or emptied: the cell in front of its
 /// dispenser (the "box cell X" under the dispenser of the reference designs), when it is air: a
 /// still shulker box there makes the machine readable (it is not simulated).

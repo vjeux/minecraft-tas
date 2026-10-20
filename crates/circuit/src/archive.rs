@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 10] = [
+pub const STUDIES: [(&str, &str); 11] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -29,6 +29,7 @@ pub const STUDIES: [(&str, &str); 10] = [
     ("shulker", "Shulker loaders and unloaders"),
     ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
+    ("pulsemult", "Pulse multipliers, dividers and monostables"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -172,6 +173,13 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
         let has = |r: &Row, k: &str| r.summary.contains(k);
         return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
+    }
+    // study 11: a burst that repeats faster or takes shorter inputs, a divider that follows a
+    // faster clock, a timer with a shorter latency or re-arm keeps its own card
+    let pm = ["burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train"];
+    if pm.iter().any(|k| b.kind.starts_with(k)) && pm.iter().any(|k| a.kind.starts_with(k)) {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("repeat ") || less("min-pulse ") || less("min-period ") || less("latency ") || less("re-arm ");
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
@@ -383,6 +391,12 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
         Kind::TntDuper => m("rate"),
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
+        Kind::Burst(n) => format!("N = {n}"),
+        Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
+        Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
+        Kind::OffDelay => format!("off L = {}", m("L")),
+        Kind::OnDelay => format!("on T = {}", m("T")),
+        Kind::PulseTrain => format!("P = {}", m("P")),
     }
 }
 

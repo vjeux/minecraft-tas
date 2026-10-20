@@ -553,9 +553,10 @@ pub fn game_run_recorded(w: &mut Worker, c: &Circuit, sc: &Scenario, margin: i32
 /// The sandbox seed of a build: from where it stands (its watch box), so the builds of a verdict
 /// sample different drops instead of replaying one, and the stress run's number. The bridge seeds
 /// each piston-broken drop's own random from it (docs/mechanics.md, "Drops and the bridge's
-/// seeds"); redsim's replay of a trace takes it from the trace's header.
+/// seeds") and reseeds the sandbox's level random to it; redsim's replay of a trace takes it from
+/// the trace's header, the viewer from the design (one formula: `redsim::redstone::shulker`).
 pub fn build_seed(from: Pos, to: Pos, salt: i64) -> i64 {
-    (from[0] as i64).wrapping_mul(73_856_093) ^ (from[1] as i64).wrapping_mul(19_349_663) ^ (from[2] as i64).wrapping_mul(83_492_791) ^ (to[0] as i64 - to[2] as i64).wrapping_mul(2_654_435_761) ^ salt.wrapping_mul(0x9E37_79B9_7F4A_7C15u64 as i64)
+    redsim::redstone::shulker::build_seed(from, to, salt)
 }
 
 fn design_dims(c: &Circuit) -> [i32; 3] {

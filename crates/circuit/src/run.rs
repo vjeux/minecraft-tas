@@ -36,11 +36,16 @@ pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
 /// reaches the box's far end along `travel` ends its run there ([`Trace::ended`]). A block that
 /// cannot survive where it stands (a floating lever, torch, dust or repeater) fails it.
 pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<Trace, String> {
+    sim_trace_with(c, s, margin, true)
+}
+
+/// [`sim_trace`], with or without the judge's consumer lamps (`verify::lamp_part` runs without).
+pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -> std::result::Result<Trace, String> {
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let (from, to) = watch_box(c, margin);
     // the judge's consumer in every air output cell (crate::CONSUMER)
-    let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
+    let cc = if consumers { c.with_consumers().map_err(|e| format!("{e:#}"))? } else { c.clone() };
     if let Some((p, st)) = clock::sim::unsupported(&cc.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }

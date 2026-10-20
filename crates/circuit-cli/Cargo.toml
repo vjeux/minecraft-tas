@@ -22,3 +22,4 @@ circuit-pext = { path = "../circuit-pext" }
 circuit-fly = { path = "../circuit-fly" }
 circuit-shulker = { path = "../circuit-shulker" }
 circuit-tnt = { path = "../circuit-tnt" }
+circuit-pulsemult = { path = "../circuit-pulsemult" }

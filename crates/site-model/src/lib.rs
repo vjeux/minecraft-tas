@@ -318,6 +318,8 @@ pub struct ViewRun {
     pub item: String,
     /// Items that reached a filter's reject chests.
     pub rejected: u32,
+    /// OUT chests (a machine with two lines delivers into two).
+    pub lines: u32,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
