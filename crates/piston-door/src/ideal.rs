@@ -151,6 +151,46 @@ impl Schedule {
         Self::parse_with(text, &BTreeMap::new())
     }
 
+    /// A plan's text with every event's tick moved: events on a cell listed in `shifts` by its
+    /// shift, the others by `rest`. Ticks are evaluated with the plan's `let`s and written as
+    /// numbers; other lines are kept. Fails on a tick that would become negative. For trying a
+    /// re-timed plan (one area started later than the lever, say) without editing it by hand.
+    pub fn shift_text(text: &str, shifts: &[(Pos, i64)], rest: i64) -> Result<String> {
+        let mut vars = BTreeMap::new();
+        let mut out = String::new();
+        for (i, raw) in text.lines().enumerate() {
+            let (body, comment) = match raw.split_once('#') {
+                Some((b, c)) => (b, Some(c)),
+                None => (raw, None),
+            };
+            let p: Vec<&str> = body.split_whitespace().collect();
+            let ctx = || format!("line {}: {raw:?}", i + 1);
+            if p.first() == Some(&"let") {
+                let (k, v) = body.trim()[3..].split_once('=').with_context(ctx)?;
+                vars.insert(k.trim().to_string(), eval(v.trim(), &vars).with_context(ctx)?);
+            }
+            if p.len() >= 6 && (p[0] == "open" || p[0] == "close") {
+                let int = |s: &str| s.parse::<i32>().with_context(ctx);
+                let pos = [int(p[3])?, int(p[4])?, int(p[5])?];
+                let k = shifts.iter().find(|(c, _)| *c == pos).map_or(rest, |(_, k)| *k);
+                let t = eval(p[1], &vars).with_context(ctx)? + k;
+                anyhow::ensure!(t >= 0, "tick {t} < 0 after the shift: {}", ctx());
+                let tick = t.to_string();
+                let mut q = p.clone();
+                q[1] = &tick;
+                out += &q.join(" ");
+                if let Some(c) = comment {
+                    out += " #";
+                    out += c;
+                }
+            } else {
+                out += raw;
+            }
+            out.push('\n');
+        }
+        Ok(out)
+    }
+
     /// [`Schedule::parse`] with variables set from outside (`--set`): a `let` of an overridden
     /// name keeps the override, and later `let`s built from it see it.
     pub fn parse_with(text: &str, overrides: &BTreeMap<String, i64>) -> Result<Schedule> {
