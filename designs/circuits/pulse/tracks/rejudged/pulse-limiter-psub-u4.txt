@@ -1,0 +1,36 @@
+# rejudged (2026-10-20T16:36Z, mctas circuit archive --rejudge): FAIL: pulse-limiter-psub-u4 pulse-limiter: input in at [0, 1, 0]: no side of the input cell leads out of the build for the judge's input repeater (a free cell for the repeater, one under it and one beyond it outside the box; a moving design: all outside its swept box). R7: inputs are driven like a real build drives them; move the input to the edge of the build
+name: pulse-limiter-psub-u4
+# Extendable family limiter-psub-u4 (n = 0): pulse-limiter with L = 13 + 16n gt, 25 + 4n blocks. a sticky piston pushes a redstone block behind a subtract comparator (an odd delay: the piston moves in the tick after the input, the block lands in the block-entity phase); the input reaches the comparator's side through a U of delay-4 repeaters (an even delay), so the output is on for an odd number of ticks. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family limiter-psub-u4 --n N --out FILE.
+circuit: pulse-limiter
+group: pulse-limiter-psub
+extend family: pulse-limiter-psub-u4
+extend axis: 13 + 16n
+extend blocks: 25 + 4n
+extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
+extend n: 0..10
+extend group title: odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters
+extend group note: Odd lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the smaller 7-block hopper item timer; this chain gives the odd lengths it can't (13, 29, 45... ticks).
+extend base: 0
+extend generator: mctas circuit pulse family limiter-psub-u4 --n {n} --out {out}
+origin: -2 0 -1
+port input: 0 1 0
+port output: 4 1 -1
+palette:
+  S minecraft:stone
+  W minecraft:redstone_wire
+  O minecraft:observer[facing=east,powered=false]
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:redstone_block
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  M minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+layer 0:
+  SS...S.
+  S....S.
+  ..S..S.
+  ..SSSS.
+layer 1:
+  WWAB.C.
+  WO...W.
+  ..N..M.
+  ..WWWW.

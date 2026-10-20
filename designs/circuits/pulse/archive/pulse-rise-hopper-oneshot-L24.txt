@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:57Z from designs/circuits/tracks/pulse/wr/pulse-rise-hopper-oneshot-L24.txt by mctas circuit archive
-# CIRCUIT: pulse-rise-hopper-oneshot-L24 rising-edge L 24 gt, delay 7 gt, min-pulse 4 gt, 13 blocks, 5x3x3, robust
+# CIRCUIT: pulse-rise-hopper-oneshot-L24 rising-edge L 24 gt, delay 6 gt, min-pulse 4 gt, 13 blocks, 5x3x3, robust
 name: pulse-rise-hopper-oneshot-L24
 circuit: rising-edge
 group: hopper-oneshot-rise

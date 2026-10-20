@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:53Z from designs/circuits/tracks/pulse/wr/pulse-extender-hopper-oneshot-L8.txt by mctas circuit archive
-# CIRCUIT: pulse-extender-hopper-oneshot-L8 pulse-extender L 8 gt, delay 7 gt, min-pulse 4 gt, 13 blocks, 5x3x3, robust
+# CIRCUIT: pulse-extender-hopper-oneshot-L8 pulse-extender L 8 gt, delay 6 gt, min-pulse 4 gt, 13 blocks, 5x3x3, robust
 name: pulse-extender-hopper-oneshot-L8
 circuit: pulse-extender
 group: hopper-oneshot-extender

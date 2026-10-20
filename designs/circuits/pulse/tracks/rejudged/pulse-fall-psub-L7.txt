@@ -1,0 +1,24 @@
+# rejudged (2026-10-20T16:34Z, mctas circuit archive --rejudge): FAIL: pulse-fall-psub-L7 falling-edge: the longest input pulse (40 gt) gives 0 output pulse(s): want 1 on its falling edge
+name: pulse-fall-psub-L7
+circuit: falling-edge
+group: pulse-fall-psub
+group title: odd-length falling-edge pulse: a piston-moved redstone block
+# Odd falling-edge pulses (L = 7 gt): a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (the piston moves the tick after the input, the block lands in the block-entity phase: an odd delay); the comparator's side gets the input inverted by a redstone torch (through dust into its block) and delayed by two repeaters (2 and 2: an even delay), so after the falling edge the output is on from the block's return until the torch's signal arrives: L = 2 x (2 + 2) - 1 = 7 gt.
+origin: -2 0 -1
+port input: 0 1 -1
+port output: 2 1 1
+palette:
+  S minecraft:stone
+  W minecraft:redstone_wire
+  T minecraft:redstone_wall_torch[facing=south,lit=true]
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:redstone_block
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  Q minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  U minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+layer 0:
+  .S...
+  .SSSS
+layer 1:
+  SW.AB
+  TQUWC
