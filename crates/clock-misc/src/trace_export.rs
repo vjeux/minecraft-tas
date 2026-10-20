@@ -39,9 +39,17 @@ pub struct ExportArgs {
     #[arg(long)]
     pub exact: bool,
     /// Record this many ticks of any design (not only archived ones: a test scene for redsim);
-    /// the header's period and warmup are then 0 and "design" is the path given.
+    /// the header's period and warmup are then 0 (or `--period` / `--warmup`) and "design" is the
+    /// path given.
     #[arg(long)]
     pub ticks: Option<u32>,
+    /// With `--ticks`: the period the header states (an un-archived design whose loop is known,
+    /// e.g. a re-export of a trace that had one).
+    #[arg(long, default_value_t = 0, requires = "ticks")]
+    pub period: u32,
+    /// With `--ticks`: the warmup the header states.
+    #[arg(long, default_value_t = 0, requires = "ticks")]
+    pub warmup: u32,
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -62,11 +70,11 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<u32>) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>) -> Result<(PathBuf, u32)> {
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
     let (period, warmup, ticks, design) = match fixed_ticks {
-        Some(n) => (0, 0, n, path.display().to_string()),
+        Some((n, period, warmup)) => (period, warmup, n, path.display().to_string()),
         None => {
             let (period, warmup) = verdict(&file)?;
             (period, warmup, warmup + 2 * period, format!("designs/clocks/archive/{file}"))
@@ -169,7 +177,7 @@ pub fn run(a: ExportArgs) -> Result<()> {
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks)?;
+        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)))?;
         let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
         println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
     }
