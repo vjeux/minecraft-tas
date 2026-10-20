@@ -5,10 +5,17 @@
 //! the judge's level style.
 //!
 //! Rules the layouts obey: hoppers never face up and never sit under a container (a hopper pulls
-//! from the container above it); a dust next to the input points away from it (it connects to
-//! the redstone block) and powers the block beyond and its floor, a dust under the input is a dot
-//! and powers its four sides and its floor; nothing that emits a signal touches the comparator's
+//! from the container above it); every dust touching the input is a cross (see R7 below): beside
+//! the input it powers the block beyond, the two cells on its sides and its floor, under the
+//! input its four sides and its floor; nothing that emits a signal touches the comparator's
 //! sides.
+//!
+//! R7 (real input devices, 2026-10-20): the judge drives the input cell with a repeater from
+//! outside the build (its stone in the input cell, the repeater at `X + DRIVE` on a support, the
+//! switch beyond), so the input sits on the build's edge: no design block south of it
+//! ([`allowed`]). The input cell is the judge's stone, which nothing connects to, so every dust
+//! touching it is a cross: beside the input it also powers the two cells on its sides. Each
+//! candidate is judged in redsim and only passing ones are written (`--unchecked` skips that).
 
 use anyhow::{Result, bail};
 use std::collections::BTreeSet;
@@ -20,6 +27,15 @@ const X: P = [0, 0, 0];
 const UP: P = [0, 1, 0];
 const DIRS: [P; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const HORIZ: [P; 4] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+/// The side the judge's input repeater comes from (south): it, its support and its switch stand
+/// at z = 1 and 2, outside the build.
+const DRIVE: P = [0, 0, 1];
+
+/// Whether a design block may stand at `p`: on the input's side of the plane z = 0 (the input on
+/// the build's edge, R7).
+fn allowed(p: P) -> bool {
+    p[2] <= 0
+}
 
 fn add(a: P, b: P) -> P {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
@@ -75,7 +91,8 @@ impl Layout {
 /// a dust (its floor and the cell beyond fire), or a dust pointing into a relay stone (beside
 /// only: the stone's neighbours fire).
 fn layouts(max_dust: usize) -> Vec<Layout> {
-    let spots: Vec<P> = DIRS.iter().copied().filter(|d| *d != UP).collect();
+    // R7: nothing at the judge's repeater cell
+    let spots: Vec<P> = DIRS.iter().copied().filter(|d| *d != UP && *d != DRIVE).collect();
     // per side cell: none, dust, dust + relay stone, repeater + strong relay + cross dust + outer
     // relay (two levels); under the input: none, cross dust
     let opts = |p: P| if p == [0, -1, 0] { 2 } else { 4 };
@@ -84,7 +101,7 @@ fn layouts(max_dust: usize) -> Vec<Layout> {
     loop {
         let used_spots: Vec<P> = (0..spots.len()).filter(|&i| idx[i] > 0).map(|i| spots[i]).collect();
         if used_spots.len() <= max_dust {
-            let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !used_spots.contains(d)).collect();
+            let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !used_spots.contains(d) && *d != DRIVE).collect();
             let mut floors = Vec::new();
             let mut relays = Vec::new();
             let mut dust = Vec::new();
@@ -122,6 +139,11 @@ fn layouts(max_dust: usize) -> Vec<Layout> {
                 } else {
                     dust.push(h);
                     fired.insert(below);
+                    // a cross (it connects to nothing: the input cell is the judge's stone): it
+                    // also powers the two cells on its sides
+                    let side = [h[2], 0, h[0]];
+                    fired.insert(add(h, side));
+                    fired.insert(sub(h, side));
                     if idx[i] == 2 {
                         // next to the input, pointing into a relay stone
                         let s = add(h, sub(h, X));
@@ -130,14 +152,14 @@ fn layouts(max_dust: usize) -> Vec<Layout> {
                             fired.insert(add(s, d));
                         }
                     } else {
-                        // next to the input: a line pointing away from it
+                        // next to the input: it powers the cell beyond
                         fired.insert(add(h, sub(h, X)));
                     }
                 }
             }
             let lay0 = Layout { dust, relays, repeaters, cross, fired: BTreeSet::new(), floors };
             let taken = lay0.taken();
-            let fired: BTreeSet<P> = fired.into_iter().filter(|p| !taken.contains(p)).collect();
+            let fired: BTreeSet<P> = fired.into_iter().filter(|p| !taken.contains(p) && allowed(*p)).collect();
             out.push(Layout { fired, ..lay0 });
         }
         let mut i = 0;
@@ -201,15 +223,10 @@ impl Ring {
         }
         put_ring(&mut d, &self.droppers, &self.hoppers);
         for p in &self.dust {
-            // under the input: a cross (powers its four sides); next to it: a line away from it
-            let shape = if *p == [0, -1, 0] {
-                "east=side,north=side,power=0,south=side,west=side"
-            } else if p[0] != 0 {
-                "east=side,north=none,power=0,south=none,west=side"
-            } else {
-                "east=none,north=side,power=0,south=side,west=none"
-            };
-            d.blocks.insert(*p, format!("minecraft:redstone_wire[{shape}]"));
+            // a cross: it connects to nothing (the input cell holds the judge's stone), so it
+            // powers its four sides (under the input) or the cell beyond and the cells on its
+            // sides (beside it), and its floor
+            d.blocks.insert(*p, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
         }
         for p in &self.cross {
             d.blocks.insert(*p, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
@@ -232,7 +249,7 @@ impl Ring {
         let d = self.build(name);
         let direct = self.droppers.iter().filter(|p| dist(**p, X) == 1).count();
         let caption = format!(
-            "# Counter {total}{}, dropper ring{}, {} blocks (track memory, `mctas circuit memory ring --n {n}{}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n}{} ({}).\n",
+            "# Counter {total}{}, dropper ring{}, {} blocks (track memory, `mctas circuit memory ring --n {n}{}`): the input cell fires {n} droppers ({direct} next to it{}), and {n} hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in {n}{} ({}). The input sits on the build's edge (nothing south of it), where a real input line reaches it.\n",
             if self.divider { " as a divider" } else { "" },
             if self.bulbs > 0 { format!(" + {} copper bulb{}", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.blocks(),
@@ -309,7 +326,7 @@ fn search_layout(lay: &Layout, n: usize, bulbs: usize, found: &mut Vec<Ring>) {
         if dist(a, b) != 2 {
             return Vec::new();
         }
-        DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c)).collect()
+        DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c) && allowed(*c)).collect()
     };
     let mut path: Vec<P> = Vec::new();
     let mut hops: Vec<P> = Vec::new();
@@ -446,6 +463,9 @@ impl Chain {
             // bulb at cp + (2j+1)u, comparator at cp + (2j+2)u, output beyond the last
             let (b, c) = (at(2 * j + 1), at(2 * j + 2));
             let fl = add(c, [0, -1, 0]);
+            if ![b, c, fl, at(2 * j + 3)].iter().all(|q| allowed(*q)) {
+                return None;
+            }
             if taken.contains(&b) || taken.contains(&c) || taken.contains(&at(2 * j + 3)) || emit.contains(&fl) || self.comparators().contains(&fl) {
                 return None;
             }
@@ -541,7 +561,7 @@ impl Chain {
         }
         let sizes: Vec<String> = std::iter::once(self.r1.droppers.len()).chain(self.stages.iter().map(|s| s.droppers.len())).map(|k| k.to_string()).collect();
         let caption = format!(
-            "# Counter {}, {} chained dropper rings ({}){}, {} blocks (track memory, `mctas circuit memory ring --n {} --then {}{}`): ring 1 ({} droppers fired by the input{}, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one{}; the last comparator is on during one pulse window in {} (level style). Every transit crosses a hopper, so the firing order never matters.\n",
+            "# Counter {}, {} chained dropper rings ({}){}, {} blocks (track memory, `mctas circuit memory ring --n {} --then {}{}`): ring 1 ({} droppers fired by the input{}, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one{}; the last comparator is on during one pulse window in {} (level style). Every transit crosses a hopper, so the firing order never matters. The input sits on the build's edge (nothing south of it), where a real input line reaches it.\n",
             self.n(),
             sizes.len(),
             sizes.join(" x "),
@@ -576,7 +596,7 @@ fn placements(lay: &Layout, ds: &[P], hs: &[P]) -> Vec<Ring> {
         for u in HORIZ {
             let (c, o, fl) = (add(d, u), add(add(d, u), u), add(add(d, u), [0, -1, 0]));
             let side = [u[2], 0, u[0]];
-            if used.contains(&c) || used.contains(&o) || emitters.contains(&fl) || [add(c, side), sub(c, side)].iter().any(|s| emitters.contains(s)) {
+            if ![c, o, fl].iter().all(|q| allowed(*q)) || used.contains(&c) || used.contains(&o) || emitters.contains(&fl) || [add(c, side), sub(c, side)].iter().any(|s| emitters.contains(s)) {
                 continue;
             }
             let mut st = base_stone.clone();
@@ -595,7 +615,7 @@ fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
     let (cp, rd) = ch.last();
     let s = add(cp, sub(cp, rd));
     let used = ch.used(lay);
-    if used.contains(&s) {
+    if used.contains(&s) || !allowed(s) {
         return None;
     }
     let cont = ch.containers();
@@ -611,7 +631,7 @@ fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
     let prev = ch.emitters(lay);
     // a cell an earlier event may power: next to the input, a dust, a relay or an earlier stone
     let near = |p: P| DIRS.iter().any(|d| prev.contains(&add(p, *d)));
-    let free = |p: P| !used.contains(&p) && p != s && !near(p);
+    let free = |p: P| !used.contains(&p) && p != s && !near(p) && allowed(p);
     // droppers also stay out from under such cells (quasi-power)
     let parts = lay.parts();
     let f: Vec<P> = DIRS.iter().map(|d| add(s, *d)).filter(|p| *p != cp && free(*p) && !near(add(*p, UP)) && !parts.contains(&add(*p, UP))).collect();
@@ -656,6 +676,9 @@ fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
                     for u2 in HORIZ {
                         let (c2, o2, fl) = (add(d2, u2), add(add(d2, u2), u2), add(add(d2, u2), [0, -1, 0]));
                         let side = [u2[2], 0, u2[0]];
+                        if ![c2, o2, fl].iter().all(|q| allowed(*q)) {
+                            continue;
+                        }
                         // the floor: empty (stone goes there) or a block with a full top
                         if comparators.contains(&fl) || used2.contains(&c2) || used2.contains(&o2) || emit.contains(&fl) || [add(c2, side), sub(c2, side)].iter().any(|q| emit.contains(q)) {
                             continue;
@@ -692,7 +715,7 @@ pub fn chain_search(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize) ->
             if dist(a, b) != 2 {
                 return Vec::new();
             }
-            DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c)).collect()
+            DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c) && allowed(*c)).collect()
         };
         let mut path: Vec<P> = Vec::new();
         let mut hops: Vec<P> = Vec::new();
@@ -762,7 +785,7 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
                 let c = add(d, [u[0] * (2 * j as i32 + 1), 0, u[2] * (2 * j as i32 + 1)]);
                 let o = add(c, u);
                 let fl = add(c, [0, -1, 0]);
-                if taken.contains(&c) || taken.contains(&o) || emitters.contains(&fl) {
+                if ![c, o, fl].iter().all(|q| allowed(*q)) || taken.contains(&c) || taken.contains(&o) || emitters.contains(&fl) {
                     continue 'dir;
                 }
                 if [add(c, side), sub(c, side)].iter().any(|s| emitters.contains(s) || (j > 0 && taken.contains(s))) {
@@ -796,25 +819,65 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
     best
 }
 
-/// `circuit memory ring`: write the smallest rings for each N.
-pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: &[usize], divider: bool, out: &Path) -> Result<()> {
+/// The redsim judge on a design text: (passes, its verdict line).
+fn judge(text: &str) -> (bool, String) {
+    let verdict = || -> Result<String> {
+        let c = circuit::Circuit::from_design(mctas::design::Design::parse(text)?)?;
+        Ok(circuit::verify::sim(&c, &circuit::verify::Options::default())?.summary(&c))
+    };
+    match verdict() {
+        Ok(line) => (line.starts_with("CIRCUIT:"), line),
+        Err(e) => (false, format!("REFUSED: {e:#}")),
+    }
+}
+
+/// The first `keep` candidates (smallest first) whose design passes the redsim judge, or the first
+/// `keep` unjudged with `check` off; each failure is printed.
+fn passing<T>(cands: Vec<T>, keep: usize, check: bool, text: impl Fn(&T) -> String) -> Vec<(T, String)> {
+    let mut out = Vec::new();
+    for c in cands {
+        if out.len() >= keep {
+            break;
+        }
+        let t = text(&c);
+        if check {
+            let (ok, line) = judge(&t);
+            if !ok {
+                println!("  judged out: {}", line.chars().take(200).collect::<String>());
+                continue;
+            }
+        }
+        out.push((c, t));
+    }
+    out
+}
+
+/// `circuit memory ring`: write the smallest rings for each N (with `check`, only those the redsim
+/// judge passes, from up to 16 times `keep` candidates).
+#[allow(clippy::too_many_arguments)]
+pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: &[usize], divider: bool, check: bool, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
+    let pool = if check { keep * 16 } else { keep };
     if !then.is_empty() {
         for &n in ns {
             let sizes: Vec<usize> = std::iter::once(n).chain(then.iter().copied()).collect();
-            let chains = chain_search(&sizes, max_dust, keep, bulbs);
             let total: usize = sizes.iter().product::<usize>() << bulbs;
             let mut label: Vec<String> = sizes.iter().map(|k| format!("ring{k}")).collect();
             if bulbs > 0 {
                 label.push(format!("bulb{bulbs}"));
             }
-            if chains.is_empty() {
+            let base = format!("counter{total}-{}", label.join("-"));
+            let found = chain_search(&sizes, max_dust, pool, bulbs);
+            if found.is_empty() {
                 println!("counter {total}: no {} chain with at most {max_dust} dust", label.join(" -> "));
                 continue;
             }
-            for (i, c) in chains.iter().enumerate() {
-                let base = format!("counter{total}-{}", label.join("-"));
-                let name = if chains.len() == 1 { base } else { format!("{base}-{i}") };
+            let chains = passing(found, keep, check, |c| c.design(&base));
+            if chains.is_empty() {
+                println!("counter {total}: no {} chain passes the judge", label.join(" -> "));
+            }
+            for (i, (c, _)) in chains.iter().enumerate() {
+                let name = if chains.len() == 1 { base.clone() } else { format!("{base}-{i}") };
                 std::fs::write(out.join(format!("{name}.txt")), c.design(&name))?;
                 println!("counter {total}: {} blocks -> {name}", c.blocks());
             }
@@ -825,7 +888,7 @@ pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: &[usi
         if n < 2 {
             bail!("--n: at least 2");
         }
-        let mut rings = search(n, max_dust, keep, bulbs);
+        let mut rings = search(n, max_dust, pool, bulbs);
         if divider {
             if bulbs == 0 {
                 bail!("--divider needs --bulbs 1 or more");
@@ -839,9 +902,13 @@ pub fn run(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize, then: &[usi
             println!("counter {total}: no ring of {n} with at most {max_dust} dust and {bulbs} bulbs");
             continue;
         }
-        for (i, r) in rings.iter().enumerate() {
-            let base = format!("counter{total}-ring{n}{}{}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() }, if divider { "-div" } else { "" });
-            let name = if rings.len() == 1 { base } else { format!("{base}-{i}") };
+        let base = format!("counter{total}-ring{n}{}{}", if bulbs > 0 { format!("-bulb{bulbs}") } else { String::new() }, if divider { "-div" } else { "" });
+        let rings = passing(rings, keep, check, |r| r.design(&base));
+        if rings.is_empty() {
+            println!("counter {total}: no ring of {n} passes the judge");
+        }
+        for (i, (r, _)) in rings.iter().enumerate() {
+            let name = if rings.len() == 1 { base.clone() } else { format!("{base}-{i}") };
             std::fs::write(out.join(format!("{name}.txt")), r.design(&name))?;
             println!("counter {total}: {} blocks ({} dust) -> {name}", r.blocks(), r.dust.len());
         }
