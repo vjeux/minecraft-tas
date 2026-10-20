@@ -685,6 +685,10 @@ pub struct FamiliesArgs {
     /// piston may act twice).
     #[arg(long)]
     extra_actions: Option<usize>,
+    /// Incomparable action vectors kept per state in the constrained search (more = fewer
+    /// undecided candidates, slower).
+    #[arg(long, default_value_t = 3)]
+    pareto: usize,
     /// Keep only solved mechanisms whose every receiver has a free feed cell (the wiring
     /// analysis' unfed list; one box-edge piston may be the lever's).
     #[arg(long)]
@@ -692,7 +696,8 @@ pub struct FamiliesArgs {
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, extra_actions, fed } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, extra_actions, pareto, fed } = args;
+    crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);

@@ -878,6 +878,9 @@ pub static CONS_K: AtomicUsize = AtomicUsize::new(0);
 /// `--extra-actions B`: with `--max-actions`, at most B actions per edge beyond one per piston
 /// (B = 1: one piston may act twice; usize::MAX = no budget). w1 needs B = 1 at K = 2.
 pub static CONS_EXTRA: AtomicUsize = AtomicUsize::new(usize::MAX);
+/// `--pareto N`: incomparable action vectors kept per state in the constrained search (more =
+/// fewer undecided candidates, slower).
+pub static CONS_PARETO: AtomicUsize = AtomicUsize::new(3);
 /// `--no-inside`: no piston fires while its base is inside the 3x3 (a piston carried into the door
 /// square can only be fed through door blocks).
 pub static CONS_NO_INSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -898,7 +901,7 @@ fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: u
     let excess = |c: u64| (0..16).map(|i| ((c >> (4 * i)) & 15).saturating_sub(1) as usize).sum::<usize>();
     // at most this many incomparable action vectors kept per state (the exact Pareto set blows
     // up): a dropped one makes a "none" verdict unproven
-    const PARETO: usize = 3;
+    let pareto = CONS_PARETO.load(Ordering::Relaxed).max(1);
     let mut pruned = false;
     let no_in = CONS_NO_INSIDE.load(Ordering::Relaxed);
     let ids = m.info.len();
@@ -949,7 +952,7 @@ fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: u
             if entry.iter().any(|&o| le(o, nc)) {
                 continue;
             }
-            if entry.len() >= PARETO {
+            if entry.len() >= pareto {
                 pruned = true;
                 continue;
             }
