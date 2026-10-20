@@ -98,10 +98,16 @@ track's tracker as `crates/circuit/src/fly.rs`).
   only; fly-down-7b-10gt-aca731 is now dominated and out of the archive), horizontal 6 blocks 17
   gt/block (dominated); no horizontal 6-block 9 gt/block, nothing below 9 gt/block.
 
-## Vertical two-way: none
+## Vertical two-way
 - Every orientation of the 7 reversible horizontal engines (`orient --all`, then `two-way
   --reversible-only` trying every kick cell): vertically only DOWN flies, both ways never; the up
   flyers with two sticky pistons (6 census types) break when kicked from the other end.
+- `grow --add 2 --both-ways` on those 6 up flyers: 7-block engines that fly up AND down (3 types,
+  tracks/fly/vertical-rev, robust both ways in the real game): the 6-block up flyer 4c4084 (or
+  a62c63) plus one slime on the top part beside its observer. Return stations: at the top 2 blocks
+  are enough (an obsidian ceiling + one observer); at the bottom none with k <= 3 (obsidian,
+  observer, dust, radius 1) for fly-up-7b-10gt-012898; the reversing piston faces up, so its back
+  is the floor cell under it and dust cannot point into it from above.
 
 - No other speed than 10 gt/block horizontally at 6 blocks (k <= 7 in 4x2x1, k <= 6 in 14
   boxes, grow +1).
