@@ -20,6 +20,8 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | dual-edge | 3 | 4 | two observers 1 gt apart (one watches the input, one a piston the input moves: a piston's block event runs a tick later): their 2 gt pulses overlap into 3 gt |
 | dual-edge | 1 / 2, 2 / 1, 4 / 2 (rising / falling) | 4 | asymmetric pulses from observer + piston layouts (census) |
 | rising-edge, pulse-limiter | 2 | 4 | two sticky pistons + redstone block + observer: the input pushes the block away, the second piston pulls the observer in, it fires on landing and re-fires the first piston, which brings the block home: min-pulse 1 |
+| dual-edge | 5, 7, 9 | 11 | ODD BY OVERLAP: the two observers 1 gt apart (input / piston), each through a delay-d repeater into one dust line: 2d + 1 |
+| rising-edge, pulse-limiter | 3, 5, 7, 9 | 20 | odd by overlap from two rising-edge detectors 1 gt apart (bulb edge at +4, pushed observer at +5), each through a delay-d repeater into one dust line: 2d + 1 |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
@@ -63,8 +65,11 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
   piston pulls it back into place, a normal one leaves it behind): a loop of 3-4 pistons, not
   built yet. The 4-block census found the other way: a block a piston pulls back lands powered
   in the block-entity phase and quasi-powers that piston, which pushes it away the next tick
-  (1 gt), and two observers offset by a piston's next-tick event overlap into 3 gt. Longer odd L
-  (a 5-block census, or these tricks chained) is open.
+  (1 gt), and two observers offset by a piston's next-tick event overlap into 3 gt. Overlap is
+  the general trick: two pulses of 2d gt offset by an odd k <= 2d give 2d + k; done for dual-edge
+  (5..9) and rising-edge / limiters (3..9). Open: falling-edge odd L >= 3 (every fall-only source
+  found so far fires at the same parity: pulled-back observers at fall + 5), and odd L above 9
+  (repeaters stretch to 8 gt at most; a one-shot pair would do it).
 * Judge leniency reported to clockinfra (19:43): a shortening delay line (out = in - 2) passes as
   "pulse-limiter L 38" when its longest input is 40, and a +4 gt stretcher passes as "pulse-extender
   L 5" (L read below the min-pulse): `k4/pulse-pulse-limiter-L38-4b-00.txt`,
