@@ -67,7 +67,7 @@ each build's page.
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
-  speed: `Session::short_cycle`), flip the lever (f, doors); a strip under the counter shows
+  speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
   sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
@@ -219,6 +219,25 @@ each build's page.
   REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
   judge's equipment reads as part of the input it drives.
+* Record (vjeux 2026-10-20: "add a record video button using mediabunny in the viewer"): the
+  round red button over a live viewer's bottom right (above the bar; hidden where the browser
+  has no WebCodecs `VideoEncoder`) records the viewer's own rendering of redsim's run from tick 0
+  (blocks, entities, OUT and port boxes, tags and labels, the badges as shown): a separate player
+  (the live camera, look, speed and demo) stepped exactly `1/30` s of game time per frame (exact
+  partial ticks, never a screen capture of real time) for the whole run
+  (`Player::recording_ticks`: the auto-demo's schedule; a door's demo cycle,
+  `player::door_demo_cycle`; a clock's warmup and whole periods, at least one, about 8 s at its
+  speed; a flying machine's flight; else 10 s; at most 20 s at the current speed). Each frame is
+  drawn into the view's canvas and composed on a 2D canvas of the view's own pixels (at most
+  1920x1080, both even): the 3D view, then the overlays painted from the page's own layout
+  (`record::paint`: pills, text line by line, icons, the leaders and the output strip; the bar
+  and the button are left out). The vendored mediabunny 1.62.0 (MPL-2.0,
+  `crates/mcview-web/vendor/mediabunny/`, beside the bundle as `mediabunny.min.js` and
+  `mediabunny.LICENSE.txt`, imported only when a recording starts: nothing at page load) encodes
+  it: H.264 in MP4 (`fastStart: in-memory`) when the browser can encode it, else VP9 in WebM,
+  4:2:0, 30 fps (`record::Encoder`), and the file downloads as `<design>.mp4|.webm`. While it runs
+  the button shows the progress and a press stops it (no file); the live view comes back as it
+  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file.
 
 ## Only what redsim simulates
 
@@ -351,6 +370,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
+| `mctas web record <url> -o <dir> [--index 0 --window 1280,720]` | presses live viewer `index`'s Record button in headless Chromium and keeps the video it downloads (`<design>.mp4` or `.webm`) |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |

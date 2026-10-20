@@ -599,6 +599,24 @@ mod tests {
         assert!(p.door_demo.is_none(), "the person's flip stops it");
     }
 
+    /// The Record button's length (from tick 0): a door's demo cycle (closed, opening, open,
+    /// closing, closed again), a clock's warmup and whole periods (at least one), the cap.
+    #[test]
+    fn recording_lengths() {
+        let door = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/piston-door-3x3/archive/b38h-obs7-45b.txt")).unwrap();
+        let cycle = door_demo_cycle(&door).expect("a door's demo cycle");
+        assert!(cycle > DOOR_HOLD_CLOSED + DOOR_HOLD_OPEN && cycle < 1000, "{cycle}");
+        let p = Player::new(&door, 1.5).unwrap();
+        assert_eq!(p.recording_ticks(Some(cycle), 400), cycle.min(400));
+        let clock = "name: c\nport start: 0 0 0 last\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
+        let p = Player::new(clock, 1.5).unwrap();
+        let per = p.session.period(20_000).unwrap();
+        let t = p.recording_ticks(None, 400);
+        assert!(t >= per.warmup + per.period && (t - per.warmup) % per.period == 0, "{t} ticks for warmup {} period {}", per.warmup, per.period);
+        assert_eq!(p.recording_ticks(None, 10), 10, "the cap");
+        assert!(door_demo_cycle(clock).is_none(), "not a door");
+    }
+
     #[test]
     fn plays_a_clock_and_flips_a_door() {
         let clock = "name: c\nport start: 0 0 0 last\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";

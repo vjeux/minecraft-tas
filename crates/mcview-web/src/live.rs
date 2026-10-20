@@ -61,6 +61,27 @@ pub struct Live {
     /// The badge's text when no demo runs.
     base_status: String,
     shown_status: String,
+    /// The design's text and name (a recording replays it from tick 0, a file named after it),
+    /// and the auto-demo's schedule (a recording plays it whole).
+    text: Option<std::rc::Rc<str>>,
+    name: String,
+    demo: Option<mcview::circuit::Schedule>,
+    /// The Record button, and the recording running (drawn instead of the live view meanwhile).
+    record: HtmlButtonElement,
+    rec: Option<Rec>,
+}
+
+/// A recording (the Record button: vjeux 2026-10-20 "add a record video button using
+/// mediabunny"): its own player from tick 0, stepped exactly `1 / FPS` s of game time per frame
+/// (exact partial ticks, never real time), each frame drawn by the viewer and composed with the
+/// page's overlays on `canvas` (even size), which the encoder reads.
+struct Rec {
+    player: Player,
+    frames: u32,
+    canvas: web_sys::HtmlCanvasElement,
+    ctx: web_sys::CanvasRenderingContext2d,
+    /// The person pressed the button again: stop, no file.
+    cancel: bool,
 }
 
 /// Speeds the speed button cycles through: label, game ticks per second.
@@ -93,6 +114,7 @@ const ICON_STEP: &str = "M5 5v14l9-7zM15 5h3v14h-3z";
 const ICON_RESET: &str = "M12 5V1.5L7 6l5 4.5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z";
 const ICON_LEVER: &str = "M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z";
 const ICON_BOXES: &str = "M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8zM5 5v4h4V5zM15 5v4h4V5zM5 15v4h4v-4zM15 15v4h4v-4z";
+const ICON_RECORD: &str = "M12 5a7 7 0 1 0 0 14a7 7 0 1 0 0-14z";
 
 fn icon(path: &str) -> String {
     format!("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\" style=\"display:block\"><path d=\"{path}\"/></svg>")
@@ -271,6 +293,35 @@ pub fn start(app: &mut App, id: u32) {
         ],
     );
     let _ = root.append_child(&status);
+    // the Record button: round, over the view's bottom right above the bar (a phone's bar is
+    // full), where the browser can encode video (WebCodecs); while recording it shows the
+    // progress and a press stops it
+    let record = button(ICON_RECORD, RECORD_TITLE);
+    style(
+        record.unchecked_ref(),
+        &[("position", "absolute"), ("right", "8px"), ("bottom", "68px"), ("width", "44px"), ("min-width", "44px"), ("padding", "0"), ("border-radius", "22px"), ("color", "#ff3b30"), ("font-size", "12px"), ("z-index", "2")],
+    );
+    let _ = record.set_attribute("data-mcview-record", "");
+    if !crate::record::supported() {
+        let _ = record.style().set_property("display", "none");
+    }
+    on(&record, "click", move |e: web_sys::Event| {
+        e.stop_propagation();
+        let busy = with_live(id, |l, _, _| match l.rec.as_mut() {
+            Some(r) => {
+                r.cancel = true;
+                true
+            }
+            None => l.player.is_none(),
+        })
+        .unwrap_or(true);
+        if !busy {
+            wasm_bindgen_futures::spawn_local(record_video(id));
+        }
+    });
+    let _ = root.append_child(&record);
+    let mut overlays = crate::overlay::Overlays::new(&root);
+    overlays.keep_clear.push(record.clone().unchecked_into());
     v.live = Some(Live {
         gpu: None,
         player: None,
@@ -292,11 +343,16 @@ pub fn start(app: &mut App, id: u32) {
         holding: None,
         prev: None,
         redraw: true,
-        overlays: crate::overlay::Overlays::new(&root),
+        overlays,
         inputs: Vec::new(),
         containers: containers.clone(),
         base_status: String::new(),
         shown_status: String::from("\u{0}"),
+        text: None,
+        name: String::from("design"),
+        demo: None,
+        record,
+        rec: None,
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -455,6 +511,10 @@ pub fn load(app: &mut App, id: u32) {
                 p.session.run(t);
             }
             let l = v.live.as_mut().unwrap();
+            // a recording replays the design from tick 0 and is named after it
+            l.text = Some(text.clone());
+            l.name = file_name(v.src.as_deref(), p.session.design.meta.get("name").map(|s| s.as_str()));
+            l.demo = None;
             let circuit = !p.session.circuit_inputs.is_empty() && p.session.simulated();
             if p.session.simulated() && !circuit && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
                 let _ = l.flip.style().set_property("display", "inline-flex");
@@ -544,6 +604,7 @@ pub fn load(app: &mut App, id: u32) {
                     }
                 }
                 if let Some(d) = demo {
+                    l.demo = Some(d.clone());
                     p.session.attach_demo(d);
                     // the badge shows each phase in turn: as wide (and as tall: two lines on a
                     // narrow viewer) as its longest label from the start, so it never resizes
@@ -649,11 +710,13 @@ pub fn load(app: &mut App, id: u32) {
             }
             // a machine whose blocks repeat in under 10 gt (a 4 gt clock flickers at 5 Hz at 1x)
             // starts in slow motion, ¼x, until the person picks a speed (exact frames: nothing
-            // is interpolated between them but moving blocks and entities)
+            // is interpolated between them but moving blocks and entities); not a TNT design
+            // (its point is the flight and the blast: a launcher repeating every 6 gt at ¼x took
+            // 16 s to its first explosion)
             if !l.speed_chosen
                 && let Some(p) = l.player.as_ref()
             {
-                let fast = p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && p.session.short_cycle(9, 120).is_some();
+                let fast = p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && p.session.short_cycle(9, 120).is_some();
                 l.set_speed(if fast { SLOW } else { 0 });
             }
             if let Some(p) = l.player.as_mut() {
@@ -700,6 +763,84 @@ fn demo_text(p: &Player, phase: Option<&str>) -> String {
     }
 }
 
+/// The badge's text for a player: why it stopped, the demo's phase, the door demo's step, else
+/// `base` (what to do).
+fn status_for(p: &Player, base: &str) -> String {
+    match () {
+        _ if p.session.halted.is_some() => format!("not simulated after {}", p.session.halted.as_deref().unwrap_or_default().split(':').next().unwrap_or("this tick")),
+        _ if p.session.demo.is_some() => demo_text(p, p.phase()),
+        _ if p.door_demo.is_some() => p.door_demo.map(|d| d.words()).unwrap_or_default().to_string(),
+        _ => base.to_string(),
+    }
+}
+
+/// A recording's file name: the design's file name (`designs/clk-x.txt` -> `clk-x`), else its
+/// `name:`, else `design`; only letters, digits, `.`, `_` and `-`.
+fn file_name(src: Option<&str>, name: Option<&str>) -> String {
+    let stem = src.and_then(|s| s.split(['?', '#']).next()).and_then(|s| s.rsplit('/').next()).map(|s| s.strip_suffix(".txt").unwrap_or(s)).filter(|s| !s.is_empty()).or(name).unwrap_or("design");
+    let clean: String = stem.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' }).collect();
+    if clean.is_empty() { "design".into() } else { clean }
+}
+
+/// The Record button's tooltip.
+const RECORD_TITLE: &str = "Record a video of the run from the start";
+
+/// Record a video of a live view (the Record button): its own player replayed from tick 0 for
+/// the whole run ([`Player::recording_ticks`]: the demo, a door's cycle, clock periods, at most
+/// 20 s at the current speed), every frame drawn and composed with the overlays, encoded by the
+/// vendored mediabunny and downloaded; a press on the button meanwhile stops it. The live view
+/// comes back as it was.
+async fn record_video(id: u32) {
+    let started = with_live(id, |l, atlas, v| l.rec_start(atlas, v)).unwrap_or_else(|| Err("the viewer is gone".into()));
+    let (canvas, w, h, frames, name) = match started {
+        Ok(x) => x,
+        Err(e) => {
+            log(&format!("record: {e}"));
+            return;
+        }
+    };
+    let enc = match crate::record::Encoder::new(&canvas, w, h).await {
+        Ok(e) => e,
+        Err(e) => {
+            with_live(id, |l, _, _| l.rec_end(Some(&e)));
+            ensure_frame();
+            return;
+        }
+    };
+    for k in 0..frames {
+        if !with_live(id, |l, atlas, v| l.rec_frame(atlas, v, k)).unwrap_or(false) {
+            enc.cancel().await;
+            with_live(id, |l, _, _| l.rec_end(None));
+            ensure_frame();
+            return;
+        }
+        if let Err(e) = enc.add(k).await {
+            enc.cancel().await;
+            with_live(id, |l, _, _| l.rec_end(Some(&e)));
+            ensure_frame();
+            return;
+        }
+    }
+    with_live(id, |l, _, _| l.record.set_text_content(Some("…")));
+    let (ext, mime) = (enc.ext, enc.mime);
+    let file = format!("{name}.{ext}");
+    let saved = match enc.finish().await {
+        Ok(buf) => {
+            // what was saved (the console; the tests read the viewer's attribute with
+            // `?mcview-debug`)
+            let note = format!("{file} {} bytes {frames} frames {w}x{h} {mime}", buf.byte_length());
+            log(&format!("record: saved {note}"));
+            if crate::debug() {
+                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &note));
+            }
+            crate::record::download(&buf, mime, &file)
+        }
+        Err(e) => Err(e),
+    };
+    with_live(id, |l, _, _| l.rec_end(saved.err().as_deref()));
+    ensure_frame();
+}
+
 /// Why redsim cannot run a design, short (the badge; the whole reason in its tooltip):
 /// `block "oak_fence" is not modeled by redsim; ...` -> `oak_fence`.
 fn short_reason(why: &str) -> String {
@@ -720,6 +861,10 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
         let Some(v) = app.views.get_mut(&id) else { return false };
         let (w, h) = (v.w.max(1), v.h.max(1));
         let Some(l) = v.live.as_mut() else { return false };
+        // a recording draws its own frames meanwhile (the live view resumes after)
+        if l.rec.is_some() {
+            return false;
+        }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);
         l.last_ts = Some(ts);
         let (Some(p), Some(g)) = (l.player.as_mut(), l.gpu.as_mut()) else { return false };
@@ -782,6 +927,110 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
 }
 
 impl Live {
+    /// Start a recording: its player (the live one's camera, look, speed and demo, from tick 0),
+    /// its length and its canvas. Returns (canvas, width, height, frames, file name).
+    fn rec_start(&mut self, atlas: &mcview::atlas::Atlas, v: &crate::View) -> Result<(web_sys::HtmlCanvasElement, u32, u32, u32, String), String> {
+        let _ = atlas;
+        if self.rec.is_some() {
+            return Err("already recording".into());
+        }
+        let live = self.player.as_ref().ok_or("not loaded yet")?;
+        let text = self.text.clone().ok_or("no design")?;
+        let (cw, ch) = (v.w.max(2), v.h.max(2));
+        let mut p = Player::new(&text, cw as f32 / ch as f32)?;
+        p.camera = live.camera;
+        p.look = live.look.clone();
+        p.tps = live.tps;
+        p.phases = live.phases.clone();
+        p.pulse_inputs = live.pulse_inputs;
+        if let Some(d) = &self.demo {
+            p.session.attach_demo(d.clone());
+        }
+        // a door: its demo (closed, opening, open, closing), one cycle
+        let door = p.session.mode.is_door() && p.session.simulated() && p.session.demo.is_none();
+        let cycle = if door { mcview::player::door_demo_cycle(&text) } else { None };
+        if door {
+            p.start_door_demo();
+        }
+        p.playing = p.session.playable();
+        let fps = crate::record::FPS;
+        let max_ticks = (crate::record::MAX_SECONDS * p.tps as f64).floor() as u32;
+        let ticks = p.recording_ticks(cycle, max_ticks);
+        let secs = (ticks as f64 / p.tps.max(0.1) as f64).clamp(1.0, crate::record::MAX_SECONDS);
+        let frames = (secs * fps).ceil() as u32;
+        // the view's own pixels, at most 1920 x 1080, both even (4:2:0 video)
+        let (mw, mh) = crate::record::MAX_SIZE;
+        let s = (mw / cw as f64).min(mh / ch as f64).min(1.0);
+        let w = (((cw as f64 * s) as u32) / 2 * 2).max(2);
+        let h = (((ch as f64 * s) as u32) / 2 * 2).max(2);
+        let canvas: web_sys::HtmlCanvasElement = document().create_element("canvas").map_err(|_| "no canvas")?.dyn_into().map_err(|_| "no canvas")?;
+        canvas.set_width(w);
+        canvas.set_height(h);
+        let ctx: web_sys::CanvasRenderingContext2d = canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok()).ok_or("no 2D context")?;
+        self.rec = Some(Rec { player: p, frames, canvas: canvas.clone(), ctx, cancel: false });
+        self.record.set_inner_html("");
+        self.record.set_text_content(Some("0%"));
+        let _ = self.record.style().set_property("color", "#fff");
+        let _ = self.record.style().set_property("background", "rgba(200,30,20,0.85)");
+        self.record.set_title("Recording: press to stop");
+        Ok((canvas, w, h, frames, self.name.clone()))
+    }
+
+    /// Draw frame `k` of the recording (game time `k / FPS` s after its start) into its canvas:
+    /// the 3D view, then the tags, labels and badges where the page lays them out. False: stop
+    /// (cancelled, or nothing to draw with).
+    fn rec_frame(&mut self, atlas: &mcview::atlas::Atlas, v: &crate::View, k: u32) -> bool {
+        let Live { rec, gpu, overlays, label, status, base_status, record, .. } = self;
+        let Some(r) = rec.as_mut() else { return false };
+        let Some(g) = gpu.as_mut() else { return false };
+        if r.cancel {
+            return false;
+        }
+        if k > 0 {
+            r.player.update((1.0 / crate::record::FPS) as f32);
+        }
+        let (solid, translucent) = r.player.triangles(atlas);
+        if let Err(e) = g.draw(&Frame { solid: &solid, translucent: &translucent, camera: r.player.camera, width: v.w.max(1), height: v.h.max(1) }) {
+            log(&format!("record: {e}"));
+            return false;
+        }
+        overlays.update(&r.player, atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
+        label.set_text_content(Some(&r.player.label()));
+        let st = status_for(&r.player, base_status);
+        status.set_text_content(Some(&st));
+        let _ = status.style().set_property("visibility", if st.is_empty() { "hidden" } else { "visible" });
+        let (fw, fh) = (r.canvas.width() as f64, r.canvas.height() as f64);
+        r.ctx.set_image_smoothing_enabled(true);
+        if r.ctx.draw_image_with_html_canvas_element_and_dw_and_dh(&v.canvas, 0.0, 0.0, fw, fh).is_err() {
+            return false;
+        }
+        let cr = v.canvas.get_bounding_client_rect();
+        let (origin, scale) = ((cr.left(), cr.top()), fw / cr.width().max(1.0));
+        crate::record::paint(&r.ctx, overlays.layer(), origin, scale);
+        crate::record::paint(&r.ctx, status, origin, scale);
+        crate::record::paint(&r.ctx, label, origin, scale);
+        record.set_text_content(Some(&format!("{}%", (k + 1) * 100 / r.frames.max(1))));
+        true
+    }
+
+    /// The recording is over (saved, stopped or failed): the live view comes back as it was.
+    fn rec_end(&mut self, error: Option<&str>) {
+        self.rec = None;
+        self.record.set_inner_html(&icon(ICON_RECORD));
+        let _ = self.record.style().set_property("color", "#ff3b30");
+        let _ = self.record.style().set_property("background", "rgba(20,22,28,0.72)");
+        match error {
+            Some(e) => {
+                log(&format!("record: {e}"));
+                self.record.set_title(&format!("Recording failed: {e}"));
+            }
+            None => self.record.set_title(RECORD_TITLE),
+        }
+        self.redraw = true;
+        self.last_ts = None;
+        self.shown_status = String::from("\u{0}");
+    }
+
     fn toggle_play(&mut self) {
         if let Some(p) = self.player.as_mut() {
             if !p.session.playable() {
@@ -863,14 +1112,13 @@ impl Live {
     /// not follow stops and says so.
     fn sync_status(&mut self) {
         let text = match &self.player {
-            Some(p) if p.session.halted.is_some() => {
-                let why = p.session.halted.clone().unwrap_or_default();
-                let _ = self.status.set_attribute("title", &why);
-                format!("not simulated after {}", why.split(':').next().unwrap_or("this tick"))
+            Some(p) => {
+                if let Some(why) = &p.session.halted {
+                    let _ = self.status.set_attribute("title", why);
+                }
+                status_for(p, &self.base_status)
             }
-            Some(p) if p.session.demo.is_some() => demo_text(p, p.phase()),
-            Some(p) if p.door_demo.is_some() => p.door_demo.map(|d| d.words()).unwrap_or_default().to_string(),
-            _ => self.base_status.clone(),
+            None => self.base_status.clone(),
         };
         if text != self.shown_status {
             self.status.set_text_content(Some(&text));

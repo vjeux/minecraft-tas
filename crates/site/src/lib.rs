@@ -87,7 +87,8 @@ pub enum SiteCmd {
         interval: u64,
         /// With --page: press the buttons with these labels, in order, once the view is ready (a
         /// viewer's input button: `INP` flips a shulker machine's start lever; `1×` then `2×` then
-        /// `5×` sets the speed to 20×); with --full, also `css:<selector>` (any element).
+        /// `5×` sets the speed to 20×), or `css:<selector>` (any element: a viewer's Record
+        /// button is `css:[data-mcview-record]`).
         #[arg(long)]
         click: Vec<String>,
         /// With --page: read each page like a visitor instead of filming its 3D view: screenshots

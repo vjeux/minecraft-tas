@@ -162,6 +162,25 @@ pub enum WebCmd {
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
+    /// Press a live viewer's Record button in headless Chromium and keep the video it downloads
+    /// (`<design>.mp4` or `.webm`) in `--out`.
+    Record {
+        url: String,
+        #[arg(long, short)]
+        out: PathBuf,
+        /// Which live viewer of the page (0: the first).
+        #[arg(long, default_value_t = 0)]
+        index: usize,
+        #[arg(long, default_value = "1280,720")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// Seconds to wait for the file.
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// A screenshot of a page in headless Chromium after some seconds of real time (playing
     /// viewers and demos advance), e.g. to check a live viewer's overlays.
     Snap {
@@ -496,6 +515,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser)
             }
         }
+        WebCmd::Record { url, out, index, window, scale, timeout, browser } => crate::cdp::cmd_record(&url, &out, index, &window, scale, timeout, &browser),
         WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {
@@ -659,13 +679,24 @@ fn cmd_bundle(out: &Path) -> Result<()> {
                 let rel = p.strip_prefix(out).unwrap_or(&p).to_string_lossy().replace('\\', "/");
                 let flat = format!("mcview-{}", p.file_name().unwrap_or_default().to_string_lossy());
                 std::fs::rename(&p, out.join(&flat))?;
-                js = js.replace(&format!("./{rel}"), &format!("./{flat}"));
+                // the module's import statement follows the file; the wasm's import object keeps
+                // the snippet's own name as its key (the name the wasm imports it by)
+                for q in ['"', '\''] {
+                    js = js.replace(&format!("from {q}./{rel}{q}"), &format!("from {q}./{flat}{q}"));
+                }
                 println!("{} (from {rel})", out.join(&flat).display());
             }
         }
         std::fs::write(out.join("mcview.js"), js)?;
         std::fs::remove_dir_all(&snippets)?;
     }
+    // the video recorder's encoder (vendored mediabunny, MPL-2.0: its license beside it), imported
+    // by the viewer only when a recording starts; `.js` (every static server sends it as
+    // JavaScript, which a module import requires; some send `.mjs` as bytes)
+    let vendor = Path::new("crates/mcview-web/vendor/mediabunny");
+    std::fs::copy(vendor.join("mediabunny.min.mjs"), out.join("mediabunny.min.js")).context("copying the vendored mediabunny")?;
+    std::fs::copy(vendor.join("LICENSE"), out.join("mediabunny.LICENSE.txt"))?;
+    println!("{} ({} KB, MPL-2.0: mediabunny.LICENSE.txt)", out.join("mediabunny.min.js").display(), std::fs::metadata(out.join("mediabunny.min.js"))?.len() / 1024);
     Ok(())
 }
 
