@@ -58,3 +58,7 @@ So an odd-N delay needs a block-entity event whose phase is SET by the input rat
 ## delay-qc-0 removed (critique 2026-10-20)
 
 It was archived as "the only circuit whose output follows its input with no delay", 6 blocks with a sticky piston. Judged side by side, a plain dust on a stone does the same N = 0 in 2 blocks with a shorter min-pulse (2 gt vs 4) and min-gap (2 gt vs 3): a 0-tick delay is a wire, and this one was a dominated wire, so it is removed rather than re-captioned. The delay study now starts at N = 2 (one repeater), which is where a page about making things happen later should start; odd N stays the open gap above.
+
+## ONE design per length (coordinator's call on vjeux's rule, 2026-10-20)
+
+The delay kind is one design per N: the repeater line (2 blocks per started 8 ticks, tileable side by side at pitch 1). The comparator line (2 + 2n blocks) and the torch tower (6 + 4n blocks) are removed: at every N they are larger. What they had over it — a 2-3 tick pulse passes through unstretched, where a repeater set to d stretches anything shorter than 2d ticks — is now said in the repeater line's own caption, with the fix (a line of repeaters set to 1 keeps short pulses, at 2 blocks per 2 ticks). Odd N remains the open gap.
