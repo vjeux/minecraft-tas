@@ -913,7 +913,9 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let val = |f: &Family, n: i64| format!("{label} = {}{u}", f.period.eval(n));
         if card.members.len() == 1 {
-            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), f.id, r.file, f.blocks.text(), r.kind));
+            // its human title (`extend group title:`), else its id
+            let title = f.group_title.clone().unwrap_or_else(|| f.id.clone());
+            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), title, r.file, f.blocks.text(), r.kind));
             let ns: Vec<i64> = [f.n_lo, f.n_lo + 1].into_iter().filter(|n| *n <= f.n_hi).collect();
             md.push_str(&ns.iter().map(|n| format!("n = {n}: {}, {} blocks", val(f, *n), f.blocks.eval(*n))).collect::<Vec<_>>().join(" · "));
             let j = judged(f);

@@ -8,7 +8,7 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 ### L = 13 + 16n gt
 
-**pulse-limiter-psub-u4 (one block swapped: 2 versions)** · 2 families
+**odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters** · 2 families
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 ### L = 15 + 16n gt
 
-**pulse-fall-psub-u4** ([base design](archive/pulse-fall-psub-u4.txt)) · 22 + 4n blocks · falling-edge
+**odd-length falling-edge pulse: a piston-moved redstone block and a loop of repeaters** ([base design](archive/pulse-fall-psub-u4.txt)) · 22 + 4n blocks · falling-edge
 
 n = 0: L = 15 gt, 22 blocks · n = 1: L = 31 gt, 26 blocks
 
@@ -25,7 +25,7 @@ Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone)
 
 ### L = 16 + 16n gt
 
-**pulse-limiter-u4** ([base design](archive/pulse-limiter-u4.txt)) · 10 + 4n blocks · pulse-limiter
+**long pulse limiter: a comparator and a loop of repeaters** ([base design](archive/pulse-limiter-u4.txt)) · 10 + 4n blocks · pulse-limiter
 
 n = 0: L = 16 gt, 10 blocks · n = 1: L = 32 gt, 14 blocks
 
@@ -33,7 +33,7 @@ Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each 
 
 ### L = 18 + 16n gt
 
-**pulse-oneshot-bulb-rise (one block swapped: 2 versions)** · 2 families
+**long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters** · 2 families
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
@@ -42,7 +42,7 @@ Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each 
 
 ### L = 18 + 16n gt
 
-**pulse-oneshot-fall (one block swapped: 3 versions)** · 3 families
+**long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters** · 3 families
 
 | family | L | blocks | n (L) | judged n |
 |---|---|---|---|---|
@@ -52,7 +52,7 @@ Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each 
 
 ### L = 30 + 16n gt
 
-**pulse-dual-edge-reset** ([base design](archive/pulse-dual-edge-reset.txt)) · 32 + 4n blocks · dual-edge
+**long pulse on both edges: an observer, two copper bulbs and a loop of repeaters** ([base design](archive/pulse-dual-edge-reset.txt)) · 32 + 4n blocks · dual-edge
 
 n = 0: L = 30 gt, 32 blocks · n = 1: L = 46 gt, 36 blocks
 
@@ -64,7 +64,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### L = 2..8 gt (every 2)
 
-**pulse-extender-repeater** · pulse-extender · 4 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-extender-repeater-L2](archive/pulse-extender-repeater-L2.txt) (L = 2 gt, 2 blocks), [pulse-extender-repeater-L4](archive/pulse-extender-repeater-L4.txt) (L = 4 gt, 2 blocks).
+**pulse extender: one repeater (2 to 8 ticks)** · pulse-extender · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-extender-repeater-L2](archive/pulse-extender-repeater-L2.txt) (L = 2 gt, 2 blocks), [pulse-extender-repeater-L4](archive/pulse-extender-repeater-L4.txt) (L = 4 gt, 2 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -75,7 +75,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### L = 3..9 gt (every 2)
 
-**pulse-fall-odd** · falling-edge · 4 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-fall-odd-L3](archive/pulse-fall-odd-L3.txt) (L = 3 gt, 16 blocks), [pulse-fall-odd-L5](archive/pulse-fall-odd-L5.txt) (L = 5 gt, 16 blocks).
+**odd-length falling-edge pulse: two pulses 1 tick apart** · falling-edge · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-fall-odd-L3](archive/pulse-fall-odd-L3.txt) (L = 3 gt, 16 blocks), [pulse-fall-odd-L5](archive/pulse-fall-odd-L5.txt) (L = 5 gt, 16 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -86,7 +86,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### L = 3..15 gt (every 2)
 
-**pulse-fall-psub** · falling-edge · 7 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-fall-psub-L3](archive/pulse-fall-psub-L3.txt) (L = 3 gt, 14 blocks), [pulse-fall-psub-L5](archive/pulse-fall-psub-L5.txt) (L = 5 gt, 14 blocks).
+**odd-length falling-edge pulse: a piston-moved redstone block** · falling-edge · 7 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-fall-psub-L3](archive/pulse-fall-psub-L3.txt) (L = 3 gt, 14 blocks), [pulse-fall-psub-L5](archive/pulse-fall-psub-L5.txt) (L = 5 gt, 14 blocks).
 
 Also as an extendable family: [pulse-fall-psub-u4](archive/pulse-fall-psub-u4.txt): L = 15 + 16n gt, 22 + 4n blocks.
 
@@ -102,7 +102,7 @@ Also as an extendable family: [pulse-fall-psub-u4](archive/pulse-fall-psub-u4.tx
 
 ### L = 3..9 gt (every 2)
 
-**pulse-limiter-odd2** · pulse-limiter · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-odd2-L3](archive/pulse-limiter-odd2-L3.txt) (L = 3 gt, 12 blocks), [pulse-limiter-odd2-L5](archive/pulse-limiter-odd2-L5.txt) (L = 5 gt, 12 blocks).
+**odd-length pulse limiter: two pulses 1 tick apart** · pulse-limiter · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-odd2-L3](archive/pulse-limiter-odd2-L3.txt) (L = 3 gt, 12 blocks), [pulse-limiter-odd2-L5](archive/pulse-limiter-odd2-L5.txt) (L = 5 gt, 12 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -113,7 +113,7 @@ Also as an extendable family: [pulse-fall-psub-u4](archive/pulse-fall-psub-u4.tx
 
 ### L = 3..13 gt (every 2)
 
-**pulse-limiter-psub** · pulse-limiter · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) (L = 5 gt, 17 blocks).
+**odd-length pulse limiter: a piston-moved redstone block** · pulse-limiter · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-limiter-psub-L3](archive/pulse-limiter-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-limiter-psub-L5](archive/pulse-limiter-psub-L5.txt) (L = 5 gt, 17 blocks).
 
 Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub-u4.txt): L = 13 + 16n gt, 25 + 4n blocks.
 
@@ -128,7 +128,7 @@ Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub
 
 ### L = 3..9 gt (every 2)
 
-**pulse-rise-odd2** · rising-edge · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-odd2-L3](archive/pulse-rise-odd2-L3.txt) (L = 3 gt, 12 blocks), [pulse-rise-odd2-L5](archive/pulse-rise-odd2-L5.txt) (L = 5 gt, 12 blocks).
+**odd-length rising-edge pulse: two pulses 1 tick apart** · rising-edge · 4 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-odd2-L3](archive/pulse-rise-odd2-L3.txt) (L = 3 gt, 12 blocks), [pulse-rise-odd2-L5](archive/pulse-rise-odd2-L5.txt) (L = 5 gt, 12 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -139,7 +139,7 @@ Also as an extendable family: [pulse-limiter-psub-u4](archive/pulse-limiter-psub
 
 ### L = 3..13 gt (every 2)
 
-**pulse-rise-psub** · rising-edge · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) (L = 5 gt, 17 blocks).
+**odd-length rising-edge pulse: a piston-moved redstone block** · rising-edge · 6 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-psub-L3](archive/pulse-rise-psub-L3.txt) (L = 3 gt, 17 blocks), [pulse-rise-psub-L5](archive/pulse-rise-psub-L5.txt) (L = 5 gt, 17 blocks).
 
 Also as an extendable family: [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.txt): L = 13 + 16n gt, 25 + 4n blocks.
 
@@ -154,7 +154,7 @@ Also as an extendable family: [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.tx
 
 ### L = 4, 6, 8 gt
 
-**pulse-dual-edge-observer-repeater** · dual-edge · 3 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-dual-edge-observer-repeater-L4](archive/pulse-dual-edge-observer-repeater-L4.txt) (L = 4 gt, 3 blocks), [pulse-dual-edge-observer-repeater-L6](archive/pulse-dual-edge-observer-repeater-L6.txt) (L = 6 gt, 3 blocks).
+**pulse on both edges: an observer and a repeater** · dual-edge · 3 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-dual-edge-observer-repeater-L4](archive/pulse-dual-edge-observer-repeater-L4.txt) (L = 4 gt, 3 blocks), [pulse-dual-edge-observer-repeater-L6](archive/pulse-dual-edge-observer-repeater-L6.txt) (L = 6 gt, 3 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -174,7 +174,7 @@ Also as an extendable family: [pulse-rise-psub-u4](archive/pulse-rise-psub-u4.tx
 
 ### L = 4, 6, 8 gt
 
-**pulse-fall-repeater** · falling-edge · 3 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-fall-repeater-L4](archive/pulse-fall-repeater-L4.txt) (L = 4 gt, 4 blocks), [pulse-fall-repeater-L6](archive/pulse-fall-repeater-L6.txt) (L = 6 gt, 4 blocks).
+**falling-edge pulse: a piston-moved observer and a repeater** · falling-edge · 3 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-fall-repeater-L4](archive/pulse-fall-repeater-L4.txt) (L = 4 gt, 4 blocks), [pulse-fall-repeater-L6](archive/pulse-fall-repeater-L6.txt) (L = 6 gt, 4 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -209,7 +209,7 @@ Also as an extendable family: [pulse-limiter-u4](archive/pulse-limiter-u4.txt): 
 
 ### L = 4, 6, 8 gt
 
-**pulse-rise-bulb-repeater** · rising-edge · 3 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-rise-bulb-repeater-L4](archive/pulse-rise-bulb-repeater-L4.txt) (L = 4 gt, 6 blocks), [pulse-rise-bulb-repeater-L6](archive/pulse-rise-bulb-repeater-L6.txt) (L = 6 gt, 6 blocks).
+**rising-edge pulse for 1-tick inputs: a copper bulb, an observer and a repeater** · rising-edge · 3 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-bulb-repeater-L4](archive/pulse-rise-bulb-repeater-L4.txt) (L = 4 gt, 6 blocks), [pulse-rise-bulb-repeater-L6](archive/pulse-rise-bulb-repeater-L6.txt) (L = 6 gt, 6 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -219,7 +219,7 @@ Also as an extendable family: [pulse-limiter-u4](archive/pulse-limiter-u4.txt): 
 
 ### L = 4, 6, 8 gt
 
-**pulse-rise-repeater** · rising-edge · 3 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-rise-repeater-L4](archive/pulse-rise-repeater-L4.txt) (L = 4 gt, 4 blocks), [pulse-rise-repeater-L6](archive/pulse-rise-repeater-L6.txt) (L = 6 gt, 4 blocks).
+**rising-edge pulse: a piston-moved observer and a repeater** · rising-edge · 3 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-rise-repeater-L4](archive/pulse-rise-repeater-L4.txt) (L = 4 gt, 4 blocks), [pulse-rise-repeater-L6](archive/pulse-rise-repeater-L6.txt) (L = 6 gt, 4 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
@@ -229,7 +229,7 @@ Also as an extendable family: [pulse-limiter-u4](archive/pulse-limiter-u4.txt): 
 
 ### L = 5, 7, 9 gt
 
-**pulse-dual-odd** · dual-edge · 3 designs · the same layout, set by its repeater delays / comparator modes. Smallest: [pulse-dual-odd-L5](archive/pulse-dual-odd-L5.txt) (L = 5 gt, 11 blocks), [pulse-dual-odd-L7](archive/pulse-dual-odd-L7.txt) (L = 7 gt, 11 blocks).
+**odd-length pulse on both edges: two observers 1 tick apart** · dual-edge · 3 designs · set by the repeater delays and the length of the repeater line. Smallest: [pulse-dual-odd-L5](archive/pulse-dual-odd-L5.txt) (L = 5 gt, 11 blocks), [pulse-dual-odd-L7](archive/pulse-dual-odd-L7.txt) (L = 7 gt, 11 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
