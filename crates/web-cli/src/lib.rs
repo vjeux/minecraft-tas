@@ -9,6 +9,24 @@ mod cdp;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
+    /// The viewer's entities (redsim, what the browser draws) tick by tick, next to a real-game
+    /// trace's (`designs/clocks/traces/<stem>.trace`, `mctas clock misc trace-export`) with the
+    /// distance between them; ends with the largest distance over the ticks shown.
+    Entities {
+        design: PathBuf,
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        #[arg(long, default_value_t = 0)]
+        from: u32,
+        #[arg(long, default_value_t = 40)]
+        to: u32,
+    },
+    /// Write the game texture the viewer samples (the game's block atlas, with the entity and
+    /// item textures packed below it) to a PNG, and list where the entity textures went.
+    GameTexture {
+        #[arg(long, short)]
+        out: PathBuf,
+    },
     /// Render designs to PNG offscreen with the browser viewer's renderer (wgpu, Vulkan headless:
     /// lavapipe on a GPU-less box). Clocks at their most active moment (like `clock shot`), doors
     /// at rest; `--tick N` runs N ticks first, `--flips N` flips a door's lever N times.
@@ -98,6 +116,10 @@ pub enum WebCmd {
         /// and of the viewer's, side by side, scaled up 4x (nearest), to compare pixels.
         #[arg(long)]
         zoom: Option<String>,
+        /// The ground's reach around the build (default: the viewer's, 56 around a clock), to
+        /// measure the pictures' floor edges.
+        #[arg(long)]
+        floor_margin: Option<f32>,
     },
     /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
     /// software): opens `<url>?mcview-debug` for `--seconds`, reads every frame's bounding boxes of
@@ -277,12 +299,35 @@ pub enum WebCmd {
 }
 
 /// The tiles: the game's textures over the hand-drawn ones (misode/mcmeta's atlas, cached
-/// locally), or the hand-drawn ones only.
+/// locally) and the game's own block models (`--procedural`: the hand-drawn tiles and the
+/// viewer's own models only; `MCVIEW_NO_GAME_MODELS=1`: the game's textures on the viewer's
+/// models).
 fn atlas(procedural: bool) -> mcview::atlas::Atlas {
     let mut a = mcview::atlas::Atlas::build();
     if !procedural {
-        match mcview::tools::vanilla_atlas().and_then(|(png, idx)| a.apply_vanilla_png(&png, &idx)) {
-            Ok(n) => eprintln!("the game's textures on {n} tiles"),
+        match mcview::tools::vanilla_assets() {
+            Ok((png, idx, defs, models)) => {
+                match a.apply_vanilla_png(&png, &idx) {
+                    Ok(n) => eprintln!("the game's textures on {n} tiles"),
+                    Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
+                }
+                if std::env::var_os("MCVIEW_NO_GAME_MODELS").is_none() {
+                    let r = mcview::tools::decode_png(&png).and_then(|(rgba, w, h)| a.set_game(&rgba, w, h, &idx, &defs, &models));
+                    match r {
+                        Ok(n) => eprintln!("the game's block models ({n} textures)"),
+                        Err(e) => eprintln!("the game's block models unavailable ({e}): the viewer's models"),
+                    }
+                    // the entity and item textures (boats, minecarts, armor stands, dropped items)
+                    let r = mcview::tools::vanilla_entity_assets().and_then(|((ep, ei), (ip, ii))| {
+                        let (er, ew, eh) = mcview::tools::decode_png(&ep)?;
+                        let (ir, iw, ih) = mcview::tools::decode_png(&ip)?;
+                        a.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii))
+                    });
+                    if let Err(e) = r {
+                        eprintln!("the game's entity textures unavailable ({e}): the viewer's stand-ins");
+                    }
+                }
+            }
             Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
         }
     }
@@ -291,12 +336,12 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
-        WebCmd::Compare { designs, img_dir, out, procedural, zoom } => cmd_compare(&designs, &img_dir, &out, procedural, zoom.as_deref()),
+        WebCmd::Compare { designs, img_dir, out, procedural, zoom, floor_margin } => cmd_compare(&designs, &img_dir, &out, procedural, zoom.as_deref(), floor_margin),
         WebCmd::Tiles { out } => {
             let atlas = mcview::atlas::Atlas::build();
             std::fs::create_dir_all(&out)?;
@@ -307,6 +352,63 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 mcview::render::headless::write_png(&out.join(format!("{name}.png")), 16, 16, px).map_err(anyhow::Error::msg)?;
             }
             println!("{} tiles in {}", names.len(), out.display());
+            Ok(())
+        }
+        WebCmd::Entities { design, trace, from, to } => {
+            let text = std::fs::read_to_string(&design)?;
+            let mut s = mcview::Session::new(&text, &mcview::Options::default()).map_err(anyhow::Error::msg)?;
+            let replay = match &trace {
+                Some(p) => Some(mcview::replay::Replay::parse(&std::fs::read_to_string(p)?).map_err(anyhow::Error::msg)?),
+                None => None,
+            };
+            while s.tick < from {
+                s.step();
+            }
+            let mut worst = 0f32;
+            while s.tick <= to {
+                // the simulated positions at the end of the tick (the trace's convention; the
+                // renderer draws a minecart on a rail at the rail's line instead, like
+                // AbstractMinecartRenderer.oldRender, so the drawn pose is not compared)
+                let mine: Vec<(String, [f32; 3], f32)> = s
+                    .world
+                    .entities
+                    .list
+                    .iter()
+                    .filter(|e| !e.removed)
+                    .zip(s.entities(1.0))
+                    .map(|(e, d)| (d.kind, [e.pos.x as f32, e.pos.y as f32, e.pos.z as f32], e.y_rot))
+                    .collect();
+                let line: Vec<String> = mine.iter().map(|(k, p, yaw)| format!("{k} ({:.4}, {:.4}, {:.4}) yaw {yaw:.1}", p[0], p[1], p[2])).collect();
+                println!("t {}: {}", s.tick, line.join("; "));
+                if let Some(r) = &replay {
+                    let theirs = r.entities_at(s.tick);
+                    let mut parts = Vec::new();
+                    for (k, e) in theirs.iter().enumerate() {
+                        let d = mine.get(k).map(|(_, m, _)| ((m[0] - e.pos[0]).powi(2) + (m[1] - e.pos[1]).powi(2) + (m[2] - e.pos[2]).powi(2)).sqrt());
+                        if let Some(d) = d {
+                            worst = worst.max(d);
+                        }
+                        parts.push(format!("{} ({:.4}, {:.4}, {:.4}) yaw {:.1}{}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw, d.map(|d| format!(" [{d:.4}]")).unwrap_or_default()));
+                    }
+                    println!("  game: {}", parts.join("; "));
+                }
+                s.step();
+            }
+            if replay.is_some() {
+                println!("largest distance to the game: {worst:.4} blocks over ticks {from}..={to}");
+            }
+            Ok(())
+        }
+        WebCmd::GameTexture { out } => {
+            let a = atlas(false);
+            let g = a.game.as_ref().ok_or_else(|| anyhow::anyhow!("no game assets"))?;
+            mcview::render::headless::write_png(&out, g.width, g.height, &g.mips[0]).map_err(anyhow::Error::msg)?;
+            let mut ent: Vec<_> = g.tex.iter().filter(|(k, _)| k.starts_with("entity/")).map(|(k, t)| format!("{k} {:?}", t.rect)).collect();
+            ent.sort();
+            for l in &ent {
+                println!("{l}");
+            }
+            println!("{} ({}x{}, entities packed: {})", out.display(), g.width, g.height, g.entities);
             Ok(())
         }
         WebCmd::Palette { pngs, k, tint, crop } => {
@@ -441,7 +543,7 @@ fn cmd_luma_native(designs: &[PathBuf], min: f64) -> Result<()> {
     Ok(())
 }
 
-fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>) -> Result<()> {
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>, floor_margin: Option<f32>) -> Result<()> {
     let atlas = atlas(procedural);
     let zoom: Option<Vec<u32>> = zoom.map(|z| z.split(',').filter_map(|v| v.trim().parse().ok()).collect());
     if zoom.as_ref().is_some_and(|z| z.len() != 4) {
@@ -458,7 +560,7 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
             continue;
         };
         let text = std::fs::read_to_string(d)?;
-        match mcview::tools::compare(&mut off, &atlas, &text, &bytes) {
+        match mcview::tools::compare(&mut off, &atlas, &text, &bytes, floor_margin) {
             Ok(c) => {
                 let path = out.join(format!("{stem}.cmp.png"));
                 mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;

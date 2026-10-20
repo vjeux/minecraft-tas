@@ -232,6 +232,12 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         Action::Clear { pos } => {
             w.set_blocks(sb, &[(*pos, "minecraft:air".to_string())], PlaceMode::Update)?;
         }
+        Action::ShapeSet { pos, state } => {
+            w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Shape)?;
+        }
+        Action::Update { pos } => {
+            w.update(sb, &[*pos], "neighbors")?;
+        }
     }
     Ok(())
 }

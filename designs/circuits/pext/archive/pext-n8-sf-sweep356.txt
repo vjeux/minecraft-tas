@@ -1,0 +1,109 @@
+# archived 2026-10-20T04:46Z from designs/circuits/pext/work/n8-sfp-gen.txt by mctas circuit archive
+# CIRCUIT: pext-n8-sf-sweep356 piston-extender 8 N 8, extend 618 gt, retract 616 gt, 356 blocks, 20x9x9, robust
+name: pext-n8-sf-sweep356
+circuit: piston-extender 8
+travel: 1 0 0
+port input: 17 1 -2 lever
+port payload: 9 1 0
+origin: -1 0 -4
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=west]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -3:
+  .
+  .
+  .
+  .
+  ........ooC
+  .
+  .
+  .
+  .
+layer -2:
+  .
+  ............B
+  ............B
+  .........BDDD
+  .....oC.OCCoCoC
+  .........B
+  .........B
+  .........B
+  .........C
+layer -1:
+  .
+  .........ooCO
+  .........AooC
+  ....BDDDD
+  ....oOoBOBoOoOB.B
+  .......oAO....C.B
+  .....ooC.ooC.ooCB
+  ................C
+  .........C
+layer 0:
+  .......BDDDDD
+  .......BooCBO
+  .....oCC.OOCC
+  ........ODDDDD
+  ....O.O.OOO.O.O.O
+  ....BDDDDDDDDDD
+  ...CDO.CCO.CCOCC
+  ......ooA.ooA.ADD
+  .........C
+layer 1:
+  ............O
+  .......COBBCO
+  oooooOCAAOOAoCoCooLs
+  A...A.AAAAAAAOA.A
+  ADSSSSSSSSG
+  ...B.BBBBBBBBBBB
+  ...oCOBCBOBCBOCC
+  ......O.C.O.C
+  .........C
+layer 2:
+  ............O
+  .......ooO.CO
+  ......C.O.ooAoOoO
+  ..........A..O
+  O....C.CCCCCCC
+  ADDDDDDDDDDDDDDD
+  ....oOOC.OOC.OCA
+  ....ooA.ooA.C
+  .........C
+layer 3:
+  ............O
+  .....BDDDDDDA
+  .....BooO.OoA
+  ....BDoB.CoACO
+  ....BoABBAABAA
+  ....BADCooACADD
+  ....B.AooO.ooOA
+  ....O.ADDDDDD
+  .........C
+layer 4:
+  .
+  .
+  ..........ODD
+  .........ooBA
+  ........OO.O.O
+  .......ooA.ooA
+  .........C
+  .........A
+  .........A
+layer 5:
+  .
+  .
+  .
+  .
+  ........OD
+  .........A
+  .........A
+  .
+  .

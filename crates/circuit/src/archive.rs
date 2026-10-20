@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 8] = [
+pub const STUDIES: [(&str, &str); 10] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -27,6 +27,8 @@ pub const STUDIES: [(&str, &str); 8] = [
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
     ("shulker", "Shulker loaders and unloaders"),
+    ("tnt", "TNT dupers"),
+    ("bud", "BUD switches"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -218,6 +220,9 @@ pub fn tunable_key(c: &Circuit) -> String {
     for p in &c.outputs {
         d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
     }
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -259,6 +264,10 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
+    // a BUD's target cells (where the judge acts) are part of its structure
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -278,9 +287,12 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        Kind::Bud => format!("detects {}", m("detects")),
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper => m("rate"),
+        Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }
 }
 

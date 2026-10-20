@@ -821,7 +821,7 @@ impl Live {
 
     /// The tiles changed (the game's textures arrived): upload them, draw again.
     pub fn atlas_changed(&mut self, atlas: &mcview::atlas::Atlas) {
-        if let Some(g) = &self.gpu {
+        if let Some(g) = &mut self.gpu {
             g.r.upload_atlas(atlas);
         }
         if let Some(p) = self.player.as_mut() {

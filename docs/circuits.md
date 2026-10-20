@@ -3,8 +3,9 @@
 Seven studies in the clock study's spirit ([clocks.md](clocks.md)): for each kind of contraption,
 find as many structurally different designs as possible for each value of its main number,
 smallest first, every one judged in the REAL game, archived and cataloged. The brief is vjeux's
-(2026-10-19, "Let's do 1-7"); clockinfra owns the judge (crates/circuit, crates/circuit-cli, this
-page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <track> ...`).
+(2026-10-19, "Let's do 1-7"; study 9, TNT dupers, 2026-10-20); clockinfra owns the judge
+(crates/circuit, crates/circuit-cli, this page), each track owns its crate
+(`crates/circuit-<track>`, `mctas circuit <track> ...`).
 
 | study | track | kinds | axis (the gallery's main number) | metrics |
 |---|---|---|---|---|
@@ -16,6 +17,8 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
+| 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
+| 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -30,6 +33,7 @@ name: sub-rising-4
 circuit: rising-edge             # the kind (+ its argument: `gate xor`, `counter 4`, `piston-extender 3`)
 port input: 0 1 0                # one input; several: port input.<name>: (input.a / input.b, input.s / input.r, input.d / input.e, input.t / input.r, input.clk / input.d [/ input.e])
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
+port target: 0 1 2               # bud only: a cell (air) where the judge performs its block updates
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
 ```
 
@@ -117,9 +121,13 @@ kick) before the first input.
     nothing on the falling edge; `falling-edge`: the same after the falling edge; `dual-edge`: one
     pulse after each edge (L and delay per edge when they differ);
   * `pulse-limiter`: one pulse from the rising edge, length L for every input >= L (shorter inputs
-    may pass shorter); L must be shorter than the longest input;
+    may pass shorter); L must be shorter than the longest input, and at least two inputs longer
+    than L must come out exactly L (one would not tell a limiter from a delay line that shortens
+    every pulse by a fixed amount; a longer gap or a `stimulus:` hint adds longer inputs);
   * `pulse-extender`: one pulse from the rising edge, length L for every input shorter than L and
-    never shorter than L; at least one input shorter than L must be handled.
+    never shorter than L; at least two inputs shorter than L (every tested one when fewer exist,
+    as for L 2) must come out exactly L inside the handled inputs (from the min-pulse up), so a
+    stretcher that adds a fixed amount to every pulse fails.
   * `min-pulse`: the shortest input from which every longer one is handled (at least the 3 longest
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
@@ -198,6 +206,18 @@ kick) before the first input.
   trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
   trip's period and the positions it stands intact at; `latency`: the kick to the first change;
   the box is the design's own.
+* **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
+  primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
+  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  the frames must repeat with a period P through the run's second half for at least 8 periods,
+  every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
+  again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
+  `rate` (the gallery's axis): 1200 n / P TNT per minute; `period`, `per period`, `latency` (the
+  kick to the first spawn). The spread of the primed TNT's position and motion (precision: the
+  game's random 0.02 kick) is in the table, not in the metrics the builds are compared on.
+* **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
+  the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
+  block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
 * **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
   crates/circuit/src/shulker.rs; the variations and how each is measured:
   designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:
@@ -263,6 +283,30 @@ kick) before the first input.
   greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
   design another one dominates out of the archive.
+* **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
+  [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
+  more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states
+  `oak_log[axis=y]` / `[axis=x]`), and one output; optional claims `bud: place remove state shape
+  update`. The judge performs five classes of block update at every target, 3 times each with a
+  gap between (the recovery time, 30..200 gt): `place` (air -> state-a, flags 3 like a player),
+  `remove` (-> air, flags 3), `state` (state-a <-> state-b, flags 3), `shape` (the same change with
+  flags 2: shape updates only, no block update, how crops grow) and `update` (a pure block update
+  around the cell: `updateNeighborsAt`, nothing changes), with idle spans before and after. A class
+  is DETECTED when every one of its events gives exactly one output pulse with one latency and one
+  length (some but not all: `unreliable`; changing: `unsteady`), not detected when none does; at
+  least one class must be detected, every claimed class too; idle gives nothing (`false trigger`)
+  and the output is off at the end of every gap (`latches`). Then pairs of events 30, 20, 15, 10,
+  8, 6, 4, 2 gt apart (per family: update, state, shape, place/remove) give the `re-arm` time (the
+  shortest gap down to which both events give their own pulse); a pair that leaves the output on
+  JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
+  Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
+  the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
+  the probe cells where any of them gives a pulse (`>=` when a probe jams it). The box leaves out
+  the target cells and the probe block in the probe cells.
+  Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ), jams,
+  footprint.
+  The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
+  (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 
 ## Archive and catalog
 

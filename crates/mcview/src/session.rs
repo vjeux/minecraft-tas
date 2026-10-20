@@ -681,8 +681,22 @@ impl Session {
                     _ => kind,
                 };
                 let yaw = e.y_rot_o + (e.y_rot - e.y_rot_o) * partial;
-                crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
+                let pitch = e.x_rot_o + (e.x_rot - e.x_rot_o) * partial;
+                let pos = [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)];
+                let age = e.tick_count as f32 + partial;
+                if let EntityKind::Minecart(_) = &e.kind {
+                    // on a rail: the rail's line and slope (AbstractMinecartRenderer.oldRender)
+                    let p64 = [e.xo + (e.pos.x - e.xo) * partial as f64, e.yo + (e.pos.y - e.yo) * partial as f64, e.zo + (e.pos.z - e.zo) * partial as f64];
+                    let (p, rot, xrot) = crate::entitymodel::minecart_pose(&self.world, p64, yaw, pitch);
+                    return crate::mesh::EntityDraw { kind, pos: [p[0] as f32, p[1] as f32, p[2] as f32], yaw: rot, pitch: xrot, age };
+                }
+                crate::mesh::EntityDraw { kind, pos, yaw, pitch, age }
             })
+            .chain(self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+                // a falling block, from where it was last tick
+                let y0 = f.y - f.vy;
+                crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [f.x as f32, (y0 + (f.y - y0) * partial as f64) as f32, f.z as f32], ..Default::default() }
+            }))
             .collect()
     }
 
@@ -1403,6 +1417,26 @@ mod tests {
         let later = s.entities(0.0);
         let moved = (0..3).map(|k| (later[0].pos[k] - start[0].pos[k]).abs()).sum::<f32>();
         assert!(moved > 0.5, "the boat moves with the current: {:?} -> {:?}", start[0].pos, later[0].pos);
+    }
+
+    /// A falling block (redsim's gravity entities) is drawn: its block model where it is, from
+    /// where it was last tick.
+    #[test]
+    fn falling_blocks_are_drawn() {
+        let mut s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        let sand = redsim::Block::parse("minecraft:sand").unwrap();
+        s.world.gravity.entities.push(redsim::gravity::FallingBlock { block: sand, x: 4.5, y: 3.0, z: 0.5, vy: -0.5, time: 3, removed: false });
+        let e = s.entities(0.5);
+        let f = e.iter().find(|e| e.kind.starts_with("falling:")).expect("the falling block");
+        assert!(f.kind.contains("sand"), "{}", f.kind);
+        assert!((f.pos[1] - 3.25).abs() < 1e-4, "half way from 3.5 to 3.0: {:?}", f.pos);
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = crate::mesh::Builder::new(&atlas);
+        b.entity(f);
+        assert!(!b.mesh.solid.is_empty(), "a falling block draws its block model");
+        // a full block, half a block back from its position (FallingBlockRenderer)
+        let lo = (0..3).map(|k| b.mesh.solid.iter().map(|v| v.pos[k]).fold(f32::MAX, f32::min)).collect::<Vec<_>>();
+        assert!((lo[0] - 4.0).abs() < 1e-4 && (lo[1] - 3.25).abs() < 1e-4 && lo[2].abs() < 1e-4, "{lo:?}");
     }
 
     #[test]

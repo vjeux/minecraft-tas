@@ -1,0 +1,284 @@
+//! `mctas circuit bud census`: every design of K blocks around a target cell, screened on redsim
+//! with the BUD judge (crates/circuit/src/bud.rs, classes only: no footprint probes, no re-arm
+//! pairs) at every air cell next to it as the output. The designs are connected (each block beside
+//! the target or another block), have a block beside the target and an active component, and are
+//! deduplicated by structure (the type key: translation, rotation, mirror). Per detected class set:
+//! how many designs, the smallest and the fastest; `--out-dir` writes them for the real judge
+//! (`mctas circuit verify` / `archive`), which adds the lamp at the output, the footprint and the
+//! re-arm time.
+
+use anyhow::{Result, bail};
+use circuit::check::Sizing;
+use circuit::stimulus::SETTLE;
+use circuit::{Circuit, Pos};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::path::PathBuf;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[derive(clap::Args, Debug)]
+pub struct CensusArgs {
+    /// Blocks per design.
+    #[arg(long, default_value_t = 2)]
+    pub k: usize,
+    /// `all` (pistons, observers, droppers, dispensers in every facing, redstone block, slime,
+    /// honey, stone, glass, lamp, dust, torches, repeaters, comparators), `qc` (observer-free piston
+    /// parts: pistons, slime, honey, redstone block, stone) or a comma list of block states.
+    #[arg(long, default_value = "all")]
+    pub palette: String,
+    /// Cells within this distance (per axis) of the target.
+    #[arg(long, default_value_t = 2)]
+    pub reach: i32,
+    /// Worker threads.
+    #[arg(long, default_value_t = 6)]
+    pub threads: usize,
+    /// Only count the designs.
+    #[arg(long)]
+    pub count: bool,
+    /// The frames each event is given.
+    #[arg(long, default_value_t = 30)]
+    pub gap: u32,
+    /// Write the smallest and the fastest designs of each class set here (up to 3 each).
+    #[arg(long)]
+    pub out_dir: Option<PathBuf>,
+}
+
+const FACINGS: [&str; 6] = ["north", "south", "east", "west", "up", "down"];
+const HFACINGS: [&str; 4] = ["north", "south", "east", "west"];
+
+fn palette(name: &str) -> Vec<String> {
+    let mut v: Vec<String> = Vec::new();
+    match name {
+        "all" | "qc" => {
+            for f in FACINGS {
+                v.push(format!("minecraft:sticky_piston[extended=false,facing={f}]"));
+                v.push(format!("minecraft:piston[extended=false,facing={f}]"));
+            }
+            for b in ["redstone_block", "slime_block", "honey_block", "stone"] {
+                v.push(format!("minecraft:{b}"));
+            }
+            if name == "all" {
+                for f in FACINGS {
+                    v.push(format!("minecraft:observer[facing={f},powered=false]"));
+                    v.push(format!("minecraft:dropper[facing={f},triggered=false]"));
+                    v.push(format!("minecraft:dispenser[facing={f},triggered=false]"));
+                }
+                v.push("minecraft:glass".into());
+                v.push("minecraft:redstone_lamp[lit=false]".into());
+                v.push("minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into());
+                v.push("minecraft:redstone_torch[lit=true]".into());
+                for f in HFACINGS {
+                    v.push(format!("minecraft:redstone_wall_torch[facing={f},lit=true]"));
+                    v.push(format!("minecraft:repeater[delay=1,facing={f},locked=false,powered=false]"));
+                    v.push(format!("minecraft:comparator[facing={f},mode=compare,powered=false]"));
+                }
+            }
+        }
+        list => v.extend(list.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty())),
+    }
+    v
+}
+
+/// Blocks that react to updates (a design without one cannot sense anything).
+fn active(s: &str) -> bool {
+    ["piston", "observer", "dropper", "dispenser", "lamp", "redstone_wire", "torch", "repeater", "comparator"].iter().any(|k| s.contains(k))
+}
+
+fn nbrs(p: Pos) -> [Pos; 6] {
+    [[p[0] + 1, p[1], p[2]], [p[0] - 1, p[1], p[2]], [p[0], p[1] + 1, p[2]], [p[0], p[1] - 1, p[2]], [p[0], p[1], p[2] + 1], [p[0], p[1], p[2] - 1]]
+}
+
+/// Connected cell sets of `k` cells around the target (origin), one of them beside it.
+fn cell_sets(k: usize, reach: i32) -> Vec<Vec<Pos>> {
+    let t: Pos = [0, 0, 0];
+    let ok = |p: &Pos| *p != t && p.iter().all(|c| c.abs() <= reach);
+    let mut sets: BTreeSet<Vec<Pos>> = nbrs(t).iter().filter(|p| ok(p)).map(|p| vec![*p]).collect();
+    for _ in 1..k {
+        let mut next = BTreeSet::new();
+        for s in &sets {
+            let mut cand: BTreeSet<Pos> = nbrs(t).into_iter().collect();
+            for p in s {
+                cand.extend(nbrs(*p));
+            }
+            for q in cand {
+                if ok(&q) && !s.contains(&q) {
+                    let mut n = s.clone();
+                    n.push(q);
+                    n.sort();
+                    next.insert(n);
+                }
+            }
+        }
+        sets = next;
+    }
+    sets.into_iter().collect()
+}
+
+fn design(cells: &[Pos], states: &[&String], out: Option<Pos>) -> mctas::design::Design {
+    let mut d = mctas::design::Design { name: "bud-census".into(), meta: BTreeMap::new(), ports: BTreeMap::new(), blocks: BTreeMap::new(), entities: Vec::new(), block_entities: BTreeMap::new() };
+    d.ports.insert("target".into(), [0, 0, 0]);
+    for (p, s) in cells.iter().zip(states) {
+        d.blocks.insert(*p, (*s).clone());
+    }
+    if let Some(o) = out {
+        d.meta.insert("circuit".into(), "bud".into());
+        d.ports.insert("output".into(), o);
+    }
+    d
+}
+
+/// One passing (design, output) of the screen.
+#[derive(Clone)]
+struct Hit {
+    classes: String,
+    latency: String,
+    pulse: String,
+    text: String,
+    key: String,
+}
+
+fn lat_num(s: &str) -> u32 {
+    s.split(|c: char| !c.is_ascii_digit()).filter(|w| !w.is_empty()).filter_map(|w| w.parse().ok()).max().unwrap_or(999)
+}
+
+/// Screen one design at every candidate output cell.
+fn screen(d: mctas::design::Design, gap: u32) -> Vec<Hit> {
+    let Ok(c) = Circuit::from_design(d.clone()) else { return Vec::new() };
+    let s = circuit::bud::stimulus_with(&c, &Sizing { gap }, false);
+    let actions = c.actions(&s);
+    let (from, to) = circuit::run::watch_box(&c, 2);
+    match clock::sim::unsupported(&c.clock, from, to) {
+        Ok(v) if v.is_empty() => {}
+        _ => return Vec::new(),
+    }
+    // the candidate outputs: air cells beside any cell a block takes during the run (a moving
+    // block can drive a cell nothing touches at rest), from a first run without probes
+    let Ok(first) = clock::sim::drive(&c.clock, &actions, s.ticks, &[], from, to) else { return Vec::new() };
+    if first.stopped.is_some() {
+        return Vec::new();
+    }
+    let taken: BTreeSet<Pos> = first.cells.iter().flat_map(|f| f.iter().map(|(p, _)| *p)).collect();
+    let target: Pos = [0, 0, 0];
+    let mut cand: BTreeSet<Pos> = BTreeSet::new();
+    for p in &taken {
+        for q in nbrs(*p) {
+            if q != target && !d.blocks.contains_key(&q) && (0..3).all(|i| q[i] > from[i] && q[i] < to[i]) {
+                cand.insert(q);
+            }
+        }
+    }
+    let probes: Vec<Pos> = cand.into_iter().collect();
+    let Ok(run) = clock::sim::drive(&c.clock, &actions, s.ticks, &probes, from, to) else { return Vec::new() };
+    if run.stopped.is_some() {
+        return Vec::new();
+    }
+    let rest = (c.clock.free_from() + SETTLE / 2) as usize;
+    let mut hits = Vec::new();
+    for (k, p) in probes.iter().enumerate() {
+        let out: Vec<bool> = run.signals.iter().map(|v| v.get(k).copied().unwrap_or(0) > 0).collect();
+        let o = circuit::bud::judge(&out, &s, rest, 1, &[]);
+        if !o.pass {
+            continue;
+        }
+        let m = |name: &str| o.metrics.iter().find(|(n, _)| n == name).map(|(_, v)| v.clone()).unwrap_or_default();
+        let cells: Vec<Pos> = d.blocks.keys().copied().collect();
+        let states: Vec<&String> = d.blocks.values().collect();
+        let dd = design(&cells, &states, Some(*p));
+        let Ok(cc) = Circuit::from_design(dd.clone()) else { continue };
+        hits.push(Hit { classes: m("detects"), latency: m("latency"), pulse: m("pulse"), text: dd.to_text(), key: circuit::archive::type_key(&cc) });
+    }
+    hits
+}
+
+pub fn run(a: CensusArgs) -> Result<()> {
+    if a.k == 0 {
+        bail!("--k must be at least 1");
+    }
+    let pal = palette(&a.palette);
+    let sets = cell_sets(a.k, a.reach);
+    // every assignment of palette states to the cells, deduplicated by structure
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut designs: Vec<mctas::design::Design> = Vec::new();
+    let mut idx = vec![0usize; a.k];
+    let mut total = 0usize;
+    for cells in &sets {
+        idx.iter_mut().for_each(|i| *i = 0);
+        loop {
+            let states: Vec<&String> = idx.iter().map(|i| &pal[*i]).collect();
+            if states.iter().any(|s| active(s)) {
+                total += 1;
+                let d = design(cells, &states, None);
+                let mut dk = d.clone();
+                dk.blocks.insert([0, 0, 0], "circuit:target".into());
+                if seen.insert(clock::canon::design_type_key(&dk)) {
+                    designs.push(d);
+                }
+            }
+            // next assignment
+            let mut j = 0;
+            while j < a.k {
+                idx[j] += 1;
+                if idx[j] < pal.len() {
+                    break;
+                }
+                idx[j] = 0;
+                j += 1;
+            }
+            if j == a.k {
+                break;
+            }
+        }
+    }
+    println!("census k={} palette {} ({} states), reach {}: {} cell sets, {} designs, {} distinct structures", a.k, a.palette, pal.len(), a.reach, sets.len(), total, designs.len());
+    if a.count {
+        return Ok(());
+    }
+    let next = AtomicUsize::new(0);
+    let done = AtomicUsize::new(0);
+    let hits: Mutex<Vec<Hit>> = Mutex::new(Vec::new());
+    let n = designs.len();
+    std::thread::scope(|sc| {
+        for _ in 0..a.threads.max(1) {
+            sc.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= n {
+                        break;
+                    }
+                    let h = screen(designs[i].clone(), a.gap);
+                    if !h.is_empty() {
+                        hits.lock().unwrap().extend(h);
+                    }
+                    let d = done.fetch_add(1, Ordering::Relaxed) + 1;
+                    if d % 2000 == 0 {
+                        eprintln!("  {d}/{n} screened");
+                    }
+                }
+            });
+        }
+    });
+    let hits = hits.into_inner().unwrap();
+    // per class set: distinct structures (design + output), the fastest
+    let mut by: BTreeMap<String, Vec<Hit>> = BTreeMap::new();
+    let mut keys: HashSet<String> = HashSet::new();
+    for h in hits {
+        if keys.insert(h.key.clone()) {
+            by.entry(h.classes.clone()).or_default().push(h);
+        }
+    }
+    println!("{} passing (design, output) structures in {} class sets", keys.len(), by.len());
+    for (cl, v) in &mut by {
+        v.sort_by_key(|h| (lat_num(&h.latency), lat_num(&h.pulse), h.text.len()));
+        let best = &v[0];
+        println!("  detects {cl}: {} structures; fastest latency {} (pulse {})", v.len(), best.latency, best.pulse);
+        if let Some(dir) = &a.out_dir {
+            std::fs::create_dir_all(dir)?;
+            for (j, h) in v.iter().take(3).enumerate() {
+                let name = format!("census-k{}-{}-{}", a.k, cl.replace(' ', "-"), j + 1);
+                let text = h.text.replacen("name: bud-census", &format!("name: {name}"), 1);
+                std::fs::write(dir.join(format!("{name}.txt")), text)?;
+            }
+        }
+    }
+    Ok(())
+}

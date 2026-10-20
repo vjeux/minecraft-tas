@@ -125,6 +125,13 @@ pub struct World {
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
+    /// TNT primed (`TntBlock.prime`: a `PrimedTnt` in the game, not simulated: its motion draws
+    /// from `level.random` and the judge removes primed TNT before it explodes): (game time, the
+    /// TNT's cell; the entity spawns at its bottom center).
+    pub primed: Vec<(i64, BlockPos)>,
+    /// The caller removes every primed TNT before it explodes (the TNT judge): no explosion
+    /// error (`tick`).
+    pub remove_primed: bool,
 }
 
 impl World {
@@ -157,6 +164,8 @@ impl World {
             watch_light: false,
             light_changes: Vec::new(),
             errors: Vec::new(),
+            primed: Vec::new(),
+            remove_primed: false,
         }
     }
 
@@ -579,6 +588,15 @@ impl World {
     pub fn tick(&mut self) {
         self.handling_tick = true;
         self.time += 1;
+        // a primed TNT explodes after its 80 gt fuse (it ticks from the tick it spawns in): not
+        // modeled, unless the caller removes primed TNT before that (the TNT judge does)
+        if !self.remove_primed {
+            if let Some(&(t, p)) = self.primed.iter().find(|(t, _)| self.time >= *t + 79) {
+                if !self.errors.iter().any(|e| e.starts_with("explosion")) {
+                    self.errors.push(format!("explosion not modeled: the TNT primed at gt {t} ({p}) explodes"));
+                }
+            }
+        }
         let due = self.ticks.collect(self.time);
         for t in due {
             self.ticks.start_running(&t);
@@ -604,8 +622,7 @@ impl World {
             }
         }
         self.handling_tick = false;
-        crate::gravity::tick_entities(self);
-        crate::entity::tick_all(self);
+        crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);

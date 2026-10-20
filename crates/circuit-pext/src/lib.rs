@@ -384,7 +384,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
         Cmd::Minimize { design, palette, threads, plane_z, out } => {
             let p = Pext::load(&design)?;
-            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads, plane_z })?;
+            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads, plane_z, checkpoint: out.clone() })?;
             for (i, d) in steps.iter().enumerate() {
                 let np = Pext::from_design(d.clone())?;
                 let prep = rs::Prepared::new(&np, 4).map_err(|e| anyhow!("{e}"))?;

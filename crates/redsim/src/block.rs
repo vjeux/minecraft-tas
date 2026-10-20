@@ -500,6 +500,13 @@ pub enum Block {
     /// A bubble column (`BubbleColumnBlock`, a water source): `drag` = down (magma below), else up
     /// (soul sand below).
     BubbleColumn { drag: bool },
+    // ---- TNT dupers (track tnt, `tnt.rs`) ----
+    /// TNT (`TntBlock`): primes on placement or an update while powered.
+    Tnt { unstable: bool },
+    /// Dead coral fan on a floor (`BaseCoralFanBlock`): `kind` indexes `tnt::DEAD_CORALS`.
+    CoralFan { kind: u8, waterlogged: bool },
+    /// Dead coral wall fan (`BaseCoralWallFanBlock`), on the block at `facing.opposite()`.
+    CoralWallFan { kind: u8, facing: Dir, waterlogged: bool },
 }
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
@@ -568,6 +575,11 @@ pub enum Kind {
     Jukebox,
     Water,
     BubbleColumn,
+    // ---- TNT dupers (track tnt) ----
+    Tnt,
+    /// By `tnt::DEAD_CORALS` index.
+    CoralFan(u8),
+    CoralWallFan(u8),
 }
 
 fn b(s: bool) -> &'static str {
@@ -631,6 +643,9 @@ impl Block {
             Block::Jukebox { .. } => Kind::Jukebox,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
+            Block::Tnt { .. } => Kind::Tnt,
+            Block::CoralFan { kind, .. } => Kind::CoralFan(kind),
+            Block::CoralWallFan { kind, .. } => Kind::CoralWallFan(kind),
         }
     }
 
@@ -943,6 +958,17 @@ impl Block {
             }
             "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
             "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
+            // ---- TNT dupers (track tnt): the dead fans' default state is waterlogged ----
+            "tnt" => Block::Tnt { unstable: bool_of("unstable", false)? },
+            n if n.starts_with("dead_") && n.ends_with("_coral_fan") && crate::tnt::DEAD_CORALS.contains(&&n[5..n.len() - 10]) => Block::CoralFan {
+                kind: crate::tnt::DEAD_CORALS.iter().position(|k| *k == &n[5..n.len() - 10]).unwrap() as u8,
+                waterlogged: bool_of("waterlogged", true)?,
+            },
+            n if n.starts_with("dead_") && n.ends_with("_coral_wall_fan") && crate::tnt::DEAD_CORALS.contains(&&n[5..n.len() - 15]) => Block::CoralWallFan {
+                kind: crate::tnt::DEAD_CORALS.iter().position(|k| *k == &n[5..n.len() - 15]).unwrap() as u8,
+                facing: hdir_of("facing", Dir::North)?,
+                waterlogged: bool_of("waterlogged", true)?,
+            },
             // ---- entity-reacting blocks (clk-misc): rails ----
             "rail" => {
                 waterlogged_ok()?;
@@ -1115,6 +1141,11 @@ impl fmt::Display for Block {
             Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
+            Block::Tnt { unstable } => write!(f, "minecraft:tnt[unstable={}]", b(unstable)),
+            Block::CoralFan { kind, waterlogged } => write!(f, "minecraft:dead_{}_coral_fan[waterlogged={}]", crate::tnt::DEAD_CORALS[kind as usize], b(waterlogged)),
+            Block::CoralWallFan { kind, facing, waterlogged } => {
+                write!(f, "minecraft:dead_{}_coral_wall_fan[facing={},waterlogged={}]", crate::tnt::DEAD_CORALS[kind as usize], facing.name(), b(waterlogged))
+            }
         }
     }
 }

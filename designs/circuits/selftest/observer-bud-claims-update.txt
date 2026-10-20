@@ -1,0 +1,14 @@
+name: cal-observer-bud-claims-update
+circuit: bud
+bud: place update
+# Refusal: an observer facing the target sees every change of that block but not a pure block
+# update (nothing changes): the claim `update` is false.
+origin: 0 0 0
+port target: 0 1 0
+port output: 2 1 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  ...
+layer 1:
+  .O.

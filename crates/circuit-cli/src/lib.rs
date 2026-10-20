@@ -109,6 +109,11 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track bud's commands (crates/circuit-bud): BUD switches, study 10.
+    Bud {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Track tff's commands (crates/circuit-tff).
     Tff {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -141,6 +146,11 @@ pub enum CircuitCmd {
     },
     /// Track shulker's commands (crates/circuit-shulker).
     Shulker {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track tnt's commands (crates/circuit-tnt).
+    Tnt {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -291,6 +301,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}", out.display());
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
+        CircuitCmd::Bud { args } => circuit_bud::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,
         CircuitCmd::Memory { args } => circuit_memory::run(args)?,
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,
@@ -298,6 +309,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
+        CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
     }
     Ok(())
 }

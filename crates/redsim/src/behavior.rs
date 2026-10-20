@@ -35,6 +35,8 @@ pub fn collides(s: &Block) -> bool {
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => false,
         Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
         Block::Water { .. } | Block::BubbleColumn { .. } => false,
+        // ---- TNT dupers (track tnt): dead coral fans have no collision ----
+        Block::CoralFan { .. } | Block::CoralWallFan { .. } => false,
         _ => true,
     }
 }
@@ -61,6 +63,8 @@ pub fn full_cube(s: &Block) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        // ---- TNT dupers (track tnt) ----
+        Block::Tnt { .. } => true,
         _ => false,
     }
 }
@@ -183,6 +187,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         Block::DaylightDetector { .. } => face == Dir::Down,
+        // ---- TNT dupers (track tnt) ----
+        Block::Tnt { .. } => true,
         _ => false,
     }
 }
@@ -318,6 +324,8 @@ pub fn instrument(s: &Block) -> Instrument {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { .. } | Block::CoralWallFan { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
 }
@@ -355,6 +363,9 @@ pub fn push_reaction(s: &Block) -> PushReaction {
 /// table (`noLootTable`: piston heads, moving pistons, end portal frames) and air.
 pub fn drops_item(s: &Block) -> bool {
     !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. } | Block::Water { .. } | Block::BubbleColumn { .. })
+        // ---- TNT dupers (track tnt): VanillaBlockLoot: TNT drops itself unless unstable, dead
+        // coral fans only with silk touch
+        && !matches!(s, Block::Tnt { unstable: true } | Block::CoralFan { .. } | Block::CoralWallFan { .. })
 }
 
 /// Destroy speed -1 (unbreakable: pistons cannot move it).
@@ -491,6 +502,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
             1 => vec![[0, 16, 8, 16, 0, 16]],
             _ => vec![FULL],
         },
+        // ---- TNT dupers (track tnt): dead coral fans have no collision ----
+        Block::CoralFan { .. } | Block::CoralWallFan { .. } => vec![],
         _ => vec![FULL],
     }
 }
@@ -521,6 +534,8 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
             sturdy(w, &w.get(q), q, d.opposite(), Support::Center)
         }
         Block::BubbleColumn { .. } => crate::fluid::bubble_can_survive(w, p),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { .. } | Block::CoralWallFan { .. } => crate::tnt::fan_can_survive(w, s, p),
         _ => true,
     }
 }
@@ -543,6 +558,8 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
         Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
+        // ---- TNT dupers (track tnt) ----
+        Block::Tnt { .. } => crate::tnt::neighbor_changed(w, p),
         _ => {}
     }
 }
@@ -594,6 +611,8 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         }
         Block::Water { .. } => crate::fluid::liquid_update_shape(w, s, p, d, ns),
         Block::BubbleColumn { .. } => crate::fluid::bubble_update_shape(w, s, p, d, ns),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { .. } | Block::CoralWallFan { .. } => crate::tnt::fan_update_shape(w, s, p, d),
         _ => s,
     }
 }
@@ -629,6 +648,8 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Tripwire { .. } => crate::react::tripwire::on_place(w, s, p, old),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::on_place(w, s, p, old, moved),
         Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
+        // ---- TNT dupers (track tnt) ----
+        Block::Tnt { .. } => crate::tnt::on_place(w, p, old),
         _ => {}
     }
 }

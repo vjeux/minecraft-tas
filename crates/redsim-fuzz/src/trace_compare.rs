@@ -135,25 +135,48 @@ fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
 /// The live entities of redsim's world, in tick order.
 fn entities_of(w: &World) -> Vec<TraceEntity> {
     use redsim::entity::EntityKind;
-    w.entities
+    // every entity in id (spawn) order: falling blocks ([`redsim::gravity`]) share the id counter
+    let mut out: Vec<(u32, TraceEntity)> = w
+        .entities
         .list
         .iter()
         .filter(|e| !e.removed)
-        .map(|e| TraceEntity {
-            id: e.id as u64,
-            kind: match &e.kind {
-                EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
-                EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
-                EntityKind::Item(_) => "minecraft:item".to_string(),
-                EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
-            },
-            pos: [e.pos.x, e.pos.y, e.pos.z],
-            motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
-            yaw: e.y_rot,
-            pitch: e.x_rot,
-            net_id: Some(e.network_id),
+        .map(|e| {
+            (
+                e.id,
+                TraceEntity {
+                    id: e.id as u64,
+                    kind: match &e.kind {
+                        EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
+                        EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
+                        EntityKind::Item(_) => "minecraft:item".to_string(),
+                        EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                    },
+                    pos: [e.pos.x, e.pos.y, e.pos.z],
+                    motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
+                    yaw: e.y_rot,
+                    pitch: e.x_rot,
+                    net_id: Some(e.network_id),
+                },
+            )
         })
-        .collect()
+        .collect();
+    out.extend(w.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+        (
+            f.id,
+            TraceEntity {
+                id: f.id as u64,
+                kind: "minecraft:falling_block".to_string(),
+                pos: [f.x, f.y, f.z],
+                motion: [0.0, f.vy, 0.0],
+                yaw: 0.0,
+                pitch: 0.0,
+                net_id: None,
+            },
+        )
+    }));
+    out.sort_by_key(|(id, _)| *id);
+    out.into_iter().map(|(_, e)| e).collect()
 }
 
 fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String>) {
@@ -220,17 +243,24 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         return Ok(Outcome::Unmodeled(e));
     }
     // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
-    // first frame, in the summon order
+    // first frame, in the summon order (falling blocks carry no network id here)
     if let Some((_, ents)) = trace.frames.first() {
-        for (k, te) in ents.iter().enumerate() {
+        let mut k = 0;
+        for te in ents.iter().filter(|te| te.kind != "minecraft:falling_block") {
             if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
                 e.network_id = n;
             }
+            k += 1;
         }
     }
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
+    // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
+    // from level.random); the trace's TNT entities are compared as spawns (new ids per tick, by
+    // the cell they stand in) with redsim's primes of that tick, and left out of the entity check
+    let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut primed_seen = 0usize;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -250,6 +280,14 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
                 Action::Clear { pos } => {
                     w.set_block(bp(pos), Block::Air, flags::ALL);
+                }
+                Action::ShapeSet { pos, state } => {
+                    let b = Block::parse(&state).map_err(|e| anyhow::anyhow!(e))?;
+                    w.set_block(bp(pos), b, flags::CLIENTS);
+                }
+                Action::Update { pos } => {
+                    let src = w.get(bp(pos)).kind();
+                    w.update_neighbors_at(bp(pos), src);
                 }
             }
         }
@@ -277,7 +315,20 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             }
         }
         let mut ed = Vec::new();
-        entity_diffs(ents, &entities_of(&w), &mut ed);
+        // (a TNT is first seen one tick after it spawned and may already have been pushed one
+        // cell by the machine: counts per tick must match, cells within 1)
+        let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
+        let mut game_spawns: Vec<[i32; 3]> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().map(|(_, p)| [p.x, p.y, p.z]).collect();
+        primed_seen = w.primed.len();
+        game_spawns.sort();
+        sim_spawns.sort();
+        let near = |a: &[i32; 3], b: &[i32; 3]| (0..3).all(|i| (a[i] - b[i]).abs() <= 1);
+        if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
+            ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
+        }
+        let others: Vec<TraceEntity> = ents.iter().filter(|e| !is_tnt(e)).cloned().collect();
+        entity_diffs(&others, &entities_of(&w), &mut ed);
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {
