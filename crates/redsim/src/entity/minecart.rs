@@ -27,6 +27,8 @@ pub struct MinecartState {
     pub hopper: bool,
     pub on_rails: bool,
     pub flipped: bool,
+    /// A hopper minecart's `enabled` (an activator rail's power turns it off).
+    pub enabled: bool,
 }
 
 fn st_mut(w: &mut World, i: usize) -> &mut MinecartState {
@@ -214,12 +216,23 @@ fn move_along_track(w: &mut World, i: usize) {
     } else if e1[1] != 0 && mth::floor(p.x) - pos.x == e1[0] && mth::floor(p.z) - pos.z == e1[2] {
         set_pos(w, i, p.x, p.y + e1[1] as f64, p.z);
     }
-    // `applyNaturalSlowdown`
-    let slow = 0.96; // `isVehicle() ? 0.997 : 0.96`
-    let mut nm = dm(w, i).multiply(slow, 0.0, slow);
-    if in_water(w, i) {
-        nm = nm.scale(0.95f32 as f64);
-    }
+    // `applyNaturalSlowdown` (container minecarts: `AbstractMinecartContainer`'s, by emptiness)
+    let nm = if st(w, i).hopper {
+        let id = w.entities.list[i].id;
+        let signal = w.containers.entities.get(&id).map(crate::redstone::container::signal_of).unwrap_or(0);
+        let mut keep = 0.98f32 + (15 - signal) as f32 * 0.001f32;
+        if in_water(w, i) {
+            keep *= 0.95f32;
+        }
+        dm(w, i).multiply(keep as f64, 0.0, keep as f64)
+    } else {
+        let slow = 0.96; // `isVehicle() ? 0.997 : 0.96`
+        let mut nm = dm(w, i).multiply(slow, 0.0, slow);
+        if in_water(w, i) {
+            nm = nm.scale(0.95f32 as f64);
+        }
+        nm
+    };
     set_dm(w, i, nm);
     let p = w.entities.list[i].pos;
     let new_pos = get_pos(w, p.x, p.y, p.z);
@@ -304,10 +317,11 @@ pub fn tick(w: &mut World, i: usize) {
     st_mut(w, i).on_rails = on_rails;
     if on_rails {
         move_along_track(w, i);
-        if let Block::Rail { activator: true, .. } = s
+        // activateMinecart: a hopper minecart is enabled while the activator rail is unpowered
+        if let Block::Rail { activator: true, powered, .. } = s
             && st(w, i).hopper
         {
-            w.errors.push("hopper minecart on an activator rail: not modeled yet".into());
+            st_mut(w, i).enabled = !powered;
         }
     } else {
         come_off_track(w, i);
@@ -344,7 +358,10 @@ pub fn tick(w: &mut World, i: usize) {
     }
     entity::fluid_push::update_fluid_interaction(w, i);
     w.entities.list[i].first_tick = false;
-    if st(w, i).hopper {
-        w.errors.push("hopper minecarts' items are not modeled yet".into());
+    // MinecartHopper.tick: after the cart's tick, `tryConsumeItems` (consumedItemThisFrame is
+    // reset each tick and only set here: one pull per tick)
+    let m = st(w, i);
+    if m.hopper && m.enabled && !w.entities.list[i].removed {
+        crate::redstone::container::hopper_minecart_suck(w, i);
     }
 }

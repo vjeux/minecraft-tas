@@ -244,8 +244,20 @@ fn snbt_keys(nbt: &str) -> Vec<String> {
 /// redsim does not model (container contents...) is refused.
 pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
     let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    // (clk-misc) container entities: their contents (Items) and size
+    let container_size = match id {
+        "hopper_minecart" => Some(5),
+        _ if id.ends_with("_chest_boat") || id == "bamboo_chest_raft" => Some(27),
+        _ => None,
+    };
     if let Some(n) = nbt {
-        let allowed: &[&str] = if id == "item" { &["Motion", "Rotation", "Item", "PickupDelay", "Age"] } else { &["Motion", "Rotation"] };
+        let allowed: &[&str] = if id == "item" {
+            &["Motion", "Rotation", "Item", "PickupDelay", "Age"]
+        } else if container_size.is_some() {
+            &["Motion", "Rotation", "Items"]
+        } else {
+            &["Motion", "Rotation"]
+        };
         if let Some(k) = snbt_keys(n).into_iter().find(|k| !allowed.contains(&k.as_str())) {
             return Err(format!("entity {type_id} with {k} in its data ({n}) is not modeled by redsim"));
         }
@@ -255,11 +267,15 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
         "oak_chest_boat" | "spruce_chest_boat" | "birch_chest_boat" | "jungle_chest_boat" | "acacia_chest_boat" | "dark_oak_chest_boat" | "mangrove_chest_boat" | "cherry_chest_boat" | "pale_oak_chest_boat" | "bamboo_chest_raft" => {
             EntityKind::Boat(boat::BoatState { chest: true, ..Default::default() })
         }
-        // hopper and chest minecarts need their kinds (contents, hopper sucking): not yet
         "minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
+        "hopper_minecart" => EntityKind::Minecart(minecart::MinecartState { hopper: true, enabled: true, ..Default::default() }),
         "armor_stand" => EntityKind::ArmorStand(armor_stand::ArmorStandState::default()),
         "item" => EntityKind::Item(item::ItemState::from_nbt(nbt)),
         _ => return Err(format!("entity {type_id} is not modeled by redsim")),
+    };
+    let items = match (container_size, nbt) {
+        (Some(_), Some(n)) => crate::redstone::container::entity_items(n).map_err(|e| format!("entity {type_id}: {e}"))?,
+        _ => Vec::new(),
     };
     let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
     if let Some(n) = nbt
@@ -289,6 +305,15 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
                 e.delta_movement = Vec3::new(v[0], v[1], v[2]);
             }
         }
+    }
+    if let Some(size) = container_size {
+        let mut c = crate::redstone::container::ContainerBe::entity(size);
+        for (slot, st) in items {
+            if slot < size {
+                c.slots[slot] = Some(st);
+            }
+        }
+        w.containers.entities.insert(id, c);
     }
     Ok(id)
 }
