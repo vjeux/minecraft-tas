@@ -527,6 +527,10 @@ fn checks() -> Vec<Check> {
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1"),
+        ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 1 gt, 8 blocks, 3x3x2"),
+        ("window-dff", "cal-window-dff dff latency 4 gt, edge falling, setup 0 gt, hold 2 gt, 10 blocks, 2x2x5"),
+        ("window-dff-enable", "cal-window-dff-enable dff-enable latency 4 gt, edge falling, 13 blocks, 4x2x5"),
+        ("window-shift1", "cal-window-shift1 shift 1 N 1, latency 4 gt, edge falling, 10 blocks, 2x2x5"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
@@ -537,11 +541,16 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
     s.push("designs/circuits/selftest/comparator-and.txt".into());
     s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
+    // the sequential memory kinds: a claim each refused (a reset that drives nothing, a level
+    // latch as an edge-triggered register, an enable that drives nothing, one cell as two)
+    for f in ["bulb-tff-claimed-reset", "dlatch-claimed-dff", "dff-claimed-enable", "dff-claimed-shift2"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND, a floating dust and an update-less (redirection-only) NOR refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 16 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register): their known metrics; the OR gate claiming AND, a floating dust, an update-less (redirection-only) NOR, a stone output and four false memory claims refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -557,12 +566,16 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR and a stone output refused; the comparator AND kept"))
+            has(&o[0], "FAIL: cal-bulb-tff-claimed-reset tff-reset: A r 4: an r pulse must clear q")?;
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            has(&o[0], "FAIL: cal-dff-claimed-enable dff-enable: rising edge:")?;
+            has(&o[0], "FAIL: cal-dff-claimed-shift2 shift 2: rising edge:")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR, a stone output and 4 false memory claims refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 12 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 16 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
@@ -570,6 +583,7 @@ fn checks() -> Vec<Check> {
             s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
             s.push("designs/circuits/selftest/update-less-nor.txt".into());
             s.push("designs/circuits/selftest/comparator-and.txt".into());
+            s.push("designs/circuits/selftest/dlatch-claimed-dff.txt".into());
             s
         }],
         timeout: 600,
@@ -581,7 +595,8 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust")?;
-            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR refused, the comparator AND robust", circ2.len()))
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR and the latch claiming dff refused, the comparator AND robust", circ2.len()))
         }),
     });
     v
