@@ -198,6 +198,58 @@ impl Tile {
         }
         self
     }
+    /// Paint 16 rows of 16 characters, each mapped to a color by `pal`; other characters (`.`)
+    /// leave the pixel as it is.
+    fn grid(&mut self, rows: &[&str; 16], pal: &[(char, Rgba)]) -> &mut Self {
+        for (y, r) in rows.iter().enumerate() {
+            for (x, ch) in r.chars().enumerate() {
+                if let Some((_, c)) = pal.iter().find(|(k, _)| *k == ch) {
+                    self.set(x as i32, y as i32, *c);
+                }
+            }
+        }
+        self
+    }
+    /// Mottled pixels in the rectangle (x0, y0)..=(x1, y1) with exactly these colors in these
+    /// shares, darkest where a tileable smooth noise (cells `sx` x `sy` px; 16 must divide by them)
+    /// mixed with per-pixel noise (`clump` 0..1 = how blotchy) is lowest.
+    #[allow(clippy::too_many_arguments)]
+    fn mottle_in(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, cols: &[(u32, f32)], sx: i32, sy: i32, clump: f32, k: u32) -> &mut Self {
+        let (cx, cy) = (16 / sx.max(1), 16 / sy.max(1));
+        let lat = |t: &Tile, i: i32, j: i32| t.n(i.rem_euclid(cx), j.rem_euclid(cy), 500 + k);
+        let mut vals: Vec<(f32, i32, i32)> = Vec::new();
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let (fx, fy) = (x as f32 / sx as f32, y as f32 / sy as f32);
+                let (i0, j0) = (fx.floor() as i32, fy.floor() as i32);
+                let (tx, ty) = (fx - i0 as f32, fy - j0 as f32);
+                let top = lat(self, i0, j0) * (1.0 - tx) + lat(self, i0 + 1, j0) * tx;
+                let bot = lat(self, i0, j0 + 1) * (1.0 - tx) + lat(self, i0 + 1, j0 + 1) * tx;
+                let s = top * (1.0 - ty) + bot * ty;
+                vals.push(((1.0 - clump) * self.n(x, y, 600 + k) + clump * s, x, y));
+            }
+        }
+        vals.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let mut cols: Vec<(Rgba, f32)> = cols.iter().map(|(c, f)| (rgb(*c), *f)).collect();
+        let lum = |c: &Rgba| c[0] as f32 * 0.3 + c[1] as f32 * 0.59 + c[2] as f32 * 0.11;
+        cols.sort_by(|a, b| lum(&a.0).total_cmp(&lum(&b.0)));
+        let total: f32 = cols.iter().map(|c| c.1).sum::<f32>().max(1e-6);
+        let n = vals.len() as f32;
+        let mut acc = 0.0;
+        let mut ci = 0;
+        for (i, (_, x, y)) in vals.iter().enumerate() {
+            while ci + 1 < cols.len() && (i as f32 + 0.5) / n > (acc + cols[ci].1) / total {
+                acc += cols[ci].1;
+                ci += 1;
+            }
+            self.set(*x, *y, cols[ci].0);
+        }
+        self
+    }
+    /// [`Tile::mottle_in`] over the whole tile.
+    fn mottle(&mut self, cols: &[(u32, f32)], sx: i32, sy: i32, clump: f32, k: u32) -> &mut Self {
+        self.mottle_in(0, 0, 15, 15, cols, sx, sy, clump, k)
+    }
 }
 
 /// The painted tiles, by name, in a fixed order.
@@ -842,8 +894,20 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("generic", &|t| {
         t.fill(rgb(0xffffff)).vary(0.05).outline(0, 0, 15, 15, rgb(0xd0d0d0));
     });
+    // the hand-drawn vanilla-look tiles replace the procedural ones of the same name
+    for (name, f) in art::tiles() {
+        seed = seed.wrapping_mul(747796405).wrapping_add(2891336453);
+        let mut t = Tile::new(seed);
+        f(&mut t);
+        match out.iter_mut().find(|(n, _)| *n == name) {
+            Some(slot) => slot.1 = t,
+            None => out.push((name, t)),
+        }
+    }
     out
 }
+
+mod art;
 
 /// The textures as an array (one 16x16 layer per tile, so filtering never bleeds between
 /// tiles): RGBA pixels per mip level of every layer, and each name's layer.

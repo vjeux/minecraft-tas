@@ -43,8 +43,9 @@ each build's page.
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it; the camera stays above the ground. Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
-  100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors), tick counter in gt and seconds (and
-  gt since the last flip); a badge says what runs (redsim, a recording, or shown as built).
+  100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors); badges at the top: what runs
+  (redsim, a recording, or shown as built) on the left, the tick counter in gt and seconds on the
+  right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
 
 ## How it works
 
@@ -83,6 +84,8 @@ each build's page.
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
+| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
 --enable-unsafe-swiftshader --virtual-time-budget=60000 --screenshot=x.png <url>` (EPEL package

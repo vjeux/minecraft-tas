@@ -186,6 +186,44 @@ pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     Ok((rgba, w, h))
 }
 
+/// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the
+/// opaque pixels (most common first), each color optionally multiplied by `tint` (grass, leaves).
+pub fn palette(rgba: &[u8], k: usize, tint: Option<[u8; 3]>) -> ([u8; 3], Vec<([u8; 3], f32)>) {
+    let t = tint.map(|c| [c[0] as f32 / 255.0, c[1] as f32 / 255.0, c[2] as f32 / 255.0]).unwrap_or([1.0; 3]);
+    let px: Vec<[f32; 3]> = rgba.chunks(4).filter(|c| c[3] >= 128).map(|c| [c[0] as f32 * t[0], c[1] as f32 * t[1], c[2] as f32 * t[2]]).collect();
+    if px.is_empty() {
+        return ([0; 3], Vec::new());
+    }
+    let n = px.len() as f32;
+    let mean = (0..3).map(|i| px.iter().map(|p| p[i]).sum::<f32>() / n).collect::<Vec<_>>();
+    let lum = |p: &[f32; 3]| p[0] * 0.3 + p[1] * 0.59 + p[2] * 0.11;
+    let mut sorted = px.clone();
+    sorted.sort_by(|a, b| lum(a).total_cmp(&lum(b)));
+    let k = k.max(1).min(px.len());
+    // seeds at luminance quantiles, then Lloyd iterations
+    let mut centers: Vec<[f32; 3]> = (0..k).map(|i| sorted[(i * 2 + 1) * sorted.len() / (2 * k)]).collect();
+    let mut assign = vec![0usize; px.len()];
+    for _ in 0..20 {
+        for (j, p) in px.iter().enumerate() {
+            assign[j] = (0..k).min_by(|a, b| {
+                let d = |c: &[f32; 3]| (0..3).map(|i| (c[i] - p[i]).powi(2)).sum::<f32>();
+                d(&centers[*a]).total_cmp(&d(&centers[*b]))
+            }).unwrap();
+        }
+        for (c, center) in centers.iter_mut().enumerate() {
+            let members: Vec<&[f32; 3]> = px.iter().zip(&assign).filter(|(_, a)| **a == c).map(|(p, _)| p).collect();
+            if !members.is_empty() {
+                for i in 0..3 {
+                    center[i] = members.iter().map(|p| p[i]).sum::<f32>() / members.len() as f32;
+                }
+            }
+        }
+    }
+    let mut out: Vec<([u8; 3], f32)> = (0..k).map(|c| (centers[c].map(|v| v.round().clamp(0.0, 255.0) as u8), assign.iter().filter(|a| **a == c).count() as f32 / n)).filter(|(_, f)| *f > 0.0).collect();
+    out.sort_by(|a, b| b.1.total_cmp(&a.1));
+    ([mean[0].round() as u8, mean[1].round() as u8, mean[2].round() as u8], out)
+}
+
 /// Textures in a grid, each scaled up `scale` times (nearest), on a checkerboard (transparency).
 pub fn sheet(paths: &[std::path::PathBuf], scale: u32, cols: u32) -> Result<(Vec<u8>, u32, u32), String> {
     let cell = 16 * scale + 4;

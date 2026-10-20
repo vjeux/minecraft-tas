@@ -2014,6 +2014,7 @@ dependencies = [
  "mctas",
  "mcview",
  "redsim",
+ "zip",
 ]
 
 [[package]]

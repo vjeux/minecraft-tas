@@ -136,16 +136,14 @@ impl Player {
     }
 }
 
-/// `6.15 s`, `1 min 2.5 s`.
+/// `6.15 s`, `1 min 2.50 s` (always two decimals: the counter keeps its width).
 pub fn seconds(gt: u32) -> String {
     let s = gt as f32 / 20.0;
     if s < 60.0 {
-        let t = format!("{s:.2}");
-        let t = t.trim_end_matches('0').trim_end_matches('.');
-        format!("{t} s")
+        format!("{s:.2} s")
     } else {
         let m = (s / 60.0).floor();
-        format!("{m} min {:.1} s", s - m * 60.0)
+        format!("{m} min {:05.2} s", s - m * 60.0)
     }
 }
 
@@ -163,6 +161,7 @@ mod tests {
         }
         assert_eq!(p.session.tick, 20);
         assert_eq!(seconds(123), "6.15 s");
-        assert_eq!(seconds(20), "1 s");
+        assert_eq!(seconds(20), "1.00 s");
+        assert_eq!(seconds(1250), "1 min 02.50 s");
     }
 }
