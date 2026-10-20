@@ -56,6 +56,10 @@ enum Cmd {
         /// pulses) instead of a level counter N * 2^K.
         #[arg(long)]
         divider: bool,
+        /// Write the smallest candidates without judging them (by default each is judged in
+        /// redsim, smallest first, and only passing ones are written).
+        #[arg(long)]
+        unchecked: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -111,7 +115,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     };
     match a.cmd {
         Cmd::Items { n, out } => items::run(&n, &out)?,
-        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, &out)?,
+        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, unchecked, out } => ring::run(&n, max_dust, keep, bulbs, &then, divider, !unchecked, &out)?,
         Cmd::StampGroups { dry_run, files } => stamp::run(&files, dry_run)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
