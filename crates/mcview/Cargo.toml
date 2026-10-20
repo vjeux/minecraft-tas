@@ -1,0 +1,21 @@
+[package]
+name = "mcview"
+description = "The in-browser contraption viewer's core (docs/webrender.md): the design format, a redsim session (placement like the judges, inputs, ticks), Minecraft-like block models with procedural textures, and a wgpu renderer (WebGL2 in the browser, Vulkan headless natively for PNG shots)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+redsim = { path = "../redsim" }
+bytemuck = { version = "1", features = ["derive"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan", "std"] }
+pollster = "1"
+png = "0.18"
+jpeg-decoder = { version = "0.3", default-features = false }
+wasmi = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { version = "30", default-features = false, features = ["wgsl", "webgl", "std"] }

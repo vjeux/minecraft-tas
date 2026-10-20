@@ -1,0 +1,14 @@
+[package]
+name = "circuit-gates"
+description = "Track gates' commands (logic gates: NOT and every 2-input function as steady-state gates), owned by clk-rt; see designs/circuits/tracks/gates/NOTES.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit-delay = { path = "../circuit-delay" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

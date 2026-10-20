@@ -1,0 +1,10 @@
+CIRCUIT: gate-and-5b gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust
+CIRCUIT: gate-imply-4b gate imply function imply, latency 0 gt, class instant, 4 blocks, 1x2x3, robust
+CIRCUIT: gate-nimply-2b gate nimply function nimply, latency 0 gt, class instant, 2 blocks, 1x2x1, robust
+CIRCUIT: gate-nor-3b gate nor function nor, latency 0 gt, class instant, 3 blocks, 1x2x2, robust
+CIRCUIT: gate-or-2b gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1, robust
+CIRCUIT: gate-xor-4b gate xor function xor, latency 0 gt, class instant, 4 blocks, 2x2x2, robust
+CIRCUIT: gate-not-3b gate not function not, latency 0 gt, class instant, 3 blocks, 2x2x1, robust
+CIRCUIT: gate-not-lever-2b gate not function not, latency 2 gt, 2 blocks, 1x2x1, robust
+CIRCUIT: gate-nor-lever-2b gate nor function nor, latency 2 gt, 2 blocks, 1x2x1, robust
+CIRCUIT: gate-or-lever-1b gate or function or, latency 0 gt, class instant, 1 blocks, 1x1x1, robust

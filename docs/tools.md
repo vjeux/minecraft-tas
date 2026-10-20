@@ -4,7 +4,9 @@ Every tool is a `mctas` subcommand, written in Rust (`./target/release/mctas ...
 `cargo build --release`); `--help` on any command lists all of its flags. The rules the judge
 enforces are in [rules.md](rules.md); how the simulator, the bridge and the videos work is in
 [internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
-judge and its design format are in [clocks.md](clocks.md).
+judge and its design format are in [clocks.md](clocks.md). The website of every build
+(`mctas site build | publish | serve | smoke | deploy`) is in [site.md](site.md); Litematica
+schematics of any design (`mctas litematic export | read | check`) in [litematic.md](litematic.md).
 
 ## The workflow behind the records
 
@@ -117,6 +119,7 @@ Never edit these by hand; change their generator or its inputs and regenerate:
 |---|---|---|
 | `designs/piston-door-3x3/LEADERBOARD.md` | `door leaderboard` | every design on main and `explore/*`, the verdict and shape caches, the `videos` release (GIFs, videos, montages), `archive/captions.tsv` |
 | `designs/piston-door-3x3/archive/README.md` | `door catalog`, `door video-all` | the archive files, the verdict cache, `archive/records.tsv`, `archive/captions.tsv`, `tracks/buildable/scripts/`, the `videos` release |
+| the `gh-pages` branch (REDSTONEPEDIA, https://vjeux.github.io/minecraft-tas/) | `site publish` | every archive and its caches, captions, traces, `web/viewer/`, `web/site/` ([site.md](site.md)) |
 
 `archive/records.tsv` (the solid record progression, one row per record) and
 `archive/captions.tsv` (one line per design: how it works) are hand-edited data: add a row when

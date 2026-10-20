@@ -86,6 +86,31 @@ Generated and verified batches: `verified/` (see its README).
   the output; a design where no cell has the full period is a composite of independent parts
   (e.g. 30 and 20 -> 60) and is excluded (../composite/).
 
+## Frequency filter that matters (filter/, 19:57Z)
+A calibrated sensor hears only vibrations whose frequency equals its back signal (0 = all).
+filter9-trapdoor: C watched by an observer whose pulses reach a trapdoor through a stone + dust;
+a plain sensor S at C's back, sqrt(11) from the trapdoor, outputs 15 - floor(15 * 3.32 / 8) = 9
+when it hears it: while S is active (30 gt) C ignores the trapdoor opening (block_open, 10) and
+fires on its closing (block_close, 9) 2 gt later. S is deaf 40 gt, so it hears every other cycle:
+cycles of 26 and 24 gt, P = 50 (redsim; the same build without S: P24). Same with a fence gate or
+an iron trapdoor (open 10 / close 9). A note block or a dispenser (10 only) would make C deaf.
+
+## Wool shutter (tried 20:27Z, not a clock of its own yet)
+A sticky piston driven from C through two delay-4 repeaters pushes a wool block into the line from
+an observer-pair trapdoor to C: redsim occludes as the game does (all 6 nudged lines must cross
+wool) and the trapdoor events in the window are lost, but the piston's OWN retraction
+(block_deactivate, 3 from C) is heard first, so the loop is really "C -> repeaters -> piston" and
+the observer pair is an independent passenger (composite: C every 29, whole state 174). A real
+shutter clock needs the piston out of C's range (> 16, powered through a longer line) or itself
+behind wool, and an emitter coupled to C.
+
+## Extendable families (one catalog card each; extend/README.md)
+`mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14), hairpin (16n + 3,
+n >= 2; plain n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3). Every P >= 21 is reachable:
+a hairpin whose repeater delays sum to D rt plays its note 2D + 2 gt after the sensor fires
+(>= 20 once D >= 9), so P = 2D + 3 with the note diagonal to the sensor (travel 1) and 2D + 4
+with it one block further (travel 2).
+
 ## Open questions / next
 * Exhaustive minimality: the census (k <= 4 in 3x2x2, 3x3x1, 4x1x2, 2x2x2; k <= 5 in 3x1x2) finds
   no 4-block P=21 or P=22 (self-start or one block placed last), and nothing below 3 blocks.

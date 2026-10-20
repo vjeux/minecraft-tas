@@ -1,0 +1,26 @@
+# archived 2026-10-19T20:20Z from designs/clocks/tracks/clk-obs/mech2/p38-obs-stk-6b-b-3e7810.txt by mctas clock archive
+# CLOCK: clk-obs-p38-obs-stk-6b-b-3e7810 period 38 gt (1.9 s), on 12/38, edges 6, warmup 13, family observer+sticky_piston, 6 blocks, 1x3x4, robust
+name: clk-obs-p38-obs-stk-6b-b-3e7810
+# P38: 1 note block, 3 observers, 2 sticky pistons; changing in place: observer, sticky_piston (note block only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:observer[facing=south,powered=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  .
+layer 2:
+  .
+  .
+  F

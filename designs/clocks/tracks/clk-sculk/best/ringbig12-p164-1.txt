@@ -1,0 +1,71 @@
+# Ring of 12 calibrated sensors on a circle (r 29.41), hops [13,14,14,13,14,14,13,14,14,13,14,14], first resonator a note block (the kick), the others amethyst: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
+name: clk-sculk-ringbig12-p164-1
+# how: ring of 12 calibrated sensors on a circle (r 29.41), hops [13,14,14,13,14,14,13,14,14,13,14,14], first resonator a note block (the kick), the others amethyst
+port output: 29 0 3
+port start: 29 0 4 use
+origin: -29 0 -29
+palette:
+  A minecraft:amethyst_block
+  C minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  c minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  ................................CA
+  .
+  .................CA
+  .
+  .
+  ..............................................C
+  ..............................................A
+  .
+  .
+  .
+  .
+  .
+  .....CA
+  .
+  .
+  .
+  .
+  ........................................................C
+  ........................................................A
+  .
+  .
+  .
+  .
+  .
+  .
+  A
+  C
+  .
+  .
+  .
+  .
+  .
+  ..........................................................c
+  ..........................................................N
+  .
+  .
+  .
+  .
+  .
+  .
+  ..A
+  ..C
+  .
+  .
+  .
+  .
+  ....................................................AC
+  .
+  .
+  .
+  .
+  .
+  ............A
+  ............C
+  .
+  .
+  ........................................AC
+  .
+  .........................AC

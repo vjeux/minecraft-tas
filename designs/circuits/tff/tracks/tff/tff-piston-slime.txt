@@ -1,0 +1,16 @@
+# Piston + slime T flip-flop, 5 blocks (found by the tff census): sticky piston s (facing east, next to the input) has a slime block and a redstone block R in front; a piston p under R faces back west (R powers it: extended at rest) and a piston P under s faces east (quasi-powered by the input through s's cell). ON: s pushes slime + R east (R over the output cell), p loses R and retracts, P extends into the gap; when the input falls s cannot pull the slime back (it would drag p into P's head), P retracts and p, now quasi-powered through the slime, extends again. OFF: s extends into the empty cell and, on the falling edge, pulls slime + R back (the extended p is immovable and stays). Latency 5 gt, 1 gt pulses, trains down to a 5 gt period.
+name: tff-piston-slime
+circuit: tff
+port input: -1 1 0
+port output: 3 0 0
+origin: 0 0 0
+palette:
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  p minecraft:piston[extended=false,facing=west]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  P.p
+layer 1:
+  sSR

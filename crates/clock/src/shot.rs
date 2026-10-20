@@ -55,7 +55,7 @@ pub fn judge_hint(text: &str) -> Option<(u32, u32)> {
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 5000, settle_ms: 700, redo: false, hints: Default::default() }
+        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default() }
     }
 }
 
@@ -71,9 +71,74 @@ pub fn strip_path(dir: &Path, stem: &str) -> PathBuf {
 /// What to picture: the ticks (ascending), the box to frame and the output cell.
 struct Plan {
     ticks: Vec<u32>,
+    /// The swept box (the floor and the sandbox cover it).
     lo: Pos,
     hi: Pos,
     output: Option<Pos>,
+}
+
+impl Plan {
+    /// The same plan for the clock moved `dy` blocks up.
+    fn shifted(&self, dy: i32) -> Plan {
+        let up = |p: Pos| [p[0], p[1] + dy, p[2]];
+        Plan { ticks: self.ticks.clone(), lo: up(self.lo), hi: up(self.hi), output: self.output.map(up) }
+    }
+    /// The box the camera frames: the swept box, or for an elongated clock (its longest side over
+    /// 16 blocks and over 5x the next) a window of it along that side around the output, 3x the
+    /// next side long (8 to 16 blocks: coordinator, 50-100-block observer lines and towers came out
+    /// as thin lines).
+    fn frame(&self) -> (Pos, Pos) {
+        let (mut lo, mut hi) = (self.lo, self.hi);
+        let ext = |k: usize| hi[k] - lo[k] + 1;
+        let mut axes = [0usize, 1, 2];
+        axes.sort_by_key(|&k| std::cmp::Reverse(ext(k)));
+        let (long, next) = (axes[0], axes[1]);
+        if ext(long) > 16 && ext(long) > 5 * ext(next) {
+            let win = (3 * ext(next)).clamp(8, 16);
+            let c = self.output.map(|o| o[long]).unwrap_or((lo[long] + hi[long]) / 2);
+            let a = (c - win / 2).clamp(lo[long], hi[long] - win + 1);
+            lo[long] = a;
+            hi[long] = a + win - 1;
+        }
+        (lo, hi)
+    }
+}
+
+/// The mean luma (0-255) of a picture (ffmpeg signalstats), if it can be read.
+fn mean_luma(path: &Path) -> Option<f64> {
+    band_luma(path, None)
+}
+
+/// The mean luma of the whole picture, or of its top `frac` band.
+fn band_luma(path: &Path, top: Option<f64>) -> Option<f64> {
+    let vf = match top {
+        Some(f) => format!("crop=iw:ih*{f}:0:0,signalstats,metadata=print:key=lavfi.signalstats.YAVG"),
+        None => "signalstats,metadata=print:key=lavfi.signalstats.YAVG".to_string(),
+    };
+    let o = Command::new(video::ffmpeg().ok()?).args(["-hide_banner", "-i"]).arg(path).args(["-vf", &vf, "-f", "null", "-"]).output().ok()?;
+    let err = String::from_utf8_lossy(&o.stderr);
+    let i = err.find("YAVG=")? + 5;
+    err[i..].split(|ch: char| !(ch.is_ascii_digit() || ch == '.')).next()?.parse().ok()
+}
+
+/// A picture to take again: nearly uniform (its JPEG under 15 KB: sky or grass only), dark (mean
+/// luma < 70: the client still loading, an error screen), or with a dark band across its top (mean
+/// luma < 70 in the top 12%: the sky beyond the loaded floor drawn black below the horizon).
+pub fn bad_picture(jpg: &Path) -> Option<String> {
+    match std::fs::metadata(jpg) {
+        Ok(m) if m.len() < 15_000 => return Some(format!("nearly uniform ({} bytes)", m.len())),
+        Err(_) => return Some("missing".into()),
+        _ => {}
+    }
+    if let Some(l) = mean_luma(jpg).filter(|l| *l < 70.0) {
+        return Some(format!("dark (mean luma {l:.0})"));
+    }
+    band_luma(jpg, Some(0.12)).filter(|l| *l < 70.0).map(|l| format!("dark band at the top (luma {l:.0})"))
+}
+
+/// A frame to take again: see [`bad_picture`] (checked on the saved JPEG).
+fn bad_frame(_raw: &Path, jpg: &Path) -> Option<String> {
+    bad_picture(jpg)
 }
 
 /// The output marker (vjeux's pick): an orange stained glass block where the output signal is,
@@ -130,6 +195,8 @@ fn marker_cell(w: &mut Worker, sb: u32, out: Pos) -> Result<Option<Pos>> {
 /// chunks are sent again). Removed (raw) after the picture.
 #[allow(clippy::too_many_arguments)]
 fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Option<(Pos3, f32, f32)>, here: (Pos3, f32, f32), drop_after: Option<u32>, display: &Display, rw: u32, rh: u32, hold_ms: u64, path: &Path) -> Result<()> {
+    let debug = std::env::var_os("MCTAS_SHOT_DEBUG").is_some();
+    let t0 = Instant::now();
     if let Some(m) = marker {
         w.set_blocks(sb, &[(m, MARKER)], PlaceMode::Raw)?;
     }
@@ -143,14 +210,23 @@ fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Op
         }
         None => {}
     }
-    // the sandbox the camera left (never the one it is in: the client would lose its world)
+    let t_cam = t0.elapsed().as_secs_f64();
+    w.hold(hold_ms)?;
+    let t1 = Instant::now();
+    let r = video::screenshot(display, rw, rh, path);
+    let t_grab = t1.elapsed().as_secs_f64();
+    // the sandbox the camera left (never the one it is in: the client would lose its world),
+    // once the move is done (dropping it right after the teleport waited ~8 s)
+    let t2 = Instant::now();
     if let Some(old) = drop_after {
         let _ = w.drop_sandbox(old);
     }
-    w.hold(hold_ms)?;
-    let r = video::screenshot(display, rw, rh, path);
+    let t_drop = t2.elapsed().as_secs_f64();
     if let Some(m) = marker {
         w.set_blocks(sb, &[(m, "minecraft:air")], PlaceMode::Raw)?;
+    }
+    if debug {
+        eprintln!("  camera {t_cam:.2} s, drop {t_drop:.2} s, hold {:.2} s, grab {t_grab:.2} s", hold_ms as f64 / 1000.0);
     }
     r
 }
@@ -246,7 +322,9 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     const ROW: i32 = 112;
     const DEPTH: i32 = 112;
     let sculk = |c: &Clock| c.design.blocks.values().any(|s| s.contains("sculk_sensor"));
-    todo.sort_by_key(|(_, c, _)| sculk(c));
+    // sculk clocks last; then by their chosen tick, so a batch's world runs about as long as its
+    // clocks need (a world runs to the largest chosen tick of its batch)
+    todo.sort_by_key(|(_, c, p)| (sculk(c), p.ticks[0]));
     let mut batches: Vec<Vec<Cell>> = vec![Vec::new()];
     let (mut x, mut z, mut depth, mut row) = (0i32, 0i32, 0i32, 0i32);
     for (i, (_, c, p)) in todo.iter().enumerate() {
@@ -473,6 +551,42 @@ fn build_batch(w: &mut Worker, todo: &[(&String, &Clock, Plan)], batch: &[Cell])
     Ok((sb, markers, g))
 }
 
+/// The SSIM of every picture of `dir` against the picture of the same name in `against` (ffmpeg's
+/// ssim filter), lowest first: a check of one shooter against another (a cut or blank frame scores
+/// far below a good one, neighbors in the background barely matter).
+pub fn compare(dir: &Path, against: &Path) -> Result<Vec<(String, f64)>> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".jpg") && !n.ends_with(".strip.jpg") && against.join(n).exists())
+        .collect();
+    names.sort();
+    let ff = video::ffmpeg()?;
+    let mut out: Vec<(String, f64)> = std::thread::scope(|s| {
+        let parts: Vec<&[String]> = names.chunks(names.len().div_ceil(8).max(1)).collect();
+        let hs: Vec<_> = parts
+            .into_iter()
+            .map(|part| {
+                let ff = ff.clone();
+                s.spawn(move || {
+                    part.iter()
+                        .filter_map(|n| {
+                            let o = Command::new(&ff).args(["-i"]).arg(dir.join(n)).args(["-i"]).arg(against.join(n)).args(["-lavfi", "ssim", "-f", "null", "-"]).output().ok()?;
+                            let err = String::from_utf8_lossy(&o.stderr);
+                            let i = err.find("All:")? + 4;
+                            let v: f64 = err[i..].split_whitespace().next()?.parse().ok()?;
+                            Some((n.clone(), v))
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        hs.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+    });
+    out.sort_by(|a, b| a.1.total_cmp(&b.1));
+    Ok(out)
+}
+
 /// Picture every clock (`(stem, clock)`): see the module doc. Returns one line per clock.
 pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Result<Vec<String>> {
     std::fs::create_dir_all(&o.out_dir)?;
@@ -503,17 +617,39 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
     let cfg = WorkerConfig { version: version.to_string(), listen: Some(port), stderr_log: Some(run.join("server.log")), ..Default::default() };
     let mut w = Worker::spawn(&cfg)?;
     let mut client: Option<Client> = None;
-    let mut prev: Option<u32> = None;
+    // two sandboxes used in turn, cleared for each clock and never dropped (dropping a level the
+    // client has visited took ~10 s a clock); the camera always arrives from the other one, so
+    // the client loads every chunk (and the marker) fresh
+    // the floor reaches 96 blocks around each clock and the client gets chunks up to 6 chunks (its
+    // render distance) from the camera: a camera looking low along a long clock saw past a nearer
+    // edge into the dark sky below the horizon
+    let m = 96;
+    let (mut ulo, mut uhi) = (todo[0].2.lo, todo[0].2.hi);
+    for (_, _, p) in &todo {
+        crate::grow(&mut ulo, &mut uhi, p.lo);
+        crate::grow(&mut ulo, &mut uhi, p.hi);
+    }
+    let chunks = [(ulo[0] - m).div_euclid(16), (ulo[2] - m).div_euclid(16), (uhi[0] + m).div_euclid(16), (uhi[2] + m).div_euclid(16)];
+    let pair = [w.create(&SandboxOptions { chunks, seed: 0 })?, w.create(&SandboxOptions { chunks, seed: 0 })?];
+    for sb in pair {
+        w.view_distance(sb, 6)?;
+    }
+    let mut cam_in: Option<u32> = None;
     for (i, (stem, c, p)) in todo.iter().enumerate() {
         let t0 = Instant::now();
-        let m = 40;
-        let chunks = [(p.lo[0] - m).div_euclid(16), (p.lo[2] - m).div_euclid(16), (p.hi[0] + m).div_euclid(16), (p.hi[2] + m).div_euclid(16)];
-        let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
+        // the picture is taken with the clock's lowest cell at y = 72: the camera then stands above
+        // the client's horizon height (63), below which it draws the sky beyond the loaded floor
+        // black (dark bands in the pictures)
+        let dy = 72 - p.lo[1];
+        let c = &c.translated([0, dy, 0]);
+        let p = &p.shifted(dy);
+        let sb = if cam_in == Some(pair[0]) { pair[1] } else { pair[0] };
+        w.clear(sb)?;
         place(&mut w, sb, c)?;
         let fy = p.lo[1] - 2;
         w.fill(sb, [p.lo[0] - m, fy, p.lo[2] - m], [p.hi[0] + m, fy, p.hi[2] + m], "minecraft:grass_block", PlaceMode::Raw)?;
         w.exec(sb, "time set noon")?;
-        w.view_distance(sb, 4)?;
+        let t_build = t0.elapsed().as_secs_f64();
         let mut actions = c.actions();
         let mut t = 0u32;
         let step_to = |w: &mut Worker, target: u32, t: &mut u32, actions: &mut Vec<(u32, crate::Action)>| -> Result<()> {
@@ -531,13 +667,18 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             }
         };
         let aspect = rw as f64 / rh as f64;
-        // the main picture
-        step_to(&mut w, p.ticks[0], &mut t, &mut actions)?;
+        // the main picture. A design with entities (a minecart): the level sends its entities to a
+        // viewer only in its own tick, and the picture's level is frozen, so it stops one tick short,
+        // the camera arrives, and the last tick runs with the viewer there (the cart is paired and
+        // drawn); the marker stands during that one tick (an air cell off the track)
+        let entity_shot = !c.design.entities.is_empty() && p.ticks[0] > 0;
+        step_to(&mut w, if entity_shot { p.ticks[0] - 1 } else { p.ticks[0] }, &mut t, &mut actions)?;
+        let t_step = t0.elapsed().as_secs_f64() - t_build;
         let marker = match p.output {
             Some(op) => marker_cell(&mut w, sb, op)?,
             None => None,
         };
-        let (mut flo, mut fhi) = (p.lo, p.hi);
+        let (mut flo, mut fhi) = p.frame();
         if let Some(mk) = marker {
             crate::grow(&mut flo, &mut fhi, mk);
         }
@@ -559,26 +700,62 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             }
         }
         let raw = run.join(format!("{stem}.png"));
-        // the camera arrives with the marker already written (the client loads the chunks with
-        // it); the previous clock's sandbox goes once the camera has left it
-        let old = prev.take();
-        screenshot_marked(&mut w, sb, marker, Some((eye, yaw, pitch)), (eye, yaw, pitch), old, &display, rw, rh, if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms }, &raw)?;
+        // the camera arrives with the marker already written (the client loads the chunks with it)
+        let t_cam0 = t0.elapsed().as_secs_f64();
+        let hold = if i == 0 { o.hold_ms.max(12_000) } else { o.hold_ms };
+        if entity_shot {
+            if let Some(m) = marker {
+                w.set_blocks(sb, &[(m, MARKER)], PlaceMode::Raw)?;
+            }
+            w.camera(sb, [eye[0], eye[1] - 1.62, eye[2]], yaw, pitch)?;
+            w.hold(hold)?;
+            step_to(&mut w, p.ticks[0], &mut t, &mut actions)?;
+            w.hold(1500)?;
+            video::screenshot(&display, rw, rh, &raw)?;
+            if let Some(m) = marker {
+                w.set_blocks(sb, &[(m, "minecraft:air")], PlaceMode::Raw)?;
+            }
+        } else {
+            screenshot_marked(&mut w, sb, marker, Some((eye, yaw, pitch)), (eye, yaw, pitch), None, &display, rw, rh, hold, &raw)?;
+        }
+        cam_in = Some(sb);
+        let t_shot = t0.elapsed().as_secs_f64() - t_cam0;
         let out = shot_path(&o.out_dir, stem);
         // the camera aims at the box's center: keep the middle 64% of the frame (the clock bigger,
         // less grass and sky), scaled to the requested width
         let crop = "crop=iw*0.64:ih*0.64";
-        ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()])?;
+        let t_enc0 = t0.elapsed().as_secs_f64();
+        let encode = |raw: &Path, out: &Path| ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]);
+        encode(&raw, &out)?;
+        // a dark or nearly uniform frame (the client still loading, an error screen): taken again
+        // after a longer wait (the client keeps showing the marker: its removal is never sent)
+        let mut retakes = 0;
+        while let Some(why) = bad_frame(&raw, &out) {
+            if retakes == 2 {
+                lines.push(format!("BAD {}: {why} after 2 retakes", out.display()));
+                break;
+            }
+            retakes += 1;
+            eprintln!("RETAKE {stem}: {why}");
+            w.hold(3000)?;
+            video::screenshot(&display, rw, rh, &raw)?;
+            encode(&raw, &out)?;
+        }
+        let t_enc = t0.elapsed().as_secs_f64() - t_enc0;
+        if std::env::var_os("MCTAS_SHOT_DEBUG").is_some() {
+            eprintln!("{stem}: build {t_build:.2} s, run to tick {t_step:.2} s, camera + hold + capture {t_shot:.2} s, encode {t_enc:.2} s");
+        }
         // the strip: N moments of one period (the main picture's tick may be later: a fresh build)
         if p.ticks.len() > 1 {
             let mut frames: Vec<PathBuf> = Vec::new();
             let strip_ticks: Vec<u32> = p.ticks[1..].to_vec();
             {
-                // the strip restarts the clock in a second sandbox at the same place
-                let sb2 = w.create(&SandboxOptions { chunks, seed: 0 })?;
+                // the strip replays the clock in the other sandbox
+                let sb2 = if sb == pair[0] { pair[1] } else { pair[0] };
+                w.clear(sb2)?;
                 place(&mut w, sb2, c)?;
                 w.fill(sb2, [p.lo[0] - m, fy, p.lo[2] - m], [p.hi[0] + m, fy, p.hi[2] + m], "minecraft:grass_block", PlaceMode::Raw)?;
                 w.exec(sb2, "time set noon")?;
-                w.view_distance(sb2, 4)?;
                 let mut acts = c.actions();
                 let mut t2 = 0u32;
                 for (k, &tk) in strip_ticks.iter().enumerate() {
@@ -600,13 +777,13 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
                     };
                     let f = run.join(format!("{stem}-strip{k}.png"));
                     if k == 0 {
-                        screenshot_marked(&mut w, sb2, mk, Some((eye, yaw, pitch)), (eye, yaw, pitch), Some(sb), &display, rw, rh, o.hold_ms, &f)?;
+                        screenshot_marked(&mut w, sb2, mk, Some((eye, yaw, pitch)), (eye, yaw, pitch), None, &display, rw, rh, o.hold_ms, &f)?;
                     } else {
                         screenshot_marked(&mut w, sb2, mk, None, (eye, yaw, pitch), None, &display, rw, rh, 1500, &f)?;
                     }
                     frames.push(f);
                 }
-                prev = Some(sb2);
+                cam_in = Some(sb2);
             }
             let n = frames.len();
             if n < 2 {
@@ -622,9 +799,6 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             args.extend(["-filter_complex".to_string(), format!("{scaled}{inputs}hstack=inputs={n}[o]"), "-map".into(), "[o]".into(), "-q:v".into(), "3".into()]);
             args.push(strip_path(&o.out_dir, stem).display().to_string());
             ffmpeg_run(&args).context("tiling the strip")?;
-        }
-        if prev.is_none() {
-            prev = Some(sb);
         }
         lines.push(format!("SHOT {} (tick {}{}; {:.1} s)", out.display(), p.ticks[0], if p.ticks.len() > 1 { format!(", strip of {}", p.ticks.len() - 1) } else { String::new() }, t0.elapsed().as_secs_f64()));
         eprintln!("{}", lines.last().unwrap());

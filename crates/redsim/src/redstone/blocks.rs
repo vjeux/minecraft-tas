@@ -388,6 +388,8 @@ pub mod rail {
                 }
                 shape = RailShape::NorthSouth;
             }
+            // (clk-misc) curves exist only for plain rails, never here
+            _ => return false,
         }
         let k = s.kind();
         same_rail_with_power(w, BlockPos::new(x, y, z), forward, depth, shape, k)
@@ -475,6 +477,11 @@ pub mod rail {
             RailShape::AscendingWest => vec![wst.above(), e],
             RailShape::AscendingNorth => vec![n.above(), s],
             RailShape::AscendingSouth => vec![n, s.above()],
+            // (clk-misc) the plain rail's curves
+            RailShape::SouthEast => vec![e, s],
+            RailShape::SouthWest => vec![wst, s],
+            RailShape::NorthWest => vec![wst, n],
+            RailShape::NorthEast => vec![e, n],
         }
     }
 

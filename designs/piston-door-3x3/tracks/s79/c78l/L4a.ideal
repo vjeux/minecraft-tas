@@ -1,0 +1,4 @@
+# c78l L4a: ONE calibrated sensor (-2,5) for M (comparator (-1,5) -> repeater (0,5) -> M), s2 (observer (0,4) up on the repeater -> TM at (0,3)) and TP + L1/L2 (observer (-2,4) up -> wool (-2,3)). All real.
+design designs/piston-door-3x3/tracks/s79/c78l/L4a.txt
+open 0 use 5 -1 0
+close 0 use 5 -1 0

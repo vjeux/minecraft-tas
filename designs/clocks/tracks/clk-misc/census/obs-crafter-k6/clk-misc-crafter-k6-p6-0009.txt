@@ -1,0 +1,18 @@
+name: clk-misc-crafter-k6-p6-0009
+# clk-obs census (k=6, palette obs,stone,minecraft:crafter[orientation=north_up]): P=6 (redsim), family crafter+observer, kick last 0 0 0, swept volume 6.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:crafter[crafting=false,orientation=north_up,triggered=false]
+  D minecraft:observer[facing=south,powered=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  C
+  D
+  C

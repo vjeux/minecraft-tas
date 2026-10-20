@@ -1,0 +1,27 @@
+# archived 2026-10-19T20:25Z from designs/clocks/tracks/clk-obs/mech2/p45-obs-pis-stk-7b-b-f6b451.txt by mctas clock archive
+# CLOCK: clk-obs-p45-obs-pis-stk-7b-b-f6b451 period 45 gt (2.25 s), on 20/45, edges 10, warmup 3, family observer+piston+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p45-obs-pis-stk-7b-b-f6b451
+# P45: 3 observers, 1 piston, 3 sticky pistons; changing in place: observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=down]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  G

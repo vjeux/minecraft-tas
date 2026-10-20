@@ -169,6 +169,62 @@ pub enum ItemClockCmd {
         #[arg(long, default_value = "designs/clocks/tracks/clk-item")]
         dir: PathBuf,
     },
+    /// Remove archived designs that a family card now covers: the design files and their rows in
+    /// verdicts-v1.tsv and captions.tsv (pictures in img/ are left to the coordinator).
+    Unarchive {
+        /// Archived file names (`droprep-p42.txt`).
+        #[arg(required = true)]
+        files: Vec<String>,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        dir: PathBuf,
+    },
+    /// The extendable family cards (extend.rs `cards`): `--check` runs every redsim card's members
+    /// n_lo..=n_hi on redsim (period and blocks against the formulas); `--write DIR` writes each
+    /// card's base design (n = n_lo) with its `extend` headers and caption.
+    Cards {
+        #[arg(long)]
+        check: bool,
+        #[arg(long)]
+        write: Option<PathBuf>,
+        /// Only cards whose id contains this.
+        #[arg(long, default_value = "")]
+        only: String,
+    },
+    /// Write one design of an extendable family (extend.rs), `--n` being the family's step:
+    /// `loop` (ring 2 x (n + 1), --m items of --item), `dropring` (width --w0 + n, --one for a
+    /// single dropper, --delays e.g. 14), `ringlock` (ring 3 x --d, --n0 + n stones), `ringlockd`
+    /// (ring 3 x (--d0 + n), --n0 stones), `snowdisp` / `lockpair` (repeater delay n + 1).
+    Gen {
+        family: String,
+        #[arg(long, default_value_t = 0)]
+        n: i32,
+        #[arg(long, default_value_t = 1)]
+        m: usize,
+        #[arg(long, default_value = "stone")]
+        item: String,
+        #[arg(long, default_value_t = 3)]
+        w0: i32,
+        #[arg(long)]
+        one: bool,
+        #[arg(long, default_value = "")]
+        delays: String,
+        #[arg(long, default_value_t = 3)]
+        d: i32,
+        #[arg(long, default_value_t = 4)]
+        d0: i32,
+        #[arg(long, default_value_t = 0)]
+        n0: i32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Check an extendable family's formula against redsim over its parameters (up to --max).
+    GenCheck {
+        family: String,
+        #[arg(long, default_value_t = 8)]
+        max: i32,
+        #[arg(long, default_value_t = 100000)]
+        ticks: u32,
+    },
     /// Sweep the dropper-ring family (families.rs `drop_ring`): w x 3 rings (w = 3..=--max-w), every
     /// comparator column, every dropper set around the fired cell, both directions, contents = one
     /// or two ring cells holding 1..=--max-n of one kind: the distinct periods (fewest blocks, then
@@ -183,6 +239,9 @@ pub enum ItemClockCmd {
         /// Also two filled cells (else one).
         #[arg(long)]
         pairs: bool,
+        /// Also three filled cells (counts up to 2 each).
+        #[arg(long)]
+        triples: bool,
         /// Repeater chains between the comparator and the dropper, comma separated, each a string
         /// of delays (`-` = none): `-,1,2,3,4,11` .
         #[arg(long, default_value = "-")]
@@ -295,7 +354,7 @@ fn drop_case_design(c: &DropCase) -> Option<Design> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, chains: &[Vec<u8>], ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
+fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, triples: bool, chains: &[Vec<u8>], ticks: u32, jobs: usize, out: Option<&std::path::Path>) -> Result<()> {
     let kinds: Vec<String> = items.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     let mut cases: Vec<DropCase> = Vec::new();
     for delays in chains {
@@ -308,10 +367,19 @@ fn sweep_dropring(max_w: i32, max_n: u32, items: &str, pairs: bool, chains: &[Ve
                             for i in 0..l {
                                 for n in 1..=max_n {
                                     cases.push((w, xc, mask, rev, vec![(i, n)], kind.clone(), delays.clone()));
-                                    if pairs {
+                                    if pairs || triples {
                                         for j in i + 1..l {
                                             for m in 1..=max_n {
-                                                cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone(), delays.clone()));
+                                                if pairs {
+                                                    cases.push((w, xc, mask, rev, vec![(i, n), (j, m)], kind.clone(), delays.clone()));
+                                                }
+                                                if triples && n <= 2 && m <= 2 {
+                                                    for q in j + 1..l {
+                                                        for r in 1..=max_n.min(2) {
+                                                            cases.push((w, xc, mask, rev, vec![(i, n), (j, m), (q, r)], kind.clone(), delays.clone()));
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -707,14 +775,179 @@ pub fn run(version: &str, cmd: ItemClockCmd) -> Result<()> {
                 promote(&design, &name, &caption, &dir)?;
             }
         }
-        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, delays, ticks, jobs, out } => {
+        ItemClockCmd::Unarchive { files, dir } => {
+            let drop: std::collections::HashSet<&str> = files.iter().map(|s| s.as_str()).collect();
+            for f in &files {
+                let p = dir.join(f);
+                if !p.exists() {
+                    bail!("{} is not archived", p.display());
+                }
+            }
+            for table in ["verdicts-v1.tsv", "captions.tsv", "extend.tsv"] {
+                let path = dir.join(table);
+                if !path.exists() {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).with_context(|| path.display().to_string())?;
+                let header: Vec<&str> = text.lines().next().unwrap_or("").split('\t').collect();
+                // extend.tsv rows belong to a family card: its file stem
+                let (col, keys): (usize, std::collections::HashSet<String>) = if table == "extend.tsv" {
+                    let c = header.iter().position(|h| *h == "family").ok_or_else(|| anyhow!("{table}: no family column"))?;
+                    (c, files.iter().map(|f| f.trim_end_matches(".txt").to_string()).collect())
+                } else {
+                    let c = header.iter().position(|h| *h == "file").ok_or_else(|| anyhow!("{table}: no file column"))?;
+                    (c, drop.iter().map(|s| s.to_string()).collect())
+                };
+                let mut out = String::new();
+                let mut removed = 0;
+                for (i, line) in text.lines().enumerate() {
+                    if i > 0 && line.split('\t').nth(col).is_some_and(|f| keys.contains(f)) {
+                        removed += 1;
+                        continue;
+                    }
+                    out.push_str(line);
+                    out.push('\n');
+                }
+                std::fs::write(&path, out)?;
+                println!("{table}: {removed} rows removed");
+            }
+            for f in &files {
+                std::fs::remove_file(dir.join(f))?;
+            }
+            println!("{} designs removed", files.len());
+        }
+        ItemClockCmd::Cards { check, write, only } => {
+            let tmp = std::env::temp_dir().join(format!("clk-item-card-{}.txt", std::process::id()));
+            let build = |args: &str, n: i64| -> Result<Design> {
+                let mut argv: Vec<String> = vec!["--version".into(), version.to_string(), "gen".into()];
+                for a in args.split(' ') {
+                    argv.push(a.replace("{n}", &n.to_string()).replace("{out}", &tmp.display().to_string()));
+                }
+                crate::run(argv)?;
+                load(&tmp)
+            };
+            for c in crate::extend::cards().iter().filter(|c| c.id.contains(only.as_str())) {
+                if check && c.redsim {
+                    let mut bad = Vec::new();
+                    for n in c.n_lo..=c.n_hi {
+                        let d = build(c.args, n)?;
+                        let want_p = (c.p0 + c.dp * n) as u32;
+                        let want_b = (c.b0 + c.db * n) as usize;
+                        let got = crate::families::measure(&d, 200000).map(|r| r.0);
+                        if got != Ok(want_p) || d.blocks.len() != want_b {
+                            bad.push(format!("n={n}: P {got:?} (formula {want_p}), blocks {} (formula {want_b})", d.blocks.len()));
+                        }
+                    }
+                    println!("{}: n {}..{}: {}", c.id, c.n_lo, c.n_hi, if bad.is_empty() { "all match".to_string() } else { bad.join("; ") });
+                }
+                if let Some(dir) = &write {
+                    let mut d = build(c.args, c.n_lo)?;
+                    d.name = c.id.to_string();
+                    d.meta.remove("period");
+                    let lin = |a: i64, b: i64| if b == 0 { a.to_string() } else { format!("{a} + {b}n") };
+                    d.meta.insert("extend family".into(), c.id.to_string());
+                    d.meta.insert("extend period".into(), lin(c.p0, c.dp));
+                    d.meta.insert("extend blocks".into(), lin(c.b0, c.db));
+                    d.meta.insert("extend rule".into(), c.rule.to_string());
+                    d.meta.insert("extend n".into(), format!("{}..{}", c.n_lo, c.n_hi));
+                    d.meta.insert("extend base".into(), c.n_lo.to_string());
+                    d.meta.insert("extend generator".into(), format!("mctas clock item gen {}", c.args));
+                    if let Some((g, title, period, note)) = crate::extend::group_of(c.id) {
+                        d.meta.insert("extend group".into(), g.into());
+                        d.meta.insert("extend group title".into(), title.into());
+                        if let Some(p) = period {
+                            d.meta.insert("extend group period".into(), p.into());
+                        }
+                        d.meta.insert("extend group note".into(), note.into());
+                    }
+                    std::fs::create_dir_all(dir)?;
+                    let path = dir.join(format!("{}.txt", c.id));
+                    std::fs::write(&path, format!("# {}\n\n{}", c.caption, d.to_text()))?;
+                    println!("{}: wrote {}", c.id, path.display());
+                }
+            }
+            let _ = std::fs::remove_file(&tmp);
+        }
+        ItemClockCmd::Gen { family, n, m, item, w0, one, delays, d, d0, n0, out } => {
+            let dl: Vec<u8> = delays.bytes().filter(|b| b.is_ascii_digit()).map(|b| b - b'0').collect();
+            let (des, p) = match family.as_str() {
+                "loop" => (crate::extend::loop_ring(n, m, &item), Some(crate::extend::loop_ring_period(n, m))),
+                "dropring" => (crate::extend::dropring(w0 + n, one, &dl), Some(crate::extend::dropring_period(w0 + n, one, &dl))),
+                "ringlock" => (crate::extend::ringlock(d, (n0 + n) as u32), Some(crate::extend::ringlock_period(d, (n0 + n) as u32))),
+                "ringlockd" => (crate::extend::ringlock(d0 + n, n0 as u32), Some(crate::extend::ringlock_period(d0 + n, n0 as u32))),
+                "snowdisp" => (crate::extend::snowdisp((n + 1) as u8), Some(12 + 4 * (n as u32 + 1))),
+                "lockring" => (crate::extend::lockring(d, (n + 1) as u8, m as u32), Some(31 + 8 * (m as u32).saturating_sub(2) + 2 * (n as u32 + 1))),
+                "lockpair" => (crate::extend::lockpair((n + 1) as u8), Some(9 + 2 * (n as u32 + 1))),
+                "latch" => (crate::extend::latch((n + 2) as u32), Some(16 * (n as u32 + 2) - 2)),
+                other => bail!("unknown family {other:?} (loop, dropring, ringlock, ringlockd, snowdisp, lockpair)"),
+            };
+            let mut des = des.ok_or_else(|| anyhow!("no such {family} design (n = {n})"))?;
+            if let Some(p) = p {
+                des.meta.insert("period".into(), p.to_string());
+            }
+            des.save(&out)?;
+            println!("{}: {} blocks, formula P = {} gt", out.display(), des.blocks.len(), p.unwrap_or(0));
+        }
+        ItemClockCmd::GenCheck { family, max, ticks } => {
+            use crate::families::measure;
+            let mut cases: Vec<(String, Option<Design>, u32)> = Vec::new();
+            match family.as_str() {
+                "loop" => {
+                    for n in 0..=max {
+                        for m in [1usize, 2, 3, 4] {
+                            // every hopper holding an item is static (no move ever shows)
+                            if 2 * (n as usize + 1) <= m {
+                                continue;
+                            }
+                            if let Some(des) = crate::extend::loop_ring(n, m, "stone") {
+                                cases.push((format!("n={n} m={m}"), Some(des), crate::extend::loop_ring_period(n, m)));
+                            }
+                        }
+                    }
+                }
+                "dropring" => {
+                    for w in 3..=max {
+                        for one in [false, true] {
+                            for dl in ["", "1", "2", "3", "4", "11", "14", "44"] {
+                                let v: Vec<u8> = dl.bytes().map(|b| b - b'0').collect();
+                                cases.push((format!("w={w} one={one} delays={dl}"), crate::extend::dropring(w, one, &v), crate::extend::dropring_period(w, one, &v)));
+                            }
+                        }
+                    }
+                }
+                "ringlock" => {
+                    for d in 3..=max {
+                        for n in 5..=crate::extend::ringlock_n_max(d) {
+                            cases.push((format!("d={d} n={n}"), crate::extend::ringlock(d, n), crate::extend::ringlock_period(d, n)));
+                        }
+                    }
+                }
+                other => bail!("unknown family {other:?} (loop, dropring, ringlock)"),
+            }
+            let (mut ok, mut bad) = (0, 0);
+            for (label, des, want) in &cases {
+                let got = match des {
+                    Some(des) => measure(des, ticks).map(|r| r.0),
+                    None => Err("no design".into()),
+                };
+                match got {
+                    Ok(p) if p == *want => ok += 1,
+                    other => {
+                        bad += 1;
+                        println!("{label}: formula {want}, redsim {other:?}");
+                    }
+                }
+            }
+            println!("{family}: {ok} of {} match the formula ({bad} differ)", cases.len());
+        }
+        ItemClockCmd::SweepDropring { max_w, max_n, items, pairs, triples, delays, ticks, jobs, out } => {
             let chains: Vec<Vec<u8>> = delays
                 .split(',')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .map(|s| if s == "-" { Vec::new() } else { s.bytes().map(|b| b - b'0').collect() })
                 .collect();
-            sweep_dropring(max_w, max_n, &items, pairs, &chains, ticks, jobs, out.as_deref())?;
+            sweep_dropring(max_w, max_n, &items, pairs, triples, &chains, ticks, jobs, out.as_deref())?;
         }
         ItemClockCmd::SweepRinglock { min_d, max_d, max_row, max_hopper, all, max_items, item, ticks, jobs, out } => {
             use crate::families::{Stack, measure, ring_lock};

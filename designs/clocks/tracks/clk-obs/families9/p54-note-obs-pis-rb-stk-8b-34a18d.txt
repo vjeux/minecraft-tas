@@ -1,0 +1,26 @@
+name: clk-obs-p54-note-obs-pis-rb-stk-8b-34a18d
+# clk-obs grow: P=54 (redsim), family note_block+observer+piston+redstone_block+sticky_piston, kick last 0 0 2, swept volume 36.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:piston[extended=false,facing=down]
+  F minecraft:redstone_block
+  G minecraft:observer[facing=north,powered=false]
+  H minecraft:note_block[instrument=harp,note=0,powered=false]
+layer -2:
+  ..
+  ..
+  A.
+layer -1:
+  .E
+  ..
+  ..
+layer 0:
+  BF
+  CG
+  DH

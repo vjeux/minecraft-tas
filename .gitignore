@@ -1,4 +1,10 @@
 /target
+# REDSTONEPEDIA: the browser UI's own build folder and the default `mctas site build` output
+/web/site/target
+/site
 # Never commit Minecraft jars or decompiled sources: they live in $MCTAS_HOME (~/.cache/mctas).
 *.jar
 /mc-src
+
+# clock catalog: the identity-normalized type keys of the archive, a cache (recomputed in ~15 s)
+designs/clocks/archive/type-keys.tsv

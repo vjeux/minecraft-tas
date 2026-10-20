@@ -292,6 +292,23 @@ fn checks() -> Vec<Check> {
             }),
         });
     }
+    // 6a. the first sub-56 mechanism (7x7 = 49b, c77 w1): ideal inputs must keep working
+    const W1: &str = "designs/piston-door-3x3/tracks/c77/seven/w1.ideal";
+    v.push(Check {
+        name: "ideal:7x7-w1".into(),
+        what: "c77's 7x7 (49b) mechanism w1 (13 sticky pistons: the center emptied by a pull after a column wiggle, ring pistons escaping to the corners) WORKS with ideal inputs (--between-ticks) in 55 / 43",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("?door ideal-rs {W1} --between-ticks"))],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let v = ideal_verdict(&o[0]).ok_or(format!("ideal-rs: no verdict: {}", tail(&o[0])))?;
+            if !v.starts_with("WORKS") || !v.contains("open after 55 ticks / closed after 43 ticks") {
+                return Err(format!("w1 changed: `{v}` (expected WORKS 55 / 43)"));
+            }
+            Ok("WORKS 55 / 43".into())
+        }),
+    });
     // 6b. plan phase: an observer-driven input works at plan t exactly like the wired door at t
     const PH: &str = "designs/piston-door-3x3/selftest/s25-br-observer.ideal";
     v.push(Check {
@@ -333,6 +350,22 @@ fn checks() -> Vec<Check> {
             if v.contains("open after 34 ticks / closed after 34 ticks") { Ok(v.chars().take(100).collect()) } else { Err(v) }
         }),
     });
+    // 6c. the first sub-56 mechanisms in 6-tall boxes (w86): ring pistons resting in frame cells, a
+    // carried ring puller, wiggles, QC-coupled stacks avoided; redsim must keep opening and closing them
+    for (plan, label) in [("designs/piston-door-3x3/selftest/w86-a3s-7x6.ideal", "a3s-7x6"), ("designs/piston-door-3x3/selftest/w86-a3r-8x6.ideal", "a3r-8x6")] {
+        v.push(Check {
+            name: format!("ideal:w86-{label}"),
+            what: "w86's 6-tall mechanisms (7x6 = 42b a3s, 8x6 = 48b a3r: ideal inputs, FULL frame 12/12, the game agrees): `door ideal-rs` WORKS at 4 positions x 2 cycles",
+            quick: true,
+            jvm: false,
+            steps: vec![args(&format!("?door ideal-rs {plan}"))],
+            timeout: 120,
+            pred: Box::new(|o| {
+                let v = ideal_verdict(&o[0]).ok_or(format!("no verdict: {}", tail(&o[0])))?;
+                if v.starts_with("WORKS") { Ok(v.chars().take(100).collect()) } else { Err(v) }
+            }),
+        });
+    }
     // 7. generator membership (docs/audit.md acceptance list)
     let expect: Vec<(&str, [&str; 6])> = vec![
         ("c79-closed", ["out", "IN", "IN", "IN", "IN", "IN"]),
@@ -457,6 +490,87 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
+    v.push(Check {
+        name: "clock:verify-entities".into(),
+        what: "`clock verify` with design entities: the observer pair beside a minecart on a rail is a robust clock (the cart summoned, turned and still there at the end); with the cart in the air (it falls away) it is rejected",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?clock verify designs/clocks/selftest/observer-pair-cart.txt --positions 1 --no-sim --workers 4"),
+            args("?clock verify designs/clocks/selftest/observer-pair-falling-cart.txt --positions 1 --no-rotations --no-sim --workers 1"),
+        ],
+        timeout: 600,
+        pred: Box::new(|o| {
+            if !o[0].lines().any(|l| l.starts_with("CLOCK: entity-test-decor period 6 gt") && l.ends_with("robust")) {
+                return Err(format!("the cart design is not a robust P6 clock: {}", o[0].lines().next().unwrap_or("")));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK:")) || !o[1].contains("entities at the end") {
+                return Err(format!("the falling cart was not rejected for its entity: {}", o[1].lines().next().unwrap_or("")));
+            }
+            Ok("cart kept: robust P6; cart lost: rejected".into())
+        }),
+    });
+    // 9. the circuit judge (docs/circuits.md): known metrics on redsim and in the real game, a
+    // false claim refused
+    const CIRC: &str = "designs/circuits/calibration";
+    let circ: Vec<(&str, &str)> = vec![
+        ("observer-dual-edge", "cal-observer-dual-edge dual-edge L 2 gt, delay 2 gt, min-pulse 4 gt, 1 blocks, 1x1x1"),
+        ("subtract-rising-edge", "cal-subtract-rising-edge rising-edge L 4 gt, delay 2 gt, min-pulse 4 gt, 12 blocks, 2x2x3"),
+        ("bulb-tff", "cal-bulb-tff tff latency 2 gt, edge rising, min-pulse 1 gt, min-period 2 gt, 3 blocks, 2x2x1"),
+        ("repeater-delay", "cal-repeater-delay delay N 4 gt, min-pulse 4 gt, min-gap 4 gt, 2 blocks, 1x2x1"),
+        ("torch-not", "cal-torch-not gate not function not, latency 2 gt, 4 blocks, 3x2x1"),
+        ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
+        ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
+        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+        ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 3 gt, retract 3 gt, 2 blocks, 3x1x1"),
+        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
+        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
+        ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1"),
+    ];
+    let mut s = args("circuit sim");
+    s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+    s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
+    s.push("designs/circuits/selftest/floating-not.txt".into());
+    let circ2 = circ.clone();
+    let n = circ.len();
+    v.push(Check {
+        name: "circuit:sim-calibration".into(),
+        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND and a floating dust refused",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("redsim")) {
+                    return Err(format!("{f}: expected `{want}`: {}", tail(&o[0])));
+                }
+            }
+            has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
+            has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim and a floating dust refused"))
+        }),
+    });
+    v.push(Check {
+        name: "circuit:verify-calibration".into(),
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 12 calibration circuits: robust, the same metrics as redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![{
+            let mut s = args("circuit verify --positions 2 --workers 8");
+            s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+            s
+        }],
+        timeout: 600,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ2 {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("robust")) {
+                    return Err(format!("{f}: expected `{want}`, robust: {}", tail(&o[0])));
+                }
+            }
+            Ok(format!("{} calibration circuits robust, redsim's metrics", circ2.len()))
+        }),
     });
     v
 }

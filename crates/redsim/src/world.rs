@@ -88,6 +88,9 @@ pub struct World {
     pub time: i64,
     sub_tick: i64,
     pub ticks: LevelTicks,
+    /// Scheduled fluid ticks (`ServerLevel.fluidTicks`), keyed by the fluid type; run after the
+    /// block ticks (`fluid/`).
+    pub fluid_ticks: LevelTicks<crate::fluid::Fluid>,
     pub events: BlockEvents,
     nu_stack: Vec<Nu>,
     nu_added: Vec<Nu>,
@@ -106,6 +109,9 @@ pub struct World {
     pub piston: crate::piston::State,
     /// Falling-block entities (agent pistmodel's side).
     pub gravity: crate::gravity::State,
+    /// Boats, minecarts and item entities, in insertion order (`entity/`; empty for designs
+    /// without entities, so nothing changes for them).
+    pub entities: crate::entity::Entities,
     /// Blocks destroyed with drops (an item entity in the game): (where, what).
     pub drops: Vec<(BlockPos, Block)>,
     /// Game events (vibrations), in order: (name, where). Sculk sensors hear them (`sculk.rs`).
@@ -128,6 +134,7 @@ impl World {
             time: 0,
             sub_tick: 0,
             ticks: LevelTicks::default(),
+            fluid_ticks: LevelTicks::default(),
             events: BlockEvents::default(),
             nu_stack: Vec::new(),
             nu_added: Vec::new(),
@@ -139,6 +146,7 @@ impl World {
             wire_signal: Cell::new(true),
             piston: Default::default(),
             gravity: Default::default(),
+            entities: Default::default(),
             drops: Vec::new(),
             game_events: Vec::new(),
             sculk: Default::default(),
@@ -287,7 +295,9 @@ impl World {
 
     /// `Level.removeBlock` (no fluids: air).
     pub fn remove_block(&mut self, pos: BlockPos, moved: bool) -> bool {
-        self.set_block(pos, Block::Air, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
+        // Level.removeBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state(self, pos).create_legacy_block();
+        self.set_block(pos, keep, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
     }
 
     /// `Level.destroyBlock`: the drop (an item entity) is recorded in `drops`.
@@ -299,7 +309,9 @@ impl World {
         if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
-        let destroyed = self.set_block_limit(pos, Block::Air, flags::ALL, limit);
+        // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state_of(&s).create_legacy_block();
+        let destroyed = self.set_block_limit(pos, keep, flags::ALL, limit);
         if destroyed {
             self.game_event_state("block_destroy", pos, s);
         }
@@ -522,6 +534,14 @@ impl World {
         self.ticks.has_scheduled_tick(pos, kind)
     }
 
+    /// `scheduleTick(pos, fluid, delay)` (the fluid tick list; priority normal; the sub-tick
+    /// counter is the level's, shared with block ticks).
+    pub fn schedule_fluid_tick(&mut self, pos: BlockPos, fluid: crate::fluid::Fluid, delay: i32) {
+        let sub = self.sub_tick;
+        self.sub_tick += 1;
+        self.fluid_ticks.schedule(fluid, pos, self.time + delay as i64, Priority::Normal, sub);
+    }
+
     pub fn will_tick_this_tick(&self, pos: BlockPos, kind: Kind) -> bool {
         self.ticks.will_tick_this_tick(pos, kind)
     }
@@ -546,6 +566,15 @@ impl World {
             }
         }
         self.ticks.end_tick();
+        // ServerLevel.tick: fluidTicks right after blockTicks (`tickFluid` checks the type)
+        if self.fluid_ticks.count() > 0 {
+            let due = self.fluid_ticks.collect(self.time);
+            for t in due {
+                self.fluid_ticks.start_running(&t);
+                crate::fluid::tick(self, t.pos, t.kind);
+            }
+            self.fluid_ticks.end_tick();
+        }
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {
@@ -554,6 +583,7 @@ impl World {
         }
         self.handling_tick = false;
         crate::gravity::tick_entities(self);
+        crate::entity::tick_all(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);
@@ -566,7 +596,7 @@ impl World {
     /// Nothing pending: no scheduled ticks, no block events, no moving blocks, no falling
     /// blocks (the bridge's `Sandbox.idle` for a design without entities).
     pub fn idle(&self) -> bool {
-        self.ticks.count() == 0 && self.events.is_empty() && crate::piston::is_idle(self) && crate::gravity::is_idle(self)
+        self.ticks.count() == 0 && self.fluid_ticks.count() == 0 && self.events.is_empty() && crate::piston::is_idle(self) && crate::gravity::is_idle(self)
     }
 
     /// `Level.gameEvent` with no affected state (`GameEvent.Context.of(entity=null)`): recorded,
@@ -620,7 +650,7 @@ impl World {
                 self.set_block(pos, Block::Door { iron: false, facing, upper, hinge_right, open: !open, powered }, flags::CLIENTS | flags::IMMEDIATE);
                 self.game_event(if open { "block_close" } else { "block_open" }, pos);
             }
-            Block::Trapdoor { .. } | Block::Door { .. } | Block::Air => {}
+            Block::Trapdoor { .. } | Block::Door { .. } | Block::Air | Block::Water { .. } | Block::BubbleColumn { .. } => {}
             _ => {
                 self.errors.push(format!("use on {s} at {pos} is not modeled"));
                 return false;

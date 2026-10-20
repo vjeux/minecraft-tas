@@ -1,0 +1,36 @@
+# m81 = m78 with BR's climb back to the bottom-corner W' (3,-1) (V removed, so (3,4) is free for the right crossing
+# observer); W' is fed only from the pocket (4,-1),(5,-1),(5,0) (RP0 (4,0) and M1 (5,1) close it): a sculk candidate.
+# m78: 9x6 = 54b (x -3..5, y -1..4), Box A, floor = 3 statics, lever ON at rest on top of (1,4) holding the top trio.
+# From c70b's m69g-12 / w86's m77, rebuilt so that NO piston sits in a bottom corner: RP0 rests at (4,0) for good
+# (it only pulls BM into (3,0) and spits it back, always together with s1 above it: QC), the row-1 push is done by s1
+# carried into (3,1) by M1 (5,1), and BR climbs the right wall from ABOVE: V (3,4) carries P3t' down into (3,2)
+# (pulls BR (3,0) -> (3,1)), takes it back up, and P3t' pulls BR to (3,2). Left as m77: MB0 spits U0 into (-1,0),
+# carried U0 pushes the whole bottom row right (BR into (3,0)), pulls BL back, goes home; U1 pulls C into (-1,1).
+name: w86-m81
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -1:
+  ...SSSB
+layer 0:
+  AA.EEE.C.
+layer 1:
+  .A.EEE.CC
+layer 2:
+  ...EEE
+layer 3:
+  ..sPPPs
+layer 4:
+  ...DDD
+layer 5:
+  ....L

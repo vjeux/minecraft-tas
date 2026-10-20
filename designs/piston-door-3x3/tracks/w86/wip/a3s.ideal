@@ -1,0 +1,64 @@
+design designs/piston-door-3x3/tracks/w86/wip/a3s.txt
+phase between
+# open
+open 2 set 0 4 1 minecraft:redstone_block
+open 6 clear 0 4 1
+open 8 set -1 2 1 minecraft:redstone_block
+open 12 clear -1 2 1
+open 14 set 1 3 1 minecraft:redstone_block
+open 18 clear 1 3 1
+open 24 set -1 2 1 minecraft:redstone_block
+open 30 clear -1 2 1
+open 34 set -1 4 1 minecraft:redstone_block
+open 38 clear -1 4 1
+open 42 set -2 2 1 minecraft:redstone_block
+open 46 clear -2 2 1
+open 50 set 1 4 1 minecraft:redstone_block
+open 56 set 1 2 1 minecraft:redstone_block
+open 60 clear 1 2 1
+open 64 clear 1 4 1
+open 70 set 1 3 1 minecraft:redstone_block
+open 74 clear 1 3 1
+open 78 set -1 3 1 minecraft:redstone_block
+open 84 clear -1 3 1
+open 88 set 4 3 1 minecraft:redstone_block
+open 92 clear 4 3 1
+open 96 set 1 4 1 minecraft:redstone_block
+open 100 clear 1 4 1
+open 104 set 2 4 1 minecraft:redstone_block
+open 108 clear 2 4 1
+open 112 set -2 0 1 minecraft:redstone_block
+open 116 clear -2 0 1
+open 112 set 4 1 1 minecraft:redstone_block
+open 116 clear 4 1 1
+# close
+close 2 set 2 4 1 minecraft:redstone_block
+close 4 clear 2 4 1
+close 8 set 1 4 1 minecraft:redstone_block
+close 10 clear 1 4 1
+close 14 set 4 3 1 minecraft:redstone_block
+close 16 clear 4 3 1
+close 20 set 3 4 1 minecraft:redstone_block
+close 24 clear 3 4 1
+close 30 set 4 3 1 minecraft:redstone_block
+close 32 clear 4 3 1
+close 38 set 1 3 1 minecraft:redstone_block
+close 40 clear 1 3 1
+close 46 set 1 4 1 minecraft:redstone_block
+close 52 set 1 2 1 minecraft:redstone_block
+close 54 clear 1 2 1
+close 58 clear 1 4 1
+close 64 set 2 4 1 minecraft:redstone_block
+close 66 clear 2 4 1
+close 72 set 4 1 1 minecraft:redstone_block
+close 74 clear 4 1 1
+close 80 set -2 2 1 minecraft:redstone_block
+close 82 clear -2 2 1
+close 88 set -1 4 1 minecraft:redstone_block
+close 90 clear -1 4 1
+close 96 set -1 2 1 minecraft:redstone_block
+close 98 clear -1 2 1
+close 104 set 0 4 1 minecraft:redstone_block
+close 106 clear 0 4 1
+close 112 set -2 0 1 minecraft:redstone_block
+close 114 clear -2 0 1

@@ -1,0 +1,38 @@
+name: pocket0-set0
+covers: (0,-2)o15 (-1,1)o20 (0,-2)c15
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:repeater[delay=4,facing=east,locked=false,powered=true]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .DODD.OE
+layer -1:
+  .AR..G.o
+layer 0:
+  S.GGGG.E
+layer 1:
+  CC.GGG.E
+layer 2:
+  GO.GGGGo
+layer 3:
+  .osPPPAN
+layer 4:
+  SRoFFF
+layer 5:
+  ..BrL

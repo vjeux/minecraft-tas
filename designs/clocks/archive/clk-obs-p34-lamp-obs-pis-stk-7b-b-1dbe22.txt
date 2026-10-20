@@ -1,0 +1,29 @@
+# archived 2026-10-19T20:16Z from designs/clocks/tracks/clk-obs/mech2/p34-lamp-obs-pis-stk-7b-b-1dbe22.txt by mctas clock archive
+# CLOCK: clk-obs-p34-lamp-obs-pis-stk-7b-b-1dbe22 period 34 gt (1.7 s), on 16/34, edges 8, warmup 4, family observer+piston+redstone_lamp+sticky_piston, 7 blocks, 1x4x3, robust
+name: clk-obs-p34-lamp-obs-pis-stk-7b-b-1dbe22
+# P34: 4 observers, 1 piston, 1 redstone lamp, 1 sticky piston; changing in place: observer, piston, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 -1
+port output: 0 1 0
+port start: 0 2 0 last
+palette:
+  A minecraft:piston[extended=false,facing=south]
+  B minecraft:redstone_lamp[lit=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .
+  A
+  .
+layer 1:
+  B
+  C
+  D
+layer 2:
+  .
+  C
+  E
+layer 3:
+  D
+  .
+  .

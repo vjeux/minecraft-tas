@@ -11,6 +11,12 @@
 use crate::block::Kind;
 use crate::pos::BlockPos;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::hash::Hash;
+
+/// What a tick list is keyed by besides the position: the block (`Kind`) for block ticks, the
+/// fluid (`fluid::Fluid`) for fluid ticks.
+pub trait TickKey: Copy + Eq + Hash + Ord + std::fmt::Debug {}
+impl<T: Copy + Eq + Hash + Ord + std::fmt::Debug> TickKey for T {}
 
 /// `TickPriority` (lower runs first).
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
@@ -25,40 +31,52 @@ pub enum Priority {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Tick {
-    pub kind: Kind,
+pub struct Tick<K: TickKey = Kind> {
+    pub kind: K,
     pub pos: BlockPos,
     pub trigger: i64,
     pub priority: Priority,
     pub sub: i64,
 }
 
-#[derive(Default, Clone)]
-struct Container {
+#[derive(Clone)]
+struct Container<K: TickKey> {
     /// (trigger, priority, sub) -> tick: `DRAIN_ORDER`.
-    queue: BTreeSet<(i64, Priority, i64, BlockPos, Kind)>,
-    pending: HashSet<(BlockPos, Kind)>,
+    queue: BTreeSet<(i64, Priority, i64, BlockPos, K)>,
+    pending: HashSet<(BlockPos, K)>,
 }
 
-#[derive(Default, Clone)]
-pub struct LevelTicks {
-    containers: HashMap<(i32, i32), Container>,
-    to_run: HashSet<(BlockPos, Kind)>,
+impl<K: TickKey> Default for Container<K> {
+    fn default() -> Self {
+        Container { queue: BTreeSet::new(), pending: HashSet::new() }
+    }
 }
 
-impl LevelTicks {
-    pub fn schedule(&mut self, kind: Kind, pos: BlockPos, trigger: i64, priority: Priority, sub: i64) {
+#[derive(Clone)]
+pub struct LevelTicks<K: TickKey = Kind> {
+    containers: HashMap<(i32, i32), Container<K>>,
+    to_run: HashSet<(BlockPos, K)>,
+}
+
+impl<K: TickKey> Default for LevelTicks<K> {
+    fn default() -> Self {
+        LevelTicks { containers: HashMap::new(), to_run: HashSet::new() }
+    }
+}
+
+impl<K: TickKey> LevelTicks<K> {
+    pub fn schedule(&mut self, kind: K, pos: BlockPos, trigger: i64, priority: Priority, sub: i64) {
         let c = self.containers.entry(pos.chunk()).or_default();
         if c.pending.insert((pos, kind)) {
             c.queue.insert((trigger, priority, sub, pos, kind));
         }
     }
 
-    pub fn has_scheduled_tick(&self, pos: BlockPos, kind: Kind) -> bool {
+    pub fn has_scheduled_tick(&self, pos: BlockPos, kind: K) -> bool {
         self.containers.get(&pos.chunk()).is_some_and(|c| c.pending.contains(&(pos, kind)))
     }
 
-    pub fn will_tick_this_tick(&self, pos: BlockPos, kind: Kind) -> bool {
+    pub fn will_tick_this_tick(&self, pos: BlockPos, kind: K) -> bool {
         self.to_run.contains(&(pos, kind))
     }
 
@@ -68,8 +86,8 @@ impl LevelTicks {
     }
 
     /// Every pending tick, for debugging and comparisons.
-    pub fn all(&self) -> Vec<Tick> {
-        let mut v: Vec<Tick> = self
+    pub fn all(&self) -> Vec<Tick<K>> {
+        let mut v: Vec<Tick<K>> = self
             .containers
             .values()
             .flat_map(|c| c.queue.iter().map(|&(trigger, priority, sub, pos, kind)| Tick { kind, pos, trigger, priority, sub }))
@@ -79,7 +97,7 @@ impl LevelTicks {
     }
 
     /// Collect the ticks due at `now`, in run order (`collectTicks`).
-    pub fn collect(&mut self, now: i64) -> Vec<Tick> {
+    pub fn collect(&mut self, now: i64) -> Vec<Tick<K>> {
         let mut out = Vec::new();
         // Containers whose head is due, merged by the head's (priority, sub).
         loop {
@@ -119,7 +137,7 @@ impl LevelTicks {
     }
 
     /// A collected tick is about to run (`runCollectedTicks`).
-    pub fn start_running(&mut self, t: &Tick) {
+    pub fn start_running(&mut self, t: &Tick<K>) {
         self.to_run.remove(&(t.pos, t.kind));
     }
 

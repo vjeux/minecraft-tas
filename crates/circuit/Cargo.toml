@@ -1,0 +1,13 @@
+[package]
+name = "circuit"
+description = "The contraption studies (docs/circuits.md): circuit designs with input, output and payload cells, the stimulus each kind is judged with, the redsim screen (`mctas circuit sim`), the real-game judge (`mctas circuit verify`), the per-kind checkers, the archive and the catalog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
+clock = { path = "../clock" }

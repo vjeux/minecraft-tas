@@ -413,6 +413,23 @@ track notes).
   that by QC (it emits into (-2,1)): a level-held 2-stack, switched off by powering the stone.
 * **A level-held piston is a clean link**: it moves once per lever edge, so an observer on its base
   fires exactly one pulse per edge (box72's torch link, c79's (4,0) on MR's puller, u7-m10a's R0).
+* **Corner pistons of a 2-row bottom take no observer pulse** (s79 NOTES §2): the corner piston K
+  (-1,-1) facing east is fed only from (-2,-1) (east-pointing emitter) or (-1,-2) (up-pointing): an
+  observer pointing into K watches (-3,-1) or (-1,-3), outside a 7-wide x 2-row bottom; repeaters
+  and comparators have no floor there. K can only get dust on a powered (-2,-2), a conductor at
+  (-1,-2) powered by an observer at (0,-2) watching U, a torch (inverted) or a sensor window. With
+  c79's mechanism the dust route takes L0's only feeder and the conductor route takes U's only
+  feeder: c79's mechanism is not wirable in 7x8 (cosearch pockets k=4 with sculk: no filling drives K).
+* **A 1 gt pulse makes a piston watcher fire once** (s79 c78y/c78z): an observer watching a sticky
+  piston fires at its extension (X+2) AND at its retraction's landing (X+4 -> X+6) for a 2 gt pulse;
+  with a 1 gt pulse (retract at X+1, landing at X+3 inside the busy window) it fires once. A 1-tick
+  sticky retraction still pulls the block two cells ahead (open: U pulls BM from (1,0)); on close the
+  push is spit. The U-watcher bottom-left (observer (0,-2) east -> stone (-1,-2) -> K; dropper
+  (-2,-2) -> observer (-2,-1) down -> L0) works only with it (ideal-rs: never with 2 gt).
+* **A lamp as a level conductor adds +4 on one edge** (s79 c78z): a redstone lamp under the lever's
+  dust holds the pullers below it like a dropper, but goes dark 4 gt after the lever drops, so an
+  observer watching it fires at t6 on open and t2 on close (c79's dropper: t2 both): the elevator's
+  push moves 4 gt later on open only.
 * **Sound crosses sealed regions** (m79s, archive m79s-sculk-63b-50-50b / m79s-sculk-8x8-64b-50b): a
   region that sees nothing the lever moves first (a top-left behind the elevator column, a bottom-left
   behind U) can hear the lever or the t1 pistons: activation = event tick + floor(distance). A plain
@@ -801,6 +818,29 @@ behaves identically in the official server.**
   line: activation floor(d) gt after each flip, d up to 16. Echo rule for every sensor: once it
   is INACTIVE again (wake + 20 calibrated, + 40 normal) any piston move within its radius wakes
   it, so whatever it drives must stop moving before then, or the re-run must be a no-op.
+
+## Water and bubble columns (`FlowingFluid`, `WaterFluid`, `LiquidBlock`, `BubbleColumnBlock`) — redsim M1
+
+Modeled in redsim (`crates/redsim/src/fluid/`, track clockinfra), checked cell by cell against the
+game by `redsim-fuzz fuzz --gen basin --palette stone:6,water:10,...` (random circuits in a stone
+basin: 6000 cases, 0 mismatches, 2026-10-19).
+
+* Fluid ticks have their own list (`fluidTicks`), keyed by the fluid TYPE (source `water` or
+  `flowing_water`: a tick scheduled for flowing water does nothing once the cell is a source),
+  run right after the block ticks of the same game tick; the sub-tick counter is shared.
+* Water's tick delay is 5 gt. A flowing cell recomputes its level from its 4 sides (highest
+  minus 1; 2+ adjacent sources over a solid block or a source = a new source; water above =
+  falling level 8), then spreads: down first if it can (then sideways too only with 3+ source
+  neighbors), else sideways toward the nearest hole within 4 cells (`getSlopeDistance`; ties
+  spread to all of them, applied north, south, west, east). Side walls are collision shapes:
+  water passes a face unless the two shapes' touching faces together cover it
+  (`Shapes.mergedFaceOccludes`).
+* Water replaces air and the `#washed_away_by_fluids` blocks (dust, repeaters, comparators,
+  torches, levers, buttons, skulls, rails, tripwire...), which DROP as items; waterloggable
+  blocks would take only a source (not modeled yet: a model note). Pistons destroy water (no drop).
+* A full source above soul sand (up) or magma (down) schedules a 20 gt block tick that turns the
+  water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
+  support goes away turns back into water 5 gt after its shape update.
 
 ## 12. redsim: the exact model (track redmodel)
 

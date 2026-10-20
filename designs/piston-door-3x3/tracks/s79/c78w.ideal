@@ -1,0 +1,43 @@
+# c78v-d3: c79's mechanism with BR leaving RIGHT (R0 (4,0) a pull-type sticky: c78 = one up-facing sticky in the
+# bottom row), M's repeater (2,5) delay 3 (M at t14), the elevator's lower piston s ideal, U FIRST on open (pulls
+# BM down from (1,0) before s pushes TM + C down). Bottom (U, K, L0, R0) and s ideal.
+design designs/piston-door-3x3/tracks/s79/c78w.txt
+let u0 = 4
+let e = 7
+let eh = 3
+let k = 10
+let u2 = 19
+let r0 = 4
+let l0 = 8
+let cu1 = 5
+let ck = 11
+let cu2 = 19
+let ce = 3
+let cr0 = 4
+let cl0 = 8
+open 0 use 4 6 0
+open u0 set 1 -2 -1 minecraft:redstone_block
+open u0+2 clear 1 -2 -1
+open e set 1 3 -1 minecraft:redstone_block
+open e+eh clear 1 3 -1
+open r0 set 4 0 -1 minecraft:redstone_block
+open r0+2 clear 4 0 -1
+open k set -1 -1 -1 minecraft:redstone_block
+open k+2 clear -1 -1 -1
+open l0 set -2 0 -1 minecraft:redstone_block
+open l0+2 clear -2 0 -1
+open u2 set 1 -2 -1 minecraft:redstone_block
+open u2+2 clear 1 -2 -1
+close 0 use 4 6 0
+close ce set 1 4 -1 minecraft:redstone_block
+close ce+2 clear 1 4 -1
+close cr0 set 4 0 -1 minecraft:redstone_block
+close cr0+2 clear 4 0 -1
+close ck set -1 -1 -1 minecraft:redstone_block
+close ck+2 clear -1 -1 -1
+close cl0 set -2 0 -1 minecraft:redstone_block
+close cl0+2 clear -2 0 -1
+close cu1 set 1 -2 -1 minecraft:redstone_block
+close cu1+2 clear 1 -2 -1
+close cu2 set 1 -2 -1 minecraft:redstone_block
+close cu2+2 clear 1 -2 -1

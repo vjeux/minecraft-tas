@@ -108,8 +108,12 @@ pub fn caption(w: i32, h: i32, cells: &[Cell]) -> String {
 }
 
 /// Every assignment of the perimeter from `straight` (straight cells) and `corner` (corners),
-/// with at most `max_powered` powered repeaters.
+/// with at most `max_powered` powered repeaters (and at most `max_delay` delay cells).
 pub fn assignments(w: i32, h: i32, straight: &[Cell], corner: &[Cell], max_powered: usize) -> Vec<Vec<Cell>> {
+    assignments_max(w, h, straight, corner, max_powered, usize::MAX)
+}
+
+pub fn assignments_max(w: i32, h: i32, straight: &[Cell], corner: &[Cell], max_powered: usize, max_delay: usize) -> Vec<Vec<Cell>> {
     let p = perimeter(w, h);
     let n = p.len();
     let is_corner: Vec<bool> = (0..n)
@@ -130,6 +134,9 @@ pub fn assignments(w: i32, h: i32, straight: &[Cell], corner: &[Cell], max_power
                 v.push(*c);
                 let powered = v.iter().filter(|c| matches!(c, Cell::Rep { on: true, .. })).count();
                 if powered > max_powered {
+                    continue;
+                }
+                if v.iter().filter(|c| c.rt() > 0).count() > max_delay {
                     continue;
                 }
                 // a block after a block or a torch never gets power

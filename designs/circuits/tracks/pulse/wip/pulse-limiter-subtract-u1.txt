@@ -1,0 +1,24 @@
+name: pulse-limiter-subtract-u1
+circuit: pulse-limiter
+# A subtract comparator C: its rear sees the input at once, its side gets the input back through a
+# U of repeaters (down one column, across two dust, up the other); C outputs rear - side, so it
+# is on from the rising edge until the side catches up: every pulse is cut to the U's delay.
+origin: 0 0 -1
+port input: 0 1 0
+port output: 2 1 0
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  D minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire
+layer 0:
+  ...
+  .S.
+  SS.
+  SS.
+layer 1:
+  ...
+  .C.
+  DU.
+  WW.

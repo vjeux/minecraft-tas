@@ -1,0 +1,27 @@
+# Hopper ring with one item (clk-item): hoppers in a 2-wide ring, each facing the next, one item, a comparator (on stone) reading one hopper. A hop through an empty hopper is 7 gt (cooldown 8, minus 1 because the sender already ticked), so the item goes around in 7 L gt; n = 0 is the hopper pair (P 14, 4 blocks).
+
+name: clk-item-hopper-ring
+extend base: 0
+extend blocks: 4 + 2n
+extend family: clk-item-hopper-ring
+extend generator: mctas clock item gen loop --n {n} --out {out}
+extend group: clk-item-hopper-ring
+extend group note: one item going round (14 + 14n), or two items half a ring apart (7 + 7n)
+extend group title: hopper ring
+extend n: 0..40
+extend period: 14 + 14n
+extend rule: lengthen the 2-wide hopper ring by one column (2 hoppers)
+port output: 0 1 -1
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 -1
+palette:
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  S
+  .
+layer 1:
+  C
+  Hh

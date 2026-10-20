@@ -1,0 +1,31 @@
+# archived 2026-10-19T23:09Z from designs/clocks/tracks/clk-obs/families9/p120-obs-pis-rb-stk-9b-e4cc30.txt by mctas clock archive
+# CLOCK: clk-obs-p120-obs-pis-rb-stk-9b-e4cc30 period 120 gt (6 s), on 60/120, edges 30, warmup 24, family observer+piston+redstone_block+sticky_piston, 9 blocks, 1x4x3, robust
+name: clk-obs-p120-obs-pis-rb-stk-9b-e4cc30
+# clk-obs grow: P=120 (redsim), family observer+piston+redstone_block+sticky_piston+stone, kick last 0 1 0, swept volume 12.
+origin: 0 0 0
+port output: 0 2 0
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:redstone_block
+  F minecraft:stone
+  G minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  B
+  D
+  .
+layer 2:
+  E
+  D
+  F
+layer 3:
+  .
+  .
+  G

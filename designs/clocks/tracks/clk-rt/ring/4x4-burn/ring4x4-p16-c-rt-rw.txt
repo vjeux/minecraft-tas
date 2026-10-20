@@ -1,0 +1,23 @@
+# Rectangle ring (clk-rt): the 4x4 perimeter clockwise from the north-west corner = [b, T, c, b, d,
+# d, b, T, d, b, T, d] (number = repeater delay, * = powered at placement, b = block, d = dust, T =
+# wall torch on the block before it, c = comparator); 3 torch(es): an inverter loop, period 2 x 8 gt
+name: clk-rt-ring4x4-p16-c-rt-rw-17b
+port output: 1 1 0
+origin: 0 0 0
+palette:
+  A minecraft:redstone_wall_torch[facing=west,lit=true]
+  B minecraft:redstone_wire
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+layer 0:
+  ..S
+  S..S
+  ...S
+  .S
+layer 1:
+  SRCS
+  B..B
+  r..B
+  SBAS

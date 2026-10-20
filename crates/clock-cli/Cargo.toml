@@ -16,3 +16,4 @@ clock-obs = { path = "../clock-obs" }
 clock-rt = { path = "../clock-rt" }
 clock-sculk = { path = "../clock-sculk" }
 clock-item = { path = "../clock-item" }
+clock-misc = { path = "../clock-misc" }

@@ -1,0 +1,16 @@
+# archived 2026-10-19T20:36Z from /tmp/gen/arch2/s3x1x2-k5-census-p88-dispenser-note_block-observer-sculk_sensor-sticky_piston-5b.txt by mctas clock archive
+# CLOCK: census-p88-dispenser-note_block-observer-sculk_sensor-sticky_piston-5b period 88 gt (4.4 s), on 0/88, edges 0, warmup 0, family dispenser+note_block+observer+sculk_sensor+sticky_piston, 5 blocks, 3x1x2, robust
+# Found by `mctas clock census` (box 3x1x2 k<=5) with a sculk palette: s3x1x2-k5-census-p88-dispenser-note_block-observer-sculk_sensor-sticky_piston-5b
+name: census-p88-dispenser-note_block-observer-sculk_sensor-sticky_piston-5b
+census: box 3x1x2 k<=5 (0,0,0=dispenser[facing=down,triggered=false];0,0,1=sticky_piston[extended=false,facing=east];1,0,0=observer[facing=east,powered=false];1,0,1=note_block[instrument=harp,note=0,powered=false];2,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false])
+port start: 2 0 0 last
+origin: 0 0 0
+palette:
+  D minecraft:dispenser[facing=down,triggered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  DOS
+  sN

@@ -1,0 +1,35 @@
+# archived 2026-10-19T22:40Z from designs/clocks/tracks/clk-obs/smallest9/p146-bulb-obs-pis-stk-9b-f24ba6.txt by mctas clock archive
+# CLOCK: clk-obs-p146-bulb-obs-pis-stk-9b-f24ba6 period 146 gt (7.3 s), on 56/146, edges 28, warmup 4, family copper_bulb+observer+piston+sticky_piston, 9 blocks, 1x5x3, robust
+name: clk-obs-p146-bulb-obs-pis-stk-9b-f24ba6
+# clk-obs grow: P=146 (redsim), family observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 2 0, swept volume 15.
+origin: 0 0 -1
+port output: 0 1 0
+port start: 0 2 0 last
+palette:
+  A minecraft:piston[extended=false,facing=south]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  .
+layer 1:
+  .
+  B
+  C
+layer 2:
+  A
+  D
+  E
+layer 3:
+  F
+  .
+  D
+layer 4:
+  .
+  G
+  .

@@ -1,0 +1,45 @@
+# EXTENDABLE comparator counters, n = 1 levels over a fading ring (P114): P = 114 x 14^n; each level
+# a lossless 2 + 2 comparator ring decremented by one level per pulse of the level inside it and
+# refilled by its own torch (26 blocks)
+name: clk-rt-counter
+extend base: 1
+extend blocks: 18 + 26n
+extend family: clk-rt-counter
+extend generator: mctas clock rt family counter --n {n} --out {out}
+extend n: 1..3
+extend period: 114 * 14^n
+extend rule: wrap one more counter level around the clock (a lossless 2 + 2 comparator ring with one subtract comparator, its pulse shaper and refill torch: 26 blocks): the period x 14
+port output: 4 1 -1
+origin: -2 0 -1
+palette:
+  A minecraft:comparator[facing=north,mode=compare,powered=false]
+  B minecraft:comparator[facing=south,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=false]
+  E minecraft:comparator[facing=west,mode=compare,powered=false]
+  F minecraft:redstone_wall_torch[facing=north,lit=true]
+  G minecraft:redstone_wire
+  R minecraft:redstone_block
+  S minecraft:stone
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  r minecraft:redstone_wall_torch[facing=east,lit=true]
+layer 0:
+  ..SSS
+  ...SSSS
+  ...S
+  .SSS
+  ....S
+  ....S
+  ...SS
+  ...SS
+  ...SS
+layer 1:
+  ..GEESr
+  ..ScCGG
+  ...G
+  RGGD
+  ...FG
+  ...SG
+  ...BA
+  ...BA
+  ...GG

@@ -1,0 +1,29 @@
+name: clk-obs-p21-note-obs-stk-7b-b-27eb07
+# P21: 1 note block, 2 observers, 3 sticky pistons, 1 stone; changing in place: note_block, observer, sticky_piston (stone only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:stone
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  F
+  .
+layer 2:
+  .
+  .
+  G

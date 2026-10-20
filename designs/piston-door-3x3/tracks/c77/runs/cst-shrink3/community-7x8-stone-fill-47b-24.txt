@@ -1,0 +1,46 @@
+name: community-7x8-stone-fill-47b-24
+note: door fill of designs/piston-door-3x3/tracks/c77/community/community-7x8-stone.txt: (-2,3) target[power=0] (-1,3) air (-1,4) observer[facing=west,powered=false]
+port door: 0 0 0
+port lever: 2 6 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=true]
+  D minecraft:dropper[facing=south,triggered=false]
+  E minecraft:obsidian
+  F minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  G minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  H minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  I minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  J minecraft:sticky_piston[extended=false,facing=up]
+  K minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  M minecraft:sticky_piston[extended=true,facing=down]
+  N minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:target[power=0]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=side,north=none,power=15,south=none,west=side]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  RNoJooR
+layer -1:
+  Os..NEA
+layer 0:
+  s.NNN.K
+layer 1:
+  s.NNN.K
+layer 2:
+  s.NNNNA
+layer 3:
+  T.NSPID
+layer 4:
+  ABHPMOA
+layer 5:
+  FGoMNrC
+layer 6:
+  ....L

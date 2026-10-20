@@ -1,0 +1,23 @@
+# archived 2026-10-19T21:08Z from /tmp/gen/arch2/two-p129-1.txt by mctas clock archive
+# CLOCK: clk-sculk-two-p129-1 period 129 gt (6.45 s), on 60/129, edges 2, warmup 15, family dispenser+observer+sculk_sensor, 6 blocks, 2x5x1, robust
+# A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an empty dispenser (fires 4 gt after a rising edge) at the last output, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sculk sensor beside the chain (moves parts of it: the hybrid)
+name: clk-sculk-two-p129-1
+# how: obs plain k=3 path 0,-1,0 -1,-1,0 -1,-2,0 emitter dispenser at the output (travel 3) + sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false] at 0,1,0
+port output: 0 1 0
+port start: 0 -3 0 minecraft:redstone_block 1
+origin: -1 0 0
+palette:
+  D minecraft:dispenser[facing=up,triggered=false]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=up,powered=false]
+layer -3:
+  D
+layer -2:
+  o
+layer -1:
+  Oo
+layer 0:
+  .S
+layer 1:
+  .S

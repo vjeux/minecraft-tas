@@ -219,6 +219,8 @@ fn tick_one(w: &mut World, id: u32) {
                 w.set_block(p, be.moved, 340);
                 w.update_or_destroy(be.moved, new_state, p, 3, 512);
             } else {
+                // a waterlogged block loses its water when a piston moves it
+                let new_state = crate::fluid::set_waterlogged(new_state, false).unwrap_or(new_state);
                 w.set_block(p, new_state, 67);
                 w.neighbor_changed(p, new_state.kind());
             }

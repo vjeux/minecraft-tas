@@ -16,6 +16,7 @@
 mod build;
 mod caption;
 mod climb;
+mod family;
 mod gens;
 mod outputs;
 
@@ -83,6 +84,12 @@ enum Cmd {
     Outputs(outputs::OutputsArgs),
     /// Rewrite generated designs' headers into a one-line caption (what `clock archive` keeps).
     Caption(caption::CaptionArgs),
+    /// Greedy block removal keeping the period and a full-period cell (minimal designs).
+    Reduce(outputs::ReduceArgs),
+    /// The extendable families (replin, racetrack): one design per n.
+    Family(family::FamilyArgs),
+    /// Archived designs that are instances of the extendable families (`--remove` deletes them).
+    FamilyDupes(family::DupesArgs),
     /// Simulate designs and print one line each, sorted by period (`--best`: the smallest per
     /// period only).
     Table {
@@ -135,6 +142,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Climb(a) => climb::climb(&a),
         Cmd::Outputs(a) => outputs::outputs(&a),
         Cmd::Caption(a) => caption::caption(&a),
+        Cmd::Reduce(a) => outputs::reduce(&a),
+        Cmd::Family(a) => family::family(&a),
+        Cmd::FamilyDupes(a) => family::dupes(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),
         Cmd::Select { files, out_dir, min_p, max_p, known, per_period, mechanisms, minimal, no_composite } => select(&files, &out_dir, min_p, max_p, &known, per_period, mechanisms, minimal, no_composite),
     }
@@ -196,20 +206,36 @@ fn select(files: &[PathBuf], out_dir: &std::path::Path, min_p: u32, max_p: u32, 
             *e = (*e).min(b);
         }
     }
+    // Evaluate every file on all cores: (period, family, blocks, volume) and the filters.
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let evals: std::sync::Mutex<Vec<(PathBuf, u32, String, usize, i32)>> = std::sync::Mutex::new(Vec::new());
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(f) = files.get(i) else { break };
+                    let Some((p, fam, b, v)) = sim_key(f) else { continue };
+                    let g = group(&fam);
+                    if p < min_p || p > max_p || have.get(&(p, g)).is_some_and(|hb| *hb <= b) {
+                        continue;
+                    }
+                    if minimal && reducible(f) {
+                        continue;
+                    }
+                    if no_composite && clock::Clock::load(f).ok().and_then(|c| outputs::has_full_period_cell(&c)) != Some(true) {
+                        continue;
+                    }
+                    evals.lock().unwrap().push((f.clone(), p, fam, b, v));
+                }
+            });
+        }
+    });
     let mut all: BTreeMap<(u32, String), Vec<(usize, i32, PathBuf, String, String)>> = BTreeMap::new();
-    for f in files {
-        let Some((p, fam, b, v)) = sim_key(f) else { continue };
-        let g = group(&fam);
-        if p < min_p || p > max_p || have.get(&(p, g.clone())).is_some_and(|hb| *hb <= b) {
-            continue;
-        }
-        if minimal && reducible(f) {
-            continue;
-        }
-        if no_composite && clock::Clock::load(f).ok().and_then(|c| outputs::has_full_period_cell(&c)) != Some(true) {
-            continue;
-        }
-        all.entry((p, g)).or_default().push((b, v, f.clone(), fam, mech_sig(f)));
+    for (f, p, fam, b, v) in evals.into_inner().unwrap() {
+        let sig = mech_sig(&f);
+        all.entry((p, group(&fam))).or_default().push((b, v, f, fam, sig));
     }
     std::fs::create_dir_all(out_dir)?;
     let mut n = 0;

@@ -1,0 +1,13 @@
+name: cal-dust-or-claimed-and
+circuit: gate and
+# The dust OR gate claiming to be an AND: the judge must refuse it (selftest).
+port input.a: 0 1 0
+port input.b: 2 1 0
+port output: 1 1 0
+palette:
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  .S.
+layer 1:
+  .d.
