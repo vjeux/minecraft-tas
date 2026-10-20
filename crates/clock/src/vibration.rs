@@ -114,9 +114,11 @@ pub fn ambient_actions(c: &Clock, swept: (Pos, Pos), ticks: u32) -> Vec<(u32, Ac
 }
 
 /// The output's on/off (the judge's rule: a self-reporting component's own state, else the best
-/// signal into the cell).
+/// signal into the cell). A recorded state may carry its block-entity part (`...]{items=}`, as
+/// redsim's frames do): only the block state is read (clk-sculk caught the last property reading
+/// `true]{items=}` and every dispenser output off).
 pub fn output_on(state: Option<&str>, best: u8) -> bool {
-    match state {
+    match state.map(crate::wave::block_part) {
         Some(s) if crate::wave::family_name(s).is_some() => crate::wave::active(s),
         _ => best > 0,
     }
