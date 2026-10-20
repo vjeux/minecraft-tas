@@ -119,7 +119,12 @@ layer 0:
   entity lost, duplicated or outside the watched box at the end; the period stays the block
   states' (a detector rail, a comparator reading a hopper minecart). Each entity counts as one
   piece in `blocks`, its kind joins the family (`detector_rail+minecart`) and its cell joins the
-  type key. `clock sim` answers UNMODELED (redsim has no entities). Example: a minecart on a 3x3
+  type key. `clock sim` runs them on redsim (boats, minecarts, water: redsim's fluids + entities
+  port, 2026-10-19) as far as their blocks and kinds are modeled (else UNMODELED with what is
+  missing); an entity's exact doubles never repeat, so for designs with entities the period comes
+  from the blocks by the real-game judge's own rule (every cell's state repeating for 3 periods
+  within 4000 gt, the smallest warmup then period): the 40 traced entity clocks redsim models
+  give the same CLOCK line as the game. Example: a minecart on a 3x3
   rail loop with two powered rails on redstone blocks over a detector rail is a robust P476 clock
   (warmup 556; the detector's 20 gt re-check against the lap time).
 
