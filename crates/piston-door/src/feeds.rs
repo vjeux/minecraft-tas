@@ -88,8 +88,13 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
 
 /// The feed table of an ideal schedule (its text; `label` names it in the header).
 pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
-    let mut out: Vec<String> = Vec::new();
     let s = Schedule::parse_with(text, &BTreeMap::new())?;
+    analyze_schedule(&s, label, bx)
+}
+
+/// [`analyze`] on a parsed (or built) schedule (c70b: mechmut ranks its variants by it).
+pub fn analyze_schedule(s: &Schedule, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
+    let mut out: Vec<String> = Vec::new();
     let vars = s.vars().clone();
     let (d, open_ev, close_ev, _) = s.realize(&vars)?;
     let door = *d.ports.get("door").context("design has no door port")?;
