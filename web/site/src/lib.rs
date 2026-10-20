@@ -7,7 +7,7 @@
 //! lives in the URL fragment, so every search is a link. The cards' 3D thumbnails are
 //! `data-mcview` elements that webrender's viewer (viewer/mcview.js) renders when it is loaded.
 
-use site_model::html::{esc, hit_card};
+use site_model::html::{esc, hit_card, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -539,6 +539,10 @@ fn draw_dynamic() {
             }
             if members > 0 {
                 s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
+            }
+            // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
+            if a.hits.is_empty() && !q.text.trim().is_empty() {
+                s.push_str(&format!(". Try: {}", nearest_searches(&q.text)));
             }
             s
         } else {

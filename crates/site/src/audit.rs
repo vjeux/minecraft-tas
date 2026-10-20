@@ -40,6 +40,53 @@ fn number(b: &Build, k: &str) -> Option<f64> {
     worst.parse().ok()
 }
 
+/// Marks `faster` the shown designs that are bigger than another of the same study, kind and value
+/// but strictly faster than every smaller one on the study's speed metrics (the coordinator: keep
+/// pext-n3-flat-cascade19, 27/27 gt, next to the 18-block record's 29/35, and say it is faster).
+pub fn mark_faster(builds: &mut [Build]) -> usize {
+    let shown = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()));
+    let key = |b: &Build| b.circuit.as_ref().map(|c| (c.study.clone(), c.kind.clone(), c.axis.clone())).unwrap_or_default();
+    let mut marked = Vec::new();
+    for (i, x) in builds.iter().enumerate() {
+        if !shown(x) {
+            continue;
+        }
+        let Some(c) = &x.circuit else { continue };
+        let metrics = speed_metrics(&c.kind);
+        let smaller: Vec<&Build> = builds.iter().filter(|y| shown(y) && key(y) == key(x) && y.blocks < x.blocks).collect();
+        if smaller.is_empty() {
+            continue;
+        }
+        // strictly better than each smaller design on one speed metric, never worse on another
+        let beats = |y: &Build| {
+            let mut better = false;
+            for (m, higher) in metrics {
+                match (number(x, m), number(y, m)) {
+                    (Some(a), Some(b)) => {
+                        let (a, b) = if *higher { (-a, -b) } else { (a, b) };
+                        if a > b {
+                            return false;
+                        }
+                        if a < b {
+                            better = true;
+                        }
+                    }
+                    (None, Some(_)) => return false,
+                    _ => {}
+                }
+            }
+            better
+        };
+        if smaller.iter().all(|y| beats(y)) {
+            marked.push(i);
+        }
+    }
+    for &i in &marked {
+        builds[i].flags.push("faster".into());
+    }
+    marked.len()
+}
+
 /// Flags that only restrict materials (avoiding a material is not a builder's property here).
 const MATERIAL_FLAGS: [&str; 4] = ["slime-free", "honey-free", "torch-free", "piston-free"];
 

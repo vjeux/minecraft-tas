@@ -36,7 +36,9 @@ pub fn with_device(c: &Circuit, s: &Schedule) -> Schedule {
         return out;
     }
     for (i, inp) in c.inputs.iter().enumerate() {
-        if !matches!(inp.how, InputHow::Block { .. }) {
+        // a plain input: the judge's written block, or (R7) the judge's repeater line, which
+        // makes no game event itself; the lever a real build would switch it with does
+        if !matches!(inp.how, InputHow::Block { .. } | InputHow::Driven { .. }) {
             continue;
         }
         for &(t, on) in s.edges.get(i).map(|e| e.as_slice()).unwrap_or(&[]) {
@@ -86,7 +88,7 @@ pub fn check(c: &Circuit, kind: &Kind, base: &Outcome, s: &Schedule, quiet: &Tra
     };
     let same = |o: &Outcome| o.pass && o.metrics == base.metrics;
     let sd = with_device(c, s);
-    if !c.input_far() && c.inputs.iter().any(|i| matches!(i.how, InputHow::Block { .. })) {
+    if !c.input_far() && c.inputs.iter().any(|i| matches!(i.how, InputHow::Block { .. } | InputHow::Driven { .. })) {
         let what = "its input's lever (block_activate / block_deactivate at the input; `input-device: far` if the input comes from beyond the sensors' reach)";
         match judge(&sd)? {
             Err(why) => return Ok(Outcome::fail(format!("hears its input device: {what}: {why}"), base.table.clone())),
