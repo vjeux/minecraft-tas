@@ -59,7 +59,7 @@ each build's page.
 * Full viewer (touch first): one finger or the mouse drags to orbit, two fingers pinch to zoom and
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
-  simulation starts, so the build responds); the camera stays above the ground and starts on the
+  simulation starts, so the build responds); the camera stays above a TNT duper's ground and starts on the
   side every lever, button and input cell can be tapped from at its centre (an empty input cell
   counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
   it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
@@ -132,12 +132,25 @@ each build's page.
   (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
   EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
   as items, a TNT block it hits primes, other TNT is pushed; a blast destroying a moving block
-  drops what it moves. A TNT flying off the design falls into the void below the drawn ground
-  (the judge's world has none) and explodes there harmlessly (its rays stop at the build height:
-  nothing is destroyed), or freezes where it leaves the forced chunks.
+  drops what it moves. A TNT duper with its explosions stands on its judge's ground (vjeux
+  2026-10-20 17:53Z: "Please don't put a fake ground if the tnt goes through it"): real blocks of
+  the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`,
+  `Circuit::ground_blocks`: grass over two dirt over bedrock, its top the archived safe drop
+  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent), `reach` blocks around the
+  design as written, in the judge's world box around it), placed raw once the design stands like
+  `clock::sim::drive_tnt`. The reach is recomputed like the judge's: 24, doubled while a burning
+  TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
+  ticks (the judge's stimulus replayed for a triggered or switchable duper), at most 96 (cached
+  per design: `Session::with_ground`). Its TNT land, bounce and explode on it and the craters
+  show: the ground's cells that changed (`Floor::changed`, rescanned every tick) and their
+  neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
+  each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
+  box (`Session::machine_box`). A TNT flying past the ground's edge falls into the void, as in
+  the judge's world, or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
-  (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
-  for 400 ticks, native and wasm. The camera frames the TNT's flight in redsim's run within 8
+  (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
+  entities every tick for 400 ticks, native and wasm. The camera frames the TNT's flight in
+  redsim's run within 8
   blocks of the build (a launcher's TNT leaves the view as it flies on).
 * Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
   judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
@@ -169,16 +182,20 @@ each build's page.
   top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`, the still build
   only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
   high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
-  little grass). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
+  little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
   along its length at the pictures' elevation (`scene::view_dir`: a 3/4 view, the camera closer)
   instead of side-on. The browser draws like a
   client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
-  pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
-  reaches 420 blocks around (past it); near
-  the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
+  pictures' 6). No ground but real blocks (vjeux 17:53Z): the judges' worlds are void under a
+  design (only a TNT duper's judge lays a ground, above), so the viewer draws no surface there:
+  the sky goes on under the horizon and fades into a quiet void tone (`Renderer::void_below`),
+  nothing an item, a cart or a falling block could pass through. On a TNT duper's real ground the
+  grass tops are lit like the game's smooth lighting: each corner at the mean sky light of
   the four air cells around it in the layer between the grass and the build (a covered column
   gets its neighbours' light less one), through the game's brightness curve at the default
-  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
+  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
+  fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
+  world's (`Session::floor_drawn` in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
@@ -308,7 +325,8 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
-  `PistonHeadRenderer`, translucent faces sorted back to front, a floor of grass blocks.
+  `PistonHeadRenderer`, translucent faces sorted back to front, a TNT duper's real ground
+  (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
   mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
   faces culled in both passes like the game's chunk render types (a glass block shows its three

@@ -643,6 +643,29 @@ fn cmd_bundle(out: &Path) -> Result<()> {
         let p = out.join(f);
         println!("{} ({} KB)", p.display(), std::fs::metadata(&p)?.len() / 1024);
     }
+    // the bundle is flat (the site copies the files of web/viewer/, not its folders): wasm-bindgen's
+    // snippets move next to mcview.js and its imports follow
+    let snippets = out.join("snippets");
+    if snippets.is_dir() {
+        let mut js = std::fs::read_to_string(out.join("mcview.js"))?;
+        let mut stack = vec![snippets.clone()];
+        while let Some(dir) = stack.pop() {
+            for e in std::fs::read_dir(&dir)?.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p);
+                    continue;
+                }
+                let rel = p.strip_prefix(out).unwrap_or(&p).to_string_lossy().replace('\\', "/");
+                let flat = format!("mcview-{}", p.file_name().unwrap_or_default().to_string_lossy());
+                std::fs::rename(&p, out.join(&flat))?;
+                js = js.replace(&format!("./{rel}"), &format!("./{flat}"));
+                println!("{} (from {rel})", out.join(&flat).display());
+            }
+        }
+        std::fs::write(out.join("mcview.js"), js)?;
+        std::fs::remove_dir_all(&snippets)?;
+    }
     Ok(())
 }
 
@@ -829,8 +852,14 @@ fn viewer_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
     std::fs::create_dir_all(out.join("designs"))?;
     std::fs::create_dir_all(out.join("viewer"))?;
-    for f in ["mcview.js", "mcview_bg.wasm"] {
-        std::fs::copy(viewer.join(f), out.join("viewer").join(f)).with_context(|| format!("copying {} (run `mctas web bundle` first)", viewer.join(f).display()))?;
+    // the whole (flat) bundle: mcview.js, its wasm, its snippets, the recorder's encoder
+    if !viewer.join("mcview.js").is_file() {
+        bail!("no {} (run `mctas web bundle` first)", viewer.join("mcview.js").display());
+    }
+    for e in std::fs::read_dir(viewer).with_context(|| format!("reading {}", viewer.display()))?.flatten() {
+        if e.path().is_file() {
+            std::fs::copy(e.path(), out.join("viewer").join(e.file_name()))?;
+        }
     }
     let mut lives = String::new();
     let mut thumbs = String::new();
@@ -1167,6 +1196,11 @@ const DRAWN_TICKS: u32 = 120;
 /// `ticks` as placed (a circuit's run under the judge's stimulus: in `circuit_pair`).
 fn drawn_pass(text: &str, ticks: u32) -> Result<(), String> {
     let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // no ground but real blocks (vjeux 17:53Z): the viewer's look draws no decorative ground, and
+    // a TNT duper's ground is checked cell by cell below (`floor_drawn` against the world)
+    if mcview::scene::viewer_look(&s).ground.is_some() {
+        return Err("the viewer draws a ground that is not redsim blocks".into());
+    }
     for _ in 0..=ticks {
         s.drawn_matches_simulation().map_err(|e| format!("tick {}: drawn differs from redsim: {e}", s.tick))?;
         if s.halted.is_some() {
@@ -1206,13 +1240,21 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     let (lo, size) = (s.world.min, s.world.size);
     let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
     let chunks = redsim::redstone::shulker::chunk_range(from, to);
+    // a TNT duper stands on its judge's ground (`Circuit::ground_blocks`, laid raw once the design
+    // stands, like `clock::sim::drive_tnt`), in the judge's box around it
+    let ground: Vec<(redsim::BlockPos, redsim::Block)> = s.floor.as_ref().map(|f| f.blocks()).unwrap_or_default();
     let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
     let mut blasts = 0usize;
     let mut destroyed = 0usize;
     // the viewer stops at redsim's first error (something it does not model: vjeux, only what
     // redsim simulates exactly is shown): the frames before it are compared
     let mut stop: Option<(u32, String)> = None;
-    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| redsim::explosion::explode_on(w, 0, chunks), |t, w| {
+    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| {
+        if !ground.is_empty() {
+            w.place_raw(&ground);
+        }
+        redsim::explosion::explode_on(w, 0, chunks)
+    }, |t, w| {
         if stop.is_none()
             && let Some(e) = w.errors.first()
         {

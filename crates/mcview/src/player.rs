@@ -80,6 +80,29 @@ impl DoorDemo {
 const DOOR_HOLD_CLOSED: u32 = 30;
 const DOOR_HOLD_OPEN: u32 = 24;
 
+/// A door demo's whole cycle in ticks from the start (closed, opening, open, closing, and the
+/// end of the closed hold after), run on its own copy of the design; None: not a door, or it never
+/// settles within 4000 ticks.
+pub fn door_demo_cycle(text: &str) -> Option<u32> {
+    let mut p = Player::new(text, 1.0).ok()?;
+    if !p.session.mode.is_door() || !p.session.simulated() {
+        return None;
+    }
+    p.start_door_demo();
+    let start = p.session.tick;
+    let mut opened = false;
+    for _ in 0..4000 {
+        p.session.step();
+        p.door_demo_tick();
+        match p.door_demo {
+            Some(DoorDemo::Open(_)) => opened = true,
+            Some(DoorDemo::Closed(at)) if opened => return Some(at - start),
+            _ => {}
+        }
+    }
+    None
+}
+
 impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
         let mut session = Session::new(text, &Options::default())?;
@@ -215,6 +238,32 @@ impl Player {
                 h.pop_front();
             }
         }
+    }
+
+    /// How many ticks a recording from tick 0 shows (`max_ticks` at most): the auto-demo's whole
+    /// run, a door demo's cycle (`door_cycle`, [`door_demo_cycle`]), a clock's warmup and whole
+    /// periods (at least one, about 8 s at its speed), a flying machine's flight; else 10 s.
+    pub fn recording_ticks(&self, door_cycle: Option<u32>, max_ticks: u32) -> u32 {
+        let s = &self.session;
+        let secs = |x: f32| (x * self.tps).round() as u32;
+        let t = if let Some(d) = &s.demo {
+            d.ticks
+        } else if let Some(c) = door_cycle {
+            c
+        } else if let Some(e) = s.end_tick {
+            e + secs(1.0)
+        } else if s.circuit_inputs.is_empty() && !s.mode.is_door() && !s.design.meta.contains_key("circuit") && s.simulated() {
+            match s.period(20_000) {
+                Ok(p) if p.period > 0 => {
+                    let n = (secs(8.0) as f32 / p.period as f32).ceil().max(1.0) as u32;
+                    p.warmup + n * p.period
+                }
+                _ => secs(10.0),
+            }
+        } else {
+            secs(10.0)
+        };
+        t.clamp(1, max_ticks.max(1))
     }
 
     /// The checker's phase label at this tick (the auto-demo's badge).
@@ -464,10 +513,13 @@ impl Player {
         self.dirty = true;
     }
 
-    /// After moving the camera: keep it above the ground (never under the floor).
+    /// After moving the camera: keep it above the ground (never under the floor): the pictures'
+    /// grass, or a TNT duper's real ground.
     pub fn keep_camera_above_ground(&mut self) {
         if let Some(g) = self.look.ground {
             self.camera.keep_above(g);
+        } else if let Some(f) = &self.session.floor {
+            self.camera.keep_above(f.hi[1] as f32 + 1.0);
         }
     }
 
