@@ -156,6 +156,16 @@
    also fires ML's puller below it). The mirror (Q above P, lane down) fails on block-event order (the feed into
    L2 powers Q directly and Q's push lands first). Reading (b) (extras may rest outside the frame) doesn't open
    L2's three entrances either.
+8. **The inside-carried class (d67's q7b; w86's q7c/q7d) isn't wirable in 7x7 either** (team w86 + pext + clk-misc,
+   00:20-00:52Z). q7c (pulse-type trigger) WORKS but: (a) pext: no single lever-started train within 3M world pairs,
+   and its opening needs OVERLAPPING timing (pulses landing while other pistons move), which idle-step trains can't
+   express; (b) clk-misc's feed table (`door feeds`, explore/d67): BL's carried down-puller at (0,-2) and BM's
+   down-puller at open have no feed (the bottom row holds 4 pullers; the right wall is static since both outer
+   columns are on the left). q7d moved BM's pull after BR lands in F2 on a long pulse shared with SU(2,-2), which
+   wiggles BR (WORKS ideal-rs 141/39), but the intended feed (BR strongly powered from (3,-1)) can't be built: the
+   right pocket {(3,-2),(3,-1)} has no inputs inside the box (every component there would watch / take input from
+   x = 4). (c) satwire with b kept ideal: core close SD(0,4) (5 firings; only feed an observer in the sealed (1,4)
+   watching SD(2,4)).
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
