@@ -20,11 +20,15 @@ enum Cmd {
     /// deduplicated by structure, screened on redsim with the BUD judge at every air cell next to
     /// it; per detected class set: the count, the smallest and the fastest
     Census(census::CensusArgs),
+    /// A design aid: run a BUD design's stimulus (classes only) on redsim and print, per frame in
+    /// a window, the phase, the output level and the blocks that changed
+    Trace(census::TraceArgs),
 }
 
 pub fn run(args: Vec<String>) -> anyhow::Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit bud".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
         Cmd::Census(a) => census::run(a),
+        Cmd::Trace(a) => census::trace(a),
     }
 }

@@ -146,14 +146,21 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
 /// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
 /// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
 /// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
-/// (lag, fewer). Other kinds fold on blocks alone: a study whose designs trade blocks against a
-/// metric its axis does not carry adds that metric here.
+/// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. Other kinds
+/// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
+/// carry adds that metric here.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
+    // where the host does (study 10)
+    if b.kind == "bud" && a.kind == "bud" {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
+    }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return false;
     }
-    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
-    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
     if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
         if fb > fa * 1.01 {
             return true;
