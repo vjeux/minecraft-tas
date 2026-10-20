@@ -157,6 +157,10 @@ pub struct World {
     /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
     /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
     pub entity_chunks: Option<[i32; 4]>,
+    /// Entities that stopped ticking outside `entity_chunks` (game time, entity id), once each: a
+    /// sandbox artifact (in a real world the player keeps those chunks loaded), which a judge
+    /// fails or avoids by forcing more chunks.
+    pub frozen: Vec<(i64, u32)>,
     // ---- explosions and TNT outcomes (clk-misc, `explosion.rs`) ----
     /// How an explosion draws its rays' power (`explosion::Rolls`: the level random by default).
     pub explosion_rolls: crate::explosion::Rolls,
@@ -215,6 +219,7 @@ impl World {
             level_random: None,
             chunk_draws: 0,
             entity_chunks: None,
+            frozen: Vec::new(),
             explosion_rolls: Default::default(),
             tnt_kicks: Vec::new(),
             tnt_spawned: 0,
@@ -246,6 +251,13 @@ impl World {
                 let (cx, cz) = ((x.floor() as i64).div_euclid(16) as i32, (z.floor() as i64).div_euclid(16) as i32);
                 cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1
             }
+        }
+    }
+
+    /// Record entity `id` as frozen (outside `entity_chunks`), once.
+    pub fn note_frozen(&mut self, id: u32) {
+        if !self.frozen.iter().any(|(_, i)| *i == id) {
+            self.frozen.push((self.time, id));
         }
     }
 

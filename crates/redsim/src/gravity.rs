@@ -287,7 +287,11 @@ pub fn tick_entities(w: &mut World) {
 pub fn tick_one(w: &mut World, i: usize) {
     {
         let mut e = w.gravity.entities[i];
-        if e.removed || !w.entity_ticks_at(e.x, e.z) {
+        if e.removed {
+            return;
+        }
+        if !w.entity_ticks_at(e.x, e.z) {
+            w.note_frozen(e.id);
             return;
         }
         if e.block.is_air() {

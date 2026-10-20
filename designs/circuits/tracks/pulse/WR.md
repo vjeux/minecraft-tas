@@ -51,7 +51,7 @@ the record files live in [wr/](wr/) until archived.
 | rising-edge | L 2 | 2 blocks | `pulse-rising-edge-piston-observer-L2` (min-pulse 4, delay 5) | holds; target min-pulse 1 in <= 3 blocks |
 | rising-edge | L 4..8 even | 4 blocks (census: none in 3) | repeater designs (min-pulse 4) | target min-pulse 1 at 4..6 blocks |
 | rising-edge | odd L | <= 4 blocks | overlap designs, 12 blocks | target: two filtered sensors at different distances from the note block give 10 + d |
-| rising-edge | any L (long) | constant size, <= 8 blocks | chains of 17-25 blocks | target: an item timer (hopper: 8 gt per item) or a comparator fade, tuned by a count |
+| rising-edge | any L (long) | constant size, <= 8 blocks | the hopper item timer judges as rising-edge too (L = 8n - 1, 7 blocks) but with min-pulse = L | target: the timer holding its own run (the output keeps the first hopper open and the last one closed): needs about 2 more blocks |
 | rising-edge | instant | delay 0 | none (best delay 1: sculk) | target: an input -> dust -> output path that a piston cuts after L; or prove impossible |
 | rising-edge | 1-wide tileable | pitch 1 | none (no judge support) | judge `tile:` for pulse kinds, then the piston/observer column L2 and repeater lines |
 | falling-edge | L 10, vibration-proof | 5 blocks, min-pulse 1 | `pulse-fall-sculk-filter-L10`: trapdoor + calibrated sensor tuned to 9 (closing only), delay 1 | **record** (game, vibration test); first min-pulse 1 falling edge |
@@ -62,7 +62,7 @@ the record files live in [wr/](wr/) until archived.
 | dual-edge | L 10, vibration-sensitive | 2 blocks (min-pulse 30), 3 blocks (min-pulse 15) | `pulse-dual-sculk-cal-L10`, `pulse-dual-sculk-deaf-L10` | **record** (game); no L 10 existed |
 | dual-edge | L 10, vibration-proof | <= 9 blocks | none | target: two filtered sensors (10 for the opening, 9 for the closing) |
 | pulse-limiter | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 1 | `pulse-limiter-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
-| pulse-limiter | any L | constant size | limiter-u4 (10 + 4n blocks) | as rising-edge, long L |
+| pulse-limiter | any L | constant size | `pulse-limiter-hopper-timer-L*` (group `hopper item timer`): 7 blocks for every L = 8n - 1 (7 .. 2559 gt), min-pulse 2, robust at L 7, 15, 23, 31, 127, 511 | **record** for L = 8n - 1; even L needs an odd-delay element (every redstone delay is even; the hoppers' 8n - 1 is odd): open |
 | pulse-extender | L 2..8 | 2 blocks (bound) | one repeater | **record** |
 | pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 1 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-extender | any L | constant size | one-shots, 17-25 blocks | as rising-edge, long L |

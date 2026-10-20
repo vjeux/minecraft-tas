@@ -423,22 +423,22 @@ fn checks() -> Vec<Check> {
     // non-clock rejected
     const CAL: &str = "designs/clocks/calibration";
     let cal: Vec<(&str, &str)> = vec![
-        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)")
-        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 0, family observer, 2 blocks, 2x1x1"),
+        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)"; outputs are
+        // exterior air cells read by the power the judge's lamp there receives since 2026-10-20:
+        // bulb-observer and burnout-torch have no such cell that pulses evenly and left the list)
+        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 2, family observer, 2 blocks, 2x1x1"),
         ("comparator-subtract", "cal-comparator-subtract period 4 gt (0.2 s), on 2/4, edges 1, warmup 2, family comparator+redstone_wire, 9 blocks, 3x2x2"),
         ("torch-repeater", "cal-torch-repeater period 20 gt (1 s), on 10/20, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 14 blocks, 3x2x3"),
-        ("bulb-observer", "cal-bulb-observer period 28 gt (1.4 s), on 14/28, edges 1, warmup 0, family copper_bulb+observer+redstone_wire+repeater, 13 blocks, 3x2x3"),
         ("observer-piston", "cal-observer-piston period 8 gt (0.4 s), on 4/8, edges 2, warmup 3, family observer+redstone_wire+sticky_piston, 8 blocks, 3x4x1"),
         ("sculk-piston", "cal-sculk-piston period 49 gt (2.45 s), on 30/49, edges 1, warmup 5, family repeater+sculk_sensor+sticky_piston, 6 blocks, 5x2x2"),
-        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 3, family comparator+hopper, 4 blocks, 3x2x1"),
-        ("burnout-torch", "cal-burnout-torch period 220 gt (11 s), on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 10 blocks, 3x2x2"),
+        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 7, family comparator+hopper, 4 blocks, 3x2x1"),
     ];
     let mut s = args("clock sim -q");
     s.extend(cal.iter().map(|(f, _)| format!("{CAL}/{f}.txt")));
     let n = cal.len();
     v.push(Check {
         name: "clock:sim-calibration".into(),
-        what: "`clock sim` (exact redsim period) on the 8 calibration clocks: their known period, warmup, output waveform, family, blocks and box",
+        what: "`clock sim` (exact redsim period) on 6 calibration clocks (exterior air outputs): their known period, warmup, output waveform, family, blocks and box",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -453,6 +453,15 @@ fn checks() -> Vec<Check> {
         }),
     });
     const NOKICK: &str = "designs/clocks/selftest/observer-pair-no-kick.txt";
+    v.push(Check {
+        name: "clock:item-despawn".into(),
+        what: "`clock sim` says NO-REPEAT for a leaf clock fed by an item a player could drop: the item despawns at age 6000 and the judge runs item designs 12000 gt (a clock must run forever)",
+        quick: true,
+        jvm: false,
+        steps: vec![args("clock sim -q designs/clocks/selftest/item-despawn.txt")],
+        timeout: 120,
+        pred: Box::new(|o| has(&o[0], "NO-REPEAT: ").map(|_| "NO-REPEAT (the item despawns)".into())),
+    });
     v.push(Check {
         name: "clock:sim-negative".into(),
         what: "`clock sim` says STOPS for the observer pair placed silently (no start kick: nothing ever fires)",
@@ -490,6 +499,27 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
+    v.push(Check {
+        name: "clock:verify-reload".into(),
+        what: "`clock verify --reload` (the chunks saved, unloaded and loaded again mid-run): the torch-repeater clock survives it; the observer pair does not in every rotation (it comes back at P4)",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("clock verify {CAL}/torch-repeater.txt --positions 1 --workers 4 --reload --no-sim")),
+            args(&format!("?clock verify {CAL}/observer-pair.txt --positions 2 --horizon 1000 --workers 8 --reload --no-sim")),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("CLOCK: cal-torch-repeater")).ok_or(format!("torch-repeater: {}", tail(&o[0])))?;
+            if !l.ends_with("robust") {
+                return Err(format!("torch-repeater not robust across a reload: {l}"));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK: cal-observer-pair") && l.ends_with("robust")) {
+                return Err(format!("the observer pair passed the reload in every rotation: {}", tail(&o[1])));
+            }
+            Ok("torch-repeater survives a reload, the observer pair does not".into())
+        }),
     });
     v.push(Check {
         name: "clock:verify-entities".into(),

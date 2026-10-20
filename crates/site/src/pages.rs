@@ -308,6 +308,9 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&picker);
     }
     body.push_str(&crate::plain::intro_box(b, scripts.viewer));
+    if let Some(c) = &b.clock {
+        body.push_str(&clock_timeline(design_text, c));
+    }
     if let Some(v) = b.door.as_ref().and_then(|d| d.video.as_ref()) {
         body.push_str(&format!(
             "<section><h2>Video (real game)</h2><video class=\"video\" controls preload=\"none\" src=\"{}\"></video><p><a href=\"{}\">download the video</a></p></section>\n",
@@ -769,6 +772,49 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
         "<section class=\"group\"><h2>Other versions <span class=\"count\">{}</span></h2><p class=\"hint\">The same mechanism; the versions differ only in {}. Pick one: the 3D view (same camera), the numbers and the downloads follow.</p><nav class=\"picker\" aria-label=\"versions\">{chips}</nav></section>\n",
         esc(&if same_axis || span.is_empty() { format!("{} versions", members.len()) } else { site_model::html::span_words(&span) }),
         esc(&differs)
+    )
+}
+
+/// A clock's timeline (vjeux 13:46Z: "Why is there no judge timeline for clocks?"): its output
+/// over its start-up and three periods (two when long), simulated from the design at build time
+/// the way the 3D view runs it; the start-up shaded, each period marked. Empty when the browser's
+/// simulator cannot run the design (a boat, a minecart).
+fn clock_timeline(design_text: &str, c: &site_model::ClockInfo) -> String {
+    let Ok(mut s) = mcview::session::Session::new(design_text, &mcview::session::Options::default()) else { return String::new() };
+    if !s.simulated() || c.period == 0 {
+        return String::new();
+    }
+    let periods = if c.period > 200 { 2 } else { 3 };
+    let warm = c.warmup.min(400);
+    let total = (warm + periods * c.period).min(1600);
+    let mut levels: Vec<u8> = Vec::with_capacity(total as usize);
+    for _ in 0..total {
+        match s.output_on() {
+            Some(on) => levels.push(if on { 15 } else { 0 }),
+            None => return String::new(),
+        }
+        s.step();
+    }
+    if levels.iter().all(|l| *l == 0) {
+        return String::new();
+    }
+    let mut phases: Vec<(u32, u32, String)> = Vec::new();
+    if warm > 0 {
+        phases.push((0, warm, "starting up".to_string()));
+    }
+    let mut t = warm;
+    let mut k = 1;
+    while t + c.period <= total {
+        phases.push((t, t + c.period, if k == 1 { format!("1 period: {} ticks", c.period) } else { format!("period {k}") }));
+        t += c.period;
+        k += 1;
+    }
+    let wave = site_model::Wave { ticks: total, rows: vec![site_model::WaveRow::from_levels("out", false, &levels)], phases };
+    let on = if c.on > 0 && c.edges <= 1 { format!(", on for {} of them", crate::plain::ticks(&format!("{} gt", c.on))) } else if c.edges > 1 { format!(", {} pulses in each", c.edges) } else { String::new() };
+    format!(
+        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, simulated like the 3D view runs it: the grey part is the clock starting up, then it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
+        crate::plain::ticks(&format!("{} gt", c.period)),
+        crate::explain::wave_svg_fit(&wave, 340.0)
     )
 }
 
