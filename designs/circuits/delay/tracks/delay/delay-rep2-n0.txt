@@ -1,6 +1,6 @@
-# Repeater line N = 2 gt (track delay, family delay-rep2: N = 2 + 8n gt, n = 0): a delay-1 repeater
-# then 0 delay-4 repeater(s) in a row on stones, each reading the one before; N = 2 gt per redstone
-# tick of delay
+# One repeater set to 1: the signal comes out 2 ticks later. Each repeater adds 2 ticks per notch of
+# its setting, so any even delay is a line of them, 2 blocks (repeater + stone) per started 8 ticks
+# (track delay, family delay-rep2: N = 2 + 8n gt, n = 0)
 name: delay-rep2-n0
 circuit: delay
 tile: 0 0 1

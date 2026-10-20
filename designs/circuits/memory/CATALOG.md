@@ -95,7 +95,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [rs-dropper](archive/rs-dropper.txt) | rs-latch | latency 6 gt, tileable every 2 (0 2 0) | 4 | 2x2x2 | robust | Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). A stack of them tiles with NO gap (`tile: 0 2 0`): a column of latches costs 4 blocks per bit. |
+| [rs-dropper](archive/rs-dropper.txt) | rs-latch | latency 6 gt, tileable every 2 (0 2 0) | 4 | 2x2x2 | robust | Dropper RS latch, 4 blocks (track memory): two droppers face each other and hold one stone between them. s (next to the dropper by S) fires that dropper and the stone goes to the other one; r fires the dropper by R and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads the dropper by R: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). A stack of them tiles with NO gap (`tile: 0 2 0`): a column of latches costs 4 blocks per bit. |
 
 ## tff-reset
 
