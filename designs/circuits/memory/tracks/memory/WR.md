@@ -76,9 +76,9 @@ The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out o
 
 | kind | design | blocks | note |
 |---|---|---|---|
-| dff | dff-lock | 15 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust; irreducible under `circuit shrink` |
-| shift 2 | shift2-lock | 30 | exactly 2 x the dff: the same two-repeater stage twice, sharing one clock dust line |
-| dff-enable | dffe-lock | 18 | the dff plus a second lock on the slave from e (wall torch + repeater); latency 6 gt, robust, irreducible under `circuit shrink` |
+| dff | dff-lock | 9 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust, irreducible. Was 15: the clock block itself is the master lock's back and carries the slave's wall torch, so there is no clock wiring at all |
+| shift 2 | shift2-lock | 27 | was 30: stage 1 is the 9-block dff on the clock block; a dust on the clock block carries the clock round to stage 2's stone (18 blocks for stage 2 — the loop-back from stage 1's output to a second stage sharing the clock block and torch from their other faces would cost more than it saves) |
+| dff-enable | dffe-lock | 12 | was 18: the 9-block dff plus a second lock on the slave from e (wall torch + repeater + stone); latency 6 gt, robust, irreducible |
 
 The dff went 31 -> 18 by the in-game shrink, then 18 -> 15 by hand: the shrink removes blocks but never re-routes, and the clock line it left ran three cells further than it needed. The stage is two repeaters on the data line (B west, A south locking B from the side), a wall torch for the inverted phase, and one clock dust above; a second stage reuses the same dust.
 

@@ -95,7 +95,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [shift2-lock](archive/shift2-lock.txt) | shift 2 | N 2, latency 6 gt, edge rising | 30 | 4x3x4 | robust |  |
+| [shift2-lock](archive/shift2-lock.txt) | shift 2 | N 2, latency 6 gt, edge rising | 27 | 4x3x4 | robust | 2-bit shift register, 27 blocks: two repeater-lock flip-flops in a row, the first stage's output feeding the second stage's data. The first stage reads the clock block directly (its master lock behind it, its slave's wall torch hanging on it); a dust on top of the clock block carries the clock round to the second stage's stone, which plays the same part for it. On each rising edge both stages shift at once. |
 
 ## d-latch
 
@@ -107,13 +107,13 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [dff-lock](archive/dff-lock.txt) | dff | latency 6 gt, edge rising, setup 1 gt, hold 1 gt | 15 | 2x3x4 | robust |  |
+| [dff-lock](archive/dff-lock.txt) | dff | latency 6 gt, edge rising, setup 1 gt, hold 1 gt | 9 | 2x2x3 | robust | D flip-flop, 9 blocks: the data runs through two repeaters, and each has a lock repeater beside it (a locked repeater holds its output). The master's lock reads the clock block itself, so the first repeater follows d only while the clock is LOW; a wall torch hanging on that same clock block feeds the slave's lock, so the second repeater passes only while the clock is HIGH. On the rising edge the master freezes on d and the slave opens: q takes d exactly at the edge. No clock wiring at all: the clock block is part of the circuit. |
 
 ## dff-enable
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [dffe-lock](archive/dffe-lock.txt) | dff-enable | latency 6 gt, edge rising | 18 | 2x3x6 | robust | D flip-flop with enable, 18 blocks: the 15-block repeater-lock flip-flop plus one more lock on the slave. The data runs through two repeaters; the master's lock reads the clock straight (it follows d while the clock is low) and the slave's lock reads it through a wall torch (it passes while the clock is high). The enable gets its own wall torch and repeater, locking the slave from its other side whenever e is off, so a clock edge with e off leaves q alone. Gating the slave instead of the clock needs no AND gate: a repeater is locked if EITHER side is powered. |
+| [dffe-lock](archive/dffe-lock.txt) | dff-enable | latency 6 gt, edge rising | 12 | 2x2x5 | robust | D flip-flop with enable, 12 blocks: the 9-block flip-flop (two repeaters with lock repeaters beside them; the master's lock reads the clock block, a wall torch on that block feeds the slave's) plus one more lock on the slave's other side, fed by a wall torch on the enable block. A repeater is locked if EITHER side is powered, so while e is off the slave stays locked through any clock edge and q holds; no AND gate is needed. |
 
 ## rs-latch
 
