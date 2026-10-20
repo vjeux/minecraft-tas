@@ -366,27 +366,36 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             let mut worst = 0f32;
             while s.tick <= to {
-                // where each entity ends the tick (the trace's convention; the renderer draws
-                // from the previous tick's end toward it)
-                let mine = s.entities(1.0);
-                let line: Vec<String> = mine.iter().map(|e| format!("{} ({:.3}, {:.3}, {:.3}) yaw {:.1}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw)).collect();
+                // the simulated positions at the end of the tick (the trace's convention; the
+                // renderer draws a minecart on a rail at the rail's line instead, like
+                // AbstractMinecartRenderer.oldRender, so the drawn pose is not compared)
+                let mine: Vec<(String, [f32; 3], f32)> = s
+                    .world
+                    .entities
+                    .list
+                    .iter()
+                    .filter(|e| !e.removed)
+                    .zip(s.entities(1.0))
+                    .map(|(e, d)| (d.kind, [e.pos.x as f32, e.pos.y as f32, e.pos.z as f32], e.y_rot))
+                    .collect();
+                let line: Vec<String> = mine.iter().map(|(k, p, yaw)| format!("{k} ({:.4}, {:.4}, {:.4}) yaw {yaw:.1}", p[0], p[1], p[2])).collect();
                 println!("t {}: {}", s.tick, line.join("; "));
                 if let Some(r) = &replay {
                     let theirs = r.entities_at(s.tick);
                     let mut parts = Vec::new();
                     for (k, e) in theirs.iter().enumerate() {
-                        let d = mine.get(k).map(|m| ((m.pos[0] - e.pos[0]).powi(2) + (m.pos[1] - e.pos[1]).powi(2) + (m.pos[2] - e.pos[2]).powi(2)).sqrt());
+                        let d = mine.get(k).map(|(_, m, _)| ((m[0] - e.pos[0]).powi(2) + (m[1] - e.pos[1]).powi(2) + (m[2] - e.pos[2]).powi(2)).sqrt());
                         if let Some(d) = d {
                             worst = worst.max(d);
                         }
-                        parts.push(format!("{} ({:.3}, {:.3}, {:.3}) yaw {:.1}{}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw, d.map(|d| format!(" [{d:.3}]")).unwrap_or_default()));
+                        parts.push(format!("{} ({:.4}, {:.4}, {:.4}) yaw {:.1}{}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.yaw, d.map(|d| format!(" [{d:.4}]")).unwrap_or_default()));
                     }
                     println!("  game: {}", parts.join("; "));
                 }
                 s.step();
             }
             if replay.is_some() {
-                println!("largest distance to the game: {worst:.3} blocks over ticks {from}..={to}");
+                println!("largest distance to the game: {worst:.4} blocks over ticks {from}..={to}");
             }
             Ok(())
         }
