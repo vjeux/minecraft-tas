@@ -161,6 +161,7 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
             b.marker(*o, false, *c, false);
         }
     }
+    let occ = b.opaque_cells().clone();
     let mut m = b.mesh;
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
@@ -169,7 +170,7 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         // its pictures, their sky shows beyond the edge); a travelling design's whole path
         let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
         let margin = look.floor_margin.unwrap_or(GROUND_REACH);
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin);
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &occ);
         m.solid.extend_from_slice(&g);
     }
     m
@@ -206,10 +207,25 @@ pub fn picture_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 }
 
 /// Where a live viewer's build goes: x within +-0.8 of the view (80% of its width), y between
-/// the bar (bottom, 60 of 480 px) and the badges (top), with room above for the tags.
+/// the bar (bottom, 60 of 480 px) and the badges (top), with room above for the tags. A viewer
+/// of known height uses [`live_window`].
 pub const LIVE_WINDOW: (f32, f32, f32) = (0.8, -0.7, 0.62);
 /// A thumbnail's: 80% of each side, centred.
 pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
+
+/// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
+/// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
+pub fn live_window(h: f32) -> (f32, f32, f32) {
+    let h = h.max(120.0);
+    let y0 = -1.0 + 2.0 * 74.0 / h;
+    let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
+    (0.8, y0, y1)
+}
+
+/// The smallest build a view frames, in blocks across (x, z) and high: a tiny one (a 2-block
+/// clock) stands in some grass instead of filling the view.
+const MIN_VIEW_W: f32 = 5.0;
+const MIN_VIEW_H: f32 = 3.0;
 
 /// The viewer's camera (live viewers and thumbnails alike): from the pictures' direction, the
 /// build's whole moving extent ([`view_points`]) filling `window`, never cut.
@@ -270,6 +286,17 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
     for e in ent_pos {
         for k in 0..8 {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
+        }
+    }
+    // a tiny build: framed as if MIN_VIEW_W blocks across and MIN_VIEW_H high, around its middle
+    if !pts.is_empty() {
+        let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
+        let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
+        let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
+        let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
+        let c = [(lo[0] + hi[0]) / 2.0, lo[1], (lo[2] + hi[2]) / 2.0];
+        for k in 0..8 {
+            pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { 0.0 } else { 2.0 * hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
         }
     }
     pts

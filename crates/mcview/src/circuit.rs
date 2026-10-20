@@ -269,15 +269,16 @@ pub fn port_groups(d: &Design) -> Vec<PortGroup> {
     }
     let mut groups: Vec<PortGroup> = Vec::new();
     for (base, label, colour) in [("output", "OUT", "#ffb04a"), ("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f")] {
-        let mut cells: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, base)).map(|(_, (p, _))| *p).collect();
-        cells.sort();
-        cells.dedup();
+        // each port's cell and letter (`items.a` -> A; a bare `items` port has none)
+        let mut ports: Vec<(Pos, Option<String>)> = d.ports.iter().filter(|(n, _)| is_named(n, base)).map(|(n, (p, _))| (*p, n.strip_prefix(base).and_then(|r| r.strip_prefix('.')).map(|k| k.to_uppercase()))).collect();
+        ports.sort();
+        ports.dedup_by(|a, b| a.0 == b.0);
         // clusters: cells within 2 (Chebyshev) of a cell of the cluster
-        let mut left = cells;
+        let mut left = ports;
         while let Some(first) = left.pop() {
             let mut cluster = vec![first];
             loop {
-                let near: Vec<usize> = (0..left.len()).filter(|&i| cluster.iter().any(|c| (0..3).all(|k| (c[k] - left[i][k]).abs() <= 2))).collect();
+                let near: Vec<usize> = (0..left.len()).filter(|&i| cluster.iter().any(|c| (0..3).all(|k| (c.0[k] - left[i].0[k]).abs() <= 2))).collect();
                 if near.is_empty() {
                     break;
                 }
@@ -286,7 +287,18 @@ pub fn port_groups(d: &Design) -> Vec<PortGroup> {
                 }
             }
             cluster.sort();
-            groups.push(PortGroup { label: label.to_string(), cells: cluster, colour });
+            // its letters: `OUT A`, `ITEMS A–C` (a run), `ITEMS A,C`
+            let mut letters: Vec<String> = cluster.iter().filter_map(|(_, k)| k.clone()).collect();
+            letters.sort();
+            let run = letters.len() > 2 && letters.iter().all(|l| l.len() == 1) && letters.windows(2).all(|w| w[1].as_bytes()[0] == w[0].as_bytes()[0] + 1);
+            let name = if letters.len() != cluster.len() || letters.is_empty() {
+                label.to_string()
+            } else if run {
+                format!("{label} {}–{}", letters[0], letters[letters.len() - 1])
+            } else {
+                format!("{label} {}", letters.join(","))
+            };
+            groups.push(PortGroup { label: name, cells: cluster.into_iter().map(|(p, _)| p).collect(), colour });
         }
     }
     groups.sort_by(|a, b| (a.label.as_str(), a.cells[0]).cmp(&(b.label.as_str(), b.cells[0])));
@@ -531,7 +543,7 @@ mod tests {
         let rail2 = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/archive/shulker-speed-unloader-rail2.txt")).unwrap();
         let g = port_groups(&Design::parse(&rail2).unwrap());
         let labels: Vec<(&str, usize)> = g.iter().map(|g| (g.label.as_str(), g.cells.len())).collect();
-        assert_eq!(labels, vec![("BOXES", 1), ("ITEMS", 3), ("ITEMS", 3), ("OUT", 1), ("OUT", 1)]);
+        assert_eq!(labels, vec![("BOXES", 1), ("ITEMS A–C", 3), ("ITEMS D–F", 3), ("OUT A", 1), ("OUT B", 1)]);
         assert_eq!(phase_words("gate and", "10", &["a".into(), "b".into()]), "A on, B off");
         assert_eq!(phase_words("gate and", "00 (rest)", &["a".into(), "b".into()]), "all inputs off");
         assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "a 3 gt input pulse");

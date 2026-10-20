@@ -432,6 +432,8 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
+    // where the build goes: clear of the bar and the badges at this viewer's height
+    let window = mcview::scene::live_window(v.h.max(1) as f32);
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -445,7 +447,7 @@ pub fn load(app: &mut App, id: u32) {
                 p.camera.fit(lo, hi, aspect, 0.85);
                 p.home = p.camera;
             } else {
-                p.show_inputs(&app.atlas, aspect);
+                p.show_inputs(&app.atlas, aspect, window);
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
@@ -600,7 +602,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        let (wx, y0, y1) = mcview::scene::LIVE_WINDOW;
+                        let (wx, y0, y1) = window;
                         c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
                     }
                     p.camera = c;

@@ -99,13 +99,17 @@ each build's page.
   replays the BUD switches' events through this parser frame by frame against `circuit sim`.
   Cyan tags name a BUD switch's TARGET cells.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
-  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces):
+  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
+  entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
+  never explodes, as in the game):
   each primed TNT is redsim's `PrimedTnt` entity (its kick from the mirrored level random; moved
   by the engine: gravity, collisions, slime, moving blocks), drawn like the game's `TntRenderer`
   (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
   EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
-  as items, a TNT block it hits primes, other TNT is pushed. A TNT flying off the design falls into
-  the void below the drawn ground (the judge's world has none) and explodes there harmlessly.
+  as items, a TNT block it hits primes, other TNT is pushed; a blast destroying a moving block
+  drops what it moves. A TNT flying off the design falls into the void below the drawn ground
+  (the judge's world has none) and explodes there harmlessly (its rays stop at the build height:
+  nothing is destroyed), or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
   for 400 ticks, native and wasm. The camera frames the TNT's flight in redsim's run within 8
@@ -137,7 +141,11 @@ each build's page.
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`LIVE_WINDOW`), centred in a thumbnail
-  (`THUMB_WINDOW`). The grass reaches 200 blocks around (past the fog's end: no edge shows).
+  (`THUMB_WINDOW`). The grass reaches 200 blocks around (past the fog's end: no edge shows); near
+  the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
+  the four air cells around it in the layer between the grass and the build (a covered column
+  gets its neighbours' light less one), through the game's brightness curve at the default
+  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
 * Containers: what tells the story is labelled by default: the judge's port chests (their
