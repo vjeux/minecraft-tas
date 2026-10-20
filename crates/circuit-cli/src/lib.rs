@@ -159,6 +159,12 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track timer's commands (crates/circuit-timer): study 11's monostables, off-delays and
+    /// on-delays.
+    Timer {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -316,6 +322,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
+        CircuitCmd::Timer { args } => circuit_timer::run(args)?,
     }
     Ok(())
 }

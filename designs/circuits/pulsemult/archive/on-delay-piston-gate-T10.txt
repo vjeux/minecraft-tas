@@ -1,0 +1,29 @@
+# archived 2026-10-20T11:35Z from designs/circuits/pulsemult/tracks/timer/on/on-delay-piston-gate-T10.txt by mctas circuit archive
+# CIRCUIT: on-delay-piston-gate-T10 on-delay T 10 gt, shortening 8 gt, latency 0 gt, 10 blocks, 3x2x3, robust
+name: on-delay-piston-gate-T10
+circuit: on-delay
+group: on-delay-piston-gate
+group title: piston-gate on-delay
+group note: T = 4 + 2 x the repeater's delay (2, 3, 4: T 8, 10, 12); the output falls with the input (latency 0)
+# The input's dust points into the empty cell X beside the output. A delay-3 repeater (6 gt) and two
+# dust power a sticky piston that pushes a stone into X: the output is lit only while the stone is
+# in X AND the input still powers it, so an input shorter than the repeater delay plus the piston's
+# travel never lights it, and a longer one lights it for its length - 8 gt, going dark in the same
+# tick as the input (the sticky piston pulls the stone back while the dust is already off). The
+# repeater makes every piston pulse at least 6 gt, so the piston never spits its stone.
+origin: 0 0 -2
+port input: 0 1 0
+port output: 3 1 0
+palette:
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=south]
+layer 0:
+  SS..
+  S...
+  .S..
+layer 1:
+  ddP.
+  R.S.
+  .d..
