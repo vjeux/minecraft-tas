@@ -1,0 +1,27 @@
+# archived 2026-10-20T01:10Z from designs/clocks/tracks/clk-obs/families9/p44-note-obs-rb-stk-8b-4deaf5.txt by mctas clock archive
+# CLOCK: clk-obs-p44-note-obs-rb-stk-8b-4deaf5 period 44 gt (2.2 s), on 20/44, edges 10, warmup 5, family note_block+observer+redstone_block+sticky_piston, 8 blocks, 2x3x3, robust
+name: clk-obs-p44-note-obs-rb-stk-8b-4deaf5
+# clk-obs grow: P=44 (redsim), family note_block+observer+redstone_block+sticky_piston, kick last 0 0 2, swept volume 18.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=north]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:redstone_block
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:note_block[instrument=harp,note=0,powered=false]
+layer -2:
+  ..
+  ..
+  A.
+layer -1:
+  ..
+  .E
+  .A
+layer 0:
+  B.
+  CF
+  DG

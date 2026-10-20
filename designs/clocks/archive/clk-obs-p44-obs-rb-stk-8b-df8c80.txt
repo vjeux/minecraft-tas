@@ -1,0 +1,32 @@
+# archived 2026-10-20T01:11Z from designs/clocks/tracks/clk-obs/families9/p44-obs-rb-stk-8b-df8c80.txt by mctas clock archive
+# CLOCK: clk-obs-p44-obs-rb-stk-8b-df8c80 period 44 gt (2.2 s), on 16/44, edges 8, warmup 14, family observer+redstone_block+sticky_piston, 8 blocks, 1x3x5, robust
+name: clk-obs-p44-obs-rb-stk-8b-df8c80
+# clk-obs grow: P=44 (redsim), family observer+redstone_block+sticky_piston, kick last 0 1 3, swept volume 15.
+origin: 0 0 -1
+port output: 0 0 0
+port start: 0 1 3 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:redstone_block
+  F minecraft:observer[facing=down,powered=false]
+layer -1:
+  A
+  .
+  .
+  .
+  .
+layer 0:
+  B
+  C
+  D
+  E
+  .
+layer 1:
+  .
+  D
+  .
+  C
+  F

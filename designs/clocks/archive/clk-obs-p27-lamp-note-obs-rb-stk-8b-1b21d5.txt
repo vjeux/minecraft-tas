@@ -1,0 +1,27 @@
+# archived 2026-10-20T00:32Z from designs/clocks/tracks/clk-obs/families9/p27-lamp-note-obs-rb-stk-8b-1b21d5.txt by mctas clock archive
+# CLOCK: clk-obs-p27-lamp-note-obs-rb-stk-8b-1b21d5 period 27 gt (1.35 s), on 12/27, edges 6, warmup 9, family note_block+observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
+name: clk-obs-p27-lamp-note-obs-rb-stk-8b-1b21d5
+# clk-obs grow: P=27 (redsim), family note_block+observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 2 0, swept volume 12.
+origin: 0 0 -1
+port output: 0 1 0
+port start: 0 2 0 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:redstone_block
+  D minecraft:redstone_lamp[lit=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  F
+layer 2:
+  .
+  E
+  G

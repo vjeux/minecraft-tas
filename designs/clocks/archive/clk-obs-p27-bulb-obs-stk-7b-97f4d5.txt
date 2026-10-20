@@ -1,0 +1,25 @@
+# archived 2026-10-20T00:31Z from designs/clocks/tracks/clk-obs/families9/p27-bulb-obs-stk-7b-97f4d5.txt by mctas clock archive
+# CLOCK: clk-obs-p27-bulb-obs-stk-7b-97f4d5 period 27 gt (1.35 s), on 12/27, edges 6, warmup 22, family copper_bulb+observer+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p27-bulb-obs-stk-7b-97f4d5
+# clk-obs grow: P=27 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 2 0, swept volume 9.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 2 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  C
+  .
+  B
+layer 2:
+  D
+  D
+  E
