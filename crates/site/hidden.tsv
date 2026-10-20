@@ -32,6 +32,7 @@ pext/pext-n8-cascade66	dominated at N = 8 (pext's WR bar)
 pext/pext-cascade-r2-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r0-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
+pulse/pulse-limiter-psub-L7	dominated (the coordinator 15:35Z): 17 blocks vs pulse-limiter-hopper-timer-L7's 7, delay 5 vs 4 gt, min-pulse 10 vs 2 gt; its only advantage is a material (no hoppers)
 # 2026-10-20 12:46Z, the coordinator from `mctas site dominated`: bigger than a copper-bulb counter of the same N, no better, only copper-free
 memory/counter2-ring	5 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
 memory/counter4-ring	4 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs

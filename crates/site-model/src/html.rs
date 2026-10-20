@@ -250,6 +250,35 @@ pub fn value_words(kind: &str, axis: &str) -> String {
     }
 }
 
+/// A tunable group's range as a card's headline (`every 17th to 576th pulse`, `on for 12 to 36
+/// ticks · restarts on every press`, `reach 2 to 4`), from its span (`L 12-36 gt, 5 values`);
+/// None for a design that is no group's card or whose span is no range.
+fn group_range(c: &crate::Circuit) -> Option<String> {
+    let (range, _) = c.span.split_once(", ")?;
+    let (lo, hi) = range.split_whitespace().find_map(|w| {
+        let (a, b) = w.split_once('-')?;
+        Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?))
+    })?;
+    let mut w = c.kind.split_whitespace();
+    let (k0, k1) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    let ticks = format!("{lo} to {hi} ticks");
+    Some(match k0 {
+        "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
+        "piston-extender" => format!("reach {lo} to {hi}"),
+        "burst" => format!("{lo} to {hi} pulses per press"),
+        "shift" | "adder" => format!("{lo} to {hi} bits"),
+        "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
+        "pulse-limiter" => format!("at most {ticks}"),
+        "pulse-extender" => format!("at least {ticks}"),
+        "delay" => format!("{lo}- to {hi}-tick delay"),
+        "monostable" => format!("on for {ticks}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
+        "off-delay" => format!("stays on {ticks} after"),
+        "on-delay" => format!("must be held {ticks}"),
+        "pulse-train" => format!("a pulse every {ticks}"),
+        _ => return None,
+    })
+}
+
 /// A tunable group's span in words: `L 12-36 gt, 13 values` -> `13 versions, 12 to 36 ticks`.
 pub fn span_words(span: &str) -> String {
     let Some((range, count)) = span.split_once(", ") else {
@@ -633,6 +662,15 @@ pub fn props(b: &Build) -> Props {
                     sub.push(format!("box {dims}"));
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
+                // a design with no number (a latch): its first property leads (critique: a card read
+                // just "4 blocks")
+                let (title, sub) = if main.is_empty() && !sub.is_empty() {
+                    let mut sub = sub;
+                    let first = sub.remove(0);
+                    (format!("{first} · {}", blocks_word(b.blocks)), sub)
+                } else {
+                    (title, sub)
+                };
                 Props { kind: if b.group.is_empty() { kind_words(&c.kind) } else { b.group.clone() }, title, sub: sub.join(" · "), chips }
             }
             None => Props { kind: b.group.clone(), title: blocks_word(b.blocks), sub: String::new(), chips: flags(&["slime-free", "flat"]) },
@@ -650,7 +688,12 @@ pub fn build_card(b: &Build, prefix: &str) -> String {
 /// A card without what every card around it says (critique C43): no kind line under a heading
 /// that names the kind, and none of the chips shared by every card in view.
 pub fn build_card_opts(b: &Build, prefix: &str, show_kind: bool, shared: &[String]) -> String {
-    let p = props(b);
+    let mut p = props(b);
+    // a group's card says the whole range, not its smallest member's value (critique: "counter
+    // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
+    if let Some(r) = b.circuit.as_ref().and_then(group_range) {
+        p.title = format!("{r} · {}", blocks_word(b.blocks));
+    }
     let chips: String = p.chips.iter().filter(|x| !shared.contains(x)).map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect();
     format!(
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",

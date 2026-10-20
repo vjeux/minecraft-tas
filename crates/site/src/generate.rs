@@ -95,6 +95,64 @@ pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<u
     Ok(n)
 }
 
+/// One card per mechanism: doors (the coordinator's decision (b): "near-identical variants become
+/// one card") with the same category, box and open/close times, and clocks (critique C46:
+/// identical pairs on the Clocks tab) with the same period, blocks, parts and output fold under
+/// one twin (a door: its `host`, listed on the twin's page; a clock: the `twin` flag, hidden from
+/// the default lists like the variants, listed among the twin's same-period clocks). A record
+/// (a door leading a board, a family's base) is never folded. Returns (doors, clocks) folded.
+fn fold_twins(builds: &mut [Build]) -> (usize, usize) {
+    let mut doors: BTreeMap<(String, String, Option<u32>, Option<u32>, String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let mut clocks: BTreeMap<(u32, u32, String, u32, u32), Vec<usize>> = BTreeMap::new();
+    // what a builder picks a door by besides its numbers: a door with one of these never hides
+    // under one without it
+    const DOOR_PROPS: [&str; 7] = ["slime-free", "flat", "rotation-safe", "hallway", "eligible", "wall", "ground"];
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(d) = &b.door {
+            if d.host.is_none() {
+                let props: Vec<String> = DOOR_PROPS.iter().filter(|p| b.flags.iter().any(|f| f == *p)).map(|p| p.to_string()).collect();
+                doors.entry((b.group.clone(), b.dims.clone().unwrap_or_default(), d.open, d.close, d.seamless.clone(), props)).or_default().push(i);
+            }
+        }
+        if let Some(c) = &b.clock {
+            if c.host.is_none() && !c.instance && c.card.is_none() && !b.flags.iter().any(|f| f == "census" || f == "variant") {
+                clocks.entry((c.period, b.blocks, b.group.clone(), c.on, c.edges)).or_default().push(i);
+            }
+        }
+    }
+    let mut folded = (0, 0);
+    for mut same in doors.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| {
+            let b = &builds[i];
+            (b.door.as_ref().is_none_or(|d| d.leads.is_empty()), b.blocks, b.volume, b.name.clone())
+        });
+        let rep = same[0];
+        let rep_id = builds[rep].id.clone();
+        for &i in &same[1..] {
+            if builds[i].door.as_ref().is_some_and(|d| !d.leads.is_empty()) {
+                continue;
+            }
+            let id = builds[i].id.clone();
+            if let Some(d) = builds[i].door.as_mut() {
+                d.host = Some(rep_id.clone());
+            }
+            builds[i].flags.push("variant".into());
+            if let Some(d) = builds[rep].door.as_mut() {
+                d.variants.push(id);
+            }
+            folded.0 += 1;
+        }
+    }
+    for mut same in clocks.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| (builds[i].name.starts_with("census-"), builds[i].volume, builds[i].name.clone()));
+        for &i in &same[1..] {
+            builds[i].flags.push("twin".into());
+            folded.1 += 1;
+        }
+    }
+    folded
+}
+
 /// The repository path of a build's design file.
 pub fn repo_design_path(b: &Build) -> String {
     match b.kind.as_str() {
@@ -286,6 +344,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
+    // one card per mechanism (the coordinator's decision (b), critique C46): doors and clocks
+    // whose cards would read the same fold under one
+    let (fd, fc) = fold_twins(&mut builds);
+    eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
     // no simulator attribution in the captions (vjeux 02:01Z)
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);

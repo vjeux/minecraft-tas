@@ -366,6 +366,19 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         check("clock page: its output over time (start-up shaded, every period marked)", html.contains("<h2>Its output over time</h2>") && html.contains("class=\"wave fit\"") && html.contains("class=\"warm\""), b.page.clone());
     }
+    // family pages: a title in words, no link to the deleted families index (a relative
+    // `index.html` there resolves to it)
+    let bad: Vec<String> = site
+        .cards
+        .iter()
+        .filter(|c| {
+            let html = std::fs::read_to_string(dir.join(&c.page)).unwrap_or_default();
+            let h1 = html.split("<h1>").nth(1).and_then(|s| s.split("</h1>").next()).unwrap_or("");
+            html.contains("href=\"index.html\"") || h1.contains(" = ") || h1.is_empty()
+        })
+        .map(|c| c.page.clone())
+        .collect();
+    check("family pages: a title in words, no dead link", bad.is_empty(), if bad.is_empty() { format!("{} pages", site.cards.len()) } else { bad.join(", ") });
     // the Doors tab opens on solid doors (sculk doors can be set off by footsteps: coordinator
     // 13:54Z)
     // the players' words find what they name, first (critique C12)

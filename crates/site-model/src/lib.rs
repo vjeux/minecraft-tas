@@ -203,6 +203,11 @@ pub struct Circuit {
     /// study last (the gates with their own levers, the sand elevators).
     #[serde(default)]
     pub order: u32,
+    /// Its place within its kind (0 = the first shown design of the kind): the Circuits tab opens
+    /// on the first of every kind, then the second... (critique C40: it opened on six cards of
+    /// one kind).
+    #[serde(default)]
+    pub rank: u32,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -533,6 +538,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("census", "found by the census, not the smallest of its period", "clock"),
+    ("twin", "the same numbers as another clock shown", "clock"),
     ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "several clocks in one", "clock"),
@@ -882,6 +888,8 @@ struct View<'a> {
     group: &'a str,
     /// A circuit's [`Circuit::order`] (0 for doors and clocks).
     order: u32,
+    /// A circuit's [`Circuit::rank`].
+    rank: u32,
     name: &'a str,
     blocks: i64,
     volume: Option<i64>,
@@ -945,6 +953,7 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: b.circuit.as_ref().map(|c| c.rank).unwrap_or(0),
                     name: &b.name,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
@@ -955,7 +964,7 @@ impl Site {
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census"),
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
@@ -972,6 +981,7 @@ impl Site {
                     kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: u32::MAX,
                     name: &m.family,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
@@ -1128,9 +1138,10 @@ impl Site {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
                             "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
-                            // circuits: by study (pulse shapers first, not the block change
-                            // detectors' alphabetical lead: critique C40), the basics last
-                            _ => (2, format!("{:05} {}", v.order, v.group), v.main.unwrap_or(big)),
+                            // circuits: the first of every kind, then the second of every kind...
+                            // (critique C40), each round by study (pulse shapers first), the
+                            // basics last
+                            _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
                         }
                     };
                     key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
