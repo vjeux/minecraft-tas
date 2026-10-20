@@ -48,6 +48,13 @@
   causal attribution (83c5a94c) + --why-islands; --pin-assist inputs count as given (dbc67d5c). q69m passes islands
   once B1 is free (lever top-right); exhaustive pockets k=4 per area drives almost nothing (pulse shapes). fly's
   structural result: one-sided 6-wide 54s leave a blind corner (only the lever can start it); fly moved to 7-wide.
+- 10-20 22:00-23:00Z: m69T with fly: the right stack is timing-free (R0 any q, R1+R2 any r in 0..40; R2 must
+  flip at t0-1 as a toggle but not as a level); one lever holds two stack pistons (gadget 1, now in the FEED report);
+  islands: m69T's areas form two groups (top: sealed top-left + top-right via (1,5); bottom: bottom-left +
+  bottom-right via B (0,-3)) with no visible link, for p33/bl3 and fly's bot6/top6 trains (the groups must start
+  within 2 ticks; a crossing takes 3-4); fly stopped on m69T (needs a riding observer: asked clockinfra to put
+  movable/riding observers into macrosat). Island fix e0dbcdd4: flip-time inputs are given only with the lever
+  outside the pockets (before, a pocket lever "held" the stack too: one wrong claim to fly, corrected).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
