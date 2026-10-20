@@ -176,11 +176,23 @@ fn usage_note(b: &Build) -> String {
     match (&b.door, &b.clock, &b.circuit) {
         (Some(_), _, _) => "Flip the lever to open the door, again to close it.".into(),
         (_, Some(c), _) => match c.start.strip_prefix("kick: last ") {
-            Some(cell) => format!("Kicked clock: after pasting, break and re-place the block at {cell} (relative to the design's origin) to start it."),
-            None if c.start.starts_with("self") => "Self-starting clock.".into(),
+            Some(cell) => format!("To start it after pasting, break and re-place the block at {cell} (from the design's origin)."),
+            None if c.start.starts_with("self") => "It starts by itself once pasted.".into(),
             None => format!("Start: {}.", c.start),
         },
-        (_, _, Some(c)) => format!("{}: inputs {}, outputs {}.", c.kind, c.inputs.join(", "), c.outputs.join(", ")),
+        // what it does and its connections, in words (critique C31: "flying-machine: inputs ,
+        // outputs ." printed empty lists)
+        (_, _, Some(c)) => {
+            let mut s = crate::plain::one_liner(c);
+            let names = |v: &[String]| v.iter().map(|n| n.to_uppercase()).collect::<Vec<_>>().join(", ");
+            match (c.inputs.is_empty(), c.outputs.is_empty()) {
+                (false, false) => s.push_str(&format!(" Input {}, output {}.", names(&c.inputs), names(&c.outputs))),
+                (false, true) => s.push_str(&format!(" Input {}.", names(&c.inputs))),
+                (true, false) => s.push_str(&format!(" Output {}.", names(&c.outputs))),
+                (true, true) => {}
+            }
+            s
+        }
         _ => String::new(),
     }
 }
@@ -193,7 +205,7 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
         let path = repo_design_path(b);
         let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
-        let desc = [b.caption.as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
         write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
         n += 1;

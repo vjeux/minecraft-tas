@@ -388,7 +388,7 @@ fn page_heading(b: &Build) -> String {
         None => p.kind.clone(),
     };
     let what = match (&b.circuit, b.kind.as_str()) {
-        (Some(c), _) if b.group == "Sand elevator" => format!("Turn the input on and a block of sand is lifted {} blocks up; turn it off and it falls back into place. It works only with sand (or gravel), only upward.", c.kind.split_whitespace().nth(1).unwrap_or("2")),
+        (Some(c), _) if b.group == "Sand elevator" => format!("Turn the input on and a block of sand is lifted {} blocks up; turn it off and it falls back into place.", c.kind.split_whitespace().nth(1).unwrap_or("2")),
         (Some(c), _) => crate::plain::one_liner(c),
         (None, "door") => crate::plain::door(b).0,
         (None, "clock") => crate::plain::clock(b).0,
@@ -1005,7 +1005,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         body.push_str("</tbody></table></section>\n");
     }
     let screen = if circuit { "gives exactly its value in simulation" } else { "runs at exactly its period in simulation" };
-    body.push_str(&format!("<section><h2>Every size</h2><p>Each size's design was made by the family's own generator when this site was built. <span class=\"badge st-judged\">judged in the game</span> = tested in the real game; <span class=\"badge st-redsim\">simulated</span> = its design {screen}, not tested in the game; <span class=\"badge st-formula\">formula</span> = not individually checked.</p>\n"));
+    body.push_str(&format!("<section><h2>Every size</h2><p>Each size is generated from the smallest design, one step at a time. <span class=\"badge st-judged\">tested in the game</span> = tested in the real game; <span class=\"badge st-redsim\">simulated</span> = it {screen}, not tested in the game; <span class=\"badge st-formula\">formula only</span> = not checked one by one.</p>\n"));
     body.push_str(&format!("<table class=\"list\"><thead><tr><th>{value_head}</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n"));
     for m in members {
         let anchor = site_model::html::member_anchor(m, site);
@@ -1013,7 +1013,9 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let value_cell = if m.design.is_empty() {
             esc(&member_value(m, &kind_of_base))
         } else {
-            format!("<a class=\"view\" href=\"#{}\" data-src=\"{prefix}{}\" data-caption=\"{}\">{}</a>", esc(&anchor), esc(&m.design), esc(&member_caption(m, &kind_of_base)), esc(&member_value(m, &kind_of_base)))
+            // (a clock's row: the period alone, its column says "pulses every")
+            let shown = if m.axis.is_empty() { format!("{} ticks ({})", m.period, site_model::real_time(m.period)) } else { member_value(m, &kind_of_base) };
+            format!("<a class=\"view\" href=\"#{}\" data-src=\"{prefix}{}\" data-caption=\"{}\">{}</a>", esc(&anchor), esc(&m.design), esc(&member_caption(m, &kind_of_base)), esc(&site_model::html::keep_units(&shown)))
         };
         let download = if m.design.is_empty() {
             "-".to_string()
@@ -1381,14 +1383,24 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             ("piston-extender", true) => ("Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(), "only for sand or gravel, only upward: a sand elevator, a hidden floor".to_string()),
             _ => (crate::explain::kind_title(k), crate::explain::kind_summary(k)),
         };
-        // under the kind's heading the cards drop the kind line and the chips they all share
+        // under the kind's heading the cards drop the kind line, and the chips most of them share
+        // are said once above them (critique C43)
         let shown: Vec<&Build> = reps.iter().map(|b| **b).collect();
-        let shared = site_model::html::shared_chips(&shown);
+        let shared = site_model::html::common_chips(&shown);
+        let all_share = site_model::html::shared_chips(&shown);
         let cards: Vec<String> = reps.iter().map(|b| site_model::html::build_card_opts(b, prefix, false, &shared)).collect();
+        let most = if shared.is_empty() {
+            String::new()
+        } else {
+            format!(" <span class=\"hint\">{}: {}.</span>", if shared.iter().all(|c| all_share.contains(c)) { "All of them" } else { "Most of them" }, esc(&shared.join(", ")))
+        };
+        // a section whose kind is the study itself (the piston extenders): no second heading and
+        // intro under the page's own (critique: the heading and intro repeated the page's)
+        let study_title = crate::explain::study(folder).map(|s| s.0.to_lowercase()).unwrap_or_default();
+        let same_as_study = !basics && study_title.starts_with(&heading.to_lowercase());
+        let head = if same_as_study { if most.is_empty() { String::new() } else { format!("<p>{}</p>", most.trim()) } } else { format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary))) };
         body.push_str(&format!(
-            "<section><h2>{}</h2><p>{}.</p>{}{}</section>\n",
-            esc(&heading),
-            esc(&first_upper(&summary)),
+            "<section>{head}{}{}</section>\n",
             grid(&cards),
             if hidden.is_empty() {
                 String::new()

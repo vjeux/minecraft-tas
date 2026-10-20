@@ -42,14 +42,17 @@ pub fn size_line(b: &Build) -> String {
 /// The headline number of a build (the fallback card's big text): a door's volume, a clock's
 /// period, a circuit's axis value.
 pub fn headline(b: &Build) -> String {
+    // the big text over a picture or a loading view: in words, like the card's title (critique:
+    // "N = 2 gt" badges over thumbnails whose card says "2-tick delay")
     if let Some(c) = &b.clock {
-        return format!("{} gt", c.period);
+        return format!("every {} ticks", c.period);
     }
     if let Some(c) = &b.circuit {
-        return c.axis.clone();
+        let (main, _) = circuit_props(c);
+        return if main.is_empty() { kind_words(&c.kind) } else { main.split(" · ").next().unwrap_or(&main).to_string() };
     }
-    match b.volume {
-        Some(v) => format!("{v}b"),
+    match &b.dims {
+        Some(d) => d.replace('x', "×"),
         None => blocks_word(b.blocks),
     }
 }
@@ -536,14 +539,14 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             ([Some(dir), speed].into_iter().flatten().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), sub(&[("starts in {}", "latency")]))
         }
         "shulker-loader" | "shulker-unloader" => {
-            let stack = match k1 {
-                "16" => "16-stack items · ",
-                "1" => "unstackable items · ",
-                _ => "",
-            };
+            // what the card is best at leads (critique: cards with the same numbers differed only
+            // by their badges); the items it handles are in its badges, not the headline (a
+            // "16-stack items" card carried the "unstackable" badge)
             let rate = cm(c, "items/s");
             let first = cm(c, "first box").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("first box after {}", crate::real_time(g)));
-            (if rate.is_empty() { stack.trim_end_matches(" · ").to_string() } else { format!("{stack}{rate} items a second") }, first.into_iter().collect())
+            let lead = if c.lead.is_empty() { String::new() } else { format!("{} · ", c.lead) };
+            let _ = k1;
+            (if rate.is_empty() { lead.trim_end_matches(" · ").to_string() } else { format!("{lead}{rate} items a second") }, first.into_iter().collect())
         }
         "bud" => {
             let d: Vec<&str> = cm(c, "detects").split_whitespace().map(|k| match k {
@@ -648,7 +651,7 @@ pub fn props(b: &Build) -> Props {
                         }
                     }
                 }
-                let badges: Vec<&str> = cm(c, "badges").split('+').filter(|s| !s.is_empty()).collect();
+                let badges: Vec<&str> = cm(c, "badges").split('+').filter(|s| !s.is_empty() && *s != c.lead).collect();
                 chips.extend(badges.iter().take(4).map(|s| s.to_string()));
                 if badges.len() > 4 {
                     chips.push(format!("+{} more", badges.len() - 4));
@@ -657,9 +660,14 @@ pub fn props(b: &Build) -> Props {
                 if !c.direction.is_empty() && c.kind != "flying-machine" {
                     sub.insert(0, c.direction.clone());
                 }
-                // the box tells siblings apart (no design names in lists: vjeux 13:11Z)
+                // what it is made of (the blocks that change state) and its box tell siblings apart
+                // (no design names in lists: vjeux 13:11Z; critique: two delay cards read the
+                // same, "2 comparators" vs "a repeater"; fly cards: slime or honey)
+                if !c.family.is_empty() && c.family.split('+').count() <= 3 && !c.kind.starts_with("tff") {
+                    sub.push(format!("made of {}", human_blocks(&c.family)));
+                }
                 if !dims.is_empty() {
-                    sub.push(format!("box {dims}"));
+                    sub.push(format!("fits in {dims}"));
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
                 // a design with no number (a latch): its first property leads (critique: a card read
@@ -713,6 +721,24 @@ pub fn shared_chips(list: &[&Build]) -> Vec<String> {
     }
     let first = props(list[0]).chips;
     first.into_iter().filter(|c| list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+}
+
+/// The chips most cards of a list share (two thirds or more, at least 3 cards): said once above
+/// the list instead of on every card (critique C43: "has its own lever" on 7 of 8 cards).
+pub fn common_chips(list: &[&Build]) -> Vec<String> {
+    if list.len() < 3 {
+        return shared_chips(list);
+    }
+    let all: Vec<Vec<String>> = list.iter().map(|b| props(b).chips).collect();
+    let mut seen: Vec<String> = Vec::new();
+    for chips in &all {
+        for c in chips {
+            if !seen.contains(c) && all.iter().filter(|x| x.contains(c)).count() * 3 >= list.len() * 2 {
+                seen.push(c.clone());
+            }
+        }
+    }
+    seen
 }
 
 /// A number keeps its unit on the same line (critique C42: "2 / blocks" wrapped): the space after
@@ -837,7 +863,7 @@ mod tests {
         let p = props(&ext);
         assert_eq!(p.kind, "Piston extender");
         assert_eq!(p.title, "reach 3 · 19 blocks");
-        assert_eq!(p.sub, "out in 27 ticks (1.35 s), back in 56 ticks (2.8 s) · box 9×6×1");
+        assert_eq!(p.sub, "out in 27 ticks (1.35 s), back in 56 ticks (2.8 s) · fits in 9×6×1");
         assert_eq!(p.chips, vec!["has its own button".to_string(), "1 block thick".to_string()]);
         let div = Build { kind: "circuit".into(), blocks: 13, circuit: Some(crate::Circuit { kind: "divider 3".into(), metrics: vec![("output".into(), "square".into()), ("latency".into(), "37 gt".into())], ..Default::default() }), ..Default::default() };
         assert_eq!((props(&div).kind.as_str(), props(&div).title.as_str()), ("Clock slower", "slows by 3 · even on/off · 13 blocks"));

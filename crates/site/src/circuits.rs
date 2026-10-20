@@ -673,8 +673,41 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     // a bigger design that is faster than every smaller one of its value says so
     let n = crate::audit::mark_faster(&mut builds);
     notes.push(format!("circuits: {n} designs marked faster than the smallest of their value"));
-    // each design's place within its kind (the Circuits tab shows the first of every kind first)
     let shown = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()));
+    // each shulker machine's card leads with the variation it is the best design for (critique:
+    // cards with the same numbers differed only by badges): per badge, the fastest design having
+    // it (then the smallest); the fastest of all leads with "fastest"
+    let mut leads: Vec<(usize, String)> = Vec::new();
+    for kind in ["shulker-loader", "shulker-unloader"] {
+        let rate = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "items/s")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()).unwrap_or(0.0);
+        let list: Vec<usize> = builds.iter().enumerate().filter(|(_, b)| shown(b) && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with(kind))).map(|(i, _)| i).collect();
+        let better = |a: usize, b: usize| (-rate(&builds[a]), builds[a].blocks, builds[a].name.clone()).partial_cmp(&(-rate(&builds[b]), builds[b].blocks, builds[b].name.clone())).unwrap_or(std::cmp::Ordering::Equal);
+        let badges_of = |i: usize| -> Vec<String> { builds[i].circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "badges")).map(|(_, v)| v.split('+').filter(|s| !s.is_empty()).map(String::from).collect()).unwrap_or_default() };
+        let mut best: BTreeMap<String, usize> = BTreeMap::new();
+        for &i in &list {
+            for badge in badges_of(i) {
+                match best.get(&badge) {
+                    Some(&j) if better(j, i) != std::cmp::Ordering::Greater => {}
+                    _ => {
+                        best.insert(badge, i);
+                    }
+                }
+            }
+        }
+        let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        for &i in &list {
+            let lead = if Some(i) == fastest { Some("fastest".to_string()) } else { badges_of(i).into_iter().find(|bd| best.get(bd) == Some(&i)) };
+            if let Some(l) = lead {
+                leads.push((i, l));
+            }
+        }
+    }
+    for (i, l) in leads {
+        if let Some(c) = builds[i].circuit.as_mut() {
+            c.lead = l;
+        }
+    }
+    // each design's place within its kind (the Circuits tab shows the first of every kind first)
     let mut by_kind: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (i, b) in builds.iter().enumerate() {
         if shown(b) {
@@ -931,9 +964,13 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.group_note = note.clone();
             }
         }
-        // what the members differ in, from their designs (vjeux: say WHAT differs)
+        // what the members differ in, from their designs (vjeux: say WHAT differs); the same
+        // blocks with other contents differ in what is loaded (critique: the item counter said
+        // "only in their layout")
         let feats: Vec<VariantFeatures> = members.iter().map(|&i| Design::load(&root.join(repo_path_rel(&builds[i]))).map(|d| variant_features(&d)).unwrap_or_default()).collect();
         let (differs, labels) = variant_differences(&feats);
+        let one_layout = members.iter().all(|&i| builds[i].circuit.as_ref().is_some_and(|c| !c.layout_key.is_empty() && Some(&c.layout_key) == builds[members[0]].circuit.as_ref().map(|x| &x.layout_key)));
+        let differs = if one_layout { "how many items are loaded in it (the count it reacts on)".to_string() } else { differs };
         for (k, &i) in members.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
                 c.group_differs = differs.clone();

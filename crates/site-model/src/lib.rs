@@ -208,6 +208,10 @@ pub struct Circuit {
     /// one kind).
     #[serde(default)]
     pub rank: u32,
+    /// The variation a machine is the best design for (a shulker loader's badge where it is the
+    /// fastest, then smallest): its card leads with it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lead: String,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -508,9 +512,9 @@ pub const STATUS_FORMULA: &str = "formula";
 /// A member's status in words.
 pub fn status_label(s: &str) -> &'static str {
     match s {
-        STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated, not judged in the game",
-        _ => "formula, not individually judged",
+        STATUS_JUDGED => "tested in the game",
+        STATUS_REDSIM => "simulated",
+        _ => "formula only",
     }
 }
 

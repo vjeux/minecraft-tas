@@ -44,6 +44,48 @@ memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same co
 tnt/tnt-launch-14b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-drop-16b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-lever-launch-15b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+# 2026-10-20 15:45Z, the coordinator: TEMPORARY, until clk-rt's in-game R7 re-judge lands: the circuits R7's preview
+# (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
+# (REFUSED) with a real input device; publishing them would claim they work
+pulse/pulse-dual-lock-L*	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-dual-edge-reset	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-fall-note-qc-L1	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulse/pulse-*-psub-*	temporary (R7): passes only by the judge's old block placement, or refused, with a real input
+pulse/pulse-rise-odd2-L*	temporary (R7): refused with a real input
+pulse/pulse-limiter-odd2-L*	temporary (R7): refused with a real input
+tff/tff-masterslave	temporary (R7): passes only by the judge's old block placement, not with a real input
+tff/tff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+gates/gate-and-5b	temporary (R7): passes only by the judge's old block placement, not with a real input
+gates/gate-*-bump-*	temporary (R7): the bump gates pass only by the judge's old block placement, not with a real input
+gates/gate-nimply-cmp-2b	temporary (R7): passes only by the judge's old block placement, not with a real input
+gates/gate-nimply-ba-cmp-2b	temporary (R7): passes only by the judge's old block placement, not with a real input
+gates/gate-xor-ring-14b	temporary (R7): passes only by the judge's old block placement, not with a real input
+gates/gate-xnor-ring-16b	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/dff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/dffe-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/shift2-window	temporary (R7): passes only by the judge's old block placement, not with a real input
+memory/counter5-ring11	temporary (R7): refused with a real input
+memory/counter10-ring5-bulb	temporary (R7): refused with a real input
+memory/counter20-ring5-bulb2	temporary (R7): refused with a real input
+memory/counter7-ring7	temporary (R7): refused with a real input
+memory/counter11-ring11	temporary (R7): refused with a real input
+memory/counter13-ring13	temporary (R7): refused with a real input
+memory/counter14-ring7-bulb1	temporary (R7): refused with a real input
+memory/counter15-ring5-ring3	temporary (R7): refused with a real input
+memory/counter21-ring7-ring3	temporary (R7): refused with a real input
+memory/counter22-ring11-bulb1	temporary (R7): refused with a real input
+memory/counter26-ring13-bulb1	temporary (R7): refused with a real input
+memory/counter28-ring7-ring4	temporary (R7): refused with a real input
+memory/counter5-ring5-bulb1-div	temporary (R7): refused with a real input
+memory/counter7-ring7-bulb1-div	temporary (R7): refused with a real input
+memory/counter30-ring5-ring3-bulb1	temporary (R7): refused with a real input
+memory/counter33-ring11-ring3	temporary (R7): refused with a real input
+memory/counter40-ring5-bulb3	temporary (R7): refused with a real input
+memory/counter45-ring5-ring3-ring3	temporary (R7): refused with a real input
+pulsemult/pm-div3-square	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulsemult/pm-div5-square	temporary (R7): passes only by the judge's old block placement, not with a real input
+pulsemult/pm-div7-square	temporary (R7): passes only by the judge's old block placement, not with a real input
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
