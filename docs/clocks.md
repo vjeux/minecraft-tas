@@ -301,7 +301,10 @@ the game's code in its operation order (`Entity.move` / collide / step-up, `chec
 `AbstractBoat`, `AbstractMinecart` + `OldMinecartBehavior`, `LivingEntity.travel`), and the blocks
 they touch: pressure plates, tripwire and hooks, plain and detector rails (`RailState` for every
 rail kind), big dripleaf, wall banners, lanterns, stone slabs, chiseled bookshelves, and
-container entities as hopper sources and targets. Entities pushed by moving blocks too (2026-10-20,
+container entities as hopper sources and targets. Fences too (2026-10-20, clk-misc, `fence.rs`: the
+12 wooden fences and nether brick, `connectsTo` on every shape update, the 1.5-block collision post
+and arms, CENTER-sturdy tops; traces `rt-fence-connect`, `rt-fence-bud`, `rt-fence-entity`), and all
+16 wool colours. Entities pushed by moving blocks too (2026-10-20,
 clk-misc: `PistonMovingBlockEntity.moveCollidedEntities` with the slime bounce, `moveStuckEntities`
 for honey, `moveEntityByPiston` with `NOCLIP` and `Entity.limitPistonMovement`, and the collision
 shapes of pistons, heads and moving blocks for entities; gated by the `rt-push-*`, `rt-slime-bounce`

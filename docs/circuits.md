@@ -311,8 +311,8 @@ kick) before the first input.
   drops follow each other within the collection hopper's cooldown). Two failing runs fail the
   design (`fragile`): a drop drifts about half a block before a hopper takes it, longer when that
   hopper is busy, so a missing wall loses one every few runs; one failure alone is tolerated (a
-  drop pushed into a block gets out with the entity's own, unseeded, random: a sound design can
-  lose one in a few hundred bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
+  drop pushed into a block takes a random way out: a sound design can lose one in a few hundred
+  bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
   (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
@@ -323,15 +323,28 @@ kick) before the first input.
   `MCTAS_SHULKER_DEBUG=N` (snapshots of the first N gt) and `MCTAS_SHULKER_WATCH=a-b` (1 gt steps,
   snapshots of a..b) add what changed to `--table`: a design aid. `MCTAS_SHULKER_BADGE=<badge>`
   judges that badge's scenario in place of the base (with its tables), the way to see why a badge
-  fails. Each build seeds the level's random from where it stands, so the 16 builds and the badge
-  runs sample different drops (a drop's offset and drift are random): a design that loses a drop
-  now and then shows up as a failing build or a missing badge.
+  fails. Each build seeds the level's random from where it stands (the stress runs mix in their
+  number), and the bridge seeds each drop's own random from the sandbox's seed (docs/mechanics.md,
+  "Drops and the bridge's seeds"), so a run is reproducible and the 16 builds, the badge runs and
+  the stress runs sample different drops (a drop's offset and drift are random): a design that
+  loses a drop now and then shows up as a failing build, a missing badge or `fragile`.
   `mctas circuit shulker shrink <design> [--badges a,b]` (crates/circuit-shulker) removes blocks
   greedily, each candidate judged in the game on the plain scenario at 16 builds and every kept
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
   design another one dominates out of the archive. `mctas circuit shulker trace <designs>
   [--exact] [--stack N]` records real-game traces for the viewer
-  (designs/circuits/shulker/traces/README.md).
+  (designs/circuits/shulker/traces/README.md); `mctas circuit shulker compare <exact traces>`
+  replays them in redsim (the judge's run: the chests, the settle, the supply, the lever, then
+  each gt a tick, the frame and the judge's visit; drops from the trace's seed), every cell and
+  entity compared every tick. redsim models shulker boxes (27-slot block entities, comparators,
+  hoppers in and out, never a box into a box), single chests, a dispenser placing a box (the
+  clicked face: its facing over air, else up) and a piston destroying one into the item entity
+  the bridge spawns (`redsim::rng::Drop`, docs/mechanics.md "Drops and the bridge's seeds"), the
+  box's contents carried as the stack's payload; a dispenser whose filled slots all hold the
+  same stack picks the first (every pick gives the same world). 10 of the 12 archived designs'
+  traces are tick-identical; a dropper choosing among different stacks (the level random) and a
+  minecart pushing entities are not modeled. The judge itself stays in the game. The in-browser
+  viewer runs the designs live with the same driver of the judge's chests (endless, docs/webrender.md).
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
   [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states
@@ -409,7 +422,9 @@ their facing), output and payload cells marked, after the swaps that keep the ru
 the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
 stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
-without stone"); the catalog shows them as "also found as". A name taken by another structure
+without stone"); the catalog shows them as "also found as". It also tidies what a union merge of
+the TSVs leaves: one verdict row and one caption per file, and no row whose design file is gone
+(`circuit catalog` refuses such a row). A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches and registers the kind, `counter N`,
 `shift N`, extenders `N = <N>`,

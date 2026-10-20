@@ -102,7 +102,7 @@ pub fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Ve
 /// `BlockStateBase.hasLargeCollisionShape`: a collision shape leaving the cell, or no shape
 /// cache (dynamic shapes).
 fn has_large_collision_shape(s: &Block) -> bool {
-    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. })
+    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. } | Block::Fence { .. })
 }
 
 /// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
@@ -274,8 +274,8 @@ pub fn get_on_pos(w: &World, e: &Entity, offset: f32) -> BlockPos {
             return p;
         }
         let below = w.get(p);
-        // fences and walls are not modeled; fence gates keep the support
-        if matches!(below, Block::FenceGate { .. }) {
+        // walls are not modeled; fence gates keep the support, fences only for offset <= 0.5
+        if matches!(below, Block::FenceGate { .. }) || (offset <= 0.5 && matches!(below, Block::Fence { .. })) {
             return p;
         }
         return BlockPos::new(p.x, mth::floor(e.pos.y - offset as f64), p.z);

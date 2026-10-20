@@ -869,6 +869,39 @@ mismatches) and the exact trace of the real-game dupe tnt-c1.
   so the power must appear inside the push: a dust whose connections change (it computes them on
   the fly) is the source every duper found so far uses.
 
+## Drops and the bridge's seeds (`Block.popResource`, `ItemEntity`) — shulker study
+
+A piston breaking a shulker box (push reaction DESTROY) drops it with its contents through
+`Block.popResource(level, pos, stack)` (Block.java 409): the item entity's position is the cell
+center plus `Mth.nextDouble(level.random, -0.25, 0.25)` on each axis (x, y, z in that order; y
+minus half the item's height, 0.125). Those three draws come from the level random, which the
+bridge seeds per sandbox (`Sandbox.create`, `clear`). But the 5-argument
+`new ItemEntity(level, x, y, z, stack)` (ItemEntity.java 62) then draws from the ENTITY's own
+random: the yaw (`nextFloat() * 360`, in the type constructor) and the drift
+(`setDeltaMovement(nextDouble() * 0.2 - 0.1, 0.2, nextDouble() * 0.2 - 0.1)`). Vanilla seeds that
+random with `RandomSupport.generateUniqueSeed()` (a static uniquifier ^ `System.nanoTime()`), so
+the same build in the same seeded sandbox drifts differently on every run.
+
+**What the bridge does differently from vanilla**: an `ItemEntity` that enters a sandbox during
+its tick (`Sandbox.tick`) through `Block.popResource(Level, BlockPos, ItemStack)` (seen on the
+call stack; `popResourceFromFace`, dispensers and summoned design entities are left alone) gets
+its own random reseeded to `sandbox seed ^ (0x6d63746173 + n)`, n = the n-th such drop of the
+sandbox (from 0, reset with the sandbox), and the constructor's draws redone in the same order
+(yaw, then the x and z drift), before it is tracked or ticked (`LevelCallback.onCreated`, the
+level entity manager's callbacks wrapped). The same distribution, now one sample per seed:
+judges that depend on drops vary the seed (the shulker judge seeds each build from its position
+and runs 64 more seeds after the builds). Two runs with the same seed give the same exact trace;
+traces without such drops are unchanged.
+
+**Entity ids**: every entity that enters a sandbox (summoned, spawned by the game, falling
+blocks, primed TNT, drops) gets the id `base + n` (`Entity.setId` in `onCreated`, before it is
+tracked), n counting from 0 in the order they enter (reset with the sandbox), base =
+`0x40000000 + ((sandbox id & 1023) << 20)`, a multiple of 4. Vanilla takes ids from one
+server-wide counter, so `(tickCount + getId()) % 4` (an item entity at rest moves 1 tick in 4)
+depended on everything the JVM had spawned before; now it depends on n only, ids grow with the
+entity tick list's order, and redsim's ids (from 0, falling blocks sharing the counter) are the
+same numbers: the protocol reports n as `net_id`, and `redsim-fuzz trace-compare` checks it.
+
 ## 12. redsim: the exact model (track redmodel)
 
 `crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,

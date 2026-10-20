@@ -159,9 +159,15 @@ pub fn resonance_event(freq: u8) -> &'static str {
     R[(freq.clamp(1, 15) - 1) as usize]
 }
 
-/// `#minecraft:wool` (the modeled wool colors).
+/// `#minecraft:wool` (all 16 colours).
 pub fn is_wool(s: &Block) -> bool {
-    matches!(s, Block::Simple(Simple::WhiteWool | Simple::OrangeWool | Simple::BlackWool))
+    use Simple::*;
+    matches!(
+        s,
+        Block::Simple(
+            WhiteWool | OrangeWool | MagentaWool | LightBlueWool | YellowWool | LimeWool | PinkWool | GrayWool | LightGrayWool | CyanWool | PurpleWool | BlueWool | BrownWool | GreenWool | RedWool | BlackWool
+        )
+    )
 }
 
 /// `occludes_vibration_signals` = `#wool`.

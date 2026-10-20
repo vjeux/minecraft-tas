@@ -243,7 +243,7 @@ fn sim_items(w: &mut World, c: &Case) -> Result<()> {
         let mut v = Vec::new();
         for (slot, item, count) in items {
             let id = item_id(&item).with_context(|| format!("unknown item {item}"))?;
-            v.push((slot, Stack { item: id, count }));
+            v.push((slot, Stack::new(id, count)));
         }
         set_contents(w, bp(p), &v);
     }
