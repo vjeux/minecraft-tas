@@ -3,7 +3,8 @@
 # A plain sculk sensor watched by a chain of 2 observer(s) (each watching the previous); an oak fence gate at the last output, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard
 name: clk-sculk-hyb3b-p47-13
 # how: obs plain k=2 path 0,-1,0 0,-2,0 emitter gate at the output (travel 3)
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 0
 origin: 0 0 0
 palette:
   O minecraft:oak_fence_gate[facing=north,in_wall=false,open=true,powered=true]

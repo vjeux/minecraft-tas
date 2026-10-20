@@ -1,5 +1,5 @@
 # archived 2026-10-19T19:16Z from designs/clocks/tracks/clk-rt/counter/count5-over-fade114.txt by mctas clock archive
-# CLOCK: clk-rt-count5-k2-over-fade114 period 570 gt (28.5 s), on 10/570, edges 1, warmup 10, family comparator+redstone_torch+redstone_wire, 48 blocks, 9x2x9, robust
+# CLOCK: clk-rt-count5-k2-over-fade114 period 570 gt (28.5 s), on 568/570, edges 1, warmup 10, family comparator+redstone_torch+redstone_wire, 48 blocks, 9x2x9, robust
 # Comparator COUNTER over another clock (clk-rt): a lossless comparator ring (2 + 2 comparators, one
 # in subtract mode) loses 3 level(s) per pulse of the inner clock (its pulse cut to strength 3 by a
 # subtract comparator with side 12) and its torch refills it to 14 at 0: period = 5 inner periods.
@@ -9,7 +9,8 @@
 # compare-mode comparators keep a signal strength, each dust-to-dust step loses one level per lap,
 # and the torch refills the ring at 0
 name: clk-rt-count5-k2-over-fade114
-port output: 4 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 4 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 3 -1 0
 origin: -4 0 -1
 palette:
   A minecraft:comparator[facing=north,mode=compare,powered=false]

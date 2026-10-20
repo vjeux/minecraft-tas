@@ -1,9 +1,10 @@
 # archived 2026-10-19T20:00Z from designs/clocks/tracks/clk-obs/mech2/p20-obs-pis-rb-stk-6b-b-3f3f2e.txt by mctas clock archive
-# CLOCK: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e period 20 gt (1 s), on 8/20, edges 4, warmup 2, family observer+piston+redstone_block+sticky_piston, 6 blocks, 2x2x3, robust
+# CLOCK: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e period 20 gt (1 s), on 8/20, edges 2, warmup 2, family observer+piston+redstone_block+sticky_piston, 6 blocks, 2x2x3, robust
 name: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e
 # P20: 2 observers, 1 piston, 1 redstone block, 1 redstone lamp, 1 sticky piston; changing in place: observer, piston, redstone_block, sticky_piston (redstone lamp only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 0
 port start: 0 0 0 last
 palette:
   A minecraft:piston[extended=false,facing=east]

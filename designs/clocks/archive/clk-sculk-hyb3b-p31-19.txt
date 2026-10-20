@@ -3,7 +3,8 @@
 # A calibrated sculk sensor watched by a chain of 3 observer(s) (each watching the previous); the last observer powers a stone and a piston beside the stone, 5 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard
 name: clk-sculk-hyb3b-p31-19
 # how: obs cal k=3 path 0,1,0 0,2,0 0,3,0 stone at the output, emitter piston-up beside it (travel 5)
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 1 5 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

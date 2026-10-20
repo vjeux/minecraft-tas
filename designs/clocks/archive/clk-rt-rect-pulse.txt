@@ -1,5 +1,5 @@
 # archived 2026-10-19T19:43Z from designs/clocks/tracks/clk-rt/families/rect-pulse.txt by mctas clock archive
-# CLOCK: clk-rt-rect-pulse period 32 gt (1.6 s), on 8/32, edges 1, warmup 0, family repeater, 12 blocks, 3x2x3, robust
+# CLOCK: clk-rt-rect-pulse period 32 gt (1.6 s), on 8/32, edges 1, warmup 4, family repeater, 12 blocks, 3x2x3, robust
 # EXTENDABLE repeater pulse ring, n = 0 (P = 32 + 16n): Rectangle ring (clk-rt): the 3x3 perimeter
 # clockwise from the north-west corner = [b, 4*, b, 4, b, 4, b, 4] (number = repeater delay, * =
 # powered at placement, b = block, d = dust, T = wall torch on the block before it, c = comparator);
@@ -12,7 +12,8 @@ extend generator: mctas clock rt family rect-pulse --n {n} --out {out}
 extend n: 0..10
 extend period: 32 + 16n
 extend rule: lengthen the 3 x (3+n) ring of delay-4 repeaters with corner blocks by one row: one more repeater on each long side (one pulse loaded at placement)
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=4,facing=south,locked=false,powered=false]

@@ -1,5 +1,5 @@
 # archived 2026-10-19T23:27Z from designs/clocks/tracks/clk-misc/boat/boat-lift-l3h2.txt by mctas clock archive
-# CLOCK: clk-misc-boat-lift-l3h2 period 173 gt (8.65 s), on 20/173, edges 1, warmup 84, family oak_boat+oak_pressure_plate, 97 blocks, 10x6x4, rotation-dependent
+# CLOCK: clk-misc-boat-lift-l3h2 period 173 gt (8.65 s), on 60/173, edges 1, warmup 84, family oak_boat+oak_pressure_plate, 97 blocks, 10x6x4, rotation-dependent
 name: clk-misc-boat-lift-l3h2
 # A REDSTONE-LESS vertical boat loop with a bubble-column lift (L = 3, H = 2): a boat rides a 2-wide water channel to a row
 # of wooden pressure plates, crosses it into a 2x2 upward bubble column (water sources over soul sand) and is shot up (a ceiling
@@ -7,7 +7,8 @@ name: clk-misc-boat-lift-l3h2
 # gap, where it drops back into the lower channel onto a second plate row (which keeps the landing water flowing back). Wall
 # banners above the first plate row hold the column's water in while the boat rises through them (no collision, water cannot
 # enter them). Stone, soul sand, water, wall banners, 4 oak pressure plates and the boat.
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 5 -2 0
 entity: minecraft:oak_boat 3 0 1
 origin: -3 0 -1
 palette:

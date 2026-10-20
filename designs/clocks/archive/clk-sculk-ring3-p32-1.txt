@@ -3,7 +3,8 @@
 # Ring of 3 calibrated sensors, hops [12,9,11], the first sensor's resonator is a note block (the kick: right-click it), 1 wool shielding the kick: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
 name: clk-sculk-ring3-p32-1
 # how: ring of 3 calibrated sensors, hops [12,9,11], the first sensor's resonator is a note block (the kick: right-click it), 1 wool shielding the kick
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -10 -1 -1
 port start: 0 0 1 use
 origin: -11 0 -1
 palette:

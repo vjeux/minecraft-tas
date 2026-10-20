@@ -1,6 +1,8 @@
 # archived 2026-10-19T15:52Z from /tmp/clk-in/clk-sculk--p42s-rep-obs-note.txt by mctas clock archive
-# CLOCK: clk-sculk-p42s-rep-obs-note period 42 gt, on 4/42, edges 2, warmup 10, family note_block+observer+repeater+sculk_sensor, 5 blocks, 2x2x3, robust
+# CLOCK: clk-sculk-p42s-rep-obs-note period 42 gt (2.1 s), on 30/42, edges 1, warmup 10, family note_block+observer+repeater+sculk_sensor, 5 blocks, 2x2x3, robust
 name: clk-sculk-p42s-rep-obs-note
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 0 0 0
 origin: 0 0 0
 palette:
   C minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]

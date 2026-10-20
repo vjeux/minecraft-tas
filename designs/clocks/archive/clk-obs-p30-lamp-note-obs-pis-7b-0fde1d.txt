@@ -1,9 +1,10 @@
 # archived 2026-10-20T00:40Z from designs/clocks/tracks/clk-obs/families9/p30-lamp-note-obs-pis-7b-0fde1d.txt by mctas clock archive
-# CLOCK: clk-obs-p30-lamp-note-obs-pis-7b-0fde1d period 30 gt (1.5 s), on 10/30, edges 5, warmup 8, family note_block+observer+piston+redstone_lamp, 7 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p30-lamp-note-obs-pis-7b-0fde1d period 30 gt (1.5 s), on 10/30, edges 5, warmup 10, family note_block+observer+piston+redstone_lamp, 7 blocks, 1x3x3, robust
 name: clk-obs-p30-lamp-note-obs-pis-7b-0fde1d
 # clk-obs grow: P=30 (redsim), family note_block+observer+piston+redstone_lamp, kick last 0 0 0, swept volume 9.
 origin: 0 0 -1
-port output: 0 0 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 -1
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=up,powered=false]

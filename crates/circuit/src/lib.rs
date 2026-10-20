@@ -958,7 +958,27 @@ impl Circuit {
         for p in cells {
             d.blocks.insert(p, CONSUMER.to_string());
         }
-        Circuit::from_design(d)
+        // the judge's lamps are not the design: its input drivers stay as assigned (webrender
+        // 2026-10-20: a lamp just outside the build widened the box and flipped a driver)
+        Ok(Circuit::from_design(d)?.keep_drivers(self, 0))
+    }
+
+    /// `self` (rebuilt from `from`'s design: moved, turned, or with the judge's lamps) with
+    /// `from`'s input drivers (R7), turned by `turns` quarter turns: the judge's repeater stays on
+    /// the same side of the design in every build.
+    fn keep_drivers(mut self, from: &Circuit, turns: u8) -> Circuit {
+        for (i, f) in self.inputs.iter_mut().zip(&from.inputs) {
+            if i.name != f.name {
+                continue;
+            }
+            match f.how {
+                InputHow::Driven { dir, through } => i.how = InputHow::Driven { dir: clock::rotate_pos(dir, turns), through },
+                _ if matches!(i.how, InputHow::Driven { .. }) => i.how = f.how.clone(),
+                _ => {}
+            }
+        }
+        self.input_refused = from.input_refused.clone();
+        self
     }
 
     /// The lamps whose lit state must follow an output ([`check::update_less`]): the judge's in
@@ -1086,7 +1106,7 @@ impl Circuit {
 
     /// The same circuit moved by `d`.
     pub fn translated(&self, d: Pos) -> Result<Circuit> {
-        Circuit::from_design(self.clock.design.translated(d))
+        Ok(Circuit::from_design(self.clock.design.translated(d))?.keep_drivers(self, 0))
     }
 
     /// The circuit turned `turns` quarter turns clockwise (seen from above) around the origin: the
@@ -1107,7 +1127,7 @@ impl Circuit {
             let r = clock::rotate_pos(st, turns);
             d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
-        Circuit::from_design(d)
+        Ok(Circuit::from_design(d)?.keep_drivers(self, turns))
     }
 
     /// The judge's inputs for a schedule: at each input edge, the action applied between ticks

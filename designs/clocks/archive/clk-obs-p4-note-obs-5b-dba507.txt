@@ -1,9 +1,10 @@
 # archived 2026-10-19T18:19Z from designs/clocks/tracks/clk-obs/families/p4-note-obs-5b-dba507.txt by mctas clock archive
-# CLOCK: clk-obs-p4-note-obs-5b-dba507 period 4 gt (0.2 s), on 2/4, edges 1, warmup 3, family note_block+observer, 5 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p4-note-obs-5b-dba507 period 4 gt (0.2 s), on 2/4, edges 1, warmup 5, family note_block+observer, 5 blocks, 1x3x3, robust
 name: clk-obs-p4-note-obs-5b-dba507
 # P4: 1 note block, 2 observers, 1 piston, 1 redstone block; changing in place: note_block, observer (piston, redstone block only moved or static). Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 0 2
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 2: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 2
 port start: 0 2 2 last
 palette:
   A minecraft:piston[extended=false,facing=south]

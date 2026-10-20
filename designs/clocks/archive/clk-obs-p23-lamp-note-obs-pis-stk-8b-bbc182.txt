@@ -1,9 +1,10 @@
 # archived 2026-10-20T00:12Z from designs/clocks/tracks/clk-obs/families9/p23-lamp-note-obs-pis-stk-8b-bbc182.txt by mctas clock archive
-# CLOCK: clk-obs-p23-lamp-note-obs-pis-stk-8b-bbc182 period 23 gt (1.15 s), on 10/23, edges 5, warmup 33, family note_block+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
+# CLOCK: clk-obs-p23-lamp-note-obs-pis-stk-8b-bbc182 period 23 gt (1.15 s), on 2/23, edges 1, warmup 33, family note_block+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
 name: clk-obs-p23-lamp-note-obs-pis-stk-8b-bbc182
 # clk-obs grow: P=23 (redsim), family note_block+observer+piston+redstone_lamp+sticky_piston, kick last 0 0 2, swept volume 12.
 origin: 0 0 0
-port output: 0 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 3 1
 port start: 0 0 2 last
 palette:
   A minecraft:note_block[instrument=harp,note=0,powered=false]

@@ -1,5 +1,5 @@
 # archived 2026-10-19T18:39Z from designs/clocks/tracks/clk-rt/counter/count14-over-odd23.txt by mctas clock archive
-# CLOCK: clk-rt-count14-k2-over-odd-rect-p23-16b period 322 gt (16.1 s), on 10/322, edges 1, warmup 12, family comparator+redstone_torch+redstone_wire+repeater, 42 blocks, 7x2x8, robust
+# CLOCK: clk-rt-count14-k2-over-odd-rect-p23-16b period 322 gt (16.1 s), on 320/322, edges 1, warmup 12, family comparator+redstone_torch+redstone_wire+repeater, 42 blocks, 7x2x8, robust
 # Comparator COUNTER over another clock (clk-rt): a lossless comparator ring (2 + 2 comparators, one
 # in subtract mode) loses 1 level(s) per pulse of the inner clock (its pulse cut to strength 1 by a
 # subtract comparator with side 14) and its torch refills it to 14 at 0: period = 14 inner periods.
@@ -10,7 +10,8 @@
 # started by a redstone_wall_torch[facing=south,lit=true] at [0, 0, 3] for 1 gt at tick 1 (an odd
 # tick: a second parity class; every redstone-tick delay is even)
 name: clk-rt-count14-k2-over-odd-rect-p23-16b
-port output: 4 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 4 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 3 -1 0
 port start: 1 0 6 minecraft:redstone_wall_torch[facing=south,lit=true] 1 at 1
 origin: -2 0 -1
 palette:

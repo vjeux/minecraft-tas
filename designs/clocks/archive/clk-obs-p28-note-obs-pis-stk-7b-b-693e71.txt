@@ -3,7 +3,8 @@
 name: clk-obs-p28-note-obs-pis-stk-7b-b-693e71
 # P28: 1 note block, 3 observers, 1 piston, 2 sticky pistons; changing in place: note_block, observer, piston, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 -1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 -1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 3
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=north,powered=false]

@@ -503,6 +503,8 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
 /// The archived circuits of every study.
 fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
     let mut out = Vec::new();
+    // every archived (study, file, class), to report hidden.tsv lines that match nothing
+    let mut all_rows: Vec<(String, String, String)> = Vec::new();
     for (study, _title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = match read_rows(&dir) {
@@ -512,6 +514,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 continue;
             }
         };
+        all_rows.extend(rows.iter().map(|r| (study.to_string(), r.file.clone(), r.axis.clone())));
         // the designs the site does not publish (crates/site/hidden.tsv)
         let before = rows.len();
         let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).collect();
@@ -522,6 +525,18 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             continue;
         }
         let caps = captions(&dir);
+        // the extendable families' archived members (`extend.tsv`: family, n, axis, blocks, type
+        // key): a flying machine of the payload family carries n extra blocks, of the train family
+        // pulls n trailers
+        let members_of: BTreeMap<String, (String, i64)> = std::fs::read_to_string(dir.join("extend.tsv"))
+            .unwrap_or_default()
+            .lines()
+            .skip(1)
+            .filter_map(|l| {
+                let f: Vec<&str> = l.split('\t').collect();
+                (f.len() >= 5).then(|| (f[4].to_string(), (f[0].to_string(), f[1].parse().unwrap_or(0))))
+            })
+            .collect();
         // the catalog's fold: within one kind and axis value
         let mut groups: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
         for (i, r) in rows.iter().enumerate() {
@@ -658,11 +673,36 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     // (designs that hold items: the same blocks with other contents; shulker
                     // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
                     layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else if study == "shulker" { r.type_key.clone() } else { String::new() },
+                    feature: match members_of.get(&r.type_key) {
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-payload") => format!("carries {n} extra block{}", if *n == 1 { "" } else { "s" }),
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-train") => format!("pulls {n} trailer{}", if *n == 1 { "" } else { "s" }),
+                        _ => String::new(),
+                    },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
+        }
+    }
+    // a hidden.tsv line that matches no archived design is stale: its designs left or were
+    // renamed, and its pattern would hide a future design by the same name (take it out)
+    if !keep_hidden {
+        let stale: Vec<String> = hidden_lines()
+            .into_iter()
+            .filter(|(_, s, p, _)| {
+                !all_rows.iter().any(|(study, file, class)| {
+                    (s == study || s == "*")
+                        && match p.strip_prefix('@') {
+                            Some(c) => class.split(", ").any(|x| x.trim() == c),
+                            None => glob(p, file) || glob(&format!("{p}.txt"), file),
+                        }
+                })
+            })
+            .map(|(ex, s, p, _)| format!("{}{s}/{p}", if ex { "!" } else { "" }))
+            .collect();
+        if !stale.is_empty() {
+            notes.push(format!("hidden.tsv: {} lines match no archived design (take them out; a stale pattern hides a future design): {}", stale.len(), stale.join(", ")));
         }
     }
     out
@@ -738,8 +778,14 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
                 }
                 None
             };
+            // the metric it wins comes before shared badges (critique: the 96-block speed loader
+            // led with the 31-block auto loader's badges; what it adds is 3× the speed)
+            let max_smaller = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name)).map(|j| rate(&builds[j])).fold(0.0f64, f64::max);
+            let speedup = if max_smaller > 0.0 { rate(&builds[i]) / max_smaller } else { 0.0 };
             let lead = if Some(i) == fastest {
                 Some("fastest".to_string())
+            } else if speedup >= 1.5 {
+                Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
             } else if !new.is_empty() {
                 Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
             } else if let Some(p) = pair() {
