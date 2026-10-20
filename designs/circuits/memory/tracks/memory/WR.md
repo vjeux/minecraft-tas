@@ -91,3 +91,13 @@ dff-enable went 31 -> 18 by NOT gating the clock at all. The first build ANDed e
 - D flip-flop 15, with enable 18, shift-2 30: one each. Open: shift-2 should beat 2 x dff by sharing the inverted clock (one torch for both slaves) once the two phases run on opposite sides of the data line.
 - T flip-flop with reset: tffr-dropring 8 blocks, the only one; open.
 - Counters: one per N by the fold (item counter from 17 up, clk-rt's ring counters and the bulb chains below).
+
+## Next target: the item counter (39 blocks today, any N from 17 to 576)
+
+Same mechanism, priced part by part from today's tricks, should land near 18:
+- A, B: two droppers facing each other, the pile in A (2).
+- Input: a dust lying on each dropper, the input block beside one of them (2). A HELD dropper (already powered) does not fire, so the input pulse fires only the free one.
+- Hold: comparator C reads the bulb W and points into a stone X beside A (W lit: A held); a wall torch hanging on X sits beside B (W off: B held) (C + support + X + torch = 4).
+- Empty detection: comparator a reads A and points into stone Ka, comparator b reads B into Kb; a wall torch on each is lit while its dropper is EMPTY (a, b, 2 supports, Ka, Kb, 2 torches = 8).
+- W: the copper bulb, touching BOTH torches (the 2-block NAND trick: a bulb is powered by any neighbouring torch, and a torch also powers a bulb directly above or below it) (1).
+The hard part is geometry, not logic: Ka and Kb sit on the far sides of A and B, and both torches must touch W. Torches above or below W count too, which is the freedom a layout should use. Worth a small layout search (a few roles, a 5x4x5 box) rather than hand placement.

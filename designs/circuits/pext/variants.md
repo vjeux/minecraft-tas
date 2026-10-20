@@ -53,7 +53,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n7-cascade58](archive/pext-n7-cascade58.txt) | 58 | stone |
 | [pext-n7-sf-sweep254](archive/pext-n7-sf-sweep254.txt) | 254 | stone |
 
-**[pext-n8-flat-cascade53](archive/pext-n8-flat-cascade53.txt)** (piston-extender 8, N = 8; 53 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n8-flat-cascade52](archive/pext-n8-flat-cascade52.txt)** (piston-extender 8, N = 8; 52 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|

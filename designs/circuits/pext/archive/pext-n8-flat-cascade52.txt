@@ -1,9 +1,9 @@
-# archived 2026-10-20T17:55Z from designs/circuits/pext/work/n8-flat-lns53.txt by mctas circuit archive
-# CIRCUIT: pext-n8-flat-cascade53 piston-extender 8 N 8, extend 87 gt, retract 109 gt, 53 blocks, 24x5x1, robust
-name: pext-n8-flat-cascade53
+# archived 2026-10-20T20:54Z from designs/circuits/pext/work/n8-flat-lns52.txt by mctas circuit archive
+# CIRCUIT: pext-n8-flat-cascade52 piston-extender 8 N 8, extend 85 gt, retract 107 gt, 52 blocks, 24x5x1, robust
+name: pext-n8-flat-cascade52
 circuit: piston-extender 8
 travel: 1 0 0
-port input: 23 4 0 lever
+port input: 22 4 0 lever
 port payload: 16 1 0
 origin: 1 0 0
 palette:
@@ -28,4 +28,4 @@ layer 2:
 layer 3:
   C.C.C.C.C.C.C..C..C..C
 layer 4:
-  rARARARARARAoA.PAAAA.PL
+  rARARARARARAoA.PAAA.PL
