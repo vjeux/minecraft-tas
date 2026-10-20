@@ -33,6 +33,9 @@ enum Cmd {
         /// Designs kept per N, smallest first.
         #[arg(long, default_value_t = 3)]
         keep: usize,
+        /// Copper bulb T flip-flops chained after the comparator (counter N * 2^bulbs).
+        #[arg(long, default_value_t = 0)]
+        bulbs: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -75,7 +78,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
-        Cmd::Ring { n, max_dust, keep, out } => ring::run(&n, max_dust, keep, &out)?,
+        Cmd::Ring { n, max_dust, keep, bulbs, out } => ring::run(&n, max_dust, keep, bulbs, &out)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
