@@ -62,3 +62,25 @@ precursor the bottom shows it before the slime returns.
   (1,5)), in-plane repeaters can't be locked, and nothing in the top can time a pulse after the
   bottom's Qv spit (its only eye on the bottom, a slime rider at (-1,5) seen from (0,5), fires
   ~3 gt too early).
+
+## m69T (c70b's 6x9 with pext's trains, design pext/m69T-mm02-oc), 2026-10-20 22:45-23:00Z
+fly's two one-train schedules: bot6 (the top first from t0, the bottom from t6) and top6 (the
+bottom first, the top from t6). With one lever, the second group needs a start it can see.
+* Both trains are rigid: the whole second group shifted by d works only for d = 0 (swept
+  -6..30, plans/m69t-*-shift.ideal), so a start must land on the plan's tick exactly.
+* bot6 bottom start (plans/m69t-bot6-nostart.ideal: R0's level late, as the bottom drives R0 when
+  the lever is in the top; the bottom's t6 pulses removed): every filling of (1,-3) (2,-3) (3,-3)
+  (4,-3) (4,-2) (4,-1) (-1,-3) with 10 states: 0 of 10M. These cells border only U, K, B, Qv, R0
+  and the transit cells; the only top-caused bottom change before t9 is BM landing on (1,-1) at
+  t5, seen only from (0,-1) (Qv), (1,-2) (U) and the transit cell (2,-1).
+* top6 top start (plans/m69t-top6-nostart.ideal: R2 late, the top's t6 pulses removed): (2,4)
+  (-1,4) (0,5) (4,3) (4,4) (3,5) (-1,5) (4,5) x 8 states: 0 of 16.8M. The first bottom-caused
+  change in rows >= 3 is TL reaching (0,3) at t9, bordered only by the pistons A, s and s0.
+* Riding observers (fly's gadget) in the free end frame cells (1,-1) (2,-1) (0,3) (2,3), 4 facings
+  each: every one breaks the train with ideal inputs, and so does plain stone there (the parked
+  block itself is in the way: (1,-1) shoves U, (2,-1) blocks K's reach-pull of BM, (0,3) / (2,3)
+  block s0 / C). A riding observer needs a train built around it.
+* Stack note: a lever on R1's back powers R1 and, by QC through R1's cell, R0, and the lever
+  updates the neighbours of the block it hangs on, so R0 retracts at the flip too. Redstone
+  blocks cleared at (5,0) and (5,1) in a plan do not update R0 after (5,1) goes (R0 is not its
+  neighbour): R0 then stays extended until something updates it (K's head at t4 in top6).
