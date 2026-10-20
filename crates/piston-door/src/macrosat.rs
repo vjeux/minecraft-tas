@@ -1097,14 +1097,20 @@ fn build(g: Grid, o: &Opts) -> Model {
         for rest in 0..2 * o.h {
             for c in 0..n {
                 let Some(b) = g.step(c, 3) else { continue };
+                // (w86) a piston is no power source: what arms the piston below is the extended
+                // one's DIRECT holding source next to its cell (a redstone block, or a wiring cell);
+                // one held by QC (its source at its above cell) arms nothing
+                let srcs: Vec<Lit> = (0..4).filter_map(|e| g.step(c, e)).filter(|&q| q != b).flat_map(|q| [ty[rest][q][RBLOCK], ty[rest][q][WIRE]]).collect();
                 for d2 in 0..4 {
                     let mine: Vec<Lit> = acts[rest].iter().filter(|a| a.c == b && a.d == d2).map(|a| a.lit).collect();
                     for k1 in [false, true] {
                         for d1 in 0..4 {
                             for k2 in [false, true] {
-                                let mut cl = vec![!ty[rest][c][piston(k1, d1, true)], !ty[rest][b][piston(k2, d2, false)]];
-                                cl.extend(mine.iter().copied());
-                                sat.add(&cl);
+                                for &src in &srcs {
+                                    let mut cl = vec![!ty[rest][c][piston(k1, d1, true)], !ty[rest][b][piston(k2, d2, false)], !src];
+                                    cl.extend(mine.iter().copied());
+                                    sat.add(&cl);
+                                }
                             }
                         }
                     }

@@ -578,7 +578,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             };
             let (mut moved, mut refused, mut notap, mut hidden) = (0, 0, 0, 0);
             let shown: std::collections::BTreeSet<String> = if reload_pass { clock::catalog::read_rows(&dir)?.into_iter().filter(|r| r.shown()).map(|r| r.file).collect() } else { Default::default() };
+            // a results file already holding a file's result (a restarted shard): skip it
+            let done: std::collections::BTreeSet<String> = match &results {
+                Some(p) if p.exists() => clock::gaps::read_results(std::slice::from_ref(p))?.into_keys().collect(),
+                _ => Default::default(),
+            };
             for f in &files {
+                if done.contains(f) {
+                    continue;
+                }
                 let r = if reload_pass {
                     if !shown.contains(f) {
                         continue;
