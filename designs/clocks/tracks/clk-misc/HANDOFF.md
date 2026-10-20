@@ -51,7 +51,10 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
 ## The redsim fluids + entities port (2026-10-19, with clockinfra d650ed4f)
 - Gate: all 50 exact traces tick-identical (`redsim-fuzz trace-compare`), plus the test scenes in
   `redsim-tests/` (`--ticks` traces of hand-made scenes: boat fall / slide / ice / slow, a 300-tick dripleaf stand;
-  `rt-boat-airx` is UNMODELED: the long-fall raycast).
+  `rt-boat-airx` is UNMODELED: the long-fall raycast). Bit-identity for designs without entities: full selftest, and
+  the tracked censuses re-run byte-identical (`minimal.tsv`, `summary.md`: 2x1x1-k2, 2x2x1-k4, 2x2x2-k4, 3x1x2-k4,
+  3x1x3-k4, 3x2x1-k4, 3x3x1-k4, 3x3x2-k3, 3x2x2-k4 at 5d3b47467). `clock sim` gives the judge's CLOCK line for 76 of the
+  78 archived clk-misc clocks (the other two: crafter items, a daylight detector).
 - Mine: `redsim/src/entity/{collide,kinds,boat,minecart,armor_stand}.rs` (Entity.move / collide / step-up / movement
   recording, checkInsideBlocks, baseTick, AbstractBoat, AbstractMinecart + OldMinecartBehavior, LivingEntity.travel for
   a stand), `react.rs` (plates, tripwire, hooks, bubble-column entity effect, big dripleaf), `rails.rs` (RailState for
