@@ -62,3 +62,6 @@ Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blo
 - A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+- A comparator's or repeater's `facing` is the direction it READS (its back); its output goes the opposite way. Getting this backwards silently gives a dead gate, and cost me several builds.
+- A dust input at a driven cell works (clk-rt's driver is right): what fails is dust that does not POINT into its reader. Dust only connects to a neighbour it points at, so a comparator's side sees 0 unless the dust's shape bends into it.
+- An exact comparator gate needs both inputs to arrive at the SAME strength: a detour costs 1 per cell, so the detoured branch must pass through a repeater, which restores 15. Without it the gate degrades to OR.
