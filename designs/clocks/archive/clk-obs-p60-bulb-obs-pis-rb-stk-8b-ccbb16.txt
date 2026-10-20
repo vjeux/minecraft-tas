@@ -1,0 +1,24 @@
+# archived 2026-10-20T01:49Z from designs/clocks/tracks/clk-obs/families9/p60-bulb-obs-pis-rb-stk-8b-ccbb16.txt by mctas clock archive
+# CLOCK: clk-obs-p60-bulb-obs-pis-rb-stk-8b-ccbb16 period 60 gt (3 s), on 24/60, edges 12, warmup 3, family copper_bulb+observer+piston+redstone_block+sticky_piston, 8 blocks, 2x3x2, robust
+name: clk-obs-p60-bulb-obs-pis-rb-stk-8b-ccbb16
+# clk-obs grow: P=60 (redsim), family observer+piston+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
+origin: -1 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:piston[extended=false,facing=down]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=down]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:redstone_block
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:redstone_lamp[lit=false]
+layer 0:
+  .D
+  .E
+layer 1:
+  AF
+  B.
+layer 2:
+  CG
+  .C

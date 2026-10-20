@@ -1,0 +1,22 @@
+# archived 2026-10-20T01:44Z from designs/clocks/tracks/clk-obs/pist6/p24-rb-stk-6b-0e15ee.txt by mctas clock archive
+# CLOCK: clk-obs-p24-rb-stk-6b-0e15ee period 24 gt (1.2 s), on 0/24, edges 0, warmup 3, family redstone_block+sticky_piston, 6 blocks, 1x2x7, rotation-dependent
+name: clk-obs-p24-rb-stk-6b-0e15ee
+# P24: 1 piston, 1 redstone block, 1 slime block, 3 sticky pistons; changing in place: redstone_block, sticky_piston (piston, slime block only moved or static). Found by the clk-obs exhaustive census of every 6-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 4
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:slime_block
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:redstone_block
+  E minecraft:piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  .
+  C
+layer 1:
+  .
+  D
+  A
+  E
