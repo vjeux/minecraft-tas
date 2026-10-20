@@ -19,6 +19,9 @@ pub struct Look {
     pub lit_marker: bool,
     /// Lime outlines (clickable inputs).
     pub outlines: Vec<Pos>,
+    /// A circuit's other ports, outlined in their tag's colour: OUT orange, a shulker design's
+    /// ITEMS gold and BOXES lilac chests, a BUD switch's TARGET cyan.
+    pub port_outlines: Vec<(Pos, [u8; 3])>,
     /// The ground's top (None: no ground).
     pub ground: Option<f32>,
     /// How far the ground reaches around the build (None: 110 around a door, 56 otherwise).
@@ -84,10 +87,16 @@ pub fn default_look(s: &Session) -> Look {
             }
         }
     }
+    // a circuit's other ports (shown as built too: nothing to press, but where they are)
+    let hex = |c: &str| -> [u8; 3] {
+        let v = u32::from_str_radix(c.trim_start_matches('#'), 16).unwrap_or(0xffffff);
+        [(v >> 16) as u8, (v >> 8) as u8, v as u8]
+    };
+    let port_outlines: Vec<(Pos, [u8; 3])> = crate::circuit::port_tags(&s.design).into_iter().filter(|(_, p, _)| !outlines.contains(p)).map(|(_, p, c)| (p, hex(c))).collect();
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
+    Look { marker, lit_marker: false, outlines, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
 }
 
 /// The frame of a session at `partial` (0..1) after its current tick.
@@ -115,6 +124,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     for o in &look.outlines {
         b.marker(*o, false, [110, 230, 40], false);
+    }
+    for (o, c) in &look.port_outlines {
+        b.marker(*o, false, *c, false);
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
@@ -236,6 +248,33 @@ pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f3
 mod tests {
     use super::*;
     use crate::session::Options;
+
+    /// Every circuit port is outlined like its tag: the inputs lime (when the design runs), the
+    /// outputs orange, a shulker design's ITEMS gold and BOXES lilac chests, a BUD switch's TARGET
+    /// cyan; for every archived shulker, TNT and BUD design.
+    #[test]
+    fn every_port_is_outlined_like_its_tag() {
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits");
+        let mut n = 0;
+        for kind in ["shulker", "tnt", "bud"] {
+            let mut files: Vec<_> = std::fs::read_dir(format!("{root}/{kind}/archive")).unwrap().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+            files.sort();
+            for f in files {
+                let s = Session::new(&std::fs::read_to_string(&f).unwrap(), &Options::default()).unwrap();
+                let look = default_look(&s);
+                for (label, p, colour) in crate::circuit::port_tags(&s.design) {
+                    let found = look.port_outlines.iter().find(|(q, _)| *q == p).map(|(_, c)| *c);
+                    let v = u32::from_str_radix(colour.trim_start_matches('#'), 16).unwrap();
+                    assert_eq!(found, Some([(v >> 16) as u8, (v >> 8) as u8, v as u8]), "{}: {label} at {p:?}", f.display());
+                }
+                for ci in &s.circuit_inputs {
+                    assert_eq!(look.outlines.contains(&ci.pos), s.simulated(), "{}: input {} at {:?}", f.display(), ci.name, ci.pos);
+                }
+                n += 1;
+            }
+        }
+        assert!(n >= 20, "{n} designs");
+    }
 
     const OBS2: &str = "name: c\norigin: 0 0 0\nport output: 0 0 0\nport start: 1 0 0 last\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  B minecraft:observer[facing=west,powered=false]\nlayer 0:\n  AB\n";
 

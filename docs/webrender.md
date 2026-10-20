@@ -116,8 +116,18 @@ each build's page.
   native and wasm. A design shown as built never offers inputs or input outlines.
 * A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
   pictures' framing, which may cut a tall build).
-* Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
-  above each one, item icons with counts, live every tick; a bar button (grid icon) hides them.
+* Containers: ONE compact label per container holding something (hoppers, droppers, dispensers,
+  chests, the shulker designs' carts and chest boats), live every tick: per item kind its icon
+  (the game's item sprite, else its block texture) and total count (`1,344`); shulker boxes
+  first, as `12/27` slots filled for one box or `×3` with a fill bar for several; at most two
+  kinds, then `+n`. A container under a tag (a shulker design's ITEMS / BOXES / OUT chest) shows
+  its contents in the tag itself. Tags and labels are laid out every frame so that none overlap
+  each other, an outlined cell, the badges or the bar: one that would collide goes higher or
+  aside with a thin leader line back to its cell; a label with no free spot is left out
+  (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). A bar button (grid
+  icon) hides the labels.
+* Outlines: the inputs lime (when the design runs: something to press), every other circuit port
+  in its tag's colour: OUT orange, ITEMS gold, BOXES lilac, TARGET cyan (shown as built too).
 
 ## How it works
 
