@@ -1274,7 +1274,7 @@ A variant is a clock with the same period as a smaller clock (its host: fewer bl
 
 | variant | blocks | kinds vs the host |
 |---|---|---|
-| [clk-misc-cart-pingpong-short](../archive/clk-misc-cart-pingpong-short.txt) | 15 | +lever, -redstone_block |
+| [clk-misc-cart-pingpong-short](../archive/clk-misc-cart-pingpong-short.txt) | 14 | +lever, -redstone_block |
 
 ## 34 gt (1.7 s)
 
@@ -1430,7 +1430,7 @@ A variant is a clock with the same period as a smaller clock (its host: fewer bl
 | [kit-shuttle-minecart-p40-13b](../archive/kit-shuttle-minecart-p40-13b.txt) | 13 | +detector_rail, +minecart, +powered_rail, +stone, -observer, -sticky_piston |
 | [clk-rt-uloop-p40-c-rt-rw-r-13b](../archive/clk-rt-uloop-p40-c-rt-rw-r-13b.txt) | 13 | +comparator, +redstone_torch, +redstone_wire, +repeater, +stone, -observer, -redstone_block, -sticky_piston |
 | [clk-rt-uloop-p40-rt-rw-r-13b](../archive/clk-rt-uloop-p40-rt-rw-r-13b.txt) | 13 | +redstone_torch, +redstone_wire, +repeater, +stone, -observer, -redstone_block, -sticky_piston |
-| [clk-misc-cart-pingpong-bare](../archive/clk-misc-cart-pingpong-bare.txt) | 15 | +detector_rail, +lever, +minecart, +powered_rail, +rail, +stone, -observer, -redstone_block, -sticky_piston |
+| [clk-misc-cart-pingpong-bare](../archive/clk-misc-cart-pingpong-bare.txt) | 14 | +detector_rail, +lever, +minecart, +powered_rail, +rail, +stone, -observer, -redstone_block, -sticky_piston |
 | [clk-rt-div-22-x1](../archive/clk-rt-div-22-x1.txt) | 27 | +redstone_torch, +redstone_wire, +repeater, +stone, +target, -observer, -redstone_block, -sticky_piston |
 
 **[clk-obs-p40-note-obs-pis-rb-stk-8b-e695e1](../archive/clk-obs-p40-note-obs-pis-rb-stk-8b-e695e1.txt)** (8 blocks: note_block, observer, piston, redstone_block, sticky_piston), 1 variant:
