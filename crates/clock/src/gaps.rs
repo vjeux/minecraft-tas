@@ -85,9 +85,11 @@ pub enum Retap {
     NoTap(String),
     /// The game did not confirm (another period, still uneven, or not a clock): its line.
     Refused { to: Pos, line: String },
-    /// Not a survival clock by its design (command-only entities, daylight, tripwire).
+    /// Not a survival clock by its design (command-only entities).
     Hide(String),
     Skip(String),
+    /// What a chunk reload does to it (`--reload-pass`): the verdict's `reload` property.
+    Reload(String),
 }
 
 impl Retap {
@@ -104,6 +106,7 @@ impl Retap {
             Retap::Refused { to, line } => format!("{file}\trefused\t{}\t{}", p(to), clean(line)),
             Retap::Hide(why) => format!("{file}\thide\t{}", clean(why)),
             Retap::Skip(why) => format!("{file}\tskip\t{}", clean(why)),
+            Retap::Reload(v) => format!("{file}\treload\t{}", clean(v)),
         }
     }
 }
@@ -220,16 +223,58 @@ pub fn retap(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file: &str,
 /// (`clock verify --reload`); one that does not stay a robust clock of its period is hidden.
 pub fn reload_check(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file: &str) -> Result<Retap> {
     let c = Clock::load(&dir.join(file))?;
-    let row = read_rows(dir)?.into_iter().find(|r| r.file == file);
     let mut ro = o.clone();
     ro.reload = true;
     let rep = verify_in_pool(pool, &c, &ro)?;
-    let same = rep.verdict == Verdict::Clock && rep.robustness == "robust" && row.as_ref().is_none_or(|r| rep.base().is_some_and(|b| b.period == r.period));
-    if same {
-        Ok(Retap::Even)
-    } else {
-        Ok(Retap::Hide(format!("does not survive a chunk reload: {}", rep.summary())))
+    Ok(Retap::Reload(reload_class(&rep)))
+}
+
+/// The `reload` property of a judge run with a chunk reload (coordinator 2026-10-20: stated on
+/// the page, never a reason to hide): per build `ok`, a glitch that resumes, `stops` (the state
+/// goes still: a mid-move piston lands a tick late after a save, vanilla's progressO) or another
+/// period; the worst one wins, with `in K of N builds` when only some builds do it.
+pub fn reload_class(rep: &crate::verify::VerifyReport) -> String {
+    let n = rep.runs.len();
+    let at = rep.reload_at.unwrap_or(0);
+    let (mut stops, mut glitch) = (0usize, 0usize);
+    let mut changes: std::collections::BTreeMap<u32, usize> = Default::default();
+    let mut other: Vec<String> = Vec::new();
+    for r in &rep.runs {
+        match &r.result {
+            Ok(k) => {
+                if k.warmup > at {
+                    glitch += 1;
+                }
+            }
+            Err(e) => match e.find("runs at period ") {
+                Some(i) => {
+                    let p: u32 = e[i + 15..].split(' ').next().and_then(|x| x.parse().ok()).unwrap_or(0);
+                    if p <= 1 {
+                        stops += 1;
+                    } else {
+                        *changes.entry(p).or_default() += 1;
+                    }
+                }
+                None => other.push(e.clone()),
+            },
+        }
     }
+    let some = |k: usize| if k == n { String::new() } else { format!(" in {k} of {n} builds") };
+    if stops > 0 {
+        return format!("stops{}", some(stops));
+    }
+    if !changes.is_empty() {
+        let k: usize = changes.values().sum();
+        let ps: Vec<String> = changes.keys().map(|p| format!("{p} gt")).collect();
+        return format!("changes period to {}{}", ps.join(" or "), some(k));
+    }
+    if let Some(e) = other.first() {
+        return format!("fails{}: {}", some(other.len()), e.replace(['\t', '\n'], " "));
+    }
+    if glitch > 0 {
+        return format!("glitch then resumes{}", some(glitch));
+    }
+    "ok".into()
 }
 
 /// The clocks kept off the catalog (`Row::hidden`), grouped by reason (the text before its first
@@ -310,6 +355,7 @@ pub fn read_results(paths: &[std::path::PathBuf]) -> Result<std::collections::BT
                 "refused" if f.len() >= 4 => Retap::Refused { to: pos(f[2]).context("refused: to")?, line: f[3].into() },
                 "hide" => Retap::Hide(f.get(2).copied().unwrap_or("").into()),
                 "skip" => Retap::Skip(f.get(2).copied().unwrap_or("").into()),
+                "reload" => Retap::Reload(f.get(2).copied().unwrap_or("").into()),
                 _ => continue,
             };
             out.insert(f[0].to_string(), r);
@@ -368,6 +414,10 @@ pub fn apply(dir: &Path, results: &std::collections::BTreeMap<String, Retap>) ->
                 hide(&mut out, r, &kind, why.clone());
             }
             Retap::Skip(why) => hide(&mut out, r, "not judged", format!("not judged on redsim: {why}")),
+            Retap::Reload(v) => {
+                r.reload = v.clone();
+                out.kept += 1;
+            }
         }
     }
     write_rows(dir, &rows)?;
