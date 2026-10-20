@@ -19,9 +19,9 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 16 | 12 | [counter16-bulb4](archive/counter16-bulb4.txt) | N 16, output level every 16 pulses |
 | 32 | 15 | [counter32-bulb5](archive/counter32-bulb5.txt) | N 32, output level every 32 pulses |
 
-### N = 3..13 (step 2: 5 of 6 values)
+### N = 3, 5, 7
 
-**Dropper ring (counter N)** · counter · 6 designs · N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`). Smallest: [counter3-corner](archive/counter3-corner.txt) (counter 3, 8 blocks), [counter3-ring](archive/counter3-ring.txt) (counter 3, 8 blocks).
+**Dropper ring (counter N)** · counter · 4 designs · N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`). Smallest: [counter3-corner](archive/counter3-corner.txt) (counter 3, 8 blocks), [counter3-ring](archive/counter3-ring.txt) (counter 3, 8 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
@@ -29,8 +29,6 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 3 | 8 | [counter3-ring](archive/counter3-ring.txt) | N 3, output level every 3 pulses |
 | 5 | 14 | [counter5-ring5](archive/counter5-ring5.txt) | N 5, output level every 5 pulses |
 | 7 | 18 | [counter7-ring7](archive/counter7-ring7.txt) | N 7, output level every 7 pulses |
-| 11 | 32 | [counter11-ring11](archive/counter11-ring11.txt) | N 11, output level every 11 pulses |
-| 13 | 39 | [counter13-ring13](archive/counter13-ring13.txt) | N 13, output level every 13 pulses |
 
 ### N = 5, 7
 
@@ -41,9 +39,9 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 5 | 17 | [counter5-ring5-bulb1-div](archive/counter5-ring5-bulb1-div.txt) | N 5, output toggles every 5 pulses |
 | 7 | 21 | [counter7-ring7-bulb1-div](archive/counter7-ring7-bulb1-div.txt) | N 7, output toggles every 7 pulses |
 
-### N = 6..48 (step 2: 10 of 22 values)
+### N = 6..48 (step 2: 8 of 22 values)
 
-**Dropper ring + copper bulbs (counter N x 2^K)** · counter · 10 designs · a dropper ring whose comparator toggles K copper bulb T flip-flops in a line (`mctas circuit memory ring --n N --bulbs K`). Smallest: [counter6-corner-bulb](archive/counter6-corner-bulb.txt) (counter 6, 11 blocks), [counter12-ring3-bulb2](archive/counter12-ring3-bulb2.txt) (counter 12, 14 blocks).
+**Dropper ring + copper bulbs (counter N x 2^K)** · counter · 8 designs · a dropper ring whose comparator toggles K copper bulb T flip-flops in a line (`mctas circuit memory ring --n N --bulbs K`). Smallest: [counter6-corner-bulb](archive/counter6-corner-bulb.txt) (counter 6, 11 blocks), [counter12-ring3-bulb2](archive/counter12-ring3-bulb2.txt) (counter 12, 14 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
@@ -52,44 +50,46 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 12 | 14 | [counter12-ring3-bulb2](archive/counter12-ring3-bulb2.txt) | N 12, output level every 12 pulses |
 | 14 | 21 | [counter14-ring7-bulb1](archive/counter14-ring7-bulb1.txt) | N 14, output level every 14 pulses |
 | 20 | 20 | [counter20-ring5-bulb2](archive/counter20-ring5-bulb2.txt) | N 20, output level every 20 pulses |
-| 22 | 35 | [counter22-ring11-bulb1](archive/counter22-ring11-bulb1.txt) | N 22, output level every 22 pulses |
 | 24 | 17 | [counter24-ring3-bulb3](archive/counter24-ring3-bulb3.txt) | N 24, output level every 24 pulses |
-| 26 | 42 | [counter26-ring13-bulb1](archive/counter26-ring13-bulb1.txt) | N 26, output level every 26 pulses |
 | 40 | 23 | [counter40-ring5-bulb3](archive/counter40-ring5-bulb3.txt) | N 40, output level every 40 pulses |
 | 48 | 20 | [counter48-ring3-bulb4](archive/counter48-ring3-bulb4.txt) | N 48, output level every 48 pulses |
 
-### N = 9..45 (step 1: 10 of 37 values)
+### N = 9, 18, 36
 
-**Chained dropper rings (counter N1 x N2 x ...)** · counter · 10 designs · each ring's comparator strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; copper bulbs may follow (`mctas circuit memory ring --n N1 --then N2,N3 [--bulbs K]`). Smallest: [counter9-ring3-ring3](archive/counter9-ring3-ring3.txt) (counter 9, 17 blocks), [counter18-ring3-ring3-bulb1](archive/counter18-ring3-ring3-bulb1.txt) (counter 18, 20 blocks).
+**Chained dropper rings (counter N1 x N2 x ...)** · counter · 3 designs · each ring's comparator strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; copper bulbs may follow (`mctas circuit memory ring --n N1 --then N2,N3 [--bulbs K]`). Smallest: [counter9-ring3-ring3](archive/counter9-ring3-ring3.txt) (counter 9, 17 blocks), [counter18-ring3-ring3-bulb1](archive/counter18-ring3-ring3-bulb1.txt) (counter 18, 20 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
 | 9 | 17 | [counter9-ring3-ring3](archive/counter9-ring3-ring3.txt) | N 9, output level every 9 pulses |
-| 15 | 24 | [counter15-ring5-ring3](archive/counter15-ring5-ring3.txt) | N 15, output level every 15 pulses |
 | 18 | 20 | [counter18-ring3-ring3-bulb1](archive/counter18-ring3-ring3-bulb1.txt) | N 18, output level every 18 pulses |
-| 21 | 28 | [counter21-ring7-ring3](archive/counter21-ring7-ring3.txt) | N 21, output level every 21 pulses |
-| 27 | 26 | [counter27-ring3-ring3-ring3](archive/counter27-ring3-ring3-ring3.txt) | N 27, output level every 27 pulses |
-| 28 | 29 | [counter28-ring7-ring4](archive/counter28-ring7-ring4.txt) | N 28, output level every 28 pulses |
-| 30 | 27 | [counter30-ring5-ring3-bulb1](archive/counter30-ring5-ring3-bulb1.txt) | N 30, output level every 30 pulses |
-| 33 | 42 | [counter33-ring11-ring3](archive/counter33-ring11-ring3.txt) | N 33, output level every 33 pulses |
 | 36 | 23 | [counter36-ring3-ring3-bulb2](archive/counter36-ring3-ring3-bulb2.txt) | N 36, output level every 36 pulses |
-| 45 | 33 | [counter45-ring5-ring3-ring3](archive/counter45-ring5-ring3-ring3.txt) | N 45, output level every 45 pulses |
 
-### N = 17..576 (step 1: 9 of 560 values)
+### N = 11..576 (step 1: 20 of 566 values)
 
-**Item counter (counter N, any N)** · counter · 9 designs · two droppers facing each other hold N items; each pulse fires only the one the copper bulb phase does not hold, so each runs empty once every N pulses - 39 blocks for every N up to 576 (`mctas circuit memory items --n N`). Smallest: [counter17-items](archive/counter17-items.txt) (counter 17, 39 blocks), [counter19-items](archive/counter19-items.txt) (counter 19, 39 blocks).
+**Item counter (counter N, any N)** · counter · 20 designs · two droppers facing each other hold N items; each pulse fires only the one the copper bulb phase does not hold, so each runs empty once every N pulses - 23 blocks for every N up to 576 (`mctas circuit memory items --n N`). Smallest: [counter11-items](archive/counter11-items.txt) (counter 11, 23 blocks), [counter13-items](archive/counter13-items.txt) (counter 13, 23 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 17 | 39 | [counter17-items](archive/counter17-items.txt) | N 17, output toggles every 17 pulses |
-| 19 | 39 | [counter19-items](archive/counter19-items.txt) | N 19, output toggles every 19 pulses |
-| 23 | 39 | [counter23-items](archive/counter23-items.txt) | N 23, output toggles every 23 pulses |
-| 25 | 39 | [counter25-items](archive/counter25-items.txt) | N 25, output toggles every 25 pulses |
-| 34 | 39 | [counter34-items](archive/counter34-items.txt) | N 34, output toggles every 34 pulses |
-| 38 | 39 | [counter38-items](archive/counter38-items.txt) | N 38, output toggles every 38 pulses |
-| 39 | 39 | [counter39-items](archive/counter39-items.txt) | N 39, output toggles every 39 pulses |
-| 100 | 39 | [counter100-items](archive/counter100-items.txt) | N 100, output toggles every 100 pulses |
-| 576 | 39 | [counter576-items](archive/counter576-items.txt) | N 576, output toggles every 576 pulses |
+| 11 | 23 | [counter11-items](archive/counter11-items.txt) | N 11, output toggles every 11 pulses |
+| 13 | 23 | [counter13-items](archive/counter13-items.txt) | N 13, output toggles every 13 pulses |
+| 15 | 23 | [counter15-items](archive/counter15-items.txt) | N 15, output toggles every 15 pulses |
+| 17 | 23 | [counter17-items](archive/counter17-items.txt) | N 17, output toggles every 17 pulses |
+| 19 | 23 | [counter19-items](archive/counter19-items.txt) | N 19, output toggles every 19 pulses |
+| 21 | 23 | [counter21-items](archive/counter21-items.txt) | N 21, output toggles every 21 pulses |
+| 22 | 23 | [counter22-items](archive/counter22-items.txt) | N 22, output toggles every 22 pulses |
+| 23 | 23 | [counter23-items](archive/counter23-items.txt) | N 23, output toggles every 23 pulses |
+| 25 | 23 | [counter25-items](archive/counter25-items.txt) | N 25, output toggles every 25 pulses |
+| 26 | 23 | [counter26-items](archive/counter26-items.txt) | N 26, output toggles every 26 pulses |
+| 27 | 23 | [counter27-items](archive/counter27-items.txt) | N 27, output toggles every 27 pulses |
+| 28 | 23 | [counter28-items](archive/counter28-items.txt) | N 28, output toggles every 28 pulses |
+| 30 | 23 | [counter30-items](archive/counter30-items.txt) | N 30, output toggles every 30 pulses |
+| 33 | 23 | [counter33-items](archive/counter33-items.txt) | N 33, output toggles every 33 pulses |
+| 34 | 23 | [counter34-items](archive/counter34-items.txt) | N 34, output toggles every 34 pulses |
+| 38 | 23 | [counter38-items](archive/counter38-items.txt) | N 38, output toggles every 38 pulses |
+| 39 | 23 | [counter39-items](archive/counter39-items.txt) | N 39, output toggles every 39 pulses |
+| 45 | 23 | [counter45-items](archive/counter45-items.txt) | N 45, output toggles every 45 pulses |
+| 100 | 23 | [counter100-items](archive/counter100-items.txt) | N 100, output toggles every 100 pulses |
+| 576 | 23 | [counter576-items](archive/counter576-items.txt) | N 576, output toggles every 576 pulses |
 
 ## shift 2
 
@@ -125,4 +125,4 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tffr-dropring](archive/tffr-dropring.txt) | tff-reset | latency 13 gt, reset 6 gt, min-pulse 1 gt | 8 | 3x3x2 | robust | T flip-flop with reset, 8 blocks (track memory): the dropper-ring T flip-flop (two droppers, two hoppers between them, a comparator reading dropper B) with a reset input next to dropper B only. A t pulse fires both droppers (A directly, B through the dust line), only the one holding the stone moves it, and the hoppers hand it to the other dropper after both have fired: q toggles. An r pulse fires B alone: a stone in B leaves (q off at once) and lands in A; with the stone in A nothing moves. |
+| [tffr-ring](archive/tffr-ring.txt) | tff-reset | latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes) | 7 | 3x3x2 | robust | T flip-flop with reset, 7 blocks: two droppers and two hoppers in a ring pass one stone around, and a comparator reading the second dropper is the output. A t pulse fires both droppers; only the one holding the stone moves it, into a hopper that hands it on 8 ticks later, after both droppers have fired, so q toggles. One dust on the first hopper, under the t input block, fires both droppers at once: it points into the cells above them, and a dropper also fires on power in the cell above it. An r pulse fires the second dropper alone: if it holds the stone, the stone leaves and q clears; otherwise nothing moves. |
