@@ -38,13 +38,15 @@ pub fn header(prefix: &str, kind: Option<&str>) -> String {
     header_with(prefix, kind, None)
 }
 
-/// The shown designs per tab (the index's own counts with no search), computed once per build.
+/// What each tab's one card holds: the door records, the clock periods, the circuit kinds.
+fn kind_counts(site: &Site) -> [usize; 3] {
+    site.holds()
+}
+
+/// The tabs' counts, computed once per build.
 fn tab_counts(site: &Site) -> [usize; 3] {
     static COUNTS: std::sync::OnceLock<[usize; 3]> = std::sync::OnceLock::new();
-    *COUNTS.get_or_init(|| {
-        let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
-        [n("door"), n("clock"), n("circuit")]
-    })
+    *COUNTS.get_or_init(|| kind_counts(site))
 }
 
 /// [`header`] with the tabs' counts: every page's header reads like the index's (critique C44:
@@ -400,8 +402,21 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
 /// A build page's `<title>`: its kind and properties first, the design's name after
 /// (`Piston extender: N = 3 · 19 blocks (pext-n3-flat-cascade19)`).
 pub fn page_title(b: &Build) -> String {
-    let p = site_model::html::props(b);
+    let p = page_props(b);
     format!("{}: {}", p.kind, p.title)
+}
+
+/// A build's properties for its own page: the one clock card's page is that clock's page (its
+/// own title, not the card's "a clock for every period").
+fn page_props(b: &Build) -> site_model::html::Props {
+    if b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()) {
+        let mut x = b.clone();
+        if let Some(c) = x.clock.as_mut() {
+            c.kind_range.clear();
+        }
+        return site_model::html::props(&x);
+    }
+    site_model::html::props(b)
 }
 
 /// A build page's heading (vjeux 12:09Z: lead with the properties; 13:06Z: plain words; 13:11Z:
@@ -409,7 +424,9 @@ pub fn page_title(b: &Build) -> String {
 /// as the title, what it does in one plain sentence, then the secondary properties. The design's
 /// name is only in the collapsed details, the URL and the downloads.
 fn page_heading(b: &Build, design_text: &str) -> String {
-    let p = site_model::html::props(b);
+    // the one clock card's page is still that clock's page: its own title, not the card's
+    // "a clock for every period" (critique: 4 lines of giant type over a page about one clock)
+    let p = page_props(b);
     let kind = match &b.circuit {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         Some(c) => crate::explain::kind_title(&c.kind),
@@ -668,10 +685,25 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     let mut body = String::new();
     for o in &rows {
         let d = o.door.as_ref().unwrap();
-        let boards: Vec<String> = d.leads.iter().map(|l| site_model::html::lead_words(l)).collect();
-        let label = first_upper(&boards.join("; "));
+        // one board per line; a board open to any category names the door's own (critique: "the
+        // fastest door" 48 blocks next to "the fastest stone door" 107, nothing said why)
+        let cat = match o.group.as_str() {
+            "gravity" => "a gravity door (sand or gravel door blocks)",
+            "sculk" => "a sculk door (a sculk sensor triggers it)",
+            "entity" => "a door that uses entities",
+            _ => "",
+        };
+        let boards: Vec<String> = d
+            .leads
+            .iter()
+            .map(|l| {
+                let w = first_upper(&site_model::html::lead_words(l));
+                if l.contains("(any category)") && !cat.is_empty() { format!("{w}: {cat}") } else { w }
+            })
+            .collect();
+        let label = boards.iter().map(|w| esc(w)).collect::<Vec<_>>().join("<br>");
         let cur = o.id == b.id;
-        let name = if cur { format!("<b>{}</b> (this page)", esc(&label)) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&label)) };
+        let name = if cur { format!("<b>{label}</b><br>(this page)") } else { format!("<a href=\"{prefix}{}\">{label}</a>", esc(&o.page)) };
         let size = match &o.dims {
             Some(dims) => format!("{} blocks in a {} space", o.blocks, dims.replace('x', "×")),
             None => site_model::html::blocks_word(o.blocks),
@@ -731,9 +763,17 @@ fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
         .collect::<std::collections::BTreeMap<i64, String>>()
         .into_values()
         .collect();
-    let fam_part = if fams.is_empty() { String::new() } else { format!("<p>Every period in between, built step by step (each ready to download):</p><ul class=\"fams\">{}</ul>", fams.join("")) };
+    let fam_part = if fams.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<p>Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a> (for example \"1 minute\"): it lists the nearest clocks.</p><details><summary>{} families that build the periods in between, step by step</summary><ul class=\"fams\">{}</ul></details>",
+            fams.len(),
+            fams.join("")
+        )
+    };
     format!(
-        "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">The best clock we have for each period (in game ticks; 20 ticks = 1 s): pick one to see it.</p>{body}{fam_part}</section>\n",
+        "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">The smallest clock that passed our real-game test, for each period (in game ticks; 20 ticks = 1 s): pick one to see it.</p>{body}{fam_part}</section>\n",
         rows.len()
     )
 }
@@ -1177,18 +1217,30 @@ fn member_caption(m: &Member, kind: &str) -> String {
 
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
-    // what each tab shows (critique C1: one number per thing, the one a visitor can browse)
-    let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
+    // what the tabs' cards hold (critique 91a98b26c: "1 piston doors, 1 clocks" read as one door
+    // and one clock)
+    let [doors, periods, kinds] = kind_counts(site);
+    let parts: Vec<String> = [
+        (doors, if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") }),
+        (periods, if periods == 1 { "the best clock".to_string() } else { format!("the best clock for each of {periods} periods") }),
+        (kinds, if kinds == 1 { "the best design of 1 circuit kind".to_string() } else { format!("the best design of {kinds} circuit kinds") }),
+    ]
+    .into_iter()
+    .filter(|(n, _)| *n > 0)
+    .map(|(_, w)| w)
+    .collect();
+    let holds = match parts.len() {
+        0 => String::new(),
+        1 => parts[0].clone(),
+        n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+    };
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, each design tested tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game; the sizes in between are built step by step from them.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
-         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n",
-        n("door"),
-        n("clock"),
-        if n("circuit") > 0 { format!(", {} circuits", n("circuit")) } else { String::new() }
+         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"
     );
     shell(SITE_NAME, "Redstone builds you can download: piston doors, clocks and circuits, each tested in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
 }
@@ -1267,29 +1319,16 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             kinds.push(k);
         }
     }
+    let mut any_sizes = false;
     for k in &kinds {
         let of: Vec<&&Build> = list.iter().filter(|b| key_of(b) == *k).collect();
         let k = &k.trim_end_matches(":basics").to_string();
         let basics = of.first().and_then(|b| b.circuit.as_ref()).is_some_and(|c| c.order % 100 >= 50);
         let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty());
         let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown)).collect();
-        let n_var = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_some())).count();
-        let n_lay = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_some())).count();
-        let n_mem = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty())).count();
-        let n_fam = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.card_member && c.tunable.is_empty())).count();
-        let mut hidden: Vec<String> = Vec::new();
-        if n_mem > 0 {
-            hidden.push(format!("{n_mem} other version{} of the designs above (each design's page lists them)", if n_mem == 1 { "" } else { "s" }));
-        }
-        if n_fam > 0 {
-            hidden.push(format!("{n_fam} more size{} of the designs you can make longer (on their pages)", if n_fam == 1 { "" } else { "s" }));
-        }
-        if n_lay > 0 {
-            hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
-        }
-        if n_var > 0 {
-            hidden.push(format!("{n_var} bigger variant{} using extra kinds of blocks", if n_var == 1 { "" } else { "s" }));
-        }
+        // (a kind with sizes: its card's page has their table; said once per page, after the
+        // cards: critique, "Also N other versions..." repeated under every card)
+        any_sizes |= of.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty()));
         // the kind's title: what it does first, the community's name in parentheses (critique P1);
         // a study's basics: their own heading
         let (heading, summary) = match (k.as_str(), basics) {
@@ -1319,15 +1358,19 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let study_title = crate::explain::study(folder).map(|s| s.0.to_lowercase()).unwrap_or_default();
         let same_as_study = !basics && study_title.starts_with(&heading.to_lowercase());
         let head = if same_as_study { if most.is_empty() { String::new() } else { format!("<p>{}</p>", most.trim()) } } else { format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary))) };
-        body.push_str(&format!(
-            "<section>{head}{}{}</section>\n",
-            grid(&cards),
-            if hidden.is_empty() {
-                String::new()
-            } else {
-                format!("<p class=\"hint\">Also {}: <a href=\"{prefix}index.html#kind=circuit&amp;q={}&amp;variants=1\">show them in the index</a>.</p>", hidden.join(", "), site_model::encode(folder))
-            }
-        ));
+        // a kind with one card (every kind now: vjeux 21:47Z): its words beside its card, not a
+        // card stranded in a grid of empty columns (critique, desktop)
+        if cards.len() == 1 {
+            // (the side-by-side row always shows its kind's words: without them the card sat next
+            // to an empty column)
+            let full = format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary)));
+            body.push_str(&format!("<section class=\"kind-row\"><div class=\"kind-text\">{full}</div><div class=\"grid one\">{}</div></section>\n", cards[0]));
+        } else {
+            body.push_str(&format!("<section>{head}{}</section>\n", grid(&cards)));
+        }
+    }
+    if any_sizes {
+        body.push_str("<p class=\"hint\">A card that comes in several sizes lists every size, with the best design of each, on its page.</p>\n");
     }
     if list.is_empty() {
         body.push_str("<p>No design archived yet.</p>\n");
@@ -1376,10 +1419,11 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         };
         pictured.push(key(first));
         cards.push(format!(
-            "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"kind\">{} designs</div><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
+            "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
             esc(title),
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.picture.as_deref(), &first.kind, title, ""),
-            shown.len(),
+            // (no fallback words: the tile's title is right under it; critique, the BUD tile's
+            // title spilled as giant white words while its view loaded)
+            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));
@@ -1472,6 +1516,6 @@ mod tests {
         let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
-        assert!(p.contains("1 piston doors, 2 clocks"));
+        assert!(p.contains("only the best of each kind: the best 3×3 piston door and the best clock for each of 2 periods."), "{p}");
     }
 }

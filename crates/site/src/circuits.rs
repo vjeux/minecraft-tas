@@ -471,6 +471,15 @@ pub fn fold_lines() -> Vec<(String, String, String)> {
         .collect()
 }
 
+/// A port (`port input: 0 1 0`) above or below the design's own layers (`layer 0:`...): its input
+/// or output stacks over it, so the design is no flat build in use (critique: "lies flat (1
+/// block high)" on a design wired from above and below).
+fn ports_off_layers(text: &str) -> bool {
+    let layers: Vec<i64> = text.lines().filter_map(|l| l.trim().strip_prefix("layer ")?.trim_end_matches(':').trim().parse().ok()).collect();
+    let (Some(lo), Some(hi)) = (layers.iter().min(), layers.iter().max()) else { return false };
+    text.lines().filter_map(|l| l.trim().strip_prefix("port ")).filter_map(|rest| rest.split_once(':')).filter_map(|(_, xyz)| xyz.split_whitespace().nth(1)?.parse::<i64>().ok()).any(|y| y < *lo || y > *hi)
+}
+
 /// An extendable family's values from its base design's headers: `extend axis: a + bn` and
 /// `extend n: lo..hi` -> (a + b·lo, a + b·hi, b); None without them or for another formula.
 fn extend_range(text: &str) -> Option<(i64, i64, i64)> {
@@ -703,6 +712,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),
+                    ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker
