@@ -51,8 +51,6 @@ pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-ho
 # (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
 # (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
 # clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
-pulse/pulse-dual-lock-L*	temporary (R7): passes only by the judge's old block placement, not with a real input
-pulse/pulse-dual-edge-reset	temporary (R7): passes only by the judge's old block placement, not with a real input
 tff/tff-masterslave	temporary (R7): passes only by the judge's old block placement, not with a real input
 tff/tff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
 memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input
@@ -77,9 +75,6 @@ memory/counter30-ring5-ring3-bulb1	temporary (R7): refused with a real input
 memory/counter33-ring11-ring3	temporary (R7): refused with a real input
 memory/counter40-ring5-bulb3	temporary (R7): refused with a real input
 memory/counter45-ring5-ring3-ring3	temporary (R7): refused with a real input
-pulsemult/pm-div3-square	temporary (R7): passes only by the judge's old block placement, not with a real input
-pulsemult/pm-div5-square	temporary (R7): passes only by the judge's old block placement, not with a real input
-pulsemult/pm-div7-square	temporary (R7): passes only by the judge's old block placement, not with a real input
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
