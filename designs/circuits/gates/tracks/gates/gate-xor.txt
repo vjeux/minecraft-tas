@@ -1,28 +1,27 @@
-# XOR gate, 21 blocks, 2 ticks: two subtract comparators, each with one input behind it and the other at its side, so each lights only when its own input is on alone. The trick is the side feeds: a dust lying ON input A's block reaches the upper comparator's side, and a dust UNDER input B's block reaches the lower one's, each at full strength because it touches the powered input block itself, so the two inputs cross in height instead of around each other. The lower comparator lights the lamp directly; the upper one powers a block whose dust climbs over the core and lands on the lamp. A stone above A's dust keeps that dust from joining the route over the top.
+# XOR gate, 16 blocks, 2 ticks: two subtract comparators, each with one input behind it and the other at its side, so each lights only when its own input is on alone. The side feeds cross in height instead of around each other: a dust lying ON input A's block reaches the upper comparator's side, and a dust UNDER input B's block reaches the lower one's, each at full strength because it touches the powered input block itself. The lower comparator lights the lamp directly; the upper one powers a block whose dust climbs over the core (across the stone that keeps A's dust from joining it, then down a stone sitting on the lower comparator) onto the lamp.
 name: gate-xor
 circuit: gate xor
 port input.a: 0 1 0
 port input.b: 1 2 1
 port output: 2 1 0
-origin: -1 0 -1
+origin: -1 0 0
 palette:
   S minecraft:stone
   C minecraft:comparator[facing=west,mode=subtract,powered=false]
   K minecraft:comparator[facing=east,mode=subtract,powered=false]
   d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
 layer 0:
-  ....
   ..S.
   ..S.
 layer 1:
-  ....
   ..C.
   .Sd.
 layer 2:
-  SSSS
-  Sd.d
+  SdSd
   SK..
 layer 3:
-  dddd
-  dS..
+  dSd.
   d...
+layer 4:
+  .d..
+  ....

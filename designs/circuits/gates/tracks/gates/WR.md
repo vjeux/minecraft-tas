@@ -13,8 +13,8 @@ Signal inputs (R7), judged robust in the game. The table further down is the pre
 | AND | gate-and-5b-r7 | 5 | 4 gt | near: the NAND plus one wall torch |
 | NIMPLY | gate-nimply (+ mirror -ba) | 4 | 2 gt | was 6 blocks / 4 gt: subtract comparator on A, a dust lying against B's block at its side |
 | IMPLY | gate-imply (+ mirror -ba) | 3 | 2 gt, glitch-free | was 4 with 2 glitches: lamp touching a torch on A and the repeater B arrives on (both 2 gt, so no blink). A 1-block version (lamp touching B's block directly) works but glitches |
-| XOR | gate-xor | 21 | 2 gt | was 32. Core is 7 blocks (two comparators whose side feeds cross in HEIGHT: a dust on A's block, a dust under B's); the other 14 merge the two outputs, which always land 3+ apart (proved for every direct-feed layout, see below). A cheaper merge is the gap |
-| XNOR | gate-xnor | 23 | 4 gt | was 34: the XOR meeting on a stone with a wall torch on it |
+| XOR | gate-xor | 16 | 2 gt | was 32 this morning. Core is 7 blocks (two comparators whose side feeds cross in HEIGHT: a dust on A's block, a dust under B's); the other 9 carry the upper output over the core onto the lamp, because the two outputs always land 3+ apart (proved for every direct-feed layout, see below). A cheaper merge is the gap |
+| XNOR | gate-xnor | 18 | 4 gt | was 34: the XOR meeting on a stone with a wall torch on it |
 
 The `-ba` mirror kinds (nimply-ba, imply-ba) and the own-lever basics (or/not/nor with levers) are still archived as their own kinds; folding them is a catalog decision left to the coordinator.
 
