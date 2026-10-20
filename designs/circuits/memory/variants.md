@@ -22,6 +22,12 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 |---|---|---|
 | [counter5-star](archive/counter5-star.txt) | 12 | stone |
 
+**[counter9-ring3-ring3](archive/counter9-ring3-ring3.txt)** (counter 9, counter 9; 17 blocks: comparator, dropper, hopper, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [counter9-ring9](archive/counter9-ring9.txt) | 25 | redstone_wire |
+
 **[d-latch-repeater](archive/d-latch-repeater.txt)** (d-latch, d-latch; 4 blocks: repeater, stone):
 
 | variant | blocks | adds |
