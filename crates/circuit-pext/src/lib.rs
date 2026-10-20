@@ -244,6 +244,10 @@ enum Cmd {
         /// Cells never removed, `x,y,z;...`.
         #[arg(long)]
         keep: Option<String>,
+        /// Layers never removed (every block whose y is listed, e.g. `0,1` for a cascade's line and
+        /// its unit observers).
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        keep_y: Vec<i32>,
         /// Region where blocks grow back (default: the design's box grown by 2).
         #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
         lo: Option<Pos>,
@@ -283,8 +287,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
             cmd_grow(&base, &o, show)
         }
         Cmd::Topo { k, kmin, bx, by, palette, threads, near, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, out_dir.as_deref()),
-        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, lo, hi, out_dir } => {
-            cmd_lns(&design, remove, add.unwrap_or(remove.saturating_sub(1)), &palette, threads, plane_z, near, keep.as_deref(), (lo, hi), out_dir.as_deref())
+        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, lo, hi, out_dir } => {
+            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, region: (lo, hi), out_dir };
+            cmd_lns(&design, &o)
         }
         Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
             let reach = base + step * n;
@@ -484,51 +489,89 @@ fn cmd_grow(base: &PathBuf, o: &search::GrowOptions, show: usize) -> Result<()> 
     Ok(())
 }
 
+/// `pext lns` settings (see `Cmd::Lns`).
+struct LnsOptions {
+    r: usize,
+    add: usize,
+    palette: String,
+    threads: usize,
+    plane_z: Option<i32>,
+    near: i32,
+    keep: Option<String>,
+    keep_y: Vec<i32>,
+    region: (Option<Pos>, Option<Pos>),
+    out_dir: Option<PathBuf>,
+}
+
 /// `pext lns`: remove r blocks, grow back at most `add` (see `Cmd::Lns`).
-#[allow(clippy::too_many_arguments)]
-fn cmd_lns(path: &std::path::Path, r: usize, add: usize, palette: &str, threads: usize, plane_z: Option<i32>, near: i32, keep: Option<&str>, region: (Option<Pos>, Option<Pos>), out_dir: Option<&std::path::Path>) -> Result<()> {
+fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
+    let (r, add, plane_z, region) = (o.r, o.add, o.plane_z, o.region);
+    let out_dir = o.out_dir.as_deref();
     let p = Pext::load(path)?;
-    let keep: Vec<Pos> = match keep {
+    let keep: Vec<Pos> = match &o.keep {
         Some(s) => s.split(';').map(|c| parse_pos(c).map_err(|e| anyhow!("{e}"))).collect::<Result<_>>()?,
         None => Vec::new(),
     };
-    let removable: Vec<Pos> = p.design.blocks.keys().copied().filter(|q| *q != p.input && *q != p.payload && !keep.contains(q)).collect();
-    let mut pal = search::palette(palette)?;
+    let removable: Vec<Pos> = p.design.blocks.keys().copied().filter(|q| *q != p.input && *q != p.payload && !keep.contains(q) && !o.keep_y.contains(&q[1])).collect();
+    let mut pal = search::palette(&o.palette)?;
     if plane_z.is_some() {
         pal.retain(|s| !s.contains("facing=north") && !s.contains("facing=south"));
     }
+    let (threads, near) = (o.threads, o.near);
     let (lo, hi) = p.design.bounds().unwrap_or(([0; 3], [0; 3]));
     let lo = region.0.unwrap_or([lo[0] - 2, lo[1] - 2, plane_z.unwrap_or(lo[2] - 2)]);
     let hi = region.1.unwrap_or([hi[0] + 2, hi[1] + 2, plane_z.unwrap_or(hi[2] + 2)]);
     let subsets = search::combos(removable.len(), r);
     println!("{}: {} blocks, {} removable, {} subsets of {r}, growing back <= {add}", p.name(), p.blocks(), removable.len(), subsets.len());
     let t0 = std::time::Instant::now();
+    // one subset per worker, each grow single-threaded: spawning a pool per subset costs more
+    // than the small grows themselves
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let found: std::sync::Mutex<Vec<(usize, search::Find, Pext)>> = std::sync::Mutex::new(Vec::new());
+    let failed: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let si = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if si >= subsets.len() {
+                    break;
+                }
+                let mut d = p.design.clone();
+                for &i in &subsets[si] {
+                    d.blocks.remove(&removable[i]);
+                }
+                d.name = format!("{}-lns{si}", p.name());
+                if let Ok(base) = Pext::base(d) {
+                    let go = search::GrowOptions { lo, hi, palette: pal.clone(), k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near) };
+                    match search::grow(&base, &go, &|_, _, _| {}) {
+                        Ok(finds) => found.lock().unwrap().extend(finds.into_iter().map(|f| (si, f, Pext::base(base.design.clone()).expect("reparse")))),
+                        Err(e) => *failed.lock().unwrap() = Some(e),
+                    }
+                }
+                let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                if n % 50 == 0 {
+                    eprintln!("  {n}/{} subsets ({:.0} s)", subsets.len(), t0.elapsed().as_secs_f64());
+                }
+            });
+        }
+    });
+    if let Some(e) = failed.into_inner().unwrap() {
+        return Err(e);
+    }
+    let mut found = found.into_inner().unwrap();
+    found.sort_by_key(|(si, f, _)| (f.blocks, f.report.first().extend + f.report.first().retract, *si));
     let mut best = p.blocks();
-    for (si, sub) in subsets.iter().enumerate() {
-        let mut d = p.design.clone();
-        for &i in sub {
-            d.blocks.remove(&removable[i]);
-        }
-        d.name = format!("{}-lns{si}", p.name());
-        let Ok(base) = Pext::base(d) else { continue };
-        let o = search::GrowOptions { lo, hi, palette: pal.clone(), k: add, kmin: 1, threads, out_dir: None, plane_z, all: false, near: Some(near) };
-        let finds = search::grow(&base, &o, &|_, _, _| {})?;
-        for (i, f) in finds.iter().enumerate() {
-            let c = f.report.first();
-            let removed: Vec<String> = sub.iter().map(|&j| format!("{},{},{}", removable[j][0], removable[j][1], removable[j][2])).collect();
-            let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
-            println!("  subset {si} (-{}): {} blocks, extend {} retract {}: +{}", removed.join(" "), f.blocks, c.extend, c.retract, added.join("; "));
-            if f.blocks < best {
-                best = f.blocks;
-            }
-            if let Some(dir) = out_dir {
-                std::fs::create_dir_all(dir)?;
-                let name = format!("{}-{}b-s{si}-{}", p.name(), f.blocks, i + 1);
-                search::find_design(&base, f, &name).save(&dir.join(format!("{name}.txt")))?;
-            }
-        }
-        if (si + 1) % 20 == 0 {
-            eprintln!("  {}/{} subsets ({:.0} s), best {best}", si + 1, subsets.len(), t0.elapsed().as_secs_f64());
+    for (i, (si, f, base)) in found.iter().enumerate() {
+        let c = f.report.first();
+        let removed: Vec<String> = subsets[*si].iter().map(|&j| format!("{},{},{}", removable[j][0], removable[j][1], removable[j][2])).collect();
+        let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
+        println!("  subset {si} (-{}): {} blocks, extend {} retract {}: +{}", removed.join(" "), f.blocks, c.extend, c.retract, added.join("; "));
+        best = best.min(f.blocks);
+        if let Some(dir) = out_dir {
+            std::fs::create_dir_all(dir)?;
+            let name = format!("{}-{}b-s{si}-{}", p.name(), f.blocks, i + 1);
+            search::find_design(base, f, &name).save(&dir.join(format!("{name}.txt")))?;
         }
     }
     println!("best: {best} blocks ({:.0} s)", t0.elapsed().as_secs_f64());
