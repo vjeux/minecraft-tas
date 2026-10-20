@@ -1,0 +1,29 @@
+# archived 2026-10-20T00:55Z from designs/clocks/tracks/clk-obs/families9/p36-note-obs-pis-stk-7b-23dedb.txt by mctas clock archive
+# CLOCK: clk-obs-p36-note-obs-pis-stk-7b-23dedb period 36 gt (1.8 s), on 14/36, edges 7, warmup 5, family note_block+observer+piston+sticky_piston, 7 blocks, 1x3x5, robust
+name: clk-obs-p36-note-obs-pis-stk-7b-23dedb
+# clk-obs grow: P=36 (redsim), family note_block+observer+piston+sticky_piston, kick last 0 0 2, swept volume 15.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 2 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:piston[extended=false,facing=up]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=south]
+layer 0:
+  A
+  B
+  C
+  .
+layer 1:
+  D
+  E
+  .
+  B
+layer 2:
+  .
+  .
+  F
+  .

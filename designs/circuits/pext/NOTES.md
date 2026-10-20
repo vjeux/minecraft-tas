@@ -14,7 +14,7 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   position only; a second pulsed sticky piston carries an observer whose landing pulse makes B
   reach-pull the payload home. 7 blocks, 7/12 gt. Button versions of both work as is.
 
-## N=3 analysis (no design yet)
+## N=3 analysis (the rider, archived as pext-n3-rider24)
 * Pulse-toggle trains: a 2 gt pulse on a sticky piston pushes+spits when its front is occupied
   and reach-pulls when the front is empty. The SAME train works on both edges: N=2 `B A B`,
   N=3 `C B C A B C` (N(N+1)/2 pulses: rounds k = N..1 of P_k..P_N). Positions per step mirror
@@ -30,3 +30,59 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   second pulse covers C@rel2+1 (on) / C@rel1 (off) and also hits B on the on-edge, harmless if
   simultaneous. Needs 3 static timed sources (~t5, t9, t13): a big build. grow k<=3 (broad
   palette) and k<=4 (observers/slime, near 1) on base-r3a found nothing.
+* Built by hand (n3-rider-v1, 31 blocks: C1 from an observer under the frame, B from an observer
+  chain off the lever, C2 through V1/dust/Z to X5 then U 2 gt later through a stone into x=3),
+  minimized to 24 (pext-n3-rider24). Dust lines must not run over the pistons (QC).
+* The one-frame rider stops at N=4: the frame moves 2N-1 slimes + N blocks (+ carried observers),
+  so N=4 is 11-12 blocks (ideal-r4c works with all-static pulses) and N=5 is over the push limit.
+
+## Gravity (sand payload, travel up): pext-n2-sand6
+* The payload falls home by itself, so only the pistons need returning. N=2 in 6 blocks: A pulsed
+  on both edges by an observer under the lever (spit up / reach-pull down), B held by the lever
+  at its top spot. Does not extend: for N>=3 the top piston is PLACED one cell below its final
+  spot (by a spit), and a vertical up-stack piston there is QC-powered by anything powering its
+  final cell (the cell above it), so it extends early.
+
+## The CASCADE (self-triggered units): pext-n3-cascade22, pext-n4-cascade33
+* Unit = slime (in the line, behind the piston) + sticky piston + observer hanging under the slime
+  facing down. A moved unit lands, the observer fires into the slime, the slime powers the piston:
+  the unit's piston pulses 2 gt after every move of its unit, by itself.
+* In the pulse-toggle train T_N (rounds k = N..1: P_k P_k+1 .. P_N) every push or pull moves ONE
+  unit, and each step after the first of a round is exactly "the unit just moved fires": the whole
+  train runs itself once the N round starts are delivered (P_N, then P_N-1, ..., then A). Nothing
+  ever moves more than one unit (3 blocks), so there is no push-limit ceiling.
+* Round starts are position-addressed (P_k at its rest cell on the on-edge, at its extended cell
+  on the off-edge). Units are 2 cells long, so physical cells differ from the abstract model:
+  N=3: C {x5, x7} at once, B {x3 then x4}, A. N=4: round D's on-edge cell x7 is where C sits on
+  the off-edge, and round C's on-edge cell x5 / off-edge x7: one LAMP-delayed observer (lamp
+  lit at once on the on-edge, dark 4 gt late on the off-edge) pulses x7 at t4 on / t8 off, which
+  is D's round on the on-edge and C's round on the off-edge; x10 and x5 come from normal chains.
+* Pulsers must never touch a cell a slime passes through (the slime would drag them): they sit
+  diagonal to the line, above-beside the piston cell at (x, y+1, z+-1) or two above at (x, y+2),
+  facing away, and power the piston by quasi-connectivity (the observer's update reaches the
+  piston through the cell above it).
+* `mctas circuit pext trains` enumerates pulse-toggle trains in the abstract 1D model and checks
+  each step's static delivery (single cell, both cells at once, staggered); `--bfs` searches the
+  shortest fully deliverable train: N=3 plain has one (AACBACBC), N=3 rider and N>=4 none, which
+  is why the cascade (only round starts addressed) plus edge-delayed sources is the way past N=3.
+* Generator `pext cascade --n N` (any N; family cards pext-cascade-r2/r0/r1): one westward
+  observer spine at y=3 behind the line, each pulse cell's pulser fired 4 gt after the spine passes
+  it, +4 gt towers where a round must wait (gap >= 6 gt between round starts of one edge). The lamp
+  is not needed: a static pulse may serve different rounds on the two edges (x7 = D's round on the
+  on-edge, C's round on the off-edge), and rounds overlap (cascade waves 6 gt apart never meet).
+  Blocks 12N - 7 - 2 floor((N-1)/3), extend 14N - 6, retract 16N - 8.
+* FLAT (`--flat`, 1 wide, family cards pext-cascade-flat-*): the pulser of cell x sits two above the
+  line at (x, 3, 0) facing up and powers the piston through the air cell above it (QC: its update
+  reaches the piston through that cell); it watches the spine node right above it. One observer per
+  pulse instead of two: blocks 10N - 5 - floor((N-1)/3). Minimized in the plane (`minimize
+  --plane-z 0`) these are the smallest designs for every N >= 3 (N=3 19 blocks ... N=8 54).
+* Judge rule (learned the hard way): once extended, the payload must STAY while the input is on;
+  a design whose payload reaches the target, leaves and comes back fails (circuit archive refused a
+  20-block N=3 that did; pext sim/verify/minimize check it now).
+
+## Slime-free N=3: pext-n3-sf43
+* Plain stack A B C + payload; the train A A C B A C B C (the BFS result) with every step from fixed
+  pulsers (A three times, x4/x5 and x2/x3 pairs staggered 2 gt: the late pulse finds a piston whose
+  base is still a moving block, so its pull fails), 12 pulsers on one observer spine that sweeps the
+  line five times (rails behind, in front, below, above; `pext spine` builds a chain along a path),
+  62 blocks, minimized to 43 without slime in the palette.

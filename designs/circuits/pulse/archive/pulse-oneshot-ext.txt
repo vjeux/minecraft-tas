@@ -3,6 +3,9 @@
 name: pulse-oneshot-ext
 # Extendable family oneshot-ext (n = 0): pulse-extender with L = 18 + 16n gt, 17 + 4n blocks. the rising-edge bulb one-shot (oneshot-rise) judged as an extender: every input pulse, short or long, gives one output pulse of L from its rising edge. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family oneshot-ext --n N --out FILE.
 circuit: pulse-extender
+group: pulse-oneshot-ext
+group title: bulb one-shot (piston trigger) as an extender
+group note: L set by the repeater delays and the U's length
 extend family: pulse-oneshot-ext
 extend axis: 18 + 16n
 extend blocks: 17 + 4n

@@ -92,6 +92,22 @@ pub const FAMILIES: &[Family] = &[
         how: "a sticky piston pushes an observer away on the rising edge and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of delay-4 repeaters that comes back into the bulb and turns it off one loop later (a bulb toggles only on rising edges of its power)",
     },
     Family {
+        name: "oneshot-bulb-rise",
+        kind: "rising-edge",
+        l: "18 + 16n",
+        blocks: "19 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "the input toggles a copper bulb on every rising edge (even 1 gt), a comparator reads it and an observer watching that comparator fires once per rising edge into a second bulb; a comparator reads the second bulb into a U of delay-4 repeaters back into it, which turns it off one loop later",
+    },
+    Family {
+        name: "oneshot-bulb-ext",
+        kind: "pulse-extender",
+        l: "18 + 16n",
+        blocks: "19 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "the bulb-triggered one-shot (oneshot-bulb-rise) judged as an extender",
+    },
+    Family {
         name: "dual-lock",
         kind: "dual-edge",
         l: "?",
@@ -348,6 +364,59 @@ pub fn dual_lock_text(name: &str, k: usize, d: u8) -> String {
     )
 }
 
+/// The bulb-triggered one-shot (min-pulse 1): the input toggles a first copper bulb on every rising
+/// edge, a comparator reads it and an observer watching that comparator fires once per rising
+/// edge into the one-shot's bulb; a second comparator reads that bulb into a U of repeaters back
+/// into it, which turns it off one loop later.
+pub fn oneshot_bulb_text(name: &str, kind: &str, delays: &[u8]) -> String {
+    let k = delays.len() / 2;
+    // x from -1 (input) to 5; z from 0 to k + 1
+    let w = 7usize;
+    let rows = k + 2;
+    let mut l0 = vec![vec!['.'; w]; rows];
+    let mut l1 = vec![vec!['.'; w]; rows];
+    let at = |x: i32| (x + 1) as usize;
+    l1[0][at(0)] = 'A';
+    l1[0][at(1)] = 'K';
+    l0[0][at(1)] = 'S';
+    l1[0][at(2)] = 'V';
+    l1[0][at(3)] = 'B';
+    l1[0][at(4)] = 'C';
+    l0[0][at(4)] = 'S';
+    l1[0][at(5)] = 'W';
+    l0[0][at(5)] = 'S';
+    let mut palette = vec![
+        "  S minecraft:stone".to_string(),
+        "  A minecraft:waxed_copper_bulb[lit=false,powered=false]".into(),
+        "  K minecraft:comparator[facing=west,mode=compare,powered=false]".into(),
+        "  V minecraft:observer[facing=west,powered=false]".into(),
+        "  B minecraft:waxed_copper_bulb[lit=false,powered=false]".into(),
+        "  C minecraft:comparator[facing=west,mode=compare,powered=false]".into(),
+        "  W minecraft:redstone_wire".into(),
+    ];
+    for j in 0..k {
+        let z = 1 + j;
+        let (cd, cu) = ((b'a' + j as u8) as char, (b'm' + j as u8) as char);
+        palette.push(format!("  {cd} minecraft:repeater[delay={},facing=north,locked=false,powered=false]", delays[j]));
+        palette.push(format!("  {cu} minecraft:repeater[delay={},facing=south,locked=false,powered=false]", delays[2 * k - 1 - j]));
+        l1[z][at(5)] = cd;
+        l0[z][at(5)] = 'S';
+        l1[z][at(3)] = cu;
+        l0[z][at(3)] = 'S';
+    }
+    for x in 3..=5 {
+        l1[k + 1][at(x)] = 'W';
+        l0[k + 1][at(x)] = 'S';
+    }
+    let rowtext = |l: &Vec<Vec<char>>| l.iter().map(|r| format!("  {}", r.iter().collect::<String>())).collect::<Vec<_>>().join("\n");
+    format!(
+        "name: {name}\ncircuit: {kind}\norigin: -1 0 0\nport input: -1 1 0\nport output: 4 1 0\npalette:\n{}\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        palette.join("\n"),
+        rowtext(&l0),
+        rowtext(&l1)
+    )
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
@@ -358,6 +427,8 @@ pub fn instance_text(name: &str, n: u32) -> Option<String> {
         "oneshot-ext" => Some(oneshot_text(&format!("pulse-oneshot-ext-n{n}"), "pulse-extender", "rise", &vec![4; 2 * k])),
         "oneshot-fall" => Some(oneshot_text(&format!("pulse-oneshot-fall-n{n}"), "falling-edge", "fall", &vec![4; 2 * k])),
         "dual-lock" => Some(dual_lock_text(&format!("pulse-dual-lock-n{n}"), k, 4)),
+        "oneshot-bulb-rise" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-rise-n{n}"), "rising-edge", &vec![4; 2 * k])),
+        "oneshot-bulb-ext" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-ext-n{n}"), "pulse-extender", &vec![4; 2 * k])),
         "dual-lock1" => Some(dual_lock_text(&format!("pulse-dual-lock1-n{n}"), k, 1)),
         "limiter-u" => Some(limiter_u_text(&format!("pulse-limiter-u-n{n}"), &vec![1; 2 * k])),
         "limiter-u4" => Some(limiter_u_text(&format!("pulse-limiter-u4-n{n}"), &vec![4; 2 * k])),
@@ -389,6 +460,21 @@ fn instance_text_v0(name: &str, n: u32) -> Option<String> {
     }
 }
 
+/// The tunable group a generated design belongs to (stamped as its `group:` header).
+pub fn group_of(family: &str, kind: &str) -> &'static str {
+    match (family, kind) {
+        ("limiter-u" | "limiter-u4" | "limiter-for", _) => "pulse-limiter-u",
+        ("oneshot-ext" | "oneshot-for" | "oneshot-mode-rise", "pulse-extender") => "pulse-oneshot-ext",
+        ("oneshot-rise" | "oneshot-u" | "oneshot-u1" | "oneshot-for" | "oneshot-mode-rise", _) => "pulse-oneshot-rise",
+        ("oneshot-fall" | "oneshot-mode-fall", _) => "pulse-oneshot-fall",
+        ("oneshot-mode-dual", _) => "pulse-oneshot-dual",
+        ("dual-lock" | "dual-lock1", _) => "pulse-dual-lock",
+        ("oneshot-bulb-rise", _) => "pulse-oneshot-bulb-rise",
+        ("oneshot-bulb-ext", _) => "pulse-oneshot-bulb-ext",
+        _ => "pulse-other",
+    }
+}
+
 pub fn run(a: FamilyArgs) -> Result<()> {
     if a.name == "oneshot-mode" {
         // any mode, any even L: rise / fall / dual, the U delays split to fit
@@ -414,6 +500,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             };
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): {how}; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode {} --kind {} --l-range {l}..{l}.\n", a.kind, a.mode, a.kind));
+            let text = crate::stamp::stamp(&text, group_of(&format!("oneshot-mode-{}", a.mode), &a.kind), None, None);
             std::fs::write(dir.join(format!("{name}.txt")), text)?;
         }
         return Ok(());
@@ -427,6 +514,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             let Some(mut text) = oneshot_for(l, &a.kind) else { continue };
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range {l}..{l} --kind {}).\n", a.kind, a.kind));
+            let text = crate::stamp::stamp(&text, group_of("oneshot-for", &a.kind), None, None);
             std::fs::write(dir.join(format!("pulse-oneshot-{}-L{l}.txt", a.kind)), text)?;
         }
         return Ok(());
@@ -440,6 +528,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
                 let mut text = limiter_u_for(l).unwrap_or_default();
                 let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
                 text.insert_str(at, &format!("# A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to {l} gt; it outputs rear - side, so every input pulse is cut to {l} gt (generator: mctas circuit pulse family limiter-for --l {l}).\n"));
+                let text = crate::stamp::stamp(&text, group_of("limiter-for", ""), None, None);
                 std::fs::write(dir.join(format!("pulse-limiter-u-L{l}.txt")), text)?;
             }
             return Ok(());
@@ -448,6 +537,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         let Some(mut text) = limiter_u_for(l) else { bail!("L must be even and >= 4") };
         let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
         text.insert_str(at, &format!("# A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to {l} gt; it outputs rear - side, so every input pulse is cut to {l} gt (generator: mctas circuit pulse family limiter-for --l {l}).\n"));
+        let text = crate::stamp::stamp(&text, group_of("limiter-for", ""), None, None);
         match &a.out {
             Some(o) => std::fs::write(o, text)?,
             None => print!("{text}"),
@@ -479,6 +569,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         text.insert_str(at, &header);
         text = text.replacen(&format!("name: pulse-{}-n{}", f.name, a.n), &format!("name: pulse-{}", f.name), 1);
     }
+    let text = crate::stamp::stamp(&text, group_of(f.name, f.kind), None, None);
     match &a.out {
         Some(o) => std::fs::write(o, text)?,
         None => print!("{text}"),

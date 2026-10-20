@@ -1,23 +1,33 @@
 # pext HANDOFF (study 6, piston extenders) — track pext, branch explore/pext
 
-## State
-* Archive (`designs/circuits/pext/archive/`, `mctas circuit archive`, all robust 16/16 in the game):
-  N=1 sticky (2 blocks); N=2 rider7 flat/3D (7, 9/9 gt), rider 8-block flat/3D, sf7-1/2/3
-  slime-free (7, 7/12), sand6 gravity (6, 7/12), one-button versions of rider7 (stone, oak), sf7
-  and sand6; N=3 rider-v1 (31, 24/24) and rider24 (24, 25/25).
-* Mechanisms and the N=3 analysis: `designs/circuits/pext/NOTES.md`.
-* Tools (crates/circuit-pext, `mctas circuit pext ...`): `sim` (redsim, support rule, extend =
-  payload at the target with nothing moving, like the judge), `trace`, `verify` (real game, 4
-  positions x 4 rotations), `grow` (exhaustive k-block additions in a region, `--near`, a base
-  without `port input` takes an added lever/button as its input), `minimize` (removals,
-  substitution+removal, place-in-empty+2 removals). Exploration-only `ideal:` header: scripted
-  writes per phase (`ideal: both 5 set 4 1 1 minecraft:redstone_block; both 7 clear 4 1 1`).
-* work/: scratch designs, bases (base-*.txt), ideal-r3*.txt (mechanism tests with ideal pulses).
+## State (all archived with `mctas circuit archive`, robust 16/16 in the game)
+| N | best designs (blocks, extend/retract gt) | families |
+|---|---|---|
+| 1 | n1-sticky (2, 3/3) | sticky piston + lever |
+| 2 | sand6 (6, 7/12; + button) · rider7 flat/3D (7, 9/9; + stone/oak button) · sf7-1/2/3 (7, 7/12; + button) · sf8-flat (8) · rider 8 · flat-cascade11 | gravity, slime rider, slime-free (flat too), cascade |
+| 3 | flat-cascade19 (19, 27/27) · cascade22 · rider24 · sf43 (43, 66/64, SLIME-FREE) | flat cascade, cascade, rider, slime-free stack |
+| 4 | flat-cascade26 (26, 43/55) · cascade30 · cascade33 | |
+| 5 | flat-cascade33 (33, 50/66) · cascade38 · cascade46 | |
+| 6..8 | flat-cascade39 / 48 / 54 · cascade47 / 58 / 66 | |
+| any | family cards pext-cascade-r2/r0/r1 (12N-7-2floor((N-1)/3) blocks) and pext-cascade-flat-r2/r0/r1 (10N-5-floor((N-1)/3)), extend 14N-6, retract 16N-8 | generators `mctas circuit pext cascade [--flat] --base B --step 3 --n {n}` |
 
-## Next
-* N=3 smaller: other wirings of the rider's inner train (C B C after each landing); a sand (gravity)
-  N=3 (the top piston must stay extended: input-held at its final spot); flat versions.
-* N=4+: the one-frame rider generalizes (inner train for the pistons on the frame = the pulse-toggle
-  train T_{N-1}, e.g. D C D B C D), wiring grows; or self-triggered units (piston + slime + observer
-  per stage, see NOTES).
-* More N=2 families: flat slime-free, observer-free (repeaters/torches).
+## Tools (crates/circuit-pext, `mctas circuit pext ...`)
+* `sim`, `trace`, `verify` (real game, 4 positions x 4 rotations; the judge's rules incl. "once
+  extended the payload stays"), `grow` (exhaustive k-block additions), `minimize` (removals,
+  substitution+removal, place-in-empty+2 removals; `--plane-z` keeps flat designs flat): the
+  minimizer run on generator output gave most of the bests.
+* `cascade` (generator, `--flat`, `--family/--group` for family bases), `spine` (observer chain
+  along a path), `trains` (pulse-toggle trains, static delivery, `--bfs`), `drop` (remove archived
+  entries a family card covers). Exploration-only `ideal:` header (scripted writes per phase).
+* Shared-judge fix for review: a607f735 (circuit archive judged family members against the base's
+  kind; piston-extender N members all read the base N).
+
+## Mechanisms and lessons: designs/circuits/pext/NOTES.md
+
+## Next ideas
+* Slime-free N=4: no fully static-deliverable train (BFS); needs per-edge pulse reuse (as the
+  cascade does) or edge-selective sources.
+* Smaller N=2: grow found nothing <= 5 blocks on the sand base (k <= 3, near 2); k = 4 not run.
+* A one-button cascade fails (the 30 gt oak press ends mid-extension for N=3); would need a pulse
+  extender.
+* Flat cascades for N >= 9 minimized (only the generated sizes are archived as family members).

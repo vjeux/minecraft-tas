@@ -47,7 +47,9 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
-  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload).
+  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload),
+  `port station[.<name>]: x y z` (a two-way flying machine's return-station block: a design block
+  that counts, left out of the machine's tracked shape; calibration: `cal-two-way-machine`).
 * **Block count**: every design block except piston heads (part of their piston) and the blocks in
   input cells (a lever or button there is the stimulus device), plus design entities. A block in
   the output cell counts: leave it air when it is only a marker.
@@ -135,10 +137,14 @@ kick) before the first input.
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
   machine's translation (structural states, piston heads part of their piston, a moving block = in
-  motion) and a canonical frame; the steady state is frame t + P = frame t shifted by d cells for
-  at least 2 periods. It must fly along `travel` and stay intact over `distance` cells (or to the
-  corridor's end); a steady shuttle in place over 2+ positions passes as two-way. `speed`: P / d gt
-  per block; `latency`: the kick to the first change; the box is the design's own.
+  motion; station cells holding their own block left out of the shape, never out of the frame) and
+  a canonical frame; the steady state is frame t + P = frame t shifted by d cells for at least 2
+  periods, an in-place run (d = 0, frames changing) winning over a moving run it outlasts. It must
+  fly along `travel` and stay intact over `distance` cells (or to the corridor's end); a steady
+  shuttle in place over 2+ positions (a two-way machine between its return stations: the round
+  trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
+  trip's period and the positions it stands intact at; `latency`: the kick to the first change;
+  the box is the design's own.
 
 ## Archive and catalog
 
@@ -181,6 +187,20 @@ smallest members' value and size, the rule, the n range and the judged n), its m
 value tables, and `designs/circuits/families.tsv` lists the families for the website.
 `mctas circuit gen repeater-line --n N --out F` is the judge's own calibration family (n + 1
 delay-1 repeaters: N = 2 + 2n gt).
+
+**Tunable groups** (vjeux 2026-10-19: "we don't need 20 variations of the same design"): designs
+that are ONE mechanism with other repeater delays, comparator modes or a longer repeater line are
+one card. A design joins a group with a `group: <name>` header (optional `group title:` and `group
+note:`, read from the first member carrying them; track generators stamp them, e.g. `mctas circuit
+pulse stamp-group`), or automatically when its TUNABLE key (the type key with every repeater's
+delay and every comparator's mode masked, `archive::tunable_key`) and kind equal another
+design's. A group of two or more designs gets a card under "Tunable groups" (the value range as
+the heading, the two smallest members, a table value -> blocks -> design, and the extendable
+families carrying the same `group:`); its members leave the value tables. **Equivalent layouts**:
+designs with the same kind, value, block count and block kinds as a shown design (the one with the
+smallest box, then archived first) are listed on its row as "also N other layouts". `catalog.tsv`
+has a `group` column (the member's group) and its `variant_of` names a layout's shown design too.
+`mctas circuit catalog` prints, per study, the card count before and after the folds.
 
 ## Commands
 

@@ -13,6 +13,7 @@ pub mod circuits;
 pub mod clocks;
 pub mod deploy;
 pub mod doors;
+pub mod explain;
 pub mod generate;
 pub mod pages;
 pub mod serve;
@@ -97,6 +98,9 @@ pub struct BuildArgs {
     /// Threads for generating and simulating members.
     #[arg(long, default_value_t = 32)]
     pub threads: usize,
+    /// `publish` only: wait for GitHub's Pages build budget instead of failing.
+    #[arg(long)]
+    pub wait: bool,
 }
 
 #[derive(Args)]
@@ -114,6 +118,13 @@ pub struct DeployArgs {
     /// Also turn GitHub Pages on for the branch if it is off (`gh api`).
     #[arg(long)]
     pub enable_pages: bool,
+    /// Wait for GitHub's build budget (about 10 Pages builds an hour) instead of failing.
+    #[arg(long)]
+    pub wait: bool,
+    /// Skip the guards (the checkout must contain what the live site was built from; the hourly
+    /// build budget).
+    #[arg(long)]
+    pub force: bool,
 }
 
 pub fn run(cmd: SiteCmd) -> Result<()> {
@@ -128,7 +139,7 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
                 Err(e) if format!("{e}").contains("no headless Chrome") => println!("smoke: skipped ({e})"),
                 Err(e) => return Err(e),
             }
-            deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false })
+            deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
         }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
         SiteCmd::Smoke { dir, chrome, budget, url } => {

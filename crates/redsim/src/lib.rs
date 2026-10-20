@@ -9,10 +9,14 @@
 pub mod behavior;
 pub mod block;
 pub mod classes;
+pub mod entity;
+pub mod fluid;
 pub mod gravity;
 pub mod links;
 pub mod piston;
 pub mod pos;
+pub mod rails;
+pub mod react;
 pub mod redstone;
 pub mod sculk;
 pub mod snapshot;

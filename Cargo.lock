@@ -1056,6 +1056,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
+name = "litematic"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "flate2",
+ "mctas",
+]
+
+[[package]]
 name = "litrs"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1106,6 +1116,7 @@ dependencies = [
  "door-search",
  "door-vanilla",
  "door-video",
+ "litematic",
  "mctas",
  "regex",
  "serde_json",
@@ -1477,8 +1488,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "clock",
  "mctas",
  "redsim",
+ "serde_json",
 ]
 
 [[package]]
@@ -1677,6 +1690,7 @@ dependencies = [
  "clap",
  "clock",
  "flate2",
+ "litematic",
  "mctas",
  "piston-door",
  "serde",

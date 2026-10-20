@@ -88,6 +88,7 @@ pub fn rotated(m: &Machine, r: &Rot) -> Option<Machine> {
     }
     let mut mm = Machine::parse(&d.to_text()).ok()?;
     mm.stops = m.stops.iter().map(|(p, s)| (apply(r, *p), turn_state(r, s).unwrap_or(s.clone()))).collect();
+    mm.stations = m.stations.iter().map(|p| apply(r, *p)).collect();
     Some(mm)
 }
 

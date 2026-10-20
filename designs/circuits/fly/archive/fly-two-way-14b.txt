@@ -1,0 +1,50 @@
+# archived 2026-10-20T00:49Z from designs/circuits/tracks/fly/two-way/fly-two-way-14b.txt by mctas circuit archive
+# CIRCUIT: fly-two-way-14b flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9, robust
+# two-way: the reversible 6-block engine (fly-horizontal-6b-10gt-01ce95: two sticky pistons, the one
+# that fires first sets the direction) shuttling between two 4-block return stations: an obsidian
+# wall stops it; an observer watching the cell only the trailing observer enters at the stop fires
+# 2 gt later into a block whose cross dust points into the back of the leading part's sticky piston,
+# which pushes the trailing part back (2 gt pulse: spit) and the engine runs the other way.
+name: fly-two-way-14b
+circuit: flying-machine
+distance: 8
+travel: 0 0 1
+port start: 0 -1 0 minecraft:stone 1
+port station.0: 0 0 5
+port station.1: 0 0 6
+port station.2: 0 1 6
+port station.3: 1 1 6
+port station.4: 1 0 -1
+port station.5: 1 0 -2
+port station.6: 1 1 -2
+port station.7: 0 1 -2
+origin: 0 0 -2
+palette:
+  A minecraft:obsidian
+  B minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+  S minecraft:slime_block
+  n minecraft:observer[facing=north]
+  t minecraft:observer[facing=south]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .A
+  .t
+  O
+  .O
+  .
+  .
+  .
+  n
+  A
+layer 1:
+  AR
+  ..
+  SB
+  sS
+  .
+  .
+  .
+  .
+  RA

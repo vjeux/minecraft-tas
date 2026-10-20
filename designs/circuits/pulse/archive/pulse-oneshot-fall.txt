@@ -3,6 +3,9 @@
 name: pulse-oneshot-fall
 # Extendable family oneshot-fall (n = 0): falling-edge with L = 18 + 16n gt, 17 + 4n blocks. a sticky piston pushes an observer away on the rising edge and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of delay-4 repeaters that comes back into the bulb and turns it off one loop later (a bulb toggles only on rising edges of its power). Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family oneshot-fall --n N --out FILE.
 circuit: falling-edge
+group: pulse-oneshot-fall
+group title: falling-edge bulb one-shot
+group note: the observer lights a copper bulb when pulled back, a repeater U turns it off; L set by the repeater delays and the U's length
 extend family: pulse-oneshot-fall
 extend axis: 18 + 16n
 extend blocks: 17 + 4n

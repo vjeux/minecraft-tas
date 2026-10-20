@@ -144,6 +144,12 @@ fn run_in(w: &mut Worker, sb: u32, p: &Pext, o: &Options, from: Pos, to: Pos) ->
                 }
                 let n = at.len() as u32;
                 let extend = at.iter().rposition(|a| !*a).map(|i| i as u32 + 2).unwrap_or(1);
+                // the judge's rule: once extended, the payload must stay while the input is on
+                if let Some(first) = at.iter().position(|a| *a)
+                    && let Some(left) = at[first..].iter().position(|a| !*a)
+                {
+                    return Ok(Err(format!("cycle {}: on: extended at +{} but the payload leaves the target at +{}", c + 1, first + 1, first + left + 1)));
+                }
                 w.use_block(sb, p.input)?;
                 let off = w.step_record(sb, o.max_phase, true, from, to)?;
                 if off.idle == Some(false) {

@@ -218,7 +218,7 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
         Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
         _ => None,
     };
-    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick);
+    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
     for f in 0..t.frames() {
         r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
     }

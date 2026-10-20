@@ -1,0 +1,40 @@
+# archived 2026-10-20T01:21Z from designs/circuits/pext/tracks/pext/cascade-flat-r2.txt by mctas circuit archive
+# CIRCUIT: pext-cascade-flat-r2-n0 piston-extender 2 N 2, extend 22 gt, retract 24 gt, 15 blocks, 6x6x1, robust
+name: pext-cascade-flat-r2-n0
+circuit: piston-extender 2
+extend axis: 2 + 3n
+extend base: 0
+extend blocks: 15 + 29n
+extend family: pext-cascade-flat-r2
+extend generator: mctas circuit pext cascade --flat --base 2 --step 3 --n {n} --out {out}
+extend group: pext-cascade-flat
+extend group note: blocks = 10N - 5 - floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)
+extend group period: N = any reach >= 2
+extend group title: flat cascade extender (self-triggered units, 1 wide)
+extend n: 0..4
+extend rule: every n adds 3 units (slime + sticky piston + carried observer), their round-start pulsers and 9 cells of observer spine
+travel: 1 0 0
+port input: 5 4 0 lever
+port payload: 4 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=up]
+  B minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O
+layer 1:
+  sSsG
+layer 2:
+  .
+layer 3:
+  A.AAB
+layer 4:
+  AoooL
+layer 5:
+  oO

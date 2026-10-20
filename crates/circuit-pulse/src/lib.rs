@@ -6,6 +6,7 @@
 
 pub mod family;
 pub mod screen;
+pub mod stamp;
 pub mod unarchive;
 
 use clap::{Parser, Subcommand};
@@ -29,6 +30,8 @@ enum Cmd {
     Family(family::FamilyArgs),
     /// Remove archived designs (file + verdict and caption rows): instances a family card covers
     Unarchive(unarchive::UnarchiveArgs),
+    /// Put a tunable group's `group:` header on designs (the catalog shows a group as one card)
+    StampGroup(stamp::StampArgs),
 }
 
 /// `mctas circuit pulse <args...>`.
@@ -39,5 +42,6 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Census(a) => screen::census(a),
         Cmd::Family(a) => family::run(a),
         Cmd::Unarchive(a) => unarchive::run(a),
+        Cmd::StampGroup(a) => stamp::run(a),
     }
 }

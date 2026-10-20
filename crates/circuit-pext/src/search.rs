@@ -255,6 +255,8 @@ pub fn find_design(p: &Pext, f: &Find, name: &str) -> mctas::design::Design {
 pub struct MinOptions {
     pub palette: Vec<String>,
     pub threads: usize,
+    /// Only place new blocks in this z plane (keeps a flat design flat).
+    pub plane_z: Option<i32>,
 }
 
 /// Greedy shrink: remove any block (not the input or payload) while it still works; then try
@@ -292,7 +294,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             for z in lo[2] - 1..=hi[2] + 1 {
                 for x in lo[0] - 1..=hi[0] + 1 {
                     let c = [x, y, z];
-                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) {
+                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) && o.plane_z.is_none_or(|pz| pz == z) {
                         empties.push(c);
                     }
                 }

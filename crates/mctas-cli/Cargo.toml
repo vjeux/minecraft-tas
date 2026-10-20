@@ -26,4 +26,5 @@ door-video = { path = "../door-video" }
 clock-cli = { path = "../clock-cli" }
 circuit-cli = { path = "../circuit-cli" }
 site = { path = "../site" }
+litematic = { path = "../litematic" }
 web-cli = { path = "../web-cli" }

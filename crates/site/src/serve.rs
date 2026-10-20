@@ -233,6 +233,20 @@ fn probe_page(root: &str, design: &str, kind: &str) -> String {
 }
 
 /// The number in `<span id="f-count"><strong>N</strong>`.
+/// GET a path from the local server: the body (status 200 only).
+fn http_get_local(port: u16, path: &str) -> Result<Vec<u8>> {
+    let mut s = TcpStream::connect(("127.0.0.1", port))?;
+    write!(s, "GET /{} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", path.trim_start_matches('/'))?;
+    let mut all = Vec::new();
+    std::io::Read::read_to_end(&mut s, &mut all)?;
+    let head_end = all.windows(4).position(|w| w == b"\r\n\r\n").context("no HTTP header")?;
+    let head = String::from_utf8_lossy(&all[..head_end]).to_string();
+    if !head.starts_with("HTTP/1.1 200") {
+        bail!("GET /{path}: {}", head.lines().next().unwrap_or(""));
+    }
+    Ok(all[head_end + 4..].to_vec())
+}
+
 fn result_count(dom: &str) -> Option<usize> {
     let i = dom.find("id=\"f-count\"")?;
     let rest = &dom[i..];
@@ -272,6 +286,24 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             fails += 1;
         }
     };
+    // static checks (the files of the build): nothing community-derived is published (vjeux
+    // 01:15Z), and the circuit pages explain themselves (vjeux 01:05Z)
+    let community: Vec<&str> = site
+        .builds
+        .iter()
+        .filter(|b| b.kind == "door")
+        .filter(|b| crate::doors::community_seed(&b.name, &std::fs::read_to_string(dir.join(&b.design)).unwrap_or_default()).is_some())
+        .map(|b| b.name.as_str())
+        .collect();
+    let stray = std::fs::read_dir(dir.join("designs/doors")).map(|rd| rd.flatten().filter(|e| crate::doors::community_seed(&e.file_name().to_string_lossy(), "").is_some()).count()).unwrap_or(0);
+    check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let ok = ["<h2>What it does</h2>", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "about.html#glossary"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: what it does, how to try it, the judge's test, metric meanings", ok, b.page.clone());
+    }
+    let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
+    check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
     // the index: the UI ran, counted and drew the first page of cards
     let dom = dump_dom(&chrome, &format!("{base}index.html"), budget_ms)?;
     let want = site.run(&site_model::Query::default()).map(|(h, _)| h.len()).unwrap_or(0);
@@ -280,7 +312,14 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
     check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
-    check("index: the filter panel was drawn", dom.contains("id=\"f-time\"") && dom.contains("data-act=\"block\""), "time search + block-kind chips".into());
+    // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
+    let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
+    check(
+        "index: the header is the title, Doors / Clocks / Circuits and the search box",
+        header.matches("<a ").count() == 4 && header.contains("id=\"tab-door\"") && header.contains("id=\"tab-clock\"") && header.contains("id=\"tab-circuit\"") && header.contains("id=\"hq\"") && header.contains("class=\"count\""),
+        format!("{} links, search box: {}", header.matches("<a ").count(), header.contains("id=\"hq\"")),
+    );
+    check("index: the filter panel was drawn", dom.contains("data-act=\"block\"") && !dom.contains("id=\"f-time\""), "block-kind chips, no second search box".into());
     // the clock time search expands extendable families to their members
     let frag = "kind=clock&time=48%20gt";
     let q = site_model::Query::from_fragment(frag);
@@ -289,7 +328,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
     check("time search 48 gt: family members shown with their n", members == 0 || dom.contains("<span class=\"n\">n = "), format!("{} member cards", dom.matches("class=\"card member\"").count()));
-    check("time search 48 gt: the hint names the period", dom.contains("= 48 gt (2.4 s)"), "hint".into());
+    check("time search 48 gt: the count names the period", dom.contains("with a period of 48 gt (2.4 s)"), "summary".into());
+    // the header's search form from another page (index.html?kind=clock&q=48): the Clocks tab's
+    // search box takes a period
+    let dom = dump_dom(&chrome, &format!("{base}index.html?kind=clock&q=48"), budget_ms)?;
+    check("header search from another page (?kind=clock&q=48): the time search", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {}", result_count(&dom), hits.len()));
     // a facet filter from the URL
     let frag = "kind=door&is=flat,slime-free&sort=volume";
     let q = site_model::Query::from_fragment(frag);
@@ -304,6 +347,19 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     if let Some(b) = site.builds.iter().find(|b| b.kind == "door") {
         let dom = dump_dom(&chrome, &format!("{base}{}", b.page), budget_ms)?;
         check("door page: live viewer slot + properties", dom.contains("data-mcview=\"full\"") && dom.contains("Open / close"), b.page.clone());
+        // its .litematic: linked, served, a schematic of exactly the design file next to it
+        let lpath = crate::generate::litematic_path(&b.design);
+        let linked = dom.contains(&format!("href=\"../{lpath}\""));
+        let verdict = http_get_local(port, &lpath).and_then(|bytes| {
+            let s = litematic::read(&bytes)?;
+            let d = mctas::design::Design::parse(&std::fs::read_to_string(dir.join(&b.design))?)?;
+            litematic::compare(&d, &s)?;
+            Ok(format!("{} bytes, {} blocks, Version {} for data version {}", bytes.len(), s.total_blocks.unwrap_or(0), s.version, s.data_version))
+        });
+        check("door page: .litematic linked, served and equal to the design", linked && verdict.is_ok(), match verdict {
+            Ok(v) => format!("{lpath}: {v}"),
+            Err(e) => format!("{lpath}: linked {linked}, {e:#}"),
+        });
     }
     if let Some(c) = site.cards.first() {
         let dom = dump_dom(&chrome, &format!("{base}{}", c.page), budget_ms)?;
