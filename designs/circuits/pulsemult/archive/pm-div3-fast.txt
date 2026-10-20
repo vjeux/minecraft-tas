@@ -1,0 +1,56 @@
+# archived 2026-10-20T11:44Z from designs/circuits/pulsemult/tracks/pulsemult/pm-div3-fast.txt by mctas circuit archive
+# CIRCUIT: pm-div3-fast divider 3 N 3, duty 33%, output pulse (40 gt), latency 12 gt, min-period 8 gt, 55 blocks, 9x4x7, robust
+name: pm-div3-fast
+circuit: divider 3
+port input: -4 -1 0
+port output: 4 1 0
+origin: -4 0 -2
+palette:
+  A minecraft:comparator[facing=north,mode=compare,powered=false]
+  B minecraft:comparator[facing=south,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=true]
+  D minecraft:comparator[facing=west,mode=compare,powered=false]
+  E minecraft:comparator[facing=west,mode=subtract,powered=false]
+  F minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  G minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  H minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  I minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  w minecraft:waxed_copper_bulb[lit=true,powered=false]
+layer -2:
+  .
+  .
+  ..S
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  .
+  .WE
+  .
+  .
+  .
+  .
+layer 0:
+  .S.S
+  S...SSSSS
+  S.OS.S.SS
+  .S.SSS
+  .....S
+  ....S
+  .....S
+layer 1:
+  ScSCw
+  R...GcrRR
+  R.SISEWDR
+  SDSHFG
+  ....WB
+  ....AS
+  ....SR
