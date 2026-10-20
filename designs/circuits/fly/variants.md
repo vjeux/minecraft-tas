@@ -10,5 +10,3 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 |---|---|---|
 | [fly-d1](archive/fly-d1.txt) | 7 | - |
 | [fly-down-7b-10gt-aca731](archive/fly-down-7b-10gt-aca731.txt) | 7 | - |
-| [fly-payload-9-15b](archive/fly-payload-9-15b.txt) | 15 | gold_block |
-| [fly-payload-18-24b](archive/fly-payload-18-24b.txt) | 24 | gold_block |

@@ -15,6 +15,7 @@
 
 mod gpu;
 mod live;
+mod overlay;
 
 use mcview::atlas::Atlas;
 use mcview::render::Frame;
@@ -72,6 +73,12 @@ pub(crate) struct View {
     pub tick: Option<u32>,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
+    /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
+    pub stimulus: Option<String>,
+    /// `data-phases`: the checker's phase labels.
+    pub phases: Option<String>,
+    /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
+    pub input_mode: Option<String>,
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
     /// Canvas size in device pixels.
@@ -115,6 +122,93 @@ pub(crate) struct App {
     ro: ResizeObserver,
     frame_scheduled: bool,
     work_scheduled: bool,
+    /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
+    /// (applied, or unavailable: the hand-drawn tiles stay).
+    textures_pending: bool,
+}
+
+/// Where the game's block atlas comes from: `data-mcview-textures` on the page's root element
+/// (`none` = the hand-drawn tiles only; else the directory of `atlas.png` and `data.min.json`),
+/// by default misode/mcmeta's atlas of the judge's version.
+fn texture_urls() -> Option<(String, String)> {
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some((format!("{base}/atlas.png"), format!("{base}/data.min.json")))
+        }
+        _ => Some((mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string())),
+    }
+}
+
+/// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
+/// is unavailable, e.g. on http pages).
+async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
+    use wasm_bindgen_futures::JsFuture;
+    let w = window();
+    let cache: Option<web_sys::Cache> = match w.caches() {
+        Ok(cs) => JsFuture::from(cs.open("mcview-textures-1")).await.ok().map(|c| c.unchecked_into()),
+        Err(_) => None,
+    };
+    let mut resp: Option<web_sys::Response> = None;
+    if let Some(c) = &cache
+        && let Ok(r) = JsFuture::from(c.match_with_str(url)).await
+        && !r.is_undefined()
+    {
+        resp = Some(r.unchecked_into());
+    }
+    let resp = match resp {
+        Some(r) => r,
+        None => {
+            let r: web_sys::Response = JsFuture::from(w.fetch_with_str(url)).await.map_err(|e| format!("fetch {url}: {e:?}"))?.unchecked_into();
+            if !r.ok() {
+                return Err(format!("fetch {url}: HTTP {}", r.status()));
+            }
+            if let Some(c) = &cache
+                && let Ok(copy) = r.clone()
+            {
+                let _ = JsFuture::from(c.put_with_str(url, &copy)).await;
+            }
+            r
+        }
+    };
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
+    Ok(js_sys::Uint8Array::new(&buf).to_vec())
+}
+
+/// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
+async fn load_textures() {
+    let Some((png_url, index_url)) = texture_urls() else {
+        with_app(|a| a.textures_pending = false);
+        ensure_frame();
+        return;
+    };
+    let got = async {
+        let png = fetch_cached(&png_url).await?;
+        let index = String::from_utf8(fetch_cached(&index_url).await?).map_err(|e| e.to_string())?;
+        Ok::<_, String>((png, index))
+    }
+    .await;
+    with_app(|a| {
+        match got {
+            Ok((png, index)) => {
+                let mut atlas = (*a.atlas).clone();
+                match atlas.apply_vanilla_png(&png, &index) {
+                    Ok(n) => {
+                        if debug() {
+                            log(&format!("the game's textures on {n} tiles"));
+                        }
+                        a.set_atlas(atlas);
+                    }
+                    Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                }
+            }
+            Err(e) => log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)")),
+        }
+        a.textures_pending = false;
+    });
+    ensure_frame();
 }
 
 #[wasm_bindgen(start)]
@@ -150,8 +244,21 @@ pub fn start() {
         ro,
         frame_scheduled: false,
         work_scheduled: false,
+        textures_pending: true,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
+    // the game's textures (hand-drawn tiles if they do not come within a few seconds)
+    wasm_bindgen_futures::spawn_local(load_textures());
+    {
+        let cb = Closure::once_into_js(move || {
+            let late = with_app(|a| std::mem::replace(&mut a.textures_pending, false)).unwrap_or(false);
+            if late {
+                log("the game's textures are slow: drawing with the hand-drawn tiles meanwhile");
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 4000);
+    }
     // the shared thumbnail context, on a canvas that is never shown
     let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
     canvas.set_width(240);
@@ -327,6 +434,33 @@ fn attr_f32(el: &Element, k: &str) -> Option<f32> {
 }
 
 impl App {
+    /// New tiles (the game's textures arrived): every context uploads them, every picture is
+    /// drawn again.
+    fn set_atlas(&mut self, atlas: Atlas) {
+        self.atlas = Rc::new(atlas);
+        if let ThumbGpu::Ready(g) = &self.thumb {
+            g.r.upload_atlas(&self.atlas);
+        }
+        self.cache.clear();
+        let atlas = self.atlas.clone();
+        let mut again = Vec::new();
+        for (id, v) in self.views.iter_mut() {
+            if let Some(l) = v.live.as_mut() {
+                l.atlas_changed(&atlas);
+            } else if v.done {
+                v.done = false;
+                if v.visible {
+                    again.push(*id);
+                }
+            }
+        }
+        for id in again {
+            if !self.queue.contains(&id) {
+                self.queue.push_back(id);
+            }
+        }
+    }
+
     fn register(&mut self, el: HtmlElement) {
         let id = self.next_id;
         self.next_id += 1;
@@ -356,6 +490,9 @@ impl App {
             trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
             autoplay: el.has_attribute("data-autoplay"),
+            stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
+            phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
+            input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
             pitch: attr_f32(&el, "data-pitch"),
             el: el.clone(),
@@ -502,6 +639,10 @@ impl App {
     /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
     /// work is left.
     fn thumbs(&mut self) -> bool {
+        if self.textures_pending {
+            // drawn once, with the game's textures (load_textures or its timeout wakes us)
+            return false;
+        }
         let perf = window().performance();
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
         if debug() && !self.queue.is_empty() {

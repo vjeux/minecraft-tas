@@ -129,6 +129,9 @@ enum Cmd {
         /// Skip designs whose prepared name (its type) is already in this archive directory.
         #[arg(long)]
         skip_archived: Option<PathBuf>,
+        /// Keep only the first design of each (class, blocks, speed, caption).
+        #[arg(long)]
+        one_per_caption: bool,
     },
     /// Every one of the 24 orientations of each design on redsim (tilted to fly up or down,
     /// rolled about the travel axis): one line per orientation that flies; `--out-dir` writes the
@@ -155,6 +158,9 @@ enum Cmd {
         workers: usize,
         #[arg(long)]
         out_dir: PathBuf,
+        /// Designs written per (speed, class, blocks).
+        #[arg(long, default_value_t = 1000)]
+        keep: usize,
     },
     /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
     /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
@@ -171,8 +177,43 @@ enum Cmd {
         n: usize,
         #[arg(long, default_value = "minecraft:slime_block")]
         block: String,
+        /// The first column holds at most this many blocks; the rest go in the second column.
+        #[arg(long, default_value_t = 9)]
+        cap: usize,
+        /// The second column's start cell (a block of the other part).
+        #[arg(long)]
+        from2: Option<String>,
+        #[arg(long, default_value = "down")]
+        dir2: String,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Two-way machines: for each reversible machine (kicked from its back-facing sticky piston it
+    /// flies backward), the station search ahead and behind, then every pair of the best stations
+    /// (`--pairs` each) composed into one design (`port station.<n>`), kept when it shuttles.
+    TwoWay {
+        machines: Vec<PathBuf>,
+        #[arg(long, default_value_t = 4)]
+        approach: i32,
+        #[arg(long, default_value_t = 3)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        radius: i32,
+        #[arg(long, default_value = "obsidian,stone,observer,repeater1,minecraft:redstone_wire[east=side,north=side,south=side,west=side]")]
+        palette: String,
+        #[arg(long, default_value_t = 300)]
+        horizon: u32,
+        #[arg(long, default_value_t = 12)]
+        workers: usize,
+        #[arg(long, default_value_t = 8)]
+        procs: usize,
+        #[arg(long, default_value_t = 2)]
+        pairs: usize,
+        /// Only say which machines fly backward when kicked from their other end (no search).
+        #[arg(long)]
+        reversible_only: bool,
+        #[arg(long)]
+        out_dir: PathBuf,
     },
     /// Return-station search on redsim: the machine flies `approach` cells toward an obsidian
     /// wall (every wall cell in front of its leading face) with up to k more station blocks
@@ -277,12 +318,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             census::run_census(&o, &boxes, &argv)?;
         }
         Cmd::Types { designs, workers, copy_hosts } => types(&designs, workers, copy_hosts.as_deref())?,
-        Cmd::Prep { designs, out_dir, skip_archived } => {
+        Cmd::Prep { designs, out_dir, skip_archived, one_per_caption } => {
             std::fs::create_dir_all(&out_dir)?;
             let archived: Vec<String> = match &skip_archived {
                 Some(d) => std::fs::read_dir(d)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().trim_end_matches(".txt").to_string()).collect(),
                 None => Vec::new(),
             };
+            let mut seen: std::collections::BTreeSet<(String, String)> = std::collections::BTreeSet::new();
             for p in &designs {
                 let text = std::fs::read_to_string(p)?;
                 let m = machine::Machine::parse(&text)?;
@@ -290,6 +332,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 if archived.iter().any(|a| a == &name || a.starts_with(&format!("{name}-"))) {
                     println!("{} -> {name} (archived already)", p.display());
                     continue;
+                }
+                if one_per_caption {
+                    let prefix = name.rsplit_once('-').map(|(a, _)| a.to_string()).unwrap_or_default();
+                    let cap = out.lines().next().unwrap_or("").to_string();
+                    if !seen.insert((prefix, cap)) {
+                        continue;
+                    }
                 }
                 std::fs::write(out_dir.join(format!("{name}.txt")), out)?;
                 println!("{} -> {name}", p.display());
@@ -329,7 +378,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir } => {
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep } => {
             let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
             let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers };
             let found = grow::grow(&ms, &o)?;
@@ -338,7 +387,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             for g in &found {
                 let key = (g.speed(), g.class().to_string(), g.cells.len());
                 let k = seen.entry(key.clone()).or_insert(0);
-                if *k < 3 {
+                if *k < keep {
                     let name = format!("grow-{}b-{}gt-{}-{}", g.cells.len(), g.speed().replace('/', "_"), g.class(), *k);
                     std::fs::write(out_dir.join(format!("{name}.txt")), grow::design_text(g, &name))?;
                 }
@@ -348,13 +397,21 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{blocks} blocks, {speed} gt/block, {class}: {n} candidates");
             }
         }
-        Cmd::Gen { family, base, from, dir, n, block, out } => {
-            let v: Vec<i32> = from.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
-            if v.len() != 3 {
-                bail!("--from x,y,z");
-            }
+        Cmd::Gen { family, base, from, dir, n, block, cap, from2, dir2, out } => {
+            let pos = |s: &str| -> Result<clock::Pos> {
+                let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                if v.len() != 3 {
+                    bail!("x,y,z expected, got {s:?}");
+                }
+                Ok([v[0], v[1], v[2]])
+            };
+            let block = mctas::blockstate::BlockState::parse(&block)?.to_string();
+            let second = match &from2 {
+                Some(s) => Some((pos(s)?, dir2.as_str())),
+                None => None,
+            };
             let m = match family.as_str() {
-                "payload" => family::payload(&base, [v[0], v[1], v[2]], &dir, n, &mctas::blockstate::BlockState::parse(&block)?.to_string())?,
+                "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, n, &block)?,
                 f => bail!("unknown family {f:?} (payload)"),
             };
             std::fs::write(&out, m.to_text())?;
@@ -370,45 +427,17 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             let o = station::StationOptions { approach, k, radius, palette: clock::census::expand_palette(&palette)?, horizon, workers, back, shard };
             std::fs::create_dir_all(&out_dir)?;
-            let mut found: Vec<station::Station> = Vec::new();
-            if procs > 1 && shard.1 <= 1 {
-                let exe = std::env::current_exe()?;
-                let mut children = Vec::new();
-                for i in 0..procs {
-                    let dir = out_dir.join(format!("shard-{i}"));
-                    let mut args: Vec<String> = Vec::new();
-                    let mut skip = false;
-                    for a in &argv {
-                        if skip {
-                            skip = false;
-                            continue;
-                        }
-                        if a == "--procs" || a == "--out-dir" || a == "--shard" {
-                            skip = true;
-                            continue;
-                        }
-                        args.push(a.clone());
-                    }
-                    args.extend(["--shard".to_string(), format!("{i}/{procs}"), "--out-dir".to_string(), dir.display().to_string()]);
-                    children.push((std::process::Command::new(&exe).args(["circuit", "fly"]).args(&args).stdout(std::process::Stdio::null()).spawn()?, dir));
-                }
-                for (mut c, dir) in children {
-                    if !c.wait()?.success() {
-                        bail!("station shard {} failed", dir.display());
-                    }
-                    for l in std::fs::read_to_string(dir.join("raw.tsv"))?.lines() {
-                        found.push(station::parse_station(l)?);
-                    }
-                }
-                found.sort_by_key(|s| (s.blocks.len(), s.back_at));
+            let found: Vec<station::Station> = if procs > 1 && shard.1 <= 1 {
+                station_search_procs(&machine, &o, &palette, procs, &out_dir)?
             } else {
-                found = station::search(&m, &o)?;
+                let f = station::search(&m, &o)?;
                 if shard.1 > 1 {
-                    let raw: String = found.iter().map(|s| station::station_line(s) + "\n").collect();
+                    let raw: String = f.iter().map(|s| station::station_line(s) + "\n").collect();
                     std::fs::write(out_dir.join("raw.tsv"), raw)?;
                     return Ok(());
                 }
-            }
+                f
+            };
             println!("{} stations found", found.len());
             for (i, s) in found.iter().take(keep).enumerate() {
                 let name = format!("{}-st{}-{i}", m.name(), s.blocks.len());
@@ -417,8 +446,106 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 std::fs::write(out_dir.join(format!("{name}.txt")), station::design_text(&m, s, &name))?;
             }
         }
+        Cmd::TwoWay { machines, approach, k, radius, palette, horizon, workers, procs, out_dir, pairs, reversible_only } => {
+            std::fs::create_dir_all(&out_dir)?;
+            let o = station::StationOptions { approach, k, radius, palette: clock::census::expand_palette(&palette)?, horizon, workers, back: 4, shard: (0, 1) };
+            for path in &machines {
+                let m = machine::Machine::load(path)?;
+                let Some(rev) = station::reversed(&m) else {
+                    println!("{}: no back-facing sticky piston to kick: not reversible", m.name());
+                    continue;
+                };
+                let dir = out_dir.join(m.name());
+                std::fs::create_dir_all(&dir)?;
+                let rev_path = dir.join(format!("{}-rev.txt", m.name()));
+                std::fs::write(&rev_path, rev.to_text())?;
+                // does it fly backward at all?
+                let rr = sim::simulate(&rev, &sim::SimOptions { distance: 8, ..Default::default() });
+                let back = m.travel.map(|t| [-t[0], -t[1], -t[2]]);
+                if rr.direction() != back {
+                    println!("{}: kicked from the other piston it does not fly backward ({})", m.name(), rr.verdict.word());
+                    continue;
+                }
+                if reversible_only {
+                    println!("{}: reversible ({} backward: {})", m.name(), rr.speed_text(), rev_path.display());
+                    continue;
+                }
+                let fwd = station_search_procs(path, &o, &palette, procs, &dir.join("fwd"))?;
+                let bwd = station_search_procs(&rev_path, &o, &palette, procs, &dir.join("bwd"))?;
+                println!("{}: {} forward stations, {} backward stations", m.name(), fwd.len(), bwd.len());
+                let mut made = 0;
+                'pairs: for f in fwd.iter().take(pairs) {
+                    for b in bwd.iter().take(pairs) {
+                        let name = format!("fly-two-way-{}-{made}", m.name().trim_start_matches("fly-"));
+                        let mut mm = m.clone();
+                        for (p, blk) in f.blocks.iter().chain(&b.blocks) {
+                            if mm.stops.iter().any(|(q, _)| q == p) {
+                                continue 'pairs;
+                            }
+                            mm.stops.push((*p, blk.to_string()));
+                            mm.stations.insert(*p);
+                        }
+                        mm.clock.design.name = name.clone();
+                        let r = sim::simulate(&mm, &sim::SimOptions { horizon: 800, ..Default::default() });
+                        println!("  {name}: {}", r.summary());
+                        if r.verdict == report::Verdict::Shuttles {
+                            std::fs::write(out_dir.join(format!("{name}.txt")), mm.to_text())?;
+                            made += 1;
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(())
+}
+
+/// The station search in `procs` child processes (each `o.workers` threads, a share of the jobs),
+/// merged, best first.
+fn station_search_procs(machine: &std::path::Path, o: &station::StationOptions, palette: &str, procs: usize, out_dir: &std::path::Path) -> Result<Vec<station::Station>> {
+    std::fs::create_dir_all(out_dir)?;
+    // a rebuilt binary leaves the running one as "<path> (deleted)": spawn the new one
+    let exe = std::path::PathBuf::from(std::env::current_exe()?.display().to_string().trim_end_matches(" (deleted)"));
+    let mut children = Vec::new();
+    for i in 0..procs.max(1) {
+        let dir = out_dir.join(format!("shard-{i}"));
+        let args: Vec<String> = vec![
+            "circuit".into(),
+            "fly".into(),
+            "station".into(),
+            machine.display().to_string(),
+            "--approach".into(),
+            o.approach.to_string(),
+            "--k".into(),
+            o.k.to_string(),
+            "--radius".into(),
+            o.radius.to_string(),
+            "--palette".into(),
+            palette.to_string(),
+            "--horizon".into(),
+            o.horizon.to_string(),
+            "--back".into(),
+            o.back.to_string(),
+            "--workers".into(),
+            o.workers.to_string(),
+            "--shard".into(),
+            format!("{i}/{}", procs.max(1)),
+            "--out-dir".into(),
+            dir.display().to_string(),
+        ];
+        children.push((std::process::Command::new(&exe).args(&args).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn()?, dir));
+    }
+    let mut found = Vec::new();
+    for (mut c, dir) in children {
+        if !c.wait()?.success() {
+            bail!("station shard {} failed", dir.display());
+        }
+        for l in std::fs::read_to_string(dir.join("raw.tsv"))?.lines() {
+            found.push(station::parse_station(l)?);
+        }
+    }
+    found.sort_by_key(|s: &station::Station| (s.blocks.len(), s.back_at));
+    Ok(found)
 }
 
 /// One design's identity facts.

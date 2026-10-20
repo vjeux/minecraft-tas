@@ -104,6 +104,71 @@ fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Ve
     f
 }
 
+/// The judge's test as the viewer and the page show it: how each input is driven, the stimulus
+/// (`stimulus:` text) and its phases, the redsim run as a timing diagram, the checker's report.
+struct Details {
+    devices: Vec<String>,
+    stimulus: String,
+    phases: String,
+    wave: Option<site_model::Wave>,
+    table: Vec<String>,
+    /// The redsim screen's metrics when it passes (the calibration designs show these).
+    metrics: Option<Vec<(String, String)>>,
+    /// The redsim screen's one-line verdict.
+    summary: String,
+    /// Why the screen fails, when it does.
+    fails: Option<String>,
+}
+
+fn details(c: &Design) -> Details {
+    let devices: Vec<String> = c
+        .inputs
+        .iter()
+        .map(|i| match &i.how {
+            circuit::InputHow::Lever => "lever".to_string(),
+            circuit::InputHow::Button => "button".to_string(),
+            circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
+            circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
+        })
+        .collect();
+    let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None };
+    let r = match sim(c, &Options::default()) {
+        Ok(r) => r,
+        Err(e) => {
+            d.summary = format!("redsim screen failed: {e:#}");
+            return d;
+        }
+    };
+    d.summary = r.summary(c);
+    if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
+        d.stimulus = r.schedule.text(&names);
+    }
+    d.phases = r.schedule.phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
+    if let Some(o) = &r.outcome {
+        d.table = o.table.clone();
+        if o.pass {
+            d.metrics = Some(o.metrics.clone());
+        } else {
+            d.fails = Some(o.why.clone());
+        }
+    }
+    if let Ok(t) = &r.trace {
+        let mut rows: Vec<site_model::WaveRow> = Vec::new();
+        for (k, i) in c.inputs.iter().enumerate() {
+            let lv: Vec<u8> = t.inputs[k].iter().map(|on| if *on { 15 } else { 0 }).collect();
+            rows.push(site_model::WaveRow::from_levels(&i.name, true, &lv));
+        }
+        for (k, o) in c.outputs.iter().enumerate() {
+            rows.push(site_model::WaveRow::from_levels(&o.name, false, &t.levels[k]));
+        }
+        if !rows.is_empty() && t.frames() > 1 {
+            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: r.schedule.phases.clone() });
+        }
+    }
+    d
+}
+
 /// The archived circuits of every study.
 fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
     let mut out = Vec::new();
@@ -138,7 +203,9 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
         for (i, r) in rows.iter().enumerate() {
             let path = dir.join(&r.file);
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            let parsed = parse(&path).map(|(_, p)| p);
+            let loaded = parse(&path);
+            let det = loaded.as_ref().map(|(c, _)| details(c));
+            let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
             let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
             let host_id = host.get(&i).map(|&h| id_of(&rows[h]));
@@ -173,6 +240,11 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     robustness: r.robustness.clone(),
                     host: host_id,
                     archived: r.archived.clone(),
+                    devices: det.as_ref().map(|d| d.devices.clone()).unwrap_or_default(),
+                    stimulus: det.as_ref().map(|d| d.stimulus.clone()).unwrap_or_default(),
+                    phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
+                    wave: det.as_ref().and_then(|d| d.wave.clone()),
+                    table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
                 }),
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
@@ -202,17 +274,14 @@ fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             continue;
         };
         let kind_name = kind.name();
-        let (metrics, verdict, outcome) = match sim(&c, &Options::default()) {
-            Ok(r) => {
-                let m = r.outcome.as_ref().filter(|o| o.pass).map(|o| o.metrics.clone()).unwrap_or_default();
-                if let Some(o) = r.outcome.as_ref().filter(|o| !o.pass) {
-                    notes.push(format!("{}: redsim screen fails: {}", path.display(), o.why));
-                }
-                (m, format!("{} (redsim screen at site build time)", r.summary(&c)), r.outcome.clone().filter(|o| o.pass))
-            }
-            Err(e) => (Vec::new(), format!("redsim screen failed: {e:#}"), None),
-        };
+        let det = details(&c);
+        if let Some(why) = &det.fails {
+            notes.push(format!("{}: redsim screen fails: {why}", path.display()));
+        }
+        let metrics = det.metrics.clone().unwrap_or_default();
+        let verdict = format!("{} (redsim screen at site build time)", det.summary);
         // the axis as the archive writes it (`L = 2 gt`, `N = 4 gt`, the gate's function)
+        let outcome = det.metrics.clone().map(|m| circuit::check::Outcome { pass: true, metrics: m, ..Default::default() });
         let axis = match &outcome {
             Some(o) => circuit::archive::axis(&kind, o, &p.kinds.join("+")),
             None => kind_name.clone(),
@@ -243,6 +312,11 @@ fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                 verdict,
                 inputs: p.inputs,
                 outputs: p.outputs,
+                devices: det.devices,
+                stimulus: det.stimulus,
+                phases: det.phases,
+                wave: det.wave,
+                table: det.table,
                 ..Default::default()
             }),
             ..Default::default()

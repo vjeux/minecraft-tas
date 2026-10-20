@@ -13,6 +13,7 @@ pub mod circuits;
 pub mod clocks;
 pub mod deploy;
 pub mod doors;
+pub mod explain;
 pub mod generate;
 pub mod pages;
 pub mod serve;

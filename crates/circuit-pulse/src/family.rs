@@ -460,6 +460,21 @@ fn instance_text_v0(name: &str, n: u32) -> Option<String> {
     }
 }
 
+/// The tunable group a generated design belongs to (stamped as its `group:` header).
+pub fn group_of(family: &str, kind: &str) -> &'static str {
+    match (family, kind) {
+        ("limiter-u" | "limiter-u4" | "limiter-for", _) => "pulse-limiter-u",
+        ("oneshot-ext" | "oneshot-for" | "oneshot-mode-rise", "pulse-extender") => "pulse-oneshot-ext",
+        ("oneshot-rise" | "oneshot-u" | "oneshot-u1" | "oneshot-for" | "oneshot-mode-rise", _) => "pulse-oneshot-rise",
+        ("oneshot-fall" | "oneshot-mode-fall", _) => "pulse-oneshot-fall",
+        ("oneshot-mode-dual", _) => "pulse-oneshot-dual",
+        ("dual-lock" | "dual-lock1", _) => "pulse-dual-lock",
+        ("oneshot-bulb-rise", _) => "pulse-oneshot-bulb-rise",
+        ("oneshot-bulb-ext", _) => "pulse-oneshot-bulb-ext",
+        _ => "pulse-other",
+    }
+}
+
 pub fn run(a: FamilyArgs) -> Result<()> {
     if a.name == "oneshot-mode" {
         // any mode, any even L: rise / fall / dual, the U delays split to fit
@@ -485,6 +500,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             };
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): {how}; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode {} --kind {} --l-range {l}..{l}.\n", a.kind, a.mode, a.kind));
+            let text = crate::stamp::stamp(&text, group_of(&format!("oneshot-mode-{}", a.mode), &a.kind), None, None);
             std::fs::write(dir.join(format!("{name}.txt")), text)?;
         }
         return Ok(());
@@ -498,6 +514,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             let Some(mut text) = oneshot_for(l, &a.kind) else { continue };
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range {l}..{l} --kind {}).\n", a.kind, a.kind));
+            let text = crate::stamp::stamp(&text, group_of("oneshot-for", &a.kind), None, None);
             std::fs::write(dir.join(format!("pulse-oneshot-{}-L{l}.txt", a.kind)), text)?;
         }
         return Ok(());
@@ -511,6 +528,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
                 let mut text = limiter_u_for(l).unwrap_or_default();
                 let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
                 text.insert_str(at, &format!("# A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to {l} gt; it outputs rear - side, so every input pulse is cut to {l} gt (generator: mctas circuit pulse family limiter-for --l {l}).\n"));
+                let text = crate::stamp::stamp(&text, group_of("limiter-for", ""), None, None);
                 std::fs::write(dir.join(format!("pulse-limiter-u-L{l}.txt")), text)?;
             }
             return Ok(());
@@ -519,6 +537,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         let Some(mut text) = limiter_u_for(l) else { bail!("L must be even and >= 4") };
         let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
         text.insert_str(at, &format!("# A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to {l} gt; it outputs rear - side, so every input pulse is cut to {l} gt (generator: mctas circuit pulse family limiter-for --l {l}).\n"));
+        let text = crate::stamp::stamp(&text, group_of("limiter-for", ""), None, None);
         match &a.out {
             Some(o) => std::fs::write(o, text)?,
             None => print!("{text}"),
@@ -550,6 +569,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         text.insert_str(at, &header);
         text = text.replacen(&format!("name: pulse-{}-n{}", f.name, a.n), &format!("name: pulse-{}", f.name), 1);
     }
+    let text = crate::stamp::stamp(&text, group_of(f.name, f.kind), None, None);
     match &a.out {
         Some(o) => std::fs::write(o, text)?,
         None => print!("{text}"),

@@ -30,6 +30,10 @@ pub enum WebCmd {
         yaw: Option<f32>,
         #[arg(long)]
         pitch: Option<f32>,
+        /// The hand-drawn tiles only (default: the game's textures, misode/mcmeta's atlas,
+        /// downloaded once into ~/.cache/mctas, local only).
+        #[arg(long)]
+        procedural: bool,
     },
     /// Check the viewer against the repo's tools: its design parser against `mctas::design` on
     /// every block and port, and its clock period detector (the code the browser runs) against
@@ -87,6 +91,9 @@ pub enum WebCmd {
         img_dir: PathBuf,
         #[arg(long, short)]
         out: PathBuf,
+        /// The hand-drawn tiles only (default: the game's textures).
+        #[arg(long)]
+        procedural: bool,
     },
     /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
     /// software): opens `<url>?mcview-debug` for `--seconds`, reads every frame's bounding boxes of
@@ -124,6 +131,42 @@ pub enum WebCmd {
         wait: u64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
+    },
+    /// A screenshot of a page in headless Chromium after some seconds of real time (playing
+    /// viewers and demos advance), e.g. to check a live viewer's overlays.
+    Snap {
+        url: String,
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 4.0)]
+        seconds: f64,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// Scroll the page down this many CSS px first.
+        #[arg(long, default_value_t = 0.0)]
+        scroll: f64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
+    /// Fit the default camera to the real-game pictures: renders each design under camera tweaks
+    /// (zoom, pitch, yaw, height, distance) and prints the best by mean pixel difference.
+    Fit {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/clocks/img")]
+        img_dir: PathBuf,
+        /// Zooms to try (comma-separated).
+        #[arg(long, default_value = "1.0,1.1,1.2,1.3")]
+        zoom: String,
+        #[arg(long, default_value = "-2,0,2")]
+        pitch: String,
+        #[arg(long, default_value = "-2,0,2")]
+        yaw: String,
+        #[arg(long, default_value = "0")]
+        dy: String,
+        #[arg(long, default_value = "1.0")]
+        dist: String,
     },
     /// Texture contact sheet: PNGs scaled up (nearest) in a grid, in the given order (row by row),
     /// to pick textures by eye.
@@ -180,17 +223,33 @@ pub enum WebCmd {
         width: u32,
         #[arg(long, default_value_t = 240)]
         height: u32,
+        /// The hand-drawn tiles only (default: the game's textures).
+        #[arg(long)]
+        procedural: bool,
     },
+}
+
+/// The tiles: the game's textures over the hand-drawn ones (misode/mcmeta's atlas, cached
+/// locally), or the hand-drawn ones only.
+fn atlas(procedural: bool) -> mcview::atlas::Atlas {
+    let mut a = mcview::atlas::Atlas::build();
+    if !procedural {
+        match mcview::tools::vanilla_atlas().and_then(|(png, idx)| a.apply_vanilla_png(&png, &idx)) {
+            Ok(n) => eprintln!("the game's textures on {n} tiles"),
+            Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
+        }
+    }
+    a
 }
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch }),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
-        WebCmd::Compare { designs, img_dir, out } => cmd_compare(&designs, &img_dir, &out),
+        WebCmd::Compare { designs, img_dir, out, procedural } => cmd_compare(&designs, &img_dir, &out, procedural),
         WebCmd::Tiles { out } => {
             let atlas = mcview::atlas::Atlas::build();
             std::fs::create_dir_all(&out)?;
@@ -232,6 +291,38 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Fit { designs, img_dir, zoom, pitch, yaw, dy, dist } => {
+            let nums = |s: &str| -> Vec<f32> { s.split(',').filter_map(|w| w.trim().parse().ok()).collect() };
+            let mut tweaks = Vec::new();
+            for &z in &nums(&zoom) {
+                for &p in &nums(&pitch) {
+                    for &y in &nums(&yaw) {
+                        for &d in &nums(&dy) {
+                            for &ds in &nums(&dist) {
+                                tweaks.push(mcview::tools::CamTweak { zoom: z, dpitch: p, dyaw: y, dy: d, dist: ds });
+                            }
+                        }
+                    }
+                }
+            }
+            let mut cases = Vec::new();
+            for d in &designs {
+                let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
+                let jpg = img_dir.join(format!("{stem}.jpg"));
+                match std::fs::read(&jpg) {
+                    Ok(b) => cases.push((std::fs::read_to_string(d)?, b)),
+                    Err(_) => eprintln!("{stem}: no picture {}", jpg.display()),
+                }
+            }
+            let atlas = atlas(false);
+            let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+            let r = mcview::tools::fit(&mut off, &atlas, &cases, 400, 225, &tweaks).map_err(anyhow::Error::msg)?;
+            for (d, t) in r.iter().take(12) {
+                println!("{d:6.2}  zoom {:.3} pitch {:+.1} yaw {:+.1} dy {:+.2} dist {:.3}", t.zoom, t.dpitch, t.dyaw, t.dy, t.dist);
+            }
+            Ok(())
+        }
+        WebCmd::Snap { url, out, seconds, window, scale, scroll, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, &out, &browser),
         WebCmd::Click { url, window, scale, touch, wait, browser } => crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser),
         WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
@@ -241,8 +332,8 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             println!("{} ({} textures)", out.display(), pngs.len());
             Ok(())
         }
-        WebCmd::Strip { design, out, cols, rows, step, width, height } => {
-            let atlas = mcview::atlas::Atlas::build();
+        WebCmd::Strip { design, out, cols, rows, step, width, height, procedural } => {
+            let atlas = atlas(procedural);
             let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
             let text = std::fs::read_to_string(&design)?;
             let (rgba, w, h) = mcview::tools::strip(&mut off, &atlas, &text, cols, rows, step, width, height).map_err(anyhow::Error::msg)?;
@@ -253,8 +344,8 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     }
 }
 
-fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path) -> Result<()> {
-    let atlas = mcview::atlas::Atlas::build();
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool) -> Result<()> {
+    let atlas = atlas(procedural);
     let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
     std::fs::create_dir_all(out)?;
     let (mut n, mut sum_px, mut sum_coarse) = (0, 0.0, 0.0);
@@ -423,6 +514,21 @@ fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32,
     Ok(())
 }
 
+/// A circuit's judge stimulus and phases as the site emits them (`data-stimulus`, `data-phases`),
+/// from the circuit crate; empty for other designs.
+fn circuit_attrs(d: &Path) -> String {
+    let Ok(c) = circuit::Circuit::load(d) else { return String::new() };
+    let Some(kind) = c.kind.clone() else { return String::new() };
+    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+        return String::new();
+    }
+    let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
+    let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
+    let phases: Vec<String> = s.phases.iter().map(|(a, b, l)| format!("{a}-{b} {l}")).collect();
+    format!(" data-stimulus=\"{}\" data-phases=\"{}\"", html_escape(&s.text(&names)), html_escape(&phases.join("; ")))
+}
+
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
     std::fs::create_dir_all(out.join("designs"))?;
     std::fs::create_dir_all(out.join("viewer"))?;
@@ -437,7 +543,7 @@ fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autopla
         let src = html_escape(&format!("designs/{name}"));
         let label = html_escape(name.trim_end_matches(".txt"));
         if i < live {
-            lives.push_str(&format!("<section><h2>{label}</h2><div class=\"live\" data-mcview=\"full\" data-src=\"{src}\"{}><p class=\"fallback\">loading {label}</p></div></section>\n", if autoplay { " data-autoplay" } else { "" }));
+            lives.push_str(&format!("<section><h2>{label}</h2><div class=\"live\" data-mcview=\"full\" data-src=\"{src}\"{}{}><p class=\"fallback\">loading {label}</p></div></section>\n", if autoplay { " data-autoplay" } else { "" }, circuit_attrs(d)));
         }
         thumbs.push_str(&format!("<a class=\"card\" href=\"#\" title=\"{label}\"><div class=\"thumb\" data-mcview=\"thumb\" data-src=\"{src}\"><p class=\"fallback\">{label}</p></div><span>{label}</span></a>\n"));
     }
@@ -508,11 +614,11 @@ fn cmd_serve(dir: &Path, port: u16) -> Result<()> {
     Ok(())
 }
 
-fn cmd_shot(designs: &[PathBuf], out: &Path, o: mcview::tools::ShotOptions) -> Result<()> {
+fn cmd_shot(designs: &[PathBuf], out: &Path, o: mcview::tools::ShotOptions, procedural: bool) -> Result<()> {
     if designs.is_empty() {
         bail!("no design given");
     }
-    let atlas = mcview::atlas::Atlas::build();
+    let atlas = atlas(procedural);
     let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
     let to_dir = designs.len() > 1 || out.is_dir();
     if to_dir {

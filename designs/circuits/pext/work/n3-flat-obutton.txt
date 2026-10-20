@@ -1,0 +1,31 @@
+# N=3 FLAT cascade extender (1 wide), ONE OAK BUTTON PRESS (30 gt: the extension takes 27 gt, so the
+# release starts the retraction 3 gt after full extension); minimized in its plane (mctas circuit
+# pext minimize --plane-z 0) from the generated flat cascade.
+name: pext-n3-flat-cascade19-obutton
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 8 4 0 button
+port payload: 6 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=up]
+  C minecraft:sticky_piston[facing=east]
+  D minecraft:stone
+  G minecraft:gold_block
+  L minecraft:oak_button[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  .O.O
+layer 1:
+  CSCSCG
+layer 2:
+  .
+layer 3:
+  B.BB..BD
+layer 4:
+  sAoAA.PL

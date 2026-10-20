@@ -1,0 +1,31 @@
+# archived 2026-10-20T00:59Z from designs/clocks/tracks/clk-obs/families9/p39-lamp-obs-rb-stk-8b-376d5f.txt by mctas clock archive
+# CLOCK: clk-obs-p39-lamp-obs-rb-stk-8b-376d5f period 39 gt (1.95 s), on 12/39, edges 6, warmup 13, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p39-lamp-obs-rb-stk-8b-376d5f
+# clk-obs grow: P=39 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 2 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:redstone_block
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:redstone_lamp[lit=false]
+layer -1:
+  A
+  .
+  B
+layer 0:
+  C
+  D
+  A
+layer 1:
+  E
+  F
+  .
+layer 2:
+  .
+  .
+  G

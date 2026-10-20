@@ -481,6 +481,11 @@ pub enum Block {
     PlainRail { shape: RailShape },
     /// Detector rail (`DetectorRailBlock`: straight shapes), `react::rails`.
     DetectorRail { shape: RailShape, powered: bool },
+    /// Big dripleaf (the leaf; `react::dripleaf`): `tilt` 0 none, 1 unstable, 2 partial, 3 full.
+    BigDripleaf { facing: Dir, tilt: u8, waterlogged: bool },
+    /// Chiseled bookshelf: `slots` = the six `slot_N_occupied` flags (bit N); its 6-slot container
+    /// and `last_interacted_slot` live in the block entity.
+    ChiseledBookshelf { facing: Dir, slots: u8 },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -549,6 +554,8 @@ pub enum Kind {
     StoneSlab,
     PlainRail,
     DetectorRail,
+    BigDripleaf,
+    ChiseledBookshelf,
     Water,
     BubbleColumn,
 }
@@ -607,6 +614,8 @@ impl Block {
             Block::StoneSlab { .. } => Kind::StoneSlab,
             Block::PlainRail { .. } => Kind::PlainRail,
             Block::DetectorRail { .. } => Kind::DetectorRail,
+            Block::BigDripleaf { .. } => Kind::BigDripleaf,
+            Block::ChiseledBookshelf { .. } => Kind::ChiseledBookshelf,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
@@ -778,6 +787,26 @@ impl Block {
                     },
                     powered: bool_of("powered", false)?,
                 }
+            }
+            "big_dripleaf" => Block::BigDripleaf {
+                facing: hdir_of("facing", Dir::North)?,
+                tilt: match get("tilt") {
+                    None | Some("none") => 0,
+                    Some("unstable") => 1,
+                    Some("partial") => 2,
+                    Some("full") => 3,
+                    Some(v) => return Err(format!("bad tilt={v}")),
+                },
+                waterlogged: bool_of("waterlogged", false)?,
+            },
+            "chiseled_bookshelf" => {
+                let mut slots = 0u8;
+                for n in 0..6 {
+                    if bool_of(&format!("slot_{n}_occupied"), false)? {
+                        slots |= 1 << n;
+                    }
+                }
+                Block::ChiseledBookshelf { facing: hdir_of("facing", Dir::North)?, slots }
             }
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
@@ -1051,6 +1080,20 @@ impl fmt::Display for Block {
             Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
             Block::PlainRail { shape } => write!(f, "minecraft:rail[shape={},waterlogged=false]", shape.name()),
             Block::DetectorRail { shape, powered } => write!(f, "minecraft:detector_rail[powered={},shape={},waterlogged=false]", b(powered), shape.name()),
+            Block::BigDripleaf { facing, tilt, waterlogged } => write!(
+                f,
+                "minecraft:big_dripleaf[facing={},tilt={},waterlogged={}]",
+                facing.name(),
+                ["none", "unstable", "partial", "full"][tilt as usize],
+                b(waterlogged)
+            ),
+            Block::ChiseledBookshelf { facing, slots } => {
+                write!(f, "minecraft:chiseled_bookshelf[facing={}", facing.name())?;
+                for n in 0..6 {
+                    write!(f, ",slot_{n}_occupied={}", b(slots & (1 << n) != 0))?;
+                }
+                write!(f, "]")
+            }
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }

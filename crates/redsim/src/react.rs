@@ -63,6 +63,7 @@ pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bo
         Block::Plate { .. } => plate::entity_inside(w, s, p),
         Block::Tripwire { .. } => tripwire::entity_inside(w, s, p),
         Block::DetectorRail { .. } => crate::rails::detector::entity_inside(w, s, p),
+        Block::BigDripleaf { .. } => dripleaf::entity_inside(w, i, s, p),
         // BubbleColumnBlock.entityInside: above the column's top (nothing with a collision shape
         // or a fluid above) the entity is launched, inside it is pushed
         Block::BubbleColumn { drag } => {
@@ -341,6 +342,104 @@ pub mod tripwire {
             w.schedule_tick(p, Kind::Tripwire, 10, Priority::Normal);
         } else if was {
             w.schedule_tick(p, Kind::Tripwire, 1, Priority::Normal);
+        }
+    }
+}
+
+// ------------------------------------------------------------------------ big dripleaf
+
+pub mod dripleaf {
+    use super::*;
+
+    /// `DELAY_UNTIL_NEXT_TILT_STATE` (none: no tick).
+    fn delay(tilt: u8) -> Option<i32> {
+        match tilt {
+            1 | 2 => Some(10),
+            3 => Some(100),
+            _ => None,
+        }
+    }
+
+    fn tilt_of(s: &Block) -> u8 {
+        match *s {
+            Block::BigDripleaf { tilt, .. } => tilt,
+            _ => 0,
+        }
+    }
+
+    /// `canSurvive`: on a dripleaf, a stem or `#supports_big_dripleaf` (dirt, clay, mud among the
+    /// modeled blocks).
+    pub fn can_survive(w: &World, p: BlockPos) -> bool {
+        use crate::block::Simple;
+        matches!(w.get(p.below()), Block::BigDripleaf { .. } | Block::Simple(Simple::Dirt) | Block::Simple(Simple::Clay) | Block::Simple(Simple::Mud))
+    }
+
+    /// `updateShape`.
+    pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, ns: &Block) -> Block {
+        if d == Dir::Down && !can_survive(w, p) {
+            return Block::Air;
+        }
+        crate::fluid::waterlogged_update_shape(w, &s, p);
+        if d == Dir::Up && matches!(ns, Block::BigDripleaf { .. }) {
+            w.errors.push("a big dripleaf turning into a stem is not modeled".into());
+        }
+        s
+    }
+
+    /// `setTilt`: flags 2, a vibration for partial and full.
+    fn set_tilt(w: &mut World, s: Block, p: BlockPos, tilt: u8) {
+        let Block::BigDripleaf { facing, tilt: prev, waterlogged } = s else { return };
+        w.set_block(p, Block::BigDripleaf { facing, tilt, waterlogged }, flags::CLIENTS);
+        if tilt >= 2 && tilt != prev {
+            w.game_event("block_change", p);
+        }
+    }
+
+    /// `setTiltAndScheduleTick` (the sounds are not modeled).
+    fn set_tilt_and_schedule(w: &mut World, s: Block, p: BlockPos, tilt: u8) {
+        set_tilt(w, s, p, tilt);
+        if let Some(d) = delay(tilt) {
+            w.schedule_tick(p, Kind::BigDripleaf, d, Priority::Normal);
+        }
+    }
+
+    /// `entityInside`: an entity standing on the leaf (`canEntityTilt`: on the ground, above
+    /// 11/16) tilts it, unless powered.
+    pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos) {
+        let e = &w.entities.list[i];
+        let can_tilt = e.on_ground && e.pos.y > (p.y as f32 + 0.6875f32) as f64;
+        if tilt_of(&s) == 0 && can_tilt && !w.has_neighbor_signal(p) {
+            set_tilt_and_schedule(w, s, p, 1);
+        }
+    }
+
+    /// `tick`.
+    pub fn tick(w: &mut World, s: Block, p: BlockPos) {
+        if w.has_neighbor_signal(p) {
+            set_tilt(w, s, p, 0);
+            return;
+        }
+        match tilt_of(&s) {
+            1 => set_tilt_and_schedule(w, s, p, 2),
+            2 => set_tilt_and_schedule(w, s, p, 3),
+            3 => set_tilt(w, s, p, 0),
+            _ => {}
+        }
+    }
+
+    /// `neighborChanged`: power resets the tilt.
+    pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos) {
+        if w.has_neighbor_signal(p) {
+            set_tilt(w, s, p, 0);
+        }
+    }
+
+    /// `getCollisionShape`: the leaf (none when fully tilted).
+    pub fn collision_boxes(s: &Block) -> Vec<crate::behavior::Box16> {
+        match tilt_of(s) {
+            0 | 1 => vec![[0, 16, 11, 15, 0, 16]],
+            2 => vec![[0, 16, 11, 13, 0, 16]],
+            _ => vec![],
         }
     }
 }

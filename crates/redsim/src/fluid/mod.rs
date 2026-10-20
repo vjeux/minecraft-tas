@@ -128,6 +128,7 @@ pub fn fluid_state_of(b: &Block) -> FluidState {
 pub fn waterlogged(b: &Block) -> Option<bool> {
     match *b {
         // ---- entity-reacting blocks (clk-misc): their waterlogged variants ----
+        Block::BigDripleaf { waterlogged, .. } => Some(waterlogged),
         _ => None,
     }
 }
@@ -137,6 +138,7 @@ pub fn set_waterlogged(b: Block, v: bool) -> Option<Block> {
     let _ = v;
     match b {
         // ---- entity-reacting blocks (clk-misc) ----
+        Block::BigDripleaf { facing, tilt, .. } => Some(Block::BigDripleaf { facing, tilt, waterlogged: v }),
         _ => None,
     }
 }
@@ -160,7 +162,10 @@ pub fn fluid_state(w: &World, p: BlockPos) -> FluidState {
 /// `instanceof LiquidBlockContainer`: the variants with a waterlogged property, and redsim's older
 /// waterloggable blocks (always dry: see [`waterlogged`]).
 fn is_container(b: &Block) -> bool {
-    waterlogged(b).is_some() || matches!(b, Block::Slab { .. } | Block::Trapdoor { .. } | Block::Rail { .. } | Block::Scaffolding { .. } | Block::Leaves { .. } | Block::Sculk { .. })
+    waterlogged(b).is_some()
+        || matches!(b, Block::Slab { .. } | Block::Trapdoor { .. } | Block::Rail { .. } | Block::Scaffolding { .. } | Block::Leaves { .. } | Block::Sculk { .. })
+        // ---- entity-reacting blocks (clk-misc): waterloggable, modeled dry ----
+        || matches!(b, Block::PlainRail { .. } | Block::DetectorRail { .. } | Block::StoneSlab { .. } | Block::Lantern { .. })
 }
 
 /// `state.is(BlockTags.WASHED_AWAY_BY_FLUIDS)` among redsim's blocks.
@@ -180,6 +185,12 @@ fn washed_away(b: &Block) -> bool {
             | Block::WallSkull { .. }
             | Block::Rail { .. }
             | Block::Scaffolding { .. }
+            // ---- entity-reacting blocks (clk-misc) ----
+            | Block::PlainRail { .. }
+            | Block::DetectorRail { .. }
+            | Block::Tripwire { .. }
+            | Block::TripwireHook { .. }
+            | Block::BigDripleaf { .. }
     )
 }
 
