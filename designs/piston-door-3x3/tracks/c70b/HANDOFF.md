@@ -16,9 +16,16 @@
   (a3s/mm01 class) can be fed (d67), but every such mechanism so far needs 3-7 actions per piston.
 - New 7x7: smaller/mm/t1-r22/mm01 (12 sticky, from w86's t1 with (-2,2) reserved): WORKS in
   redsim + game; unfed (1,-1), Q (-1,0), (0,4) (its lever at (0,5) also arms (-1,4)/(1,4));
-  up to 5 actions per piston per edge.
-- Running at handoff: families 6x7/7x6/8x6 ring-escape P12 at K=2 + 1 extra (bars/f4-3boxes*);
-  mechmut from t1-r22 ranked by unfed with (-2,2) reserved (mm/t1r22-u*).
+  up to 5 actions per piston per edge. Then u0-7x7 (every receiver fed, 4 actions) and
+  **u2-7x7** (bars/u2-7x7: every bar met: no inside firing, <= 2 actions per piston per edge,
+  every receiver fed; WORKS redsim + game). Wiring is blocked by island starts (clk-misc,
+  pockets3: free regions are electrically isolated; the right-side islands cannot start from a
+  top lever). pext's `door interleave --islands` found an island-respecting train for u2; satwire's
+  wall then is the bottom-left SU(-1,-2) (4-6 pulses per edge into the 2-cell island). Latest batch
+  for pext: bars/u-max2, mm/u-island (island-start-ranked search).
+- Tools added late: d67's `door feeds` (merged; mechmut ranks by none/conflicts/weak), families'
+  pocket load and ISLAND START (macro, one schedule), mechmut `--connect-cap`.
+- Running at handoff: mechmut from w86's a3s (7x6) with --no-inside --repair --add (mm/a3s-noin*).
 
 ## 5. Provenance (vjeux 2026-10-20: the site publishes only our own doors)
 - `mctas door provenance` -> designs/piston-door-3x3/archive/provenance.tsv (1175 ours, 519
