@@ -187,6 +187,38 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Train: P_T 0 9 | P_TR 0 | Pl 5 | Qv@(1,-1) 2 4 | Qv@(1,-2) 0 17 | B1 12 | G 9 24 | K 22 |
     B 25 29 | A 0 33 | A@(2,-1) 26.
   - The first single-train sub-56 door. Wiring next: island-aware trains, pockets3 / clk-obs.
+* Wiring verdicts on r69t (21:30Z-21:50Z):
+  - clk-obs (exhaustive, 4.5M fillings of row 5 + (3,4), 6 lever spots): the top can't be
+    wired. P_T (two pulses) and Pl (one pulse between them) both draw from the (1,5) hub, and
+    nothing in the top can time a pulse after the bottom's Qv spit.
+  - pockets3: the bottom-right {(3,-2),(3,-3)} sees only A, B and K, so it can never start, and
+    it would have to make 5 ticks from 2 cells. Qv@(1,-1) and A@(2,-1) have no feed at all.
+  - interleave --islands: no train in 3M pairs.
+* s69 (slime-free, mechanism box 6x8, frame 12/12, 12 pistons):
+  - Left column: L0 and L1 at (-2,0),(-2,1) are held by a lever outside the box on L1's back
+    face, extended at rest and moving at t0 of each edge. L2 (-2,2) is a toggle that must fire
+    at t0 too: its feed QCs L1 and would re-extend it.
+  - P_C (-1,3) pulls TM into (0,3). G (-1,-1) is static and pulls BM into (0,-1) / pushes it
+    back.
+  - Pl is gone, so P_T has free sides ((0,4), and (1,5) by QC also for P_T at (1,3)), and the
+    top is one area.
+  - WORKS with ideal inputs, redsim 32 x 3, open 81 / close 63. No single train in 4M pairs (2
+    cells off).
+* STRUCTURAL RESULT for 6-wide one-sided designs (the extra column on one side only):
+  - The box-edge column (x=2) has 3 blocks and 2 vertical exits, so one block moves
+    horizontally (K at (3,-1) or K' at (3,3)), and the middle block needs a 2-cell move (an
+    elevator: puller + lifter).
+  - In 6x9 every placement puts that machinery in a blind corner:
+    - Bottom elevator A + B with K: {(3,-2),(3,-3)} is enclosed by K, A and B. It sees only K,
+      and the lifted puller at (2,-1) has no feed.
+    - Top elevator P_TR + M_R with K': M_R at (2,5) cuts {(3,3),(3,4),(3,5)} off from row 5, and
+      observers in the x=3 column can only watch the column itself.
+    - Without K, by moving the extra row (y -4..4): the top then has no row 5. s69's top needs
+      only (0,4) and (-2,3), but P_TR is alone with {(3,3),(3,4)}.
+  - Wiring needs every corner piston fed from outside its corner. The only conductors there are
+    the statics and transit door blocks, and power does not chain through stone.
+  - So this family is out for 6x9. The next family worth it is 7 wide (both sides have a spare
+    column: lever-held side stacks + toggles), i.e. 7x7 = 49.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
