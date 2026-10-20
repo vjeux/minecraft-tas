@@ -17,11 +17,18 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (clone
-  explore/pockets there, `cargo build --release`, selftest --quick). Nothing was in flight worth restarting: the 6x7
-  satwire runs had already answered (UNSAT, one-piston cores) and c70b asked to wait for its next variants
-  (mechmut --outside-only, FULL frames filled). pockets on 6x7 plans: --box enlarged to hold the plan's inputs
-  outside the volume + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire: --rec-ticks 240.
+- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (cloned
+  ~/agents/pockets/minecraft-tas from GitHub, built with ~/bin/cargo, JVM cache warmed by one `door verify`: the
+  first selftest on a fresh box fails 3 JVM checks while two checks download Java/the server at once; full selftest
+  35/35 after). Nothing was in flight worth restarting: the 6x7 satwire runs had already answered (UNSAT, one-piston
+  cores) and c70b asked to wait for its next variants (mechmut --outside-only, FULL frames filled).
+- Recipes for designers' sub-56 plans: pockets --box enlarged to hold the plan's inputs outside the volume (they were
+  silently dropped: seed 9/79) + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire
+  --rec-ticks >= open ticks + settle (default 80 recorded c70b's 99-tick opens unfinished: false frame errors);
+  statics must be the door material (smooth-stone statics fail the record frame rule): my svc copies turn them to
+  stone. c70b's 6x9 recipe: `door satwire <plan> --keep-wiring --lever-on --lever='5,1,0' --box=-1,-3,0:4,5,0
+  --full-frame --forbid-ring --update-order --exact-order --dmax 8 --skip 8 --hold auto --free-order --retime
+  --palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston,wool --first`.
 - Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
