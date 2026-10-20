@@ -28,10 +28,19 @@ there a free cell touches is BR at (2,-1) (from the corner (3,-1)), and only at 
   BR (moveBlocks makes (2,-1) a moving piston) BEFORE d's base update reaches c, so c sees no power;
 - at open BR is still at (2,0) when c must fire; pulling it down first makes d re-fire on the same source.
 - the lever on c's front face (1,-2,1) (legal, below the opening's columns): TESTED (`in2/mm01-oc-cl`,
-  c extended at rest, the lever drives it on both edges): the lever POPS at the open flip. A retracting
-  piston's base becomes a moving piston for 2 gt and every attached block loses its support (same for a
-  repeater standing on f, `in2/mm01-oc-q7`). So no lever, button, torch, dust or repeater may hang on or
-  stand on any piston that ever retracts: in this mechanism only the statics (3,0..2) can carry the lever.
+  c extended at rest, the lever drives it on both edges): the lever POPS at the open flip. An attachment on
+  a piston's SIDE face pops: the extended base's side faces are 16 x 12 (not full), and a retracting base
+  is a moving piston with that shape (same for a repeater standing on f's top face, `in2/mm01-oc-q7`'s
+  first try). CORRECTION (21:35 PT): on the piston's BACK face (the face opposite its head) an attachment
+  survives extension and retraction (that face stays full): `in2/mm01-oc-cb`, the lever at (1,-3) hanging
+  from c's bottom face (face=ceiling), c lever-held (rests extended, lever ON; its two actions moved from
+  open t127 / close t37 to t0 of each flip), WORKS in redsim at 32 positions x 2 cycles and in the game
+  (`door ideal`, 4 x 2). The lever is outside the box, which is fine: the volume excludes the lever
+  (properties.rs drops the lever cell). So the lever can hang on the back face of any piston that is never
+  moved (c78l's lever-behind-held-piston recipe, e88's lever on top of a down-facing puller), and that
+  piston needs no feed. Catch: the rest of the door must be woken from the lever, and (1,-3)'s neighbours
+  (0,-3), (2,-3) are outside a 6x7 or 7x7 box; c's and BM's moves at t0 touch no free cell either. In this
+  box the lever there wakes nothing else (in a 6x8 the row y = -3 would hold the wiring next to it).
 
 ## (a) g carried into (0,1), 2-gt pulse at open t69..t73: no feed inside the 6x7 box
 g lands at (0,1) at t69 (f's spit) and must pull MR (2,1) -> (1,1); f pulls it back at t79. Around it:
@@ -40,9 +49,9 @@ g lands at (0,1) at t69 (f's spit) and must pull MR (2,1) -> (1,1); f pulls it b
 cells) or through ML (strongly powered from (-2,2), (-1,3) or (-1,1)) or TM (from (1,3), (1,1), (2,2)).
 The corner (-1,3) is ML's / g's waypoint (t49-63, t91-108, g from t115); the only free cell is (-2,2), and
 it is sealed: f below, h above, (-3,2) outside the box. Only full blocks survive there (anything standing
-on f pops when f retracts, tested), and no full block there can emit east without an input from (-3,2):
-an observer facing west watches (-3,2); facing up / down it outputs into f / h; a repeater / comparator
-facing east takes its input from (-3,2).
+on f pops when f extends, tested), and no full block there can emit east without an input from (-3,2):
+an observer facing west watches (-3,2); facing up / down it outputs into h / f (an f -> h or h -> f relay,
+nothing more); a repeater / comparator facing east takes its input from (-3,2).
 What does work physically: a carried piston FIRES ON ARRIVAL when it lands on a powered spot (onPlace
 re-checks its power; no extra update needed), and a strongly powered frame block QC-powers a piston whose
 above cell it touches. So with ONE more column (x = -3, a 7x7 = 49), an observer at (-2,2) facing west
@@ -56,3 +65,10 @@ Ways out: the lever on a stone at (-2,4) would give i and h the lever's LEVEL (b
 7th column (x = -3) feeds f, h, i, (-2,2) and (-2,4) like the plan's own (-3, y) inputs; a row below
 (y = -3, 6x8 = 48) feeds a, b, c, d like the plan's (x, -3) inputs. The plan was written for those
 cells: every non-hallway input of the plan sits at x = -3 or y = -3.
+
+## pockets3's satwire on the 7x7 variant (21:26 PT)
+`in2/mm01-oc-q7` (7x7: x -3..3) with every input left to satwire (solid, FULL frame, forbid-ring, update /
+exact order, --rec-ticks 200, wide palette): UNSAT at once, core = b fired at (0,-2) (open t43, close t1),
+which the plan feeds from (0,-3). In 7x7 its only feeds are its quasi cell (0,-1)'s neighbours: (-1,-1)
+(empty then, e's rest cell), (1,-1) and (0,0) (door blocks with no powered neighbour). So the family needs
+the row y = -3 for b (and c, unless c is lever-held) AND the column x = -3 for g / f / h / i: 7x8 = 56.
