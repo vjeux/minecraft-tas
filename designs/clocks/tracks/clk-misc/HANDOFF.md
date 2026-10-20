@@ -60,14 +60,17 @@ ListBackedContainer: hoppers fill it, its contents count as its state) in place 
   port and measures the power it receives (on 0/10). (An earlier "76 of 78" here was miscounted by a shell diff.)
   `circuit sim` prints the judge's lines for tff-crafter and rs-crafter (and `circuit verify` agrees, robust).
   2026-10-20, the whole archive (`redsim-fuzz archive-check`, report in `archive-check.txt`): every one of the 3229
-  archived clocks and 262 circuits runs on redsim to a line; 3484 print the judge's own line. The 137 port-less
+  archived clocks and 262 circuits runs on redsim to a line; 3485 print the judge's own line. The 137 port-less
   clocks whose `on`/`edges` differed (clock sim read the auto-picked cell by its own states, the judge as a declared
   port) went through `clock misc declare-output --write` (log: `declare-output.txt`): 135 got `port output` at the
   judge's cell, re-judged in the game with their line unchanged, rewritten in place (verdict row: hash only).
-  Left: census-p12-copper_bulb-observer-3b and census-p12-copper_bulb-redstone_block-sticky_piston-4b, whose archived
-  lines predate the judge's current auto-output rule (today's judge, with or without the port, prints clock sim's
-  line: re-archiving them is the coordinator's call), and 5 clk-item hopper/dropper rings whose warmup the judge
-  counts differently (block states tick-identical; already noted in their archive headers).
+  The other two had archived lines older than the judge's current auto-output rule (today's judge, with or without
+  the port, prints clock sim's line): census-p12-copper_bulb-redstone_block-sticky_piston-4b was re-archived with
+  today's line (coordinator, from `rearchive/` with the port declared); census-p12-copper_bulb-observer-3b could not
+  be: `clock archive` refuses it as the same type and period as clk-obs-divider (the divider family's base, n = 0,
+  which prints today's line; dedupe keeps both), so its entry was restored unchanged. Also left: 5 clk-item
+  hopper/dropper rings whose warmup the judge counts differently (block states tick-identical; already noted in
+  their archive headers).
   clk-misc-leaf-p10-4b got `port output: 0 0 1` (re-judged, re-archived, line unchanged) so both read the same cell.
   Browser: on webrender's branch merged with this one, `mctas web check --wasm` (native and wasm viewers vs clock
   sim / circuit fly sim): 3696 clocks and 74 flying machines agree, 0 failures (the wasm built with rustup stable +
