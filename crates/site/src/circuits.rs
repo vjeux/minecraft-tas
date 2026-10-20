@@ -473,8 +473,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         }
         let mut host: BTreeMap<usize, usize> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone(), rows[i].kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect())).collect();
-            for (k, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
+            // as `mctas circuit catalog` folds (palette alone is never a distinction)
+            let items: Vec<(usize, i64, String)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone())).collect();
+            let robust: Vec<bool> = g.iter().map(|&i| circuit::archive::is_robust(&rows[i])).collect();
+            for (k, h) in clock::catalog::fold_hosts_robust(&items, &robust, |a, b| circuit::archive::beats_on_variation(&rows[g[a]], &rows[g[b]])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[k], g[h]);
                 }
@@ -574,6 +576,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
+                    extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -610,6 +613,11 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
     });
+    // the dominated-design audit, at every build (a study re-archived: new candidates show here)
+    if !keep_hidden {
+        let probe = site_model::Site { builds: builds.clone(), ..Default::default() };
+        notes.extend(crate::audit::notes(&probe));
+    }
     Ok((builds, notes))
 }
 
