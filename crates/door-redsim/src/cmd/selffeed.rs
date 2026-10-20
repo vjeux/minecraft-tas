@@ -230,7 +230,9 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: if quiet || observe.is_some() { 1 } else { threads }, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget, stone };
+    // with fewer plans than threads, each plan's search gets the spare threads
+    let per_plan = if observe.is_some() { 1 } else if quiet { (threads / schedule.len().max(1)).max(1) } else { threads };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets, fix: fixes, drop: drops, levels, search_threads: per_plan, clear: clears, cells: only, edge_cost, segments, prefix, after: afters, islands, island_budget, stone };
     if let Some(cells) = observe {
         let pocket: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
         anyhow::ensure!(search.is_some(), "--observe needs --search");
