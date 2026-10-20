@@ -1,11 +1,12 @@
 # archived 2026-10-19T18:49Z from designs/clocks/tracks/clk-rt/ring/rect-pulse/rect-p82.txt by mctas clock archive
-# CLOCK: clk-rt-rect3x7-p82-27b period 82 gt (4.1 s), on 8/82, edges 1, warmup 0, family repeater, 27 blocks, 3x2x7, robust
+# CLOCK: clk-rt-rect3x7-p82-27b period 82 gt (4.1 s), on 8/82, edges 1, warmup 4, family repeater, 27 blocks, 3x2x7, robust
 # Rectangle ring (clk-rt): the 3x7 perimeter clockwise from the north-west corner = [b, 4*, b, 4, 4,
 # b, 4, 4, b, 4, b, 4, 4, 4, 4, 1] (number = repeater delay, * = powered at placement, b = block, d
 # = dust, T = wall torch on the block before it, c = comparator); 0 torches: a pulse ring of loop
 # delay 82 gt
 name: clk-rt-rect3x7-p82-27b
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=4,facing=north,locked=false,powered=false]

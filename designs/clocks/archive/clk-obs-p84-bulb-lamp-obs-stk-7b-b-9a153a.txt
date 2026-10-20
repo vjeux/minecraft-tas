@@ -1,9 +1,10 @@
 # archived 2026-10-19T20:36Z from designs/clocks/tracks/clk-obs/mech2/p84-bulb-lamp-obs-stk-7b-b-9a153a.txt by mctas clock archive
-# CLOCK: clk-obs-p84-bulb-lamp-obs-stk-7b-b-9a153a period 84 gt (4.2 s), on 28/84, edges 14, warmup 2, family copper_bulb+observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p84-bulb-lamp-obs-stk-7b-b-9a153a period 84 gt (4.2 s), on 28/84, edges 14, warmup 4, family copper_bulb+observer+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
 name: clk-obs-p84-bulb-lamp-obs-stk-7b-b-9a153a
 # P84: 2 copper bulbs, 3 observers, 1 redstone lamp, 1 sticky piston; changing in place: copper_bulb, observer, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=up,powered=false]

@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:27Z from /tmp/clk-in7/clk-obs--best--p78-obs-pis-6b.txt by mctas clock archive
-# CLOCK: clk-obs-p78-obs-pis-6b period 78 gt, on 36/78, edges 18, warmup 6, family observer+piston, 6 blocks, 1x3x3, robust
+# CLOCK: clk-obs-p78-obs-pis-6b period 78 gt (3.9 s), on 26/78, edges 13, warmup 10, family observer+piston, 6 blocks, 1x3x3, robust
 name: clk-obs-p78-obs-pis-6b
-# CLOCK: grow-p78-6b-0000 period 78 gt, on 60/78, edges 18, warmup 6, family observer+piston, 6 blocks, 1x3x3, kick: last 0,1,0
+# CLOCK: clk-obs-p78-obs-pis-6b period 78 gt (3.9 s), on 26/78, edges 13, warmup 10, family observer+piston, 6 blocks, 1x3x3, robust
 # (clk-obs, found by grow-p78-6b-0000.txt; output: the changing cell with the most rising edges, declared so every rotation reads the same cell)
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 2 -1
 port start: 0 1 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

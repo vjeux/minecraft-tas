@@ -1,9 +1,10 @@
 # archived 2026-10-19T17:31Z from designs/clocks/tracks/clk-obs/families/p34-obs-stk-7b-474fa7.txt by mctas clock archive
-# CLOCK: clk-obs-p34-obs-stk-7b-474fa7 period 34 gt, on 16/34, edges 8, warmup 6, family observer+sticky_piston, 7 blocks, 1x3x4, robust
+# CLOCK: clk-obs-p34-obs-stk-7b-474fa7 period 34 gt (1.7 s), on 2/34, edges 2, warmup 6, family observer+sticky_piston, 7 blocks, 1x3x4, robust
 name: clk-obs-p34-obs-stk-7b-474fa7
 # P34: 4 observers, 1 redstone lamp, 2 sticky pistons; changing in place: observer, sticky_piston (redstone lamp only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 -1
-port output: 0 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 1 0
 port start: 0 1 2 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]

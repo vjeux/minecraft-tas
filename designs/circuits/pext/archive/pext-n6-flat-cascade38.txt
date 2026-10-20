@@ -1,9 +1,6 @@
-# archived 2026-10-20T01:23Z from designs/circuits/pext/work/n6-flat-min.txt by mctas circuit archive
-# CIRCUIT: pext-n6-flat-cascade39 piston-extender 6 N 6, extend 61 gt, retract 77 gt, 39 blocks, 18x6x1, robust
-# N=6 FLAT cascade extender (1 wide), minimized in its plane (mctas circuit pext minimize --plane-z 0)
-# from the generated flat cascade: units [slime + sticky piston + carried observer] fire themselves;
-# round-start pulsers two above the line, quasi-connectivity, spine above them.
-name: pext-n6-flat-cascade39
+# archived 2026-10-20T17:56Z from designs/circuits/pext/work/n6-flat-lns38.txt by mctas circuit archive
+# CIRCUIT: pext-n6-flat-cascade38 piston-extender 6 N 6, extend 61 gt, retract 77 gt, 38 blocks, 18x6x1, robust
+name: pext-n6-flat-cascade38
 circuit: piston-extender 6
 travel: 1 0 0
 port input: 17 4 0 lever
@@ -15,9 +12,8 @@ palette:
   C minecraft:observer[facing=up]
   D minecraft:sticky_piston[extended=false,facing=west]
   E minecraft:sticky_piston[facing=east]
-  F minecraft:stone
   G minecraft:gold_block
-  L minecraft:lever[face=floor,facing=north]
+  L minecraft:lever[face=wall,facing=east,powered=false]
   O minecraft:observer[facing=down]
   P minecraft:piston[extended=false,facing=west]
   R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
@@ -32,6 +28,6 @@ layer 1:
 layer 2:
   .....B
 layer 3:
-  C.C.C.C.C...C..CF
+  C.C.C.C.C...C..C
 layer 4:
   rAsARAR.oDAAAA.PL

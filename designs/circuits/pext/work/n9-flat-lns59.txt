@@ -1,11 +1,7 @@
-# archived 2026-10-20T01:48Z from designs/circuits/pext/work/n9-flat-min.txt by mctas circuit archive
-# CIRCUIT: pext-n9-flat-cascade61 piston-extender 9 N 9, extend 96 gt, retract 118 gt, 61 blocks, 27x6x1, robust
-# N=9 FLAT cascade extender (1 wide), minimized in its plane (mctas circuit pext minimize --plane-z 0)
-# from the generated flat cascade (mctas circuit pext cascade --flat --n 9, 83 blocks).
-name: pext-n9-flat-cascade61
+name: pext-n9-flat-cascade59
 circuit: piston-extender 9
 travel: 1 0 0
-port input: 26 4 0 lever
+port input: 25 4 0 lever
 port payload: 18 1 0
 origin: 1 0 0
 palette:
@@ -16,7 +12,7 @@ palette:
   E minecraft:sticky_piston[facing=east]
   F minecraft:stone
   G minecraft:gold_block
-  L minecraft:lever[face=floor,facing=north]
+  L minecraft:lever[face=wall,facing=east,powered=false]
   O minecraft:observer[facing=down]
   P minecraft:piston[extended=false,facing=west]
   R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
@@ -31,6 +27,6 @@ layer 1:
 layer 2:
   .....B...B
 layer 3:
-  C.C.C.C.C.C.C.C...C..C..CF
+  C.C.C.C.C.C.C.C...C..C..C
 layer 4:
-  rAsARARARARAR.oDAAAA.PAAAL
+  rAsARARARARAR.oDFAAA.PAAL

@@ -1,8 +1,9 @@
 # archived 2026-10-19T17:53Z from designs/clocks/tracks/clk-sculk/best/census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.txt by mctas clock archive
-# CLOCK: census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b period 216 gt (10.8 s), on 150/216, edges 5, warmup 0, family calibrated_sculk_sensor+dispenser+note_block+observer+sculk_sensor, 5 blocks, 3x1x2, robust
+# CLOCK: census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b period 216 gt (10.8 s), on 90/216, edges 9, warmup 0, family calibrated_sculk_sensor+dispenser+note_block+observer+sculk_sensor, 5 blocks, 3x1x2, robust
 # Census find (3x1x2, k<=5): a calibrated sensor with the plain sensor beside it, an observer, an empty dispenser and a note block: the calibrated sensor's loop runs every 24 gt and the plain sensor hears it at most once per 40 gt; their joint cycle repeats every 216 gt = 9 loops (output: the plain sensor).
 name: census-p216-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 census: box 3x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];0,0,1=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,0=observer[facing=west,powered=false];2,0,0=dispenser[facing=down,triggered=false];2,0,1=note_block[instrument=harp,note=0,powered=false])
 port start: 0 0 0 last
 origin: 0 0 0

@@ -1,9 +1,10 @@
 # archived 2026-10-19T18:29Z from designs/clocks/tracks/clk-obs/families/p20-bulb-lamp-obs-rb-stk-6b-2daf85.txt by mctas clock archive
-# CLOCK: clk-obs-p20-bulb-lamp-obs-rb-stk-6b-2daf85 period 20 gt (1 s), on 8/20, edges 4, warmup 6, family copper_bulb+observer+redstone_block+redstone_lamp+sticky_piston, 6 blocks, 1x3x4, robust
+# CLOCK: clk-obs-p20-bulb-lamp-obs-rb-stk-6b-2daf85 period 20 gt (1 s), on 8/20, edges 2, warmup 6, family copper_bulb+observer+redstone_block+redstone_lamp+sticky_piston, 6 blocks, 1x3x4, robust
 name: clk-obs-p20-bulb-lamp-obs-rb-stk-6b-2daf85
 # P20: 1 copper bulb, 2 observers, 1 redstone block, 1 redstone lamp, 1 sticky piston; changing in place: copper_bulb, observer, redstone_block, redstone_lamp, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 0
 palette:
   A minecraft:waxed_copper_bulb[lit=false,powered=false]
   B minecraft:redstone_lamp[lit=false]

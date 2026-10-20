@@ -1,5 +1,5 @@
 # archived 2026-10-19T20:00Z from designs/clocks/tracks/clk-item/cards/clk-item-dropring-2d-r14.txt by mctas clock archive
-# CLOCK: clk-item-dropring-2d-r14 period 44 gt (2.2 s), on 7/44, edges 1, warmup 7, family comparator+dropper+hopper+repeater, 18 blocks, 3x2x5, robust
+# CLOCK: clk-item-dropring-2d-r14 period 44 gt (2.2 s), on 8/44, edges 1, warmup 7, family comparator+dropper+hopper+repeater, 18 blocks, 3x2x5, robust
 # Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row; the comparator in the inner column reads the top-row hopper above it and fires the dropper below it (through the repeaters, each on stone). One stone waits in the dropper until the other passes the read hopper; then they swap roles. The ring runs counter-clockwise; P = 20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 x (sum of repeater delays): fourteen cards of this ring (one per P mod 14) reach every P from 42 up.
 
 name: clk-item-dropring-2d-r14
@@ -14,7 +14,8 @@ extend generator: mctas clock item gen dropring --delays 14 --n {n} --out {out}
 extend n: 0..30
 extend period: 44 + 14n
 extend rule: widen the dropper ring by one column (2 hoppers)
-port output: 1 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 0 4
 nbt: 1 1 4 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: 0 0 0

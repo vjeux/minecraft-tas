@@ -1,9 +1,10 @@
 # archived 2026-10-20T01:08Z from designs/clocks/tracks/clk-obs/families9/p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42.txt by mctas clock archive
-# CLOCK: clk-obs-p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42 period 44 gt (2.2 s), on 16/44, edges 8, warmup 3, family copper_bulb+note_block+observer+piston+redstone_block+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
+# CLOCK: clk-obs-p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42 period 44 gt (2.2 s), on 16/44, edges 4, warmup 3, family copper_bulb+note_block+observer+piston+redstone_block+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
 name: clk-obs-p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42
 # clk-obs grow: P=44 (redsim), family note_block+observer+piston+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 15.
 origin: 0 0 0
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -2 1
 port start: 0 0 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

@@ -1,0 +1,22 @@
+# Odd-N delay on a hopper stage: a hopper's item moves every 8 gt in the block-entity phase, so a comparator reading the hopper changes on an odd gt relative to a redstone edge.
+name: delay-hopper-7
+circuit: delay
+port input: -1 1 1 minecraft:redstone_block minecraft:stone
+port output: 3 1 0
+origin: -1 0 0
+palette:
+  W minecraft:redstone_wall_torch[facing=north,lit=true]
+  I minecraft:stone
+  S minecraft:hopper[enabled=false,facing=east]
+  M minecraft:hopper[enabled=true,facing=south]
+  T minecraft:hopper[enabled=true,facing=west]
+  U minecraft:hopper[enabled=true,facing=north]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  F minecraft:stone
+layer 0:
+  ...F.
+  .....
+layer 1:
+  WSMC.
+  IUT..
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}

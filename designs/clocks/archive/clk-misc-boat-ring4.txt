@@ -7,7 +7,8 @@ name: clk-misc-boat-ring4
 # to the next plate row. The boat rides each current (submerged, ~0.11 b/t), is thrown against the outer wall at each
 # corner and slid along it by the current's turn, and crawls over each plate row (pressing it; next to the sources it
 # counts as under water, x0.45 friction). Only stone, water, 8 oak pressure plates and the boat: no redstone, no ice.
-port output: 3 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 3 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -2 3
 entity: minecraft:oak_boat 4.8 0.0 1.0
 palette:
   S minecraft:stone

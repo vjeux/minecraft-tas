@@ -1,10 +1,11 @@
 # archived 2026-10-19T16:24Z from /tmp/clk-in5/clk-item--dropring-p81.txt by mctas clock archive
-# CLOCK: dropring-p81 period 81 gt, on 21/81, edges 3, warmup 0, family comparator+dropper+hopper, 10 blocks, 3x2x3, robust
+# CLOCK: dropring-p81 period 81 gt (4.05 s), on 21/81, edges 3, warmup 21, family comparator+dropper+hopper, 10 blocks, 3x2x3, robust
 # Dropper ring, 10 blocks (clk-item): hoppers and droppers around a 3x3 square, each passing items to the next; a comparator in the middle reads one ring container and points into the opposite one, a dropper: each time an item arrives under the comparator, the dropper fires 4 gt later (rising edge) and pushes one item on. Items wait in the droppers for a trigger, so the cycle is not a multiple of 7: 81 gt.
 # redsim: P=81 gt, warmup 21, family comparator+dropper+hopper, 10 blocks, output on 21/81 gt, 3 rising edge(s)
 
 name: dropring-p81
-port output: 1 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 1
 nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1}]}
 nbt: 0 0 1 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
 origin: 0 0 0

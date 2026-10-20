@@ -3,7 +3,8 @@
 # A plain sculk sensor, then observer, stone, gate beside, 3 from the sensor (travel time)
 name: clk-sculk-chain-p45-28
 # how: chain plain line reps [], observer, stone, gate beside (travel 3)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   O minecraft:oak_fence_gate[facing=north,in_wall=false,open=true,powered=true]

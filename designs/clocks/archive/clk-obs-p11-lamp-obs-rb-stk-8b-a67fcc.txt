@@ -1,9 +1,10 @@
 # archived 2026-10-19T23:05Z from designs/clocks/tracks/clk-obs/families9/p11-lamp-obs-rb-stk-8b-a67fcc.txt by mctas clock archive
-# CLOCK: clk-obs-p11-lamp-obs-rb-stk-8b-a67fcc period 11 gt (0.55 s), on 4/11, edges 2, warmup 10, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, rotation-dependent
+# CLOCK: clk-obs-p11-lamp-obs-rb-stk-8b-a67fcc period 11 gt (0.55 s), on 6/11, edges 1, warmup 10, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, rotation-dependent
 name: clk-obs-p11-lamp-obs-rb-stk-8b-a67fcc
 # clk-obs grow: P=11 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 2 1, swept volume 12.
 origin: 0 0 -1
-port output: 0 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 -1
 port start: 0 2 1 last
 palette:
   A minecraft:redstone_block

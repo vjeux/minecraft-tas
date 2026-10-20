@@ -1,6 +1,8 @@
 # archived 2026-10-19T15:48Z from /tmp/clk-in/clk-sculk--c21s-rep-dust-piston.txt by mctas clock archive
-# CLOCK: clk-sculk-c21s-rep-dust-piston period 21 gt, on 12/21, edges 1, warmup 4, family calibrated_sculk_sensor+piston+redstone_wire+repeater, 10 blocks, 4x2x2, robust
+# CLOCK: clk-sculk-c21s-rep-dust-piston period 21 gt (1.05 s), on 10/21, edges 1, warmup 4, family calibrated_sculk_sensor+piston+redstone_wire+repeater, 10 blocks, 4x2x2, robust
 name: clk-sculk-c21s-rep-dust-piston
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 2 -1 0
 # C -> repeater(4) -> dust -> dust -> repeater(1) -> piston behind C: retraction at A+20, dist 1.
 origin: 0 0 0
 palette:

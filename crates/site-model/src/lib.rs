@@ -227,6 +227,10 @@ pub struct Circuit {
     /// rising-edge detector): its card says it is also one of those.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub also: Vec<String>,
+    /// What a machine carries or pulls, in words (a flying machine of the payload family with n
+    /// extra blocks: `carries 9 extra blocks`; of the train family: `pulls 2 trailers`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub feature: String,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -550,7 +554,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("frame-full", "full frame when open", "door"),
     ("eligible", "record-eligible", "door"),
     ("record", "took a record", "door"),
-    ("leader", "#1 on a board", "door"),
+    ("leader", "the best door for something (the most compact or the fastest of its kind)", "door"),
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
@@ -812,10 +816,11 @@ impl Sort {
     /// The sorts the index offers (vjeux 13:35Z deleted "newest"; names are not shown any more,
     /// so no sort by name): an old URL's `sort=newest` or `sort=name` falls back to the default.
     pub const ALL: [(Sort, &'static str, &'static str); 6] = [
-        (Sort::Main, "main", "the main number (size, period, reach...), then blocks"),
+        // (short: the select's longest option set the page's width on a phone, critique blocker)
+        (Sort::Main, "main", "best first"),
         (Sort::Blocks, "blocks", "fewest blocks"),
-        (Sort::Volume, "volume", "smallest volume"),
-        (Sort::Period, "period", "shortest period / smallest value"),
+        (Sort::Volume, "volume", "least space"),
+        (Sort::Period, "period", "shortest period"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
     ];
@@ -928,6 +933,8 @@ struct View<'a> {
     kinds: &'a [String],
     flags: &'a [String],
     text: [&'a str; 5],
+    /// A circuit's full kind (`gate xor`): an exact function name ranks it first.
+    function: &'a str,
     variant: bool,
     /// A tunable group's member other than its shown design (hidden unless a value search hits
     /// it), and the circuit's latency in gt.
@@ -991,6 +998,7 @@ impl Site {
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
+                    function: b.circuit.as_ref().map(|c| c.kind.as_str()).unwrap_or(""),
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
@@ -1019,6 +1027,7 @@ impl Site {
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&m.family, &b.caption, &b.name, "", html::search_aliases(b)],
+                    function: "",
                     variant: false,
                     member: false,
                     latency: None,
@@ -1141,13 +1150,19 @@ impl Site {
             if words.is_empty() {
                 return 0;
             }
+            // an exact gate function (`xor`, `xnor gate`) ranks its gates first (critique: "xor"
+            // led with OR and AND, every gate's aliases name every function)
+            let f = v.function.strip_prefix("gate ").unwrap_or("");
+            if !f.is_empty() && words.iter().any(|w| w == f) && words.iter().all(|w| w == f || w == "gate") {
+                return 0;
+            }
             let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
             if words.iter().all(|w| kind.contains(w.as_str())) {
-                0
-            } else if words.iter().all(|w| v.text[0].to_lowercase().contains(w.as_str())) {
                 1
-            } else {
+            } else if words.iter().all(|w| v.text[0].to_lowercase().contains(w.as_str())) {
                 2
+            } else {
+                3
             }
         };
         hits.sort_by(|(ha, a), (hb, b)| {

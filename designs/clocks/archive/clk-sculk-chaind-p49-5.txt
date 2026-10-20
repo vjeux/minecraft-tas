@@ -3,7 +3,8 @@
 # A plain sculk sensor, then observer, stone, dispenser beside, 3 from the sensor (travel time)
 name: clk-sculk-chaind-p49-5
 # how: chain plain line reps [], observer, stone, dispenser beside (travel 3)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 port start: 4 1 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

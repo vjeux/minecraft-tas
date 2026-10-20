@@ -3,7 +3,8 @@
 # Ring of 10 calibrated sensors on a circle (r 24.64), hops [14,14,15,13,14,14,14,15,13,14], first resonator a note block (the kick), the others amethyst: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead
 name: clk-sculk-ringbig10-p140-1
 # how: ring of 10 calibrated sensors on a circle (r 24.64), hops [14,14,15,13,14,14,14,15,13,14], first resonator a note block (the kick), the others amethyst
-port output: 20 0 14
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 20 0 14: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -25 -1 1
 port start: 19 0 14 use
 origin: -25 0 -24
 palette:

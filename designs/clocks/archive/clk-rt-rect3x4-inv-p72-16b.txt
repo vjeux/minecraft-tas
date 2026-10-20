@@ -4,7 +4,8 @@
 # b, T, d, 4, 1] (number = repeater delay, * = powered at placement, b = block, d = dust, T = wall
 # torch on the block before it, c = comparator); 1 torch(es): an inverter loop, period 2 x 36 gt
 name: clk-rt-rect3x4-inv-p72-16b
-port output: 1 1 3
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 3: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 3
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=1,facing=south,locked=false,powered=false]

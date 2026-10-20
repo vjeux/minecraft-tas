@@ -1,9 +1,10 @@
 # archived 2026-10-19T17:56Z from designs/clocks/tracks/clk-sculk/best/hyb3-p98-2.txt by mctas clock archive
-# CLOCK: clk-sculk-hyb3-p98-2 period 98 gt (4.9 s), on 12/98, edges 6, warmup 4, family observer+sculk_sensor+sticky_piston, 6 blocks, 4x3x1, robust
+# CLOCK: clk-sculk-hyb3-p98-2 period 98 gt (4.9 s), on 60/98, edges 2, warmup 4, family observer+sculk_sensor+sticky_piston, 6 blocks, 4x3x1, robust
 # A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an oak trapdoor (placed open+powered: it closes on placement, the self-start) at the last output, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3-p98-2
 # how: obs plain k=3 path 1,0,0 1,1,0 2,1,0 emitter trapdoor at the output (travel 3) + sticky_piston[extended=false,facing=up] at 3,0,0
-port output: 3 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 3 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 origin: 0 0 0
 palette:
   A minecraft:observer[facing=west,powered=false]

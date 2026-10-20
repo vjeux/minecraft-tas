@@ -390,6 +390,18 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         });
         check(&format!("search \"{text}\": a match first{}", if want.is_empty() { String::new() } else { format!(", {want}") }), first.as_deref().is_some_and(|g| want.is_empty() || g.starts_with(want)), format!("first: {first:?}"));
     }
+    // an exact gate function finds its own gate first (critique: "xor" led with OR and AND)
+    for f in ["xor", "xnor", "nand"] {
+        if !site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}"))) {
+            continue;
+        }
+        let q = site_model::Query::from_fragment(&format!("q={f}"));
+        let first = site.run(&q).ok().and_then(|(h, _)| h.first().copied()).and_then(|h| match h {
+            site_model::Hit::Build(i) => site.builds.get(i).and_then(|b| b.circuit.as_ref().map(|c| c.kind.clone())),
+            _ => None,
+        });
+        check(&format!("search \"{f}\": its gate first"), first.as_deref() == Some(&format!("gate {f}")), format!("first: {first:?}"));
+    }
     let dq = site_model::Query::from_fragment("kind=door");
     if let Ok((dhits, _)) = site.run(&dq) {
         let first: Vec<&str> = dhits.iter().take(3).filter_map(|h| match h {

@@ -3,7 +3,8 @@
 # A plain sculk sensor watched by a chain of 4 observer(s) (each watching the previous); an oak trapdoor (placed open+powered: it closes on placement, the self-start) at the last output, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard
 name: clk-sculk-obs-p43-7
 # how: obs plain k=4 path 0,1,0 -1,1,0 -1,0,0 -2,0,0 emitter trapdoor at the output (travel 3)
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 origin: -3 0 0
 palette:
   A minecraft:observer[facing=east,powered=false]
