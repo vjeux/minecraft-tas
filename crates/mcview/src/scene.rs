@@ -474,13 +474,13 @@ mod tests {
     use super::*;
     use crate::session::Options;
 
-    /// An empty input cell (a gate's A and B) counts as seen when a ray reaches it before any
-    /// block: the camera then starts on the side both inputs can be tapped from (gate-imply-ba's
-    /// A hides behind its OUT lamp from the pictures' side).
+    /// An input whose centre hides behind another block from the pictures' side (here A behind
+    /// the judge's lamp in the output cell in front of it) makes the camera start on a side every
+    /// input's centre can be tapped from.
     #[test]
     fn empty_input_cells_are_tappable() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-imply-ba-bump-4b.txt")).unwrap();
-        let s = Session::new(&text, &Options::default()).unwrap();
+        let text = "name: t\ncircuit: gate and\nport input.a: 0 1 0\nport input.b: 1 1 0\nport output: 0 1 1\npalette:\n  S minecraft:stone\nlayer 0:\n  SS\n  S.\n";
+        let s = Session::new(text, &Options::default()).unwrap();
         let atlas = crate::atlas::Atlas::build();
         let look = viewer_look(&s);
         let aspect = 1217.0 / 480.0;
