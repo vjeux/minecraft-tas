@@ -1,0 +1,41 @@
+# Pushes a block out four cells from a one-block-wide wall, 23 blocks: a line of four sticky pistons
+# with a slime block between each pair; each piston fires itself whenever it is moved (an observer
+# rides on the slime behind it), and observers above the line, run by a chain from the lever, start
+# each wave of pushes (out) or grabs (back).
+# How it works: the cascade train (going out the pistons push in waves; coming back the waves start
+# front first and each piston grabs what the one in front left behind), every wave started by an
+# observer two above the line that powers its piston through the empty cell above it. One unit's
+# observer rides on top of its slime and doubles as a starter, the lever hangs on the side of the
+# chain's first observer, and pistons in the chain stand in for chain observers (each lever flip moves
+# a head the next observer sees). Found by `mctas circuit pext lns --free-lever --repeat` from the
+# 26-block cascade (26 -> 25 -> 24 -> 23, faster at each step); game: robust (16 builds), redsim
+# agrees.
+name: pext-n4-flat-cascade23
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 10 4 0 lever
+port payload: 8 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=up]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  R minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .O...O
+layer 1:
+  DSDSDSDG
+layer 2:
+  ...A
+layer 3:
+  A.B.Bs...B
+layer 4:
+  RoCo.Po.PL

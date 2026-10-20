@@ -73,8 +73,8 @@ slime-free schedule results stay in NOTES.md.
 | 1 | to drop (trivial) | |
 | 2 | 6 blocks 1-wide: NONE exists in the searched space (`pext topo --k 3`: the lever on the back piston, the second piston and the payload at all 11 placements of a 3x4 window, every 1-wide placement of 3 more blocks within 2 cells, 22 block states; `--free-lever --k 4`: the same with the lever anywhere in the plane, on any block). 7 blocks 1-wide with the lever on the back piston: only the rider and its mirror (frame under or over, slime or honey frame), all 9/9 gt (`--k 4`); 7 blocks with the lever elsewhere not searched (`--free-lever --k 5`). | pext-n2-rider7-flat (7, 9/9 gt, 6x3x1); sf7-1 (7, 7/12 gt, slime-free, 2 wide) |
 | 3 | 16 blocks, 28/34 gt, 9x6x1 (was 19, 27/27): `pext lns` (remove 3, grow 2) on cascade19 gave 18; `pext lns --free-lever` (the lever may move) gave 17 then 16 (faster too); from 16 nothing smaller (remove 3 / grow 2, remove 4 / grow 2). Bar (12) not met. | pext-n3-flat-cascade16 (robust; cascade19 stays as the 27/27 variant) |
-| 4 | 26 (lns remove 3 / grow 2 and remove 4 / grow 2: nothing smaller) | pext-n4-flat-cascade26 |
-| 5, 6 | 33, 39 (lns remove 3 / grow 2: nothing smaller) | pext-n5-flat-cascade33, pext-n6-flat-cascade39 |
+| 4 | 23 blocks, 35/47 gt (was 26, 43/55): `pext lns --free-lever --repeat` 26 -> 25 -> 24 -> 23; from 23 nothing smaller (remove 3, grow 2) | pext-n4-flat-cascade23 (robust) |
+| 5, 6 | N=5: 31 blocks, 48/64 gt (was 33, 50/66; `lns --free-lever`, nothing smaller from 31). N=6: 39 (plain lns: nothing smaller; --free-lever running) | pext-n5-flat-cascade31 (robust), pext-n6-flat-cascade39 |
 | >= 7 | open (the minimized flat cascades) | |
 
 ### Why one-frame / staircase riders fail at N = 3 (redsim traces, 10-20)

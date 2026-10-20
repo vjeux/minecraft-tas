@@ -25,6 +25,10 @@ pub struct Look {
     pub lit_marker: bool,
     /// Lime outlines (clickable inputs).
     pub outlines: Vec<Pos>,
+    /// A driven input's lime box (R7): its cell and the judge's devices that drive it (the
+    /// repeater, its support and the switch), one box (low, high corner cells): the judge's
+    /// equipment reads as part of the input it drives.
+    pub input_spans: Vec<(Pos, Pos)>,
     /// A circuit's other ports, outlined in their tag's colour: OUT orange, a shulker design's
     /// ITEMS gold and BOXES lilac chests, a BUD switch's TARGET cyan.
     pub port_outlines: Vec<(Pos, [u8; 3])>,
@@ -99,10 +103,26 @@ pub fn default_look(s: &Session) -> Look {
         [(v >> 16) as u8, (v >> 8) as u8, v as u8]
     };
     let port_outlines: Vec<(Pos, [u8; 3])> = crate::circuit::port_tags(&s.design).into_iter().filter(|(_, p, _)| !outlines.contains(p)).map(|(_, p, c)| (p, hex(c))).collect();
+    // a driven input (R7): one lime box around its cell and the judge's devices driving it
+    let mut input_spans: Vec<(Pos, Pos)> = Vec::new();
+    if s.simulated() {
+        for ci in &s.circuit_inputs {
+            if let crate::circuit::InputHow::Driven { dir, .. } = ci.how {
+                // the input, its repeater and the switch in a row (the repeater's stone support
+                // under it stays plain)
+                let (r, _, sw) = crate::circuit::driver_cells(ci.pos, dir);
+                let cells = [ci.pos, r, sw];
+                let lo = std::array::from_fn(|k| cells.iter().map(|c| c[k]).min().unwrap_or(0));
+                let hi = std::array::from_fn(|k| cells.iter().map(|c| c[k]).max().unwrap_or(0));
+                input_spans.push((lo, hi));
+                outlines.retain(|p| *p != ci.pos);
+            }
+        }
+    }
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
+    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
 }
 
 /// An OUT box's outline colour (the OUT tag's), and while its output is powered.
@@ -153,6 +173,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     for o in &look.outlines {
         b.marker(*o, false, [110, 230, 40], false);
+    }
+    for (lo, hi) in &look.input_spans {
+        b.marker_span(*lo, *hi, [110, 230, 40]);
     }
     for (o, c) in &look.port_outlines {
         // an output's box: red while it is powered (redsim's state this tick)
@@ -225,14 +248,34 @@ pub fn live_window(h: f32) -> (f32, f32, f32) {
 }
 
 /// The smallest build a view frames, in blocks across (x, z) and high: a tiny one (a 2-block
-/// clock) stands in some grass instead of filling the view.
-const MIN_VIEW_W: f32 = 5.0;
-const MIN_VIEW_H: f32 = 3.0;
+/// clock) stands in a little grass instead of filling the view edge to edge.
+const MIN_VIEW_W: f32 = 3.0;
+const MIN_VIEW_H: f32 = 2.0;
+
+/// A long thin build (its plan this many times longer than wide) is seen at 45 degrees along its
+/// length (a 3/4 view) instead of side-on: its length foreshortened, the camera closer.
+const LONG_BUILD: f32 = 3.0;
+
+/// The direction a view looks from: the pictures' ([`CAM_DIR`]), or for a long thin build the
+/// same elevation at 45 degrees in plan (from the same quarter).
+pub fn view_dir(pts: &[[f32; 3]]) -> [f32; 3] {
+    if pts.is_empty() {
+        return CAM_DIR;
+    }
+    let ext = |k: usize| pts.iter().map(|p| p[k]).fold(f32::MIN, f32::max) - pts.iter().map(|p| p[k]).fold(f32::MAX, f32::min);
+    let (wx, wz) = (ext(0), ext(2));
+    if wx.max(wz) < LONG_BUILD * wx.min(wz).max(1.0) {
+        return CAM_DIR;
+    }
+    let h = (CAM_DIR[0] * CAM_DIR[0] + CAM_DIR[2] * CAM_DIR[2]).sqrt() / std::f32::consts::SQRT_2;
+    [-h, CAM_DIR[1], h]
+}
 
 /// The viewer's camera (live viewers and thumbnails alike): from the pictures' direction, the
 /// build's whole moving extent ([`view_points`]) filling `window`, never cut.
 pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
-    view_camera(s, look, aspect, CAM_DIR, LIVE_WINDOW)
+    let pts = view_points(s, look);
+    view_camera_at(s, look, &pts, aspect, view_dir(&pts), LIVE_WINDOW)
 }
 
 /// The points a view keeps in frame: the corners of every cell the build occupies or sweeps (its
@@ -432,14 +475,16 @@ pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Cam
 
 fn camera_showing_inputs_of(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
     let pts = pts.to_vec();
-    let base = view_camera_at(s, look, &pts, aspect, CAM_DIR, window);
+    // the pictures' direction, or a 3/4 view along a long thin build
+    let dir = view_dir(&pts);
+    let base = view_camera_at(s, look, &pts, aspect, dir, window);
     if s.inputs.is_empty() || !s.simulated() {
         return base;
     }
     // a side every input's centre can be tapped from, else one every input can be tapped from
     for centre in [true, false] {
         for (sx, sz) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)] {
-            let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [CAM_DIR[0] * sx, CAM_DIR[1], CAM_DIR[2] * sz], window) };
+            let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [dir[0] * sx, dir[1], dir[2] * sz], window) };
             if s.inputs.iter().all(|c| if centre { centre_point(atlas, s, &cam, *c, aspect).is_some() } else { click_point(atlas, s, &cam, *c, aspect).is_some() }) {
                 return cam;
             }
@@ -507,7 +552,9 @@ mod tests {
                     assert_eq!(found, Some([(v >> 16) as u8, (v >> 8) as u8, v as u8]), "{}: {label} at {p:?}", f.display());
                 }
                 for ci in &s.circuit_inputs {
-                    assert_eq!(look.outlines.contains(&ci.pos), s.simulated(), "{}: input {} at {:?}", f.display(), ci.name, ci.pos);
+                    // an input outlined (a driven one: in its span with the judge's devices)
+                    let spanned = look.input_spans.iter().any(|(lo, hi)| (0..3).all(|k| ci.pos[k] >= lo[k] && ci.pos[k] <= hi[k]));
+                    assert_eq!(look.outlines.contains(&ci.pos) || spanned, s.simulated(), "{}: input {} at {:?}", f.display(), ci.name, ci.pos);
                 }
                 n += 1;
             }
