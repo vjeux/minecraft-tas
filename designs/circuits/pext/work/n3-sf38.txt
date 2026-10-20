@@ -1,0 +1,56 @@
+# N=3 SLIME-FREE extender, minimized (no slime in the palette) from the single-cell-schedule stack
+# (mctas circuit pext stack --n 3 --cells, 54 blocks): three sticky pistons in a line, the 7-pulse
+# schedule x4 x2 x0 x3 x1 x2 x4 (abstract cells) from fixed pulsers on one observer spine.
+name: pext-n3-sf38
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 7 1 2 lever
+port payload: 4 1 0
+origin: -1 0 -2
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=north]
+  C minecraft:observer[facing=south]
+  D minecraft:observer[facing=up,powered=false]
+  E minecraft:observer[facing=up]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:gold_block
+  H minecraft:observer[facing=west]
+  I minecraft:sticky_piston[facing=east]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  o minecraft:observer[facing=down]
+  p minecraft:piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  .
+  .
+  .
+  pAAAD
+  ........J
+  .
+layer 1:
+  ....EFH
+  ....B.B
+  CHIIIG
+  ...C.C
+  ....PEsAL
+  ...SAB
+layer 2:
+  .
+  ....S
+  .
+  ....OH
+  ...oEB
+  .
+layer 3:
+  .
+  .
+  ....C
+  ....H
+  ...SRAo
+  .
