@@ -11,6 +11,7 @@ extend axis: 18 + 16n
 extend blocks: 17 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
+extend group title: long pulse extender: a piston-moved observer, a copper bulb and a loop of repeaters
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-ext --n {n} --out {out}
 origin: -1 0 0

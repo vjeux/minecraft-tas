@@ -6,7 +6,7 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tff-bulb](archive/tff-bulb.txt) | tff | latency 2 gt, edge rising, min-pulse 1 gt, min-period 2 gt | 3 | 2x2x1 | robust | Copper bulb T flip-flop, 3 blocks (track tff): the input (a redstone block written next to it) powers a waxed copper bulb, which toggles LIT on every rising edge of its power, in the update itself; a comparator on stone reads the bulb (15 / 0) and the output is the cell it points into: latency 2 gt (the comparator), 1 gt pulses accepted, trains down to 2 gt periods followed. |
+| [tff-bulb](archive/tff-bulb.txt) | tff | latency 2 gt, edge rising, min-pulse 1 gt, min-period 2 gt, tileable every 2 (0 0 2) | 3 | 2x2x1 | robust | Copper bulb T flip-flop, 3 blocks (track tff): the input (a redstone block written next to it) powers a waxed copper bulb, which toggles LIT on every rising edge of its power, in the update itself; a comparator on stone reads the bulb (15 / 0) and the output is the cell it points into: latency 2 gt (the comparator), 1 gt pulses accepted, trains down to 2 gt periods followed. A row of them tiles at pitch 2 along z (`tile: 0 0 2`): pitch 1 is impossible, because then the comparators sit side by side and a comparator's side input suppresses its neighbour (ComparatorBlock.getAlternateSignal), which the judge measures as latency 9 gt instead of 2. |
 
 ## comparator+crafter+hopper
 
