@@ -148,6 +148,9 @@ enum Cmd {
         /// Use the shortest single-cell schedule (any N, fewest pulses).
         #[arg(long)]
         cells: bool,
+        /// Everything in the line's plane.
+        #[arg(long)]
+        flat: bool,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -318,8 +321,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Stack { n, max_train, hops, pick, canonical, cells, out } => {
-            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick, canonical, cells })?;
+        Cmd::Stack { n, max_train, hops, pick, canonical, cells, flat, out } => {
+            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick, canonical, cells, flat })?;
             for l in &log {
                 println!("  {l}");
             }
