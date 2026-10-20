@@ -204,6 +204,9 @@ pub fn tunable_key(c: &Circuit) -> String {
     for p in &c.outputs {
         d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
     }
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -244,6 +247,10 @@ pub fn type_key(c: &Circuit) -> String {
         for p in probes {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
+    }
+    // a BUD's target cells (where the judge acts) are part of its structure
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
     }
     clock::canon::design_type_key(&d)
 }

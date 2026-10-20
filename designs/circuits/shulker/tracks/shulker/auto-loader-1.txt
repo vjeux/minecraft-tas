@@ -1,0 +1,56 @@
+# Always-on shulker loader (track shulker, hand-built), the reference loader with its start lever
+# replaced by a comparator that reads the dispenser through the drop cell's roof. An observer above
+# that comparator fires the dispenser whenever it goes from holding no box to holding one: it
+# places the first box by itself, and again whenever boxes come back after the supply ran out
+# (badges always-on and box-starved). The rest is the reference loader: the dispenser above the
+# box cell, a hopper feeding it from the side, a comparator in compare mode with a redstone block on
+# its side (15 only when full), a sticky piston two cells away pushing a stone into the box, the
+# moving stone pushing the drop into a walled cell over the collection hopper, and an observer on
+# the pushed stone's cell firing the dispenser after each box.
+name: shulker-auto-loader-1
+circuit: shulker-loader 1
+port items: 0 2 1
+port boxes: 0 3 -1
+port output: 2 0 0
+origin: -2 0 -3
+palette:
+  B minecraft:redstone_block
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  D minecraft:dispenser[facing=down,triggered=false]
+  E minecraft:comparator[facing=west,mode=compare,powered=false]
+  K minecraft:hopper[enabled=true,facing=east]
+  N minecraft:hopper[enabled=true,facing=north]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  Q minecraft:observer[facing=down,powered=false]
+  S minecraft:stone
+  T minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  U minecraft:hopper[enabled=true,facing=south]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  SS....
+  S.S...
+  ......
+  ..SK..
+  ......
+layer 1:
+  rrS...
+  T.CB..
+  S.SS..
+  PS..S.
+  ..NS..
+layer 2:
+  ......
+  ......
+  ..U...
+  .QDSE.
+  ......
+layer 3:
+  ......
+  ......
+  ......
+  .SrSQ.
+layer 4:
+  ......
+  ......
+  ......
+  ...rS.
