@@ -537,6 +537,12 @@ fn checks() -> Vec<Check> {
         ("observer-stone-bud", "cal-observer-stone-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 2 blocks, 2x1x1"),
         ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
         ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
+        ("bulb-burst2", "cal-bulb-burst2 burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1"),
+        ("bulb-divider4", "cal-bulb-divider4 divider 4 N 4, duty 50%, output square, latency 4 gt, min-period 2 gt, 6 blocks, 4x2x1"),
+        ("bulb-monostable", "cal-bulb-monostable monostable L 8 gt, delay 12 gt, retrigger non-retriggerable, re-arm 16 gt, min-pulse 1 gt, 6 blocks, 4x2x1"),
+        ("tap-off-delay", "cal-tap-off-delay off-delay L 4 gt, latency 2 gt, min-pulse 2 gt, 26 blocks, 5x2x3"),
+        ("subtract-on-delay", "cal-subtract-on-delay on-delay T 8 gt, shortening 4 gt, latency 6 gt, 16 blocks, 3x3x3"),
+        ("torch-pulse-train", "cal-torch-pulse-train pulse-train P 12 gt, pulse 6 gt, latency 6 gt, stop 4 gt, 15 blocks, 2x3x6"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
@@ -559,11 +565,16 @@ fn checks() -> Vec<Check> {
     for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update", "observer-bud-claims-latched", "observer-bud-tile1"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
+    // study 11: a monostable whose second edge cuts its pulse, an OR off-delay that does not
+    // restart, a false retriggerable claim refused
+    for f in ["oneshot-retriggered", "repeater-or-off-delay", "bulb-claims-retriggerable"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 22 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims and five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 28 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -590,12 +601,15 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-observer-bud-claims-update bud: claims update but does not detect it")?;
             has(&o[0], "FAIL: cal-observer-bud-claims-latched bud: not latched: after a place the output goes off")?;
             has(&o[0], "FAIL: cal-observer-bud-tile1 bud: not tileable (every 1 (0 0 1)): copy 0: cross-talk")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims and 5 false BUDs refused; the comparator AND kept"))
+            has(&o[0], "FAIL: cal-oneshot-retriggered monostable: re-trigger behaviour changes with the delay")?;
+            has(&o[0], "FAIL: cal-repeater-or-off-delay off-delay: min-pulse 8 gt")?;
+            has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs and 3 false study-11 timers refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 22 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 28 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
