@@ -261,10 +261,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         match (&a.pkg, &a.pkg_ref) {
             (Some(dir), _) => {
                 copy_files(dir, &out.join("pkg"), None)?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &dir.display().to_string())?;
                 true
             }
             (None, Some(r)) => {
                 let n = files_from_ref(&repo, r, "pkg/", &out.join("pkg"))?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &format!("{r}:pkg"))?;
                 eprintln!("UI: {n} files from {r}:pkg (not rebuilt)");
                 true
             }
