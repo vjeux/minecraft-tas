@@ -1,5 +1,5 @@
 # archived 2026-10-20T08:26Z from designs/circuits/tracks/tnt/tnt-launch-15b.txt by mctas circuit archive
-# CIRCUIT: tnt-launch-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 15 blocks, 3x3x4, robust (survives its own explosions: 0 exploded, 96 out of range, design intact; launched at (-0.0004, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000))
+# CIRCUIT: tnt-launch-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 15 blocks, 3x3x4, robust (survives its own explosions: 0 exploded, 296 out of range, design intact; launched at (-0.0008, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000))
 name: tnt-launch-15b
 circuit: tnt-duper
 origin: 0 0 -3
