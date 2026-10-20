@@ -287,6 +287,10 @@ pub fn badge_words(badge: &str) -> String {
 /// ticks · restarts on every press`, `reach 2 to 4`), from its span (`L 12-36 gt, 5 values`);
 /// None for a design that is no group's card or whose span is no range.
 fn group_range(c: &crate::Circuit) -> Option<String> {
+    // the flying machine card (the coordinator 21:55Z: one card, a table of direction and load)
+    if c.kind.starts_with("flying-machine") && c.tunable.starts_with("kind:") && !c.span.is_empty() {
+        return Some("flies sideways, up or down, with cargo or trailers".into());
+    }
     // one machine timed with several kinds of items (critique: three cards for 1-, 16- and
     // 64-stack items): one card that works with any of them
     if c.kind.starts_with("shulker-") && !c.span.is_empty() {
@@ -469,6 +473,7 @@ pub fn lead_words(board: &str) -> String {
         "seamless, flat, no slime or honey" => "hidden 1-block-thick door",
         "wall" => "door in a 3-thick wall",
         "ground" => "door with nothing below it",
+        "entities" => "entity door",
         other => return format!("best: {other}{tail}"),
     };
     format!("most compact {what}{tail}")
@@ -825,6 +830,10 @@ pub fn props(b: &Build) -> Props {
                 } else if what.starts_with("fails") {
                     chips.push("breaks on chunk reload".into());
                 }
+            }
+            // the one clock card: the periods its page's table covers (vjeux 21:47Z)
+            if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
+                return Props { kind: "Clock".into(), title: format!("a clock for every period: {range}"), sub: format!("smallest: {period}, {}", blocks_word(b.blocks)), chips: Vec::new() };
             }
             Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips }
         }
