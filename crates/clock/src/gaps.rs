@@ -221,6 +221,22 @@ pub fn retap(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file: &str,
     Ok(last.unwrap_or(Retap::NoTap("no candidate".into())))
 }
 
+/// The chunk-reload pass over a clock still shown: judged in the game with a chunk reload mid-run
+/// (`clock verify --reload`); one that does not stay a robust clock of its period is hidden.
+pub fn reload_check(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file: &str) -> Result<Retap> {
+    let c = Clock::load(&dir.join(file))?;
+    let row = read_rows(dir)?.into_iter().find(|r| r.file == file);
+    let mut ro = o.clone();
+    ro.reload = true;
+    let rep = verify_in_pool(pool, &c, &ro)?;
+    let same = rep.verdict == Verdict::Clock && rep.robustness == "robust" && row.as_ref().is_none_or(|r| rep.base().is_some_and(|b| b.period == r.period));
+    if same {
+        Ok(Retap::Even)
+    } else {
+        Ok(Retap::Hide(format!("does not survive a chunk reload: {}", rep.summary())))
+    }
+}
+
 /// Read results files (`clock retap --results`): the last result per file.
 pub fn read_results(paths: &[std::path::PathBuf]) -> Result<std::collections::BTreeMap<String, Retap>> {
     let mut out = std::collections::BTreeMap::new();
