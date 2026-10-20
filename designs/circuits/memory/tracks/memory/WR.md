@@ -71,3 +71,15 @@ Consequences, stated plainly rather than hidden:
 - `rs-latch` keeps rs-dropper (4b) and rs-crafter (6b); `d-latch` keeps both; every counter except the refused dropper rings survives.
 
 The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out of the build) are a different matter: they are not wrong, the judge simply cannot drive them. The item counter (39 blocks, any N) already replaces every large-N one, so the gap they leave is only at small composite N, where the bulb chain and the corner ring cover it.
+
+## Sizes after the rebuild (2026-10-20)
+
+| kind | design | blocks | note |
+|---|---|---|---|
+| dff | dff-lock | 15 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust; irreducible under `circuit shrink` |
+| shift 2 | shift2-lock | 30 | exactly 2 x the dff: the same two-repeater stage twice, sharing one clock dust line |
+| dff-enable | dffe-lock | 31 | the dff plus a torch AND on the clock; position-dependent (latency 38 gt) |
+
+The dff went 31 -> 18 by the in-game shrink, then 18 -> 15 by hand: the shrink removes blocks but never re-routes, and the clock line it left ran three cells further than it needed. The stage is two repeaters on the data line (B west, A south locking B from the side), a wall torch for the inverted phase, and one clock dust above; a second stage reuses the same dust.
+
+dff-enable is the one still above its target (~2 x dff). The AND must drive the clock dust, and the cheapest inverter chain tried so far costs 16 blocks on top of the 15-block core. Shapes judged and failed: the AND torch directly under the clock dust (a torch cannot support the dust above it), the AND output as a stone the dust reads (the dust then has no support either), and the NAND dust one layer lower driving a torch that powers the clock dust's support stone (builds, but the clock phase arrives a tick late and the first edge is missed). The next thing to try is feeding the AND into the SLAVE's torch block instead of the shared dust, so the enable gates the slave rather than the whole clock.
