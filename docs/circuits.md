@@ -342,7 +342,8 @@ kick) before the first input.
   box's contents carried as the stack's payload; a dispenser whose filled slots all hold the
   same stack picks the first (every pick gives the same world). 10 of the 12 archived designs'
   traces are tick-identical; a dropper choosing among different stacks (the level random) and a
-  minecart pushing entities are not modeled. The judge itself stays in the game.
+  minecart pushing entities are not modeled. The judge itself stays in the game. The in-browser
+  viewer runs the designs live with the same driver of the judge's chests (endless, docs/webrender.md).
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
   [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states

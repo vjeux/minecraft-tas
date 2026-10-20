@@ -93,12 +93,21 @@ each build's page.
   `PistonMovingBlockEntity.moveCollidedEntities` (moving blocks push it, a moving slime block
   launches it at one block per tick); its sideways direction (random in the game) comes from a
   hash of the cell and time; it vanishes at fuse 0 without exploding (the judge removes it).
-* Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) are shown as built
-  (redsim models no shulker boxes and chests: their judge runs in the game): the judge's chest on
-  each `items`, `boxes` and `output` port (tags ITEMS, BOXES, OUT), a still shulker box in the
-  box cell (in front of the dispenser), no inputs. Chests and shulker boxes are drawn with the
-  game's `ChestModel` / `ShulkerModel` and entity textures. A design shown as built never offers
-  inputs or input outlines.
+* Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
+  judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
+  tick for tick against the real game): the judge's chest on each `items`, `boxes`, `output` and
+  `reject` port (tags ITEMS, BOXES, OUT) placed after the design, the settle (40 gt), then the
+  box chests and a loader's sources kept full and the outputs emptied before every tick
+  (endless), with unstackables (27 per box: a box every ~11 s) unless the design sorts (a
+  `reject` port: its kind's own item); drops as the bridge seeds them (seed 0). A start lever is
+  the visitor's to flip (the judge flips it at its start); always-on designs start by
+  themselves. A design whose run redsim cannot follow (it runs 1000 gt ahead on load: a dropper
+  choosing among different stacks, a minecart pushing entities) is shown as built, with a still
+  shulker box in the box cell (in front of the dispenser). Chests and shulker boxes are drawn
+  with the game's `ChestModel` / `ShulkerModel` and entity textures. `web check` runs every
+  shulker design against a reference run built from the repo's tools (the clock judge's
+  placement, `circuit::Circuit`'s ports), as placed and after its start lever: the same frames,
+  native and wasm. A design shown as built never offers inputs or input outlines.
 * A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
   pictures' framing, which may cut a tall build).
 * Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
