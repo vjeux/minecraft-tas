@@ -1,10 +1,11 @@
-# archived 2026-10-20T00:26Z from designs/circuits/delay/tracks/delay/families/delay-rep6.txt by mctas circuit archive
-# CIRCUIT: delay-rep6-n0 delay N 6 gt, min-pulse 6 gt, min-gap 6 gt, 2 blocks, 1x2x1, robust
-# Repeater line N = 6 gt (track delay, family delay-rep6: N = 6 + 8n gt, n = 0): a delay-3 repeater
-# then 0 delay-4 repeater(s) in a row on stones, each reading the one before; N = 2 gt per redstone
-# tick of delay
+# archived 2026-10-20T21:38Z from designs/circuits/delay/tracks/delay/delay-rep6-n0.txt by mctas circuit archive
+# CIRCUIT: delay-rep6-n0 delay N 6 gt, min-pulse 6 gt, min-gap 6 gt, tileable every 1 (0 0 1), 2 blocks, 1x2x1, robust
+# One repeater set to 3: the signal comes out 6 ticks later. Each repeater adds 2 ticks per notch of
+# its setting, so any even delay is a line of them, 2 blocks (repeater + stone) per started 8 ticks
+# (track delay, family delay-rep6: N = 6 + 8n gt, n = 0)
 name: delay-rep6-n0
 circuit: delay
+tile: 0 0 1
 extend axis: 6 + 8n
 extend base: 0
 extend blocks: 2 + 2n
