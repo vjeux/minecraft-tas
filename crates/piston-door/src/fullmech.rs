@@ -324,9 +324,10 @@ impl Ctx {
                 }
             }
         }
+        let full = FRAME_FULL.load(Ordering::Relaxed);
         for (c, _) in &self.ring {
             if let Some(i) = c {
-                if !matches!(key.g[*i], Block::Air | STONE) {
+                if !matches!(key.g[*i], Block::Air | STONE) || (full && key.g[*i] != STONE) {
                     return false;
                 }
             }
@@ -1588,6 +1589,10 @@ pub struct AnnealOpts {
     pub slime: bool,
     pub pulses: Vec<u8>,
     pub pairs: bool,
+    /// Restarts begin from these pieces (`--anneal-seed`); the first `freeze` of them are never
+    /// mutated (`--anneal-freeze`).
+    pub start: Vec<FPc>,
+    pub freeze: usize,
 }
 
 struct Rng(u64);
@@ -1729,23 +1734,26 @@ fn mutate(r: &mut Rng, bx: Bx, pieces: &[FPc], o: &AnnealOpts) -> Vec<FPc> {
     let mut v = pieces.to_vec();
     let np = v.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count();
     let free = free_cells(bx, &v);
+    // frozen seed pieces (the first o.freeze) are never removed, moved or changed
+    let fz = o.freeze.min(v.len());
+    let movable = v.len() - fz;
     match r.below(6) {
         0 | 1 if np < o.max_pistons && !free.is_empty() => {
             let c = free[r.below(free.len())];
             v.push(random_piece(r, c, o.helpers, o.slime));
         }
-        2 if !v.is_empty() => {
-            let i = r.below(v.len());
+        2 if movable > 0 => {
+            let i = fz + r.below(movable);
             v.remove(i);
         }
-        3 if !v.is_empty() && !free.is_empty() => {
-            let i = r.below(v.len());
+        3 if movable > 0 && !free.is_empty() => {
+            let i = fz + r.below(movable);
             let c = free[r.below(free.len())];
             v[i].x = c.0;
             v[i].y = c.1;
         }
-        _ if !v.is_empty() => {
-            let i = r.below(v.len());
+        _ if movable > 0 => {
+            let i = fz + r.below(movable);
             if let FK::Piston { sticky, f, ext } = v[i].k {
                 v[i].k = match r.below(3) {
                     0 => FK::Piston { sticky: !sticky, f, ext },
@@ -1779,9 +1787,10 @@ pub fn anneal(o: &AnnealOpts) -> Vec<(Vec<FPc>, Found)> {
             s.spawn(move || {
                 let mut r = Rng(o.seed.wrapping_mul(1_000_003).wrapping_add(t as u64 * 7919 + 1));
                 while std::time::Instant::now() < deadline {
-                    // a restart: a few random pistons
-                    let mut cur: Vec<FPc> = Vec::new();
-                    for _ in 0..(4 + r.below(o.max_pistons.saturating_sub(3).max(1))) {
+                    // a restart: the seed (if any) plus a few random pieces
+                    let mut cur: Vec<FPc> = o.start.clone();
+                    let extra = if o.start.is_empty() { 4 + r.below(o.max_pistons.saturating_sub(3).max(1)) } else { r.below(4) };
+                    for _ in 0..extra {
                         let free = free_cells(o.bx, &cur);
                         if free.is_empty() {
                             break;
@@ -1857,7 +1866,15 @@ pub struct CliOpts {
     pub shrink: bool,
     /// Replay this `door ideal` plan in the solver's world (--check diagnostics).
     pub replay_ideal: Option<std::path::PathBuf>,
+    /// `--anneal-seed`: restarts begin from this design's pieces.
+    pub anneal_seed: Option<std::path::PathBuf>,
+    /// `--anneal-freeze N`: the seed's first N pieces are never mutated (all with a huge N).
+    pub anneal_freeze: usize,
 }
+
+/// `fullmech --frame-full`: open also needs a door block (stone) in each of the 12 frame cells
+/// (the boards' FULL FRAME rule), not just air or plain blocks.
+pub static FRAME_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// `fullmech --check --keep-stone`: keep the design's plain stones / obsidian as pieces (static
 /// frame stones of an ideal-input design: without them the solver may push door blocks into the
@@ -1878,6 +1895,8 @@ fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
             Kind::Stone if keep => FK::Stone,
             Kind::Obsidian if keep => FK::Obsidian,
             Kind::Door | Kind::Stone | Kind::Obsidian => continue,
+            Kind::Slime => FK::Slime,
+            Kind::Honey => FK::Honey,
             Kind::Piston { sticky, f, ext } => FK::Piston { sticky: *sticky, f: *f, ext: *ext },
             k => anyhow::bail!("unsupported block {k:?}"),
         };
@@ -1947,10 +1966,17 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             }
         }
         let per = (o.seconds / offs.len().max(1) as u64).max(10);
+        // --anneal-seed: every restart begins from the seed's pieces (its first --anneal-freeze
+        // pieces, in file order, never mutated)
+        let start: Vec<FPc> = match &o.anneal_seed {
+            Some(p) => pieces_of_design(p)?,
+            None => Vec::new(),
+        };
+        let freeze = o.anneal_freeze.min(start.len());
         let mut report = String::new();
         for (dx, dy) in offs {
             let bx = Bx { x0: -dx, y0: -dy, w, h };
-            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, slime: o.slime, pulses: o.pulses.clone(), pairs: o.pairs };
+            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, slime: o.slime, pulses: o.pulses.clone(), pairs: o.pairs, start: start.clone(), freeze };
             let found = anneal(&ao);
             let line = format!("anneal {w}x{h} door offset ({dx},{dy}): {} mechanisms open+close exactly in {per}s", found.len());
             println!("{line}");
