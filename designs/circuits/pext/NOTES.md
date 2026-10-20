@@ -102,3 +102,22 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   254, N=8 356 (N=9 still boxes in); minimized N=5 105.
 * `pext trains --interleave` (the cascade's per-edge reuse for a fixed train) also works but needs
   more pulses (16 for N=4).
+
+## World-record push (10-20): `pext topo`, `pext lns` (targets and status: [WR.md](WR.md))
+* `pext topo` sweeps N=2 1-wide topologies (the second piston and the payload at 11 placements, k
+  grown blocks within 2 cells, `--free-lever` lets the lever go anywhere): no 6-block design; at 7
+  only the rider and its mirror (slime or honey frame), 9/9 gt.
+* `pext lns` removes every r-subset of a design's blocks and grows back at most r-1 (one subset per
+  worker, `--keep-y` keeps the line). From cascade19: 18 blocks. Nothing smaller from 18 (in the
+  plane, in 3D, with the `core` palette, removing line blocks too), from 26 (N=4, r=3 and r=4), 33
+  (N=5), 39 (N=6). `--free-lever` lets the lever move too (removable, regrown anywhere, never
+  counted): from 18 it finds 46 designs of 17 blocks (the lever hangs on the chain's first observer
+  and the sticky piston under it shoves the front piston's starter aside and back), and from 17, 24
+  designs of 16: the front unit's observer rides ON TOP of its slime facing up and fires when that
+  sticky piston pulls back above it, so the front piston needs no starter. Archived
+  pext-n3-flat-cascade16 (28/34 gt); 17 and 18 removed (dominated). From 16 nothing smaller (remove
+  3 or 4, grow 2).
+* Dead ends (redsim traces): a staircase of riders and a single frame carrying both stage pistons
+  (`frame3`) fail on simultaneous triggers: one push moves every carried observer, they all fire 2 gt
+  later, the block event order lets one piston act and the other fail, and an observer moved while
+  powered lands powered and never fires again.
