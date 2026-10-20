@@ -76,7 +76,10 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   properties and the design's file name fold into one collapsed "Details" (vjeux 13:11Z: no design
   ids in any list or card; the name stays in the URL, the downloads and that details table).
   Captions that are agent or tool logs are dropped (`explain::caption_plain`); the first sentence
-  of a designer's caption shows as "How this design does it". Pages vjeux deleted (13:35Z): the
+  of a designer's caption shows as "How this design does it". Clock pages show "Its output over
+  time" (vjeux 13:46Z): the output over the start-up (shaded) and three periods, simulated from
+  the design at build time the way the 3D view runs it (`pages::clock_timeline`; none for the
+  clocks the browser's simulator cannot run). Pages vjeux deleted (13:35Z): the
   door boards, the families index, the list of everything and the about page
   (`generate::DELETED_PAGES`: never written, removed from an old output folder, and a smoke check
   fails if one exists or is linked). The catalog's folds (`catalog.tsv`):

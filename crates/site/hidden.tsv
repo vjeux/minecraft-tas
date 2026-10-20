@@ -1,8 +1,9 @@
 # Circuit designs REDSTONEPEDIA does not publish: they stay in the repository's archives (research,
 # the judge's history) but get no card, page, search hit, count or download on the site. One line
-# each: <study>/<archived file pattern, * = any text> TAB <why>. A line starting with `!` is an
+# each: <study>/<archived file pattern, * = any text> TAB <why>; `*/@<class>` hides every design of a
+# class (its verdict's axis, e.g. `L = 10 gt, vibration-sensitive`). A line starting with `!` is an
 # exception: a design it matches is published whatever the other lines say. Read by
-# crates/site/src/circuits.rs (`hidden`); `mctas site smoke` checks that none of them is published;
+# crates/site/src/circuits.rs (`hidden_design`); `mctas site smoke` checks that none is published;
 # `mctas site build` lists the dominated designs still published (`mctas site dominated`).
 pext/pext-*-sf*	vjeux 2026-10-20 12:12Z on pext-n5-sf-sweep136: "Why would anyone use this monstrosity? It's bigger and slower than the other ones we have" (the slime-free line of the piston extenders)
 # 2026-10-20 12:55Z, the coordinator from pext's world-record bar (explore/pext designs/circuits/pext/WR.md): only the current holder of each N
@@ -42,5 +43,6 @@ memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same co
 tnt/tnt-launch-14b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-drop-16b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
 tnt/tnt-lever-launch-15b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
-pulse/pulse-*-sculk-*	temporary: a real lever's own vibration or ambient vibrations may trigger these sculk pulse circuits; until clk-obs's vibration test passes
-pulse/pulse-fall-trapdoor-cal-L10	temporary: a real lever's own vibration or ambient vibrations may trigger it; until clk-obs's vibration test passes
+# 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
+# vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
+*/@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)

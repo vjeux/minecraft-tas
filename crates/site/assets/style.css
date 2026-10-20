@@ -234,6 +234,9 @@ table.truth td.off { color: var(--muted); }
 .tag-out { color: #d9700f; font-weight: 700; }
 .tag-pos { color: #2d5b85; font-weight: 700; }
 .wave-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 6px; }
+.wave-wrap.fit { overflow-x: visible; max-width: 760px; }
+svg.wave.fit { width: 100%; height: auto; }
+svg.wave .warm { fill: rgba(128, 128, 128, .16); }
 svg.wave { display: block; font: 11px system-ui, sans-serif; }
 svg.wave .win { fill: #8fd14f; stroke: #4f9a1a; stroke-width: 1; }
 svg.wave .wout { fill: #f5a54a; stroke: #d9700f; stroke-width: 1; }
