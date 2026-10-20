@@ -166,6 +166,11 @@ impl Design {
             Palette,
             Layer(i32),
         }
+        // a merge left unresolved: the file is not a design, and silently parsing the HEAD half
+        // archives a broken file (clk-item 2026-10-20: markers reached main and broke the site)
+        if let Some((n, l)) = text.lines().enumerate().find(|(_, l)| l.starts_with("<<<<<<< ") || l.starts_with(">>>>>>> ") || *l == "=======") {
+            bail!("line {}: {l:?}: unresolved merge markers, not a design", n + 1);
+        }
         let mut d = Design::default();
         let mut origin: Pos = [0, 0, 0];
         let mut palette: BTreeMap<char, String> = BTreeMap::new();
