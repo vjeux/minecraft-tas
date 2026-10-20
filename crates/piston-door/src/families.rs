@@ -2270,6 +2270,7 @@ pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, usize) {
     };
     let id_at = |x: i8, y: i8| (0..m.info.len()).find(|&id| bx.xy(rest.pp[id] as usize) == (x, y));
     let still = |id: usize| states.iter().all(|s| s.pp[id] == rest.pp[id]);
+    let near = |a: (i8, i8), b: (i8, i8)| (a.0 - b.0).abs() + (a.1 - b.1).abs() == 1;
     let mut covered = 0usize;
     for (id, p) in m.pid.iter().map(|&pi| m.pieces[pi]).enumerate() {
         let K::Piston { f, .. } = p.k else { continue };
@@ -2278,25 +2279,16 @@ pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, usize) {
         if bx.has(lever.0, lever.1) || !still(id) {
             continue;
         }
-        // the unfed receivers this lever holds
-        let near = |a: (i8, i8), b: (i8, i8)| (a.0 - b.0).abs() + (a.1 - b.1).abs() == 1;
-        let held: Vec<usize> = list
-            .iter()
-            .filter_map(|&(x, y)| {
-                let j = id_at(x, y)?;
-                (j == id || near((x, y), lever) || near((x, y + 1), lever)).then_some(j)
-            })
-            .filter(|&j| still(j))
-            .collect();
-        if held.len() > covered {
-            let mut ids = held.clone();
-            if !ids.contains(&id) {
-                ids.push(id);
-            }
-            if front_ok(&ids) {
-                covered = held.len();
-            }
+        // every piston the lever powers at some state (beside the lever cell, or by QC: its above
+        // cell touches it) must be lever-held: never moved, one level toggle per edge at the flip
+        // (w86: a lever at (0,5) also arms (-1,4) and (1,4), which broke t1-r22 in the game)
+        let powered = |q: (i8, i8)| near(q, lever) || near((q.0, q.1 + 1), lever);
+        let affected: Vec<usize> = (0..m.info.len()).filter(|&j| states.iter().any(|s| powered(bx.xy(s.pp[j] as usize)))).collect();
+        if affected.iter().any(|&j| !still(j)) || !front_ok(&affected) {
+            continue;
         }
+        let held = list.iter().filter(|&&(x, y)| id_at(x, y).is_some_and(|j| affected.contains(&j))).count();
+        covered = covered.max(held);
     }
     (list, covered)
 }
