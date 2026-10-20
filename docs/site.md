@@ -19,7 +19,7 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site serve --dir site/ [--port 8000]` | local preview (static server on 127.0.0.1) |
 | `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site. `mctas site publish` refuses to deploy without it (`--no-smoke` overrides) |
 | `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, a shulker loader and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
-| `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness and the console |
+| `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
@@ -58,7 +58,11 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`; a BUD switch's
   block changes at its target cells as `data-events`) and the page's
   timing diagram (inputs and outputs per gt, a TARGET row for the BUD judge's changes) with the
-  checker's report; a design redsim cannot run is said to be shown as built, with the reason. The
+  checker's report; whether the 3D view runs a design or shows it as built comes from the viewer's
+  own session (`mcview::session::Session::new`, its `unsimulated` reason in plain words), and each
+  live shulker machine is run at build time the way the view runs it (the judge's chests kept full
+  and emptied, the start lever on) until it sends out 4 boxes: the page gives when the first box
+  goes out and how often the next ones do, and the build prints every run (WARNING on none). The
   machines' studies (shulker loaders, TNT dupers, BUD switches) get a Variations table on their
   study page: the best design for each variation of their VARIATIONS.md, from the metrics
   (badges, items/s, rate, detected classes). The page's plain-language
