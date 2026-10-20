@@ -190,8 +190,13 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
             return true;
         }
     }
-    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none" && !x.starts_with("tileable(")).map(String::from).collect()).unwrap_or_default() };
     if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    // `tileable(N)`: copies every N blocks; a denser pitch (or tileable at all) is better
+    let pitch = |r: &Row| get(r, "badges ").and_then(|s| s.split('+').find_map(|x| x.strip_prefix("tileable(").and_then(|v| v.trim_end_matches(')').parse::<u32>().ok())));
+    if pitch(b).is_some_and(|pb| pitch(a).is_none_or(|pa| pb < pa)) {
         return true;
     }
     matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)

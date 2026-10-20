@@ -44,31 +44,50 @@ The five roles are:
   stand where the piston is.
 - A drop squeezed out sideways can leave through x into the neighbour's slice.
 
-**Result: a 1-wide loader at hopper pace with a box read is impossible.** What remains:
-- (a) Read the feed's backlog instead. The feed must drain faster than it is supplied (otherwise
-  the backlog after each swap is permanent, NOTES.md), which caps the rate at about 1.25/s with
-  one hopper face.
-- (b) Pitch 2.
+**Result: a 1-wide loader at hopper pace with a box read is impossible.**
 
-Target: the smallest pitch-2 loader at 2.5/s with every badge, plus a 1-wide backlog loader as the
-1-wide record. Both are still to build.
+**Reading the feed instead (coordinator 2026-10-20) runs into the same wall.** In a pitch-1 slice
+every signal is binary: the only analog-sensitive elements are dust (which the copies share) and
+comparator side inputs (which face the copies). That rules out three readings:
+- "Full" read off the box itself is 15 against 14, a threshold.
+- "Full" read off the feed hopper's backlog needs a threshold too. While the box accepts, the feed
+  hopper holds exactly 1 item. That reads level 1 for 64- and 16-stacks but level 3 for an
+  unstackable, and 2 items read level 1 again for 64-stacks until 23 items.
+- An observer only sees a comparator turn on or off.
+So no binary signal says "full" for every item kind.
 
-### Unloader: fits
+What remains:
+- (a) Time it. Hopper pace is exact: a 64-stack box is full 13824 gt after its first item. That
+  passes the base scenario but loses the 16-stack and unstackable badges to their time caps.
+- (b) A feed that drains faster than it is supplied, so that "feed not empty" means "full". That
+  needs a gated dropper that never fires into an empty cell. Box presence comes from the design's
+  own swap timing, and the feed hopper is locked during a swap so that no backlog is left to
+  drain.
+- (c) Pitch 2, with a box read: all badges.
 
-- Dispenser above X, extraction hopper H below X.
-- Push line along z: sticky piston, stone, X, drop cell, collector K.
-- Read: a comparator on H. While the box has items, H holds exactly 1 item, because it pushes and
-  then pulls in the same tick. So "H is empty" means "the box is empty".
-- Timing bound: H goes idle 8 gt after its last push, and a drop still in X's column at that
-  moment is lost into the items chest. So the piston must fire within 5 gt of H emptying:
-  comparator (2 gt) plus one torch (2 gt).
-- That torch must give a pulse only on the falling edge, with no side inputs. The design is a NOR:
-  - The torch sits on block B.
-  - B is powered by the comparator on H, or by a second torch fed by a delayed copy from a second
-    comparator on H (H's other horizontal face, which is free when K sits level with X).
+### Unloader: RECORD, `shulker-unloader-1wide`
 
-Target: a 1-wide, pitch-1 unloader at 2.5/s with every badge except tileable(>1). Blocks: about 20
-to 25, against 41 for the smallest unloader today, which is 5 wide (tileable(5)). In progress.
+24 blocks, 1 wide, `tile: 1 0 0` (pitch 1), robust, 2.50 items/s (hopper pace), badges always-on,
+16-stack, unstackable, colours, box-starved, drop-free, tileable(1). It replaces the 41-block,
+5-wide `shulker-small-unloader`, which now folds under it.
+- Layout:
+  - dispenser above X, emptying hopper H below X
+  - push line along z: sticky piston, stone, X, then a drop cell over the output hopper (that
+    hopper catches anything in the drop cell's column, so the drop has no time to drift across x)
+- Read: one comparator on H. H holds exactly 1 item while the box still has items, because it
+  pushes and then pulls in the same tick.
+- Fast path: repeater, block B, torch on B, then the piston, for 3 gt from "H empty" to the break.
+  H is still on its 8 gt cooldown until the drop has been pushed out of its column.
+- End of the pulse:
+  - An observer under the comparator toggles a copper bulb on every change of the comparator.
+  - The bulb is unlit while H is empty. Its comparator and one torch then keep B powered until the
+    next box's first item.
+  - Every comparator starts at 0, so the design is consistent as placed. An earlier draft, where
+    a comparator was placed already on, settled differently in one rotation: a 1 gt torch flicker
+    made the sticky piston spit its stone into the box cell.
+- Start and refills: a comparator reads the dispenser through a stone, and observers watching it
+  power the boxes hopper above the dispenser. That fires the dispenser by quasi-connectivity: an
+  observer's output into a hopper is no power source for the neighbouring copies.
 
 ## Speed per 1-wide slice (ceilings)
 
