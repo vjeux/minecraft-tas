@@ -63,6 +63,16 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The odd delay line (a sticky piston's 3/1 copy OR'ed with itself 2 gt later, then a tail of
+    /// repeaters): N = 3 + 2 x the tail's delays. `--n` picks the fewest repeaters for an odd N >= 3.
+    PistonOr {
+        #[arg(long, value_delimiter = ',')]
+        tail: Vec<u8>,
+        #[arg(long)]
+        n: Option<u32>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// A repeater + a torch tower of k torches: N = 2 + 2k.
     Torches {
         #[arg(long)]
@@ -138,6 +148,17 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 out,
                 &format!("Observer line + copper bulb (track delay): {n} observer(s) carry each input edge as a 2 gt pulse, a waxed copper bulb toggles on every pulse (the input level again), a comparator reads it: N = 2 x {n} + 2 = {} gt", 2 * n + 2),
             )?;
+        }
+        Cmd::PistonOr { tail, n, out } => {
+            let tail = match n {
+                Some(n) if n >= 3 && n % 2 == 1 => families::split_ticks((n - 3) / 2),
+                Some(n) => bail!("--n {n}: the piston OR line makes odd N >= 3"),
+                None => tail,
+            };
+            let sum: u32 = tail.iter().map(|d| *d as u32).sum();
+            let n = 3 + 2 * sum;
+            let tl = if tail.is_empty() { String::new() } else { format!("; the OR lands on a dust and {} repeater(s) (delays {:?}) add {} gt", tail.len(), tail, 2 * sum) };
+            emit(families::piston_or(&tail, &format!("delay-piston-or-{n}")), out, &format!("Delay line N = {n} gt (track delay): a sticky piston pushes a redstone block one cell (it arrives 3 gt after the input rises and leaves 1 gt after it falls); the output touches the block's new cell, and a repeater behind that cell feeds the output again 2 gt later through a stone and two dusts: the OR of the 3/1 and 5/3 copies is a 3/3 delay{tl}"))?;
         }
         Cmd::Torches { n, out } => {
             emit(families::torches(n, &format!("delay-torch-{n}")), out, &format!("Torch tower (track delay): a repeater powers a block, {n} torches climb from it (each powers the block above it): N = 2 + 2 x {n} gt"))?;
