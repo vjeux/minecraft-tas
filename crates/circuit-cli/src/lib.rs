@@ -30,6 +30,10 @@ pub enum CircuitCmd {
         /// Print the waveform (inputs and outputs per gt) of the whole run.
         #[arg(long)]
         wave: bool,
+        /// Print the cells that change, frame by frame, over `<from>..<to>` (the waveform's frame
+        /// numbers), with the inputs and output levels: how a design works, tick by tick.
+        #[arg(long)]
+        cells: Option<String>,
         /// Print the checker's table (one line per test).
         #[arg(long)]
         table: bool,
@@ -270,7 +274,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::Sim { designs, stimulus, gap, wave, table, margin } => {
+        CircuitCmd::Sim { designs, stimulus, gap, wave, cells, table, margin } => {
             let o = Options { stimulus, gap, margin, version: version.to_string(), ..Default::default() };
             for p in &designs {
                 // a design the judge refuses to load (R7: no way in for its input repeater) is
@@ -294,6 +298,9 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     for l in t.strip(&c, 0, t.frames()) {
                         println!("  {l}");
                     }
+                }
+                if let (Some(range), Ok(t)) = (&cells, &r.trace) {
+                    print_cell_changes(t, range);
                 }
                 println!("{}", r.summary(&c));
             }
@@ -460,4 +467,27 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
     }
     Ok(())
+}
+
+/// `circuit sim --cells <from>..<to>`: per frame, the cells that changed since the frame before
+/// (`[x, y, z] block`, air when a block left), with every input (0/1) and output level.
+fn print_cell_changes(t: &circuit::trace::Trace, range: &str) {
+    let n = t.cells.len();
+    let (a, b) = match range.split_once("..") {
+        Some((a, b)) => (a.trim().parse::<usize>().unwrap_or(0), b.trim().parse::<usize>().unwrap_or(n)),
+        None => (0, n),
+    };
+    let short = |s: &str| s.strip_prefix("minecraft:").unwrap_or(s).to_string();
+    for f in a.max(1)..b.min(n) {
+        let prev: std::collections::HashMap<_, u32> = t.cells[f - 1].iter().copied().collect();
+        let cur: std::collections::HashMap<_, u32> = t.cells[f].iter().copied().collect();
+        let mut ch: Vec<String> = cur.iter().filter(|(p, id)| prev.get(*p) != Some(*id)).map(|(p, id)| format!("{p:?} {}", short(&t.names[*id as usize]))).collect();
+        ch.extend(prev.keys().filter(|p| !cur.contains_key(*p)).map(|p| format!("{p:?} air")));
+        ch.sort();
+        let ins: String = t.inputs.iter().map(|v| if v.get(f).copied().unwrap_or(false) { '1' } else { '0' }).collect();
+        let outs: Vec<String> = t.levels.iter().map(|v| v.get(f).copied().unwrap_or(0).to_string()).collect();
+        if !ch.is_empty() || f == a.max(1) {
+            println!("  frame {f} in {ins} out {}: {}", outs.join(","), ch.join("; "));
+        }
+    }
 }
