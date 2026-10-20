@@ -500,7 +500,7 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
     // quads with the texture repeated
     let gy = (y - 1.0).floor() as i32;
     let (ix0, ix1, iz0, iz1) = (x0 as i32, x1 as i32, z0 as i32, z1 as i32);
-    let near = 40;
+    let near = 24;
     let (nx0, nx1, nz0, nz1) = ((lo[0].floor() as i32 - near).max(ix0), (hi[0].ceil() as i32 + near).min(ix1), (lo[2].floor() as i32 - near).max(iz0), (hi[2].ceil() as i32 + near).min(iz1));
     for bz in nz0..nz1 {
         for bx in nx0..nx1 {

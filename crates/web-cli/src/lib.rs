@@ -788,7 +788,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut flyers, mut bad, mut skipped) = (0, 0, 0, 0);
+    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped) = (0, 0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -797,7 +797,15 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             continue;
         }
         let fly = is_flying_machine(&text);
-        let line = match if fly { fly_pair(&text, probe.as_mut()) } else { clock_pair(&text, horizon, probe.as_mut()) } {
+        let circ = !fly && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input"));
+        let run = if fly {
+            fly_pair(&text, probe.as_mut())
+        } else if circ {
+            circuit_pair(&text)
+        } else {
+            clock_pair(&text, horizon, probe.as_mut())
+        };
+        let line = match run {
             Ok(Some(l)) => l,
             Ok(None) => {
                 skipped += 1;
@@ -814,6 +822,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         };
         if fly {
             flyers += 1;
+        } else if circ {
+            circuits += 1;
         } else {
             ok += 1;
         }
@@ -822,8 +832,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim) and {flyers} flying machines (same frames and end as circuit fly sim) agree{}, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " in the native and the wasm viewer" } else { "" }
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim) and {circuits} circuits (same frames as circuit sim under the judge's stimulus) agree{}, {skipped} parse-only, {bad} failures",
+        if probe.is_some() { " (clocks and flying machines in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -871,6 +881,46 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         }
     }
     Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
+}
+
+/// A circuit's run under its judge's stimulus in the viewer and in `circuit sim`
+/// (`circuit::run::sim_trace`, the judge's consumers included): every cell's full state at every
+/// frame must agree. None when the design is no judged circuit.
+fn circuit_pair(text: &str) -> Result<Option<String>, String> {
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    if !d.meta.contains_key("circuit") {
+        return Ok(None);
+    }
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let Some(kind) = c.kind.clone() else { return Ok(None) };
+    if matches!(kind, circuit::Kind::FlyingMachine) || c.inputs.is_empty() {
+        return Ok(None);
+    }
+    let gap = circuit::verify::sizing(&c, 3).unwrap_or(circuit::check::Sizing::default().gap);
+    let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    let trace = match circuit::run::sim_trace(&c, &s, 3) {
+        Ok(t) => t,
+        Err(why) => return Err(format!("circuit sim: {why}")),
+    };
+    let (from, to) = circuit::run::watch_box(&c, 3);
+    let inside = |p: &[i32; 3]| (0..3).all(|k| p[k] >= from[k] && p[k] <= to[k]);
+    let mut session = mcview::Session::new(text, &mcview::Options::default())?;
+    if !session.simulated() {
+        return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
+    }
+    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks });
+    let frames = trace.cells.len();
+    for (f, cells) in trace.cells.iter().enumerate() {
+        let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();
+        let mine_all = session.cell_states();
+        let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p)).map(|(p, s)| (*p, s.as_str())).collect();
+        if theirs != mine {
+            let diff = theirs.iter().find(|x| !mine.contains(x)).map(|(p, s)| format!("{p:?} {s} in circuit sim")).or_else(|| mine.iter().find(|x| !theirs.contains(x)).map(|(p, s)| format!("{p:?} {s} in the viewer"))).unwrap_or_default();
+            return Err(format!("frame {f} differs from circuit sim's ({diff})"));
+        }
+        session.step();
+    }
+    Ok(Some(format!("{} {frames} frames agree", kind.name())))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they

@@ -107,6 +107,12 @@ each build's page.
   `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
   every archived flying machine against `circuit fly sim`: same end tick and same frames, native
   and wasm.
+* A circuit runs as its judge builds it: the judge's consumer lamp (`circuit::CONSUMER`) in
+  every air output cell (`consumer_cells`: not for extenders and flying machines, nor where a
+  piston may push a block in); the lamp shows the output (no orange marker there).
+  `mctas web check` runs every archived circuit under its judge's stimulus against
+  `circuit::run::sim_trace`: every cell's full state (comparator strength, container contents)
+  at every frame agrees.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
   sculk, hoppers, doors, trapdoors, rails, ...). The tiles are the game's own textures, fetched
