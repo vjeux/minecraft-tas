@@ -1,12 +1,16 @@
-# Always-on shulker loader (track shulker, hand-built), the reference loader with its start lever
-# replaced by a comparator that reads the dispenser through the drop cell's roof. An observer above
-# that comparator fires the dispenser whenever it goes from holding no box to holding one: it
-# places the first box by itself, and again whenever boxes come back after the supply ran out
-# (badges always-on and box-starved). The rest is the reference loader: the dispenser above the
-# box cell, a hopper feeding it from the side, a comparator in compare mode with a redstone block on
-# its side (15 only when full), a sticky piston two cells away pushing a stone into the box, the
-# moving stone pushing the drop into a walled cell over the collection hopper, and an observer on
-# the pushed stone's cell firing the dispenser after each box.
+# Always-on shulker loader (track shulker, hand-built). A comparator reads the dispenser through
+# the drop cell's roof; an observer above that comparator fires the dispenser whenever it goes from
+# holding no box to holding one, so it places the first box by itself and again whenever boxes come
+# back after the supply ran out. The dispenser sits above the box cell (the drop, which pops at a
+# random offset and drifts, cannot leave upward); a hopper feeds the box from the side; a
+# comparator reads it through a stone, in compare mode with a redstone block on its side, so it
+# outputs 15 only when full; through a stone, two dusts and a repeater it powers a stone beside a
+# sticky piston two cells away (so the powered dispenser never quasi-powers it), which pushes a
+# stone into the box: the box breaks and the moving stone pushes the drop into the walled drop cell,
+# over the hopper to the output chest. An observer on the pushed stone's cell fires the dispenser
+# for the next box. The floor under the box cell and the drop cell's north wall look removable
+# (`circuit shulker shrink` took them out, and most runs pass), but a drop that drifts past them
+# falls out of the machine now and then: they stay.
 name: shulker-auto-loader-1
 circuit: shulker-loader 1
 port items: 0 2 1

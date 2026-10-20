@@ -248,7 +248,21 @@ pub struct Scenario {
     /// Badge `flush` (loaders): 2.5 boxes' worth; the half box must arrive within [`FLUSH_WAIT`] gt
     /// after the source runs dry.
     pub partial: bool,
+    /// Badge `mixed` (loaders): the source cycles through [`MIXED`] stacks [`MIXED_ROUNDS`] times;
+    /// every item must end in a delivered box, every box but the last with 27 occupied slots, the
+    /// last within [`FLUSH_WAIT`] gt of the source running dry.
+    pub mixed: bool,
 }
+
+/// Badge `mixed`: the source's stacks, in order, one round (cobblestone, snowballs and dirt, full
+/// and partial stacks, so boxes fill with partial stacks a comparator never reads as full).
+pub const MIXED: [(&str, u32); 6] =
+    [("minecraft:cobblestone", 64), ("minecraft:snowball", 16), ("minecraft:dirt", 37), ("minecraft:cobblestone", 20), ("minecraft:snowball", 5), ("minecraft:dirt", 64)];
+/// A rare item, once at the very start: its slot stays partial for good, so a design that waits
+/// for a box to read full jams.
+pub const MIXED_RARE: (&str, u32) = ("minecraft:iron_ingot", 3);
+/// About 2.5 boxes of slots.
+pub const MIXED_ROUNDS: usize = 16;
 
 /// Badge `flush`: the most gt from the source running dry to the partial box's arrival.
 /// Badge `flush`: the most gt from the source running dry to the partial box's arrival (5 min:
@@ -277,7 +291,38 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false }
+    }
+
+    /// The scenario's items in a stack (a box's contents included): the scenario item, or with
+    /// `mixed` every item the source supplies.
+    pub fn counts(&self, s: &Stack) -> u64 {
+        if !self.mixed {
+            return s.count_of(self.item);
+        }
+        let own = if self.is_item(&s.id) { s.count as u64 } else { 0 };
+        own + s.contents.iter().map(|x| self.counts(x)).sum::<u64>()
+    }
+
+    /// Whether an item belongs to the scenario (what the source supplies).
+    pub fn is_item(&self, id: &str) -> bool {
+        if self.mixed { MIXED.iter().any(|(m, _)| *m == id) || id == MIXED_RARE.0 } else { id == self.item }
+    }
+
+    /// Everything a loader's source supplies per copy, stack by stack, in order.
+    pub fn source_stacks(&self) -> Vec<Stack> {
+        if self.mixed {
+            let mut v = vec![Stack::new(MIXED_RARE.0, MIXED_RARE.1)];
+            v.extend((0..MIXED_ROUNDS).flat_map(|_| MIXED.iter().map(|(id, n)| Stack::new(id, *n))));
+            return v;
+        }
+        let total = self.source_total();
+        let full = total / self.stack as u64;
+        let mut v: Vec<Stack> = (0..full).map(|_| Stack::new(self.item, self.stack)).collect();
+        if total % self.stack as u64 > 0 {
+            v.push(Stack::new(self.item, (total % self.stack as u64) as u32));
+        }
+        v
     }
 
     pub fn per_box(&self) -> u64 {
@@ -291,6 +336,9 @@ impl Scenario {
     /// What a loader's source supplies per copy: the boxes' worth, less what the supplied boxes
     /// already hold (`top-up`), or 2.5 boxes' worth (`flush`).
     pub fn source_total(&self) -> u64 {
+        if self.mixed {
+            return MIXED_RARE.1 as u64 + MIXED_ROUNDS as u64 * MIXED.iter().map(|(_, n)| *n as u64).sum::<u64>();
+        }
         if self.partial {
             return (self.boxes as u64 - 1) * self.per_box() + self.per_box() / 2;
         }
@@ -435,7 +483,10 @@ fn snapshot(w: &mut Worker, sb: u32, from: Pos, to: Pos, base: &mctas::sim::Regi
 pub fn game_run(w: &mut Worker, c: &Circuit, sc: &Scenario, margin: i32) -> Result<std::result::Result<RunLog, String>> {
     let (from, to) = crate::run::watch_box(c, margin);
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
+    // the level's random (the drop's offset and drift) seeded from where the build stands, so the
+    // builds of a verdict sample different drops instead of replaying one
+    let seed = (from[0] as i64).wrapping_mul(73_856_093) ^ (from[1] as i64).wrapping_mul(19_349_663) ^ (from[2] as i64).wrapping_mul(83_492_791) ^ (to[0] as i64 - to[2] as i64).wrapping_mul(2_654_435_761);
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
     let r = run_in(w, sb, c, sc, from, to);
     let _ = w.drop_sandbox(sb);
     r
@@ -499,7 +550,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     // badge `restart`: the source stops for a while once 1.5 boxes' worth was supplied
     let pause_at = sc.total() / 2;
     let mut paused_until: Option<u32> = None;
-    let topup = |w: &mut Worker, log: &mut RunLog, t: u32, paused_until: &mut Option<u32>| -> Result<()> {
+    // each copy's source gets the scenario's stacks in order (a cursor per copy)
+    let stacks = sc.source_stacks();
+    let mut cursor: Vec<usize> = vec![0; groups];
+    let topup = |w: &mut Worker, log: &mut RunLog, t: u32, paused_until: &mut Option<u32>, cursor: &mut Vec<usize>| -> Result<()> {
         if !sc.loader {
             return Ok(());
         }
@@ -511,20 +565,22 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
                 return Ok(());
             }
         }
-        // each copy's sources get that copy's items
         for (p, g) in sources.iter().zip(&source_groups) {
-            if log.supplied_g[*g] >= sc.source_total() {
+            if cursor[*g] >= stacks.len() {
                 continue;
             }
             let mut have = read_chest(w, sb, *p)?;
             let before = have.len();
-            // under the pause: never more than the pause point before it ends
-            let cap = if sc.pause.is_some() && paused_until.is_none() { pause_at } else { sc.source_total() };
-            while have.len() < per_chest && log.supplied_g[*g] < cap {
-                let n = (cap - log.supplied_g[*g]).min(sc.stack as u64) as u32;
-                have.push(Stack::new(sc.item, n));
-                log.supplied_g[*g] += n as u64;
-                log.supplied += n as u64;
+            while have.len() < per_chest && cursor[*g] < stacks.len() {
+                // under the pause: nothing past the pause point before it ends
+                if sc.pause.is_some() && paused_until.is_none() && log.supplied_g[*g] >= pause_at {
+                    break;
+                }
+                let s = stacks[cursor[*g]].clone();
+                log.supplied_g[*g] += s.count as u64;
+                log.supplied += s.count as u64;
+                have.push(s);
+                cursor[*g] += 1;
             }
             if have.len() != before {
                 w.merge_block_entity(sb, *p, &items_snbt(&have))?;
@@ -532,7 +588,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         }
         Ok(())
     };
-    topup(w, &mut log, 0, &mut paused_until)?;
+    topup(w, &mut log, 0, &mut paused_until, &mut cursor)?;
     for i in &c.inputs {
         if i.how == InputHow::Lever {
             w.use_block(sb, i.pos)?;
@@ -627,7 +683,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
             let have = read_chest(w, sb, *p)?;
             if !have.is_empty() {
                 for s in &have {
-                    if s.id == sc.item && s.contents.is_empty() {
+                    if sc.is_item(&s.id) && s.contents.is_empty() {
                         drained += s.count as u64;
                         log.drained_g[*g] += s.count as u64;
                     } else {
@@ -638,7 +694,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
                 w.merge_block_entity(sb, *p, "{Items:[]}")?;
             }
         }
-        topup(w, &mut log, t, &mut paused_until)?;
+        topup(w, &mut log, t, &mut paused_until, &mut cursor)?;
         let boxes_out = log.deliveries.iter().filter(|d| d.stack.is_box()).count() as u32;
         // badge `box-starved`: STARVE_WAIT gt after the 2nd box arrives, the held boxes come
         if !held.is_empty() && boxes_out >= 2 {
@@ -659,7 +715,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
                 r.2 |= e.on_ground;
             }
         }
-        let done = if sc.loader { boxes_out >= sc.boxes_all() && log.supplied >= sc.source_total() * sc.groups.max(1) as u64 } else { boxes_out >= sc.boxes_all() && drained >= sc.total_all() };
+        let delivered_items: u64 = log.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| sc.counts(&d.stack)).sum();
+        let done = if sc.mixed {
+            log.supplied >= sc.source_total() && delivered_items >= sc.source_total()
+        } else if sc.loader {
+            boxes_out >= sc.boxes_all() && log.supplied >= sc.source_total() * sc.groups.max(1) as u64
+        } else {
+            boxes_out >= sc.boxes_all() && drained >= sc.total_all()
+        };
         if done || t >= sc.cap {
             log.timed_out = !done;
             break;
@@ -699,7 +762,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     // the inventory: every container and placed box, every entity
     for be in &b.1 {
         for s in stacks_of_be(&be.nbt) {
-            log.left_items += s.count_of(sc.item);
+            log.left_items += sc.counts(&s);
             if s.is_box() {
                 log.left_boxes += s.count as u64;
             }
@@ -712,7 +775,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         if e.design {
             // a design's container entity (a hopper minecart): what it holds is in the machine
             for s in stacks_of_entity_items(&e.state) {
-                log.left_items += s.count_of(sc.item);
+                log.left_items += sc.counts(&s);
                 if s.is_box() {
                     log.left_boxes += s.count as u64;
                 }
@@ -720,7 +783,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
             continue;
         }
         if let Some(s) = stack_of_entity(&e.state) {
-            log.left_items += s.count_of(sc.item);
+            log.left_items += sc.counts(&s);
             if s.is_box() {
                 log.left_boxes += s.count as u64;
             }
@@ -746,10 +809,15 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     }
     // a wrong box is wrong whatever happens after it
     for (k, d) in boxes.iter().enumerate() {
-        let n = d.stack.count_of(sc.item);
-        let others: Vec<&Stack> = d.stack.contents.iter().filter(|s| s.id != sc.item).collect();
+        let n = sc.counts(&d.stack);
+        let others: Vec<&Stack> = d.stack.contents.iter().filter(|s| !sc.is_item(&s.id)).collect();
         if !others.is_empty() {
             return fail(format!("box {} holds {} (not the scenario item)", k + 1, others[0].id), table);
+        }
+        if sc.mixed {
+            // `mixed`: a box leaves when it can take nothing more: 27 occupied slots (the last box
+            // excepted: the flush); judged once the run is over
+            continue;
         }
         if sc.loader {
             let full = d.stack.contents.len() == 27 && d.stack.contents.iter().all(|s| s.count == sc.stack);
@@ -765,7 +833,11 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     if log.timed_out {
         return fail(format!("{} of {} boxes after {} gt (the cap)", boxes.len(), sc.boxes_all(), log.end), table);
     }
-    if boxes.len() as u32 != sc.boxes_all() {
+    if sc.mixed {
+        if let Some((k, d)) = boxes.iter().enumerate().find(|(k, d)| k + 1 < boxes.len() && d.stack.contents.len() != 27) {
+            return fail(format!("box {} left at t={} with {} occupied slots (it could take more: 27 wanted but in the last box)", k + 1, d.t, d.stack.contents.len()), table);
+        }
+    } else if boxes.len() as u32 != sc.boxes_all() {
         return fail(format!("{} boxes delivered, {} expected", boxes.len(), sc.boxes_all()), table);
     }
     // a tiled run: each copy delivers its own boxes and drains its own items
@@ -783,11 +855,11 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     if !log.foreign.is_empty() {
         return fail(format!("{} reached the items chest", log.foreign[0]), table);
     }
-    let accounted = if sc.loader { boxes.iter().map(|d| d.stack.count_of(sc.item)).sum::<u64>() } else { log.drained.last().map(|x| x.1).unwrap_or(0) };
+    let accounted = if sc.loader { boxes.iter().map(|d| sc.counts(&d.stack)).sum::<u64>() } else { log.drained.last().map(|x| x.1).unwrap_or(0) };
     if log.left_items > 0 {
         return fail(format!("{} items left in the machine at the end", log.left_items), table);
     }
-    let want_items = if sc.partial { sc.source_total() * sc.groups.max(1) as u64 } else { sc.total_all() };
+    let want_items = if sc.partial || sc.mixed { sc.source_total() * sc.groups.max(1) as u64 } else { sc.total_all() };
     if accounted != want_items {
         return fail(format!("{} of {} items accounted for (lost or duplicated)", accounted, want_items), table);
     }
@@ -890,8 +962,11 @@ pub fn describe(s: &Stack, sc: &Scenario) -> String {
     if !s.is_box() {
         return format!("{} x{}", clock::short(&s.id), s.count);
     }
-    let n = s.count_of(sc.item);
+    let n = sc.counts(s);
     let name = s.name.as_ref().map(|n| format!(" named {n}")).unwrap_or_default();
+    if sc.mixed {
+        return format!("{}{name} ({} stacks, {n} items)", clock::short(&s.id), s.contents.len());
+    }
     let full = s.contents.len() == 27 && s.contents.iter().all(|x| x.id == sc.item && x.count == sc.stack);
     format!("{}{name} ({} stacks, {n} {}{})", clock::short(&s.id), s.contents.len(), clock::short(sc.item), if full { ", full" } else if n == 0 { ", empty" } else { "" })
 }
@@ -900,7 +975,13 @@ pub fn describe(s: &Stack, sc: &Scenario) -> String {
 /// rotations, the builds compared as for every kind.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no kind"))?;
-    let sc = Scenario::base(&kind).ok_or_else(|| anyhow!("{}: not a shulker kind", kind.name()))?;
+    let mut sc = Scenario::base(&kind).ok_or_else(|| anyhow!("{}: not a shulker kind", kind.name()))?;
+    // a design aid: MCTAS_SHULKER_BADGE=<badge> judges that badge's scenario as the base (its
+    // table, its snapshots), without the other badges
+    let focus = std::env::var("MCTAS_SHULKER_BADGE").ok();
+    if let Some(b) = &focus {
+        sc = badge_scenarios(c, &sc).into_iter().find(|(n, _)| n == b).map(|x| x.1).ok_or_else(|| anyhow!("MCTAS_SHULKER_BADGE={b}: no such badge scenario"))?;
+    }
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
@@ -919,7 +1000,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     schedule.ticks = sc.cap;
     let rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind.clone()), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
     let mut rep = tolerate_jitter(rep, &sc);
-    if !rep.pass {
+    if !rep.pass || focus.is_some() {
         return Ok(rep);
     }
     // the variations (designs/circuits/shulker/VARIATIONS.md): badges, each judged at 4 rotations
@@ -991,6 +1072,34 @@ pub fn bill(c: &Circuit) -> String {
 pub fn run_badges(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Vec<(String, std::result::Result<(), String>)>> {
     let mut out: Vec<(String, std::result::Result<(), String>)> = Vec::new();
     out.push(("always-on".to_string(), if c.inputs.is_empty() { Ok(()) } else { Err("it needs its start lever".into()) }));
+    // every badge run at every rotation, in one pool batch
+    let runs = badge_scenarios(c, base);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let jobs: Vec<(usize, u8)> = (0..runs.len()).flat_map(|i| turns.iter().map(move |t| (i, *t))).collect();
+    let results = pool.map(jobs.clone(), |w, _, (i, t)| Ok(scenario_check(w, c, &runs[i].0, &runs[i].1, t, o.margin)));
+    for (i, (name, _)) in runs.iter().enumerate() {
+        let mut verdict: std::result::Result<(), String> = Ok(());
+        for ((ji, t), r) in jobs.iter().zip(&results) {
+            if *ji != i {
+                continue;
+            }
+            let r = match r {
+                Ok(r) => r.clone(),
+                Err(e) => Err(format!("{e:#}")),
+            };
+            if let Err(why) = r {
+                verdict = Err(format!("rotation {t}: {why}"));
+                break;
+            }
+        }
+        out.push((name.clone(), verdict));
+    }
+    Ok(out)
+}
+
+/// The badge scenarios a design is judged on (`always-on` is static): (badge, scenario), all with
+/// unstackables but `16-stack`.
+pub fn badge_scenarios(c: &Circuit, base: &Scenario) -> Vec<(String, Scenario)> {
     let loader = base.loader;
     let quick = |f: &dyn Fn(&mut Scenario)| {
         let mut s = Scenario::with_stack(loader, 1);
@@ -1020,6 +1129,12 @@ pub fn run_badges(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Res
             s.partial = true;
             s.cap += FLUSH_WAIT;
         })));
+        // 6 empty boxes: as many as the stacks need; the run lasts the items at hopper pace
+        runs.push(("mixed".into(), quick(&|s| {
+            s.mixed = true;
+            s.spare = 3;
+            s.cap = (s.source_total() * 8) as u32 * 5 / 4 + FLUSH_WAIT + 6 * 400 + 2000;
+        })));
     }
     // a loader starts with 2 empty boxes, an unloader with 2 full ones; the rest come later
     runs.push(("box-starved".into(), quick(&|s| {
@@ -1028,39 +1143,28 @@ pub fn run_badges(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Res
     })));
     runs.push(("drop-free".into(), quick(&|s| s.poll_entities = true)));
     // badge `tileable` (a `tile:` header): the copies side by side, each judged on its own
-    let tile = c.tile;
-    if let Some(t) = tile {
+    if let Some(t) = c.tile {
         runs.push(("tileable".into(), quick(&|s| s.groups = t.copies)));
     }
-    for (name, sc) in runs {
-        let jobs: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
-        let results = pool.map(jobs.clone(), |w, _, t| {
-            let rc = c.rotated(w, t)?;
-            let rc = if sc.groups > 1 { tiled(&rc)? } else { rc };
-            game_run(w, &rc, &sc, o.margin)
-        });
-        let mut verdict: std::result::Result<(), String> = Ok(());
-        for (t, r) in jobs.into_iter().zip(results) {
-            let r = match r {
-                Ok(Ok(log)) => {
-                    let out = judge(&sc, &log);
-                    if !out.pass {
-                        Err(out.why)
-                    } else {
-                        badge_check(&name, &sc, &log)
-                    }
-                }
-                Ok(Err(why)) => Err(why),
-                Err(e) => Err(format!("{e:#}")),
-            };
-            if let Err(why) = r {
-                verdict = Err(format!("rotation {t}: {why}"));
-                break;
-            }
+    runs
+}
+
+/// One scenario at one rotation, judged (the plain judge, then the badge's own check): `Ok(())`
+/// or why not. `name` is the badge (`base` for none).
+pub fn scenario_check(w: &mut Worker, c: &Circuit, name: &str, sc: &Scenario, turns: u8, margin: i32) -> std::result::Result<(), String> {
+    let mut run = || -> Result<std::result::Result<RunLog, String>> {
+        let rc = c.rotated(w, turns)?;
+        let rc = if sc.groups > 1 { tiled(&rc)? } else { rc };
+        game_run(w, &rc, sc, margin)
+    };
+    match run() {
+        Ok(Ok(log)) => {
+            let out = judge(sc, &log);
+            if !out.pass { Err(out.why) } else { badge_check(name, sc, &log) }
         }
-        out.push((name, verdict));
+        Ok(Err(why)) => Err(why),
+        Err(e) => Err(format!("{e:#}")),
     }
-    Ok(out)
 }
 
 /// The badge-specific part of a run's verdict (the run already passed the plain judge).
@@ -1081,12 +1185,12 @@ fn badge_check(name: &str, sc: &Scenario, log: &RunLog) -> std::result::Result<(
             Ok(())
         }
         "box-starved" if !log.refilled => Err("the run ended before the held boxes were added".into()),
-        "flush" => {
-            // from the gt the source ran dry for good to the partial box's arrival
+        "flush" | "mixed" => {
+            // from the gt the source ran dry for good to the last (partial) box's arrival
             let dry = log.flow.iter().find(|(_, m)| *m >= sc.source_total()).map(|x| x.0).ok_or("the source never ran dry")?;
             let last = log.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| d.t).max().unwrap_or(0);
             if last > dry + FLUSH_WAIT {
-                return Err(format!("the half box arrived {} gt after the source ran dry (most {FLUSH_WAIT})", last - dry));
+                return Err(format!("the last box arrived {} gt after the source ran dry (most {FLUSH_WAIT})", last - dry));
             }
             Ok(())
         }
