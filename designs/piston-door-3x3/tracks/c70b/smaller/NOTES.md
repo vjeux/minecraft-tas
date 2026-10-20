@@ -106,3 +106,20 @@ lever's own), pistons, wiring class, events. All of these are optimistic: satwir
   / extended), each neighbour solved exactly (cap) and kept with a FULL frame, ranked by (pistons
   no free cell can feed, pistons, wiring class, events); `--ideal-out` exports the best as
   ideal-input designs + plans.
+
+## Wirability bars (2026-10-20, coordinator: build NEW families for wirability)
+Bars on every solve (families and mechmut): `--max-actions K` (at most K pulses / level toggles
+per piston per edge), `--no-inside` (no piston fires with its base inside the 3x3); filters
+`--fed` (families) / `--max-unfed N` (mechmut): every receiver has a free feed cell over the cycle
+(families' wiring analysis + c77's static-ring-stone feed), the lever allowed only on the BACK face
+of a never-moved piston whose one level toggle per edge can move to the flip (d67's game checks:
+side-face attachments pop, attachments on moved pistons pop). The constrained search: BFS over
+(state, actions per piston), at most 3 incomparable action vectors per state (a dropped one makes
+"none" unproven), pulses first then all levels; exhaustive otherwise.
+- c77's w1 (7x7) under K=2 + no-inside: solves (25 pulses: every piston once per edge except P
+  (1,-1) twice on open and SD(1,4) twice on close), unfed P (1,-1) + SU(1,-2) (pulsed, so not
+  lever-held); K=1: PROVEN none (6 s).
+- families 7x7, `--ring-escape --ring-escape-only --feedable -p 12`, K=1 + no-inside + fed:
+  0 of 263,924 (224,373 proven none, 39,551 undecided at the 300k cap), 5.5 min. K=2 on the
+  same space: 2,529 of the first 3,000 undecided at 300k (the action vectors multiply the states):
+  not enumerable.

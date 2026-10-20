@@ -64,13 +64,17 @@ pub struct MechmutArgs {
     /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
     #[arg(long)]
     no_inside: bool,
+    /// With --max-actions: at most this many actions per edge beyond one per piston.
+    #[arg(long)]
+    extra_actions: Option<usize>,
     /// Reject variants with more unfed receivers than this (after the lever allowance).
     #[arg(long)]
     max_unfed: Option<usize>,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, max_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, extra_actions, max_unfed } = args;
+    crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::MAX_UNFED.store(max_unfed.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
@@ -666,6 +670,10 @@ pub struct FamiliesArgs {
     /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
     #[arg(long)]
     no_inside: bool,
+    /// With --max-actions: at most this many actions per edge beyond one per piston (1 = one
+    /// piston may act twice).
+    #[arg(long)]
+    extra_actions: Option<usize>,
     /// Keep only solved mechanisms whose every receiver has a free feed cell (the wiring
     /// analysis' unfed list; one box-edge piston may be the lever's).
     #[arg(long)]
@@ -673,7 +681,8 @@ pub struct FamiliesArgs {
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, fed } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, extra_actions, fed } = args;
+    crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
     crate::families::FED.store(fed, std::sync::atomic::Ordering::Relaxed);

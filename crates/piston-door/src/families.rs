@@ -875,6 +875,9 @@ fn astar(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, h: &dyn Fn(&St) -> u3
 /// piston per edge (pockets3: each pulse needs its own watchable event next to the piston's feed
 /// pocket; 1-2 per edge is wirable).
 pub static CONS_K: AtomicUsize = AtomicUsize::new(0);
+/// `--extra-actions B`: with `--max-actions`, at most B actions per edge beyond one per piston
+/// (B = 1: one piston may act twice; usize::MAX = no budget). w1 needs B = 1 at K = 2.
+pub static CONS_EXTRA: AtomicUsize = AtomicUsize::new(usize::MAX);
 /// `--no-inside`: no piston fires while its base is inside the 3x3 (a piston carried into the door
 /// square can only be fed through door blocks).
 pub static CONS_NO_INSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -890,6 +893,9 @@ fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: u
     let kk = CONS_K.load(Ordering::Relaxed);
     let track = kk > 0;
     let k = kk.clamp(1, 15) as u64;
+    let extra = CONS_EXTRA.load(Ordering::Relaxed);
+    // actions beyond one per piston in an action vector
+    let excess = |c: u64| (0..16).map(|i| ((c >> (4 * i)) & 15).saturating_sub(1) as usize).sum::<usize>();
     // at most this many incomparable action vectors kept per state (the exact Pareto set blows
     // up): a dropped one makes a "none" verdict unproven
     const PARETO: usize = 3;
@@ -936,6 +942,9 @@ fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: u
             }
             let Out::Ok(n) = m.apply(&st, e) else { continue };
             let nc = if track { c + (1u64 << (4 * id)) } else { 0 };
+            if track && extra != usize::MAX && excess(nc) > extra {
+                continue;
+            }
             let entry = seen.entry(n.clone()).or_default();
             if entry.iter().any(|&o| le(o, nc)) {
                 continue;
@@ -2225,15 +2234,41 @@ pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, bool) {
             !near
         })
         .collect();
-    // (the lever hangs on or stands on a piston that is never moved: d67 game-checked that
-    // anything attached to a moving piston pops)
+    // (the lever hangs on the BACK face of a piston that is never moved, outside the box: d67
+    // game-checked that side-face attachments pop when the piston extends or retracts, and that
+    // anything attached to a moved piston pops; and a lever-held piston does exactly one level
+    // toggle per edge, at the flip: the schedule must still work with it moved to the front)
+    let front_ok = |id: usize| -> bool {
+        let one_l = |edge: &[E]| edge.iter().filter(|e| e.id as usize == id).count() == 1 && edge.iter().any(|e| e.id as usize == id && e.act == Act::L);
+        if !one_l(&sol.open) || !one_l(&sol.close) {
+            return false;
+        }
+        let front = |edge: &[E]| -> Vec<E> {
+            let mut v: Vec<E> = edge.iter().copied().filter(|e| e.id as usize == id).collect();
+            v.extend(edge.iter().copied().filter(|e| e.id as usize != id));
+            v
+        };
+        let mut c = rest.clone();
+        for (i, edge) in [front(&sol.open), front(&sol.close)].iter().enumerate() {
+            for e in edge {
+                match m.apply(&c, *e) {
+                    Out::Ok(n) => c = n,
+                    _ => return false,
+                }
+            }
+            if (i == 0 && !m.is_open(&c)) || (i == 1 && c != *rest) {
+                return false;
+            }
+        }
+        true
+    };
     let lever_ok = list.iter().any(|&(x, y)| {
         let Some(id) = (0..m.info.len()).find(|&id| bx.xy(rest.pp[id] as usize) == (x, y)) else { return false };
         if states.iter().any(|s| s.pp[id] != rest.pp[id]) {
             return false;
         }
-        let head = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(F[f as usize]) } else { None });
-        F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
+        let Some(head) = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(F[f as usize]) } else { None }) else { return false };
+        !bx.has(x - head.0, y - head.1) && front_ok(id)
     });
     (list, lever_ok)
 }
