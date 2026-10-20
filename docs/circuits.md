@@ -97,7 +97,10 @@ flying machine that flies east-west only). No build passing: `FAIL`. One line:
 milliseconds) and prints the same line ending in `redsim`. Both size the stimulus from redsim's
 recovery time: how long the circuit takes to come back to rest after every input turns on for 40 gt
 and after they turn off, plus 10 gt (at least 20; 100 when redsim does not model the design or it
-never rests; `--gap N` overrides). The circuit stands 40 gt at rest after placement (and after its
+never rests; `--gap N` overrides). When an event of the kind's own stimulus (run on redsim spaced by
+1000 gt) takes longer to settle than that, the gap is that settling plus 10 gt instead (a slow path
+the all-on / all-off pair never takes: a crafter latch's nine ingots coming back through a hopper,
+79 gt). The circuit stands 40 gt at rest after placement (and after its
 kick) before the first input.
 
 ### What each kind is judged on

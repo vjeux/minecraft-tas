@@ -286,6 +286,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         if n_diff > 0 {
             let shown = diffs.len();
+            if let Some(e) = w.errors.first() {
+                diffs.push(format!("(redsim's model note this tick: {e})"));
+            }
             return Ok(Outcome::Diverges { tick: t, diffs, more: n_diff - shown });
         }
         if let Some(e) = w.errors.first() {

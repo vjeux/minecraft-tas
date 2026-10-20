@@ -1,0 +1,19 @@
+name: rt-daylight-roof
+# redsim test scene (not a clock): an inverted daylight detector under a 5x5 stone roof right
+# above it (sky light 12 at the detector: 3 steps from the open sky) reads 3; the detector reads
+# when the game time is a multiple of 20.
+palette:
+  S minecraft:stone
+  D minecraft:daylight_detector[inverted=true,power=0]
+layer 0:
+  .....
+  .....
+  ..D..
+  .....
+  .....
+layer 1:
+  SSSSS
+  SSSSS
+  SSSSS
+  SSSSS
+  SSSSS

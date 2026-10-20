@@ -486,6 +486,8 @@ pub enum Block {
     /// Chiseled bookshelf: `slots` = the six `slot_N_occupied` flags (bit N); its 6-slot container
     /// and `last_interacted_slot` live in the block entity.
     ChiseledBookshelf { facing: Dir, slots: u8 },
+    /// Daylight detector (`daylight.rs`): its power from the sky light every 20 gt.
+    DaylightDetector { inverted: bool, power: u8 },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -556,6 +558,7 @@ pub enum Kind {
     DetectorRail,
     BigDripleaf,
     ChiseledBookshelf,
+    DaylightDetector,
     Water,
     BubbleColumn,
 }
@@ -616,6 +619,7 @@ impl Block {
             Block::DetectorRail { .. } => Kind::DetectorRail,
             Block::BigDripleaf { .. } => Kind::BigDripleaf,
             Block::ChiseledBookshelf { .. } => Kind::ChiseledBookshelf,
+            Block::DaylightDetector { .. } => Kind::DaylightDetector,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
@@ -808,6 +812,7 @@ impl Block {
                 }
                 Block::ChiseledBookshelf { facing: hdir_of("facing", Dir::North)?, slots }
             }
+            "daylight_detector" => Block::DaylightDetector { inverted: bool_of("inverted", false)?, power: int_of("power", 0, 0, 15)? },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -1094,6 +1099,7 @@ impl fmt::Display for Block {
                 }
                 write!(f, "]")
             }
+            Block::DaylightDetector { inverted, power } => write!(f, "minecraft:daylight_detector[inverted={},power={power}]", b(inverted)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }
