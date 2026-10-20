@@ -1,10 +1,14 @@
 name: pulse-fall-trapdoor-cal-L10
 circuit: falling-edge
-# A falling-edge detector of 10 gt in 2 blocks: the input opens a trapdoor (game event block_open)
-# and closes it when it falls (block_close). The calibrated sculk sensor's BACK touches the input:
-# while the input is on, its back signal (15) makes it accept only frequency 15
-# (CalibratedSculkSensorBlockEntity: a non-zero back signal filters), so it ignores the opening;
-# when the input falls its back reads 0 at once and it hears the closing, ACTIVE 10 gt.
+# One 10-tick pulse (half a second) every time the input turns OFF, from just 2 blocks, for quiet
+# builds: the input opens a trapdoor and closes it when it turns off, and a sound sensor
+# (calibrated sculk sensor) switches on for 10 ticks when it hears it. The sensor's back touches
+# the input, and a sensor with power at its back only listens to one kind of sound, so while the
+# input is on it ignores the opening and the moment the input turns off it hears the closing. It
+# also hears footsteps and dropped items within 16 blocks, so it needs a quiet spot (the 5-block
+# filtered version does not). The smallest falling-edge detector, and it sees 1-tick inputs.
+# Detail: block_open is frequency 10, block_close 9; the input's 15 at the back accepts only 15;
+# a lever's switch-off (9) comes on the same edge as the closing.
 origin: 0 0 0
 port input: 0 0 0
 port output: 0 0 2

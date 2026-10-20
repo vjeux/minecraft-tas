@@ -1,0 +1,20 @@
+name: pulse-dual-sculk-deaf-L10
+circuit: dual-edge
+# One 10-tick pulse every time the input turns on and every time it turns off, from 3 blocks, for
+# quiet builds, handling inputs from 15 ticks (half the 2-block version's 30): the input opens and
+# closes a trapdoor; one sound sensor hears every sound it is free for, and a second one, whose
+# back touches the input, listens only while the input is off, so it catches the closing even
+# while the first one is still resting. Both sit at the same distance, so when both hear a closing
+# they fire together. Footsteps and dropped items within 16 blocks set it off too.
+# Detail: calibrated sculk sensors; block_open (10), block_close (9); the input's 15 at the second
+# sensor's back accepts only 15.
+origin: 0 0 0
+port input: 0 0 0
+port output: 1 0 1
+palette:
+  T minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  D minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  K minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .T.
+  D.K

@@ -443,6 +443,12 @@ pub fn type_key(c: &Circuit) -> String {
 
 /// A circuit's value on its study's axis.
 pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
+    let a = axis_base(kind, out, family);
+    // a sculk design that ambient game events disturb is its own class (crate::vibration)
+    if out.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("no")) { format!("{a}, vibration-sensitive") } else { a }
+}
+
+fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),

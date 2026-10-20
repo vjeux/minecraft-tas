@@ -45,24 +45,32 @@ the record files live in [wr/](wr/) until archived.
 
 | kind | variation | target | holder | status |
 |---|---|---|---|---|
-| rising-edge | L 30 | 2 blocks (bound), min-pulse 1, flat | `pulse-rise-sculk-L30`: note block + sculk sensor, delay 1 | **record** (game) |
-| rising-edge | L 10 | 2 blocks, min-pulse 1, flat | `pulse-rise-sculk-cal-L10`: note block + calibrated sensor, delay 1 | **record** (game) |
+| rising-edge | L 10, vibration-proof | 5 blocks, min-pulse 1 | `pulse-rise-sculk-filter-L10`: note block + calibrated sensor tuned to 10 by a comparator reading a chest, delay 1 | **record** (game, vibration test) |
+| rising-edge | L 10 / L 30, vibration-sensitive (quiet builds, input from afar) | 2 blocks (bound), min-pulse 1, 1 high | `pulse-rise-sculk-cal-L10`, `pulse-rise-sculk-L30` | **record** (game) |
+| rising-edge | L 30, vibration-proof | <= 8 blocks | none: a plain sensor has no filter | target: an L 10 filtered stage that re-triggers itself, or prove 30 gt needs isolation |
 | rising-edge | L 2 | 2 blocks | `pulse-rising-edge-piston-observer-L2` (min-pulse 4, delay 5) | holds; target min-pulse 1 in <= 3 blocks |
 | rising-edge | L 4..8 even | 4 blocks (census: none in 3) | repeater designs (min-pulse 4) | target min-pulse 1 at 4..6 blocks |
-| rising-edge | odd L | <= 4 blocks | overlap designs, 12 blocks | target: two sensors adjacent to one output give 10 + d / 30 + d (d = their travel-time difference) |
+| rising-edge | odd L | <= 4 blocks | overlap designs, 12 blocks | target: two filtered sensors at different distances from the note block give 10 + d |
 | rising-edge | any L (long) | constant size, <= 8 blocks | chains of 17-25 blocks | target: an item timer (hopper: 8 gt per item) or a comparator fade, tuned by a count |
 | rising-edge | instant | delay 0 | none (best delay 1: sculk) | target: an input -> dust -> output path that a piston cuts after L; or prove impossible |
 | rising-edge | 1-wide tileable | pitch 1 | none (no judge support) | judge `tile:` for pulse kinds, then the piston/observer column L2 and repeater lines |
-| falling-edge | L 10 | 2 blocks, min-pulse 1 | `pulse-fall-trapdoor-cal-L10`: trapdoor + calibrated sensor deaf while the input is on, delay 1 | **record** (game); first min-pulse 1 falling edge |
-| falling-edge | L 30 | <= 4 blocks | none (21 blocks) | target: deaf calibrated sensor -> note block -> sculk sensor out of the trapdoor's range |
+| falling-edge | L 10, vibration-proof | 5 blocks, min-pulse 1 | `pulse-fall-sculk-filter-L10`: trapdoor + calibrated sensor tuned to 9 (closing only), delay 1 | **record** (game, vibration test); first min-pulse 1 falling edge |
+| falling-edge | L 10, vibration-sensitive | 2 blocks, min-pulse 1 | `pulse-fall-trapdoor-cal-L10`: the sensor's back on the input (deaf while it is on) | **record** (game) |
+| falling-edge | L 30, vibration-sensitive | 4 blocks, min-pulse 1 | `pulse-fall-sculk-L30` | **record** (game; was 21 blocks) |
 | falling-edge | L 1, 2, 4..8 | census bounds | 4 / 3 / 4 blocks | target min-pulse 1 |
 | dual-edge | L 2 | 1 block (bound) | observer | **record** |
-| dual-edge | L 10 / L 30 | 2 blocks | none (L 30: 32 blocks) | target: trapdoor + sensor (min-pulse 20 / 40); 3 blocks with a deaf second sensor: min-pulse about 11 |
-| pulse-limiter | L 10 / L 30 | 2 blocks, min-pulse 1 | `pulse-limiter-sculk-cal-L10`, `pulse-limiter-sculk-L30` | **record** (game) |
+| dual-edge | L 10, vibration-sensitive | 2 blocks (min-pulse 30), 3 blocks (min-pulse 15) | `pulse-dual-sculk-cal-L10`, `pulse-dual-sculk-deaf-L10` | **record** (game); no L 10 existed |
+| dual-edge | L 10, vibration-proof | <= 9 blocks | none | target: two filtered sensors (10 for the opening, 9 for the closing) |
+| pulse-limiter | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 1 | `pulse-limiter-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-limiter | any L | constant size | limiter-u4 (10 + 4n blocks) | as rising-edge, long L |
 | pulse-extender | L 2..8 | 2 blocks (bound) | one repeater | **record** |
-| pulse-extender | L 10 / L 30 | 2 blocks, min-pulse 1 | `pulse-extender-sculk-cal-L10`, `pulse-extender-sculk-L30` | **record** (game) |
+| pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 1 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-extender | any L | constant size | one-shots, 17-25 blocks | as rising-edge, long L |
+
+The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
+(a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and
+blocks around it leave it alone; a design that is not proof is its own class (axis `...,
+vibration-sensitive`).
 
 Every record also needs its card headline: why a builder picks it (smallest, min-pulse 1, flat,
 tileable, fastest).

@@ -1,0 +1,17 @@
+name: cal-sculk-claims-proof
+circuit: falling-edge
+vibration: proof
+# REFUSAL (vibration test): it says `vibration: proof`, but footsteps and blocks around it trigger its unfiltered sensor. A falling-edge detector of 10 gt in 2 blocks: the input opens a trapdoor (game event block_open)
+# and closes it when it falls (block_close). The calibrated sculk sensor's BACK touches the input:
+# while the input is on, its back signal (15) makes it accept only frequency 15
+# (CalibratedSculkSensorBlockEntity: a non-zero back signal filters), so it ignores the opening;
+# when the input falls its back reads 0 at once and it hears the closing, ACTIVE 10 gt.
+origin: 0 0 0
+port input: 0 0 0
+port output: 0 0 2
+palette:
+  T minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  K minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .T
+  K.
