@@ -1,5 +1,5 @@
 # archived 2026-10-20T11:52Z from designs/circuits/pulsemult/tracks/timer/long/off-delay-2stage-k1.txt by mctas circuit archive
-# CIRCUIT: off-delay-2stage-k1 off-delay L 108 gt, latency 6 gt, min-pulse 2 gt, 28 blocks, 7x2x5, robust
+# CIRCUIT: off-delay-2stage-k1 off-delay L 108 gt, latency 6 gt, min-pulse 3 gt, 28 blocks, 7x2x5, robust
 name: off-delay-2stage-k1
 circuit: off-delay
 group: off-delay-2stage

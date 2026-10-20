@@ -59,7 +59,7 @@ each build's page.
 * Full viewer (touch first): one finger or the mouse drags to orbit, two fingers pinch to zoom and
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
-  simulation starts, so the build responds); the camera stays above the ground and starts on the
+  simulation starts, so the build responds); the camera stays above a TNT duper's ground and starts on the
   side every lever, button and input cell can be tapped from at its centre (an empty input cell
   counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
   it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
@@ -67,7 +67,7 @@ each build's page.
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
-  speed: `Session::short_cycle`), flip the lever (f, doors); a strip under the counter shows
+  speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
   sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
@@ -132,12 +132,25 @@ each build's page.
   (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
   EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
   as items, a TNT block it hits primes, other TNT is pushed; a blast destroying a moving block
-  drops what it moves. A TNT flying off the design falls into the void below the drawn ground
-  (the judge's world has none) and explodes there harmlessly (its rays stop at the build height:
-  nothing is destroyed), or freezes where it leaves the forced chunks.
+  drops what it moves. A TNT duper with its explosions stands on its judge's ground (vjeux
+  2026-10-20 17:53Z: "Please don't put a fake ground if the tnt goes through it"): real blocks of
+  the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`,
+  `Circuit::ground_blocks`: grass over two dirt over bedrock, its top the archived safe drop
+  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent), `reach` blocks around the
+  design as written, in the judge's world box around it), placed raw once the design stands like
+  `clock::sim::drive_tnt`. The reach is recomputed like the judge's: 24, doubled while a burning
+  TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
+  ticks (the judge's stimulus replayed for a triggered or switchable duper), at most 96 (cached
+  per design: `Session::with_ground`). Its TNT land, bounce and explode on it and the craters
+  show: the ground's cells that changed (`Floor::changed`, rescanned every tick) and their
+  neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
+  each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
+  box (`Session::machine_box`). A TNT flying past the ground's edge falls into the void, as in
+  the judge's world, or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
-  (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
-  for 400 ticks, native and wasm. The camera frames the TNT's flight in redsim's run within 8
+  (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
+  entities every tick for 400 ticks, native and wasm. The camera frames the TNT's flight in
+  redsim's run within 8
   blocks of the build (a launcher's TNT leaves the view as it flies on).
 * Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
   judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
@@ -166,16 +179,23 @@ each build's page.
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
-  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
-  5 blocks across and 3 high in every direction is framed as if it were that big (a 4-block
-  clock stands in some grass, its OUT box clear of the controls). The browser draws like a
+  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`, the still build
+  only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
+  high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
+  little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
+  along its length at the pictures' elevation (`scene::view_dir`: a 3/4 view, the camera closer)
+  instead of side-on. The browser draws like a
   client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
-  pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
-  reaches 420 blocks around (past it); near
-  the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
+  pictures' 6). No ground but real blocks (vjeux 17:53Z): the judges' worlds are void under a
+  design (only a TNT duper's judge lays a ground, above), so the viewer draws no surface there:
+  the sky goes on under the horizon and fades into a quiet void tone (`Renderer::void_below`),
+  nothing an item, a cart or a falling block could pass through. On a TNT duper's real ground the
+  grass tops are lit like the game's smooth lighting: each corner at the mean sky light of
   the four air cells around it in the layer between the grass and the build (a covered column
   gets its neighbours' light less one), through the game's brightness curve at the default
-  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
+  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
+  fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
+  world's (`Session::floor_drawn` in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
@@ -196,7 +216,28 @@ each build's page.
   (`mcview::labels`: what a label says and the layout; `overlay.rs` draws).
 * Outlines (live viewers; thumbnails have none): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
-  REJECT pink, TARGET cyan (shown as built too).
+  REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
+  cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
+  judge's equipment reads as part of the input it drives.
+* Record (vjeux 2026-10-20: "add a record video button using mediabunny in the viewer"): the
+  round red button over a live viewer's bottom right (above the bar; hidden where the browser
+  has no WebCodecs `VideoEncoder`) records the viewer's own rendering of redsim's run from tick 0
+  (blocks, entities, OUT and port boxes, tags and labels, the badges as shown): a separate player
+  (the live camera, look, speed and demo) stepped exactly `1/30` s of game time per frame (exact
+  partial ticks, never a screen capture of real time) for the whole run
+  (`Player::recording_ticks`: the auto-demo's schedule; a door's demo cycle,
+  `player::door_demo_cycle`; a clock's warmup and whole periods, at least one, about 8 s at its
+  speed; a flying machine's flight; else 10 s; at most 20 s at the current speed). Each frame is
+  drawn into the view's canvas and composed on a 2D canvas of the view's own pixels (at most
+  1920x1080, both even): the 3D view, then the overlays painted from the page's own layout
+  (`record::paint`: pills, text line by line, icons, the leaders and the output strip; the bar
+  and the button are left out). The vendored mediabunny 1.62.0 (MPL-2.0,
+  `crates/mcview-web/vendor/mediabunny/`, beside the bundle as `mediabunny.min.js` and
+  `mediabunny.LICENSE.txt`, imported only when a recording starts: nothing at page load) encodes
+  it: H.264 in MP4 (`fastStart: in-memory`) when the browser can encode it, else VP9 in WebM,
+  4:2:0, 30 fps (`record::Encoder`), and the file downloads as `<design>.mp4|.webm`. While it runs
+  the button shows the progress and a press stops it (no file); the live view comes back as it
+  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file.
 
 ## Only what redsim simulates
 
@@ -303,7 +344,8 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
-  `PistonHeadRenderer`, translucent faces sorted back to front, a floor of grass blocks.
+  `PistonHeadRenderer`, translucent faces sorted back to front, a TNT duper's real ground
+  (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
   mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
   faces culled in both passes like the game's chunk render types (a glass block shows its three
@@ -328,6 +370,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
+| `mctas web record <url> -o <dir> [--index 0 --window 1280,720]` | presses live viewer `index`'s Record button in headless Chromium and keeps the video it downloads (`<design>.mp4` or `.webm`) |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |

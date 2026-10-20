@@ -34,7 +34,9 @@ edge's tick (docs/circuits.md, "Inputs"). What it changes for this study:
   piston one tick behind the input, which the block placement between ticks made) is gone with
   it. Odd lengths now come from the hopper item timer (L = 8n - 1).
 - A design must not move its input cell's block (the census pistons that pushed the input's
-  redstone block are out).
+  redstone block are out), nor its output cell's block (the judge's output rule, 56495c8b0: the
+  part in an output cell, or the judge's lamp in an air one, stays put; a design that read an
+  observer moved through its output cell now drives a fixed cell beside it).
 `mctas circuit r7` lists what changes; it skips tiled designs, so `mctas circuit sim` over the
 archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-10-20 16:00Z).
 
@@ -58,7 +60,10 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 - Repeater 2..8 gt (it stretches a shorter pulse to its delay), comparator 2 gt, torch 2 gt,
   observer 2 gt pulse after 2 gt, lamp off 4 gt after power, dust 0 gt. Pistons: the block event
   runs at the end of the tick the piston is powered in, and a pushed block lands in the
-  block-entity phase. A hopper passes one item per 8 gt; one that receives an item into an empty
+  block-entity phase. A moving block conducts and powers nothing from the block event on: a
+  piston opens a dust step (or takes a redstone block away) in the very tick it is powered, which
+  gives the delay-0 records and the 1-tick falling edge. A sticky piston given a pulse shorter
+  than its stroke leaves its block where it pushed it. A hopper passes one item per 8 gt; one that receives an item into an empty
   inventory from a hopper that ticked first waits 7 gt (`HopperBlockEntity.tryMoveInItem`: cooldown
   8 - 1), the odd step in the item timer's 8n - 1.
 
@@ -75,12 +80,12 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | rising-edge | any L (long) | constant size, <= 8 blocks | `pulse-rise-hopper-oneshot-L*` (group): 13 blocks for every L = 8n (8 .. 480 gt), min-pulse 4, delay 6, robust at L 8, 16, 24, 32, 40, 64, 128, 256. A copper bulb holds a two-hopper item timer open; the first hopper's comparator, inverted by a torch under the bulb, toggles it off when that hopper empties | **constant size reached** (was 17 + 4n); <= 8 open: the bulb latch (2), two locks (2: a block and a torch), the end detector (3: comparator, block, torch), two comparator supports and the edge detector (2) |
 | rising-edge | instant | delay 0 | `pulse-rise-instant-L2/4/6/8` (group): 8 blocks, delay 0, min-pulse 4 / 4 / 6 / 8. The input lights the output at once through two dusts and a stone beside the output; a repeater passes the input to a sticky piston that pushes the stone away after L (a moving block conducts nothing) | **record** (was delay 1, sculk) |
 | falling-edge | L 2 | 2 blocks | `pulse-fall-piston-observer-L2` (the R7 census, k = 2: a sticky piston pushes an observer away and pulls it back on the falling edge, where it fires into the cell under it; delay 4, min-pulse 6, tiles every 2); fastest and min-pulse 3: `pulse-fall-torch-piston-observer-L2` (delay 2, 4 blocks: a torch on the input block) | **record** (smallest, R7: no 1-block edge circuit); the 3-block `-mp2` turned rotation-dependent under R7 (min-pulse 6 in one rotation) and was removed |
-| falling-edge | L 4..8 even | 4 blocks | `pulse-fall-repeater-L4/6/8` (min-pulse 6) | holds |
+| falling-edge | L 4..8 even | 4 blocks | `pulse-fall-repeater-L4/6/8` (min-pulse 6, delay 8-12); min-pulse 2, faster, 1-wide: `pulse-fall-observer-qc-repeater-L2/4/6/8` (6 blocks: the 1-tick falling edge feeding a repeater, delay 4-10, tiles every 1, robust) | holds; the min-pulse 2 / tileable class is a **record** |
 | falling-edge | L 10, vibration-proof | 5 blocks, min-pulse 2 | `pulse-fall-sculk-filter-L10`: trapdoor + calibrated sensor tuned to 9 (closing only), delay 1 | **record** (game, vibration test) |
 | falling-edge | L 10 / L 30, vibration-sensitive | 2 / 4 blocks, min-pulse 2 | `pulse-fall-trapdoor-cal-L10` (the sensor's back on the input: deaf while it is on), `pulse-fall-sculk-L30` | **record** (repo only) |
 | falling-edge | L 1 | 4 blocks | `pulse-fall-observer-qc-L1` (the R7 census, k = 4): when the input turns off, a sticky piston pulls a redstone block up beside the output; an observer watching the lower piston fires into the input block, so the upper piston pushes the block straight back after 1 tick. Delay 2, min-pulse 2, tiles every 1 | **record**: the only 1-tick pulse (the old `pulse-fall-note-qc-L1` and `pulse-dual-observers-qc-L2-1` read their output through blocks moving in the output cell and were folded) |
 | falling-edge | any L | constant size | `pulse-fall-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 6 (the piston lifts the observer away; pulled back, it fires into the bulb) | **constant size reached** (was 17 + 4n) |
-| falling-edge | instant | delay 0 | none: a sticky piston pulling a stone out of a dust step opens it in the falling tick (the instant dual edge does), but its push on the rising edge opens the same steps | target: keep the line dead while the rising-edge push moves the stone |
+| falling-edge | instant | delay 0 | `pulse-fall-instant-L2`: 14 blocks, delay 0, min-pulse 4, robust. The instant dual edge's line fed by a repeater reading the input instead of a redstone block: the line carries power only from 4 ticks after the rise to 4 ticks after the fall, so only the falling-edge move of the stone lights the output; a dust beside the input cell powers the piston (the piston and the repeater can't both touch the input cell) | **record** (none before) |
 | dual-edge | L 2 | 2 blocks (since R7: an observer needs a block that changes state beside the input) | `pulse-dual-edge-observer-lamp-L2`: the observer watches a lamp the input lights (delay 2 / 6, min-pulse 2, tiles every 1) | **record**; with a note block or copper bulb instead of the lamp the delays are equal (2 / 2) but min-pulse is 5 |
 | dual-edge | L 2, instant | delay 0 | `pulse-dual-instant-L2`: 11 blocks, delay 0 on both edges, min-pulse 4. A redstone block feeds a dust line down a step and up another; a stone cuts one step; the input's sticky piston moves it to the other step and back, and while it moves both steps are open | **record** (fastest; was delay 2) |
 | dual-edge | L 4..8 even | 4 blocks | `pulse-dual-lamp-repeater-L4/6/8` (min-pulse 4 / 8 / 15, tiles every 1) | holds |
@@ -107,6 +112,12 @@ the input; fall-odd and dual-odd now give even lengths and were removed), dual-t
 and fall-note-qc-L1 (see above). Dual-lock L18/L34 and dual-edge-reset came back with a copper
 bulb in the input cell.
 
+Folded as dominated since (removed from the archive): the repeater-loop one-shots at the hopper
+one-shots' lengths (rising edge and falling edge L 8, 16, 24, 32, 40, extender L 16, 24, 32, 40:
+17 to 25 blocks against 13 with the same delay and min-pulse; the loop one-shots stay for the
+other lengths), pulse-limiter-u-L4/6/8 (the instant limiters), pulse-dual-observers-qc-L2-1 (a
+moved output).
+
 The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
 (a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and
 blocks around it leave it alone; a design that is not proof is its own class (axis `...,
@@ -121,7 +132,7 @@ tileable, fastest).
   62-state palette (24.8 M sims), k = 4 with 38 states (obs, pistons, note block, lamp, bulb,
   stone, slime, redstone block, trapdoor, torch, dust: 1.45 G sims). New at k = 2: the 2-block
   falling edge; k = 3: the 4-block delay-2 falling edge (3 + the input block); no odd length at
-  any k. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
+  k <= 3, and at k = 4 only the 1-tick falling edge. Of the k = 4 hits, the falling edge L 1 is real (`pulse-fall-observer-qc-L1`: its
   observer fires into the input block, harmless when a repeater feeds that block, as the judge's
   does; robust with its output on the far side of the redstone block). The others (a falling edge
   L 4 at delay 0, a rising edge and a limiter L 2 at min-pulse 2) passed through a judge hole: a

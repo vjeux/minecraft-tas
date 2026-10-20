@@ -336,18 +336,27 @@ fn first_cap(s: &str) -> String {
 /// What a builder must know before building it, near the top (critique, coordinator 13:54Z):
 /// a sculk door can be set off by footsteps; a directional build works only facing one way.
 pub fn warning(b: &Build) -> Option<String> {
+    let mut out: Vec<String> = Vec::new();
     if b.kind == "door" && b.group == "sculk" {
-        return Some("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
+        out.push("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
     // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
         if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
-            return Some(format!(
+            out.push(format!(
                 "Uses a sculk sensor tuned so footsteps and other noises don't trigger it{}.",
                 if b.kinds.iter().any(|k| k == "chest") { ": the items in its chest set the one sound it listens to" } else { "" }
             ));
         }
+    }
+    // what the world around it does to it (vjeux 19:02Z: these builds are published, with their
+    // limitation said plainly instead of hidden)
+    if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
+        out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
+    }
+    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
+        out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
@@ -356,12 +365,11 @@ pub fn warning(b: &Build) -> Option<String> {
     };
     let directional = robustness.starts_with("rotation") || (b.kind == "door" && b.door.is_some() && !b.flags.iter().any(|f| f == "rotation-safe"));
     if directional {
-        return Some("Works only when built facing the way it is shown here: turned another way, it breaks.".to_string());
+        out.push("Works only facing the way it is shown here: build it from the download without turning it; turned another way it stops or changes its timing (our test tried all 4 directions).".to_string());
+    } else if robustness.contains("position") || robustness.contains("offset") {
+        out.push("Depends on where it is built: at another spot in the world its timing changed in our test, so try it where you build it.".to_string());
     }
-    if robustness.contains("position") || robustness.contains("offset") {
-        return Some("Depends on where it is built: it does not work at every spot in the world, so test it where you build it.".to_string());
-    }
-    None
+    if out.is_empty() { None } else { Some(out.join(" ")) }
 }
 
 /// What a build needs to work where you build it, for its opening lines (critique, real-world
@@ -398,9 +406,7 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
     }
-    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
-        v.push("Needs open sky above its daylight sensor.".to_string());
-    }
+    // (open sky for a daylight detector: said in its warning line)
     v
 }
 
@@ -432,7 +438,8 @@ pub fn door(b: &Build) -> (String, String, String) {
     let why = match b.group.as_str() {
         // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
         // nearby can open it")
-        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner: footsteps nearby can set it off, so not on a busy path.".to_string(),
+        // (the sensor's warning is the line right under it: said once, critique)
+        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
@@ -520,6 +527,22 @@ mod tests {
 
     fn circuit(kind: &str, metrics: &[(&str, &str)]) -> Circuit {
         Circuit { kind: kind.into(), metrics: metrics.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), ..Default::default() }
+    }
+
+    #[test]
+    fn warnings_say_every_limitation() {
+        // a tripwire clock that only works facing one way says both, in plain words
+        let b = Build {
+            kind: "clock".into(),
+            kinds: vec!["tripwire".into(), "tripwire_hook".into(), "oak_boat".into()],
+            clock: Some(site_model::ClockInfo { period: 40, robustness: "rotation-dependent".into(), ..Default::default() }),
+            ..Default::default()
+        };
+        let w = warning(&b).unwrap_or_default();
+        assert!(w.contains("Uses a tripwire") && w.contains("Works only facing the way it is shown here"), "{w}");
+        let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
+        assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
+        assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
     }
 
     #[test]

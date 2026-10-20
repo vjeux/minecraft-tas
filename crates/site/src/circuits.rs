@@ -444,7 +444,7 @@ pub fn hidden_exceptions() -> Vec<(String, String, String)> {
 fn hidden_lines() -> Vec<(bool, String, String, String)> {
     include_str!("../hidden.tsv")
         .lines()
-        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#') && !l.starts_with('~'))
         .filter_map(|l| {
             let (pat, why) = l.split_once('\t')?;
             let (exception, pat) = match pat.strip_prefix('!') {
@@ -453,6 +453,20 @@ fn hidden_lines() -> Vec<(bool, String, String, String)> {
             };
             let (study, file) = pat.split_once('/')?;
             Some((exception, study.to_string(), file.to_string(), why.to_string()))
+        })
+        .collect()
+}
+
+/// The `~` lines of crates/site/hidden.tsv: designs published only as a variant of another
+/// (`~<study>/<file> TAB under <host>: <why>`): (study, file, host).
+pub fn fold_lines() -> Vec<(String, String, String)> {
+    include_str!("../hidden.tsv")
+        .lines()
+        .filter_map(|l| {
+            let (pat, why) = l.strip_prefix('~')?.split_once('\t')?;
+            let (study, file) = pat.split_once('/')?;
+            let host = why.strip_prefix("under ")?.split(':').next()?.trim();
+            Some((study.to_string(), file.to_string(), host.to_string()))
         })
         .collect()
 }
@@ -612,6 +626,11 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 } else if d.devices.iter().any(|x| x == "lever") {
                     flags.push("lever".into());
                 }
+            }
+            // a piston extender with no slime or honey: its own distinction (vjeux's list view
+            // named "slimeless" as a property he cares about; the coordinator 19:05Z)
+            if r.kind.starts_with("piston-extender") && !r.kinds.split('+').any(|k| k == "slime_block" || k == "honey_block") {
+                flags.push("slime-free".into());
             }
             // what sets such a flying machine apart from the 6-block one (critique C13: fly cards
             // of 6, 7, 15 and 24 blocks said the same); an extender's pushed block is a payload too
@@ -1013,6 +1032,60 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 b.flags.push("variant".into());
             }
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
+        }
+    }
+    // the site's own layout fold where the catalog names no host (the coordinator 19:15Z: the N = 2
+    // slime-free extenders sf7-1, sf7-2 and sf7-3 read as three identical cards): designs of the
+    // same study, kind and value with the same blocks, block kinds and input device are other
+    // layouts of one card, the first by name kept
+    let mut order: Vec<usize> = (0..builds.len()).filter(|&i| cat.get(&builds[i].name).is_some_and(|(_, of)| of.is_empty())).collect();
+    order.sort_by(|&a, &b| builds[a].name.cmp(&builds[b].name));
+    let mut kept: BTreeMap<(String, String, String, u32, Vec<String>, &'static str), String> = BTreeMap::new();
+    let mut layouts = 0;
+    for i in order {
+        let b = &builds[i];
+        let Some(c) = &b.circuit else { continue };
+        if c.host.is_some() || c.layout_of.is_some() {
+            continue;
+        }
+        let key = (c.study.clone(), c.kind.clone(), c.axis.clone(), b.blocks, b.kinds.clone(), device(b));
+        match kept.get(&key) {
+            Some(id) => {
+                let id = id.clone();
+                let b = &mut builds[i];
+                if let Some(c) = b.circuit.as_mut() {
+                    c.layout_of = Some(id);
+                }
+                b.flags.push("layout".into());
+                layouts += 1;
+            }
+            None => {
+                kept.insert(key, format!("circuits/{}/{}", c.study, b.name));
+            }
+        }
+    }
+    if layouts > 0 {
+        notes.push(format!("circuits: {layouts} designs folded as other layouts of a twin the catalog left unfolded (same kind, value, blocks, block kinds, input device)"));
+    }
+    // the coordinator's folds (hidden.tsv `~` lines): a design published only as a variant of
+    // another (rs-crafter under rs-dropper: bigger and slower, nothing in its favour)
+    for (study, file, host) in fold_lines() {
+        let host_id = format!("circuits/{study}/{host}");
+        if !builds.iter().any(|b| b.id == host_id) {
+            notes.push(format!("hidden.tsv: ~{study}/{file} is folded under {host}, which is not published"));
+            continue;
+        }
+        match builds.iter_mut().find(|b| b.circuit.as_ref().is_some_and(|c| c.study == study) && b.name == file) {
+            Some(b) => {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.host = Some(host_id);
+                    c.layout_of = None;
+                }
+                if !b.flags.iter().any(|f| f == "variant") {
+                    b.flags.push("variant".into());
+                }
+            }
+            None => notes.push(format!("hidden.tsv: ~{study}/{file} matches no archived design (take it out)")),
         }
     }
     // one build with other items preloaded (the item counters: counter17-items ... counter576-
@@ -1496,15 +1569,12 @@ mod tests {
     #[test]
     fn hidden_designs_match_their_patterns() {
         assert!(glob("pext-*-sf*", "pext-n5-sf-sweep136.txt"));
-        assert!(glob("pext-*-sf*", "pext-n2-sf7-1-button.txt"));
         assert!(!glob("pext-*-sf*", "pext-n2-sand6.txt"));
-        assert!(!glob("pext-*-sf*", "pext-n3-flat-cascade19.txt"));
-        assert!(hidden("pext", "pext-n4-sf60.txt").is_some());
-        assert!(hidden("pulse", "pext-n4-sf60.txt").is_none());
-        // the `!` exceptions win over the slime-free rule
-        assert!(hidden("pext", "pext-n2-sf8-flat.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
+        assert!(hidden("pext", "pext-n1-sticky.txt").is_some());
+        assert!(hidden("pulse", "pext-n1-sticky.txt").is_none());
+        // a line names one design: the other lengths of the same kind stay
+        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L8.txt").is_some());
+        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L12.txt").is_none());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
         // a class rule: every vibration-sensitive sculk design, in any study
         assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());

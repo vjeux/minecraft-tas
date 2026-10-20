@@ -50,6 +50,10 @@ pub struct ExportArgs {
     /// With `--ticks`: the warmup the header states.
     #[arg(long, default_value_t = 0, requires = "ticks")]
     pub warmup: u32,
+    /// Save, unload and load the sandbox's chunks again right after this frame (the clock
+    /// judge's chunk-reload check, `clock verify --reload`), to see what a reload changes.
+    #[arg(long)]
+    pub reload_at: Option<u32>,
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -70,7 +74,7 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>, reload_at: Option<u32>) -> Result<(PathBuf, u32)> {
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
     let (period, warmup, ticks, design) = match fixed_ticks {
@@ -163,6 +167,11 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
             frame["rng"] = json!(w.random_state(sb)?);
         }
         writeln!(out, "{frame}")?;
+        if reload_at == Some(t) {
+            // (clockinfra: the judge's chunk-reload check, frame by frame) saved, unloaded and
+            // loaded again right after this frame, without a tick
+            w.reload(sb)?;
+        }
     }
     out.flush()?;
     let _ = w.drop_sandbox(sb);
@@ -177,7 +186,7 @@ pub fn run(a: ExportArgs) -> Result<()> {
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)))?;
+        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)), a.reload_at)?;
         let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
         println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
     }
