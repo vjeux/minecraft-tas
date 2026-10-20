@@ -41,4 +41,15 @@ encoders, binary counters.
   block pointing away when an input appears: same power, no block update, the torch behind never
   reacts). After them every model of AND/OR passed redsim. AND: 6 blocks flat (auto ports).
 * Full adder flat: fixed port layouts (inputs west, outputs east; and a spread layout) have NO
-  design in a 4x4 grid (UNSAT, 32 blocks max). Auto ports in 5x4: running.
+  design in a 4x4 grid (UNSAT, 32 blocks max). Auto ports in 5x4: no first model in 19 min
+  (stopped). `adder 4 hex` (s only, 4x4, auto ports, 24 sampled states): no model in 10 min.
+
+## PAUSED 2026-10-20 05:46 (coordinator: vjeux wants world-record quality; pext moves to
+## world-record piston extenders)
+
+State to resume from: the synthesizer works (AND 6 blocks, hex ge 6 blocks in about a minute),
+but a full adder is beyond a cold first solve in a flat 5x4. Ideas: compose from synthesized
+half adders / XOR3 and MAJ blocks, give the solver a decomposition (fix the sum or carry part),
+symmetry breaking, height 3 (dust on blocks: needs step connections in the model), smaller
+palettes per region. Hex: hand-derived formulas for the adder: Y = 15 - a, X = Y - b, Z = b - Y
+(overflow when Z >= 1), s = max(15 - max(X, 15 [Z >= 1]), Z - 1 through two dusts), cout = Z > 0.
