@@ -111,7 +111,7 @@ pub const FAMILIES: &[Family] = &[
         name: "rise-psub-u4",
         kind: "rising-edge",
         l: "13 + 16n",
-        blocks: "18 + 4n",
+        blocks: "25 + 4n",
         rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
         how: "the piston-subtract limiter (limiter-psub-u4) judged as a rising-edge detector",
     },
@@ -127,7 +127,7 @@ pub const FAMILIES: &[Family] = &[
         name: "limiter-psub-u4",
         kind: "pulse-limiter",
         l: "13 + 16n",
-        blocks: "18 + 4n",
+        blocks: "25 + 4n",
         rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
         how: "a sticky piston pushes a redstone block behind a subtract comparator (an odd delay: the piston moves in the tick after the input, the block lands in the block-entity phase); the input reaches the comparator's side through a U of delay-4 repeaters (an even delay), so the output is on for an odd number of ticks",
     },
@@ -525,7 +525,7 @@ pub fn odd_text(name: &str, kind: &str, mode: &str, d: u8) -> String {
 pub fn limiter_piston_text(name: &str, kind: &str, d1: u8, d2: u8) -> String {
     let l = 2 * (d1 as i32 + d2 as i32) - 3;
     format!(
-        "name: {name}\ncircuit: {kind}\n# Odd pulses ({kind}, L = {l} gt): a subtract comparator's rear gets a redstone block that a sticky piston pushes behind it (the piston moves in the tick after the input changes and the block lands in the block-entity phase: an odd delay), its side gets the input through two repeaters (delays {d1} and {d2}: an even delay); the output is on from the rear's arrival until the side's: L = 2 x ({d1} + {d2}) - 3 = {l} gt. A 1 gt input makes the piston leave its block behind the comparator until the next input pulls it back.\norigin: 0 0 0\nport input: 0 1 0\nport output: 4 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=false]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=false]\nlayer 0:\n  .SSS.\n  ...S.\nlayer 1:\n  .QUW.\n  AB.C.\n"
+        "name: {name}\ncircuit: {kind}\n# Odd pulses ({kind}, L = {l} gt): a subtract comparator's rear gets a redstone block that a sticky piston pushes behind it (the piston moves in the tick after the input changes and the block lands in the block-entity phase: an odd delay), its side gets the input through two repeaters (delays {d1} and {d2}: an even delay); the output is on from the rear's arrival until the side's: L = 2 x ({d1} + {d2}) - 3 = {l} gt. An observer watching the input holds the piston through dust for 2 gt more, so a 1 gt input cannot make it leave its block behind the comparator (its retraction is cancelled until the block has landed).\norigin: -2 0 0\nport input: 0 1 0\nport output: 4 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  O minecraft:observer[facing=east,powered=false]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=false]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=false]\nlayer 0:\n  S..SSS.\n  SS...S.\nlayer 1:\n  WO.QUW.\n  WWAB.C.\n"
     )
 }
 
@@ -533,21 +533,21 @@ pub fn limiter_piston_text(name: &str, kind: &str, d1: u8, d2: u8) -> String {
 /// pushes a redstone block behind a subtract comparator with a sticky piston (odd delay) and
 /// reaches the comparator's side through a U of k rows of delay-`d` repeaters (even delay).
 pub fn limiter_psub_u_text(name: &str, kind: &str, k: usize, d: u8) -> String {
-    // x from 0 to 4 (x = 4: the output); z from -1 to k + 1
+    // x from -2 to 4 (x = 4: the output; x = -2, -1: the observer hold); z from -1 to k + 1
     let mut l0: Vec<String> = Vec::new();
     let mut l1: Vec<String> = Vec::new();
     for z in -1..=(k as i32 + 1) {
         let (r0, r1) = match z {
-            -1 => ("...S.", "AB.C."),
-            0 => ("...S.", "...W."),
-            z if z == k as i32 + 1 => ("SSSS.", "WWWW."),
-            _ => ("S..S.", "N..M."),
+            -1 => ("SS...S.", "WWAB.C."),
+            0 => ("S....S.", "WO...W."),
+            z if z == k as i32 + 1 => ("..SSSS.", "..WWWW."),
+            _ => ("..S..S.", "..N..M."),
         };
         l0.push(format!("  {r0}"));
         l1.push(format!("  {r1}"));
     }
     format!(
-        "name: {name}\ncircuit: {kind}\norigin: 0 0 -1\nport input: 0 1 0\nport output: 4 1 -1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        "name: {name}\ncircuit: {kind}\norigin: -2 0 -1\nport input: 0 1 0\nport output: 4 1 -1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  O minecraft:observer[facing=east,powered=false]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=west,mode=subtract,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\nlayer 0:\n{}\nlayer 1:\n{}\n",
         l0.join("\n"),
         l1.join("\n")
     )
@@ -560,7 +560,7 @@ pub fn limiter_psub_u_text(name: &str, kind: &str, k: usize, d: u8) -> String {
 pub fn fall_psub_text(name: &str, d1: u8, d2: u8) -> String {
     let l = 2 * (d1 as i32 + d2 as i32) - 1;
     format!(
-        "name: {name}\ncircuit: falling-edge\n# Odd falling-edge pulses (L = {l} gt): a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (the piston moves the tick after the input, the block lands in the block-entity phase: an odd delay); the comparator's side gets the input inverted by a redstone torch (through dust into its block) and delayed by two repeaters ({d1} and {d2}: an even delay), so after the falling edge the output is on from the block's return until the torch's signal arrives: L = 2 x ({d1} + {d2}) - 1 = {l} gt.\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=false]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=false]\nlayer 0:\n  .S...\n  .SSSS\nlayer 1:\n  SW.AB\n  TQUWC\n"
+        "name: {name}\ncircuit: falling-edge\n# Odd falling-edge pulses (L = {l} gt): a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (the piston moves the tick after the input, the block lands in the block-entity phase: an odd delay); the comparator's side gets the input inverted by a redstone torch (through dust into its block) and delayed by two repeaters ({d1} and {d2}: an even delay), so after the falling edge the output is on from the block's return until the torch's signal arrives: L = 2 x ({d1} + {d2}) - 1 = {l} gt.\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=true]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=true]\nlayer 0:\n  .S...\n  .SSSS\nlayer 1:\n  SW.AB\n  TQUWC\n"
     )
 }
 
