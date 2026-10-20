@@ -463,6 +463,29 @@ pub fn dual_lock2_text(name: &str, k: usize, d: u8) -> String {
     )
 }
 
+/// Odd pulses by overlap: two detectors 1 gt apart, each through a delay-`d` repeater into one
+/// dust, give 2d + 1 gt. `mode` rise: a bulb edge (+4) and a pushed observer (+5); fall: a pulled
+/// observer (+5) and a torch-relit bulb edge (+6); 12 / 16 blocks.
+pub fn odd_text(name: &str, kind: &str, mode: &str, d: u8) -> String {
+    let l = 2 * d as u32 + 1;
+    let how = match mode {
+        "fall" => "two falling-edge detectors 1 gt apart: a sticky piston pulls back an observer that fires 2 gt after it lands (5 gt after the edge), and a redstone torch the input turns off (through dust into its block) lights again 2 gt after the edge and toggles a copper bulb, read by a comparator an observer watches (6 gt after the edge)",
+        _ => "two rising-edge detectors 1 gt apart: a copper bulb the input toggles on every rising edge, read by a comparator an observer watches (fires 4 gt after the edge), and a sticky piston pushing an observer that fires 2 gt after it lands (5 gt after the edge; pulled back on the falling edge it fires into an empty cell)",
+    };
+    let head = format!(
+        "name: {name}\ncircuit: {kind}\n# Odd pulses ({kind}, L = {l} gt): {how}; each feeds a delay-{d} repeater ({} gt pulses) into one dust, where the two pulses overlap into {} + 1 = {l} gt.\n",
+        2 * d,
+        2 * d
+    );
+    let pal = format!(
+        "palette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  V minecraft:observer[facing=west,powered=false]\n  O minecraft:observer[facing=north,powered=false]\n  P minecraft:sticky_piston[extended=false,facing=east]\n  R minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  Q minecraft:repeater[delay={d},facing=west,locked=false,powered=false]\n"
+    );
+    match mode {
+        "fall" => format!("{head}origin: -2 0 -1\nport input: 0 1 -1\nport output: 1 1 2\n{pal}layer 0:\n  .S...\n  .....\n  ...S.\n  S.SS.\nlayer 1:\n  SW...\n  T.PO.\n  A..R.\n  KVQW.\n"),
+        _ => format!("{head}origin: -1 0 0\nport input: 0 1 1\nport output: 2 1 2\n{pal}layer 0:\n  ....\n  ...S\n  S.SS\nlayer 1:\n  .PO.\n  A..R\n  KVQW\n"),
+    }
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
@@ -550,6 +573,24 @@ pub fn run(a: FamilyArgs) -> Result<()> {
             let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
             text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): {how}; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode {} --kind {} --l-range {l}..{l}.\n", a.kind, a.mode, a.kind));
             let text = crate::stamp::stamp(&text, group_of(&format!("oneshot-mode-{}", a.mode), &a.kind), None, None);
+            std::fs::write(dir.join(format!("{name}.txt")), text)?;
+        }
+        return Ok(());
+    }
+    if a.name == "odd" {
+        // odd L by overlap, L = 3, 5, 7, 9 (repeater delay 1..4): --mode rise|fall --kind K
+        let Some(dir) = &a.out_dir else { bail!("odd needs --mode rise|fall --kind K --out-dir D") };
+        std::fs::create_dir_all(dir)?;
+        let short = match (a.mode.as_str(), a.kind.as_str()) {
+            ("fall", _) => "fall-odd2",
+            (_, "pulse-limiter") => "limiter-odd2",
+            (_, "pulse-extender") => "ext-odd2",
+            _ => "rise-odd2",
+        };
+        for d in 1..=4u8 {
+            let name = format!("pulse-{short}-L{}", 2 * d + 1);
+            let text = odd_text(&name, &a.kind, &a.mode, d);
+            let text = crate::stamp::stamp(&text, &format!("pulse-{short}"), None, None);
             std::fs::write(dir.join(format!("{name}.txt")), text)?;
         }
         return Ok(());
