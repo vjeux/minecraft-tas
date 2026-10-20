@@ -59,6 +59,8 @@ pub struct Var {
     /// d67's `door feeds` on the redsim-working plan: (firings with no option, regions that
     /// cannot start, one-cell conflicts, firings with only flagged options).
     pub feeds: (usize, usize, usize, usize),
+    /// d67's `door feeds --strict` verdict on the working plan: reasons it fails (0 = passes).
+    pub strict: usize,
     /// The firing cells of the unfed receivers (families' wiring analysis).
     pub unfed_at: String,
     pub so: Sched,
@@ -91,7 +93,7 @@ impl Var {
             // the extent leaving the box (the judge's volume grows) ranks right after redsim
             let out = usize::from(self.extent.0 > 0 && (self.extent.0 > self.bx.w as i32 || self.extent.1 > self.bx.h as i32));
             let vol = (self.extent.0 * self.extent.1) as usize;
-            return vec![self.missing, real_bad, out, self.unfed, self.start, fn_, fs, fc, conn, fw, self.load, self.maxp, vol, self.inside, self.never, self.weak, cr, self.events, self.pistons];
+            return vec![self.missing, real_bad, out, self.unfed, self.start, self.strict, fn_, fs, fc, conn, fw, self.load, self.maxp, vol, self.inside, self.never, self.weak, cr, self.events, self.pistons];
         }
         vec![self.missing, real_bad, self.inside, conn, self.never, self.weak, self.unfed, self.load, self.pistons, cr, self.events]
     }
@@ -345,9 +347,13 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     // d67's feed table on the working plan (none / conflicts / weak firings; usize::MAX / 2 when
     // not validated or not analysable)
     let bad4 = (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2);
+    let mut strict = usize::MAX / 2;
     let feeds = match validated.as_ref().and_then(|s| s.as_ref()) {
-        Some(s) => match crate::feeds::analyze_schedule(s, "mechmut", Some((bx.x0 as i32, bx.y0 as i32, (bx.x0 + bx.w - 1) as i32, (bx.y0 + bx.h - 1) as i32))) {
-            Ok(r) => (r.none.len(), r.cannot_start.len(), r.conflicts.len(), r.weak.len()),
+        Some(s) => match crate::feeds::analyze_schedule_full(s, "mechmut", Some((bx.x0 as i32, bx.y0 as i32, (bx.x0 + bx.w - 1) as i32, (bx.y0 + bx.h - 1) as i32)), false, true) {
+            Ok(r) => {
+                strict = r.strict_fail.len();
+                (r.none.len(), r.cannot_start.len(), r.conflicts.len(), r.weak.len())
+            }
             Err(_) => bad4,
         },
         None => bad4,
@@ -410,6 +416,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         load: w.load,
         start: w.start,
         feeds,
+        strict,
         maxp,
         unfed_at,
         so: to_sched(&m, &open_e),
@@ -541,7 +548,7 @@ pub struct Opts {
 /// first among equal growth).
 fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), unfed_at: String::new(), so: Vec::new(), sc: Vec::new(), reserve: Vec::new(), extent: (0, 0), origin: String::new() }
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), strict: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new(), reserve: Vec::new(), extent: (0, 0), origin: String::new() }
 }
 
 /// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
@@ -1003,7 +1010,7 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = read_seeds(input, &o.reserve, o.reserve_wiring)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\tfeeds_cannot_start\textent\torigin\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\tfeeds_cannot_start\textent\torigin\tstrict_fail\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
