@@ -130,11 +130,19 @@ pub fn build_card(b: &Build, prefix: &str) -> String {
     )
 }
 
+/// The anchor of a member's row on its family card's page: `n<k>` for the card's first family,
+/// `n<k>-<family>` for the others.
+pub fn member_anchor(m: &Member, site: &Site) -> String {
+    let first = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.first()).map(|f| f.id.as_str());
+    if first.is_none_or(|f| f == m.family) { format!("n{}", m.n) } else { format!("n{}-{}", m.n, m.family) }
+}
+
 /// The page a member links to: its archived build, else its family's card at its row.
 pub fn member_href(m: &Member, site: &Site) -> String {
+    let card = || format!("families/{}.html#{}", m.card, member_anchor(m, site));
     match &m.build {
-        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(|| format!("families/{}.html#n{}", m.card, m.n)),
-        None => format!("families/{}.html#n{}", m.card, m.n),
+        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(card),
+        None => card(),
     }
 }
 

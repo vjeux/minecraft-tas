@@ -404,9 +404,8 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
         body.push_str(&format!(
-            "<tr id=\"n{}{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td><a href=\"{prefix}{}\" download>.txt</a></td></tr>\n",
-            m.n,
-            if card.families.len() > 1 && card.families.first().is_some_and(|f| f.id != m.family) { format!("-{}", esc(&m.family)) } else { String::new() },
+            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td><a href=\"{prefix}{}\" download>.txt</a></td></tr>\n",
+            esc(&site_model::html::member_anchor(m, site)),
             m.n,
             esc(&gt_time(m.period)),
             m.blocks,
