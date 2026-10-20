@@ -150,6 +150,24 @@ pub enum WebCmd {
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
+    /// Fit the default camera to the real-game pictures: renders each design under camera tweaks
+    /// (zoom, pitch, yaw, height, distance) and prints the best by mean pixel difference.
+    Fit {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/clocks/img")]
+        img_dir: PathBuf,
+        /// Zooms to try (comma-separated).
+        #[arg(long, default_value = "1.0,1.1,1.2,1.3")]
+        zoom: String,
+        #[arg(long, default_value = "-2,0,2")]
+        pitch: String,
+        #[arg(long, default_value = "-2,0,2")]
+        yaw: String,
+        #[arg(long, default_value = "0")]
+        dy: String,
+        #[arg(long, default_value = "1.0")]
+        dist: String,
+    },
     /// Texture contact sheet: PNGs scaled up (nearest) in a grid, in the given order (row by row),
     /// to pick textures by eye.
     Sheet {
@@ -270,6 +288,37 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 let hex = |c: [u8; 3]| format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
                 let parts: Vec<String> = pal.iter().map(|(c, f)| format!("{} {:.0}%", hex(*c), f * 100.0)).collect();
                 println!("{:<32} mean {}  {}", p.file_stem().unwrap_or_default().to_string_lossy(), hex(mean), parts.join("  "));
+            }
+            Ok(())
+        }
+        WebCmd::Fit { designs, img_dir, zoom, pitch, yaw, dy, dist } => {
+            let nums = |s: &str| -> Vec<f32> { s.split(',').filter_map(|w| w.trim().parse().ok()).collect() };
+            let mut tweaks = Vec::new();
+            for &z in &nums(&zoom) {
+                for &p in &nums(&pitch) {
+                    for &y in &nums(&yaw) {
+                        for &d in &nums(&dy) {
+                            for &ds in &nums(&dist) {
+                                tweaks.push(mcview::tools::CamTweak { zoom: z, dpitch: p, dyaw: y, dy: d, dist: ds });
+                            }
+                        }
+                    }
+                }
+            }
+            let mut cases = Vec::new();
+            for d in &designs {
+                let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
+                let jpg = img_dir.join(format!("{stem}.jpg"));
+                match std::fs::read(&jpg) {
+                    Ok(b) => cases.push((std::fs::read_to_string(d)?, b)),
+                    Err(_) => eprintln!("{stem}: no picture {}", jpg.display()),
+                }
+            }
+            let atlas = atlas(false);
+            let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+            let r = mcview::tools::fit(&mut off, &atlas, &cases, 400, 225, &tweaks).map_err(anyhow::Error::msg)?;
+            for (d, t) in r.iter().take(12) {
+                println!("{d:6.2}  zoom {:.3} pitch {:+.1} yaw {:+.1} dy {:+.2} dist {:.3}", t.zoom, t.dpitch, t.dyaw, t.dy, t.dist);
             }
             Ok(())
         }

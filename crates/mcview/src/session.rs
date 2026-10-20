@@ -91,6 +91,8 @@ pub struct Session {
     pub demo: Option<crate::circuit::Schedule>,
     /// Pending input releases (tick, input): a tapped pulse input goes off there.
     releases: Vec<(u32, usize)>,
+    /// A clock's picture box (`clock shot`'s frame: the judge's swept box), once known.
+    pub picture: Option<(Pos, Pos)>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -348,6 +350,7 @@ impl Session {
             circuit_inputs,
             demo: None,
             releases: Vec::new(),
+            picture: None,
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks.
@@ -710,7 +713,10 @@ impl Session {
 
     /// The box the camera frames: the design and its ports (a door's opening included).
     pub fn frame_box(&self) -> (Pos, Pos) {
-        let (mut lo, mut hi) = self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+        let (mut lo, mut hi) = match self.picture {
+            Some(b) => b,
+            None => self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])),
+        };
         if let Mode::Door { door, along_z, .. } = self.mode {
             for c in door_cells(door, along_z) {
                 grow(&mut lo, &mut hi, c);
@@ -991,6 +997,7 @@ impl Session {
             input_on: Vec::new(),
             demo: None,
             releases: Vec::new(),
+            picture: None,
         };
         s.apply_due();
         s
@@ -1091,6 +1098,7 @@ impl Session {
         {
             self.outputs.push(o);
         }
+        self.picture = self.picture_box(horizon);
         let mut best = (0u32, (std::cmp::Reverse(usize::MAX), 0usize));
         for t in 0..p as usize {
             let on = cells.iter().filter(|(_, seq)| active(&seq[t])).count();
@@ -1106,6 +1114,47 @@ impl Session {
             self.step();
         }
         target
+    }
+
+    /// A clock's picture box, like `clock shot`: the judge's swept box (`clock::sim`: the design's
+    /// box with its kick cell, grown by every cell occupied over the state warmup and one state
+    /// period), and for an elongated clock (its longest side over 16 blocks and over 5x the next) a
+    /// window of it along that side around the output, 3x the next side long (8 to 16 blocks).
+    pub fn picture_box(&self, horizon: u32) -> Option<(Pos, Pos)> {
+        if !self.simulated() || self.mode.is_door() || self.corridor.is_some() || self.replay.is_some() {
+            return None;
+        }
+        let r = self.period(horizon).ok()?;
+        let (mut lo, mut hi) = self.design.bounds()?;
+        if let Mode::Clock { kick: Some((k, _)), .. } = &self.mode {
+            let p = match k {
+                Kick::Last { pos } | Kick::Use { pos, .. } | Kick::Place { pos, .. } => *pos,
+            };
+            grow(&mut lo, &mut hi, p);
+        }
+        let mut s = self.fresh();
+        let end = r.state_warmup + r.state_period;
+        loop {
+            for (q, _) in s.world.blocks() {
+                grow(&mut lo, &mut hi, q.arr());
+            }
+            if s.tick >= end {
+                break;
+            }
+            s.step();
+        }
+        let ext = |lo: &Pos, hi: &Pos, k: usize| hi[k] - lo[k] + 1;
+        let mut axes = [0usize, 1, 2];
+        axes.sort_by_key(|&k| std::cmp::Reverse(ext(&lo, &hi, k)));
+        let (long, next) = (axes[0], axes[1]);
+        if ext(&lo, &hi, long) > 16 && ext(&lo, &hi, long) > 5 * ext(&lo, &hi, next) {
+            let win = (3 * ext(&lo, &hi, next)).clamp(8, 16);
+            let c = self.outputs.first().map(|o| o[long]).unwrap_or((lo[long] + hi[long]) / 2);
+            let a = (c - win / 2).clamp(lo[long], hi[long] - win + 1);
+            lo[long] = a;
+            hi[long] = a + win - 1;
+        }
+        Some((lo, hi))
     }
 
     /// Find the clock judge's output (no `port output`) without moving the session.
