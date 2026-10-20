@@ -135,6 +135,33 @@
    w1-12 (3 rounds, beam 12, 64 threads, 26 min): 2917 variants kept, none with a redstone block, unfed stays 2
    (P and BM's down-puller). Also: a lever may hang on a block's front/back face (rules.md), but on a moving block
    or a piston's side face it pops, and P and its neighbours all move.
+5. **Corrections from the independent checks (c70b, clk-misc, 23:45Z): items 3-4 hold for a middle piston in F1
+   (and C1), not "by rotation" for L1/R1, and not for pistons carried INTO the door square.** Quasi-connectivity
+   looks UP: a piston in L1 facing east has the frame cell above it (L2) as both a side neighbour and its QC cell,
+   and L2's outer neighbour (-2,2) can feed it (clk-misc's game-checked witness q7b, explore/d67 ec7a6b1bf). And a
+   puller carried into the door square fires there, fed through a frame door block by QC (d67's mm01-oc-q7), but
+   every such mechanism found so far needs 3-7 pulses per piston per edge. So the verdict is: the w1 class with P
+   firing from F1 can't be wired; the class turned on its side is open.
+6. **seven/t1 = w1 transposed (x <-> y)**: P in L1 pushes row 1 east, Q in L0 (facing up) spits it into L2, (-1,4)
+   pulls it to (-1,3), (-1,-2) pulls Q to (-1,-1). WORKS ideal-rs + real game (phase between; the transposed plan
+   needed its own input for (1,-2) and no separate close spit for (4,1), which (4,2) above it QC-fires). satwire 7x7
+   solid: core Q (its only free neighbour at its spit is its own escape corner; its QC cell is P). Fix ideas
+   (clk-misc): TL leaves upward so (-2,2) stays free for P, BL leaves down so (-2,0) stays free for Q; then L0 and L2
+   need fillers at open (both are lanes). c70b's search with --reserve=-2,2 is running.
+
+## 6x8 (48), 2026-10-20
+- **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
+  frame 12/12, nothing leaves x -1..4 y -3..4). The column next to the static wall has 3 blocks for C0/F0, so ML
+  goes up 2: a ring-resting pusher W at F0 pushes column 0 up and pulls BL back, escapes DOWN to (0,-2) (pulled by
+  (0,-3)) and then pulls BL into F0; TL slides C0->C1 (left corner (-1,3)), TM C1->C2 (corner (3,3)); C goes down
+  through the bottom elevator (1,-3)+(1,-2), BM slides F1->F2 (corner (3,-1)).
+- Wiring: satwire solid UNSAT (first core corner (3,3)); d67's connect: (-1,3), (0,-3), W and (0,4) never fed. The
+  box-edge column x=-1 is the wall: its cells only touch each other, the statics, frame cells and the outside, so a
+  piston there (the left corner pusher) can only be fed from a vertical chain in that column or by the lever.
+- Counting lemma (6x8, any assignment): the wall without an outer column must stay static (a block entering it
+  can't come back east), so the door column next to it sends 3 blocks to 2 frame cells and the center column the
+  same: one middle block goes up 2 and one goes down 2, i.e. both sides need a 2-cell vertical path (6x9 has the
+  rows for two elevators; 6x8 has one, so the other needs a ring-resting pusher like W).
 
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
