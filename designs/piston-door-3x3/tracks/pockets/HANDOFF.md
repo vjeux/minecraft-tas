@@ -43,6 +43,11 @@
   clockinfra, which now encodes the lever-level / static-conductor / per-region-budget rules). clk-misc's exact
   lever screen: `door ideal-rs <plan> --vary 'x,y,z=lever[...]'` + `open 0 use` / `close 0 use`.
 - Waiting for: c70b's island-start-0 mechmut variants, macrosat's next exports, pext's budgeted trains.
+- 10-20 19:10-22:00Z: fly's 6x8/6x9 family (q68, q68c/e/f/g, q69h/i/j/m, r69, r69t; svc/flyq68/): satwire cores Pl /
+  Qv / A@(2,-1); satwire can't model fly's carried observer O (drops it as wiring). Island check made per edge with
+  causal attribution (83c5a94c) + --why-islands; --pin-assist inputs count as given (dbc67d5c). q69m passes islands
+  once B1 is free (lever top-right); exhaustive pockets k=4 per area drives almost nothing (pulse shapes). fly's
+  structural result: one-sided 6-wide 54s leave a blind corner (only the lever can start it); fly moved to 7-wide.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
