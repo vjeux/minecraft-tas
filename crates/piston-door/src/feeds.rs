@@ -186,11 +186,40 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
             None => format!("({},{})", c.0, c.1),
         }
     };
+    // cells whose contents change during the cycle (an observer watching one can fire)
+    let dynamic: BTreeSet<P2> = {
+        let mut s = BTreeSet::new();
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let first = all[0].get(&(x, y));
+                if all.iter().any(|m| m.get(&(x, y)) != first) {
+                    s.insert((x, y));
+                }
+            }
+        }
+        s
+    };
+    let in_box = |c: P2| c.0 >= x0 && c.0 <= x1 && c.1 >= y0 && c.1 <= y1;
+    // a component in m pointing into t (observer, repeater, comparator) watches / takes its input
+    // from the cell opposite t: "!" when that cell is outside the box, "?" when it never changes
+    // and holds a block (only dust or a torch could then drive it)
+    let drive = |m: P2, t: P2| -> &'static str {
+        let w = (2 * m.0 - t.0, 2 * m.1 - t.1);
+        if !in_box(w) {
+            "!"
+        } else if free.contains(&w) || dynamic.contains(&w) {
+            ""
+        } else {
+            "?"
+        }
+    };
     let regions: BTreeMap<char, usize> = region.values().map(|(l, n)| (*l, *n)).collect();
     println!("# door feeds {} (box x {x0}..{x1}, y {y0}..{y1}; {} firings)", path.display(), firings.len());
     println!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" "));
     println!("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M");
+    println!("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)");
     let mut none: Vec<String> = Vec::new();
+    let mut weak: Vec<String> = Vec::new();
     for f in &firings {
         let i2 = (f.input[0], f.input[1]);
         let in_plane = f.input[2] == z;
@@ -225,16 +254,27 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
                     obs.push(format!("observer ({},{}) {v}, watching {}", c.0, c.1, cell(watch)));
                 }
             }
+            // (text, drive flag): "" drivable from inside the box, "!" / "?" see `drive`
+            let mut ok_any = !obs.is_empty();
+            let mut flagged_any = false;
+            let mut tag = |s: String, fl: &'static str, ok_any: &mut bool, flagged_any: &mut bool| -> String {
+                if fl.is_empty() {
+                    *ok_any = true;
+                } else {
+                    *flagged_any = true;
+                }
+                format!("{s}{fl}")
+            };
             for n in nbrs(x) {
                 if Some(n) == front {
                     continue;
                 }
                 if free.contains(&n) {
-                    direct.push(cell(n));
+                    direct.push(tag(cell(n), drive(n, x), &mut ok_any, &mut flagged_any));
                 } else if conductor(n) {
                     for m in nbrs(n) {
                         if m != x && free.contains(&m) {
-                            direct.push(format!("via ({},{})<-{}", n.0, n.1, cell(m)));
+                            direct.push(tag(format!("via ({},{})<-{}", n.0, n.1, cell(m)), drive(m, n), &mut ok_any, &mut flagged_any));
                         }
                     }
                 }
@@ -242,18 +282,24 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
             let mut qc: Vec<String> = Vec::new();
             for q in [(above.0, above.1 + 1), (above.0 - 1, above.1), (above.0 + 1, above.1)] {
                 if free.contains(&q) {
-                    qc.push(cell(q));
+                    qc.push(tag(cell(q), drive(q, above), &mut ok_any, &mut flagged_any));
                 } else if conductor(q) {
                     for m in nbrs(q) {
                         if m != above && free.contains(&m) {
-                            qc.push(format!("via ({},{})<-{}", q.0, q.1, cell(m)));
+                            qc.push(tag(format!("via ({},{})<-{}", q.0, q.1, cell(m)), drive(m, q), &mut ok_any, &mut flagged_any));
                         }
                     }
                 }
             }
             let how = if direct_i { "direct" } else { "qc" };
             let own = if in_plane && free.contains(&i2) { ", the plan's input cell is free" } else { "" };
-            let verdict = if direct.is_empty() && qc.is_empty() && obs.is_empty() { "NONE" } else { "feed" };
+            let verdict = if ok_any {
+                "feed"
+            } else if flagged_any {
+                "weak"
+            } else {
+                "NONE"
+            };
             lines.push(format!(
                 "{} {}({},{}) [{how}{own}]: {verdict}; direct: {}; qc: {}{}",
                 short(b),
@@ -264,8 +310,11 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
                 if qc.is_empty() { "-".into() } else { qc.join(" ") },
                 if obs.is_empty() { String::new() } else { format!("; {}", obs.join("; ")) }
             ));
-            if verdict == "NONE" {
-                none.push(format!("{} t{} {}({},{})", if f.open { "open" } else { "close" }, f.t, short(b), x.0, x.1));
+            let label = format!("{} t{} {}({},{})", if f.open { "open" } else { "close" }, f.t, short(b), x.0, x.1);
+            match verdict {
+                "NONE" => none.push(label),
+                "weak" => weak.push(label),
+                _ => {}
             }
         }
         let edge = if f.open { "open" } else { "close" };
@@ -278,5 +327,6 @@ pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<(
         }
     }
     println!("# no feed at all: {}", if none.is_empty() { "none".to_string() } else { none.join(", ") });
+    println!("# only flagged options (weak): {}", if weak.is_empty() { "none".to_string() } else { weak.join(", ") });
     Ok(())
 }
