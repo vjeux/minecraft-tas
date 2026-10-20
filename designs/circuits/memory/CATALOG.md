@@ -97,7 +97,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
 | [d-latch-repeater](archive/d-latch-repeater.txt) | d-latch | latency 4 gt, enable low | 4 | 1x2x2 | robust | Repeater-lock D latch, 4 blocks (track memory census): the data input feeds repeater M (on stone) whose output is q; the enable input feeds a second repeater L pointing into M's side. While L is on M is locked and holds q; while it is off M follows d. Transparent while e is OFF (`enable low`), latency 4 gt. |
-| [d-latch-high](archive/d-latch-high.txt) | d-latch | latency 4 gt, enable high, tileable every 2 (0 2 0) | 5 | 1x2x3 | robust | D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt. A stack of them tiles with NO gap (`tile: 0 2 0`): a register column costs 5 blocks per bit. |
+| [d-latch-r7](archive/d-latch-r7.txt) | d-latch | latency 6 gt, enable high | 8 | 2x2x3 | robust | D latch, enable high, with real signal inputs: repeater M carries d to q; subtract comparator C points into M's side with a redstone block at its back, so C gives 15 - e and M is locked while e is off, following d while e is on. The enable arrives on the design's OWN repeater E in the input cell, because a comparator's side never reads a powered plain block: the judge's stone there reads 0. |
 
 ## rs-latch
 
