@@ -119,18 +119,18 @@ pub fn outputs(d: &Design) -> Vec<(String, Pos)> {
     v
 }
 
-/// A shulker loader or unloader (`circuit: shulker-loader|shulker-unloader`): redsim models no
-/// shulker boxes and chests (`circuit::verify::sim`: judged in the game only).
+/// A shulker loader or unloader (`circuit: shulker-loader|shulker-unloader`): the viewer runs it
+/// with the judge's chests on its ports ([`shulker_chests`]).
 pub fn is_shulker(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("shulker-loader" | "shulker-unloader")))
 }
 
-/// The judge's chest on each `items`, `boxes` and `output` port of a shulker design
+/// The judge's chest on each `items`, `boxes`, `output` and `reject` port of a shulker design
 /// (`circuit::shulker::CHEST`; air cells, not counted).
 pub const CHEST: &str = "minecraft:chest[facing=north,type=single,waterlogged=false]";
 
-/// The cells of a shulker design's judge chests (its `items[.k]`, `boxes[.k]`, `output[.k]` ports
-/// on air cells).
+/// The cells of a shulker design's judge chests (its `items[.k]`, `boxes[.k]`, `output[.k]`,
+/// `reject[.k]` ports on air cells).
 pub fn chest_cells(d: &Design) -> Vec<Pos> {
     if !is_shulker(d) {
         return Vec::new();
@@ -138,13 +138,40 @@ pub fn chest_cells(d: &Design) -> Vec<Pos> {
     let mut v: Vec<Pos> = d
         .ports
         .iter()
-        .filter(|(n, _)| ["items", "boxes", "output"].iter().any(|k| is_named(n, k)))
+        .filter(|(n, _)| ["items", "boxes", "output", "reject"].iter().any(|k| is_named(n, k)))
         .map(|(_, (p, _))| *p)
         .filter(|p| !d.blocks.contains_key(p))
         .collect();
     v.sort();
     v.dedup();
     v
+}
+
+/// The judge's chests of a shulker design as the viewer runs them (redsim's
+/// `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks against the real
+/// game): endless (a loader's sources and every box chest kept full, the outputs emptied every
+/// tick), with unstackables (27 per box: a box every few seconds; every archived design but the
+/// filter also passes with them) unless the design sorts (a `reject` port: its kind's own item).
+pub fn shulker_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_shulker(d) {
+        return None;
+    }
+    let mut words = d.meta.get("circuit")?.split_whitespace();
+    let loader = words.next() == Some("shulker-loader");
+    let stack: u32 = words.next().and_then(|n| n.parse().ok()).unwrap_or(64);
+    let cells = |name: &str| -> Vec<redsim::pos::BlockPos> {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v.into_iter().map(crate::session::bp).collect()
+    };
+    let rejects = cells("reject");
+    let item = match (rejects.is_empty(), stack) {
+        (true, _) | (false, 1) => "iron_shovel",
+        (false, 16) => "snowball",
+        _ => "cobblestone",
+    };
+    let item = redsim::redstone::container::item_id(item)?;
+    Some(redsim::redstone::shulker::Chests::endless(loader, item, cells("items"), cells("boxes"), cells("output"), rejects))
 }
 
 /// Where a shulker design's box stands while it is filled or emptied: the cell in front of its
