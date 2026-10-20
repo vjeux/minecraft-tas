@@ -120,11 +120,23 @@ pub static MAX_UNFED: std::sync::atomic::AtomicUsize = std::sync::atomic::Atomic
 /// island argument shows u2-7x7 unwirable where 100k leaves it undecided).
 pub static CONNECT_CAP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(100_000);
 
+/// The synthesizer writes helper stones as smooth stone; in a FULL-frame door the statics are
+/// door material (pockets3: frame 9/12 under the record rule otherwise) and stones are
+/// interchangeable (macrosat's model): write them as stone.
+fn stone_statics(d: &mut mctas::design::Design) {
+    for st in d.blocks.values_mut() {
+        if st == "minecraft:smooth_stone" {
+            *st = "minecraft:stone".into();
+        }
+    }
+}
+
 fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> Option<crate::ideal::Schedule> {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
     let (wld, map) = fam::to_world(m);
     for (_, msol) in fam::ideal_solutions(m, rest, sol, &map) {
-        let Ok(p) = crate::mechsynth::ideal_plan(&wld, &msol, false, 6, "validate") else { continue };
+        let Ok(mut p) = crate::mechsynth::ideal_plan(&wld, &msol, false, 6, "validate") else { continue };
+        stone_statics(&mut p.design);
         let s = crate::ideal::Schedule::from_events(p.design, &p.events);
         if crate::ideal_rs::run(&s, &std::collections::BTreeMap::new(), &crate::ideal::offsets(0), 1, false).is_ok() {
             return Some(s);
@@ -1035,17 +1047,24 @@ pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
 /// design (`{tag}.txt`) for `door fullmech --check --export`. Inputs may sit in the hallway (test
 /// only, see `mechsynth::CORRIDOR_INPUTS`): the plan header says so.
 pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
+    fam::with_qc_off(v.qc_off, || export_inner(v, dir, tag))
+}
+
+fn export_inner(v: &Var, dir: &Path, tag: &str) -> Result<()> {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
     let (m, rest) = fam::with_qc_off(v.qc_off, || Mech::new(v.bx, &v.pieces)).context("pieces overlap")?;
     let (o, c) = (from_sched(&m, &v.so, None), from_sched(&m, &v.sc, None));
     let sol = fam::Sol { open: o, close: c, sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
     let (wld, map) = fam::to_world(&m);
     std::fs::create_dir_all(dir)?;
-    crate::mechsynth::design_of_world(&wld, tag).save(&dir.join(format!("{tag}.txt")))?;
+    let mut bare = crate::mechsynth::design_of_world(&wld, tag);
+    stone_statics(&mut bare);
+    bare.save(&dir.join(format!("{tag}.txt")))?;
     for (stag, msol) in fam::ideal_solutions(&m, &rest, &sol, &map) {
         let p = crate::mechsynth::ideal_plan(&wld, &msol, false, 6, tag)?;
         let dpath = dir.join(format!("{tag}-{stag}.txt"));
         let mut dd = p.design.clone();
+        stone_statics(&mut dd);
         dd.name = format!("{tag}-{stag}");
         dd.save(&dpath)?;
         let ipath = dir.join(format!("{tag}-{stag}.ideal"));
