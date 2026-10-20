@@ -1,0 +1,48 @@
+# door feeds designs/piston-door-3x3/tracks/d67/in2/mm01-oc-q7b.ideal (box x -3..3, y -2..4; 42 firings)
+# free all cycle: 15 cells in 4 regions: A10 B1 C2 D2
+# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M
+open t0 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: -; qc: (-2,-1)A10
+open t6 input (-1,0,1) -> SU (-1,0) [direct]: feed; direct: (-2,0)A10; qc: -
+open t12 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: -; qc: (-2,-1)A10
+open t18 input (-1,-1,1) -> SU (-1,-2) [qc]: feed; direct: -; qc: (-2,-1)A10
+open t18 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+open t24 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t30 input (-1,-3,0) -> SU (-1,-2) [direct]: feed; direct: -; qc: (-2,-1)A10
+open t36 input (-2,-3,0) -> SE (-2,-2) [direct]: feed; direct: (-3,-2)A10 (-2,-1)A10; qc: (-2,0)A10 (-3,-1)A10
+open t42 input (0,-3,0) -> SU (0,-2) [direct]: NONE; direct: -; qc: -
+open t48 input (-1,0,1) -> SU (-1,0) [direct]: feed; direct: (-2,0)A10; qc: -
+open t54 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t60 input (-1,4,1) -> SD (-1,4) [direct]: feed; direct: (-2,4)A10; qc: -
+open t66 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t78 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t84 input (-1,1,1) -> SE (-1,1) [direct]: feed; direct: via (-1,0)<-(-2,0)A10; qc: -; observer (-2,2) qc, watching (-3,2)A10
+open t90 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+open t96 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+open t102 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t102 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (1,4)B1; qc: -
+open t108 input (-3,3,0) -> NE (-2,3) [direct, the plan's input cell is free]: feed; direct: (-3,3)A10 (-2,4)A10; qc: (-3,4)A10
+open t108 input (-1,2,1) -> SE (-1,2) [direct]: feed; direct: -; qc: -; observer (-2,2) direct, watching (-3,2)A10
+open t114 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+open t120 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+open t120 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (1,4)B1; qc: -
+open t126 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+open t126 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (1,4)B1; qc: -
+open t126 input (1,-3,0) -> SU (1,-2) [direct]: NONE; direct: -; qc: -
+open t126 input (2,-3,0) -> SU (2,-2) [direct]: feed; direct: (3,-2)C2; qc: (3,-1)C2
+open t126 input (3,4,0) -> SD (2,4) [direct, the plan's input cell is free]: feed; direct: (1,4)B1 (3,4)D2; qc: -
+close t0 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+close t0 input (0,-3,0) -> SU (0,-2) [direct]: NONE; direct: -; qc: -
+close t6 input (-2,-3,0) -> SE (-2,-2) [direct]: feed; direct: (-3,-2)A10 (-2,-1)A10; qc: (-2,0)A10 (-3,-1)A10
+close t6 input (-1,-1,1) -> SU (-1,-1) [direct]: feed; direct: (-2,-1)A10; qc: (-2,0)A10
+close t12 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+close t12 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (1,4)B1; qc: -
+close t18 input (-1,3,1) -> SE (-1,3) [direct]: feed; direct: -; qc: (-2,4)A10; observer (-2,2) via (-1,2), watching (-3,2)A10
+close t24 input (-1,4,1) -> SE (-1,3) [qc]: feed; direct: -; qc: (-2,4)A10; observer (-2,2) via (-1,2), watching (-3,2)A10
+close t24 input (-1,4,1) -> SD (-1,4) [direct]: feed; direct: (-2,4)A10; qc: -
+close t30 input (-3,1,0) -> SE (-2,1) [direct, the plan's input cell is free]: feed; direct: (-3,1)A10 (-2,0)A10; qc: (-3,2)A10
+close t30 input (-1,2,1) -> SE (-1,2) [direct]: feed; direct: -; qc: -; observer (-2,2) direct, watching (-3,2)A10
+close t36 input (0,4,1) -> SD (0,4) [direct]: feed; direct: (1,4)B1; qc: -
+close t36 input (1,-3,0) -> SU (1,-2) [direct]: feed; direct: -; qc: via (2,-1)<-(3,-1)C2
+close t36 input (2,-3,0) -> SU (2,-2) [direct]: feed; direct: (3,-2)C2; qc: (3,-1)C2
+close t36 input (3,4,0) -> SD (2,4) [direct, the plan's input cell is free]: feed; direct: (1,4)B1 (3,4)D2; qc: -
+# no feed at all: open t42 SU(0,-2), open t126 SU(1,-2), close t0 SU(0,-2)
