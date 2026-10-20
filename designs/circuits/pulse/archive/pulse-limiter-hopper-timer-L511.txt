@@ -1,5 +1,5 @@
 # archived 2026-10-20T14:33Z from designs/circuits/tracks/pulse/wr/pulse-limiter-hopper-timer-L511.txt by mctas circuit archive
-# CIRCUIT: pulse-limiter-hopper-timer-L511 pulse-limiter L 511 gt, delay 4 gt, min-pulse 2 gt, 7 blocks, 4x2x2, robust
+# CIRCUIT: pulse-limiter-hopper-timer-L511 pulse-limiter L 511 gt, delay 4 gt, min-pulse 3 gt, 8 blocks, 4x2x2, robust
 name: pulse-limiter-hopper-timer-L511
 circuit: pulse-limiter
 group: hopper-item-timer

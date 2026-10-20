@@ -1,0 +1,18 @@
+name: bud-fence-observer
+circuit: bud
+# Tells when a block appears or disappears at the target, and ignores the target's own changes (a
+# crop growing, a door opening, a block turned): the smallest presence detector, 2 blocks, and
+# copies stack every block up a column. A fence beside the target bends toward any solid block
+# placed there and straightens when it goes; the observer watching the fence sends a 2-tick pulse
+# each time. Detail: the fence's two other free sides sense too (footprint 3 cells); the output is
+# the observer's own pulse, and fences only connect sideways, so stacked copies never mix.
+tile: 0 1 0
+port output: 1 1 1
+port target: 0 1 0
+origin: 1 0 0
+palette:
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  o minecraft:observer[facing=north,powered=false]
+layer 1:
+  O
+  o

@@ -45,12 +45,14 @@ A design's own dust AT the input cell does not fix it (measured: the judge drive
 
 Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blocks, latency 4 gt, robust. The same shape rebuilds AND (two subtract comparators, the second's side fed by the first's dust) and NAND; XOR and XNOR need a different mechanism entirely, since the dust ring is gone.
 
-## Priorities (rewritten after R7)
+## Priorities (rewritten after R7, updated as they are done)
 
-1. Rebuild AND and NAND on the repeater-at-the-input shape (the NIMPLY pair is the template).
-2. XOR and XNOR from scratch: nothing in the archive claims them any more.
-3. IMPLY, NOR and NOT, where only the lever and torch versions survive.
-4. Then the tileable rows and the original shrink targets.
+Done: AND 7b (torch), NOR 3b, IMPLY and IMPLY-BA 4b, NIMPLY and NIMPLY-BA 6b, XOR 32b — all with real signal inputs, all judged robust.
+
+1. XNOR: the XOR core plus one inverter. The torch must hang on a block the XOR's output dust powers, and in the current 5x5 footprint every neighbour of that block is a floor stone carrying a dust; run the output dust one cell out into free space first, then invert there.
+2. Shrink the XOR below 32 blocks. 16 of the 32 are floor stones, so a layout sharing floor lands near 24. The two detours are not optional: each input must reach the far comparator's side at full strength, which is what the repeaters restore.
+3. NAND (6b, torch) and AND (7b) both survived or were rebuilt and look at the bar.
+4. Re-measure the tile pitches for the rebuilt gates.
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
@@ -62,3 +64,22 @@ Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blo
 - A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+- A comparator's or repeater's `facing` is the direction it READS (its back); its output goes the opposite way. Getting this backwards silently gives a dead gate, and cost me several builds.
+- A dust input at a driven cell works (clk-rt's driver is right): what fails is dust that does not POINT into its reader. Dust only connects to a neighbour it points at, so a comparator's side sees 0 unless the dust's shape bends into it.
+- An exact comparator gate needs both inputs to arrive at the SAME strength: a detour costs 1 per cell, so the detoured branch must pass through a repeater, which restores 15. Without it the gate degrades to OR.
+- `mctas circuit shrink <design>` (added 2026-10-20) greedily removes blocks and keeps only removals whose judge verdict has the SAME metrics. gate-xor-r7-32b, gate-xnor-r7-34b and the torch gates have no single block that can go. That is NOT minimality: it only says the layout cannot be trimmed, never that no smaller layout exists (critique, 2026-10-20). A smaller design must come from a census over layouts and port placements.
+
+## 2026-10-20, second pass: AND 5, NAND 4, and why the XOR is 5 wide
+
+The torch gates get smaller once the judge's own input block is used as the torch's support: a torch standing ON an input block goes out when that input turns on, which costs zero blocks of our own.
+- NAND 4 blocks (was 6): a torch on each input block, one dust between them on its support stone. The dust is lit unless both inputs are on.
+- AND 5 blocks (was 7): the same, plus a wall torch under the dust.
+Both 2 and 4 gt respectively, robust, and `circuit shrink` finds nothing further to remove.
+
+The XOR's 5-wide footprint is forced, not lazy. The exact gate needs each comparator's SIDE fed at full strength by the other input, which means a repeater sitting in the side cell, and a repeater must be fed from the cell behind it. In a 3-wide layout that cell is outside the design, so there is nowhere for the feed to come from; 5 wide is the first width where each input can run around to the far side repeater without passing the near comparator's own side cells. Measured: every 3-wide and 4-wide attempt degrades to OR (the detoured signal arrives weaker, so a - b stays positive when both inputs are on) or reads 0 everywhere. The 32 blocks are 16 components plus 16 floor stones; builders quoting "8-12" are counting components only, and ours is 16.
+
+### Why the comparator XOR resists a small footprint (measured, 2026-10-20)
+
+The exact gate needs, per comparator, its BACK on one input and its SIDE on the other at the SAME strength (a weaker side leaves a - b > 0 when both are on, and the gate degrades to OR: measured four times). A comparator's side reads only dust, a redstone block or a diode, so the side feed is a repeater or a dust that POINTS into the side.
+The tension that forces the big footprint: the two comparators' side cells sit between the inputs and each other. Every short crossing tried puts one input's dust on the near comparator's own side, and `getAlternateSignal` takes the MAX of both side cells, so that input cancels itself (a - max(b, a) = 0). Attempts measured: inputs opposite 3-wide, inputs adjacent 3x3 (15 blocks, asymmetric: 01 -> 1 but 10 -> 0), inputs adjacent 4x3 (20 blocks, same asymmetry), both inputs on one row (the side repeater has nowhere to be fed from).
+The working 5x5 ring spends its blocks exactly on keeping each input's path OFF the near comparator's side cells. A smaller XOR therefore needs a different placement of the ports, which is a census question, not a shrink: `circuit gates census --dims 4x2x3 --inputs "0,1,0;3,1,0" --kmin 4 --k 8` is the run for it.

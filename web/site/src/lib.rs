@@ -7,7 +7,7 @@
 //! lives in the URL fragment, so every search is a link. The cards' 3D thumbnails are
 //! `data-mcview` elements that webrender's viewer (viewer/mcview.js) renders when it is loaded.
 
-use site_model::html::{esc, hit_card, nearest_searches};
+use site_model::html::{chip_plural, esc, hit_card_tab, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -30,6 +30,8 @@ struct App {
     /// The block-kind chips' own filter text.
     kind_filter: String,
     error: String,
+    /// The chips most of the first hits share: said once in the count line, left off the cards.
+    shared: Vec<String>,
 }
 
 thread_local! {
@@ -102,7 +104,7 @@ async fn load() -> Result<(), JsValue> {
             }
         }
     }
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new() }));
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new() }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -377,6 +379,8 @@ fn refresh(write_hash: bool) {
     let done = with_app(|a| {
         match a.site.run(&a.q) {
             Ok((hits, facets)) => {
+                // the chips most of the first cards share, said once in the count line
+                a.shared = site_model::html::hits_common_chips(&a.site, &hits);
                 a.hits = hits;
                 a.facets = facets;
                 a.error.clear();
@@ -415,7 +419,7 @@ fn more() {
             return (empty_message(a), 0, 0);
         }
         let end = (a.shown + PAGE).min(a.hits.len());
-        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card(&a.site, *h, "")).collect();
+        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card_tab(&a.site, *h, "", &a.q.kind, &a.shared)).collect();
         a.shown = end;
         (html, end, a.hits.len())
     }) else {
@@ -430,6 +434,13 @@ fn more() {
         m.set_hidden(shown >= total);
         m.set_text_content(Some(&format!("Show more ({} more)", total.saturating_sub(shown))));
     }
+}
+
+/// A search that names one gate function (`xor`, `xor gate`, `nand`): the function.
+fn gate_word(text: &str) -> Option<&'static str> {
+    let t = text.trim().to_lowercase();
+    let t = t.strip_suffix(" gate").unwrap_or(&t).trim().to_string();
+    ["xor", "xnor", "and", "nand", "or", "nor", "not", "imply", "nimply"].into_iter().find(|f| *f == t)
 }
 
 /// No result: for a time search, the nearest periods that exist (links); else a hint.
@@ -540,9 +551,36 @@ fn draw_dynamic() {
             if members > 0 {
                 s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
             }
+            // the chips most cards share, once (critique: six cards in a row repeated "no slime ·
+            // 1 block thick · works facing any way")
+            if !a.shared.is_empty() {
+                let parts: Vec<String> = a.shared.iter().map(|c| chip_plural(c)).collect();
+                let list = match parts.len() {
+                    1 => parts[0].clone(),
+                    n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+                };
+                s.push_str(&format!(". Most {}", esc(&list)));
+            }
             // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
             if a.hits.is_empty() && !q.text.trim().is_empty() {
                 s.push_str(&format!(". Try: {}", nearest_searches(&q.text)));
+            }
+            // nothing found for a time: the nearest period in the count line too (critique: "1
+            // minute" gave "0 results" and nothing else on its line)
+            if a.hits.is_empty() && !q.time.trim().is_empty() {
+                if let Ok((lo, hi)) = site_model::parse_time_query(&q.time) {
+                    if let Some((p, _)) = a.site.nearest_periods(lo, hi, 1).first() {
+                        s.push_str(&format!(". Nearest: {}", gt_time(*p)));
+                    }
+                }
+            }
+            // a gate function with no design on the site (being re-tested) says so (critique:
+            // "xor" listed 13 other gates)
+            if let Some(f) = gate_word(&q.text) {
+                let has = a.site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}")));
+                if !has {
+                    s.push_str(&format!(". No {} gate on the site right now (its designs are being re-tested in the game); other logic gates", f.to_uppercase()));
+                }
             }
             s
         } else {

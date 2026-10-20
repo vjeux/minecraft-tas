@@ -459,6 +459,32 @@ impl<'a> Builder<'a> {
         self.add_model(&m, base, None, None);
     }
 
+    /// An outline box around the cells from `lo` to `hi` (a driven input and its judge devices).
+    pub fn marker_span(&mut self, lo: Pos, hi: Pos, color: [u8; 3]) {
+        let base = [lo[0] as f32, lo[1] as f32, lo[2] as f32];
+        let t = 0.4;
+        let a = [-0.3f32; 3];
+        let b: [f32; 3] = std::array::from_fn(|k| 16.0 * (hi[k] - lo[k] + 1) as f32 + 0.3);
+        let mut parts = Vec::new();
+        // the 12 edges: 4 along each axis
+        for axis in 0..3 {
+            let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+            for (eu, ev) in [(a[u], a[v]), (b[u] - t, a[v]), (a[u], b[v] - t), (b[u] - t, b[v] - t)] {
+                let mut from = [0.0f32; 3];
+                let mut to = [0.0f32; 3];
+                from[axis] = a[axis];
+                to[axis] = b[axis];
+                from[u] = eu;
+                to[u] = eu + t;
+                from[v] = ev;
+                to[v] = ev + t;
+                parts.push(Part::new(from, to).all("white_concrete").tint(color).emissive(true).nocull());
+            }
+        }
+        let m = Model { parts, ..Default::default() };
+        self.add_model(&m, base, None, None);
+    }
+
     /// A powered output's box filled with translucent red (its outline drawn by [`Builder::marker`]).
     pub fn out_fill(&mut self, cell: Pos) {
         let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];

@@ -1,5 +1,5 @@
 # archived 2026-10-20T13:33Z from designs/circuits/tracks/pulse/wr/pulse-fall-trapdoor-cal-L10.txt by mctas circuit archive
-# CIRCUIT: pulse-fall-trapdoor-cal-L10 falling-edge L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no, 2 blocks, 2x1x2, robust
+# CIRCUIT: pulse-fall-trapdoor-cal-L10 falling-edge L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no, 2 blocks, 2x1x2, robust
 name: pulse-fall-trapdoor-cal-L10
 circuit: falling-edge
 # One 10-tick pulse (half a second) every time the input turns OFF, from just 2 blocks, for quiet

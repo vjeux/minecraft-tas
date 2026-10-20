@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:09Z from designs/circuits/tracks/pulse/oneshot/pulse-oneshot-rising-edge-L26.txt by mctas circuit archive
-# CIRCUIT: pulse-oneshot-rising-edge-L26 rising-edge L 26 gt, delay 7 gt, min-pulse 4 gt, 21 blocks, 5x2x5, robust
+# CIRCUIT: pulse-oneshot-rising-edge-L26 rising-edge L 26 gt, delay 6 gt, min-pulse 4 gt, 21 blocks, 5x2x5, robust
 name: pulse-oneshot-rising-edge-L26
 # One-shot (rising-edge, L = 26 gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range 26..26 --kind rising-edge).
 circuit: rising-edge

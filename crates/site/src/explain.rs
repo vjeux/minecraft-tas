@@ -553,7 +553,14 @@ fn what_timer_does(c: &Circuit) -> String {
                     "{}{}{}",
                     if delay.is_empty() { String::new() } else { format!("The output turns on {delay} after the input. ") },
                     if min_pulse.is_empty() { String::new() } else { format!("It reacts to input pulses of {min_pulse} or longer. ") },
-                    if rearm.is_empty() { String::new() } else { format!("Two input pulses at least {rearm} apart give two full output pulses.") }
+                    if rearm.is_empty() {
+                        String::new()
+                    } else if c.kind.contains("retriggerable") && !c.kind.contains("non-retriggerable") {
+                        // (critique C49: "re-arm" next to "retriggerable" read as a contradiction)
+                        format!("Two presses at least {rearm} apart give two separate output pulses; closer together, the output just stays on longer.")
+                    } else {
+                        format!("Two input pulses at least {rearm} apart give two full output pulses.")
+                    }
                 ))
             )
         }
@@ -792,7 +799,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
         ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
         ("monostable", "retrigger") => "retriggerable: a pulse while the output is on restarts L; non-retriggerable: it is ignored",
-        ("monostable", "re-arm") => "the shortest time between two input pulses that still gives two full output pulses",
+        ("monostable", "re-arm") => "the shortest time between two presses that still gives two separate output pulses (closer presses restart the timer, or are ignored by a non-restarting one)",
         ("burst", "N") => "output pulses per input pulse",
         ("burst", "pulse") => "the length of each output pulse",
         ("burst", "period") => "game ticks from one output pulse's start to the next one's",
@@ -1283,17 +1290,41 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
     // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
-    // once on the first step (critique: "5 gt, 10 gt, 15 gt")
-    let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
-    let mut t = 0u32;
+    // once on the first step (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N"
+    // phases) puts its labels on the cycle lines, every k cycles (critique: "5 ticks" sat across
+    // the cycle-2 line drawn at tick 6)
+    let cycles: Vec<&(u32, u32, String)> = w.phases.iter().filter(|(_, _, l)| l.starts_with("cycle ")).collect();
+    let (first, step) = match cycles.first() {
+        Some((a, b, _)) if b > a && cycles.iter().all(|(x, y, _)| y - x == b - a) => {
+            let p = b - a;
+            (*a, p * ((60.0 / (p as f64 * px)).ceil() as u32).max(1))
+        }
+        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000)),
+    };
     let ya = height - 6.0;
+    let mut marks: Vec<u32> = Vec::new();
+    if first > 0 && (first as f64) * px >= 30.0 {
+        marks.push(0);
+    }
+    let mut t = first;
     while (t as f64) <= ticks {
+        marks.push(t);
+        t += step;
+    }
+    let mut named = false;
+    for t in marks {
         // (a label that would run past the right edge is left out)
-        let label = if t == 0 { "0".to_string() } else if t == step { format!("{t} ticks") } else { t.to_string() };
+        let label = if t == 0 {
+            "0".to_string()
+        } else if !named {
+            named = true;
+            format!("{t} ticks")
+        } else {
+            t.to_string()
+        };
         if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
             s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }
-        t += step;
     }
     s.push_str("</svg>");
     s

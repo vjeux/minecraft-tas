@@ -1,5 +1,5 @@
 # archived 2026-10-20T14:14Z from /tmp/clkobs-runs/tiled/pulse-rise-bulb-L2-self-tile1.txt by mctas circuit archive
-# CIRCUIT: pulse-rise-bulb-L2 rising-edge L 2 gt, delay 4 gt, min-pulse 1 gt, tileable every 1 (0 0 1), 4 blocks, 3x2x1, robust
+# CIRCUIT: pulse-rise-bulb-L2 rising-edge L 2 gt, delay 4 gt, min-pulse 2 gt (the shortest a real input makes), tileable every 1 (0 0 1), 4 blocks, 3x2x1, robust
 name: pulse-rise-bulb-L2
 circuit: rising-edge
 tile: 0 0 1

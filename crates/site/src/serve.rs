@@ -390,6 +390,18 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         });
         check(&format!("search \"{text}\": a match first{}", if want.is_empty() { String::new() } else { format!(", {want}") }), first.as_deref().is_some_and(|g| want.is_empty() || g.starts_with(want)), format!("first: {first:?}"));
     }
+    // an exact gate function finds its own gate first (critique: "xor" led with OR and AND)
+    for f in ["xor", "xnor", "nand"] {
+        if !site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}"))) {
+            continue;
+        }
+        let q = site_model::Query::from_fragment(&format!("q={f}"));
+        let first = site.run(&q).ok().and_then(|(h, _)| h.first().copied()).and_then(|h| match h {
+            site_model::Hit::Build(i) => site.builds.get(i).and_then(|b| b.circuit.as_ref().map(|c| c.kind.clone())),
+            _ => None,
+        });
+        check(&format!("search \"{f}\": its gate first"), first.as_deref() == Some(&format!("gate {f}")), format!("first: {first:?}"));
+    }
     let dq = site_model::Query::from_fragment("kind=door");
     if let Ok((dhits, _)) = site.run(&dq) {
         let first: Vec<&str> = dhits.iter().take(3).filter_map(|h| match h {
@@ -559,7 +571,16 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
     check("time search 48 gt: family members shown, without family ids", members == 0 || (dom.contains("class=\"card member\"") && !dom.contains("<span class=\"n\">")), format!("{} member cards", dom.matches("class=\"card member\"").count()));
-    check("time search 48 gt: the count names the period", dom.contains("with a period of 48 gt (2.4 s)"), "summary".into());
+    check("time search 48 gt: the count names the period", dom.contains("with a period of 48 ticks (2.4 s)"), "summary".into());
+    // a time no clock has (1 minute): the nearest periods that exist (critique: "nothing else")
+    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time=1%20min"), budget_ms)?;
+    check("time search 1 min: the nearest periods", dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));
+    // a gate function with no design says so (critique: "xor" listed other gates silently)
+    let missing_gate = ["xor", "xnor", "and", "nand", "nor", "or", "not"].into_iter().find(|f| !site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}"))));
+    if let Some(f) = missing_gate {
+        let dom = dump_dom(&chrome, &format!("{base}index.html#kind=circuit&q={f}"), budget_ms)?;
+        check(&format!("search {f}: says no {} gate is on the site", f.to_uppercase()), dom.contains(&format!("No {} gate on the site right now", f.to_uppercase())), "count line".into());
+    }
     // the header's search form from another page (index.html?kind=clock&q=48): the Clocks tab's
     // search box takes a period
     let dom = dump_dom(&chrome, &format!("{base}index.html?kind=clock&q=48"), budget_ms)?;

@@ -1,5 +1,5 @@
 # archived 2026-10-20T13:32Z from designs/circuits/tracks/pulse/wr/pulse-extender-sculk-L30.txt by mctas circuit archive
-# CIRCUIT: pulse-extender-sculk-L30 pulse-extender L 30 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar), 2 blocks, 2x1x2, robust
+# CIRCUIT: pulse-extender-sculk-L30 pulse-extender L 30 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar), 2 blocks, 2x1x2, robust
 name: pulse-extender-sculk-L30
 circuit: pulse-extender
 input-device: far

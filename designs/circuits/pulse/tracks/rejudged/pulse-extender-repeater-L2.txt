@@ -1,0 +1,16 @@
+# rejudged (2026-10-20T16:42Z, mctas circuit archive --rejudge): FAIL: pulse-extender-repeater-L2 pulse-extender: never extends: no two input pulses shorter than its output come out exactly that long among the handled inputs (from the shortest input: L 2 gt)
+name: pulse-extender-repeater-L2
+circuit: pulse-extender
+group: pulse-extender-repeater
+group title: pulse extender: one repeater (2 to 8 ticks)
+tile: 1 0 0
+port input: 0 1 1
+port output: 0 1 0
+origin: 0 0 0
+palette:
+  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  R
