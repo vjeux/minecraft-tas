@@ -93,6 +93,17 @@ impl World {
         toggles.hash(h);
         self.piston.key_into(now, h);
         self.gravity.key_into(h);
+        // entities (only when there are any: designs without entities keep their keys); every
+        // field by its exact bits (Debug prints round-trip floats), payloads included
+        if !self.entities.list.is_empty() {
+            0xe7u8.hash(h);
+            for e in self.entities.list.iter().filter(|e| !e.removed) {
+                let mut k = e.clone();
+                k.id = 0;
+                k.tick_count = 0;
+                format!("{k:?}").hash(h);
+            }
+        }
         self.sculk.key_into(now, h);
         (self.drops.len() as u32).hash(h);
         (self.errors.len() as u32).hash(h);

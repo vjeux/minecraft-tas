@@ -119,26 +119,19 @@ pub enum Outcome {
 }
 
 /// The design's entities as redsim entities (`Sandbox.summon`: created at their position, at
-/// rest, in the design's order, once the blocks stand); an error names what is missing.
+/// rest, in the design's order, once the blocks stand; `redsim::entity::spawn`, the clock sim's
+/// path too); an error names what is missing.
 fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
-    use redsim::entity::{EntityKind, Vec3};
     for e in &c.design.entities {
-        let kind = match e.kind.trim_start_matches("minecraft:") {
-            "oak_boat" => EntityKind::Boat(redsim::entity::boat::BoatState::default()),
-            "oak_chest_boat" => EntityKind::Boat(redsim::entity::boat::BoatState { chest: true, ..Default::default() }),
-            "minecart" => EntityKind::Minecart(Default::default()),
-            "armor_stand" => EntityKind::ArmorStand(Default::default()),
-            k => return Err(format!("entity {k} is not modeled by redsim")),
-        };
-        if let Some(n) = &e.nbt {
-            // test scenes: `{Motion:[x d, y d, z d]}` only
-            let m = parse_motion(n).ok_or_else(|| format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind))?;
-            let id = w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
-            let idx = w.entities.list.iter().position(|x| x.id == id).unwrap();
-            w.entities.list[idx].delta_movement = Vec3::new(m[0], m[1], m[2]);
-            continue;
+        let item = e.kind.trim_start_matches("minecraft:") == "item";
+        if let Some(n) = &e.nbt
+            && !item
+            && parse_motion(n).is_none()
+        {
+            // test scenes: `{Motion:[x d, y d, z d]}` only (container contents... are not modeled)
+            return Err(format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind));
         }
-        w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
+        redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref())?;
     }
     Ok(())
 }
