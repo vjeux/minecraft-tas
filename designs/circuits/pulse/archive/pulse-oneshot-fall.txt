@@ -12,7 +12,7 @@ extend blocks: 17 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters
-extend group note: Why a chain of repeaters: the pulse must run its full length after the input has ended, so the circuit has to remember it (a copper bulb) and switch itself off after a delay; the smaller 7-block hopper item timer only counts while its input stays on, so it can't. No constant-size version exists yet (a copper bulb holding a hopper timer open would be one).
+extend group note: Lengths of the form 8n (8, 16, 24, 32... ticks) come from the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open), the same size for any length; this chain gives the lengths it can't (18, 34, 50... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-fall --n {n} --out {out}
 origin: -1 0 0
