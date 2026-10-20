@@ -439,7 +439,8 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     for folder in ["shulker", "tnt", "bud", "pulsemult"] {
         if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
             let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
-            let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
+            // (the table's class may carry more: `list variations two-best`)
+            let table = page.split("<table class=\"list variations").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
             let best = table.matches("<a href=").count();
             check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
         }
