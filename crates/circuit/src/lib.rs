@@ -544,8 +544,8 @@ impl Circuit {
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
-                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
-                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                // a tiled run ([`tiled`]) of a study-1 or study-11 design: one input per copy
+                _ if matches!(k.study(), "pulsemult" | "pulse") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -582,8 +582,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
-            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits and the study-11 kinds are tiled");
         }
         Ok(())
     }

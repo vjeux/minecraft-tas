@@ -1,30 +1,24 @@
-# archived 2026-10-20T01:52Z from designs/circuits/tracks/pulse/lamp/pulse-dual-lamp-repeater-L4.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-lamp-repeater-L4 dual-edge L 4 gt, delay 6 gt rising / 10 gt falling, min-pulse 4 gt, 4 blocks, 1x2x3, robust
+# archived 2026-10-20T14:09Z from /tmp/clkobs-runs/tiled/pulse-dual-lamp-repeater-L4-self-tile1.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-lamp-repeater-L4 dual-edge L 4 gt, delay 6 gt rising / 10 gt falling, min-pulse 4 gt, tileable every 1 (1 0 0), 4 blocks, 1x2x3, robust
 name: pulse-dual-lamp-repeater-L4
 circuit: dual-edge
 group: pulse-dual-lamp-repeater
-group title: lamp + observer + repeater dual-edge
 group note: the lamp's 4 gt fall separates the two edges of short inputs; L set by the repeater delay
-# The input lights a redstone lamp at once; the lamp goes out 4 gt after the input falls, so even a
-# 1 gt input makes two lamp changes 5 gt apart. An observer watching the lamp fires 2 gt on each
-# change, and a delay-2 repeater on its back stretches each pulse to 4 gt.
-origin: 0 -1 -2
+group title: lamp + observer + repeater dual-edge
+tile: 1 0 0
 port input: 0 0 2
-port output: 0 0 -2
+port output: 0 0 -1
+origin: 0 0 -1
 palette:
+  O minecraft:observer[facing=south,powered=false]
+  R minecraft:redstone_lamp[lit=false]
   S minecraft:stone
-  A minecraft:observer[facing=south,powered=false]
-  B minecraft:redstone_lamp[lit=false]
-  R minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
-layer 0:
-  .
+  r minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+layer -1:
   S
   .
   .
-  .
-layer 1:
-  .
+layer 0:
+  r
+  O
   R
-  A
-  B
-  .
