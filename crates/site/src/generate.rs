@@ -192,7 +192,7 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         eprintln!(
             "{} archived doors left out as community work ({}; only our own designs are published)",
             not_ours.len(),
-            if by_prov { "by provenance.tsv + the seed rule" } else { "no provenance.tsv yet: by the seed rule (community*, c79*, closed-b-fill*, satwire-c79*, satwire-63b*, pockets-63b*, c88*, fills of community designs)" }
+            if by_prov { "by provenance.tsv + the seed rule" } else { "no provenance.tsv yet: by the seed rule (community*, c79*, closed-b-fill*, satwire-c79*, satwire-63b*, c88*, fills of community designs)" }
         );
         if !conflicts.is_empty() {
             eprintln!(

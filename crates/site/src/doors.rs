@@ -18,7 +18,9 @@ pub const PROVENANCE: &str = "provenance.tsv";
 
 /// Name prefixes of designs derived from community doors (the seed rule, applied whether or not
 /// provenance.tsv exists; a published door matching it fails the build).
-pub const COMMUNITY_PREFIXES: [&str; 7] = ["community", "c79", "closed-b-fill", "satwire-c79", "satwire-63b", "pockets-63b", "c88"];
+// Not "pockets-63b": "63b" is only the 7x9 box volume. Most pockets-63b-* descend from t7b / e89b
+// (ours); the c79-seeded ones are flagged by provenance.tsv's run-seed lineage (c70b, a11b72084).
+pub const COMMUNITY_PREFIXES: [&str; 6] = ["community", "c79", "closed-b-fill", "satwire-c79", "satwire-63b", "c88"];
 
 /// Why a design is community-derived by the seed rule: its name, or a `note: door fill of`
 /// line naming a community design (a path under tracks/c77/community, or a file with one of the
@@ -374,7 +376,7 @@ mod tests {
 
     #[test]
     fn community_work_is_recognized() {
-        for name in ["community-7x8-stone", "c79-49-tl1-49b", "closed-b-fill-48b-1-48b", "satwire-c79-x", "satwire-63b-49-49b", "pockets-63b-50-0-50b", "c88-x"] {
+        for name in ["community-7x8-stone", "c79-49-tl1-49b", "closed-b-fill-48b-1-48b", "satwire-c79-x", "satwire-63b-49-49b", "c88-x"] {
             assert!(community_seed(name, "").is_some(), "{name}");
         }
         assert!(community_seed("e78st-56b-37-37b", "name: x\n").is_none());
