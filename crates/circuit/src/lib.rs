@@ -16,6 +16,7 @@
 
 pub mod archive;
 pub mod bud;
+pub mod compute;
 pub mod check;
 pub mod fly;
 pub mod pulsemult;
@@ -127,6 +128,9 @@ pub enum Kind {
     OnDelay,
     /// Study 11: pulses every P gt while the input is on (a gated clock).
     PulseTrain,
+    /// Study 12 ([`compute`]): an adder, subtractor, incrementer, comparator, multiplexer,
+    /// demultiplexer, decoder, encoder (exhaustive truth table) or binary counter, N bits.
+    Compute(compute::Op, u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -222,8 +226,13 @@ impl Kind {
             "off-delay" => Kind::OffDelay,
             "on-delay" => Kind::OnDelay,
             "pulse-train" => Kind::PulseTrain,
+            k if compute::Op::parse(&w).is_some() => {
+                let _ = k;
+                let (op, n) = compute::Op::parse(&w).unwrap()?;
+                Kind::Compute(op, n)
+            }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N)"
             ),
         })
     }
@@ -263,6 +272,7 @@ impl Kind {
             Kind::OffDelay => "off-delay".into(),
             Kind::OnDelay => "on-delay".into(),
             Kind::PulseTrain => "pulse-train".into(),
+            Kind::Compute(op, n) => op.kind_name(*n),
         }
     }
 
@@ -280,6 +290,7 @@ impl Kind {
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
+            Kind::Compute(..) => "compute",
         }
     }
 
@@ -342,6 +353,10 @@ pub struct Circuit {
     pub stores: Vec<Store>,
     /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
     pub tile: Option<Tile>,
+    /// `slice: dx dy dz` (study 12 bit slices, [`compute::sliced`]): the design is one bit of a
+    /// ripple circuit; copy k + 1 sits one step from copy k, its chain input on copy k's chain
+    /// output.
+    pub slice: Option<Pos>,
     /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
     pub targets: Vec<bud::Target>,
@@ -446,8 +461,18 @@ impl Circuit {
             None => None,
         };
         let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
+        let slice = match design.meta.get("slice") {
+            Some(t) => {
+                let v: Vec<i32> = t.split_whitespace().map(|x| x.parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("slice: {t:?}"))?;
+                if v.len() != 3 || v == [0, 0, 0] {
+                    bail!("slice: {t:?}: want dx dy dz (the step from one bit to the next)");
+                }
+                Some([v[0], v[1], v[2]])
+            }
+            None => None,
+        };
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, targets, bud_claims };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -459,6 +484,9 @@ impl Circuit {
         };
         if *k == Kind::Bud {
             return bud::check_ports(self);
+        }
+        if let Kind::Compute(op, n) = k {
+            return compute::check_ports(self, *op, *n);
         }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
@@ -525,6 +553,9 @@ impl Circuit {
         }
         if self.tile.is_some() && !k.is_shulker() {
             bail!("tile: only shulker loaders and unloaders and BUD switches are tiled");
+        }
+        if self.slice.is_some() {
+            bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
         }
         Ok(())
     }
@@ -705,6 +736,10 @@ impl Circuit {
         if let Some(t) = self.tile {
             let r = clock::rotate_pos(t.step, turns);
             d.meta.insert("tile".into(), format!("{} {} {} {}", r[0], r[1], r[2], t.copies));
+        }
+        if let Some(st) = self.slice {
+            let r = clock::rotate_pos(st, turns);
+            d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
         Circuit::from_design(d)
     }

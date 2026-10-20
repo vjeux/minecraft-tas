@@ -20,6 +20,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 | 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
+| 12 computational redstone | clk-obs (compute), pext | adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N | the kind and N | latency (worst transition), glitches, per bit, slice law ([variations](../designs/circuits/compute/VARIATIONS.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -437,6 +438,39 @@ kick) before the first input.
   * `pulse-train` (a gated clock): the input held 20, 60, 200 gt: output pulses every P gt while it
     is on, the first at the same latency each time, none starting more than P after the release.
     Metrics P (axis), pulse, latency, stop (release -> the output's last fall).
+* **Study 12, computational redstone** ([crate::compute](../crates/circuit/src/compute.rs), the
+  variations and why: [designs/circuits/compute/VARIATIONS.md](../designs/circuits/compute/VARIATIONS.md)).
+  Unsigned binary on one cell per bit: bit k of `a` is `port input.a<k>` (k = 0 the lowest), of the
+  sum `port output.s<k>`. Kinds and ports (`?` = optional):
+  * `adder N`: a, b, cin? -> s, cout?; `subtractor N`: a, b, bin? -> d, bout? (d - 2^N bout = a - b -
+    bin); `incrementer N`: a, cin? (else +1) -> s, cout?;
+  * `comparator N` (N >= 2): a, b -> any of eq, ne, lt, gt, le, ge;
+  * `mux N`: s0..s(N-1), d0..d(2^N - 1) -> q = d[s]; `demux N`: s, d -> q0..q(2^N - 1);
+    `decoder N` (N >= 2): a, e? (enable) -> q one-hot; `encoder N [priority]` (N >= 2): d0..d(2^N - 1)
+    -> q, valid? (a plain encoder is judged on one-hot and zero inputs only, a priority encoder on
+    every input: q = the highest set index);
+  * `binary-counter N` (N >= 2): clk, r? (reset) -> q0..q(N-1).
+  Combinational kinds (at most 16 inputs): every input state in Gray-code order, then (10 inputs or
+  fewer) every single-input transition in both directions (an Euler tour of the n-cube), then every
+  state reached from its complement (every input at once), each held for the gap (redsim's settle
+  time, at least 10 gt so that no torch toggles 8 times in 60 gt). At rest the outputs must read
+  the all-zero state's values; in every hold they must settle to the ideal values and keep them to
+  its end (`wrong output: <transition>: <output> is 1, want 0`). Metrics: `latency` (the worst gt
+  from an input change to the frame from which every output holds its final value, with the
+  transition: `b0 rises from a=0111 b=0000 cin=0`; 0 = class `instant`), `glitches` (holds where an
+  output changes more than once before it settles), `per bit` (blocks / N, arithmetic kinds).
+  `binary-counter N`: 2^N + 3 clock pulses of 4 gt each followed by the gap (with a reset input,
+  resets at three counts): the outputs read the count mod 2^N at the end of every gap; `latency`
+  from the edge that moves them (`edge` rising or falling), `per bit`.
+  **Bit slices** (`slice: dx dy dz`): the design is ONE bit (`adder 1`, `subtractor 1`,
+  `incrementer 1`, `binary-counter 1`) with chain ports, input cin (bin; a counter's clk) and output
+  cout (bout), cout a design block exactly one step from the cin cell (`compute::sliced`). The judge
+  judges the slice alone, then stacks 2, 3 and 4 copies (copy k one step further, its per-bit ports
+  renamed a<k>, b<k>, s<k> / q<k>, copy k's cin cell being copy k - 1's cout block; copy 0's cin
+  stays the input and keeps its own idle block, the last copy's cout the output) and judges each
+  stack as the N-bit kind. Metric `slice`: blocks per bit and the latency law (`latency 2 + 4
+  (N-1) gt` when it is linear). A chain that is on at rest (a torch) needs copy 0's chain input to
+  idle on as well: `port input.clk: x y z minecraft:air minecraft:redstone_block` (on = air).
 
 ## Archive and catalog
 
