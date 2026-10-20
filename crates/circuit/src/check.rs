@@ -212,10 +212,11 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
 }
 
 /// A circuit must drive something: the judge's lamp in each air output cell
-/// ([`crate::CONSUMER`]) must follow the output, lit whenever the output is on and unlit once it
-/// has been off for 6 gt (a lamp turns off 4 gt after the block update that tells it, so short gaps
-/// stay lit), from the first frame the circuit may be driven. An output that changes without a
-/// block update (a dust redirected without a power change) leaves the lamp stale: why it fails.
+/// ([`crate::CONSUMER`]) must follow the output, from the first frame the circuit may be driven:
+/// lit whenever the output is on, and unlit within 5 gt after the output turns off (a lamp turns off
+/// 4 gt after the block update that tells it; a later flash while the output stays off, from a
+/// state inside one tick, is a glitch, not a stale lamp). An output that changes without a block
+/// update (a dust redirected without a power change) leaves the lamp stale: why it fails.
 pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
     let from = (start(c) as usize).min(t.frames());
     for p in c.consumer_cells() {
@@ -223,17 +224,24 @@ pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
             continue;
         };
         let name = &c.outputs[k].name;
-        let mut off = 0usize;
+        // the frame the output turned off, and whether the lamp has gone off since
+        let mut fell: Option<(usize, bool)> = None;
         for f in from..t.frames() {
             let on = t.on(k, f);
             let lit = crate::trace::lamp_lit(t.state(f, p));
-            off = if on { 0 } else { off + 1 };
-            if on && !lit {
-                return Some(format!("update-less output: {name} turns on at frame {f} without a block update (a lamp in its cell stays unlit), it drives nothing"));
+            if on {
+                if !lit {
+                    return Some(format!("update-less output: {name} turns on at frame {f} without a block update (a lamp in its cell stays unlit), it drives nothing"));
+                }
+                fell = None;
+                continue;
             }
-            if off >= 6 && lit {
-                return Some(format!("update-less output: {name} is off from frame {} without a block update (a lamp in its cell stays lit), it drives nothing", f + 1 - off));
+            let (at, gone) = fell.unwrap_or((f, false));
+            let gone = gone || !lit;
+            if !gone && f >= at + 5 {
+                return Some(format!("update-less output: {name} is off from frame {at} without a block update (a lamp in its cell stays lit), it drives nothing"));
             }
+            fell = Some((at, gone));
         }
     }
     None
