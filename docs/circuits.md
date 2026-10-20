@@ -310,7 +310,10 @@ kick) before the first input.
   grows with the rolls and knockback ignores them; a destroyed machine block fails the run, the
   ground's craters do not (clockinfra's check). The evidence: `mctas circuit tnt blasts` lists
   every explosion's distance to the machine and the blocks destroyed, in the void and on both
-  grounds at the safe drop (`--ticks` for a long run). `explode: off` is for analysis only (the
+  grounds at the safe drop (`--ticks` for a long run). A clock-held engine (the study's one duper,
+  tnt-clocked-22b): `mctas circuit tnt hold-scan <engine> --piston x,y,z` tries every archived
+  clock and turn for a cell where a piston is powered on all but one short window of the period,
+  puts the engine's piston there and judges each machine on redsim. `explode: off` is for analysis only (the
   measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.

@@ -112,9 +112,14 @@ direct feed, behind its above cell for a QC feed plus a glass block placed and r
 | `--physics --max-pistons 14` (c70b's seeds) | UNSAT everywhere at h 6 / h 8 so far |
 
 **What the bounds mean.** Every UNSAT is bounded by H parallel steps per edge. c70b's working
-(unwired) mm01-7x7 needs 20 steps in this model (UNSAT at h 10, SAT at h 20), so these results only
-rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A real proof needs much
-longer horizons (h 10 takes hours per placement) or an unbounded method.
+(unwired) mm01-7x7 needs 20 steps in the old permissive feed model (UNSAT at h 10, SAT at h 20),
+so these results only rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A
+real proof needs much longer horizons (h 10 takes hours per placement) or an unbounded method.
+They also cover only the macro palette: air, stone, obsidian, redstone blocks, static wiring cells,
+normal and sticky pistons. Designs that carry an observer (it fires on arrival and powers what it
+faces at its new cell) or ride signals on slime structures (fly's gadgets 2 and 3, explore/fly
+tracks/fly/wip/) are outside it. A lever on a piston outside the box (holding it and, by QC, the
+piston below) and QC through an empty above cell are inside it.
 
 **The central 7x7 near-miss (2026-10-20).** The plain feed model found (-2..4, -2..4) SAT at h 6
 (20 000 s; sat/v8/). On its fixed layout `--physics` was SAT at h 8, but the ideal-rs replay of
@@ -135,6 +140,13 @@ With them that layout is UNSAT up to h 12; the wired 7x8 e78k still passes `--ph
 `--strict` (h 10). The redstone-block rule has no pushability exception (a powered piston whose
 push is blocked by obsidian or an extended piston stays retracted in the game), so `--physics`
 UNSATs stay filter results, as before.
+
+**c70b's mm01-7x7 (works in redsim, unwired) on its fixed layout (2026-10-20).** With the current
+feed rules (only real strong-power sources into a conductor) it has no fed schedule at h 20 even
+without the lever and without island start (UNSAT, 716 s; the old permissive feed model found one
+at h 20 in 502 s); with `--lever` (h 20, with and without island start) and with `--physics`
+(h 20 and h 28) it is UNSAT too. So the best known 7x7 mechanism cannot be fed within 20-28
+parallel steps in this model: its firings need feeds that no real source in the box gives.
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
