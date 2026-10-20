@@ -24,7 +24,7 @@ fn content_type(p: &Path) -> &'static str {
     }
 }
 
-fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>) -> Result<()> {
+fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>, inject: &str) -> Result<()> {
     let mut reader = BufReader::new(s.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -60,7 +60,15 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         file = file.join("index.html");
     }
     match std::fs::read(&file) {
-        Ok(body) => {
+        Ok(mut body) => {
+            if !inject.is_empty() && content_type(&file).starts_with("text/html") {
+                let text = String::from_utf8_lossy(&body).to_string();
+                body = match text.find("<head>") {
+                    Some(i) => format!("{}{inject}{}", &text[..i + 6], &text[i + 6..]),
+                    None => format!("{inject}{text}"),
+                }
+                .into_bytes();
+            }
             write!(s, "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", content_type(&file), body.len())?;
             s.write_all(&body)?;
         }
@@ -80,12 +88,20 @@ pub fn serve_on(listener: TcpListener, root: PathBuf) {
 }
 
 pub fn serve_with(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>) {
+    serve_injecting(listener, root, extra, String::new())
+}
+
+/// [`serve_with`], with `inject` inserted right after `<head>` in every HTML file served (the
+/// WebKit smoke's console recorder: it must run before the page's own scripts).
+pub fn serve_injecting(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>, inject: String) {
     let extra = std::sync::Arc::new(extra);
+    let inject = std::sync::Arc::new(inject);
     for s in listener.incoming().flatten() {
         let root = root.clone();
         let extra = extra.clone();
+        let inject = inject.clone();
         std::thread::spawn(move || {
-            let _ = respond(s, &root, &extra);
+            let _ = respond(s, &root, &extra, &inject);
         });
     }
 }
