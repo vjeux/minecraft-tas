@@ -53,12 +53,18 @@ Board files (Space 2034923423883327): `minecraft-tas/board/partials/c78z.md`, `p
 - `c69/m69t.*` (m69 turned), `m69u.ideal` (w86's re-timed plan), `m69v.*` (bottom-middle puller lever-held,
   lever under it), copies of w86's `m69g` / `m73` (8x6) in `c69/w86/`. satwire cores: m69u open (1,-2);
   m69v solid close (4,1)+(3,3), sculk the right elevator + corner; m69g (carried s0 ideal) close (5,0)+(3,-1);
-  m73 (8x6) solid open W'' (-1,-1) (bottom-left pocket), sculk RP0 (4,0)/(3,0).
+  m73 (8x6) solid open W'' (-1,-1) (bottom-left pocket), sculk RP0 (4,0)/(3,0). Later w86 variants (copies in
+  `c69/w86/`): m76 sculk core close (1,4)+(3,0); m79/m80 sculk = the whole left half; m81 sculk = left elevator +
+  right carrier + held top, pocket-only sensors = W' + right carrier pair; m83 pocket-only sensors = right
+  close (1,4) K (5,2) (4,1) RP0 (4,0) (w86's verdict: idea (1) NO).
+- Tools on this branch for main (all with full selftest 24/24): 246dd898 + f85eff5e (satwire: a lever under /
+  behind a mechanism piston whose base never leaves its cell), fd4fe6ef (`satwire --sound-cells "x,y;x,y"`:
+  sculk sensors only in listed cells; same answers, ~4x cheaper than sculk everywhere).
 
 ## 4. Running / helpers
 - Nothing of mine running (all satwire runs ended or were killed).
-- pockets3 (1d42739b) was running m69b pockets k=4 on devvm49255 (runs/m69-k3, k=4 pockets).
-- c70b (9182fde5) runs the mechanism-existence generators for 6x8/8x6/7x7/6x9/9x6 (ring-escape, corner route).
+- c70b (9182fde5): mechmut local search (seeded with m69a/m69e; told it m69T/m69V are better seeds).
+- w86 (df10fac6): 9x6/8x6 owner; idea (1) verdict NO; writing up the 6-tall obstacle list.
 
 ## 5. Next steps if someone continues
 1. Wait for c70b's ring-escape / corner-route 6x8 results; if a hit appears, judge it with door ideal-rs
