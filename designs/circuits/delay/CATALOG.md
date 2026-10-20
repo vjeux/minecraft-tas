@@ -20,10 +20,10 @@ Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N 
 
 | family | N | blocks | n (N) | judged n |
 |---|---|---|---|---|
-| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | 0, 1, 2, 5, 10 |
 | [delay-rep4](archive/delay-rep4-n0.txt) | 4 + 8n | 2 + 2n | 0..10 (4 .. 84) | 0, 1, 2, 5, 10 |
 | [delay-rep6](archive/delay-rep6-n0.txt) | 6 + 8n | 2 + 2n | 0..10 (6 .. 86) | 0, 1, 2, 5, 10 |
 | [delay-rep8](archive/delay-rep8-n0.txt) | 8 + 8n | 2 + 2n | 0..10 (8 .. 88) | 0, 1, 2, 5, 10 |
+| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | 0, 1, 2, 5, 10 |
 
 ### N = 6 + 4n gt
 
