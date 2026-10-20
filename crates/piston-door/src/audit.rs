@@ -519,6 +519,42 @@ pub fn mechanism(name: &str, door: &RsDoor) -> std::result::Result<Mechanism, St
 }
 
 impl Mechanism {
+    /// The mechanism pistons as [local rest x, y, z, facing dx, dy, dz, sticky, extended at rest],
+    /// sorted (wiring ignored): `door provenance` compares mechanisms with it, off-plane ones too.
+    pub fn signature(&self) -> Vec<[i32; 8]> {
+        let mut v: Vec<[i32; 8]> = self
+            .mech
+            .iter()
+            .map(|&j| {
+                let p = &self.pistons[j];
+                let q = local(&self.spec, p.rest);
+                let d = local_dir(&self.spec, p.facing.step());
+                [q[0], q[1], q[2], d[0], d[1], d[2], i32::from(p.sticky), i32::from(p.ext_rest)]
+            })
+            .collect();
+        v.sort();
+        v
+    }
+    /// The door blocks' opening paths (door-plane cells, consecutive repeats dropped), sorted by
+    /// start cell: the choreography, independent of where the pistons stand (`door provenance`:
+    /// the community 7x9's moves re-laid in an 8x8 box keep it).
+    pub fn path_signature(&self) -> Vec<Vec<[i32; 3]>> {
+        let mut v: Vec<Vec<[i32; 3]>> = self
+            .paths_open
+            .iter()
+            .map(|p| {
+                let mut q: Vec<[i32; 3]> = Vec::new();
+                for c in p {
+                    if q.last() != Some(c) {
+                        q.push(*c);
+                    }
+                }
+                q
+            })
+            .collect();
+        v.sort();
+        v
+    }
     /// The mechanism pistons as families pieces (None when one is off the door plane).
     pub fn pieces(&self) -> Option<Vec<Pc>> {
         let mut v = Vec::new();
