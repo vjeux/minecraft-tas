@@ -152,7 +152,12 @@ impl<'a> Builder<'a> {
         self.names.clear();
         for it in items {
             if it.offset == [0.0; 3] {
-                self.names.insert(it.cell, base_name(it.state).to_string());
+                // water and bubble columns are one fluid: no faces between them
+                let n = match base_name(it.state) {
+                    "minecraft:bubble_column" => "minecraft:water",
+                    n => n,
+                };
+                self.names.insert(it.cell, n.to_string());
                 if let Some(m) = self.model(it.state)
                     && m.full
                     && m.parts.iter().all(|p| p.layer == Layer::Opaque)
@@ -162,7 +167,13 @@ impl<'a> Builder<'a> {
             }
         }
         for it in items {
-            if let Some(m) = self.model(it.state) {
+            // water under water fills its cell (the game's surface is only at the top)
+            let state = if it.offset == [0.0; 3] && base_name(it.state) == "minecraft:water" && self.names.get(&[it.cell[0], it.cell[1] + 1, it.cell[2]]).is_some_and(|n| n == "minecraft:water") {
+                "minecraft:water[level=8]"
+            } else {
+                it.state
+            };
+            if let Some(m) = self.model(state) {
                 let base = [it.cell[0] as f32 + it.offset[0], it.cell[1] as f32 + it.offset[1], it.cell[2] as f32 + it.offset[2]];
                 let still = it.offset == [0.0; 3];
                 self.add_model(&m, base, if still { Some(it.cell) } else { None }, None);
@@ -172,8 +183,19 @@ impl<'a> Builder<'a> {
 
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        // an item entity: a small cube of its block's texture, else of its color
+        if let Some(id) = e.kind.strip_prefix("item:") {
+            let n = id.strip_prefix("minecraft:").unwrap_or(id);
+            let part = match self.atlas.names.get_key_value(n) {
+                Some((tile, _)) => Part::new([-2.0, 0.0, -2.0], [2.0, 4.0, 2.0]).all(tile),
+                None => Part::new([-2.0, 0.0, -2.0], [2.0, 4.0, 2.0]).all("generic").tint(models::name_color(n)),
+            };
+            let m = Model::one(part.nocull());
+            self.add_model(&m, [e.pos[0], e.pos[1] + 0.1, e.pos[2]], None, Some(e.yaw));
+            return;
+        }
         if let Some(m) = models::entity_model(&e.kind) {
-            self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, Some(e.yaw));
+            self.add_model(&m, e.pos, None, Some(e.yaw));
         }
     }
 
@@ -231,8 +253,9 @@ impl<'a> Builder<'a> {
             let c = [c[0] / 16.0, c[1] / 16.0, c[2] / 16.0];
             let c = quarter(c, m.xrot, m.yrot);
             match yaw {
-                // entities: their model is built around x = z = 0.5; the game's yaw turns clockwise
-                Some(y) => rotate(c, 1, -y, [0.5, 0.0, 0.5]),
+                // entities: their model is built around x = z = 0 (the entity's position); the
+                // game's yaw turns clockwise
+                Some(y) => rotate(c, 1, -y, [0.0, 0.0, 0.0]),
                 None => c,
             }
         });

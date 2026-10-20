@@ -21,9 +21,10 @@ each build's page.
   (`live`).
 * `data-src` = URL of a design `.txt` (the repo format, relative to the page) or `data-design` = the
   text itself. Optional: `data-tick` (the still frame's tick), `data-yaw`, `data-pitch` (degrees),
-  `data-trace` (a full viewer plays this real-game recording, `designs/clocks/traces/<stem>.trace`,
-  for the designs redsim does not model: boats, minecarts, fluids), `data-autoplay` (a full viewer
-  starts playing).
+  `data-trace` (a real-game recording, `designs/clocks/traces/<stem>.trace`, played by a full
+  viewer only when redsim cannot run the design itself: UNMODELED at placement or during its
+  4000 gt check; boats, minecarts, item entities, armor stands and fluids run live in redsim),
+  `data-autoplay` (a full viewer starts playing).
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
@@ -80,6 +81,12 @@ each build's page.
 * `mcview::replay` plays a real-game recording (JSON Lines from `mctas clock misc trace-export`:
   changed cells and every entity per tick), once through the warmup, then one period looped, with
   entities interpolated between ticks.
+* Entities (redsim's entity list: boats and chest boats, minecarts and hopper minecarts, item
+  entities, armor stands) are summoned like the judge (after the blocks), simulated live and drawn
+  interpolated between ticks; their clocks' period follows the real-game judge's rule for
+  entities (block frames over 4000 gt, 3 periods: `clock::sim::entity_clock_period`), which
+  `web check` compares too. Water heights follow the game (source 8/9, flowing (8 - level)/9,
+  falling and bubble columns full, water under water full), with no faces between fluid cells.
 * A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
   corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
   cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed

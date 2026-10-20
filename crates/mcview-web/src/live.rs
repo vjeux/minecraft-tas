@@ -261,7 +261,7 @@ pub fn start(app: &mut App, id: u32) {
         inputs: Vec::new(),
         containers: containers.clone(),
         base_status: String::new(),
-        shown_status: String::new(),
+        shown_status: String::from("\u{0}"),
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -393,6 +393,9 @@ pub fn load(app: &mut App, id: u32) {
                 p.session.run(t);
             }
             let mut trace_note = None;
+            // the recording only for what redsim cannot run itself (UNMODELED): else it runs live
+            let modeled = p.session.simulated() && p.session.period(mcview::session::ENTITY_HORIZON).err().is_none_or(|e| !e.starts_with("UNMODELED"));
+            let trace = if modeled { None } else { trace };
             match trace {
                 Some(Ok(tt)) => match p.session.attach_trace(&tt) {
                     Ok(()) => {
@@ -467,11 +470,14 @@ pub fn load(app: &mut App, id: u32) {
             l.overlays.setup(&p);
             l.base_status = match (&trace_note, &p.session.unsimulated) {
                 (Some(n), _) => n.clone(),
-                (None, Some(why)) => format!("shown as built, not simulated: {why}"),
-                (None, None) if circuit => format!("simulated by redsim · {} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
+                (None, Some(why)) => {
+                    let _ = l.status.set_attribute("title", why);
+                    "shown as built".to_string()
+                }
+                (None, None) if circuit => format!("{} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
                 (None, None) => match p.session.mode {
-                    mcview::Mode::Door { .. } => "simulated by redsim · tap the lever".to_string(),
-                    _ => "simulated by redsim".to_string(),
+                    mcview::Mode::Door { .. } => "tap the lever".to_string(),
+                    _ => String::new(),
                 },
             };
             l.player = Some(p);
@@ -642,6 +648,8 @@ impl Live {
         };
         if text != self.shown_status {
             self.status.set_text_content(Some(&text));
+            // nothing to say: no badge
+            let _ = self.status.style().set_property("visibility", if text.is_empty() { "hidden" } else { "visible" });
             self.shown_status = text;
         }
     }

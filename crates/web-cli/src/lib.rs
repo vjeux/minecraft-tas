@@ -563,7 +563,7 @@ h1 {{ font-size: 20px; }} h2 {{ font-size: 15px; margin: 18px 0 6px; }}
 .mcview-error {{ outline: 2px solid #c33; }}
 .fallback {{ margin: 0; padding: 8px; opacity: 0.6; }}
 </style></head><body>
-<h1>minecraft-tas: contraptions rendered and simulated in the browser (redsim + wgpu, Rust to WebAssembly)</h1>
+<h1>minecraft-tas: live contraptions</h1>
 {lives}<h2>Thumbnails</h2>
 <div class="grid">
 {thumbs}</div>
