@@ -24,7 +24,10 @@ A TNT blast breaks nothing beyond about 7 blocks (a ray starts at <= 5.2 and los
 bubble column) breaks nothing at all. A machine making a TNT every 6 ticks has 13 burning at once:
 flung 1 block per tick they pile up 10 to 20 blocks away on the ground, and every blast throws
 some of the pile back within reach. One TNT at a time (a period longer than the 80-tick fuse) or
-landing far away (a drop under the machine) is safe.
+landing far away (a drop under the machine) is safe. A 60-minute explosion-screened random search
+(the 15b launcher with a foot, plus 2 to 6 blocks of slime, obsidian, observers, pistons and
+redstone blocks, every duper screened standing on both grounds at 6 kicks) found no fast duper safe
+on the ground.
 
 ## Records and targets
 
