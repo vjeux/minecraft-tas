@@ -94,9 +94,15 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(d.seamless.clone());
         }
     }
-    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite"] {
+    for f in ["slime-free", "flat", "eligible", "extendable", "self-starting", "variant", "composite", "layout"] {
         if b.flags.iter().any(|x| x == f) {
             v.push(f.to_string());
+        }
+    }
+    // a tunable group's shown design: the group's span (`tunable: L 6-40 gt, 16 values`)
+    if let Some(c) = &b.circuit {
+        if !c.span.is_empty() {
+            v.push(format!("tunable: {}", c.span));
         }
     }
     v

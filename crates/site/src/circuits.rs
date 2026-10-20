@@ -245,6 +245,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
+                    ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
@@ -329,12 +330,128 @@ pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
     let mut builds = archived(&root, &mut notes);
+    apply_catalog(&root, &mut builds, &mut notes);
     builds.extend(calibration(&root, &mut notes));
     builds.sort_by(|a, b| {
         let s = |x: &Build| x.circuit.as_ref().map(|c| (c.study.clone(), c.value.unwrap_or(i64::MAX))).unwrap_or_default();
         (s(a), &a.group, a.blocks, &a.name).cmp(&(s(b), &b.group, b.blocks, &b.name))
     });
     Ok((builds, notes))
+}
+
+/// `designs/circuits/catalog.tsv` (`mctas circuit catalog`): per design (stem) its tunable group
+/// and the shown design it is a variant or an equivalent layout of (stem).
+fn read_catalog(root: &Path) -> BTreeMap<String, (String, String)> {
+    let text = std::fs::read_to_string(root.join("catalog.tsv")).unwrap_or_default();
+    let mut lines = text.lines();
+    let Some(head) = lines.next() else { return BTreeMap::new() };
+    let cols: Vec<&str> = head.split('\t').collect();
+    let col = |n: &str| cols.iter().position(|c| *c == n);
+    let (Some(ni), vi, gi) = (col("name"), col("variant_of"), col("group")) else { return BTreeMap::new() };
+    let stem = |s: &str| s.rsplit('/').next().unwrap_or(s).trim_end_matches(".txt").to_string();
+    lines
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\t').collect();
+            let get = |i: Option<usize>| i.and_then(|i| f.get(i)).map(|s| s.trim()).unwrap_or("");
+            let name = f.get(ni)?.trim();
+            Some((stem(name), (get(gi).to_string(), if get(vi).is_empty() { String::new() } else { stem(get(vi)) })))
+        })
+        .collect()
+}
+
+/// The catalog's folds on the archived circuits: equivalent layouts (same kind, value, block count
+/// and block kinds as a shown design: `layout_of`, hidden under it), variants (`host`: the
+/// dominance fold), and tunable groups (`tunable`; the group's smallest design shows with its
+/// span, the others are hidden until a value search hits them).
+fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
+    let cat = read_catalog(root);
+    if cat.is_empty() {
+        notes.push("no designs/circuits/catalog.tsv: no tunable groups, the site's own variant fold".into());
+        return;
+    }
+    let by_name: BTreeMap<String, (u32, Vec<String>, String)> = builds.iter().filter_map(|b| b.circuit.as_ref().map(|c| (b.name.clone(), (b.blocks, b.kinds.clone(), format!("circuits/{}/{}", c.study, b.name))))).collect();
+    for b in builds.iter_mut() {
+        let Some((group, of)) = cat.get(&b.name) else { continue };
+        let (blocks, kinds) = (b.blocks, b.kinds.clone());
+        let Some(c) = b.circuit.as_mut() else { continue };
+        c.tunable = group.clone();
+        // the catalog's fold replaces the site's own
+        c.host = None;
+        c.layout_of = None;
+        b.flags.retain(|f| f != "variant" && f != "layout");
+        if of.is_empty() {
+            continue;
+        }
+        match by_name.get(of) {
+            Some((hb, hk, id)) if *hb == blocks && *hk == kinds => {
+                c.layout_of = Some(id.clone());
+                b.flags.push("layout".into());
+            }
+            Some((_, _, id)) => {
+                c.host = Some(id.clone());
+                b.flags.push("variant".into());
+            }
+            None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
+        }
+    }
+    // tunable groups: the smallest shown design stands for the group
+    let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(c) = &b.circuit {
+            if !c.tunable.is_empty() && c.host.is_none() && c.layout_of.is_none() {
+                groups.entry(c.tunable.clone()).or_default().push(i);
+            }
+        }
+    }
+    for (g, members) in groups {
+        if members.len() < 2 {
+            if let Some(c) = builds[members[0]].circuit.as_mut() {
+                c.tunable.clear();
+            }
+            continue;
+        }
+        let rep = *members.iter().min_by_key(|&&i| (builds[i].blocks, builds[i].circuit.as_ref().and_then(|c| c.value).unwrap_or(i64::MAX), builds[i].name.clone())).unwrap_or(&members[0]);
+        let mut values: Vec<i64> = members.iter().filter_map(|&i| builds[i].circuit.as_ref().and_then(|c| c.value)).collect();
+        values.sort();
+        values.dedup();
+        let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
+        let (prefix, unit) = match axis.split_once(" = ") {
+            Some((p, v)) => (p.to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
+            None => (String::new(), ""),
+        };
+        let span = match (values.first(), values.last()) {
+            (Some(lo), Some(hi)) if values.len() > 1 => format!("{prefix} {lo}-{hi}{unit}, {} values", values.len()).trim().to_string(),
+            _ => format!("{} versions", members.len()),
+        };
+        // the group's title and note: the first member's `group title:` / `group note:` headers
+        let (mut title, mut note) = (String::new(), String::new());
+        for &i in &members {
+            let text = std::fs::read_to_string(root.join(repo_path_rel(&builds[i]))).unwrap_or_default();
+            for l in text.lines() {
+                if let Some(t) = l.strip_prefix("group title:").filter(|_| title.is_empty()) {
+                    title = t.trim().to_string();
+                }
+                if let Some(t) = l.strip_prefix("group note:").filter(|_| note.is_empty()) {
+                    note = t.trim().to_string();
+                }
+            }
+        }
+        for &i in &members {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.group_title = if title.is_empty() { g.clone() } else { title.clone() };
+                c.group_note = note.clone();
+            }
+        }
+        if let Some(c) = builds[rep].circuit.as_mut() {
+            c.span = span;
+        }
+        builds[rep].flags.push("tunable".into());
+    }
+}
+
+/// A circuit build's design path relative to designs/circuits.
+fn repo_path_rel(b: &Build) -> String {
+    repo_path(b).trim_start_matches(&format!("{ROOT}/")).to_string()
 }
 
 /// The repository path of a circuit build's design (for the GitHub link and the page's text).

@@ -304,6 +304,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| !c.span.is_empty())) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let picks = page.matches("class=\"pick").count();
+        check("tunable group: the member picker, the current member marked", picks >= 2 && page.contains("aria-current=\"page\""), format!("{}: {picks} members", b.page));
+    }
     // the index: the UI ran, counted and drew the first page of cards
     let dom = dump_dom(&chrome, &format!("{base}index.html"), budget_ms)?;
     let want = site.run(&site_model::Query::default()).map(|(h, _)| h.len()).unwrap_or(0);
@@ -333,6 +338,12 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     // search box takes a period
     let dom = dump_dom(&chrome, &format!("{base}index.html?kind=clock&q=48"), budget_ms)?;
     check("header search from another page (?kind=clock&q=48): the time search", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {}", result_count(&dom), hits.len()));
+    // the circuit value search expands the tunable groups to the member that hits it
+    let frag = "kind=circuit&value=L%2012";
+    let q = site_model::Query::from_fragment(frag);
+    let (vhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
+    let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
+    check("circuit value search L 12: count", result_count(&dom) == Some(vhits.len()) && !vhits.is_empty(), format!("{:?} results, engine says {}", result_count(&dom), vhits.len()));
     // a facet filter from the URL
     let frag = "kind=door&is=flat,slime-free&sort=volume";
     let q = site_model::Query::from_fragment(frag);
