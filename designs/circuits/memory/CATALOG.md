@@ -89,7 +89,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [dffe-lock](archive/dffe-lock.txt) | dff-enable | latency 38 gt, edge rising | 31 | 7x3x6 | position-dependent (12 of 16 builds fail: rotation 0 at [5, -11, -6]: rising edge: M 1 clk rises: q = 0, want 1; falling edge: M 2 clk falls: q = 0, want 1) | D flip-flop with enable: the dff-lock master-slave whose clock passes an AND with e first, so an edge only reaches the flip-flop while e is high. The AND is the archived torch one (a torch standing on each input block, the dust between them NAND, a wall torch under that dust AND); its output joins the clock dust that feeds both lock repeaters. |
+| [dffe-lock](archive/dffe-lock.txt) | dff-enable | latency 6 gt, edge rising | 18 | 2x3x6 | robust | D flip-flop with enable, 18 blocks: the 15-block repeater-lock flip-flop plus one more lock on the slave. The data runs through two repeaters; the master's lock reads the clock straight (it follows d while the clock is low) and the slave's lock reads it through a wall torch (it passes while the clock is high). The enable gets its own wall torch and repeater, locking the slave from its other side whenever e is off, so a clock edge with e off leaves q alone. Gating the slave instead of the clock needs no AND gate: a repeater is locked if EITHER side is powered. |
 
 ## rs-latch
 
