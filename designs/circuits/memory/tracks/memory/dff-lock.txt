@@ -1,7 +1,6 @@
-# D flip-flop, repeater-lock master-slave: the data runs through two repeaters A then B; each has a lock repeater beside it, and a repeater that is locked holds its output. The master lock reads the clock straight, so A follows d only while the clock is LOW; the slave lock reads the clock through a wall torch, so B passes only while the clock is HIGH. On the rising edge A freezes on d and B opens, so q takes d exactly at the edge.
 name: dff-lock
 circuit: dff
-port input.clk: 3 2 3
+port input.clk: 1 2 3
 port input.d: -1 1 0
 port output: 2 1 0
 origin: 0 0 0
@@ -14,15 +13,13 @@ palette:
 layer 0:
   SS
   SS
-  .
-  .
 layer 1:
   BB
   AA
   SR
-  SSS
+  SS
 layer 2:
   .
   .
   r
-  rrrS
+  rr

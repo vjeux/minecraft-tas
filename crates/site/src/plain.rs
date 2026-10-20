@@ -393,7 +393,9 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
             match drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()) {
                 Some(0) => v.push("Works standing on the ground.".to_string()),
-                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT lands under it and blows it up.")),
+                // (true for launchers and droppers alike: critique, "lands under it" contradicted a
+                // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
+                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
                 None => {}
             }
         }
@@ -480,7 +482,7 @@ pub fn door(b: &Build) -> (String, String, String) {
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
     };
-    (what, first_cap(&why), "Flip the lever (tap it in the view, or the flip button under it) and watch the door open; flip it again to close it.".to_string())
+    (what, first_cap(&why), "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
@@ -593,7 +595,7 @@ mod tests {
         let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
         let design = "nbt: 2 0 3 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:64},{Slot:1b,id:\"minecraft:cobblestone\",count:1047}]}";
         let v = needs(&b, design);
-        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT lands under it and blows it up.");
+        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT explodes close enough to destroy it.");
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);

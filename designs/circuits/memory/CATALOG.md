@@ -70,7 +70,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [shift2-lock](archive/shift2-lock.txt) | shift 2 | N 2, latency 6 gt, edge rising | 50 | 6x3x4 | robust | 2-bit shift register: two repeater-lock master-slave stages in series, the first stage output feeding the second stage data, both clocked from one dust line. Each stage is a pair of repeaters on the data line whose lock repeaters sit beside them: the master lock reads the clock straight (so it follows d while the clock is low) and the slave lock reads it through a wall torch (so it follows while the clock is high), which makes q take d one clock edge later, and two stages make it two. |
+| [shift2-lock](archive/shift2-lock.txt) | shift 2 | N 2, latency 6 gt, edge rising | 30 | 4x3x4 | robust |  |
 
 ## d-latch
 
@@ -83,7 +83,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [dff-lock](archive/dff-lock.txt) | dff | latency 6 gt, edge rising, setup 1 gt, hold 1 gt | 18 | 3x3x4 | robust | D flip-flop, repeater-lock master-slave: the data runs through two repeaters A then B; each has a lock repeater beside it, and a repeater that is locked holds its output. The master lock reads the clock straight, so A follows d only while the clock is LOW; the slave lock reads the clock through a wall torch, so B passes only while the clock is HIGH. On the rising edge A freezes on d and B opens, so q takes d exactly at the edge. |
+| [dff-lock](archive/dff-lock.txt) | dff | latency 6 gt, edge rising, setup 1 gt, hold 1 gt | 15 | 2x3x4 | robust |  |
 
 ## dff-enable
 
