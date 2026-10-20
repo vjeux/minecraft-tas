@@ -81,7 +81,13 @@ track's tracker as `crates/circuit/src/fly.rs`).
 - The up-flyer's 9 gt is the same 1 gt, by quasi-connectivity: the front observer watches the cell
   the rear piston lands in and powers the slime two above it.
 - `grow --add 2 --faster` (+ redstone block, glazed terracotta) on both 9 gt machines: nothing
-  faster. What 9 gt is made of: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1. The
+  faster. `grow --remove 1 --add 1|2 --faster` (one block taken out, then grown) on every 6-block
+  machine: UP 6 blocks 9 gt/block (fly-up-6b-9gt-0e4df1, -339615, robust: a redstone block on the
+  honey part, no rear observer) and 82 horizontal 7-block 9 gt/block candidates (30 types, 13
+  captions): the robust ones are the redstone-block-on-a-slime idea again (near-duplicates of
+  e75c5f, not archived); a second idea (fly-horizontal-7b-9gt-aa517c, archived, east-west only): a
+  redstone block on a slime stands diagonally above the pusher (quasi-connected) and a third,
+  sticky piston under that slime lifts it away and lowers it back. Nothing below 9 gt/block. What 9 gt is made of: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1. The
   pusher retracts only after the front lands (it misses the redstone block leaving: its state turns
   extended after its own push's neighbour updates), so the pull cannot start before t7.
 
@@ -115,6 +121,14 @@ track's tracker as `crates/circuit/src/fly.rs`).
   3-block part + 9; n = 10 on one part never moves), then a column down from the rear slime; a 10th
   block on the rear: the pull fails and the machine breaks. fly-payload-9-15b and -18-24b are its
   members, archived first.
+- Train family fly-train-e2cf52 (base tracks/fly/train/fly-train-n1.txt, `mctas circuit fly gen
+  train --n {n}`): the same engine pulling n trailers, 5 + 3n blocks, 10 gt/block for every n
+  (judged n = 1, 2, 3, 8, 16 robust; 16 trailers = 53 blocks). A sticky piston on the rear slime
+  (facing back, fired with the pusher by the rear observer) reach-pulls trailer 1 each cycle; each
+  trailer but the last carries a sticky piston facing back and a rider observer that pulls the next
+  trailer (it starts against that piston's face, so the gap opens when its puller moves). Each
+  trailer is a move of its own (12 blocks at most), so the size, and the payload, have no limit
+  (a two-part machine moves at most 24 blocks).
 
 ## Two-way (return stations)
 - The reversible engine: the 6-block types with TWO sticky pistons (e.g. fly-horizontal-6b-10gt-
