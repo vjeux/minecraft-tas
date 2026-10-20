@@ -4,7 +4,7 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### speed = 10 gt/block
 
@@ -12,7 +12,7 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 n = 1: speed = 10 gt/block, 7 blocks · n = 2: speed = 10 gt/block, 8 blocks
 
-Extend: one more payload block: the slime column up from the front slime (9 at most), then the one down from the rear slime; the top block of a column is gold. n = 1..18 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1, 2, 3, 9, 18.
+Extend: one more payload block: the slime column up from the front slime (9 at most), then the one down from the rear slime; the top block of a column is gold. n = 1..18 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1, 2, 3, 9, 18 (every one speed = 10 gt/block).
 
 ### speed = 10 gt/block
 
@@ -20,7 +20,7 @@ Extend: one more payload block: the slime column up from the front slime (9 at m
 
 n = 1: speed = 10 gt/block, 8 blocks · n = 2: speed = 10 gt/block, 11 blocks
 
-Extend: one more trailer: a sticky piston facing back and a rider observer on the last trailer's slime, and a new slime against that piston's face. n = 1..16 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1, 2, 3, 8, 16.
+Extend: one more trailer: a sticky piston facing back and a rider observer on the last trailer's slime, and a new slime against that piston's face. n = 1..16 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1..16 (every one speed = 10 gt/block).
 
 ## 9 gt/block
 

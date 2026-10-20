@@ -4,27 +4,27 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### N = N = any reach >= 2
 
 **flat cascade extender (self-triggered units, 1 wide)** · 3 families · blocks = 10N - 5 - floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)
 
-| family | N | blocks | n (N) | judged n |
+| family | N | blocks | n (N) | judged in the game |
 |---|---|---|---|---|
-| [pext-cascade-flat-r2](archive/pext-cascade-flat-r2-n0.txt) | 2 + 3n | 15 + 29n | 0..4 (2 .. 14) | 0, 1, 2, 4 |
-| [pext-cascade-flat-r0](archive/pext-cascade-flat-r0-n0.txt) | 3 + 3n | 25 + 29n | 0..4 (3 .. 15) | 0, 1, 2, 4 |
-| [pext-cascade-flat-r1](archive/pext-cascade-flat-r1-n0.txt) | 4 + 3n | 34 + 29n | 0..4 (4 .. 16) | 0, 1, 2, 4 |
+| [pext-cascade-flat-r2](archive/pext-cascade-flat-r2-n0.txt) | 2 + 3n | 15 + 29n | 0..4 (2 .. 14) | N = 2, 5, 8, 11, 14 |
+| [pext-cascade-flat-r0](archive/pext-cascade-flat-r0-n0.txt) | 3 + 3n | 25 + 29n | 0..4 (3 .. 15) | N = 3, 6, 9, 12, 15 |
+| [pext-cascade-flat-r1](archive/pext-cascade-flat-r1-n0.txt) | 4 + 3n | 34 + 29n | 0..4 (4 .. 16) | N = 4, 7, 10, 13, 16 |
 
 ### N = N = any reach >= 2
 
 **cascade extender (self-triggered units)** · 3 families · blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)
 
-| family | N | blocks | n (N) | judged n |
+| family | N | blocks | n (N) | judged in the game |
 |---|---|---|---|---|
-| [pext-cascade-r2](archive/pext-cascade-r2-n0.txt) | 2 + 3n | 17 + 34n | 0..4 (2 .. 14) | 0, 1, 2, 4 |
-| [pext-cascade-r0](archive/pext-cascade-r0-n0.txt) | 3 + 3n | 29 + 34n | 0..4 (3 .. 15) | 0, 1, 2, 4 |
-| [pext-cascade-r1](archive/pext-cascade-r1-n0.txt) | 4 + 3n | 39 + 34n | 0..4 (4 .. 16) | 0, 1, 2, 4 |
+| [pext-cascade-r2](archive/pext-cascade-r2-n0.txt) | 2 + 3n | 17 + 34n | 0..4 (2 .. 14) | N = 2, 5, 8, 11, 14 |
+| [pext-cascade-r0](archive/pext-cascade-r0-n0.txt) | 3 + 3n | 29 + 34n | 0..4 (3 .. 15) | N = 3, 6, 9, 12, 15 |
+| [pext-cascade-r1](archive/pext-cascade-r1-n0.txt) | 4 + 3n | 39 + 34n | 0..4 (4 .. 16) | N = 4, 7, 10, 13, 16 |
 
 ## Tunable groups
 

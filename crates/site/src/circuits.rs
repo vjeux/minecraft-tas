@@ -219,6 +219,8 @@ fn details(c: &Design) -> Details {
             circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
+            // R7: a plain input is driven by the judge's repeater outside the build
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect();
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
@@ -1029,6 +1031,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
             circuit::InputHow::Strength { .. } => "strength".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect::<Vec<_>>()
         .join(", ");
