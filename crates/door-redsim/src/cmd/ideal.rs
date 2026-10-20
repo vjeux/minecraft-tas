@@ -75,6 +75,11 @@ pub struct IdealRsArgs {
     /// Print every block change of the first cycle at the first position.
     #[arg(long)]
     trace: bool,
+    /// Print the door-plane bounding box (and volume) of every non-air cell over one replayed
+    /// cycle at the plan's own position, its input cells and lever excluded: what the judge's
+    /// volume will be once the inputs are real wiring inside that box.
+    #[arg(long)]
+    extent: bool,
     #[arg(long, default_value_t = 16)]
     threads: usize,
     /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
@@ -114,7 +119,22 @@ pub struct IdealRsArgs {
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    if extent {
+        crate::ideal::cli_phase(between_ticks);
+        for path in &schedule {
+            let text = std::fs::read_to_string(path)?;
+            let s = crate::ideal::Schedule::parse_with(&text, &std::collections::BTreeMap::new())?;
+            match crate::ideal_rs::extent(&s, s.vars()) {
+                Ok((lo, hi)) => {
+                    let (w, h) = (hi[0] - lo[0] + 1, hi[1] - lo[1] + 1);
+                    println!("{}: extent x {}..{} y {}..{} = {w}x{h} ({} cells), inputs and lever excluded", path.display(), lo[0], hi[0], lo[1], hi[1], w * h);
+                }
+                Err(e) => println!("{}: {e}", path.display()),
+            }
+        }
+        return Ok(());
+    }
     match { crate::ideal::cli_phase(between_ticks); (compact_dir, holds_rank) } {
         _ if offplane_dir.is_some() => crate::ideal_rs::offplane_dir(&schedule, offplane_dir.as_deref().unwrap(), offplane_below)?,
         (_, Some(max_tick)) => crate::ideal_rs::holds_rank(&schedule, extra_offsets, cycles, threads, max_tick)?,
