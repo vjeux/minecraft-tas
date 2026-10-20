@@ -340,8 +340,14 @@ by `rt-tnt-floor`, `-obsidian`, `-water`, `-chain`, `-push` and `-items` (exact 
 level random checked every frame). For robustness over every random outcome (vjeux): injected
 kicks and chain fuses per TNT (`World::tnt_kicks`, `chain_fuses`), `Rolls::Max` (every ray at the
 largest roll: surviving it is surviving every roll), and `robust::critical_points` (a kick sweep
-with every change bisected). Not modeled (a model error): an explosion near sculk sensors, a
-container's spilled contents, a moving piston it destroys, a vehicle or armor stand it breaks
+with every change bisected). An explosion destroying a moving block drops what it moves
+(`MovingPistonBlock.getDrops`) and runs `finalTick` on an air cell; rays stop at the build height
+(-64..=319: a TNT that fell into the void destroys nothing); entities only tick in the sandbox's
+forced chunks (`World::entity_chunks`, set with the level random: a TNT or item flying out of them
+freezes, like `ServerLevel.tick`'s entity-ticking range). The 7 TNT archive designs are exact
+traces too (200 gt: blasts breaking moving pistons, void blasts, frozen TNT). Not modeled (a model
+error): an explosion near sculk sensors, a
+container's spilled contents, a vehicle or armor stand it breaks
 (their drops use the item's own random). Anything else (unwaxed copper, other items' dispenser
 behaviors, other mobs, a crafter result or a record redsim does not know...)
 is `UNMODELED`: the real game (`clock verify`) is the only judge. Every design of the clock and
