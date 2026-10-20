@@ -49,3 +49,8 @@ So an odd-N delay needs a block-entity event whose phase is SET by the input rat
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
 
 ## Settled facts (do not re-derive)
+
+## Catalog shape (critique 2026-10-20)
+
+- The four `delay-rep2/4/6/8` cards are one mechanism — a single repeater on a stone, set to 2, 4, 6 or 8 gt — and should be ONE card, as the gates' basics are. They cannot be folded with a `group:` header today, because each is an extendable FAMILY base (`extend family:`) and the catalog's tunable-group pass skips family rows (`in_family` excludes them in crates/circuit/src/archive.rs). Fixing it means letting a group span family bases, which is a catalog change rather than a design change: left for whoever owns the catalog, with this note so it is not rediscovered.
+- Study 2's nine dominated T flip-flops ARE folded now: the dominance pass keyed on (kind, axis), and study 2's axis is the block family, so every mechanism was its own card by construction and nothing could ever fold. Keyed on kind alone for tff, the catalog goes from 10 cards to 3: tff-bulb and the two designs that win something real.
