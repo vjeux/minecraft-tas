@@ -77,7 +77,9 @@ pub fn default_look(s: &Session) -> Look {
         }
     }
     let (lo, _) = s.path_box();
-    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32) }
+    // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
+    // under the lowest cell
+    Look { marker, lit_marker: false, outlines, ground: Some(lo[1] as f32 - 1.0) }
 }
 
 /// The frame of a session at `partial` (0..1) after its current tick.
@@ -108,12 +110,14 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
-        // the pictures' sandbox floor: grass around the batch of clocks (`clock shot`: 24 blocks
-        // around the batch, whose other clocks push it further), so the sky shows beyond its edge
-        // like in the real-game pictures (48: the best mean over `web compare`'s pictures; a
-        // travelling design's whole path)
+        // the pictures' floor: `clock shot` fills grass around the batch of clocks (24 blocks
+        // around the batch, whose other clocks push it further; 96 around a lone clock), so the
+        // sky shows beyond its edge like in the real-game pictures (56: the best mean over
+        // `web compare`'s pictures); `door video` fills 110 blocks around a door; a travelling
+        // design's whole path
         let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, 48.0);
+        let margin = if s.mode.is_door() { 110.0 } else { 56.0 };
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin);
         m.solid.extend_from_slice(&g);
     }
     m
@@ -226,9 +230,9 @@ mod tests {
         let look = default_look(&s);
         assert_eq!(look.marker, Some([-1, 0, 0]));
         let m = build(&atlas, &s, 0.0, &look);
-        // the marker is the only translucent block: its faces against the observer and the
-        // ground are culled (they would z-fight), the other 4 remain
-        assert_eq!(m.translucent.len(), 4);
-        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01 && q.center[1] > 0.01));
+        // the marker is the only translucent block: its face against the observer is culled (it
+        // would z-fight); the floor is one block lower (the pictures' floor), so 5 faces remain
+        assert_eq!(m.translucent.len(), 5);
+        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01));
     }
 }

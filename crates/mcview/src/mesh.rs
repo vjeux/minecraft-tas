@@ -368,6 +368,22 @@ impl Mesh {
 }
 
 /// The ground: a grass plane under the build (top face at `y`), `r` blocks around its box.
+/// Which of 4 equally weighted blockstate variants the game draws at a block (grass blocks' 4
+/// turns): `random.setSeed(Mth.getSeed(pos))` then `random.nextInt(4)` with the game's
+/// `LegacyRandomSource` (java.util.Random's generator).
+pub fn variant_of_4(x: i32, y: i32, z: i32) -> u32 {
+    // Mth.getSeed: `x * 3129871` is an int product, widened
+    let mut seed: i64 = (x.wrapping_mul(3129871) as i64) ^ (z as i64).wrapping_mul(116129781) ^ (y as i64);
+    seed = seed.wrapping_mul(seed).wrapping_mul(42317861).wrapping_add(seed.wrapping_mul(11));
+    let seed = seed >> 16;
+    const MASK: i64 = (1 << 48) - 1;
+    let mut s = (seed ^ 0x5DEECE66D) & MASK;
+    s = (s.wrapping_mul(0x5DEECE66D).wrapping_add(0xB)) & MASK;
+    let next31 = (s >> (48 - 31)) as i32 as i64;
+    // nextInt(bound) for a power of two: (bound * next(31)) >> 31
+    ((4 * next31) >> 31) as u32
+}
+
 pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<Vertex> {
     // a one-block-thick layer of grass blocks: the grass tile repeated once per block on top,
     // dirt under it and grass-block sides around it (seen from below or from the edge too)
@@ -386,12 +402,48 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
     let mut out = Vec::new();
     let mut quad = |v: [Vertex; 4]| out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
     let c = lum(1.0);
-    quad([
-        Vertex { pos: [x0, y, z0], uv: [x0, z0], layer: top, color: c },
-        Vertex { pos: [x0, y, z1], uv: [x0, z1], layer: top, color: c },
-        Vertex { pos: [x1, y, z1], uv: [x1, z1], layer: top, color: c },
-        Vertex { pos: [x1, y, z0], uv: [x1, z0], layer: top, color: c },
-    ]);
+    // one quad per grass block near the build: the game turns each block's model by a random
+    // quarter (its blockstate's 4 variants, picked from the block's position), so the top texture
+    // lines up with the real game's pixel for pixel; farther out (small on screen) a few large
+    // quads with the texture repeated
+    let gy = (y - 1.0).floor() as i32;
+    let (ix0, ix1, iz0, iz1) = (x0 as i32, x1 as i32, z0 as i32, z1 as i32);
+    let near = 40;
+    let (nx0, nx1, nz0, nz1) = ((lo[0].floor() as i32 - near).max(ix0), (hi[0].ceil() as i32 + near).min(ix1), (lo[2].floor() as i32 - near).max(iz0), (hi[2].ceil() as i32 + near).min(iz1));
+    for bz in nz0..nz1 {
+        for bx in nx0..nx1 {
+            let k = variant_of_4(bx, gy, bz);
+            // the texture coordinate of a corner (local dx, dz): the corner turned back by k
+            // quarters (the game's y rotation turns clockwise seen from above)
+            let uv = |dx: f32, dz: f32| -> [f32; 2] {
+                let (mut px, mut pz) = (dx - 0.5, dz - 0.5);
+                for _ in 0..k {
+                    (px, pz) = (pz, -px);
+                }
+                [px + 0.5, pz + 0.5]
+            };
+            let (fx, fz) = (bx as f32, bz as f32);
+            quad([
+                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: c },
+                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: c },
+                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: c },
+                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: c },
+            ]);
+        }
+    }
+    // the far grass around the near square: four strips, the texture repeated (world coordinates)
+    let (nx0, nx1, nz0, nz1) = (nx0 as f32, nx1 as f32, nz0 as f32, nz1 as f32);
+    for (a, b) in [([x0, z0], [x1, nz0]), ([x0, nz1], [x1, z1]), ([x0, nz0], [nx0, nz1]), ([nx1, nz0], [x1, nz1])] {
+        if b[0] <= a[0] || b[1] <= a[1] {
+            continue;
+        }
+        quad([
+            Vertex { pos: [a[0], y, a[1]], uv: [a[0], a[1]], layer: top, color: c },
+            Vertex { pos: [a[0], y, b[1]], uv: [a[0], b[1]], layer: top, color: c },
+            Vertex { pos: [b[0], y, b[1]], uv: [b[0], b[1]], layer: top, color: c },
+            Vertex { pos: [b[0], y, a[1]], uv: [b[0], a[1]], layer: top, color: c },
+        ]);
+    }
     let c = lum(0.5);
     quad([
         Vertex { pos: [x0, yb, z0], uv: [x0, z0], layer: dirt, color: c },

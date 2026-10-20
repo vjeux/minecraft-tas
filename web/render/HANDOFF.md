@@ -37,7 +37,12 @@ is the short version for whoever picks the work up.
   The hand-drawn tiles are the offline fallback. Native tools download the same atlas into
   `~/.cache/mctas/mcmeta/26.3-atlas` (`--procedural` opts out).
 - Camera: `clock shot`'s exactly (the judge's swept box at 85% of the full 70-degree frame, then
-  the 64% crop); the floor ends 48 blocks around the box (the pictures' sandbox floor edge).
+  the 64% crop). The floor is the pictures' floor: its top one block under the lowest cell
+  (`clock shot` and `door video` fill grass at lo - 2), ending 56 blocks around a clock (110 for
+  a door), each grass block turned like the game's (position-seeded variant of 4).
+- Texture array layers must never be a multiple of 6: wgpu's WebGL2 backend then takes the
+  array for a cube-map array and every block samples BLACK (f141e8417, 180 tiles; the atlas
+  pads and asserts). `mctas web luma --url` catches that class; the native renderer does not.
 - Circuits: the contract with site (data-stimulus / data-phases / data-input-mode, inputs driven
   like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay).
 - No attribution text in the UI (vjeux): the badge only says what to do.
@@ -46,7 +51,8 @@ is the short version for whoever picks the work up.
 
 ## Open
 
-- `mctas web compare` on the 8-clock set: pixel diff 12.6, coarse 6.5 (target < 10). What is
+- `mctas web compare` on the 8-clock set: pixel diff 8.2, coarse 5.8 (target < 10 met; the
+  grass itself is texel-exact: bottom band diff ~3). What is
   left: per-batch floor edges and black bands in some real pictures (not modelable), texture
   noise, the leaves' brightness, the minecart / boat / armor stand models (block tiles; the
   entity textures are in misode/mcmeta's `entities/atlas.png`, not used yet), model geometry from

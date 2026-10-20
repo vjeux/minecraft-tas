@@ -81,8 +81,11 @@ impl Player {
 
     /// A travelling design (a flying machine): move the camera with its centre (moving blocks at
     /// their drawn offset, `stop:` blocks left out).
-    fn follow_machine(&mut self) {
-        if self.session.corridor.is_none() {
+    /// A flying machine's centre: while it plays the camera follows it (it leaves the frame
+    /// otherwise); nothing else ever moves the camera by itself. `move_camera` false only updates
+    /// the reference (paused stepping), so the next follow does not jump.
+    fn follow_machine_with(&mut self, move_camera: bool) {
+        if self.session.corridor.is_none() || !self.is_flying_machine() {
             return;
         }
         let blocks = self.session.render_blocks(self.partial);
@@ -98,12 +101,24 @@ impl Player {
             return;
         }
         let c = c.map(|v| v / n as f32);
-        if let Some(prev) = self.follow {
+        if let Some(prev) = self.follow
+            && move_camera
+        {
             for i in 0..3 {
                 self.camera.target[i] += c[i] - prev[i];
             }
         }
         self.follow = Some(c);
+    }
+
+    fn follow_machine(&mut self) {
+        self.follow_machine_with(true);
+    }
+
+    /// A flying machine (`circuit: flying-machine`, or a `travel:` design without a kind): the
+    /// only design the camera follows. A piston extender's payload comes back: the camera stays.
+    fn is_flying_machine(&self) -> bool {
+        self.session.design.meta.get("circuit").is_none_or(|k| k.trim_start().starts_with("flying-machine"))
     }
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
@@ -222,7 +237,8 @@ impl Player {
         self.record();
         self.acc = 0.0;
         self.partial = 0.0;
-        self.follow_machine();
+        // paused: the camera stays (only a playing flying machine is followed)
+        self.follow_machine_with(false);
         self.invalidate();
     }
 
@@ -248,24 +264,55 @@ impl Player {
     /// A click: flips the lever / presses the button under the pointer, paused or playing (the
     /// frame is rebuilt at once: the cached mesh is keyed by tick, which a click does not move).
     /// Returns the cell.
-    pub fn click(&mut self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<Pos> {
+    /// The circuit input under a point of the view (x, y in -1..1): its cell (often empty: the
+    /// judge writes a block there) or the device in it, when nothing nearer covers it.
+    pub fn input_at(&self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<usize> {
         let (o, d) = self.camera.ray(x, y, aspect);
         let picked = self.pick(atlas, x, y, aspect);
-        // a circuit input's cell (often empty: the judge writes a block there) is a target too
         let hit_dist = |c: Pos| -> Option<f32> { ray_box(o, d, [c[0] as f32, c[1] as f32, c[2] as f32], [c[0] as f32 + 1.0, c[1] as f32 + 1.0, c[2] as f32 + 1.0]) };
         let picked_dist = picked.and_then(hit_dist).unwrap_or(f32::MAX);
-        let input = self
-            .session
+        self.session
             .circuit_inputs
             .iter()
             .enumerate()
             .filter_map(|(i, ci)| hit_dist(ci.pos).map(|t| (i, ci.pos, t)))
             .filter(|(_, p, t)| Some(*p) == picked || *t <= picked_dist + 1e-3)
-            .min_by(|a, b| a.2.total_cmp(&b.2));
-        if let Some((i, p, _)) = input {
+            .min_by(|a, b| a.2.total_cmp(&b.2))
+            .map(|(i, _, _)| i)
+    }
+
+    /// Press-and-hold on circuit input `i` in the view: on while held (`on`), off when released
+    /// (a pulse input stays on at least 2 gt, like its button).
+    pub fn hold_input(&mut self, i: usize, on: bool) -> bool {
+        if i >= self.session.circuit_inputs.len() {
+            return false;
+        }
+        self.stop_demo();
+        if on {
+            if !self.session.set_input(i, true) {
+                return false;
+            }
+            if let Some(p) = self.pressed.get_mut(i) {
+                *p = Some(self.session.tick);
+            }
+        } else {
+            let at = self.pressed.get_mut(i).and_then(|p| p.take()).unwrap_or(0);
+            if self.pulse_inputs && self.session.tick < at + 2 {
+                self.session.release_input_at(i, at + 2);
+            } else {
+                self.session.set_input(i, false);
+            }
+        }
+        self.invalidate();
+        true
+    }
+
+    pub fn click(&mut self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<Pos> {
+        if let Some(i) = self.input_at(atlas, x, y, aspect) {
+            let p = self.session.circuit_inputs[i].pos;
             return self.tap_input(i).then_some(p);
         }
-        let c = picked?;
+        let c = self.pick(atlas, x, y, aspect)?;
         self.stop_demo();
         if self.session.toggle(c) {
             self.invalidate();

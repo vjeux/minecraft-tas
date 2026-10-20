@@ -59,7 +59,12 @@ each build's page.
   default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
   44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
   on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
-  the input's cell does the same. Lime tags name the inputs over their cells, orange tags the
+  the input's cell, its device or its tag does the same, and a press held there past 250 ms
+  holds the input on until released (like holding its button). A press that begins on an input
+  never orbits or pans the camera; nothing moves the camera by itself except a flying machine
+  while it plays (piston extenders included: their payload comes back). Nothing in a viewer
+  selects text or opens a callout on a long press (user-select / touch-callout off, no context
+  menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
   `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
   (the left badge shows `demo · <phase>`), looped until the person's first input (any button,
@@ -90,7 +95,7 @@ each build's page.
 * A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
   corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
   cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
-  first; the floor goes under the whole path; the camera follows a flying machine; it loops where
+  first; the floor goes under the whole path; the camera follows a flying machine while it plays; it loops where
   `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
   every archived flying machine against `circuit fly sim`: same end tick and same frames, native
   and wasm.
@@ -128,7 +133,9 @@ each build's page.
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
-| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900]` | a screenshot after some seconds of real time (playing viewers and demos advance) |
+| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js>]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value) |
+| `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
+| `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
