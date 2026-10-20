@@ -1,0 +1,85 @@
+# archived 2026-10-20T04:47Z from designs/circuits/pext/work/n6-sf151.txt by mctas circuit archive
+# CIRCUIT: pext-n6-sf151 piston-extender 6 N 6, extend 149 gt, retract 147 gt, 151 blocks, 15x6x7, robust
+# N=6 SLIME-FREE extender, minimized (no slime in the palette, a stopped run's checkpoint) from the
+# 214-block single-cell-schedule stack (mctas circuit pext stack --n 6 --cells): six sticky pistons
+# in a line, fixed pulsers beside them, one observer spine.
+name: pext-n6-sf151
+circuit: piston-extender 6
+travel: 1 0 0
+port input: 13 1 2 lever
+port payload: 7 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=south]
+  D minecraft:observer[facing=up,powered=false]
+  E minecraft:observer[facing=up]
+  F minecraft:observer[facing=west]
+  G minecraft:gold_block
+  H minecraft:piston[extended=false,facing=north]
+  I minecraft:piston[extended=false,facing=up]
+  J minecraft:piston[extended=false,facing=west]
+  K minecraft:sticky_piston[extended=false,facing=north]
+  L minecraft:lever[face=floor,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=south]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[extended=false,facing=up]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  U minecraft:sticky_piston[facing=east]
+  V minecraft:stone
+  o minecraft:observer[facing=east]
+  p minecraft:piston[extended=false,facing=east]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -1:
+  .
+  ...QoNo.J
+  ........oooM
+  ........A...FM
+  .
+  ....Io..IoE
+  .
+layer 0:
+  .
+  .....EO.ECI
+  ...ADFFFFFC
+  ...V....O.C
+  .........DF..O
+  ......S...E...V
+  .....QoD
+layer 1:
+  .......MoC
+  .....AO..O
+  ...OAAA.AAAEV
+  CFUUUUUUG
+  .....C.C.CCCCQ
+  H...OC.CO..E.JL
+  .........HoA
+layer 2:
+  .....SoC
+  ....S.OOP.O
+  ...p.FFFF..EE
+  ......EE..E
+  ....B.B.BFFFo
+  E...O.E.OOPAO
+  .......PoA
+layer 3:
+  .
+  .....oO..oO
+  ......CFO..EC
+  ......CAA...B
+  ......E...KoO
+  .To.J.ooO..oO
+  .
+layer 4:
+  .
+  .
+  ........sF.R
+  ........O
+  ......ooA
+  .
+  .
