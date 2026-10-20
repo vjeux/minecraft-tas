@@ -1,5 +1,6 @@
 name: tnt-duper-12b
 circuit: tnt-duper
+explode: off
 origin: 1 0 -1
 palette:
   A minecraft:stone
