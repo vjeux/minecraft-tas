@@ -31,7 +31,8 @@ rotations) by `mctas circuit archive`. Drafts: designs/circuits/{tff,memory}/tra
 | comparator+dispenser+powder_snow | 6 | tff-snowdisp (+ tff-snowdisp-dust 7) |
 | comparator+dropper+hopper+redstone_wire | 8 | tff-dropring |
 | comparator+crafter+hopper+redstone_wire | 8 | tff-crafter |
-| comparator+redstone_torch+redstone_wire+repeater | 18 | tff-window (redstone only) |
+| comparator+crafter+hopper | 7 | tff-crafter7 (constant 1 from a dropper instead of two dust) |
+| comparator+redstone_torch+redstone_wire+repeater | 17 | tff-window (redstone only) |
 | redstone_torch+redstone_wire+repeater | 24 | tff-masterslave (redstone only) |
 | observer+redstone_block+sticky_piston | 5 | tff-observer-flat (second design) |
 | observer+piston+redstone_block+sticky_piston | 5 | tff-observer-pistonline |
@@ -43,7 +44,8 @@ on 4 gt pulses but not on 10 gt ones (the judge now fails those; the census dema
 No redstone-only (stone/dust/torch/repeater/comparator) TFF of <= 6 blocks in 3x2x2 (3.2e9
 candidates per input) nor <= 5 components with auto floors in 3x1x3. The redstone family came from
 a hand-built repeater-lock master-slave (24) whose lock wiring a skeleton census refilled; that
-showed the slave was only a delay, and the single-latch pulse-window design (18) followed; a
+showed the slave was only a delay, and the single-latch pulse-window design followed (18, then 17
+with the NOT-q torch standing right behind the latch); a
 skeleton census over its lock (k <= 5 components, 23 free cells) finds nothing smaller.
 Skeleton files: tracks/tff/scratch/ms-skeleton.txt, win-skeleton.txt (`--skeleton --free=...`).
 
