@@ -169,7 +169,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
                 id: f.id as u64,
                 kind: "minecraft:falling_block".to_string(),
                 pos: [f.x, f.y, f.z],
-                motion: [0.0, f.vy, 0.0],
+                motion: [f.vx, f.vy, f.vz],
                 yaw: 0.0,
                 pitch: 0.0,
                 net_id: Some(f.id as i32),

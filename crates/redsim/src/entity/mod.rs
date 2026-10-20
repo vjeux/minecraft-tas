@@ -404,7 +404,7 @@ fn spawn_falling_block(w: &mut World, pos: [f64; 3], nbt: Option<&str>) -> Resul
     }
     let id = w.entities.next_id;
     w.entities.next_id += 1;
-    w.gravity.entities.push(crate::gravity::FallingBlock { block, x: pos[0], y: pos[1], z: pos[2], vy, time, removed: false, id });
+    w.gravity.entities.push(crate::gravity::FallingBlock::new(block, pos[0], pos[1], pos[2], vy, time, id));
     Ok(id)
 }
 

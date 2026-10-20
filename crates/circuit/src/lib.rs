@@ -563,6 +563,12 @@ impl Circuit {
         v
     }
 
+    /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
+    /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    pub fn explodes(&self) -> bool {
+        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
+    }
+
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
     /// block...): its "level" would be read by query alone, so a change without a block update would
     /// go unseen. An output cell is air (the judge's lamp goes there) or holds a redstone component
