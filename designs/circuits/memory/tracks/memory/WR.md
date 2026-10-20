@@ -18,21 +18,27 @@ What a world-record entry means here, per variation: the record target, then wha
 
 The idea: hold exactly N items in a container, move one out per input pulse, and read EMPTY with a comparator. A comparator on a container is 0 only when the container is empty and >= 1 for any single item (one item in a 9-slot dropper gives level 1), so "empty" is exact for any N up to 9 x 64 = 576 per dropper. Size does not grow with N, so for every large N this beats a ring, which needs a dropper and a hopper per unit of N.
 
-Measured in the game, 2026-10-20 — the naive 5-block version does NOT work. Two droppers facing each other (the rs-dropper structure) with N items in A, both fired by one dust line over their lids: `counter4-items`, 6 blocks, level 1 for every one of 13 pulses. The reason is that both droppers fire on the same pulse: while both hold items they each move one into the other, so the pile never walks and A never empties. A dropper pair only counts if exactly one of them is fired per pulse, which means the direction is extra state the item counts cannot supply: the counts alone cannot say which way the pile is moving (mid-phase both droppers hold items).
+Measured in the game, 2026-10-20 — the naive 5-block version does NOT work, and the reason is quasi-connectivity. Two droppers facing each other (the rs-dropper structure) with N items in A, both fired by one dust line over their lids: `counter4-items`, 6 blocks, level 1 for every one of 13 pulses, i.e. the pile never walks. Both droppers fire on the same pulse, so while both hold items they each move one into the other and nothing changes. Probes isolated the rule, which decides every layout here:
 
-So the design needs a phase latch, and these three parts, all proven separately in our archive:
-1. Two droppers facing each other, A preloaded with N items (the rs-dropper structure, 4 blocks).
+- A dropper fires when the OR of (a signal on itself) and (a signal on the block ABOVE it) rises - `DispenserBlock.neighborChanged`: `hasNeighborSignal(pos) || hasNeighborSignal(pos.above())`. So a VERTICAL dropper pair cannot be driven separately at all: the lower dropper's quasi-connectivity cell IS the upper dropper, so any power on the upper one fires the lower one too. Measured: with A above B, A holding 2 items, a dust on A's lid, B unpowered and not even reachable by wire, A still never drains - B fires with it and hands the item straight back. Remove B (A facing air) and A drains in exactly 2 pulses, which is the control.
+- Therefore the pair must be HORIZONTAL (A and B side by side): then their quasi-connectivity cells are the two separate lid cells.
+- A dropper that is held continuously powered sees no rising edge and does not fire. That is the cheapest possible gate: no gate blocks, just a level joined onto the dropper or onto its lid cell's neighbourhood.
+- A comparator's side input suppresses it (compare mode: side >= rear gives 0), so no hold line may run beside the comparator that reads the dropper draining in that phase.
+
+So the design needs a phase latch, and these parts, all proven separately in our archive:
+1. Two droppers facing each other HORIZONTALLY, A preloaded with N items (the rs-dropper structure, 4 blocks).
 2. Two comparators, one per dropper, each 0 exactly when its dropper is empty. "A empty" happens once every N pulses, "B empty" once every N pulses, half a period apart.
-3. A phase latch toggled by those two empty signals, whose two outputs HOLD the dropper that must not fire. A held dropper is a dropper kept continuously powered: it sees no rising edge, so the shared pulse line does not fire it. That is the cheapest possible gate - no gate blocks at all, just a level joined onto the pulse dust.
+3. A phase latch toggled by those two empty signals, whose two outputs HOLD the dropper that must not fire.
 The latch is either a copper bulb T flip-flop (bulb + comparator) toggled by "A empty OR B empty", or a cross-coupled torch pair (RS NOR) whose two torches ARE the two inverters the empty signals need anyway. The counter's output is free in both cases: the bulb's comparator (toggles once every N pulses) or either torch.
 
-Expected size, constant for every N: about 20 blocks with the torch latch, about 30 with the bulb. That is the record for every N whose ring costs more (today: N >= 19), and it is the whole large-N range at once, since only the preloaded item count changes. Next step: build it, judge it at N = 19, 23, 25, 38, 39 and at N = 576 to show the ceiling, then stamp one tunable group so the catalog shows ONE card for the mechanism.
+Working layout rules for the next build (from the attempts, all verified individually):
+- Pulse both droppers from one dust line on their lids, or from a dust line one level higher sitting on two stones that cap the droppers (that frees the lid level for routing).
+- Hold a dropper either directly (a dust or torch adjacent to it, or a strongly powered block adjacent to it) or through its quasi-connectivity cell (anything powering a neighbour of its lid cell).
+- Put the two comparators on opposite sides (west of A, east of B) so neither hold line has to pass a comparator's side.
+- A standing torch does not power the block it stands on; dust does not power the block above it; dust DOES strongly power the block below it; a torch strongly powers the block above it. A torch under a hold block is the cheapest inverter, since it both inverts and strongly powers upward.
+- The bulb must be declared `lit=false`: the judge's placement leaves B empty, so "B empty" is already high when the design settles and the bulb sees no rising edge then.
 
-Geometry notes from the first build attempt, so the next one does not re-learn them:
-- Vertical droppers (A above B, facing each other) leave four free horizontal faces each; the horizontal pair leaves only one per dropper, which is where the first attempt ran out of room.
-- One dust cell can pulse both: dust on a stone that is adjacent to one dropper, with the other dropper adjacent to the dust itself.
-- Routing a hold line past a comparator's SIDE suppresses that comparator (compare mode: side >= rear gives 0). Harmless for this circuit - the suppressed comparator is the one whose dropper is held - but it must be deliberate.
-- A standing torch does not power the block it stands on, and dust does not power the block above it; dust DOES strongly power the block below it, and a torch strongly powers the block above it.
+Expected size, constant for every N: about 20 blocks with the torch latch, about 30-45 with the bulb and its routing. That is the record for every N whose ring costs more (today: N >= 19), and it covers the whole large-N range at once, since only the preloaded item count changes.
 
 ## Fold done 2026-10-20
 
