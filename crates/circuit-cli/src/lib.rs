@@ -84,6 +84,10 @@ pub enum CircuitCmd {
         /// With --rejudge: only these studies (default: all).
         #[arg(long)]
         study: Vec<String>,
+        /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
+        /// dominates): the file, its verdict row and its caption.
+        #[arg(long)]
+        remove: Vec<String>,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
@@ -137,6 +141,11 @@ pub enum CircuitCmd {
     },
     /// Track fly's commands (crates/circuit-fly).
     Fly {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track shulker's commands (crates/circuit-shulker).
+    Shulker {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -242,7 +251,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, remove } => {
+            for spec in &remove {
+                println!("{}", circuit::archive::unarchive(&root, spec)?);
+            }
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe {
+                return Ok(());
+            }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
@@ -293,6 +308,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
+        CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
     }
     Ok(())

@@ -278,6 +278,7 @@ dependencies = [
  "circuit-memory",
  "circuit-pext",
  "circuit-pulse",
+ "circuit-shulker",
  "circuit-tff",
  "circuit-tnt",
  "clap",
@@ -353,6 +354,17 @@ dependencies = [
  "clock-obs",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "circuit-shulker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
 ]
 
 [[package]]
