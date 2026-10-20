@@ -275,10 +275,23 @@ impl Session {
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
         }
+        // a circuit's inputs as its judge reads them, on the design as written (before its
+        // consumers: the drivers' directions depend on the build's own box)
+        let circuit_inputs = crate::circuit::inputs(&design);
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
             design.blocks.insert(*p, crate::circuit::CONSUMER.to_string());
+        }
+        // and every driven input's stone, repeater and support (R7, `Circuit::with_drivers`; the
+        // switch comes and goes with the input edges)
+        for ci in &circuit_inputs {
+            if let crate::circuit::InputHow::Driven { dir, .. } = ci.how {
+                let (r, sup, _) = crate::circuit::driver_cells(ci.pos, dir);
+                design.blocks.entry(ci.pos).or_insert_with(|| crate::circuit::DRIVEN_STONE.to_string());
+                design.blocks.insert(r, crate::circuit::driver_repeater(dir));
+                design.blocks.insert(sup, crate::circuit::DRIVEN_STONE.to_string());
+            }
         }
         // a shulker loader or unloader: the judge's chests on its ports, run by redsim's driver
         // once the design stands (`redstone::shulker::Chests`, below); their cells are in the box
@@ -299,7 +312,6 @@ impl Session {
                 inputs.push(*p);
             }
         }
-        let circuit_inputs = crate::circuit::inputs(&design);
         for ci in &circuit_inputs {
             if !inputs.contains(&ci.pos) {
                 inputs.push(ci.pos);
@@ -714,6 +726,13 @@ impl Session {
             crate::circuit::InputHow::Strength { .. } => {
                 self.set_strength(i, if on { 15 } else { 0 });
             }
+            // the judge's switch behind its repeater: placed or removed (the input cell's power
+            // follows 2 gt later, through the repeater)
+            crate::circuit::InputHow::Driven { dir, .. } => {
+                let (_, _, sw) = crate::circuit::driver_cells(ci.pos, *dir);
+                let b = if on { Block::parse(crate::circuit::INPUT_ON).unwrap_or(Block::Air) } else { Block::Air };
+                self.world.set_block(bp(sw), b, flags::ALL);
+            }
         }
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
@@ -759,8 +778,11 @@ impl Session {
         let t = self.tick;
         if let Some(d) = self.demo.clone() {
             for (i, e) in d.edges.iter().enumerate() {
+                // a driven input's switch goes 2 gt (its repeater's delay) before the edge, so the
+                // input cell's power changes at the stimulus tick (`Circuit::actions`)
+                let early = if matches!(self.circuit_inputs.get(i).map(|c| &c.how), Some(crate::circuit::InputHow::Driven { .. })) { 2 } else { 0 };
                 for &(at, on) in e {
-                    if at == t {
+                    if at.saturating_sub(early) == t {
                         self.set_input(i, on);
                     }
                 }

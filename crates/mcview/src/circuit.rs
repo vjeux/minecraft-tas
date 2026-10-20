@@ -20,6 +20,135 @@ pub enum InputHow {
     /// ([`strength_items`]): placed again (its state unchanged), then its contents set. A tap
     /// flips it between 0 and 15.
     Strength { chest: Block },
+    /// A plain input driven like a real build drives it (the judge's R7, `circuit::InputHow::
+    /// Driven`): the judge's stone (or the design's own receiving block) in the input cell, its
+    /// delay-1 repeater in the cell `dir` from it with a stone under it, switched by a redstone
+    /// block placed `2 dir` from the input cell 2 gt before each input edge.
+    Driven { dir: Pos, through: bool },
+}
+
+/// A plain input's on-state, written into its cell before R7 (`circuit::INPUT_ON`).
+pub const INPUT_ON: &str = "minecraft:redstone_block";
+/// The judge's stone in a driven input's cell and under its repeater (`circuit::DRIVEN_STONE`).
+pub const DRIVEN_STONE: &str = "minecraft:smooth_stone";
+/// The directions a driven input's repeater may stand in, in the judge's order
+/// (`circuit::DRIVE_DIRS`).
+pub const DRIVE_DIRS: [Pos; 4] = [[0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]];
+
+fn add(a: Pos, b: Pos) -> Pos {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+/// A driven input's judge cells: its repeater, the repeater's support and the switch
+/// (`circuit::driver_cells`).
+pub fn driver_cells(pos: Pos, dir: Pos) -> (Pos, Pos, Pos) {
+    let r = add(pos, dir);
+    (r, add(r, [0, -1, 0]), add(r, dir))
+}
+
+/// The judge's repeater of a driven input, facing its direction (`circuit::Circuit::with_drivers`).
+pub fn driver_repeater(dir: Pos) -> String {
+    let facing = match dir {
+        [0, 0, -1] => "north",
+        [0, 0, 1] => "south",
+        [-1, 0, 0] => "west",
+        _ => "east",
+    };
+    format!("minecraft:repeater[delay=1,facing={facing},locked=false,powered=false]")
+}
+
+/// The box a circuit occupies during its run (`circuit::Circuit::swept_box`): its blocks' box,
+/// swept along its travel by a piston extender's reach or a flying machine's distance.
+fn swept_box(d: &Design) -> Option<(Pos, Pos)> {
+    let mut it = d.blocks.keys();
+    let first = *it.next()?;
+    let (mut lo, mut hi) = (first, first);
+    for p in it {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    let kind = d.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
+    let first_word = kind.split_whitespace().next().unwrap_or("");
+    let reach = match first_word {
+        "piston-extender" => kind.split_whitespace().nth(1).and_then(|w| w.parse::<i32>().ok()).unwrap_or(1) + 1,
+        "flying-machine" => d.meta.get("distance").and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(0) + 2,
+        _ => 0,
+    };
+    let travel: Option<Pos> = d.meta.get("travel").and_then(|t| {
+        let v: Vec<i32> = t.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+        (v.len() == 3).then(|| [v[0], v[1], v[2]])
+    });
+    if let (Some(t), true) = (travel, reach > 0) {
+        for i in 0..3 {
+            lo[i] = lo[i].min(lo[i] + t[i] * reach);
+            hi[i] = hi[i].max(hi[i] + t[i] * reach);
+        }
+    }
+    Some((lo, hi))
+}
+
+/// Turn each plain input into a driven one like the judge (`circuit::Circuit::assign_drivers`):
+/// the first direction of [`DRIVE_DIRS`] whose repeater, support and switch cells are outside the
+/// box (a tiled run: free) and free of design blocks, ports and other drivers, touching no
+/// observer or diode beside the repeater and no design cell beside the switch (a diode in the
+/// input cell: at its back); else one through the build's air cells, its switch outside the box
+/// (static designs only). An input with no way in keeps its block (the judge refuses the design).
+fn assign_drivers(d: &Design, inputs: &mut [CircuitInput]) {
+    let Some((lo, hi)) = swept_box(d) else { return };
+    let tiled = d.meta.contains_key("tiled");
+    let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
+    let mut taken: std::collections::BTreeSet<Pos> = d.ports.values().map(|(p, _)| *p).collect();
+    taken.extend(d.blocks.keys().copied());
+    let design_cells = taken.clone();
+    let on_block = Block::parse(INPUT_ON).ok();
+    let moving = d.meta.get("circuit").is_some_and(|k| k.starts_with("piston-extender") || k.starts_with("flying-machine"));
+    for inp in inputs.iter_mut() {
+        let InputHow::Block { on, .. } = &inp.how else { continue };
+        if Some(*on) != on_block {
+            continue;
+        }
+        let p = inp.pos;
+        let here = d.blocks.get(&p).map(|s| s.as_str()).unwrap_or("");
+        let back: Option<Pos> = if here.starts_with("minecraft:repeater") || here.starts_with("minecraft:comparator") {
+            match here.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()) {
+                Some("north") => Some([0, 0, -1]),
+                Some("south") => Some([0, 0, 1]),
+                Some("west") => Some([-1, 0, 0]),
+                Some("east") => Some([1, 0, 0]),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let free = |q: Pos, taken: &std::collections::BTreeSet<Pos>| !taken.contains(&q);
+        let alone = |dir: &Pos| {
+            let (r, sup, sw) = driver_cells(p, *dir);
+            let quiet = DRIVE_DIRS.iter().chain(&[[0, 1, 0], [0, -1, 0]]).map(|n| add(r, *n)).filter(|q| *q != p && *q != sup && *q != sw).all(|q| d.blocks.get(&q).is_none_or(|s| !(s.starts_with("minecraft:observer") || s.starts_with("minecraft:repeater") || s.starts_with("minecraft:comparator"))));
+            let isolated = DRIVE_DIRS.iter().chain(&[[0, 1, 0], [0, -1, 0]]).map(|n| add(sw, *n)).filter(|q| *q != r).all(|q| !design_cells.contains(&q));
+            quiet && isolated && back.is_none_or(|b| b == *dir)
+        };
+        let straight = DRIVE_DIRS.iter().copied().find(|dir| {
+            let (r, sup, sw) = driver_cells(p, *dir);
+            [r, sup, sw].iter().all(|q| free(*q, &taken) && (tiled || outside(*q))) && alone(dir)
+        });
+        let found = straight.map(|dir| (dir, false)).or_else(|| {
+            DRIVE_DIRS
+                .iter()
+                .copied()
+                .find(|dir| {
+                    let (r, sup, sw) = driver_cells(p, *dir);
+                    [r, sup, sw].iter().all(|q| free(*q, &taken) && (!moving || outside(*q))) && outside(sw) && alone(dir)
+                })
+                .map(|dir| (dir, true))
+        });
+        if let Some((dir, through)) = found {
+            let (r, sup, sw) = driver_cells(p, dir);
+            taken.extend([r, sup, sw]);
+            inp.how = InputHow::Driven { dir, through };
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,6 +188,8 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
         v.push(CircuitInput { name: short, pos: *pos, how });
     }
     v.sort_by(|a, b| a.name.cmp(&b.name));
+    // R7: plain inputs driven by the judge's repeater from outside
+    assign_drivers(d, &mut v);
     v
 }
 
