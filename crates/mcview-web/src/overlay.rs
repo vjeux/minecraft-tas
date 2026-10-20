@@ -208,11 +208,13 @@ impl Overlays {
             let rows = p.history.len() as u32;
             c.set_width(HISTORY as u32 * 3);
             c.set_height(rows * 8 + (rows - 1) * 2);
-            let _ = c.set_attribute("style", &format!("position:absolute;right:8px;top:34px;width:{}px;height:{}px;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
+            // every edge set: a page's own rules for the viewer's canvases (`left:0`, a full
+            // size) must not move the strip
+            let _ = c.set_attribute("style", &format!("position:absolute;left:auto;bottom:auto;right:8px;top:34px;width:{}px;height:{}px;max-width:none;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
             c.set_title("the output: powered (red) or not, over the last 40 game ticks");
             let _ = self.layer.append_child(&c);
             // what the strip is, beside it: the last 2 s (40 ticks)
-            let caption = span(&format!("position:absolute;right:{}px;top:32px;padding:0 4px;border-radius:3px;background:rgba(0,0,0,0.45);color:#e8e8e8;font:500 10px/12px system-ui,sans-serif;white-space:nowrap", 8 + HISTORY * 3 + 4), if rows > 1 { "outputs, last 2 s" } else { "output, last 2 s" });
+            let caption = span(&format!("position:absolute;left:auto;bottom:auto;right:{}px;top:32px;padding:0 4px;border-radius:3px;background:rgba(0,0,0,0.45);color:#e8e8e8;font:500 10px/12px system-ui,sans-serif;white-space:nowrap", 8 + HISTORY * 3 + 4), if rows > 1 { "outputs, last 2 s" } else { "output, last 2 s" });
             let _ = self.layer.append_child(&caption);
             self.history_caption = Some(caption);
             if let Some(ctx) = c.get_context("2d").ok().flatten().and_then(|x| x.dyn_into::<CanvasRenderingContext2d>().ok()) {
