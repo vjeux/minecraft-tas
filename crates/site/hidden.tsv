@@ -50,12 +50,6 @@ pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-ho
 # (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
 # (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
 # clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
-tff/tff-masterslave	temporary (R7): passes only by the judge's old block placement, not with a real input
-tff/tff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
-memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input
-memory/dff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
-memory/dffe-window	temporary (R7): passes only by the judge's old block placement, not with a real input
-memory/shift2-window	temporary (R7): passes only by the judge's old block placement, not with a real input
 memory/counter5-ring11	temporary (R7): refused with a real input
 memory/counter10-ring5-bulb	temporary (R7): refused with a real input
 memory/counter20-ring5-bulb2	temporary (R7): refused with a real input
