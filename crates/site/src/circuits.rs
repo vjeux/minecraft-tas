@@ -613,6 +613,11 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     flags.push("lever".into());
                 }
             }
+            // a piston extender with no slime or honey: its own distinction (vjeux's list view
+            // named "slimeless" as a property he cares about; the coordinator 19:05Z)
+            if r.kind.starts_with("piston-extender") && !r.kinds.split('+').any(|k| k == "slime_block" || k == "honey_block") {
+                flags.push("slime-free".into());
+            }
             // what sets such a flying machine apart from the 6-block one (critique C13: fly cards
             // of 6, 7, 15 and 24 blocks said the same); an extender's pushed block is a payload too
             let flying = r.kind.starts_with("flying-machine");
@@ -1496,15 +1501,12 @@ mod tests {
     #[test]
     fn hidden_designs_match_their_patterns() {
         assert!(glob("pext-*-sf*", "pext-n5-sf-sweep136.txt"));
-        assert!(glob("pext-*-sf*", "pext-n2-sf7-1-button.txt"));
         assert!(!glob("pext-*-sf*", "pext-n2-sand6.txt"));
-        assert!(!glob("pext-*-sf*", "pext-n3-flat-cascade19.txt"));
-        assert!(hidden("pext", "pext-n4-sf60.txt").is_some());
-        assert!(hidden("pulse", "pext-n4-sf60.txt").is_none());
-        // the `!` exceptions win over the slime-free rule
-        assert!(hidden("pext", "pext-n2-sf8-flat.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
+        assert!(hidden("pext", "pext-n1-sticky.txt").is_some());
+        assert!(hidden("pulse", "pext-n1-sticky.txt").is_none());
+        // a line names one design: the other lengths of the same kind stay
+        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L8.txt").is_some());
+        assert!(hidden("pulse", "pulse-oneshot-rising-edge-L12.txt").is_none());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
         // a class rule: every vibration-sensitive sculk design, in any study
         assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());

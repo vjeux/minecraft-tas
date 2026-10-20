@@ -1,12 +1,13 @@
 # archived 2026-10-19T18:41Z from designs/clocks/tracks/clk-rt/div/div-fade6-x5.txt by mctas clock archive
-# CLOCK: clk-rt-div-fade6-x5 period 10816 gt (9 min 0.8 s), on 5408/10816, edges 1, warmup 22, family comparator+redstone_torch+redstone_wire+repeater, 124 blocks, 10x2x17, robust
+# CLOCK: clk-rt-div-fade6-x5 period 10816 gt (9 min 0.8 s), on 8112/10816, edges 1, warmup 22, family comparator+redstone_torch+redstone_wire+repeater, 124 blocks, 10x2x17, robust
 # Divider chain (clk-rt): a base comparator FADING ring (6 + 6 compare comparators keep a strength
 # that drops one level per lap; a wall torch refills the empty ring) and 5 master-slave T flip-flop
 # stage(s) (two latch repeaters locked alternately by repeaters reading the previous torch and its
 # block; the slave's dust bends into a target block holding a torch whose output runs back to the
 # master): period = the ring's x 2^5
 name: clk-rt-div-fade6-x5
-port output: 3 1 -16
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 3 1 -16: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 5 0 -14
 origin: 0 0 -16
 palette:
   A minecraft:repeater[delay=1,facing=east,locked=false,powered=false]

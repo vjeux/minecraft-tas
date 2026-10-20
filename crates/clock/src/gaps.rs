@@ -128,13 +128,8 @@ pub fn design_hide(c: &Clock) -> Option<String> {
             }
         }
     }
-    let blocks: Vec<&String> = c.design.blocks.values().collect();
-    if blocks.iter().any(|s| s.contains("daylight_detector")) {
-        return Some("daytime only: a daylight detector (it stops or changes at night and in rain)".into());
-    }
-    if blocks.iter().any(|s| s.contains("tripwire")) {
-        return Some("tripwire: any passing mob, player or dropped item fires it".into());
-    }
+    // (2026-10-20, vjeux: no invented rules: tripwire, daylight and rotation/position dependence
+    // are properties the page states, not reasons to hide)
     None
 }
 
@@ -333,8 +328,8 @@ pub struct Applied {
 
 /// Apply results to the archive: a moved clock's design (its `port output` and `# CLOCK:` line) and
 /// verdict row (output, gaps, robustness, line, hash) are rewritten; every row's `hidden` column is
-/// set: the reason it is not a survival clock, or empty. A clock that only works in some rotations
-/// or positions is hidden too (coordinator: any direction, anywhere).
+/// set: the reason it is not a survival clock, or empty. Robustness (the rotations and positions it
+/// works in) is a property the page states, never a reason to hide (vjeux, 2026-10-20).
 pub fn apply(dir: &Path, results: &std::collections::BTreeMap<String, Retap>) -> Result<Applied> {
     let mut rows = read_rows(dir)?;
     let mut out = Applied::default();
@@ -374,9 +369,21 @@ pub fn apply(dir: &Path, results: &std::collections::BTreeMap<String, Retap>) ->
             }
             Retap::Skip(why) => hide(&mut out, r, "not judged", format!("not judged on redsim: {why}")),
         }
-        if r.hidden.is_empty() && r.robustness != "robust" {
-            let why = format!("{}: it must work in any direction, anywhere", r.robustness);
-            hide(&mut out, r, "not robust", why);
+    }
+    write_rows(dir, &rows)?;
+    Ok(out)
+}
+
+/// Clear the `hidden` column of every row whose reason starts with one of `prefixes` (vjeux,
+/// 2026-10-20: tripwire, daylight and rotation/position dependence are properties, not reasons to
+/// hide); the rows' other columns (robustness included) are kept. Returns the files.
+pub fn unhide(dir: &Path, prefixes: &[String]) -> Result<Vec<String>> {
+    let mut rows = read_rows(dir)?;
+    let mut out = Vec::new();
+    for r in rows.iter_mut() {
+        if !r.hidden.is_empty() && prefixes.iter().any(|p| r.hidden.starts_with(p.as_str())) {
+            r.hidden.clear();
+            out.push(r.file.clone());
         }
     }
     write_rows(dir, &rows)?;
