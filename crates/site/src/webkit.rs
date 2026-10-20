@@ -707,7 +707,7 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
         let other = site.builds.iter().find(|o| o.id != b.id && o.circuit.as_ref().is_some_and(|oc| oc.tunable == c.tunable && oc.host.is_none() && oc.layout_of.is_none()))?;
         let file = |p: &str| p.rsplit('/').next().unwrap_or(p).to_string();
-        Some((b.page.clone(), file(&other.page), file(&other.design), other.name.clone()))
+        Some((b.page.clone(), file(&other.page), file(&other.design), crate::pages::page_title(other).replace('\'', "\\'")))
     });
     let family_page = site.cards.first().map(|c| c.page.clone());
     for phone in [false, true] {
