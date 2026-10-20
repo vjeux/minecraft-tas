@@ -104,6 +104,13 @@ enum Cmd {
         rng: u64,
         #[arg(long, default_value_t = 32)]
         workers: usize,
+        /// Keep only dupers with at least this many TNT per period (2+: bursts from a seed that
+        /// already dupes).
+        #[arg(long, default_value_t = 1)]
+        min_per: usize,
+        /// Stop recording after this many distinct dupers.
+        #[arg(long, default_value_t = 2000)]
+        max_found: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -217,7 +224,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("  redsim: {} [{}]", r.line(), if same { format!("prime ticks and TNT counts identical over {n} gt") } else { "DIFFERS".into() });
             }
         }
-        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, out } => {
+        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, min_per, max_found, out } => {
             let v: Vec<i32> = bx.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
             anyhow::ensure!(v.len() == 6, "--box x0,y0,z0,x1,y1,z1");
             let list = |s: &str| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect::<Vec<_>>();
@@ -230,6 +237,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 kmin: kmin.min(k),
                 require: list(&require),
                 samples,
+                min_per,
+                max_found,
                 ticks,
                 rng,
                 workers,
