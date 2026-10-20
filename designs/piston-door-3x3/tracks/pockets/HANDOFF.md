@@ -17,6 +17,12 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
+- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (clone
+  explore/pockets there, `cargo build --release`, selftest --quick). Nothing was in flight worth restarting: the 6x7
+  satwire runs had already answered (UNSAT, one-piston cores) and c70b asked to wait for its next variants
+  (mechmut --outside-only, FULL frames filled). pockets on 6x7 plans: --box enlarged to hold the plan's inputs
+  outside the volume + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire: --rec-ticks 240.
+- Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
