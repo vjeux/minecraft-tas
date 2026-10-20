@@ -251,6 +251,10 @@ fn start_box(c: &Clock, blocks: &[(BlockPos, Block)], from: Pos, to: Pos) -> Res
             be_lines(&mut w, None)?;
         }
     }
+    // the design's entities, once the blocks stand (as the real-game judge summons them)
+    for e in &c.design.entities {
+        redsim::entity::spawn(&mut w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| (Verdict::Unmodeled, format!("not modeled by redsim: {why}")))?;
+    }
     Ok(Started { world: w, actions: c.actions() })
 }
 
@@ -375,9 +379,6 @@ pub struct Driven {
 /// tick 0..=ticks. Fails on a block redsim does not model; a problem during the run (a drop, a write
 /// outside the box) stops it ([`Driven::stopped`]).
 pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
-    if !c.design.entities.is_empty() {
-        return Err((Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...)".into()));
-    }
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
         if let Action::Place { state, .. } = a {
@@ -492,9 +493,6 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)
 
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
-    if !c.design.entities.is_empty() {
-        return SimReport::fail(c, Verdict::Unmodeled, "not modeled by redsim: entities (minecarts...): judge it with clock verify".into());
-    }
     let blocks = match parse_blocks(c) {
         Ok(b) => b,
         Err(e) => return SimReport::fail(c, Verdict::Unmodeled, format!("not modeled by redsim: {e}")),

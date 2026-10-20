@@ -3,7 +3,9 @@
 //!
 //! * [`specs`]: census specs for rs-latch, d-latch and counter N mirroring the judge's stimuli, run
 //!   on track tff's census engine (`circuit_tff::census`).
+//! * [`ring`]: dropper-ring counters around the input cell (`circuit memory ring --n N`).
 
+pub mod ring;
 pub mod specs;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -19,6 +21,28 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Dropper-ring counters: the smallest cycles dropper -> hopper -> ... whose droppers the
+    /// input cell fires (directly or through dust next to it), one design per ring (`--keep`).
+    Ring {
+        /// Counter sizes, comma-separated.
+        #[arg(long, value_delimiter = ',')]
+        n: Vec<usize>,
+        /// Most dust cells next to the input.
+        #[arg(long, default_value_t = 2)]
+        max_dust: usize,
+        /// Designs kept per N, smallest first.
+        #[arg(long, default_value_t = 3)]
+        keep: usize,
+        /// Copper bulb T flip-flops chained after the comparator (counter N * 2^bulbs).
+        #[arg(long, default_value_t = 0)]
+        bulbs: usize,
+        /// A second ring of this many droppers around a stone the first ring's comparator powers
+        /// (counter N * THEN).
+        #[arg(long)]
+        then: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Run a design under this track's census spec for its kind (`circuit:` header) and print the
     /// output's rest state, change frames, samples and the spec's verdict (debugging the census).
     Check { design: PathBuf, #[arg(long, default_value_t = 40)] gap: u32 },
@@ -42,6 +66,10 @@ enum Cmd {
         gap: u32,
         #[arg(long, default_value_t = 160)]
         jobs: usize,
+        /// Stone under every placed dust, diode and standing torch (counted): search one layer
+        /// of components with `--box Ax1xC` placed at y=1.
+        #[arg(long)]
+        auto_floor: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -58,6 +86,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
+        Cmd::Ring { n, max_dust, keep, bulbs, then, out } => ring::run(&n, max_dust, keep, bulbs, then, &out)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
@@ -82,6 +111,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 outputs: Some(c.outputs.iter().map(|(_, p)| redsim::BlockPos::new(p[0], p[1], p[2])).collect()),
                 jobs: 1,
                 margin: 3,
+                auto_floor: false,
             };
             let mut blocks = Vec::new();
             for (p, s) in &c.design.blocks {
@@ -97,7 +127,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 Err(e) => println!("rejected: {e}"),
             }
         }
-        Cmd::Census { kind, dims, inputs, k, palette, gap, jobs, out } => {
+        Cmd::Census { kind, dims, inputs, k, palette, gap, jobs, auto_floor, out } => {
             let d: Vec<i32> = dims.split('x').map(|t| t.parse::<i32>()).collect::<Result<_, _>>().context("--box AxBxC")?;
             if d.len() != 3 {
                 bail!("--box AxBxC");
@@ -150,6 +180,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 outputs: None,
                 jobs,
                 margin: 3,
+                auto_floor,
             };
             let found = c.run(spec.as_ref(), true);
             std::fs::create_dir_all(&out)?;

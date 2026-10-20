@@ -1,0 +1,46 @@
+# archived 2026-10-20T00:29Z from designs/circuits/pext/work/n3-cascade22.txt by mctas circuit archive
+# CIRCUIT: pext-n3-cascade22 piston-extender 3 N 3, extend 27 gt, retract 31 gt, 22 blocks, 9x4x4, robust
+# N=3 CASCADE extender, minimized from n3-cascade-v1 (mctas circuit pext minimize): units [slime +
+# sticky piston + observer under the slime] in a line; a moved unit fires its own piston 2 gt after
+# landing, so only the round starts come from the lever (C, then B, then A). The minimizer replaced
+# observer runs of the timing chain by pistons used as delays.
+name: pext-n3-cascade22
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 6 2 2 lever
+port payload: 6 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:observer[facing=up]
+  C minecraft:observer[facing=west]
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:sticky_piston[facing=east]
+  F minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=north]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .O.O
+  .
+  .
+  .
+layer 1:
+  ESESEG
+  .
+  .
+  .
+layer 2:
+  B
+  ..AA..A
+  ...C.LC
+  .....F
+layer 3:
+  o
+  .DoO
+  ..so.P
+  .

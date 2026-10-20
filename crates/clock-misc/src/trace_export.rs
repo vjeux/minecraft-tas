@@ -27,12 +27,20 @@ use std::path::{Path, PathBuf};
 pub struct ExportArgs {
     /// Archived designs (designs/clocks/archive/<name>.txt).
     pub designs: Vec<PathBuf>,
-    /// Where the traces go.
-    #[arg(long, default_value = "designs/clocks/traces")]
-    pub out_dir: PathBuf,
+    /// Where the traces go (default designs/clocks/traces, or designs/clocks/traces/exact with --exact).
+    #[arg(long)]
+    pub out_dir: Option<PathBuf>,
     /// Margin of the watched box around the design (the judge's default).
     #[arg(long, default_value_t = 3)]
     pub margin: i32,
+    /// Full precision (for redsim's trace-compare gate): positions, motion and rotations as the
+    /// game's own doubles / floats (no rounding), plus each entity's "motion".
+    #[arg(long)]
+    pub exact: bool,
+    /// Record this many ticks of any design (not only archived ones: a test scene for redsim);
+    /// the header's period and warmup are then 0 and "design" is the path given.
+    #[arg(long)]
+    pub ticks: Option<u32>,
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -53,11 +61,16 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<u32>) -> Result<(PathBuf, u32)> {
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
-    let (period, warmup) = verdict(&file)?;
-    let ticks = warmup + 2 * period;
+    let (period, warmup, ticks, design) = match fixed_ticks {
+        Some(n) => (0, 0, n, path.display().to_string()),
+        None => {
+            let (period, warmup) = verdict(&file)?;
+            (period, warmup, warmup + 2 * period, format!("designs/clocks/archive/{file}"))
+        }
+    };
     let c = Clock::load(path).with_context(|| format!("load {}", path.display()))?;
     let (lo, hi) = c.bounds();
     let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
@@ -70,7 +83,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32) -> Resul
     let mut header = json!({
         "trace": 1,
         "name": c.design.name,
-        "design": format!("designs/clocks/archive/{file}"),
+        "design": design,
         "period": period,
         "warmup": warmup,
         "ticks": ticks,
@@ -109,13 +122,24 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32) -> Resul
         for e in w.entities(sb)? {
             let n = ids.len();
             let id = *ids.entry(e.uuid.clone()).or_insert(n);
-            ents.push(json!({
-                "id": id,
-                "type": e.kind,
-                "pos": [round(e.pos[0], 4), round(e.pos[1], 4), round(e.pos[2], 4)],
-                "yaw": round(e.yaw as f64, 2),
-                "pitch": round(e.pitch as f64, 2),
-            }));
+            ents.push(if exact {
+                json!({
+                    "id": id,
+                    "type": e.kind,
+                    "pos": e.pos,
+                    "motion": e.motion,
+                    "yaw": e.yaw,
+                    "pitch": e.pitch,
+                })
+            } else {
+                json!({
+                    "id": id,
+                    "type": e.kind,
+                    "pos": [round(e.pos[0], 4), round(e.pos[1], 4), round(e.pos[2], 4)],
+                    "yaw": round(e.yaw as f64, 2),
+                    "pitch": round(e.pitch as f64, 2),
+                })
+            });
         }
         writeln!(out, "{}", json!({"t": t, "blocks": blocks, "entities": ents}))?;
     }
@@ -128,10 +152,11 @@ pub fn run(a: ExportArgs) -> Result<()> {
     if a.designs.is_empty() {
         bail!("clock misc trace-export <archived designs>...");
     }
-    std::fs::create_dir_all(&a.out_dir)?;
+    let out_dir = a.out_dir.clone().unwrap_or_else(|| PathBuf::from(if a.exact { "designs/clocks/traces/exact" } else { "designs/clocks/traces" }));
+    std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &a.out_dir, a.margin)?;
+        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks)?;
         let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
         println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
     }

@@ -3,7 +3,7 @@
 use crate::pages::{self, Scripts};
 use crate::{BuildArgs, circuits, clocks, doors, web};
 use anyhow::{Context, Result, bail};
-use site_model::{DATA_VERSION, Member, Site};
+use site_model::{Build, DATA_VERSION, Member, Site};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -88,6 +88,84 @@ pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<u
         bail!("{r}: nothing under {folder}");
     }
     Ok(n)
+}
+
+/// The repository path of a build's design file.
+pub fn repo_design_path(b: &Build) -> String {
+    match b.kind.as_str() {
+        "door" => format!("{}/{}.txt", doors::ARCHIVE, b.name),
+        "circuit" => circuits::repo_path(b),
+        _ => format!("{}/{}", clocks::ARCHIVE, b.design.rsplit('/').next().unwrap_or("")),
+    }
+}
+
+/// The site path of the `.litematic` next to a design file (`designs/doors/x.txt` ->
+/// `designs/doors/x.litematic`).
+pub fn litematic_path(design: &str) -> String {
+    match design.strip_suffix(".txt") {
+        Some(stem) => format!("{stem}.litematic"),
+        None => format!("{design}.litematic"),
+    }
+}
+
+/// How to use a build once pasted, for the schematic's description.
+fn usage_note(b: &Build) -> String {
+    match (&b.door, &b.clock, &b.circuit) {
+        (Some(_), _, _) => "Flip the lever to open the door, again to close it.".into(),
+        (_, Some(c), _) => match c.start.strip_prefix("kick: last ") {
+            Some(cell) => format!("Kicked clock: after pasting, break and re-place the block at {cell} (relative to the design's origin) to start it."),
+            None if c.start.starts_with("self") => "Self-starting clock.".into(),
+            None => format!("Start: {}.", c.start),
+        },
+        (_, _, Some(c)) => format!("{}: inputs {}, outputs {}.", c.kind, c.inputs.join(", "), c.outputs.join(", ")),
+        _ => String::new(),
+    }
+}
+
+/// Write `<design>.litematic` next to every build's and every member's design in the site.
+fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
+    let time = litematic::now_ms();
+    let mut n = 0;
+    for b in &site.builds {
+        let path = repo_design_path(b);
+        let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
+        let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
+        let desc = [b.caption.as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
+        write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
+        n += 1;
+    }
+    // members: the generated ones (a member that is its family's archived base design shares that
+    // build's file, already written)
+    let build_designs: std::collections::BTreeSet<&str> = site.builds.iter().map(|b| b.design.as_str()).collect();
+    for m in site.members.iter().filter(|m| !m.design.is_empty() && !build_designs.contains(m.design.as_str())) {
+        let text = std::fs::read_to_string(out.join(&m.design)).with_context(|| format!("reading {}", m.design))?;
+        let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {}", m.design))?;
+        let fam = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family));
+        let desc = format!(
+            "{} n = {}: period {} gt ({}), {} blocks ({}). {}REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/families/{}.html",
+            m.family,
+            m.n,
+            m.period,
+            site_model::real_time(m.period),
+            m.blocks,
+            site_model::status_label(&m.status),
+            fam.map(|f| format!("Extend: {}. ", f.rule)).unwrap_or_default(),
+            m.card
+        );
+        let name = format!("{}-n{}", m.family, m.n);
+        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
+        write_bytes(&out.join(litematic_path(&m.design)), &bytes)?;
+        n += 1;
+    }
+    Ok(n)
+}
+
+fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(p) = path.parent() {
+        std::fs::create_dir_all(p)?;
+    }
+    std::fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))
 }
 
 pub fn build(a: &BuildArgs) -> Result<()> {
@@ -183,10 +261,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         match (&a.pkg, &a.pkg_ref) {
             (Some(dir), _) => {
                 copy_files(dir, &out.join("pkg"), None)?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &dir.display().to_string())?;
                 true
             }
             (None, Some(r)) => {
                 let n = files_from_ref(&repo, r, "pkg/", &out.join("pkg"))?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &format!("{r}:pkg"))?;
                 eprintln!("UI: {n} files from {r}:pkg (not rebuilt)");
                 true
             }
@@ -207,12 +287,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
+    // Litematica schematics of every build and every generated family member (a design that
+    // cannot be exported fails the build: nothing is dropped silently)
+    let n = write_litematics(&site, &repo, out)?;
+    eprintln!("litematic: {n} schematics ({:.1}s)", t0.elapsed().as_secs_f64());
     for b in &site.builds {
-        let repo_path = match b.kind.as_str() {
-            "door" => format!("{}/{}.txt", doors::ARCHIVE, b.name),
-            "circuit" => circuits::repo_path(b),
-            _ => format!("{}/{}", clocks::ARCHIVE, b.design.rsplit('/').next().unwrap_or("")),
-        };
+        let repo_path = repo_design_path(b);
         let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
         write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
     }

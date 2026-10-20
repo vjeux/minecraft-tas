@@ -69,6 +69,22 @@ impl World {
         for e in self.events.iter() {
             e.hash(h);
         }
+        // fluid ticks (only when there are any: designs without water keep their keys)
+        let fticks = self.fluid_ticks.all();
+        if !fticks.is_empty() {
+            0xf1u8.hash(h);
+            (fticks.len() as u32).hash(h);
+            let mut rank = 0u32;
+            let mut last_trigger = i64::MIN;
+            for t in &fticks {
+                if t.trigger != last_trigger {
+                    rank = 0;
+                    last_trigger = t.trigger;
+                }
+                (t.trigger - now, rank, t.pos, t.kind).hash(h);
+                rank += 1;
+            }
+        }
         let mut comps: Vec<_> = self.comparator_out.iter().map(|(p, v)| (*p, *v)).collect();
         comps.sort();
         comps.hash(h);
@@ -77,6 +93,17 @@ impl World {
         toggles.hash(h);
         self.piston.key_into(now, h);
         self.gravity.key_into(h);
+        // entities (only when there are any: designs without entities keep their keys); every
+        // field by its exact bits (Debug prints round-trip floats), payloads included
+        if !self.entities.list.is_empty() {
+            0xe7u8.hash(h);
+            for e in self.entities.list.iter().filter(|e| !e.removed) {
+                let mut k = e.clone();
+                k.id = 0;
+                k.tick_count = 0;
+                format!("{k:?}").hash(h);
+            }
+        }
         self.sculk.key_into(now, h);
         (self.drops.len() as u32).hash(h);
         (self.errors.len() as u32).hash(h);

@@ -44,7 +44,7 @@ impl Camera {
     }
 
     /// Camera basis: forward, right, up.
-    fn basis(&self) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    pub fn basis(&self) -> ([f32; 3], [f32; 3], [f32; 3]) {
         let d = self.dir();
         let f = [-d[0], -d[1], -d[2]];
         let right = norm(cross(f, [0.0, 1.0, 0.0]));
@@ -127,6 +127,20 @@ impl Camera {
     pub fn orbit(&mut self, dyaw: f32, dpitch: f32) {
         self.yaw += dyaw;
         self.pitch = (self.pitch + dpitch).clamp(-1.5, 1.5);
+    }
+
+    /// Keep the eye above `floor` (the ground's top): the target no lower than it, the pitch no
+    /// lower than what holds the eye a little over it.
+    pub fn keep_above(&mut self, floor: f32) {
+        let margin = 0.05;
+        if self.target[1] < floor {
+            self.target[1] = floor;
+        }
+        let h = self.target[1] - (floor + margin);
+        let min_pitch = (-h / self.dist.max(0.01)).clamp(-1.0, 1.0).asin().max(-1.5);
+        if self.pitch < min_pitch {
+            self.pitch = min_pitch;
+        }
     }
 
     /// Move the target in the view plane (pan), by fractions of the view height.

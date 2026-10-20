@@ -1,0 +1,37 @@
+# archived 2026-10-20T00:29Z from designs/circuits/pext/work/n3-cascade-v1.txt by mctas circuit archive
+# CIRCUIT: pext-n3-cascade-v1 piston-extender 3 N 3, extend 38 gt, retract 42 gt, 26 blocks, 9x4x4, robust
+# N=3 CASCADE extender (wired): units [slime + sticky piston + observer under the slime] in a line
+# (A, unit B, unit C, payload). A unit that is moved fires its own piston 2 gt after landing, so the
+# pulse-toggle train C B C A B C needs only the three round starts from outside, all from the lever:
+# C at t4 (pulsers above-beside x5 and x7, quasi-connectivity), B at t12 (x3) then t14 (x4), A at
+# t26 (observer on A's top). Pulsers sit diagonal to the slime cells so no slime ever drags them.
+name: pext-n3-cascade-v1
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 6 2 2 lever
+port payload: 6 1 0
+palette:
+  L minecraft:lever[face=wall,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  P minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  G minecraft:gold_block
+  U minecraft:observer[facing=up]
+  E minecraft:observer[facing=east]
+  W minecraft:observer[facing=west]
+  s minecraft:observer[facing=south]
+layer 0:
+  ..O.O....
+layer 1:
+  .ASPSPG..
+layer 2:
+  .U.......
+  ...sss.s.
+  ...UWELW.
+  ......K..
+layer 3:
+  .Es......
+  ..EEO....
+  ...EEO...

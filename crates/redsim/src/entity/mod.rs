@@ -1,0 +1,366 @@
+//! Entities (redsim M2; docs: designs/clocks/tracks/clockinfra/REDSIM-FLUIDS-ENTITIES.md):
+//! boats, minecarts and item entities in ONE list, in insertion order (`entityTickList`), ticked
+//! in the entity phase of [`World::tick`] (after block events, before block entities).
+//!
+//! Ownership: clockinfra owns this module's core (`mod.rs`, `vec3.rs`, `mth.rs`, `collide.rs`,
+//! `fluid_push.rs`: `Entity.move`, collisions, `checkInsideBlocks`, fluid pushing); clk-misc owns
+//! the kinds (`boat.rs`, `minecart.rs`, `item.rs`: `AbstractBoat`, `AbstractMinecart`, ...) and
+//! the blocks that react to entities. The engine calls keep the game's names and order.
+//!
+//! STATUS: API skeleton. The list, its tick hook and the queries are live; `move_`,
+//! `check_inside_blocks` and `update_fluid_height_and_do_fluid_pushing` are stubs that record a
+//! model error (a run using them is not trustworthy) until M2 fills them. Falling blocks still
+//! live in `gravity.rs` (they move into this list as a kind in M2, bit-identical).
+
+pub mod armor_stand;
+pub mod boat;
+pub mod collide;
+pub mod fluid_push;
+pub mod item;
+pub mod kinds;
+pub mod minecart;
+pub mod mth;
+pub mod vec3;
+
+use crate::block::Block;
+use crate::pos::BlockPos;
+use crate::world::World;
+pub use vec3::{Aabb, Vec3};
+
+/// `MoverType`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MoverType {
+    Self_,
+    Player,
+    Piston,
+    ShulkerBox,
+    Shulker,
+}
+
+/// What an entity is; the kind's own state is its payload (owned by the kind's module).
+#[derive(Clone, PartialEq, Debug)]
+pub enum EntityKind {
+    Boat(boat::BoatState),
+    Minecart(minecart::MinecartState),
+    Item(item::ItemState),
+    ArmorStand(armor_stand::ArmorStandState),
+}
+
+impl EntityKind {
+    /// `EntityType.getDimensions`: (width, height).
+    pub fn dims(&self) -> (f32, f32) {
+        match self {
+            EntityKind::Boat(_) => (boat::WIDTH, boat::HEIGHT),
+            EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
+            EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
+            EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+        }
+    }
+
+    /// `EntityDimensions.eyeHeight` (`eyeHeight(..)` in `EntityTypes`, else height * 0.85F).
+    pub fn eye_height(&self) -> f32 {
+        match self {
+            EntityKind::Boat(_) => 0.5625,
+            EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
+            EntityKind::Item(_) => 0.2125,
+            EntityKind::ArmorStand(_) => 1.7775,
+        }
+    }
+}
+
+/// The `Entity` fields the engine reads and writes (the game's names).
+#[derive(Clone, PartialEq, Debug)]
+pub struct Entity {
+    /// Insertion order (the tick order); never reused.
+    pub id: u32,
+    pub kind: EntityKind,
+    /// `position()`.
+    pub pos: Vec3,
+    /// `getDeltaMovement()`.
+    pub delta_movement: Vec3,
+    pub y_rot: f32,
+    pub x_rot: f32,
+    pub y_rot_o: f32,
+    pub x_rot_o: f32,
+    /// `xo, yo, zo` (the position at the start of the tick).
+    pub xo: f64,
+    pub yo: f64,
+    pub zo: f64,
+    /// `xOld, yOld, zOld`.
+    pub x_old: f64,
+    pub y_old: f64,
+    pub z_old: f64,
+    /// `getBoundingBox()`.
+    pub bb: Aabb,
+    pub on_ground: bool,
+    pub horizontal_collision: bool,
+    pub vertical_collision: bool,
+    pub vertical_collision_below: bool,
+    pub minor_horizontal_collision: bool,
+    pub removed: bool,
+    pub was_touching_water: bool,
+    pub was_eye_in_water: bool,
+    /// `fluidHeight` per fluid tag: [water, lava].
+    pub fluid_height: [f64; 2],
+    pub first_tick: bool,
+    pub fall_distance: f64,
+    pub tick_count: i32,
+    // ---- movement (collide.rs, clk-misc) ----
+    /// `movementThisTick` (recorded by `move`, replayed by `applyEffectsFromBlocks`).
+    pub movement_this_tick: Vec<collide::Movement>,
+    /// `finalMovementsThisTick`.
+    pub final_movements: Vec<collide::Movement>,
+    /// `mainSupportingBlockPos`.
+    pub main_support: Option<BlockPos>,
+    /// `onGroundNoBlocks`.
+    pub on_ground_no_blocks: bool,
+    /// `stuckSpeedMultiplier` (cobwebs and the like: never set by a modeled block).
+    pub stuck_speed: Vec3,
+    pub no_physics: bool,
+    /// `lastKnownPosition` / `lastKnownSpeed` (`computeSpeed`).
+    pub last_known_position: Option<Vec3>,
+    pub last_known_speed: Vec3,
+    pub invulnerable_time: i32,
+    /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
+    pub fluid: fluid_push::FluidInteraction,
+}
+
+/// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
+pub fn make_bounding_box(pos: Vec3, width: f32, height: f32) -> Aabb {
+    let w = (width / 2.0) as f64;
+    let h = height as f64;
+    Aabb::new(pos.x - w, pos.y, pos.z - w, pos.x + w, pos.y + h, pos.z + w)
+}
+
+impl Entity {
+    /// A new entity at `pos` (as `EntityType.create` + `moveTo` would leave it).
+    pub fn new(id: u32, kind: EntityKind, pos: Vec3, y_rot: f32) -> Entity {
+        let (w, h) = kind.dims();
+        Entity {
+            id,
+            kind,
+            pos,
+            delta_movement: Vec3::ZERO,
+            y_rot,
+            x_rot: 0.0,
+            y_rot_o: y_rot,
+            x_rot_o: 0.0,
+            xo: pos.x,
+            yo: pos.y,
+            zo: pos.z,
+            x_old: pos.x,
+            y_old: pos.y,
+            z_old: pos.z,
+            bb: make_bounding_box(pos, w, h),
+            on_ground: false,
+            horizontal_collision: false,
+            vertical_collision: false,
+            vertical_collision_below: false,
+            minor_horizontal_collision: false,
+            removed: false,
+            was_touching_water: false,
+            was_eye_in_water: false,
+            fluid_height: [0.0; 2],
+            first_tick: true,
+            fall_distance: 0.0,
+            tick_count: 0,
+            movement_this_tick: Vec::new(),
+            final_movements: Vec::new(),
+            main_support: None,
+            on_ground_no_blocks: false,
+            stuck_speed: Vec3::ZERO,
+            no_physics: false,
+            last_known_position: None,
+            last_known_speed: Vec3::ZERO,
+            invulnerable_time: 0,
+            fluid: Default::default(),
+        }
+    }
+
+    /// `setPos`: the position and the bounding box made from it.
+    pub fn set_pos(&mut self, pos: Vec3) {
+        self.pos = pos;
+        let (w, h) = self.kind.dims();
+        self.bb = make_bounding_box(pos, w, h);
+    }
+
+    /// `blockPosition()`.
+    pub fn block_position(&self) -> BlockPos {
+        BlockPos::new(mth::floor(self.pos.x), mth::floor(self.pos.y), mth::floor(self.pos.z))
+    }
+}
+
+/// The level's entities, in insertion order.
+#[derive(Clone, Default, PartialEq, Debug)]
+pub struct Entities {
+    pub list: Vec<Entity>,
+    pub next_id: u32,
+}
+
+/// `summon <type> x y z [nbt]` as the judge summons a design's entities (`entity:` lines): the
+/// kind from the type id (payload defaults; the kinds' owners refine them from the NBT), the
+/// position, and `Rotation:[yaw, pitch]` from the NBT when given. Returns the entity's id.
+pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
+    let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    let kind = match id {
+        "oak_boat" | "spruce_boat" | "birch_boat" | "jungle_boat" | "acacia_boat" | "dark_oak_boat" | "mangrove_boat" | "cherry_boat" | "pale_oak_boat" | "bamboo_raft" => EntityKind::Boat(boat::BoatState::default()),
+        "oak_chest_boat" | "spruce_chest_boat" | "birch_chest_boat" | "jungle_chest_boat" | "acacia_chest_boat" | "dark_oak_chest_boat" | "mangrove_chest_boat" | "cherry_chest_boat" | "pale_oak_chest_boat" | "bamboo_chest_raft" => {
+            EntityKind::Boat(boat::BoatState::default())
+        }
+        "minecart" | "hopper_minecart" | "chest_minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
+        "armor_stand" => EntityKind::ArmorStand(armor_stand::ArmorStandState::default()),
+        "item" => EntityKind::Item(item::ItemState::default()),
+        _ => return Err(format!("entity {type_id} is not modeled by redsim")),
+    };
+    let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
+    if let Some(n) = nbt
+        && let Some(i) = n.find("Rotation:[")
+    {
+        let rest = &n[i + "Rotation:[".len()..];
+        let inner = rest.split(']').next().unwrap_or("");
+        let v: Vec<f32> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['f', 'F', 'd', 'D']).parse().ok()).collect();
+        if let Some(y) = v.first() {
+            yaw = *y;
+        }
+        if let Some(p) = v.get(1) {
+            pitch = *p;
+        }
+    }
+    let id = w.entities.add(kind, Vec3::new(pos[0], pos[1], pos[2]), yaw);
+    if let Some(e) = w.entities.list.last_mut() {
+        e.x_rot = pitch;
+        e.x_rot_o = pitch;
+    }
+    Ok(id)
+}
+
+impl Entities {
+    /// `addFreshEntity`: appended (ticked after every older entity). Returns its id.
+    pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.list.push(Entity::new(id, kind, pos, y_rot));
+        id
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.list.iter().all(|e| e.removed)
+    }
+}
+
+/// The entity phase: every live entity's `commonTick` then `tick` (`ServerLevel.tickNonPassenger`),
+/// in insertion order; removed ones leave the list.
+pub fn tick_all(w: &mut World) {
+    if w.entities.list.is_empty() {
+        return;
+    }
+    let n = w.entities.list.len();
+    for i in 0..n {
+        if w.entities.list[i].removed {
+            continue;
+        }
+        common_tick(w, i);
+        match w.entities.list[i].kind {
+            EntityKind::Boat(_) => boat::tick(w, i),
+            EntityKind::Minecart(_) => minecart::tick(w, i),
+            EntityKind::Item(_) => item::tick(w, i),
+            EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        }
+    }
+    w.entities.list.retain(|e| !e.removed);
+}
+
+/// `Entity.commonTick`: `invulnerableTime`, `setOldPosAndRot`, `tickCount`.
+pub fn common_tick(w: &mut World, i: usize) {
+    let e = &mut w.entities.list[i];
+    if e.invulnerable_time > 0 {
+        e.invulnerable_time -= 1;
+    }
+    e.xo = e.pos.x;
+    e.x_old = e.pos.x;
+    e.yo = e.pos.y;
+    e.y_old = e.pos.y;
+    e.zo = e.pos.z;
+    e.z_old = e.pos.z;
+    e.y_rot_o = e.y_rot;
+    e.x_rot_o = e.x_rot;
+    e.tick_count += 1;
+}
+
+/// `Entity.baseTick` (no passengers, portals, fire or lava in the modeled worlds):
+/// `computeSpeed`, `wasEyeInWater`, `updateFluidInteraction`, `checkBelowWorld`, `firstTick`.
+pub fn base_tick(w: &mut World, i: usize) {
+    {
+        let e = &mut w.entities.list[i];
+        let last = *e.last_known_position.get_or_insert(e.pos);
+        e.last_known_speed = e.pos.subtract_v(last);
+        e.last_known_position = Some(e.pos);
+        // the previous tick's trackers
+        e.was_eye_in_water = e.fluid.eye_in_water();
+    }
+    fluid_push::update_fluid_interaction(w, i);
+    let e = &mut w.entities.list[i];
+    // `checkBelowWorld`: below the world's bottom by 64
+    if e.pos.y < (crate::gravity::MIN_Y - 64) as f64 {
+        e.removed = true;
+    }
+    e.first_tick = false;
+}
+
+/// `Entity.move(type, delta)` of entity `i` (index in the list): `collide::move_`.
+pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
+    collide::move_(w, i, mover, delta);
+}
+
+/// `Entity.applyEffectsFromBlocks()` of entity `i`: `collide::apply_effects_from_blocks`.
+pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
+    collide::apply_effects_from_blocks(w, i);
+}
+
+/// `CollisionGetter.noCollision(entity, box)`.
+pub fn no_collision(w: &World, i: usize, bb: Aabb) -> bool {
+    collide::no_collision(w, i, bb)
+}
+
+/// `Entity.updateFluidInteraction` (the old name `updateFluidHeightAndDoFluidPushing`): see
+/// [`fluid_push::update_fluid_interaction`]; the fluid and scale are the game's (water, 0.014).
+pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
+    fluid_push::update_fluid_interaction(w, i)
+}
+
+impl World {
+    /// The block collision boxes that intersect `bb` (`BlockCollisions` with the empty collision
+    /// context: every cell from floor(min - 1e-7) - 1 to floor(max + 1e-7) + 1, each block's
+    /// `behavior::collision_boxes` moved to its cell). Moving pistons and context-dependent shapes
+    /// (scaffolding) come in M2.
+    pub fn collision_shapes(&self, bb: Aabb) -> Vec<Aabb> {
+        let lo = |v: f64| mth::floor(v - 1.0e-7) - 1;
+        let hi = |v: f64| mth::floor(v + 1.0e-7) + 1;
+        let mut out = Vec::new();
+        for y in lo(bb.min_y)..=hi(bb.max_y) {
+            for z in lo(bb.min_z)..=hi(bb.max_z) {
+                for x in lo(bb.min_x)..=hi(bb.max_x) {
+                    let p = BlockPos::new(x, y, z);
+                    let b = self.get(p);
+                    if matches!(b, Block::Air) {
+                        continue;
+                    }
+                    for c in crate::behavior::collision_boxes(&b) {
+                        let f = |v: i32| v as f64 / 16.0;
+                        let a = Aabb::new(x as f64 + f(c[0]), y as f64 + f(c[2]), z as f64 + f(c[4]), x as f64 + f(c[1]), y as f64 + f(c[3]), z as f64 + f(c[5]));
+                        if a.intersects(bb) {
+                            out.push(a);
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// `getEntities(except none, bb, filter)`: the live entities whose box intersects `bb`, in
+    /// list order (indices into `entities.list`).
+    pub fn get_entities(&self, bb: Aabb, filter: impl Fn(&Entity) -> bool) -> Vec<usize> {
+        self.entities.list.iter().enumerate().filter(|(_, e)| !e.removed && e.bb.intersects(bb) && filter(e)).map(|(i, _)| i).collect()
+    }
+}

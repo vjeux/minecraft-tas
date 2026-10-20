@@ -1,0 +1,19 @@
+# archived 2026-10-20T00:43Z from /tmp/gen/arch5/climb2-p468-1.txt by mctas clock archive
+# CLOCK: clk-sculk-climb2-p468-1 period 468 gt (23.4 s), on 330/468, edges 11, warmup 95, family note_block+oak_trapdoor+observer+sculk_sensor+sticky_piston, 7 blocks, 4x1x3, robust
+# Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design (climb from clk-sculk-hyb3-p468-1 (walker 3))
+name: clk-sculk-climb2-p468-1
+# how: climb from clk-sculk-hyb3-p468-1 (walker 3)
+port output: 0 0 0
+port start: 0 0 2 minecraft:redstone_block 1
+origin: 0 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  SAAO
+  ..o
+  .sN

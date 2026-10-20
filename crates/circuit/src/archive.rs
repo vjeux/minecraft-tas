@@ -400,7 +400,8 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
         let Some(b) = rep.base().filter(|_| rep.pass) else {
             bail!("extend family {}: n = {n}: {}", f.id, rep.summary(&c));
         };
-        let ax = axis(kind, &b.outcome, &b.family);
+        // the member's own kind: its argument is the axis of `piston-extender N` / `counter N`
+        let ax = axis(c.kind.as_ref().unwrap_or(kind), &b.outcome, &b.family);
         let (want_a, want_b) = (f.period.eval(n), f.blocks.eval(n));
         if axis_number(&ax) != Some(want_a) || c.blocks() as i64 != want_b {
             bail!("extend family {}: n = {n}: {ax}, {} blocks; the formulas say {} = {want_a}, {want_b} blocks", f.id, c.blocks(), axis_label(&ax).0);

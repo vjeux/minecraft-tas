@@ -1,0 +1,31 @@
+name: rt-boat-ice
+# redsim test scene (not a clock): a boat thrown diagonally on packed ice (friction 0.98) into two walls, over an oak
+# pressure plate and a tripwire on the way (axis order with |z| > |x|, plates and strings pressed by a sliding boat).
+entity: minecraft:oak_boat 1.0 1.0 1.0 {Motion:[0.35d,0.0d,0.6d]}
+palette:
+  I minecraft:packed_ice
+  S minecraft:stone
+  P minecraft:oak_pressure_plate[powered=false]
+  H minecraft:tripwire_hook[attached=true,facing=east,powered=false]
+  K minecraft:tripwire_hook[attached=true,facing=west,powered=false]
+  T minecraft:tripwire[attached=true,disarmed=false,east=true,north=false,powered=false,south=false,west=true]
+layer 0:
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  IIIIIII
+  SSSSSSS
+layer 1:
+  ......S
+  ......S
+  ..P...S
+  ......S
+  .......
+  HTTTTKS
+  ......S
+  ......S
+  SSSSSSS

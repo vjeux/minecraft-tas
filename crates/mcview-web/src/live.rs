@@ -1,8 +1,9 @@
-//! The live viewer: its own WebGL2 context on the element's canvas, a control bar (reset, play /
-//! pause, step one game tick, speed, flip the lever, the tick counter in gt and seconds), and the
-//! pointer: drag to orbit, right-drag / shift-drag to pan, wheel to zoom, click a lever or button
-//! to use it, double-click to reset the view. Keys: space play/pause, right arrow or `.` step,
-//! `r` reset, `f` flip.
+//! The live viewer: its own WebGL2 context on the element's canvas, a touch-sized control bar
+//! (reset, play / pause, one game tick, speed, flip the lever, the tick counter in gt and seconds)
+//! and gestures: one finger or the mouse drags to orbit, two fingers pinch to zoom and drag to pan
+//! (right-drag / shift-drag with a mouse), the wheel zooms, a tap or click on a lever or button
+//! uses it, a double tap / double click resets the view. Keys: space play/pause, right arrow or
+//! `.` step, `r` reset, `f` flip.
 
 use crate::gpu::Gpu;
 use crate::{App, document, ensure_frame, log, with_app};
@@ -10,41 +11,98 @@ use mcview::player::Player;
 use mcview::render::Frame;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
-use web_sys::{HtmlButtonElement, HtmlElement, HtmlSelectElement, KeyboardEvent, PointerEvent, WheelEvent};
+use web_sys::{HtmlButtonElement, HtmlElement, KeyboardEvent, PointerEvent, WheelEvent};
 
-struct Drag {
+/// A pointer down on the canvas (finger, pen or mouse).
+struct Touch {
+    id: i32,
     x: f64,
     y: f64,
-    moved: bool,
-    pan: bool,
+    /// Where it went down (a tap moves less than a few pixels).
+    sx: f64,
+    sy: f64,
 }
 
 pub struct Live {
     gpu: Option<Gpu>,
     player: Option<Player>,
     label: HtmlElement,
+    bar: HtmlElement,
     status: HtmlElement,
     play: HtmlButtonElement,
     flip: HtmlButtonElement,
-    drag: Option<Drag>,
+    speed: HtmlButtonElement,
+    speed_i: usize,
+    touches: Vec<Touch>,
+    /// The current gesture moved (orbit, pan, pinch): not a tap.
+    moved: bool,
+    /// Mouse right-drag or shift-drag: pan instead of orbit.
+    pan_button: bool,
+    /// Two-finger gesture: last finger distance and midpoint.
+    pinch: Option<(f64, f64, f64)>,
+    /// When the last tap ended (ms), for double taps.
+    last_tap: f64,
     last_ts: Option<f64>,
     redraw: bool,
 }
 
-const SPEEDS: [(&str, f32); 8] = [("1/4x", 5.0), ("1/2x", 10.0), ("1x (20 gt/s)", 20.0), ("2x", 40.0), ("5x", 100.0), ("20x", 400.0), ("100x", 2000.0), ("1 gt/s", 1.0)];
+/// Speeds the speed button cycles through: label, game ticks per second.
+const SPEEDS: [(&str, f32); 7] = [("1×", 20.0), ("2×", 40.0), ("5×", 100.0), ("20×", 400.0), ("100×", 2000.0), ("¼×", 5.0), ("½×", 10.0)];
 
 fn el(tag: &str) -> HtmlElement {
     document().create_element(tag).unwrap().dyn_into().unwrap()
 }
 
-fn button(text: &str, title: &str) -> HtmlButtonElement {
-    let b: HtmlButtonElement = document().create_element("button").unwrap().dyn_into().unwrap();
-    b.set_text_content(Some(text));
-    b.set_title(title);
-    let s = b.style();
-    for (k, v) in [("background", "rgba(255,255,255,0.12)"), ("color", "#fff"), ("border", "1px solid rgba(255,255,255,0.25)"), ("border-radius", "4px"), ("padding", "2px 8px"), ("font", "inherit"), ("cursor", "pointer")] {
+fn style(e: &HtmlElement, props: &[(&str, &str)]) {
+    let s = e.style();
+    for (k, v) in props {
         let _ = s.set_property(k, v);
     }
+}
+
+/// Inline SVG icons (glyphs like ⏭ are missing from many fonts).
+const ICON_PLAY: &str = "M8 5v14l11-7z";
+const ICON_PAUSE: &str = "M6 5h4v14H6zM14 5h4v14h-4z";
+const ICON_STEP: &str = "M5 5v14l9-7zM15 5h3v14h-3z";
+const ICON_RESET: &str = "M12 5V1.5L7 6l5 4.5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z";
+const ICON_LEVER: &str = "M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z";
+
+fn icon(path: &str) -> String {
+    format!("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\" style=\"display:block\"><path d=\"{path}\"/></svg>")
+}
+
+/// A touch-sized (44 px) button showing an icon (an SVG path) or a short text.
+fn button(content: &str, title: &str) -> HtmlButtonElement {
+    let b: HtmlButtonElement = document().create_element("button").unwrap().dyn_into().unwrap();
+    if content.starts_with('M') {
+        b.set_inner_html(&icon(content));
+    } else {
+        b.set_text_content(Some(content));
+    }
+    b.set_title(title);
+    let _ = b.set_attribute("aria-label", title);
+    style(
+        b.unchecked_ref(),
+        &[
+            ("min-width", "44px"),
+            ("height", "44px"),
+            ("padding", "0 10px"),
+            ("flex", "0 0 auto"),
+            ("display", "inline-flex"),
+            ("align-items", "center"),
+            ("justify-content", "center"),
+            ("background", "rgba(20,22,28,0.72)"),
+            ("color", "#fff"),
+            ("border", "1px solid rgba(255,255,255,0.22)"),
+            ("border-radius", "12px"),
+            ("font", "600 18px/1 system-ui, sans-serif"),
+            ("cursor", "pointer"),
+            ("pointer-events", "auto"),
+            ("touch-action", "manipulation"),
+            ("-webkit-tap-highlight-color", "transparent"),
+            ("user-select", "none"),
+        ],
+    );
     b
 }
 
@@ -69,6 +127,15 @@ fn on<E: JsCast + wasm_bindgen::convert::FromWasmAbi + 'static>(target: &web_sys
     cb.forget();
 }
 
+/// A button that runs `f` on the live view, then draws.
+fn on_click(b: &HtmlButtonElement, id: u32, f: fn(&mut Live)) {
+    on(b, "click", move |e: web_sys::Event| {
+        e.stop_propagation();
+        with_live(id, |l, _, _| f(l));
+        ensure_frame();
+    });
+}
+
 /// Build the controls, start the WebGL2 context and the design's fetch.
 pub fn start(app: &mut App, id: u32) {
     let v = app.views.get_mut(&id).unwrap();
@@ -76,93 +143,122 @@ pub fn start(app: &mut App, id: u32) {
     let _ = root.set_attribute("tabindex", "0");
     let _ = root.style().set_property("outline", "none");
     let bar = el("div");
-    let bs = bar.style();
-    for (k, val) in [
-        ("position", "absolute"),
-        ("left", "0"),
-        ("right", "0"),
-        ("bottom", "0"),
-        ("display", "flex"),
-        ("gap", "6px"),
-        ("align-items", "center"),
-        ("flex-wrap", "wrap"),
-        ("padding", "6px 8px"),
-        ("background", "linear-gradient(transparent, rgba(0,0,0,0.65))"),
-        ("color", "#fff"),
-        ("font", "12px system-ui, sans-serif"),
-        ("z-index", "2"),
-    ] {
-        let _ = bs.set_property(k, val);
-    }
-    let reset = button("⟲", "back to the placed state (r)");
-    let play = button("▶", "play / pause (space)");
-    let step = button("⏭ 1 gt", "one game tick (right arrow)");
-    let flip = button("flip lever", "flip the lever (f), or click a lever");
-    let speed: HtmlSelectElement = document().create_element("select").unwrap().dyn_into().unwrap();
-    for (i, (name, _)) in SPEEDS.iter().enumerate() {
-        let o: web_sys::HtmlOptionElement = document().create_element("option").unwrap().dyn_into().unwrap();
-        o.set_text(name);
-        o.set_value(&i.to_string());
-        let _ = speed.append_child(&o);
-    }
-    speed.set_value("2");
-    let ss = speed.style();
-    for (k, val) in [("background", "rgba(0,0,0,0.4)"), ("color", "#fff"), ("border", "1px solid rgba(255,255,255,0.25)"), ("border-radius", "4px"), ("font", "inherit")] {
-        let _ = ss.set_property(k, val);
-    }
-    let label = el("span");
-    let _ = label.style().set_property("font-variant-numeric", "tabular-nums");
-    let status = el("span");
-    let _ = status.style().set_property("opacity", "0.8");
-    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref(), &label, &status] {
+    style(
+        &bar,
+        &[
+            ("position", "absolute"),
+            ("left", "0"),
+            ("right", "0"),
+            ("bottom", "0"),
+            ("display", "flex"),
+            ("gap", "6px"),
+            ("align-items", "center"),
+            ("flex-wrap", "nowrap"),
+            ("padding", "8px"),
+            ("height", "60px"),
+            ("overflow", "hidden"),
+            // only the buttons take the pointer: a tap on the scene behind the bar (a lever near
+            // the bottom of the view) reaches the canvas
+            ("pointer-events", "none"),
+            ("background", "linear-gradient(transparent, rgba(0,0,0,0.55))"),
+            ("color", "#fff"),
+            ("font", "13px system-ui, sans-serif"),
+            ("z-index", "2"),
+            ("box-sizing", "border-box"),
+        ],
+    );
+    let reset = button(ICON_RESET, "Back to the start (r)");
+    let play = button(ICON_PLAY, "Play / pause (space)");
+    let _ = play.style().set_property("min-width", "52px");
+    let step = button(ICON_STEP, "One game tick (→)");
+    let speed = button(SPEEDS[0].0, "Speed (1× = 20 game ticks per second, real time)");
+    let _ = speed.style().set_property("font-size", "15px");
+    let flip = button(ICON_LEVER, "Flip the lever (f), or tap the lever");
+    // the tick counter: a badge at the top right, fixed width (tabular digits), so nothing moves
+    // while it runs and the bar's buttons fit a phone
+    let label = el("div");
+    style(
+        &label,
+        &[
+            ("position", "absolute"),
+            ("right", "8px"),
+            ("top", "8px"),
+            ("min-width", "17ch"),
+            ("height", "20px"),
+            ("line-height", "20px"),
+            ("padding", "0 8px"),
+            ("box-sizing", "content-box"),
+            ("border-radius", "8px"),
+            ("background", "rgba(0,0,0,0.45)"),
+            ("color", "#fff"),
+            ("font", "13px system-ui, sans-serif"),
+            ("font-variant-numeric", "tabular-nums"),
+            ("text-align", "right"),
+            ("white-space", "nowrap"),
+            ("pointer-events", "none"),
+            ("z-index", "2"),
+        ],
+    );
+    label.set_text_content(Some("0 gt · 0.00 s"));
+    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref()] {
         let _ = bar.append_child(c);
     }
     let _ = root.append_child(&bar);
+    let _ = root.append_child(&label);
     let _ = flip.style().set_property("display", "none");
-    v.live = Some(Live { gpu: None, player: None, label, status, play: play.clone(), flip: flip.clone(), drag: None, last_ts: None, redraw: true });
+    // what is shown: redsim, a recording, or the design as built
+    let status = el("div");
+    style(
+        &status,
+        &[
+            ("position", "absolute"),
+            ("left", "8px"),
+            ("top", "8px"),
+            ("max-width", "calc(100% - 200px)"),
+            ("height", "20px"),
+            ("line-height", "20px"),
+            ("padding", "0 8px"),
+            ("border-radius", "8px"),
+            ("background", "rgba(0,0,0,0.45)"),
+            ("color", "#fff"),
+            ("font", "12px system-ui, sans-serif"),
+            ("white-space", "nowrap"),
+            ("overflow", "hidden"),
+            ("text-overflow", "ellipsis"),
+            ("pointer-events", "none"),
+            ("z-index", "2"),
+        ],
+    );
+    let _ = root.append_child(&status);
+    v.live = Some(Live {
+        gpu: None,
+        player: None,
+        label,
+        bar: bar.clone(),
+        status,
+        play: play.clone(),
+        flip: flip.clone(),
+        speed: speed.clone(),
+        speed_i: 0,
+        touches: Vec::new(),
+        moved: false,
+        pan_button: false,
+        pinch: None,
+        last_tap: -1e9,
+        last_ts: None,
+        redraw: true,
+    });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
-    // controls
-    on(&reset, "click", move |_: web_sys::Event| {
-        with_live(id, |l, _, _| {
-            if let Some(p) = l.player.as_mut() {
-                p.reset();
-                l.redraw = true;
-            }
-        });
-        ensure_frame();
-    });
-    on(&play, "click", move |_: web_sys::Event| {
-        with_live(id, |l, _, _| l.toggle_play());
-        ensure_frame();
-    });
-    on(&step, "click", move |_: web_sys::Event| {
-        with_live(id, |l, _, _| l.step());
-        ensure_frame();
-    });
-    on(&flip, "click", move |_: web_sys::Event| {
-        with_live(id, |l, _, _| {
-            if let Some(p) = l.player.as_mut() {
-                p.flip();
-                l.redraw = true;
-            }
-        });
-        ensure_frame();
-    });
-    let sp = speed.clone();
-    on(&speed, "change", move |_: web_sys::Event| {
-        let i: usize = sp.value().parse().unwrap_or(2);
-        with_live(id, |l, _, _| {
-            if let Some(p) = l.player.as_mut() {
-                p.tps = SPEEDS[i.min(SPEEDS.len() - 1)].1;
-            }
-        });
-    });
-    // pointer
+    on_click(&reset, id, |l| l.reset());
+    on_click(&play, id, |l| l.toggle_play());
+    on_click(&step, id, |l| l.step());
+    on_click(&flip, id, |l| l.flip());
+    on_click(&speed, id, |l| l.next_speed());
+    // gestures
     on(&canvas, "pointerdown", move |e: PointerEvent| {
-        let pan = e.button() != 0 || e.shift_key();
         with_live(id, |l, _, v| {
-            l.drag = Some(Drag { x: e.client_x() as f64, y: e.client_y() as f64, moved: false, pan });
+            l.pointer_down(&e);
             let _ = v.canvas.set_pointer_capture(e.pointer_id());
             let _ = v.el.focus();
         });
@@ -173,26 +269,21 @@ pub fn start(app: &mut App, id: u32) {
         ensure_frame();
     });
     on(&canvas, "pointerup", move |e: PointerEvent| {
-        with_live(id, |l, atlas, v| l.pointer_up(&e, atlas, v));
+        with_live(id, |l, atlas, v| l.pointer_up(&e, atlas, v, true));
+        ensure_frame();
+    });
+    on(&canvas, "pointercancel", move |e: PointerEvent| {
+        with_live(id, |l, atlas, v| l.pointer_up(&e, atlas, v, false));
         ensure_frame();
     });
     on(&canvas, "wheel", move |e: WheelEvent| {
         e.prevent_default();
-        with_live(id, |l, _, _| {
-            if let Some(p) = l.player.as_mut() {
-                p.camera.dist = (p.camera.dist * (e.delta_y() as f32 * 0.0015).exp()).clamp(1.0, 2000.0);
-                l.redraw = true;
-            }
-        });
+        with_live(id, |l, _, _| l.zoom((e.delta_y() as f32 * 0.0015).exp()));
         ensure_frame();
     });
-    on(&canvas, "dblclick", move |_: web_sys::Event| {
-        with_live(id, |l, _, _| {
-            if let Some(p) = l.player.as_mut() {
-                p.camera = p.home;
-                l.redraw = true;
-            }
-        });
+    on(&canvas, "dblclick", move |e: web_sys::MouseEvent| {
+        e.prevent_default();
+        with_live(id, |l, _, _| l.home());
         ensure_frame();
     });
     on(&canvas, "contextmenu", move |e: web_sys::Event| e.prevent_default());
@@ -201,18 +292,8 @@ pub fn start(app: &mut App, id: u32) {
             match e.key().as_str() {
                 " " => l.toggle_play(),
                 "ArrowRight" | "." => l.step(),
-                "r" => {
-                    if let Some(p) = l.player.as_mut() {
-                        p.reset();
-                        l.redraw = true;
-                    }
-                }
-                "f" => {
-                    if let Some(p) = l.player.as_mut() {
-                        p.flip();
-                        l.redraw = true;
-                    }
-                }
+                "r" => l.reset(),
+                "f" => l.flip(),
                 _ => return false,
             }
             true
@@ -254,6 +335,7 @@ pub fn load(app: &mut App, id: u32) {
         return;
     }
     let el = v.el.clone();
+    let has_trace = v.trace.is_some();
     let text = match app.text_of(id) {
         None => return,
         Some(Err(e)) => {
@@ -264,6 +346,15 @@ pub fn load(app: &mut App, id: u32) {
             return;
         }
         Some(Ok(t)) => t,
+    };
+    // a recording to play (data-trace): wait for it too; without it the design is shown as built
+    let trace = if has_trace {
+        match app.trace_of(id) {
+            None => return,
+            Some(r) => Some(r),
+        }
+    } else {
+        None
     };
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
@@ -279,23 +370,48 @@ pub fn load(app: &mut App, id: u32) {
                 let (lo, hi) = mcview::scene::frame_bounds(&p.session, &p.look);
                 p.camera.fit(lo, hi, aspect, 0.85);
                 p.home = p.camera;
+            } else {
+                p.show_inputs(&app.atlas, aspect);
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
             }
-            let l = v.live.as_mut().unwrap();
-            if p.session.mode.is_door() || !p.session.inputs.is_empty() {
-                let _ = l.flip.style().set_property("display", "inline-block");
+            let mut trace_note = None;
+            match trace {
+                Some(Ok(tt)) => match p.session.attach_trace(&tt) {
+                    Ok(()) => {
+                        p.look = mcview::scene::default_look(&p.session);
+                        p.look.lit_marker = true;
+                        p.invalidate();
+                        let r = p.session.replay.as_ref().unwrap();
+                        trace_note = Some(format!("recorded in the game · {} gt loop", r.period));
+                    }
+                    Err(e) => trace_note = Some(format!("recording unreadable: {e}")),
+                },
+                Some(Err(e)) => trace_note = Some(format!("recording unavailable: {e}")),
+                None => {}
             }
-            match &p.session.unsimulated {
-                Some(why) => l.status.set_text_content(Some(&format!("shown as built, not simulated: {why}"))),
-                None => l.status.set_text_content(Some(match p.session.mode {
-                    mcview::Mode::Door { .. } => "redsim · click the lever",
-                    _ => "redsim",
+            let l = v.live.as_mut().unwrap();
+            if p.session.simulated() && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
+                let _ = l.flip.style().set_property("display", "inline-flex");
+            }
+            if !p.session.playable() {
+                l.play.set_disabled(true);
+                let _ = l.play.style().set_property("opacity", "0.4");
+            }
+            match (&trace_note, &p.session.unsimulated) {
+                (Some(n), _) => l.status.set_text_content(Some(n)),
+                (None, Some(why)) => l.status.set_text_content(Some(&format!("shown as built, not simulated: {why}"))),
+                (None, None) => l.status.set_text_content(Some(match p.session.mode {
+                    mcview::Mode::Door { .. } => "simulated by redsim · tap the lever",
+                    _ => "simulated by redsim",
                 })),
             }
             l.player = Some(p);
             l.redraw = true;
+            if v.autoplay {
+                l.toggle_play();
+            }
         }
         Err(e) => {
             let el = v.el.clone();
@@ -326,6 +442,34 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 Err(e) => log(&e),
             }
             l.label.set_text_content(Some(&p.label()));
+            if crate::debug() {
+                // for `mctas web layout`: nothing may move while the counter runs
+                let r = |e: &HtmlElement| {
+                    let b = e.get_bounding_client_rect();
+                    format!("{:.1},{:.1},{:.1},{:.1}", b.x(), b.y(), b.width(), b.height())
+                };
+                log(&format!("layout view {id} tick {} el {} bar {} label {} status {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status)));
+                // for `mctas web click`: where a click uses each input (fractions of the canvas),
+                // and what the sim shows
+                let cr = v.canvas.get_bounding_client_rect();
+                let aspect = (cr.width() / cr.height().max(1.0)) as f32;
+                let inputs: Vec<String> = p
+                    .session
+                    .inputs
+                    .clone()
+                    .iter()
+                    .map(|c| {
+                        let on = p.session.is_on(*c) as u8;
+                        match p.screen_point(&atlas, *c, aspect) {
+                            Some((x, y)) => format!("{:.4},{:.4},{on}", (x + 1.0) / 2.0, (1.0 - y) / 2.0),
+                            None => format!("-,-,{on}"),
+                        }
+                    })
+                    .collect();
+                let door = p.session.door_blocks().map(|n| n.to_string()).unwrap_or_else(|| "-".into());
+                let active = p.session.design.blocks.keys().filter(|c| !p.session.inputs.contains(c) && p.session.is_on(**c)).count();
+                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
+            }
         }
         p.playing
     };
@@ -338,8 +482,11 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
 impl Live {
     fn toggle_play(&mut self) {
         if let Some(p) = self.player.as_mut() {
+            if !p.session.playable() {
+                return;
+            }
             p.playing = !p.playing;
-            self.play.set_text_content(Some(if p.playing { "⏸" } else { "▶" }));
+            self.play.set_inner_html(&icon(if p.playing { ICON_PAUSE } else { ICON_PLAY }));
             self.last_ts = None;
             self.redraw = true;
         }
@@ -348,8 +495,57 @@ impl Live {
     fn step(&mut self) {
         if let Some(p) = self.player.as_mut() {
             p.playing = false;
-            self.play.set_text_content(Some("▶"));
+            self.play.set_inner_html(&icon(ICON_PLAY));
             p.step();
+            self.redraw = true;
+        }
+    }
+
+    fn reset(&mut self) {
+        if let Some(p) = self.player.as_mut() {
+            p.reset();
+            self.redraw = true;
+        }
+    }
+
+    fn flip(&mut self) {
+        if let Some(p) = self.player.as_mut()
+            && p.flip()
+        {
+            self.redraw = true;
+            self.play_after_input();
+        }
+    }
+
+    /// After using a lever or button: run the simulation so it reacts (a door opens).
+    fn play_after_input(&mut self) {
+        if self.player.as_ref().is_some_and(|p| !p.playing) {
+            self.toggle_play();
+        }
+    }
+
+    fn next_speed(&mut self) {
+        self.speed_i = (self.speed_i + 1) % SPEEDS.len();
+        let (name, tps) = SPEEDS[self.speed_i];
+        self.speed.set_text_content(Some(name));
+        self.speed.set_title(&format!("Speed: {name} = {tps} game ticks per second"));
+        if let Some(p) = self.player.as_mut() {
+            p.tps = tps;
+        }
+    }
+
+    fn home(&mut self) {
+        if let Some(p) = self.player.as_mut() {
+            p.camera = p.home;
+            self.redraw = true;
+        }
+    }
+
+    /// Zoom by a distance factor (> 1: farther).
+    fn zoom(&mut self, f: f32) {
+        if let Some(p) = self.player.as_mut() {
+            p.camera.dist = (p.camera.dist * f).clamp(1.0, 2000.0);
+            p.keep_camera_above_ground();
             self.redraw = true;
         }
     }
@@ -358,34 +554,81 @@ impl Live {
         self.redraw = true;
     }
 
-    fn pointer_move(&mut self, e: &PointerEvent, v: &crate::View) {
-        let Some(d) = self.drag.as_mut() else { return };
+    fn pointer_down(&mut self, e: &PointerEvent) {
         let (x, y) = (e.client_x() as f64, e.client_y() as f64);
-        let (dx, dy) = (x - d.x, y - d.y);
-        if dx.abs() + dy.abs() > 3.0 {
-            d.moved = true;
+        self.touches.retain(|t| t.id != e.pointer_id());
+        self.touches.push(Touch { id: e.pointer_id(), x, y, sx: x, sy: y });
+        match self.touches.len() {
+            1 => {
+                self.moved = false;
+                self.pan_button = e.button() != 0 || e.shift_key();
+                self.pinch = None;
+            }
+            _ => {
+                // two fingers: pinch and pan, never a tap
+                self.moved = true;
+                self.pinch = Some(self.two_finger());
+            }
         }
-        if !d.moved {
-            return;
-        }
-        d.x = x;
-        d.y = y;
+    }
+
+    /// The first two pointers' distance and midpoint.
+    fn two_finger(&self) -> (f64, f64, f64) {
+        let (a, b) = (&self.touches[0], &self.touches[1]);
+        (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt().max(1.0), (a.x + b.x) / 2.0, (a.y + b.y) / 2.0)
+    }
+
+    fn pointer_move(&mut self, e: &PointerEvent, v: &crate::View) {
+        let Some(i) = self.touches.iter().position(|t| t.id == e.pointer_id()) else { return };
+        let (x, y) = (e.client_x() as f64, e.client_y() as f64);
+        let (dx, dy) = (x - self.touches[i].x, y - self.touches[i].y);
+        self.touches[i].x = x;
+        self.touches[i].y = y;
         let h = v.el.get_bounding_client_rect().height().max(1.0);
-        if let Some(p) = self.player.as_mut() {
-            if d.pan {
+        let Some(p) = self.player.as_mut() else { return };
+        if self.touches.len() >= 2 {
+            let (d0, mx0, my0) = self.pinch.unwrap_or((1.0, x, y));
+            let (a, b) = (&self.touches[0], &self.touches[1]);
+            let (d1, mx1, my1) = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt().max(1.0), (a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
+            p.camera.dist = (p.camera.dist * (d0 / d1) as f32).clamp(1.0, 2000.0);
+            p.camera.pan(((mx1 - mx0) / h) as f32, ((my1 - my0) / h) as f32);
+            self.pinch = Some((d1, mx1, my1));
+        } else {
+            let t = &self.touches[i];
+            if (t.x - t.sx).abs() + (t.y - t.sy).abs() > 6.0 {
+                self.moved = true;
+            }
+            if !self.moved {
+                return;
+            }
+            if self.pan_button {
                 p.camera.pan((dx / h) as f32, (dy / h) as f32);
             } else {
                 p.camera.orbit(-(dx as f32) * 0.008, (dy as f32) * 0.008);
             }
-            self.redraw = true;
         }
+        p.keep_camera_above_ground();
+        self.redraw = true;
     }
 
-    fn pointer_up(&mut self, e: &PointerEvent, atlas: &mcview::atlas::Atlas, v: &crate::View) {
-        let Some(d) = self.drag.take() else { return };
-        if d.moved {
+    /// A pointer lifted (`up`) or cancelled: a tap uses the lever or button under it; a double
+    /// tap resets the view.
+    fn pointer_up(&mut self, e: &PointerEvent, atlas: &mcview::atlas::Atlas, v: &crate::View, up: bool) {
+        let was_single = self.touches.len() == 1;
+        self.touches.retain(|t| t.id != e.pointer_id());
+        if self.touches.len() == 1 {
+            self.pinch = None;
+        }
+        if !up || !was_single || self.moved {
             return;
         }
+        let now = crate::window().performance().map(|p| p.now()).unwrap_or(0.0);
+        if e.pointer_type() == "touch" && now - self.last_tap < 320.0 {
+            self.last_tap = -1e9;
+            self.home();
+            return;
+        }
+        self.last_tap = now;
         let r = v.canvas.get_bounding_client_rect();
         let x = ((e.client_x() as f64 - r.left()) / r.width().max(1.0) * 2.0 - 1.0) as f32;
         let y = (1.0 - (e.client_y() as f64 - r.top()) / r.height().max(1.0) * 2.0) as f32;
@@ -394,6 +637,7 @@ impl Live {
             && p.click(atlas, x, y, aspect).is_some()
         {
             self.redraw = true;
+            self.play_after_input();
         }
     }
 }

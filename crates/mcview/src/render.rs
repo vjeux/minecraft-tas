@@ -3,7 +3,7 @@
 //! into any texture view: the browser's canvas surface (WebGL2) or, natively, an offscreen
 //! texture read back for PNG shots (Vulkan, headless).
 
-use crate::atlas::{Atlas, MIPS, SIZE};
+use crate::atlas::{Atlas, MIPS, TILE};
 use crate::camera::{Camera, Mat4};
 use crate::mesh::Vertex;
 use wgpu::util::DeviceExt;
@@ -18,7 +18,7 @@ struct U {
     inv_vp: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> u: U;
-@group(0) @binding(1) var tex: texture_2d<f32>;
+@group(0) @binding(1) var tex: texture_2d_array<f32>;
 @group(0) @binding(2) var samp: sampler;
 
 struct VOut {
@@ -26,15 +26,17 @@ struct VOut {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) world: vec3<f32>,
+    @location(3) @interpolate(flat) layer: u32,
 };
 
 @vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) uv: vec2<f32>, @location(2) color: vec4<f32>) -> VOut {
+fn vs(@location(0) pos: vec3<f32>, @location(1) uv: vec2<f32>, @location(2) layer: u32, @location(3) color: vec4<f32>) -> VOut {
     var o: VOut;
     o.pos = u.vp * vec4<f32>(pos, 1.0);
     o.uv = uv;
     o.color = color;
     o.world = pos;
+    o.layer = layer;
     return o;
 }
 
@@ -46,7 +48,7 @@ fn fogged(c: vec3<f32>, world: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
-    let t = textureSample(tex, samp, i.uv);
+    let t = textureSample(tex, samp, i.uv, i.layer);
     if (t.a < 0.5) {
         discard;
     }
@@ -55,7 +57,7 @@ fn fs_solid(i: VOut) -> @location(0) vec4<f32> {
 
 @fragment
 fn fs_blend(i: VOut) -> @location(0) vec4<f32> {
-    let t = textureSample(tex, samp, i.uv);
+    let t = textureSample(tex, samp, i.uv, i.layer);
     return vec4<f32>(fogged(t.rgb * i.color.rgb, i.world), t.a * i.color.a);
 }
 
@@ -154,9 +156,11 @@ impl Renderer {
     /// drawing with `samples` (1 or 4) samples per pixel.
     pub fn new(device: wgpu::Device, queue: wgpu::Queue, format: wgpu::TextureFormat, atlas: &Atlas, samples: u32) -> Renderer {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("mcview"), source: wgpu::ShaderSource::Wgsl(SHADER.into()) });
+        let layers = atlas.layers as u32;
+        let tile = TILE as u32;
         let tex = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("atlas"),
-            size: wgpu::Extent3d { width: SIZE as u32, height: SIZE as u32, depth_or_array_layers: 1 },
+            label: Some("tiles"),
+            size: wgpu::Extent3d { width: tile, height: tile, depth_or_array_layers: layers },
             mip_level_count: MIPS as u32,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -165,17 +169,19 @@ impl Renderer {
             view_formats: &[],
         });
         for (k, data) in atlas.mips.iter().enumerate() {
-            let s = (SIZE >> k) as u32;
+            let s = (tile >> k).max(1);
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: k as u32, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
                 data,
                 wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * s), rows_per_image: Some(s) },
-                wgpu::Extent3d { width: s, height: s, depth_or_array_layers: 1 },
+                wgpu::Extent3d { width: s, height: s, depth_or_array_layers: layers },
             );
         }
-        let view = tex.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = tex.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::D2Array), ..Default::default() });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("atlas"),
+            label: Some("tiles"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
@@ -187,7 +193,7 @@ impl Renderer {
             label: Some("mcview"),
             entries: &[
                 wgpu::BindGroupLayoutEntry { binding: 0, visibility: wgpu::ShaderStages::VERTEX_FRAGMENT, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
-                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 2, visibility: wgpu::ShaderStages::FRAGMENT, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
             ],
         });
@@ -207,7 +213,8 @@ impl Renderer {
             attributes: &[
                 wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 0 },
                 wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 12, shader_location: 1 },
-                wgpu::VertexAttribute { format: wgpu::VertexFormat::Unorm8x4, offset: 20, shader_location: 2 },
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Uint32, offset: 20, shader_location: 2 },
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Unorm8x4, offset: 24, shader_location: 3 },
             ],
         };
         let ms = wgpu::MultisampleState { count: samples, mask: !0, alpha_to_coverage_enabled: false };
@@ -294,12 +301,15 @@ impl Renderer {
         let vp = frame.camera.view_proj(aspect);
         let eye = frame.camera.eye();
         let d = frame.camera.dist;
+        // like the game at a long render distance: the ground stays green almost to the horizon,
+        // fogged out just before the far plane (and the floor's edge)
+        let fog_end = ((d * 8.0 + 200.0) * 0.95).min(480.0);
         let u = Uniforms {
             vp,
             eye: [eye[0], eye[1], eye[2], 1.0],
-            fog: [d * 1.6 + 8.0, d * 3.2 + 24.0, 0.0, 0.0],
-            sky_top: [0.47, 0.65, 1.0, 1.0],
-            sky_low: [0.73, 0.83, 1.0, 1.0],
+            fog: [fog_end * 0.6, fog_end, 0.0, 0.0],
+            sky_top: [0.55, 0.70, 1.0, 1.0],
+            sky_low: [0.70, 0.81, 1.0, 1.0],
             inv_vp: invert(&vp),
         };
         self.queue.write_buffer(&self.uniforms, 0, bytemuck::bytes_of(&u));

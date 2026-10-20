@@ -79,6 +79,115 @@ pub fn split_ticks(t: u32) -> Vec<u8> {
     v
 }
 
+/// An extendable family's card (docs/clocks.md "Extendable clocks", read by `circuit archive`).
+pub struct Card {
+    pub id: String,
+    pub axis: String,
+    pub blocks: String,
+    pub rule: String,
+    pub lo: u32,
+    pub hi: u32,
+    pub group: &'static str,
+    pub gtitle: &'static str,
+    pub gaxis: &'static str,
+    pub gnote: &'static str,
+}
+
+/// The track's extendable families: rep2 rep4 rep6 rep8, cmp, or5 or7 or9 or11, torch.
+pub const FAMILIES: [&str; 10] = ["rep2", "rep4", "rep6", "rep8", "cmp", "or5", "or7", "or9", "or11", "torch"];
+
+fn residue(name: &str, prefix: &str, allowed: &[u32]) -> Option<u32> {
+    let r: u32 = name.strip_prefix(prefix)?.parse().ok()?;
+    allowed.contains(&r).then_some(r)
+}
+
+/// The card of family `name`.
+pub fn card(name: &str) -> anyhow::Result<Card> {
+    let rep = ("delay-repeater-line", "repeater line", "N = 2 x the sum of the delays", "2 blocks (repeater + stone) per started 8 gt");
+    let or = ("delay-piston-or", "piston OR line (odd N)", "N = 3 + 2 x the tail's delays", "a sticky piston's 3/1 copy OR'ed with itself 2 gt later, then a repeater tail");
+    if let Some(r) = residue(name, "rep", &[2, 4, 6, 8]) {
+        return Ok(Card {
+            id: format!("delay-rep{r}"),
+            axis: format!("{r} + 8n"),
+            blocks: "2 + 2n".into(),
+            rule: "add one delay-4 repeater (on its stone) at the end".into(),
+            lo: 0,
+            hi: 10,
+            group: rep.0,
+            gtitle: rep.1,
+            gaxis: rep.2,
+            gnote: rep.3,
+        });
+    }
+    if let Some(b) = residue(name, "or", &[5, 7, 9, 11]) {
+        return Ok(Card {
+            id: format!("delay-piston-or{b}"),
+            axis: format!("{b} + 8n"),
+            blocks: "13 + 2n".into(),
+            rule: "add one delay-4 repeater (on its stone) at the end of the tail".into(),
+            lo: 0,
+            hi: 6,
+            group: or.0,
+            gtitle: or.1,
+            gaxis: or.2,
+            gnote: or.3,
+        });
+    }
+    match name {
+        "cmp" => Ok(Card {
+            id: "delay-cmp".into(),
+            axis: "2 + 2n".into(),
+            blocks: "2 + 2n".into(),
+            rule: "add one compare-mode comparator (on its stone) at the end".into(),
+            lo: 0,
+            hi: 10,
+            group: "",
+            gtitle: "",
+            gaxis: "",
+            gnote: "",
+        }),
+        "torch" => Ok(Card {
+            id: "delay-torch".into(),
+            axis: "6 + 4n".into(),
+            blocks: "6 + 4n".into(),
+            rule: "add two torches and two blocks to the tower".into(),
+            lo: 0,
+            hi: 4,
+            group: "",
+            gtitle: "",
+            gaxis: "",
+            gnote: "",
+        }),
+        _ => anyhow::bail!("unknown family {name:?} (one of {FAMILIES:?})"),
+    }
+}
+
+/// Member n of family `name` and its caption.
+pub fn member(name: &str, n: u32) -> anyhow::Result<(B, String)> {
+    let c = card(name)?;
+    let nm = format!("{}-n{n}", c.id);
+    if let Some(r) = residue(name, "rep", &[2, 4, 6, 8]) {
+        let mut d = vec![(r / 2) as u8];
+        d.extend(std::iter::repeat_n(4u8, n as usize));
+        let total = r + 8 * n;
+        return Ok((repeaters(&d, &nm), format!("Repeater line N = {total} gt (track delay, family {}: N = {} gt, n = {n}): a delay-{} repeater then {n} delay-4 repeater(s) in a row on stones, each reading the one before; N = 2 gt per redstone tick of delay", c.id, c.axis, r / 2)));
+    }
+    if let Some(b) = residue(name, "or", &[5, 7, 9, 11]) {
+        let mut t = vec![((b - 3) / 2) as u8];
+        t.extend(std::iter::repeat_n(4u8, n as usize));
+        let total = b + 8 * n;
+        return Ok((piston_or(&t, &nm), format!("Delay line N = {total} gt (track delay, family {}: N = {} gt, n = {n}): a sticky piston pushes a redstone block one cell (it arrives 3 gt after the input rises, leaves 1 gt after it falls); a dust next to its new cell is also fed 2 gt later by a repeater behind that cell (through a stone and two dusts): the OR of the 3/1 and 5/3 copies is a 3/3 delay; repeaters after the dust add the rest (delays {t:?})", c.id, c.axis)));
+    }
+    match name {
+        "cmp" => Ok((comparators(n as usize + 1, &nm), format!("Comparator line N = {} gt (track delay, family delay-cmp: N = 2 + 2n gt, n = {n}): {} compare-mode comparator(s) in a row on stones, 2 gt each; keeps pulses down to 2-3 gt", 2 + 2 * n, n + 1))),
+        "torch" => {
+            let k = 2 + 2 * n as usize;
+            Ok((torches(k, &nm), format!("Torch tower N = {} gt (track delay, family delay-torch: N = 6 + 4n gt, n = {n}): a repeater powers a block, {k} torches climb from it (each torch powers the block above it, the next torch stands on that block): N = 2 + 2 x {k} gt, non-inverting with an even count", 6 + 4 * n)))
+        }
+        _ => anyhow::bail!("unknown family {name:?}"),
+    }
+}
+
 /// A repeater reading the input powers block B0; a tower of k torches climbs from it (each torch
 /// strongly powers the block above it, the next torch stands on that block): N = 2 + 2k,
 /// non-inverting for even k.

@@ -31,6 +31,9 @@ pub fn collides(s: &Block) -> bool {
         | Block::Rail { .. } => false,
         // an open fence gate has no collision box
         Block::FenceGate { open, .. } => !open,
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => false,
+        Block::Water { .. } | Block::BubbleColumn { .. } => false,
         _ => true,
     }
 }
@@ -54,6 +57,8 @@ pub fn full_cube(s: &Block) -> bool {
         | Block::Falling { .. } => true,
         Block::Slab { kind } => kind == 2,
         Block::Piston { extended, .. } => !extended,
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::StoneSlab { kind } => kind == 2,
         _ => false,
     }
 }
@@ -74,7 +79,13 @@ pub fn is_solid(s: &Block) -> bool {
         | Block::Skull { .. }
         | Block::WallSkull { .. }
         // dynamic shape: no shape cache, so `calculateSolid` says no (NULL_CACHE)
-        | Block::Scaffolding { .. } => false,
+        | Block::Scaffolding { .. }
+        // fluids: no collision
+        | Block::Water { .. }
+        | Block::BubbleColumn { .. } => false,
+        // ---- entity-reacting blocks (clk-misc) ----
+        // no collision and not forced solid (plates, wall banners and lanterns are forceSolidOn)
+        Block::Tripwire { .. } | Block::TripwireHook { .. } => false,
         _ => true,
     }
 }
@@ -94,6 +105,8 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Falling { .. } => true, // pistmodel
         Block::Slab { kind } => kind == 2,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::StoneSlab { kind } => kind == 2,
         _ => false,
     }
 }
@@ -158,6 +171,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         // SculkSensorBlock.SHAPE = column(16, 0, 8): only the bottom face is full
         Block::Sculk { .. } => face == Dir::Down,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
         _ => false,
     }
 }
@@ -176,6 +191,8 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Observer { .. }
         | Block::Target { .. }
         | Block::Sculk { .. } => true,
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } | Block::TripwireHook { .. } => true,
         _ => false,
     }
 }
@@ -195,6 +212,9 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Observer { .. } => observer::get_signal(s, d),
         Block::Target { power } => power as i32,
         Block::Sculk { .. } => crate::sculk::get_signal(s, d),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::signal(s),
+        Block::TripwireHook { .. } => crate::react::hook::signal(s),
         _ => 0,
     }
 }
@@ -208,6 +228,9 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::Repeater { .. } | Block::Comparator { .. } => diode::get_signal(w, s, p, d),
         Block::Observer { .. } => observer::get_signal(s, d),
         Block::Sculk { .. } => crate::sculk::get_direct_signal(s, d),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::direct_signal(s, d),
+        Block::TripwireHook { .. } => crate::react::hook::direct_signal(s, d),
         _ => 0,
     }
 }
@@ -272,6 +295,9 @@ pub fn instrument(s: &Block) -> Instrument {
         Block::Trapdoor { iron: false, .. } | Block::Door { iron: false, .. } | Block::FenceGate { .. } => Instrument::Bass,
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } => Instrument::Bass,
+        Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
 }
@@ -294,8 +320,13 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         | Block::Leaves { .. }
         | Block::Scaffolding { .. }
         | Block::Door { .. } => PushReaction::Popped,
+        // LiquidBlock / BubbleColumnBlock: PushReaction.DESTROY (no loot: nothing drops)
+        Block::Water { .. } | Block::BubbleColumn { .. } => PushReaction::Popped,
         Block::RespawnAnchor { .. } => PushReaction::Immoveable,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::push_reaction(s),
+        // ---- entity-reacting blocks (clk-misc) ----
+        // (wall banners: NORMAL, but a block entity makes them immovable)
+        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -303,7 +334,7 @@ pub fn push_reaction(s: &Block) -> PushReaction {
 /// Leaves a drop (an item entity) when destroyed with drops: false for blocks without a loot
 /// table (`noLootTable`: piston heads, moving pistons, end portal frames) and air.
 pub fn drops_item(s: &Block) -> bool {
-    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. })
+    !matches!(s, Block::Air | Block::PistonHead { .. } | Block::MovingPiston { .. } | Block::EndPortalFrame { .. } | Block::Water { .. } | Block::BubbleColumn { .. })
 }
 
 /// Destroy speed -1 (unbreakable: pistons cannot move it).
@@ -316,12 +347,12 @@ pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
-    )
+    ) || matches!(s, Block::WallBanner { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
-/// `canBeReplaced` (by a moving block / a falling block): air only among the modeled blocks.
+/// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
 pub fn can_be_replaced(s: &Block) -> bool {
-    s.is_air()
+    s.is_air() || matches!(s, Block::Water { .. } | Block::BubbleColumn { .. })
 }
 
 /// A box in 1/16 block units, laid out `[x0, x1, y0, y1, z0, z1]` (pistmodel's `B16`).
@@ -353,7 +384,9 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         | Block::WallTorch { .. }
         | Block::Lever { .. }
         | Block::Button { .. }
-        | Block::Rail { .. } => vec![],
+        | Block::Rail { .. }
+        | Block::Water { .. }
+        | Block::BubbleColumn { .. } => vec![],
         Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
         Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
         // DiodeBlock.SHAPE = column(16, 0, 2)
@@ -420,6 +453,18 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         // ScaffoldingBlock with the empty context: SHAPE_STABLE (top plate + 4 legs)
         Block::Scaffolding { .. } => vec![[0, 16, 14, 16, 0, 16], [0, 2, 0, 16, 0, 2], [14, 16, 0, 16, 0, 2], [0, 2, 0, 16, 14, 16], [14, 16, 0, 16, 14, 16]],
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => vec![],
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::WallBanner { .. } => vec![],
+        // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
+        Block::Lantern { hanging } => {
+            let h = hanging as i32;
+            vec![[6, 10, 7 + h, 9 + h, 6, 10], [5, 11, h, 7 + h, 5, 11]]
+        }
+        Block::StoneSlab { kind } => match kind {
+            0 => vec![[0, 16, 0, 8, 0, 16]],
+            1 => vec![[0, 16, 8, 16, 0, 16]],
+            _ => vec![FULL],
+        },
         _ => vec![FULL],
     }
 }
@@ -437,6 +482,17 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Cake { .. } => is_solid(&w.get(p.below())),
         Block::Scaffolding { .. } => scaffolding::distance(w, p) < 7,
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::can_survive(w, *s, p),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::can_survive(w, p),
+        Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
+        Block::WallBanner { facing } => is_solid(&w.get(p.rel(facing.opposite()))),
+        // canSupportCenter of the block above (hanging) or below
+        Block::Lantern { hanging } => {
+            let d = if hanging { Dir::Up } else { Dir::Down };
+            let q = p.rel(d);
+            sturdy(w, &w.get(q), q, d.opposite(), Support::Center)
+        }
+        Block::BubbleColumn { .. } => crate::fluid::bubble_can_survive(w, p),
         _ => true,
     }
 }
@@ -455,6 +511,7 @@ pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos, src: Kind, moved: 
         Block::Dispenser { .. } | Block::Crafter { .. } => dispenser::neighbor_changed(w, s, p),
         Block::Hopper { .. } => hopper::check_powered_state(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::neighbor_changed(w, s, p, src, moved),
+        Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
 }
@@ -485,6 +542,26 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         }
         Block::Falling { .. } => crate::gravity::update_shape(w, s, p, d, np, ns), // pistmodel
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::update_shape(w, s, p, d, np, ns),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::update_shape(w, s, p, d),
+        Block::Tripwire { .. } => crate::react::tripwire::update_shape(s, d, &ns),
+        Block::TripwireHook { .. } => crate::react::hook::update_shape(w, s, p, d),
+        Block::WallBanner { facing } => {
+            if d == facing.opposite() && !can_survive(w, &s, p) {
+                Block::Air
+            } else {
+                s
+            }
+        }
+        Block::Lantern { hanging } => {
+            if d == (if hanging { Dir::Up } else { Dir::Down }) && !can_survive(w, &s, p) {
+                Block::Air
+            } else {
+                s
+            }
+        }
+        Block::Water { .. } => crate::fluid::liquid_update_shape(w, s, p, d, ns),
+        Block::BubbleColumn { .. } => crate::fluid::bubble_update_shape(w, s, p, d, ns),
         _ => s,
     }
 }
@@ -516,6 +593,9 @@ pub fn on_place(w: &mut World, s: Block, p: BlockPos, old: Block, moved: bool) {
         Block::Falling { .. } => crate::gravity::on_place(w, s, p, old, moved), // pistmodel
         Block::Sculk { .. } => crate::sculk::on_place(w, s, p, old),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::on_place(w, s, p, old, moved),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Tripwire { .. } => crate::react::tripwire::on_place(w, s, p, old),
+        Block::Water { .. } => crate::fluid::liquid_on_place(w, s, p),
         _ => {}
     }
 }
@@ -532,6 +612,10 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } => dispenser::affect_neighbors_after_removal(w, s, p),
         Block::Sculk { .. } => crate::sculk::affect_neighbors_after_removal(w, s, p),
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::affect_neighbors_after_removal(w, s, p, moved),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::affect_neighbors_after_removal(w, s, p, moved),
+        Block::Tripwire { .. } => crate::react::tripwire::affect_neighbors_after_removal(w, s, p, moved),
+        Block::TripwireHook { .. } => crate::react::hook::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }
 }
@@ -563,6 +647,12 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Dispenser { dropper: false, .. } => crate::redstone::container::dispenser_dispense(w, p),
         Block::Crafter { .. } => {}
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::tick(w, s, p),
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::Plate { .. } => crate::react::plate::tick(w, s, p),
+        Block::Tripwire { .. } => crate::react::tripwire::tick(w, p),
+        Block::TripwireHook { .. } => crate::react::hook::tick(w, s, p),
+        Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
+        Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
         _ => {}
     }
 }

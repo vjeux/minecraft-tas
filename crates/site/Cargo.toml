@@ -18,3 +18,4 @@ piston-door = { path = "../piston-door" }
 clock = { path = "../clock" }
 circuit = { path = "../circuit" }
 site-model = { path = "../site-model" }
+litematic = { path = "../litematic" }

@@ -73,6 +73,31 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// One member of an extendable delay family, with the family's `extend` headers (the base of
+    /// a card): rep2 / rep4 / rep6 / rep8 (a delay r/2 repeater then n delay-4 repeaters: N = r +
+    /// 8n), cmp (n + 1 comparators: N = 2 + 2n), or5 / or7 / or9 / or11 (the piston OR line with a
+    /// tail of one delay (base - 3)/2 repeater then n delay-4 repeaters: N = base + 8n), torch (a
+    /// tower of 2 + 2n torches: N = 6 + 4n).
+    Family {
+        name: String,
+        #[arg(long, default_value_t = 0)]
+        n: u32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Judge every member of the families (default: all) on the judge's redsim screen over their
+    /// n range: N and the block count must equal the card's formulas.
+    FamilyCheck {
+        names: Vec<String>,
+    },
+    /// Remove archived designs (covered by a family card) from a study archive: the files and
+    /// their rows in verdicts.tsv / captions.tsv (and aliases.tsv when present).
+    Prune {
+        #[arg(long, default_value = "designs/circuits/delay/archive")]
+        archive: PathBuf,
+        /// File names in the archive (`delay-rep-1.txt`).
+        files: Vec<String>,
+    },
     /// A repeater + a torch tower of k torches: N = 2 + 2k.
     Torches {
         #[arg(long)]
@@ -159,6 +184,90 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let n = 3 + 2 * sum;
             let tl = if tail.is_empty() { String::new() } else { format!("; the OR lands on a dust and {} repeater(s) (delays {:?}) add {} gt", tail.len(), tail, 2 * sum) };
             emit(families::piston_or(&tail, &format!("delay-piston-or-{n}")), out, &format!("Delay line N = {n} gt (track delay): a sticky piston pushes a redstone block one cell (it arrives 3 gt after the input rises and leaves 1 gt after it falls); the output touches the block's new cell, and a repeater behind that cell feeds the output again 2 gt later through a stone and two dusts: the OR of the 3/1 and 5/3 copies is a 3/3 delay{tl}"))?;
+        }
+        Cmd::Family { name, n, out } => {
+            let (b, caption) = families::member(&name, n)?;
+            let f = families::card(&name)?;
+            let mut b = b;
+            for (k, v) in [
+                ("extend family", f.id.clone()),
+                ("extend axis", f.axis.clone()),
+                ("extend blocks", f.blocks.clone()),
+                ("extend rule", f.rule.clone()),
+                ("extend n", format!("{}..{}", f.lo, f.hi)),
+                ("extend base", n.to_string()),
+                ("extend generator", format!("mctas circuit delay family {name} --n {{n}} --out {{out}}")),
+                ("extend group", f.group.to_string()),
+                ("extend group title", f.gtitle.to_string()),
+                ("extend group period", f.gaxis.to_string()),
+                ("extend group note", f.gnote.to_string()),
+            ] {
+                if !v.is_empty() {
+                    b.meta.insert(k.to_string(), v);
+                }
+            }
+            emit(b, out, &caption)?;
+        }
+        Cmd::FamilyCheck { names } => {
+            let names: Vec<String> = if names.is_empty() { families::FAMILIES.iter().map(|s| s.to_string()).collect() } else { names };
+            let mut bad = 0;
+            for name in &names {
+                let c = families::card(name)?;
+                let eval = |f: &str, n: u32| -> Option<u32> {
+                    // "a + bn"
+                    let (a, b) = f.split_once('+')?;
+                    let a: u32 = a.trim().parse().ok()?;
+                    let b: u32 = b.trim().trim_end_matches('n').trim().parse().ok()?;
+                    Some(a + b * n)
+                };
+                for n in c.lo..=c.hi {
+                    let (b, _) = families::member(name, n)?;
+                    let mut d = b.design();
+                    d.meta.insert("circuit".into(), "delay".into());
+                    let blocks = harness::Circuit::from_design(d.clone())?.blocks() as u32;
+                    let res = judge::judge_sim(d);
+                    let want_n = eval(&c.axis, n);
+                    let want_b = eval(&c.blocks, n);
+                    let ok = match &res {
+                        Some((true, m, _)) => Some(m.starts_with(&format!("N {} gt", want_n.unwrap_or(0)))) == Some(true) && Some(blocks) == want_b,
+                        _ => false,
+                    };
+                    if !ok {
+                        bad += 1;
+                    }
+                    println!("{} {} n={n}: want N {:?} blocks {:?}; got {blocks} blocks, {:?}", if ok { "OK  " } else { "BAD " }, c.id, want_n, want_b, res.map(|r| r.1));
+                }
+            }
+            if bad > 0 {
+                bail!("{bad} member(s) off their formulas");
+            }
+        }
+        Cmd::Prune { archive, files } => {
+            for tsv in ["verdicts.tsv", "captions.tsv", "aliases.tsv"] {
+                let p = archive.join(tsv);
+                let Ok(text) = std::fs::read_to_string(&p) else { continue };
+                let mut out = String::new();
+                let mut dropped = 0;
+                for line in text.lines() {
+                    if line.split('\t').any(|cell| files.iter().any(|f| cell == f)) {
+                        dropped += 1;
+                        continue;
+                    }
+                    out.push_str(line);
+                    out.push('\n');
+                }
+                std::fs::write(&p, out)?;
+                println!("{tsv}: {dropped} row(s) dropped");
+            }
+            for f in &files {
+                let p = archive.join(f);
+                if p.exists() {
+                    std::fs::remove_file(&p)?;
+                    println!("removed {}", p.display());
+                } else {
+                    println!("not found: {}", p.display());
+                }
+            }
         }
         Cmd::Torches { n, out } => {
             emit(families::torches(n, &format!("delay-torch-{n}")), out, &format!("Torch tower (track delay): a repeater powers a block, {n} torches climb from it (each powers the block above it): N = 2 + 2 x {n} gt"))?;
