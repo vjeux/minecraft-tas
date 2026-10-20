@@ -84,14 +84,15 @@ pub fn drop_metric(h: i32) -> (String, String) {
     })
 }
 
-/// Every (ground, kick) of the screen passes at `c.drop`.
-fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize, workers: usize) -> bool {
+/// Every (ground, kick) of the screen passes at `c.drop`; else the first failure's reason.
+fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize, workers: usize) -> Result<(), String> {
     let jobs: Vec<(crate::Ground, f64)> = crate::Ground::ALL.iter().flat_map(|&g| (0..kicks).map(move |k| (g, k as f64 / kicks as f64))).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let bad = std::sync::atomic::AtomicBool::new(false);
+    let why: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
     std::thread::scope(|sc| {
         for _ in 0..workers.max(1) {
-            let (jobs, next, bad) = (&jobs, &next, &bad);
+            let (jobs, next, bad, why) = (&jobs, &next, &bad, &why);
             sc.spawn(move || {
                 while !bad.load(std::sync::atomic::Ordering::Relaxed) {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -99,14 +100,29 @@ fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize,
                         break;
                     }
                     let (g, kick) = jobs[i];
-                    if !judge_kick(c, s, kick, margin, g).is_ok_and(|o| o.pass) {
+                    let fail = match judge_kick(c, s, kick, margin, g) {
+                        Ok(o) if o.pass => None,
+                        Ok(o) => Some(o.why),
+                        Err(e) => Some(e),
+                    };
+                    if let Some(w) = fail {
                         bad.store(true, std::sync::atomic::Ordering::Relaxed);
+                        why.lock().unwrap().get_or_insert(w);
                     }
                 }
             });
         }
     });
-    !bad.load(std::sync::atomic::Ordering::Relaxed)
+    match why.into_inner().unwrap() {
+        None => Ok(()),
+        Some(w) => Err(w),
+    }
+}
+
+/// A failure no drop height can cure: the TNT goes off where it is useless (in the machine's own
+/// water, say), wherever the ground is.
+fn incurable(why: &str) -> bool {
+    why.starts_with("useless TNT")
 }
 
 /// The safe drop height from the screen alone (`circuit sim`): the smallest drop at which every
@@ -118,8 +134,10 @@ pub fn safe_drop_screen(c: &Circuit, workers: usize) -> Result<i32, String> {
     for d in 0..=MAX_DROP {
         let mut cd = c.clone();
         cd.drop = d;
-        if screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
-            return Ok(d);
+        match screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
+            Ok(()) => return Ok(d),
+            Err(why) if incurable(&why) => return Err(why),
+            Err(_) => {}
         }
     }
     Err(format!("blows itself up at every drop up to {MAX_DROP} blocks (it needs a pit deeper than {MAX_DROP})"))
@@ -137,11 +155,14 @@ pub fn safe_drop(c: &Circuit, workers: usize) -> Result<(i32, String), String> {
     for d in 0..=MAX_DROP {
         let mut cd = c.clone();
         cd.drop = d;
-        if !screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
-            continue;
+        match screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
+            Ok(()) => {}
+            Err(why) if incurable(&why) => return Err(why),
+            Err(_) => continue,
         }
         match tnt_robust_at(&cd, &s, margin, SAMPLES, workers) {
             Ok(r) => return Ok((d, r)),
+            Err(e) if incurable(&e) => return Err(e),
             Err(e) => last = format!(" (at {d} blocks: {e})"),
         }
     }

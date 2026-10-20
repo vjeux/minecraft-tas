@@ -148,7 +148,9 @@ each build's page.
   show: the ground's cells that changed (`Floor::changed`, rescanned every tick) and their
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
-  box (`Session::machine_box`). A TNT flying past the ground's edge falls into the void, as in
+  box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
+  above the ground` beside a dashed line from its bottom down to the ground) and, up to 8
+  blocks, is framed with the ground under it, so it never reads as sitting on the grass. A TNT flying past the ground's edge falls into the void, as in
   the judge's world, or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
@@ -209,11 +211,13 @@ each build's page.
   labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
   gold while all are labelled) labels them all or only the story's. A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
-  and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
-  with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
+  and total count (`×1,344`: how many of that item); shulker boxes first, as `12/27` slots filled for one box or `×3`
+  with a fill bar for several (none while they are all empty); at most two kinds, then `+n`. A shulker design's same-kind port
   chests that stand together share one tag with their letters (ITEMS A–C over the three chests
   a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
-  `OUT B`. Tags and labels are laid
+  `OUT B`; a judge chest's tag says what the judge does to it (`kept full`: a loader's sources
+  and every box chest, so their counts never go down; `emptied`: the outputs, the rejects, an
+  unloader's item chests). Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
@@ -226,7 +230,7 @@ each build's page.
   switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
   redsim's blocks there all the same).
 * Record (vjeux 2026-10-20: "add a record video button using mediabunny in the viewer"): the
-  round red button over a live viewer's bottom right (above the bar; hidden where the browser
+  `● Record` pill over a live viewer's bottom right (above the bar; hidden where the browser
   has no WebCodecs `VideoEncoder`) records the viewer's own rendering of redsim's run from tick 0
   (blocks, entities, OUT and port boxes, tags and labels, the badges as shown): a separate player
   (the live camera, look, speed and demo) stepped exactly `1/30` s of game time per frame (exact

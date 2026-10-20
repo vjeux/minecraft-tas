@@ -828,6 +828,18 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             } else if builds[i].flags.iter().any(|f| f == "lever") && !mine.iter().any(|bd| bd == "always-on") {
                 // (what a reference machine adds over the smaller always-on ones: critique)
                 Some("has its own lever (can be switched off)".to_string())
+            } else if let Some((me, them)) = {
+                // fewer awake hoppers than every smaller one at least as fast: less lag (the
+                // coordinator 20:26Z: clk-rt keeps shulker-auto-loader for its 3 hoppers against
+                // pitch3's 4)
+                let awake = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "hoppers awake")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+                let theirs = smaller.iter().filter_map(|&j| awake(&builds[j])).min();
+                match (awake(&builds[i]), theirs) {
+                    (Some(a), Some(b)) if a < b && smaller.iter().all(|&j| awake(&builds[j]).is_some()) => Some((a, b)),
+                    _ => None,
+                }
+            } {
+                Some(format!("less lag: {me} active hoppers instead of {them}"))
             } else if let Some(gain) = {
                 // its first box sooner than every smaller one at least as fast: what it adds
                 let first = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "first box")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
