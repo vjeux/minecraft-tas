@@ -94,6 +94,22 @@ enum Cmd {
         #[arg(long)]
         follow: Option<f64>,
     },
+    /// The hard evidence of survival (circuit::robust::tnt_blasts): every explosion on redsim with
+    /// no out-of-range removal (each TNT flies on until it explodes), at --kicks kick angles, rays at
+    /// their largest roll; once in the void (the judge's sandbox) and once on an obsidian floor one
+    /// block under the machine: the explosion centers' distances and the blocks destroyed.
+    Blasts {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 64)]
+        kicks: usize,
+        /// Air blocks between the machine and the ground (default: its safe drop height, from the
+        /// screen).
+        #[arg(long)]
+        drop: Option<i32>,
+        /// Run this many ticks instead of the judge's run (a long-run check: craters pile up).
+        #[arg(long)]
+        ticks: Option<u32>,
+    },
     /// The all-randoms rule (circuit::robust): judge the design on redsim with its explosions at
     /// every kick angle (a sweep of --samples values of the kick's nextDouble(), every change
     /// bisected to 1e-12, every piece and boundary judged, rays at their largest roll).
@@ -278,6 +294,33 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     let p = out.join(format!("{}.txt", d.name));
                     std::fs::write(&p, d.to_text())?;
                     println!("{}: {n0} -> {} blocks, still PRECISE on redsim: {}", design.display(), d.blocks.len(), p.display());
+                }
+            }
+        }
+        Cmd::Blasts { designs, kicks, drop, ticks } => {
+            for d in &designs {
+                let mut c = circuit::Circuit::load(d)?;
+                c.drop = match drop {
+                    Some(h) => h,
+                    None => circuit::robust::safe_drop_screen(&c, 32).unwrap_or(0),
+                };
+                println!("{}: {} ({} air blocks under it)", c.name(), circuit::robust::drop_words(c.drop), c.drop);
+                for ground in [None, Some(circuit::Ground::Grass), Some(circuit::Ground::Obsidian)] {
+                    match circuit::robust::tnt_blasts_for(&c, kicks, ground, ticks) {
+                        Ok(r) => println!(
+                            "BLASTS {} {}: {} runs, {} explosions, centers {:.1}..{:.1} blocks from the machine, machine blocks destroyed {}, ground blocks destroyed {}{}",
+                            c.name(),
+                            ground.map(|g| format!("on {}", g.name())).unwrap_or_else(|| "in the void".into()),
+                            r.runs,
+                            r.blasts,
+                            r.min_dist,
+                            r.max_dist,
+                            r.machine_destroyed,
+                            r.floor_destroyed,
+                            r.broken.map(|(k, why)| format!("; BROKEN at kick {k:.3}: {why}")).unwrap_or_default()
+                        ),
+                        Err(e) => println!("FAIL: {} {ground:?}: {e}", c.name()),
+                    }
                 }
             }
         }
