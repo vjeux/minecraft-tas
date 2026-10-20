@@ -1,5 +1,5 @@
 # archived 2026-10-19T16:04Z from /tmp/clk-in3/clk-sculk--ring3-c45.txt by mctas clock archive
-# CLOCK: clk-sculk-ring3-c45 period 45 gt, on 10/45, edges 1, warmup 11, family calibrated_sculk_sensor, 7 blocks, 16x1x17, robust
+# CLOCK: clk-sculk-ring3-c45 period 45 gt (2.25 s), on 10/45, edges 1, warmup 11, family calibrated_sculk_sensor, 7 blocks, 16x1x17, robust
 name: clk-sculk-ring3-c45
 # Pure vibration ring (nothing but sensors changes state): calibrated sensors S1 (1,0,0),
 # S2 (15,0,8), S3 (1,0,16), each with an amethyst block beside it; when S_i activates its
@@ -8,7 +8,8 @@ name: clk-sculk-ring3-c45
 # always still in its 20 gt dead time. Kick: right-click the note block K (only S1 is within 16 of
 # it; S1 faces east so its back, K, gets no power from it).
 origin: 0 0 0
-port output: 1 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 0
 port start: 0 0 0 use
 palette:
   K minecraft:note_block[instrument=harp,note=0,powered=false]

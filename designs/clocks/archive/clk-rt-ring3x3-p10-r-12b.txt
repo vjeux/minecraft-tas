@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:30Z from designs/clocks/tracks/clk-rt/ring/3x3/ring3x3-p10-r.txt by mctas clock archive
-# CLOCK: clk-rt-ring3x3-p10-r-12b period 10 gt, on 4/10, edges 1, warmup 0, family repeater, 12 blocks, 3x2x3, robust
+# CLOCK: clk-rt-ring3x3-p10-r-12b period 10 gt (0.5 s), on 4/10, edges 1, warmup 4, family repeater, 12 blocks, 3x2x3, robust
 # Rectangle ring (clk-rt): the 3x3 perimeter clockwise from the north-west corner = [b, 1*, b, 1*,
 # b, 1, b, 2] (number = repeater delay, * = powered at placement, b = block, d = dust, T = wall
 # torch on the block before it, c = comparator); 0 torches: a pulse ring of loop delay 10 gt
 name: clk-rt-ring3x3-p10-r-12b
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=1,facing=west,locked=false,powered=true]

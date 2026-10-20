@@ -1,5 +1,5 @@
 # archived 2026-10-19T20:07Z from designs/clocks/tracks/clk-item/cards/clk-item-latch.txt by mctas clock archive
-# CLOCK: clk-item-latch period 30 gt (1.5 s), on 16/30, edges 1, warmup 4, family comparator+copper_bulb+hopper+redstone_torch+redstone_wire, 17 blocks, 2x4x3, robust
+# CLOCK: clk-item-latch period 30 gt (1.5 s), on 24/30, edges 1, warmup 4, family comparator+copper_bulb+hopper+redstone_torch+redstone_wire, 17 blocks, 2x4x3, robust
 # Latch hopper clock, item-count tuned (clk-item): two hoppers facing each other pass N = n + 2 stones from one to the other and back, one per 8 gt; a waxed copper bulb remembers the direction: the comparators reading the hoppers light a torch when their hopper is EMPTY, and those torches (one under the bulb, one under a stone beside it) toggle the bulb when the source runs dry; a comparator reading the bulb lights a dust on the stone above hopper A (locks A) and that stone's wall torch locks hopper B when the bulb is off. P = 16 N - 2 gt with 17 blocks: up to 5118 gt (4.3 min) with 320 stones.
 
 name: clk-item-latch
@@ -10,7 +10,8 @@ extend generator: mctas clock item gen latch --n {n} --out {out}
 extend n: 0..318
 extend period: 30 + 16n
 extend rule: one more stone in hopper A (same blocks; up to 5 stacks of 64)
-port output: 0 3 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 3 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 0 -2
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
 origin: 0 0 -2
 palette:

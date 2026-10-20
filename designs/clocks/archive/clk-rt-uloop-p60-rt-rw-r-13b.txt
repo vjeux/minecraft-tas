@@ -1,12 +1,13 @@
 # archived 2026-10-19T17:01Z from /tmp/clk-in6/clk-rt--sweeps--uloop-k2--uloop-p60-rt-rw-r.txt by mctas clock archive
-# CLOCK: clk-rt-uloop-p60-rt-rw-r-13b period 60 gt, on 30/60, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 13 blocks, 4x2x2, robust
+# CLOCK: clk-rt-uloop-p60-rt-rw-r-13b period 60 gt (3 s), on 30/60, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 13 blocks, 4x2x2, robust
 # U-loop (clk-rt): block A + dust beside it -> top row [delay-2 repeater (powered at placement),
 # delay-4 repeater (powered at placement)] -> block F -> a wall torch on F -> bottom row [delay-4
 # repeater (powered at placement), delay-4 repeater (powered at placement)] -> A; 1 torch(es) = an
 # inverter loop of delay 30 gt (period 2 x delay)
 name: clk-rt-uloop-p60-rt-rw-r-13b
 uloop: C-2*,4*-4*,4*-T
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 -1
 origin: 0 0 -1
 palette:
   A minecraft:repeater[delay=2,facing=west,locked=false,powered=true]

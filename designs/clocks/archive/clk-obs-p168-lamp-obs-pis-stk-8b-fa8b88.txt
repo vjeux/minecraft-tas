@@ -1,9 +1,10 @@
 # archived 2026-10-19T23:33Z from designs/clocks/tracks/clk-obs/families9/p168-lamp-obs-pis-stk-8b-fa8b88.txt by mctas clock archive
-# CLOCK: clk-obs-p168-lamp-obs-pis-stk-8b-fa8b88 period 168 gt (8.4 s), on 78/168, edges 39, warmup 8, family observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
+# CLOCK: clk-obs-p168-lamp-obs-pis-stk-8b-fa8b88 period 168 gt (8.4 s), on 56/168, edges 28, warmup 10, family observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
 name: clk-obs-p168-lamp-obs-pis-stk-8b-fa8b88
 # clk-obs grow: P=168 (redsim), family observer+piston+redstone_lamp+sticky_piston, kick last 0 1 0, swept volume 12.
 origin: 0 0 -1
-port output: 0 0 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 2 -1
 port start: 0 1 0 last
 palette:
   A minecraft:observer[facing=south,powered=false]

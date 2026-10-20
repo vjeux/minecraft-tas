@@ -3,7 +3,8 @@
 # A calibrated sculk sensor watched by a chain of 3 observer(s) (each watching the previous); an iron trapdoor at the last output, 1 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3b-p21-7
 # how: obs cal k=3 path 1,0,0 1,-1,0 0,-1,0 emitter irontrapdoor at the output (travel 1) + sticky_piston[extended=false,facing=south] at 0,-1,-1
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 -1
 origin: -1 0 -1
 palette:
   A minecraft:observer[facing=west,powered=false]

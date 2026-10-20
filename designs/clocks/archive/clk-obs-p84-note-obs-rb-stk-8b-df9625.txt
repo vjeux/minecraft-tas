@@ -1,9 +1,10 @@
 # archived 2026-10-20T02:19Z from designs/clocks/tracks/clk-obs/families9/p84-note-obs-rb-stk-8b-df9625.txt by mctas clock archive
-# CLOCK: clk-obs-p84-note-obs-rb-stk-8b-df9625 period 84 gt (4.2 s), on 36/84, edges 18, warmup 36, family note_block+observer+redstone_block+sticky_piston, 8 blocks, 1x7x3, robust
+# CLOCK: clk-obs-p84-note-obs-rb-stk-8b-df9625 period 84 gt (4.2 s), on 28/84, edges 14, warmup 36, family note_block+observer+redstone_block+sticky_piston, 8 blocks, 1x7x3, robust
 name: clk-obs-p84-note-obs-rb-stk-8b-df9625
 # clk-obs grow: P=84 (redsim), family note_block+observer+redstone_block+sticky_piston, kick last 0 0 2, swept volume 21.
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 5 0
 port start: 0 0 2 last
 palette:
   A minecraft:redstone_block

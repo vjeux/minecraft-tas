@@ -5,7 +5,8 @@
 # torch on the block before it, c = comparator); 0 torches: a pulse ring of loop delay 12 gt; kicked
 # by a redstone_wall_torch[facing=north,lit=true] at [0, 0, 0] for 3 gt at tick 0
 name: clk-rt-ring3x4-b,c,b,c,c,b,c,b,c,c-kick-p12
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 3
 port start: 0 0 0 minecraft:redstone_wall_torch[facing=north,lit=true] 3
 origin: 0 0 0
 palette:

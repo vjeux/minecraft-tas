@@ -3,7 +3,8 @@
 name: clk-obs-p60-obs-pis-stk-8b-c1a1e8
 # clk-obs grow: P=60 (redsim), family observer+piston+sticky_piston+stone, kick last 0 1 0, swept volume 12.
 origin: 0 0 0
-port output: 0 2 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 2 -1
 port start: 0 1 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

@@ -3,7 +3,8 @@
 name: clk-obs-p84-note-obs-stk-8b-99c63b
 # clk-obs grow: P=84 (redsim), family note_block+observer+sticky_piston, kick last 0 0 0, swept volume 15.
 origin: 0 0 0
-port output: 0 -1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 -1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 3
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=north,powered=false]
