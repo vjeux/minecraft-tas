@@ -28,13 +28,20 @@ the right thing on both lever edges because every pulse acts on whatever stands 
 * Open problem for a real door: P and BM-down are still boxed in (c77's obstruction); the train
   only removes the lever-state logic and fixes every tap's ticks. pockets3 (feed report on the
   train): no free cell for P, Q, BM-down; every other input has one; pockets k=4 stalls at 11 of 12.
-* Batch over c70b's 53 smaller/ plans (`door interleave <plans...> --search 200000`, then 1M pairs
-  at weights 1 and 3, and `--groups` = the plan's own tick groups as extra moves): only w1-k2 has a
-  train. mm-w1 mm04 exhausts its whole pair space (417k) 2 cells off: PROVEN no single-pulse train.
-  6x7-u1 mm01..05, 6x7-inside mm02/03 plateau at 2 cells (one block in the wrong place on one
-  edge, `INTERLEAVE_DEBUG=1` prints it); 6x7-in2 at 4; m69T mm02 has a step-by-step train but no
-  timing (its lever-held right side is level-driven, which the search's pulse moves mimic by
-  pulsing a redstone block cell away).
+* **m69T mm02 (c70b's 6x9 = 54): a train exists** once lever-held inputs are handled (cells whose
+  block differs between the open and closed rest and is a redstone block: the lever switches them at
+  t0 of each edge, the train never touches them; and the plan's level-off clears are kept): its
+  lever-held right side (3 extended pistons whose redstone blocks the lever replaces) plus ONE
+  26-pulse train for the left half, identical on both edges: open 31 / close 31, redsim 32 x 3 and
+  the game. Plan `m69T-mm02-train.ideal`. This removes w86's blocker ("its left/right halves can't
+  share one lever"): the lever holds the right side and anything that fires on both flips starts
+  the left train. Left-half ticks: (-2,3) t8 t18 t22; (-1,-2) t3 t23; (-1,-1) t6 t12 t25; (0,-4)
+  t0 t4 t19; (0,4,1) t0 t13 t28; (1,3,1) t7 t9; (1,4,1) t0 t16; (2,-2) t0 t8; (2,5) t0 t5 t12;
+  (3,-2) t3; (3,4) t0 t7.
+* Batch over c70b's 53 smaller/ plans (`door interleave <plans...> --search 300000`): trains for
+  w1-k2 and m69T mm02 only; the rest stall 2-12 cells off (`INTERLEAVE_DEBUG=1` prints the cells;
+  6x7-u1 is one block in the wrong place on one edge). `--groups` (the plan's tick groups as moves)
+  and `--pairs` (two inputs at once) widen the moves.
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,

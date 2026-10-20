@@ -219,7 +219,7 @@ fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, trai
 /// closing) with ANY input cell pulsed (2 gt) on both at once, from (rest, open) to (open, rest):
 /// a train not tied to the plan's own steps. Returns the cells pulsed, in order (or the pairs
 /// searched and the best distance reached: cells off the two targets).
-fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, moves: &[Step], cap: usize, weight: usize) -> (Option<Vec<Step>>, usize, usize) {
+fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, moves: &[Step], costs: &[usize], cap: usize, weight: usize) -> (Option<Vec<Step>>, usize, usize) {
     use std::collections::{BinaryHeap, HashSet};
     use std::hash::{Hash, Hasher};
     let target_open = sim.sparse(wopen);
@@ -276,8 +276,9 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
                 best_id = nodes.len();
             }
             best = best.min(h2);
-            nodes.push((sa, sb, Some(id), mi, g + 1));
-            heap.push((std::cmp::Reverse(g + 1 + h2 * weight), nodes.len() - 1));
+            let g2 = g + costs.get(mi).copied().unwrap_or(1);
+            nodes.push((sa, sb, Some(id), mi, g2));
+            heap.push((std::cmp::Reverse(g2 + h2 * weight), nodes.len() - 1));
         }
     }
     if std::env::var("INTERLEAVE_DEBUG").is_ok() && best_id < nodes.len() {
@@ -320,6 +321,12 @@ pub struct Options {
     pub quiet: bool,
     /// `--search` also offers the plan's own tick groups as moves.
     pub groups: bool,
+    /// `--search` also offers every pair of inputs pulsed together as moves.
+    pub pairs: bool,
+    /// Input cells always pulsed together (one source for several pistons), each set one move.
+    pub merge: Vec<Vec<Pos>>,
+    /// Search cost of a move pulsing these cells (default 1): trains that use them less.
+    pub cost: Vec<(Pos, usize)>,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -488,9 +495,21 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         if !lever.is_empty() {
             say!(o, "lever-held inputs (set at t0 of each edge, not in the train): {:?}", lever.iter().map(|l| l.0).collect::<Vec<_>>());
         }
-        // moves: a 2 gt pulse on any input cell, plus (`--groups`) every tick group of the plan
-        // itself (several inputs with their own relative timing)
-        let mut moves: Vec<Step> = cells.iter().map(|&c| Step { evs: vec![(0, c, Some("minecraft:redstone_block".into())), (2, c, None)] }).collect();
+        // moves: a 2 gt pulse on any input cell (or on each `--merge` set of cells at once: one
+        // source powering them together), plus (`--groups`) every tick group of the plan itself
+        // (several inputs with their own relative timing)
+        let rbs = || Some("minecraft:redstone_block".to_string());
+        let mut moves: Vec<Step> = Vec::new();
+        for set in &o.merge {
+            let mut evs: Vec<(u32, Pos, Option<String>)> = set.iter().map(|c| (0, *c, rbs())).collect();
+            evs.extend(set.iter().map(|c| (2, *c, None)));
+            moves.push(Step { evs });
+        }
+        for &c in &cells {
+            if !o.merge.iter().any(|s| s.contains(&c)) {
+                moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)] });
+            }
+        }
         if o.groups {
             for st in steps(&open_ev, false).into_iter().chain(steps(&close_ev, false)) {
                 if !moves.contains(&st) && !st.evs.iter().any(|e| lever.iter().any(|l| l.0 == e.1)) {
@@ -498,7 +517,19 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 }
             }
         }
-        let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, cap, o.weight);
+        if o.pairs {
+            // two inputs pulsed together (2 gt, the same tick)
+            for i in 0..cells.len() {
+                for j in i + 1..cells.len() {
+                    let (a, b) = (cells[i], cells[j]);
+                    let rb = || Some("minecraft:redstone_block".to_string());
+                    moves.push(Step { evs: vec![(0, a, rb()), (0, b, rb()), (2, a, None), (2, b, None)] });
+                }
+            }
+        }
+        // a move's cost: 1, or the largest `--cost` of the cells it pulses
+        let costs: Vec<usize> = moves.iter().map(|m| m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1)).collect();
+        let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, cap, o.weight);
         return match found {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
             Some(train) => timed_train(&d, s.phase, &text, path, &train, &fixed, n, o, out),

@@ -96,13 +96,44 @@ pub struct InterleaveArgs {
     /// timing) as moves.
     #[arg(long)]
     groups: bool,
+    /// --search also offers every pair of inputs pulsed together (same tick) as moves.
+    #[arg(long)]
+    pairs: bool,
+    /// Input cells always pulsed together, `x,y,z+x,y,z[+...]` (repeatable): one source feeding
+    /// several pistons (e.g. a strongly powered block between them).
+    #[arg(long)]
+    merge: Vec<String>,
+    /// Search cost of a move that pulses this cell, `x,y,z=k` (repeatable; default 1): trains that
+    /// pulse it less often.
+    #[arg(long)]
+    cost: Vec<String>,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost } = args;
     crate::ideal::cli_phase(between_ticks);
+    let parse_pos = |c: &str| -> Result<[i32; 3]> {
+        let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "a cell is x,y,z: {c}");
+        Ok([v[0], v[1], v[2]])
+    };
+    let mut costs = Vec::new();
+    for c in &cost {
+        let (p, k) = c.split_once('=').ok_or_else(|| anyhow::anyhow!("--cost x,y,z=k"))?;
+        costs.push((parse_pos(p)?, k.trim().parse::<usize>()?));
+    }
+    let mut sets = Vec::new();
+    for m in &merge {
+        let mut set = Vec::new();
+        for c in m.split('+') {
+            let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "--merge x,y,z+x,y,z");
+            set.push([v[0], v[1], v[2]]);
+        }
+        sets.push(set);
+    }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs };
     if quiet {
         return crate::interleave::batch(&schedule, &o, out_dir.as_deref(), threads);
     }
