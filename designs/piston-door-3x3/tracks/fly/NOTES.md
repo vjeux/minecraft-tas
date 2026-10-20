@@ -38,6 +38,22 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   (O lands in the corner (-1,-1)); on close N pushes O and BM back east and stays extended while the
   slime returns (a retracted N next to (-2,0) gets dragged east), then N's retraction fires O for
   Qv's last spit. Qv's other actions happen at (1,-2), fed from (0,-2). WORKS redsim 32 x 3.
+* q68f: q68e with q68's pull-type ceiling (only B1 powered at rest). WORKS 32 x 3.
+* q68g: the TOP starts the bottom-left: a normal piston W rests at (-1,-1) stuck to the slime; the
+  slime's move drags it out, O fires (Qv spits BM C up), N (-1,-2, facing up) puts its head in (O:
+  Qv reaches and pulls BM back) and out after B1 dropped Qv (O's signal into the EMPTY (1,-1)
+  QC-powers Qv at (1,-2): it reaches and pulls BM in). On close W pushes O + BM back east and its
+  retraction fires O (Qv at (1,-2) spits BM up through QC), and the slime's return drags W home
+  (O: Qv's last spit at (1,-1)). Qv has NO input; the bottom-left needs N, W, B1 only. Ceiling as
+  q68c (P_T held at rest). WORKS 32 x 3.
+* q69h (6x9 = 54, rows -3..5): q68g's left + center, and the right column as a second vertical Q
+  from the ceiling: Qr (2,3) sticky down spits TR MR BR down (BR into (2,-1)) and pulls TR back,
+  Br (2,5) (extended at rest) lifts Qr to (2,4), Qr pulls TR into (2,3); K spits BR BM O west, A
+  pulls MR into (2,-1); close: A spit, K pull, Qr spit, Br on, Qr spit, A spits the column up.
+  B removed; the bottom-right (K, A + free (3,-2) (3,-3) (2,-3)) can watch B1 from (2,-3). Open
+  chain: top lever -> slime -> bottom-left (W/O) -> B1 -> bottom-right. Close problem: the order
+  must be K pull (bottom-right) -> W push (bottom-left) -> slime return (top), and nothing the top
+  does is visible from the bottoms before the slime returns. WORKS 32 x 3.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
