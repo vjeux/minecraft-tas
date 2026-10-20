@@ -245,7 +245,8 @@ item or entity: the `core` palette plus honey, obsidian, oak and iron trapdoors,
 activator rails, fence gates, droppers, leaves; ~100 states; self-start or one block placed last;
 a candidate whose whole state does not repeat within 12 gt is dropped early) finds NO clock of
 period 2 or 3 in: 2x1x1 (k 2), 3x1x1 (k 3), 2x2x1, 2x1x2, 3x2x1, 3x1x2, 2x2x2, 3x3x1, 3x2x2, 3x1x3
-(k 4), 3x3x2 (k 3). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
+(k 4), 3x3x2 (k 3), nor in 2x2x2 at k 5 (every filling of the cube with 5 blocks of the ~100
+states: 4984 chunks, 5.6 h on 96 threads, 0 clocks). The same runs with `--max-period 4` find the P4 clocks (24 observer types and 2
 observer + piston types in 3x2x1), so the pruning keeps real clocks. The game-source arguments for
 the families that cannot reach P2/P3 at any size are in `designs/clocks/impossible.tsv` (clk-rt,
 clk-obs).
