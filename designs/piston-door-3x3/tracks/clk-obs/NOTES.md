@@ -84,3 +84,9 @@ bottom first, the top from t6). With one lever, the second group needs a start i
   updates the neighbours of the block it hangs on, so R0 retracts at the flip too. Redstone
   blocks cleared at (5,0) and (5,1) in a plan do not update R0 after (5,1) goes (R0 is not its
   neighbour): R0 then stays extended until something updates it (K's head at t4 in top6).
+* bot11p (fly, the centre spit at t0, the bottom idle until t11): the bottom group shifted by d
+  works for d in {-11..-7, -3, -2, 0} (plans/m69t-bot11p-shift.ideal), i.e. a bottom start at
+  t0-t4, t8, t9 or t11. BM lands on (1,-1) at t3, seen only from U's, K's-front and Qv's cells;
+  an observer replacing U (facing up) fires at ~t5 straight into B through (1,-3) (a repeater there
+  takes no input from above): outside the window, so it needs a train with the bottom start at ~t5,
+  and U's t16 spit done by something else.
