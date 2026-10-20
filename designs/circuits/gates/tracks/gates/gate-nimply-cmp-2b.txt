@@ -2,6 +2,7 @@
 # input b at its side: a - b. The output cell is in front of it.
 name: gate-nimply-cmp-2b
 circuit: gate nimply
+tile: 3 0 0
 port input.a: 0 1 1
 port input.b: 1 1 0
 port output: 0 1 -1

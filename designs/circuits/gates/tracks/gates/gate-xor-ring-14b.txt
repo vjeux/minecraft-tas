@@ -7,6 +7,7 @@
 # 0 gt.
 name: gate-xor-ring-14b
 circuit: gate xor
+tile: 0 0 5
 port input.a: 3 1 1
 port input.b: 1 1 3
 port output: 2 1 2

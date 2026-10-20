@@ -219,6 +219,8 @@ fn details(c: &Design) -> Details {
             circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
+            // R7: a plain input is driven by the judge's repeater outside the build
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect();
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
@@ -670,6 +672,9 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
     });
+    // a bigger design that is faster than every smaller one of its value says so
+    let n = crate::audit::mark_faster(&mut builds);
+    notes.push(format!("circuits: {n} designs marked faster than the smallest of their value"));
     // the dominated-design audit, at every build (a study re-archived: new candidates show here)
     if !keep_hidden {
         let probe = site_model::Site { builds: builds.clone(), ..Default::default() };
@@ -936,6 +941,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
             circuit::InputHow::Strength { .. } => "strength".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect::<Vec<_>>()
         .join(", ");
