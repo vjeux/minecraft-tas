@@ -1,0 +1,109 @@
+macrosat: box 7x7 at (-2,-2), h 8 per edge, feed false, lever false, parallel steps, fix false: 185811 vars, 950028 clauses, built in 0.3 s
+SAT in 2803.3 s: a mechanism within 8 steps per edge
+rest:
+  4 D  D  D  D  D  D  d  
+  3 D  .  W  .  .  #  W  
+  2 e  E  #  #  #  .  .  
+  1 E  .  #  #  #  #  W  
+  0 .  .  #  #  #  #  .  
+ -1 E  .  U  ^  ^  W  U  
+ -2 U  U  U  U* U* U  U  
+open  step  0: RETRACT (1, -2) up (pulls)
+open  step  0: RETRACT (2, -2) up (pulls)
+open  step  0: PULSE-PULL (-2, -1) east line 0 (pulls)
+open  step  0: PULSE-PULL (4, -1) up line 0 (pulls)
+open  step  0: PULSE-PULL (-2, 1) east line 0 (pulls)
+open  step  0: PULSE-PULL (0, 3) west line 0 (pulls)
+open  step  1: PULSE (1, -2) up line 1
+open  step  1: PULSE (-2, -1) east line 1
+open  step  1: PULSE (4, 0) west line 1
+open  step  1: PULSE-PULL (-2, 4) down line 0 (pulls)
+open  step  1: PULSE-PULL (-1, 4) down line 3
+open  step  2: PULSE-PULL (-1, -2) up line 0 (pulls)
+open  step  2: PULSE (2, -2) up line 4
+open  step  2: PULSE (3, -2) up line 1
+open  step  2: EXTEND (4, -2) up line 2
+open  step  2: PULSE-PULL (-1, 1) east line 0 (pulls)
+open  step  2: PULSE (-2, 4) down line 1
+open  step  2: PULSE (4, 4) down line 1
+open  step  3: PULSE-PULL (-2, -1) east line 2
+open  step  3: PULSE-PULL (3, 0) west line 3
+open  step  3: PULSE-PULL (4, 1) west line 2
+open  step  3: PULSE-PULL (4, 2) west line 0 (pulls)
+open  step  3: PULSE-PULL (-1, 3) down line 0 (pulls)
+open  step  4: PULSE-PULL (2, -2) up line 0 (pulls)
+open  step  4: PULSE-PULL (1, -1) up line 0 (pulls)
+open  step  4: PULSE-PULL (4, 0) up line 2
+open  step  4: PULSE-PULL (-2, 1) east line 0 (pulls)
+open  step  4: PULSE (-1, 2) east line 2
+open  step  4: PULSE (0, 3) west line 1
+open  step  4: PULSE-PULL (3, 4) down line 4
+open  step  5: PULSE (-1, -2) up line 4
+open  step  5: PULSE-PULL (3, -1) west line 2
+open  step  5: EXTEND (4, 0) up line 1
+open  step  5: PULSE (-2, 4) down line 3
+open  step  5: PULSE-PULL (1, 4) down line 0 (pulls)
+open  step  6: RETRACT (4, -2) up
+open  step  6: PULSE-PULL (-2, -1) east line 0 (pulls)
+open  step  6: PULSE-PULL (4, 2) west line 0 (pulls)
+open  step  6: PULSE (4, 3) west line 5
+open  step  7: PULSE-PULL (0, -2) up line 0 (pulls)
+open  step  7: PULSE-PULL (1, -2) up line 0 (pulls)
+open  step  7: EXTEND (4, -2) up line 0
+open  step  7: RETRACT (4, 0) up (pulls)
+close step  8: PULSE (2, -2) up line 1
+close step  8: PULSE (4, 1) west line 1
+close step  8: PULSE (0, 4) down line 1
+close step  8: PULSE (1, 4) down line 1
+close step  8: PULSE-PULL (3, 4) down line 0 (pulls)
+close step  9: PULSE (0, -2) up line 1
+close step  9: PULSE (1, -2) up line 1
+close step  9: PULSE-PULL (2, -2) up line 0 (pulls)
+close step  9: PULSE (3, -2) up line 2
+close step  9: PULSE (-2, 3) east line 1
+close step  9: PULSE (4, 3) west line 2
+close step 10: EXTEND (3, -2) up line 0
+close step 10: PULSE (-2, -1) east line 1
+close step 10: PULSE-PULL (3, 0) west line 0 (pulls)
+close step 10: PULSE-PULL (4, 1) west line 2
+close step 10: EXTEND (4, 3) west line 0
+close step 10: PULSE (0, 4) down line 2
+close step 10: PULSE (2, 4) down line 1
+close step 11: PULSE-PULL (-1, -2) up line 0 (pulls)
+close step 11: RETRACT (3, -2) up (pulls)
+close step 11: PULSE (4, 0) up line 1
+close step 11: RETRACT (4, 3) west
+close step 11: PULSE-PULL (0, 4) down line 0 (pulls)
+close step 12: EXTEND (1, -2) up line 0
+close step 12: PULSE-PULL (2, -2) up line 2
+close step 12: PULSE (3, -2) up line 1
+close step 12: PULSE (0, -1) up line 2
+close step 12: PULSE-PULL (4, 0) up line 0 (pulls)
+close step 12: PULSE-PULL (0, 3) west line 0 (pulls)
+close step 12: EXTEND (3, 4) down line 0
+close step 13: EXTEND (-2, -2) up line 4
+close step 13: PULSE (-1, -2) up line 1
+close step 13: EXTEND (2, -2) up line 1
+close step 13: PULSE-PULL (0, -1) up line 0 (pulls)
+close step 13: EXTEND (-1, 3) east line 2
+close step 13: RETRACT (3, 4) down
+close step 14: EXTEND (-1, -2) up line 0
+close step 14: PULSE (-2, 0) east line 2
+close step 14: PULSE-PULL (4, 1) west line 3
+close step 14: PULSE (-2, 2) east line 4
+close step 14: RETRACT (-1, 3) east (pulls)
+close step 14: PULSE-PULL (4, 3) west line 0 (pulls)
+close step 15: RETRACT (-2, -2) up (pulls)
+close step 15: RETRACT (-1, -2) up
+close step 15: RETRACT (4, -2) up (pulls)
+close step 15: PULSE (-2, 1) east line 3
+close step 15: PULSE (-1, 4) down line 1
+close step 15: PULSE-PULL (3, 4) down line 4
+open:
+  4 D  D  D  D  D  D  d  
+  3 E  W  #  #  #  .  W  
+  2 D  #  .  .  .  #  .  
+  1 e  #  .  .  .  #  W  
+  0 E  #  .  .  .  #  U  
+ -1 E  U  #  #  #  W  ^  
+ -2 U  U  U  U  U  U  U* 

@@ -1,0 +1,88 @@
+phase between
+design designs/piston-door-3x3/tracks/macrosat/cands/m86-a.txt
+let s0 = 1
+let c0 = 1
+let s1 = 11
+let c1 = 11
+let s2 = 21
+let c2 = 21
+let s3 = 31
+let c3 = 31
+let s4 = 41
+let c4 = 41
+let s5 = 51
+let c5 = 51
+open s0 set 4 2 1 minecraft:redstone_block
+open s0 set 1 4 1 minecraft:redstone_block
+open s1 set -3 0 1 minecraft:redstone_block
+open s1 set 4 0 1 minecraft:redstone_block
+open s1+4 clear 4 0 1
+open s1 set -1 1 1 minecraft:redstone_block
+open s1+2 clear -1 1 1
+open s1 clear 1 4 1
+open s1 set 2 4 1 minecraft:redstone_block
+open s1+4 clear 2 4 1
+open s2 set -1 0 1 minecraft:redstone_block
+open s2 set -1 1 1 minecraft:redstone_block
+open s2 clear 4 2 1
+open s2 set 4 3 1 minecraft:redstone_block
+open s2+2 clear 4 3 1
+open s3 set 3 -1 1 minecraft:redstone_block
+open s3+2 clear 3 -1 1
+open s3 clear -1 0 1
+open s3 set -3 1 1 minecraft:redstone_block
+open s3 clear -1 1 1
+open s3 set -2 2 1 minecraft:redstone_block
+open s3+4 clear -2 2 1
+open s3 set 2 3 1 minecraft:redstone_block
+open s3+4 clear 2 3 1
+open s3 set 1 4 1 minecraft:redstone_block
+open s4 clear -3 0 1
+open s4 clear -3 1 1
+open s4 set -2 2 1 minecraft:redstone_block
+open s4 set 4 3 1 minecraft:redstone_block
+open s4+4 clear 4 3 1
+open s5 set -2 0 1 minecraft:redstone_block
+open s5+4 clear -2 0 1
+open s5 set 4 0 1 minecraft:redstone_block
+open s5+4 clear 4 0 1
+open s5 set -2 1 1 minecraft:redstone_block
+open s5+4 clear -2 1 1
+open s5 clear -2 2 1
+open s5 clear 1 4 1
+open s5 set 2 4 1 minecraft:redstone_block
+open s5+4 clear 2 4 1
+close c0 set 1 4 1 minecraft:redstone_block
+close c0+2 clear 1 4 1
+close c1 set 4 2 1 minecraft:redstone_block
+close c1+2 clear 4 2 1
+close c1 set 1 4 1 minecraft:redstone_block
+close c2 set -3 1 1 minecraft:redstone_block
+close c2+2 clear -3 1 1
+close c2 set -2 2 1 minecraft:redstone_block
+close c2 set 3 3 1 minecraft:redstone_block
+close c2+4 clear 3 3 1
+close c2 clear 1 4 1
+close c2 set 2 4 1 minecraft:redstone_block
+close c2+2 clear 2 4 1
+close c3 set 4 2 1 minecraft:redstone_block
+close c3+2 clear 4 2 1
+close c3 set -2 3 1 minecraft:redstone_block
+close c3+2 clear -2 3 1
+close c4 clear -2 2 1
+close c4 set -2 3 1 minecraft:redstone_block
+close c4+4 clear -2 3 1
+close c4 set 3 3 1 minecraft:redstone_block
+close c4 set 1 4 1 minecraft:redstone_block
+close c4+2 clear 1 4 1
+close c4 set 2 4 1 minecraft:redstone_block
+close c4+4 clear 2 4 1
+close c5 set -3 0 1 minecraft:redstone_block
+close c5+4 clear -3 0 1
+close c5 set 4 0 1 minecraft:redstone_block
+close c5+2 clear 4 0 1
+close c5 set -2 2 1 minecraft:redstone_block
+close c5+2 clear -2 2 1
+close c5 clear 3 3 1
+close c5 set 2 4 1 minecraft:redstone_block
+close c5+2 clear 2 4 1
