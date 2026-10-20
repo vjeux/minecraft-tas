@@ -1,0 +1,27 @@
+# archived 2026-10-20T00:17Z from designs/clocks/tracks/clk-obs/families9/p25-lamp-obs-rb-stk-7b-ec800e.txt by mctas clock archive
+# CLOCK: clk-obs-p25-lamp-obs-rb-stk-7b-ec800e period 25 gt (1.25 s), on 8/25, edges 4, warmup 20, family observer+redstone_block+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p25-lamp-obs-rb-stk-7b-ec800e
+# clk-obs grow: P=25 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 9.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:redstone_lamp[lit=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:redstone_block
+  G minecraft:sticky_piston[extended=false,facing=south]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  F
+layer 2:
+  G
+  .
+  .
