@@ -112,3 +112,11 @@ Traps found:
 - A solid block above B, powered by C, also quasi-powers A: A checks the cell above itself, and that block is a neighbour of it.
 - The inverted hold (a torch for NOT W) must not be fed by the input path: if the input dust also powers the torch's block, the torch blinks with every pulse and re-fires the held dropper when it relights (a dropper fires on every rising edge of its power).
 - Pile starts in the dropper that the hold leaves free while W is off.
+
+### Item counter: 39 -> 23 blocks (2026-10-20)
+
+`mctas circuit memory items --n N` now writes the 23-block layout (every N from 11 up judged robust in the game; it now also beats the ring counters at N = 11, 13, 15, 21, 22, 26, 27, 28, 30, 33 and 45). What made it small:
+- Detectors on two sides of the pair: comparator a reads the left dropper from the west, comparator b reads the right one from the north; b's torch hangs right above the bulb, a's reaches it through two dusts and the stone under the second dust.
+- The phase comparator C points into the stone UNDER the left dropper (that holds it), and a dust under the right dropper, lit by that stone, switches off the torch standing beside the right dropper (which held it). A dust does not power the block above it, so the right dropper only sees the torch.
+- Input: the judge's stone on the right dropper's lid, a dust on the left one's lid.
+The rule that cost an hour: a dropper must never be STRONGLY powered — a torch directly under it, or a comparator pointing into it. A strongly powered dropper powers the dropper beside it, which then stays triggered and never fires again. Both holds are therefore weak: a stone under one, a torch beside the other.
