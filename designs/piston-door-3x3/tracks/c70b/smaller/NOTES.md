@@ -157,3 +157,17 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   ticks from the sealed single cell (0,-2); next wall the top-left 4-cell pocket (~9 ticks).
   Families' wiring analysis now reports a macro POCKET LOAD (forced actions per free cell, x10;
   u0 = 40), a mechmut rank key.
+- **u2-7x7** (bars/u2-7x7: u0 with BR's down-puller extended at rest, SU+(2,-2)): meets ALL the
+  coordinator's bars (no inside firing, <= 2 actions per piston per edge, every receiver fed);
+  WORKS in redsim (32 x 2) and the game (4 x 2), 63/51 ticks, pocket load 15. Wiring checks:
+  (0,-2)'s load dropped to 2 ticks, but satwire is still UNSAT (pockets3: core close (-2,0); w86:
+  SU(1,-2) can only act in lockstep with SU(-1,-2), whose moves its one observer watches); and
+  clk-misc / pockets3 found the decisive problem for u0 AND u2: the free cells form 5 islands,
+  pistons don't conduct, and with the lever at the top the right-side islands can never START
+  (nothing they can observe moves before their first firing). Fix directions: the lever on
+  SD(0,4)'s top QC-holding SD(1,4) (d67's u0-l2/l4 wires the top-right island); the bottom-right
+  island sees only edge-symmetric events, so its pistons need identical pulses on both edges.
+- Tools from this: d67's `door feeds` merged (feeds::analyze_schedule) and run by mechmut on every
+  validated plan (none / conflicts / weak in the TSV and the --rank-unfed key); ISLAND START in
+  families' wiring analysis (per lever region and edge, a firing needs a started feed region,
+  regions next to a change start; u0 / u2 = 6), the rank key right after unfed.
