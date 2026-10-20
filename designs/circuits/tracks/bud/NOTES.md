@@ -73,11 +73,18 @@ archived as one group).
   reset block) / bud-latched-qc-fast (7 blocks, latency 1). Latched QC BUDs never jam: the piston
   stays powered while it is out.
 
+* The jam fix: bud-qc-nojam (5 blocks, robust, no jams): two NON-sticky pistons pass a package (a
+  slime block, the arming redstone block on top, an observer under it) back and forth. A non-sticky
+  piston that retracts during its own push leaves exactly what a late retraction leaves (it never
+  pulls), so a second update cannot strand anything; its head vanishes at once when it retracts,
+  so the moved observer (firing 2 gt after it lands) updates the second piston, armed by the
+  pushed redstone block, just after the first piston's head has gone. Found by `bud census --base`
+  over the two pistons + 1 block (18 QC structures; 2 blocks: 3,217 jam-free intact ones out of
+  6,922, all latency 3, re-arm 8). What ruled out the other routes is kept below.
+
 ## Open
 
-* The jam fix (a SELF-resetting QC BUD that survives an update pair 2 gt apart). What is known:
-  the piston must still be powered at the block-event phase of t+3 (the retraction queued by the
-  second update runs there, before the moving blocks land in the block-entity phase); every
+* (none of the coordinator's list.) Notes on the jam fix's dead ends: the piston must still be powered at the block-event phase of t+3 (the retraction queued by the second update runs there, before the moving blocks land in the block-entity phase); every
   QC-power cell is beside the slime block (dragged) or in its column (pushed), so in the vertical
   design no static source can hold it; an observer watching anything that moves at t+1 fires at
   t+3 early enough, but no observer cell both watches a moved cell and powers the piston (its back
@@ -88,4 +95,13 @@ archived as one group).
   pushed redstone block, landing at t+3, must take the arming block off its cell (beside the head
   cell, so its departure updates the piston) without dropping it above the piston, and a sticky
   piston must bring it back later; the cells line up badly (the only reset piston cell beside the
-  landing spot pushes the arming block onto the piston's top).
+  landing spot pushes the arming block onto the piston's top). `bud census --base` over the latched
+  BUD + 2 blocks (17 states, 267,258 structures) finds no automatic reset.
+* The other route: two NON-sticky pistons in a loop. A non-sticky piston that retracts during its
+  own push leaves exactly what a late retraction leaves (it never pulls), so the second update
+  cannot jam it. P (east) pushes a slime block carrying the arming redstone block; Q (west), armed
+  by that redstone block's pushed cell through quasi-connectivity, must push the package back, but
+  only once P's head has left the cell (about t+7): Q needs an update at that time. A repeater
+  (delay 4 gt) behind the pushed redstone block turns on at t+7 but switches with flags 2 (no
+  block update to Q below it) and needs a support that does not move; an observer chain (2 gt per
+  observer) or a repeater whose front block neighbors Q is next to try.

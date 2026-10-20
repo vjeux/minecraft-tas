@@ -31,9 +31,9 @@ Owner so far: clk-obs (branch explore/clk-obs). Coordinator f1a42990.
 
 ## Open (NOTES.md has the details)
 
-* The jam fix: a self-resetting QC BUD that survives two updates 2 gt apart (every one found so far
-  jams; the latched ones do not). NOTES.md lists what rules out the obvious holds and the route
-  being tried (a latched QC BUD with an automatic reset).
-* Done since: all five (bud-all-five), latency 1 (bud-slime-qc-fast), place only
-  (bud-place-only), manual reset (judge latched mode, bud-latched-qc / -fast), the catalog's
-  beats_on_variation knows bud's metrics (latency, re-arm, footprint, jams; fragile never wins).
+* Nothing from the coordinator's list: all five (bud-all-five), latency 1 (bud-slime-qc-fast),
+  place only (bud-place-only), manual reset (judge latched mode, bud-latched-qc / -fast), the
+  jam fix (bud-qc-nojam: two non-sticky pistons), the catalog's beats_on_variation knows bud's
+  metrics (latency, re-arm, footprint, jams; fragile never wins).
+* Possible next: a remove-only detector (presence level + falling-edge detector), a faster
+  jam-free one (bud-qc-nojam has latency 3, re-arm 8), tileability measured by the judge.
