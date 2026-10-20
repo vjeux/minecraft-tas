@@ -11,13 +11,15 @@ Notebook: NOTES.md (floor proof, timing rule, mechanisms, output rule). Board: S
   c21-obs3-disp), P >= 41 plain-only (5 blocks: p41-obs3-disp). Every P >= 21 is reachable
   (a hairpin whose repeater delays sum to D: P = 2D + 3, or 2D + 4 with the note one further).
 * Archived by me (`mctas clock archive`, merged into main by the coordinator):
-  - `best/`: the smallest clock per period, 157 periods P 21..468 (README table; every one is
+  - `best/`: the smallest clock per period, 177 periods P 21..1512 (README table; every one is
     archived itself or as a design of the same type).
   - five EXTENDABLE cards (0cb06af9; `extend/README.md`): replin P=4+9n, hairpin P=3+16n
     (+ plain), racetrack P=28+32n, racetrack-plain P=12+16n; instances in archive/extend.tsv.
   - the smallest per (period, family) of every non-extendable search: 577 (86013897..d99b80ae),
-    57 rings (6da970f1), the census 3x1x2 k=6 cells (237, the commit after 6da970f1), and the
-    3 frequency-filter clocks (P50).
+    57 rings (6da970f1), 237 census 3x1x2 k=6 cells (1e7c9eb4), 40 long-period climb finds
+    (89253c23, 725167a8: P300..1512 in 6-7 blocks), and the 3 frequency-filter clocks (P50).
+  - four more EXTENDABLE cards (42833245): replin-trapdoor, replin-dispenser, hairpin-trapdoor,
+    hairpin-dispenser (the emitter as the variation).
   - `select --minimal --no-composite --known designs/clocks/archive/*.txt` over a search's
     output gives what is still missing; then `outputs --fix`, `caption`, `clock archive`.
 * `composite/`: designs whose state repeats only as an lcm of independent parts (excluded, ruling
@@ -28,7 +30,8 @@ Notebook: NOTES.md (floor proof, timing rule, mechanisms, output rule). Board: S
   piston, observer, stone, sculk, csculk, amethyst, wool: hybrids, two-sensor clocks)
 * `chain` sensor + repeater lines + terminals (observer / torch / direct emitter)
 * `ring` 3-sensor rings (`--tuples n:lo:hi`, `--kick note|behind`, `--wool N`); `ring-big` n
-  sensors on a circle; `climb` long-period hunt
+  sensors on a circle; `climb` long-period hunt (refuses composites); `reduce` greedy block
+  removal keeping the period and a full-period cell
 * `family <name> --n <n|a..b> (--out F | --out-dir D) [--card]` the extendable families;
   `family-dupes [--remove]` archived designs that are instances of a family
 * `select` smallest per period or per (period, family), `--mechanisms N`, `--minimal`,
@@ -46,8 +49,11 @@ ring --tuples 3:4:16 (--kick note --wool 2 / --kick behind --wool 3); obs --max-
 --emitters dispenser,note,trapdoor,sticky --extra sculk,csculk; the census boxes above.
 
 ## Next steps
-1. Long non-composite periods beyond 468 with few blocks: the census 3x1x2 k=6 tops out at P348
-   (6 blocks; its P420/462 are composite), two-sensor searches at P336; `climb` from these seeds.
+1. Longer non-composite periods: the climb (`climb ... --min-p 1000 --max-blocks 7|8`, then
+   `reduce`) saturates near P1512 from the current seeds (8 blocks did not beat it); new seed
+   families (filter clocks, rings with dividers) may break through.
 2. Mechanisms still missing: a wool shutter clock (NOTES: the piston must be out of range or
    itself behind wool, and the emitter coupled to C).
 3. More extendable families: frequency-filter chains, dividers with tunable dead times.
+4. Caution: never pipe `caption` into `head` (SIGPIPE stops it after a few files); use
+   `caption --archive designs/clocks/archive` to resync captions.tsv after re-captioning.

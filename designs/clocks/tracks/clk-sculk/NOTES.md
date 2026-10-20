@@ -104,9 +104,18 @@ the observer pair is an independent passenger (composite: C every 29, whole stat
 shutter clock needs the piston out of C's range (> 16, powered through a longer line) or itself
 behind wool, and an emitter coupled to C.
 
+## Long periods (non-composite)
+Two-sensor interlocks (a calibrated sensor's observer loop + plain sensors whose 40 gt dead time
+skips some of its events, gating dispensers or trapdoors they power) give long irregular cycles
+that still repeat as a whole with the output's own period: census 3x1x2 k=6 up to P348 in 6
+blocks (its P420/462 are composite), `climb` (one-block mutations keeping the period growing,
+composites refused) + `reduce` up to P1480 in 6 blocks and P1512 in 7 (an 8-block budget did not
+beat it). Without the composite check, the climb finds lcm "periods" of independent loops.
+
 ## Extendable families (one catalog card each; extend/README.md)
-`mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14), hairpin (16n + 3,
-n >= 2; plain n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3). Every P >= 21 is reachable:
+`mctas clock sculk family <name> --n <n>`: replin (P = 9n + 4, 3 <= n <= 14; -trapdoor same,
+-dispenser 9n + 8), hairpin (16n + 3, n >= 2; -trapdoor same; -dispenser 16n + 7, n >= 1; plain
+n >= 3), racetrack (32m + 28; plain 16m + 12, m >= 3): 9 cards, archived. Every P >= 21 is reachable:
 a hairpin whose repeater delays sum to D rt plays its note 2D + 2 gt after the sensor fires
 (>= 20 once D >= 9), so P = 2D + 3 with the note diagonal to the sensor (travel 1) and 2D + 4
 with it one block further (travel 2).
