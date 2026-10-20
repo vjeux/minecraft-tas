@@ -31,11 +31,12 @@ fences: redsim doesn't model them).
 | classic BUD, latched | 2 blocks | bud-latched-qc | **record** (one block can't latch) |
 | classic BUD, latched, latency 1 | 7 blocks | bud-latched-qc-fast | target: fewer blocks |
 | classic BUD, latency 1 | 9 blocks | bud-slime-qc-fast | target: fewer blocks |
-| all five | 13 blocks | bud-all-five | target <= 5: an observer and a 3-block QC BUD on one output |
+| all five | 13 blocks | bud-all-five | target <= 8, open. No 5-block design from the slime QC BUD + an observer + 1 block (census k = 1, observer east, south or below the target). Every observer watching the target has its back 3 blocks (Manhattan) from the piston, so its pulse needs 2 more blocks (a dust pair) to reach it; an observer next to the slime block is dragged along. The 8-block dust-pair version meets the slime QC's jam (a second update 2 gt after the first): the record's step-cut avoids it. The k = 2 census (31 states) costs ~15 h at the BUD judge's ~1 s per design: not run |
 | any class set, instant (latency 0) | 0 gt | none | target: a place seen in its own tick (a placed block powered at once by a torch under it), or prove impossible for a pulse |
 
 ## Work list
-1. all five <= 5 blocks (observer + QC BUD sharing the target cell, outputs merged).
+1. all five <= 8 blocks (observer + QC BUD sharing the target cell, outputs merged; <= 5 has no
+   design from the slime QC BUD + observer + 1 block).
 2. latency 1 designs in fewer blocks (classic, latched, observer class).
 3. Card captions: each design's first comment line names the variation it wins.
 4. Fold whatever wins nothing; the catalog's `beats_on_variation` has the BUD metrics.
