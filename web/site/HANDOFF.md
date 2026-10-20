@@ -48,9 +48,10 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
 - Extendable families: clock and circuit cards, members generated at build time by
   each family's generator (judged in the game / simulated at exactly the formula's value / formula
   only).
-- Shulker loaders and unloaders run live in the 3D view (clk-rt cb9ac3d79); the site runs each
-  one at build time with the viewer's own session to give its box timings (circuits.rs
-  `view_run`); dropper75 and the two rail unloaders are shown as built (the viewer decides).
+- Shulker loaders and unloaders run live in the 3D view (clk-rt cb9ac3d79; all 16 since clk-misc
+  2a2a3f8b9: the viewer's world is the judge's sandbox); the site runs each one at build time with
+  the viewer's own session to give its box timings (circuits.rs `view_run`; a machine with two OUT
+  chests is timed over 4 boxes a chest); whether a design is shown as built is the viewer's call.
 - A Litematica schematic next to every design and member (`designs/<kind>/<stem>.litematic`;
   `mctas litematic`, [docs/litematic.md](../../docs/litematic.md)): "Download .litematic" on every
   build page and family member row.
