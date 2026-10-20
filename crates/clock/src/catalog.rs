@@ -478,7 +478,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(w) = rep.base().and_then(|b| b.output.as_ref()).map(|o| &o.wave)
         && let Some((lo, hi)) = w.irregular()
     {
-        let tap = rep.base().and_then(|b| b.analysis.cells.iter().filter_map(|c| c.output_period().map(|p| (p, c.pos))).max());
+        let tap = rep.base().and_then(|b| b.analysis.cells.iter().filter(|c| c.tappable()).filter_map(|c| c.output_period().map(|p| (p, c.pos))).max());
         let hint = match tap {
             Some((p, pos)) => format!("; the cell {} {} {} pulses every {p} gt: declare it as `port output`", pos[0], pos[1], pos[2]),
             None => "; no cell of it pulses evenly".into(),

@@ -240,6 +240,15 @@ impl CellWave {
         let g0 = *self.gaps.first()?;
         self.gaps.iter().all(|&g| g == g0).then_some(g0)
     }
+
+    /// Whether a declared `port output` here reads what this wave shows: the cell always holds the
+    /// same component, read by its own state (a plain block moving through, or a head, reads as
+    /// the power the cell receives instead).
+    pub fn tappable(&self) -> bool {
+        let mut names = self.states.iter().map(|s| mctas::blockstate::block_name(block_part(s)).to_string());
+        let Some(first) = names.next() else { return false };
+        family_name(block_part(&self.states[0])).is_some() && !first.contains("moving_piston") && !first.contains("piston_head") && names.all(|n| n == first)
+    }
 }
 
 /// The analysis of one period: every cell whose state changes, the family (sorted, deduplicated)

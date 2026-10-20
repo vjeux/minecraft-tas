@@ -369,7 +369,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                         {
                             odd += 1;
                             // a cell a builder could tap instead: regular, the longest own period
-                            let tap = r.analysis.cells.iter().filter_map(|c| c.output_period().map(|p| (p, c.pos))).max();
+                            let tap = r.analysis.cells.iter().filter(|c| c.tappable()).filter_map(|c| c.output_period().map(|p| (p, c.pos))).max();
                             if tap.is_none() {
                                 none += 1;
                             }

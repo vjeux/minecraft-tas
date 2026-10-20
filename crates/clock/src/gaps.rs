@@ -151,7 +151,7 @@ pub fn retap(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file: &str,
     if w.irregular().is_none() {
         return Ok(Retap::Even);
     }
-    let Some((_, to)) = cells.iter().filter_map(|c| c.output_period().map(|p| (p, c.pos))).max() else {
+    let Some((_, to)) = cells.iter().filter(|c| c.tappable()).filter_map(|c| c.output_period().map(|p| (p, c.pos))).max() else {
         return Ok(Retap::NoTap(format!("gaps {:?}", w.gaps)));
     };
     let draft = with_output(&text, to, from, None)?;
