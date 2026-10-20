@@ -75,6 +75,9 @@ pub(crate) struct View {
     pub autoplay: bool,
     /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
     pub stimulus: Option<String>,
+    /// `data-events`: the judge's actions at cells (a BUD switch's target and footprint probes),
+    /// replayed in the auto-demo.
+    pub events: Option<String>,
     /// `data-phases`: the checker's phase labels.
     pub phases: Option<String>,
     /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
@@ -598,6 +601,7 @@ impl App {
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
+        v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
         v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
         v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
         v.yaw = attr_f32(el, "data-yaw");
@@ -670,6 +674,7 @@ impl App {
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
+            events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
             phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
             input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),

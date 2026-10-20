@@ -71,12 +71,11 @@ impl Overlays {
             self.tags.push((t.clone(), [ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 1.05, ci.pos[2] as f32 + 0.5]));
             self.input_tags.push((i, t));
         }
-        if !p.session.circuit_inputs.is_empty() {
-            for (label, pos) in mcview::circuit::outputs(&p.session.design) {
-                let t = tag(&label, "#ffb04a");
-                let _ = self.layer.append_child(&t);
-                self.tags.push((t, [pos[0] as f32 + 0.5, pos[1] as f32 + 1.05, pos[2] as f32 + 0.5]));
-            }
+        // a circuit's other ports: its outputs, a shulker design's chests, a BUD switch's target
+        for (label, pos, colour) in mcview::circuit::port_tags(&p.session.design) {
+            let t = tag(&label, colour);
+            let _ = self.layer.append_child(&t);
+            self.tags.push((t, [pos[0] as f32 + 0.5, pos[1] as f32 + 1.05, pos[2] as f32 + 0.5]));
         }
         if let Some((c, _)) = self.history.take() {
             c.remove();

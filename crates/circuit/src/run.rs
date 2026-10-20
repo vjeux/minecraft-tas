@@ -55,7 +55,7 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
             let mut t = Trace::new(c, d.cells, d.signals);
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
-            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], motion: None }).collect();
+            t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], motion: None, end: None }).collect();
             Ok(t)
         }
         Err((_, why)) => Err(why),
@@ -108,6 +108,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let seg = if tnt { 1 } else { (400_000 / volume).clamp(10, 2000) };
     let mut primed: Vec<crate::trace::Primed> = Vec::new();
     let mut seen_tnt: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut tnt_index: HashMap<String, usize> = HashMap::new();
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -142,14 +143,34 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         }
         signals.extend(st.signals.iter().map(|v| best_of(v)));
         if tnt {
+            // every primed TNT is followed to fuse 1 (its position there: the precision) and
+            // removed then, before it can explode
             for e in w.entities(sb)? {
-                if e.kind.trim_start_matches("minecraft:") == "tnt" && seen_tnt.insert(e.uuid.clone()) {
-                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion) });
+                if e.kind.trim_start_matches("minecraft:") != "tnt" {
+                    continue;
+                }
+                if seen_tnt.insert(e.uuid.clone()) {
+                    tnt_index.insert(e.uuid.clone(), primed.len());
+                    primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
+                }
+                let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok()).unwrap_or(80);
+                if fuse <= 1 {
+                    if let Some(&k) = tnt_index.get(&e.uuid) {
+                        primed[k].end = Some((e.pos, e.motion));
+                    }
                     w.exec(sb, &format!("kill {}", e.uuid))?;
                 }
             }
         }
         t = next;
+    }
+    if tnt {
+        // the TNT still burning when the run ends: removed (the judge's, not the design's)
+        for e in w.entities(sb)? {
+            if e.kind.trim_start_matches("minecraft:") == "tnt" {
+                w.exec(sb, &format!("kill {}", e.uuid))?;
+            }
+        }
     }
     // nothing may reach the outer layer of the watched box (it escaped the margin), except a flying
     // machine reaching its far end along `travel` (it flew the corridor: the run ends there); and no
