@@ -48,9 +48,30 @@ fn modrinth(project: &str, version: &str) -> Result<(String, String, String)> {
     Ok((s(&f["url"])?, s(&f["filename"])?, s(&f["hashes"]["sha1"])?))
 }
 
-/// Download (once) Fabric Loader, MaLiLib and Litematica for `version` and build the probe mod.
+/// Fabric Loader, MaLiLib and Litematica for `version` (downloaded once; the resolved choice is
+/// kept in `fabric/resolved.json` and reused offline afterwards: vjeux 2026-10-20, nothing is
+/// fetched again once it is there) and the probe mod.
 pub fn install(version: &str, client: &ClientBuild) -> Result<FabricInstall> {
     let dir = paths::version_dir(version).join("fabric");
+    let resolved = dir.join("resolved.json");
+    if let Ok(text) = std::fs::read_to_string(&resolved)
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(&text)
+    {
+        let strs = |k: &str| -> Vec<String> { v[k].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect() };
+        let libs: Vec<PathBuf> = strs("libs").into_iter().map(PathBuf::from).collect();
+        let mut mods: Vec<PathBuf> = strs("mods").into_iter().map(PathBuf::from).collect();
+        if libs.iter().chain(&mods).all(|p| p.exists()) && !mods.is_empty() {
+            let probe = build_probe(version, &dir, client, &libs, &mods)?;
+            mods.push(probe);
+            return Ok(FabricInstall {
+                loader: v["loader"].as_str().unwrap_or_default().to_string(),
+                main_class: v["main_class"].as_str().unwrap_or_default().to_string(),
+                jvm_args: strs("jvm_args"),
+                libs,
+                mods,
+            });
+        }
+    }
     let loaders = net::get_json(&format!("https://meta.fabricmc.net/v2/versions/loader/{version}")).context("Fabric's version list")?;
     let loader = loaders
         .as_array()
@@ -78,6 +99,15 @@ pub fn install(version: &str, client: &ClientBuild) -> Result<FabricInstall> {
         net::download(&url, &dest, Checksum::Sha1(&sha1))?;
         mods.push(dest);
     }
+    let paths_json = |v: &[PathBuf]| serde_json::Value::Array(v.iter().map(|p| serde_json::Value::String(p.display().to_string())).collect());
+    let record = serde_json::json!({
+        "loader": loader,
+        "main_class": main_class,
+        "jvm_args": jvm_args,
+        "libs": paths_json(&libs),
+        "mods": paths_json(&mods),
+    });
+    std::fs::write(&resolved, serde_json::to_string_pretty(&record)?)?;
     let probe = build_probe(version, &dir, client, &libs, &mods)?;
     mods.push(probe);
     Ok(FabricInstall { loader, main_class, jvm_args, libs, mods })
