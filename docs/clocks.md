@@ -48,6 +48,18 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   droppers and crafters triggered, leaves distance < 7, scaffolding distance > 0, else `lit`, then
   `power > 0`, then `powered`; a plain block: present. An output cell holding a plain block or air
   reads the power it receives (`getBestNeighborSignal > 0`).
+* **Evenly spaced output** (coordinator's decision, 2026-10-20, from vjeux's site critique C38: a
+  P476 minecart loop whose output pulses every 52..71 gt is no 24 s clock): the judge and redsim
+  also record the GAPS, the ticks between the output's rising edges over one period
+  (`CellWave::gaps`; verdicts-v1.tsv's 17th column, `[6, 6]`). With N equal gaps g the output is a
+  clock of period g for a builder (g can be shorter than the state period); unequal gaps are an
+  UNEVEN output: `clock archive` refuses it (naming a cell of the clock that pulses evenly, to
+  declare as `port output` instead), `clock catalog` and the site leave such rows out (they stay in
+  the repository). `clock gaps [--write]` backfills the column from redsim; `clock retap [--write]`
+  moves an uneven clock's `port output` to a cell that always holds the same component and pulses
+  evenly (the longest such period), judges it again in the game and rewrites its design and row
+  when the period holds with an even output; `clock sim --irregular` lists the uneven ones. On
+  2026-10-20: 2544 of 4051 archived clocks were uneven before the retap batch.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
   strength, a container's contents), plus a redstone block that moves (a moving power source),

@@ -35,6 +35,10 @@ pub enum ClockCmd {
         /// single period a builder could time with), one line each, then a count.
         #[arg(long)]
         irregular: bool,
+        /// Print the best exterior output cell (an air cell where the judge's lamp gets evenly
+        /// spaced pulses, redsim's pick as `clock retap` makes it) and the line with it there.
+        #[arg(long)]
+        exterior: bool,
     },
     /// The official judge in the real game: N positions x 4 rotations, kick, run to the horizon,
     /// exact periodicity for >= 3 periods after warmup, the same period/waveform/family everywhere
@@ -108,6 +112,16 @@ pub enum ClockCmd {
         dir: PathBuf,
         #[arg(long)]
         write: bool,
+        /// Only the files of shard i of n (`i/n`, by row order): run shards in parallel, each with
+        /// its own --results file, then --apply them all.
+        #[arg(long)]
+        shard: Option<String>,
+        /// Append one result line per file here instead of writing the archive (for --apply).
+        #[arg(long)]
+        results: Option<PathBuf>,
+        /// Apply results files to the archive (designs, rows, the hidden column) and print counts.
+        #[arg(long, num_args = 1..)]
+        apply: Vec<PathBuf>,
         #[arg(long, default_value_t = 4)]
         positions: usize,
         #[arg(long, default_value_t = 4000)]
@@ -345,7 +359,7 @@ pub enum ClockCmd {
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
     match cmd {
-        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace, irregular } => {
+        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace, irregular, exterior } => {
             if designs.is_empty() {
                 bail!("clock sim <design>...");
             }
@@ -360,6 +374,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     continue;
                 }
                 let t0 = std::time::Instant::now();
+                if exterior {
+                    let mut d = c.design.clone();
+                    d.ports.remove("output");
+                    let free = Clock::from_design(d)?;
+                    match clock::sim::lamp_outputs(&free, 1).into_iter().next() {
+                        Some((q, r)) => println!("EXTERIOR: {} port output: {} {} {}: {}", c.name(), q[0], q[1], q[2], r.summary()),
+                        None => println!("NO EXTERIOR: {}", c.name()),
+                    }
+                    continue;
+                }
                 let r = simulate(&c, &o);
                 if irregular {
                     if r.verdict == Verdict::Clock {
@@ -454,15 +478,38 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
         }
-        ClockCmd::Retap { files, dir, write, positions, horizon, margin, workers } => {
-            let files: Vec<String> = if files.is_empty() { clock::catalog::read_rows(&dir)?.into_iter().map(|r| r.file).collect() } else { files };
+        ClockCmd::Retap { files, dir, write, shard, results, apply, positions, horizon, margin, workers } => {
+            if !apply.is_empty() {
+                let res = clock::gaps::read_results(&apply)?;
+                let a = clock::gaps::apply(&dir, &res)?;
+                for (kind, files) in &a.hidden {
+                    println!("HIDDEN {kind}: {} ({})", files.len(), files.join(", "));
+                }
+                println!("apply: {} results, {} moved, {} kept, {} hidden", res.len(), a.moved, a.kept, a.hidden.values().map(|v| v.len()).sum::<usize>());
+                return Ok(());
+            }
+            let mut files: Vec<String> = if files.is_empty() { clock::catalog::read_rows(&dir)?.into_iter().map(|r| r.file).collect() } else { files };
+            if let Some(s) = &shard {
+                let (i, n) = s.split_once('/').and_then(|(a, b)| Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?))).ok_or_else(|| anyhow::anyhow!("--shard i/n"))?;
+                files = files.into_iter().enumerate().filter(|(k, _)| k % n == i).map(|(_, f)| f).collect();
+            }
             let o = VerifyOptions { positions, rotations: true, horizon, margin, workers, version: version.to_string(), ..Default::default() };
             let pool = clock::verify::spawn_pool(&o)?;
-            let (mut moved, mut refused, mut notap) = (0, 0, 0);
+            let mut out = match &results {
+                Some(p) => Some(std::fs::OpenOptions::new().create(true).append(true).open(p)?),
+                None => None,
+            };
+            let (mut moved, mut refused, mut notap, mut hidden) = (0, 0, 0, 0);
             for f in &files {
-                match clock::gaps::retap(&pool, &o, &dir, f, write) {
+                let r = clock::gaps::retap(&pool, &o, &dir, f, write && out.is_none());
+                if let (Some(w), Ok(r)) = (out.as_mut(), r.as_ref()) {
+                    use std::io::Write as _;
+                    writeln!(w, "{}", r.result_line(f))?;
+                    w.flush()?;
+                }
+                match r {
                     Ok(clock::gaps::Retap::Even) => {}
-                    Ok(clock::gaps::Retap::Moved { from, to, line }) => {
+                    Ok(clock::gaps::Retap::Moved { from, to, line, .. }) => {
                         moved += 1;
                         println!("MOVED {f}: output {from:?} -> {to:?}: {line}");
                     }
@@ -472,13 +519,17 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     }
                     Ok(clock::gaps::Retap::NoTap(why)) => {
                         notap += 1;
-                        println!("NO EVEN CELL {f}: {why}");
+                        println!("NO OUTPUT {f}: {why}");
+                    }
+                    Ok(clock::gaps::Retap::Hide(why)) => {
+                        hidden += 1;
+                        println!("HIDE {f}: {why}");
                     }
                     Ok(clock::gaps::Retap::Skip(why)) => println!("SKIP {f}: {why}"),
                     Err(e) => println!("ERROR {f}: {e:#}"),
                 }
             }
-            println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no even cell", if write { " (written)" } else { " (report only: --write)" });
+            println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
         ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
             let mut items = Vec::new();
