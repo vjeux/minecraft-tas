@@ -61,19 +61,31 @@ archived as one group).
   (designs/circuits/selftest/latching-bud.txt): the judge's placement updates every block, it
   fires there and never re-arms (output on at rest).
 
+## Built since (coordinator 09:15Z)
+
+* All five: bud-all-five (13 blocks). The observer is fed into the fast BUD's low dust, not into
+  the piston: after a placement that dust is already lit by the open step when the observer fires,
+  so the piston hears nothing new mid-push; after a shape-only change the dust lighting up is what
+  updates the piston.
+* Place only: bud-place-only (4 blocks: the torch presence level into the 2-block rising-edge
+  detector of the pulse study).
+* Manual reset: the judge's latched mode (`port input.reset`) and bud-latched-qc (2 blocks + the
+  reset block) / bud-latched-qc-fast (7 blocks, latency 1). Latched QC BUDs never jam: the piston
+  stays powered while it is out.
+
 ## Open
 
-* An all-five detector needs two sensors (an observer for shape-only changes, a QC sensor for pure
-  updates): an observer's back can never update a piston that is beside the target (the back cell
-  is 2 cells from the target), so their outputs must be merged by wiring. Feeding the observer into
-  the piston through dust fails either way (tried on the slime BUD): the observer's 2 gt pulse
-  updates the piston again 2 gt into its push (the jam: it spits the slime block), and delayed
-  past the push it fires the piston a second time after a placement. So the outputs must be OR'd
-  outside the piston: about 12-16 blocks of dust and supports (the slime BUD's output is 3 high,
-  the fast one's is beside the target), a union of two archived designs: not built.
-* Dropper / dispenser QC BUDs: `TRIGGERED` (a flags-2 change an observer sees, latency 2) stays set
-  until the dropper is updated while unpowered, and droppers cannot be moved (block entity): a
-  self-resetting one needs a moving power source that comes back without updating it; none in 3
-  blocks (census above).
-* A manual-reset kind (a `port input.reset`) is described in VARIATIONS.md but not judged yet: no
-  latched design worth it so far.
+* The jam fix (a SELF-resetting QC BUD that survives an update pair 2 gt apart). What is known:
+  the piston must still be powered at the block-event phase of t+3 (the retraction queued by the
+  second update runs there, before the moving blocks land in the block-entity phase); every
+  QC-power cell is beside the slime block (dragged) or in its column (pushed), so in the vertical
+  design no static source can hold it; an observer watching anything that moves at t+1 fires at
+  t+3 early enough, but no observer cell both watches a moved cell and powers the piston (its back
+  is 2 cells from what it watches); a hold driven by the open dust step (on at t+1) cannot end
+  before the stone comes back, and every gate made of moving blocks opens again on the way back
+  (the return mirrors the push), re-firing the piston as it finishes retracting (its onPlace
+  checks power). The promising route: a latched QC BUD (no jam) with an automatic reset: the
+  pushed redstone block, landing at t+3, must take the arming block off its cell (beside the head
+  cell, so its departure updates the piston) without dropping it above the piston, and a sticky
+  piston must bring it back later; the cells line up badly (the only reset piston cell beside the
+  landing spot pushes the arming block onto the piston's top).

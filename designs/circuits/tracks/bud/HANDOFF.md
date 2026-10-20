@@ -31,9 +31,9 @@ Owner so far: clk-obs (branch explore/clk-obs). Coordinator f1a42990.
 
 ## Open (NOTES.md has the details)
 
-* An all-five detector (observer + QC sensor, outputs merged by wiring).
-* A faster QC BUD (latency 1: the piston's block event at t+1 moving a block that cuts a dust
-  step?), a place-only / remove-only detector (presence level + edge detector).
-* A manual-reset variant (`port input.reset`), described in VARIATIONS.md, not judged.
-* `circuit::archive::beats_on_variation` (from explore/shulker, when it lands on main): add bud's
-  metrics (lower re-arm, footprint, latency, no jams) so a bigger but better BUD keeps its card.
+* The jam fix: a self-resetting QC BUD that survives two updates 2 gt apart (every one found so far
+  jams; the latched ones do not). NOTES.md lists what rules out the obvious holds and the route
+  being tried (a latched QC BUD with an automatic reset).
+* Done since: all five (bud-all-five), latency 1 (bud-slime-qc-fast), place only
+  (bud-place-only), manual reset (judge latched mode, bud-latched-qc / -fast), the catalog's
+  beats_on_variation knows bud's metrics (latency, re-arm, footprint, jams; fragile never wins).
