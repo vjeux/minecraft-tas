@@ -1,0 +1,43 @@
+# archived 2026-10-20T21:17Z from designs/circuits/memory/tracks/memory/r7/counter33-ring11-ring3.txt by mctas circuit archive
+# CIRCUIT: counter33-ring11-ring3 counter 33 N 33, output level every 33 pulses, 42 blocks, 11x3x4, robust
+# Counter 33, 2 chained dropper rings (11 x 3), 42 blocks (track memory, `mctas circuit memory ring --n 11 --then 3`): ring 1 (11 droppers fired by the input, some through 1 dust, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; the last comparator is on during one pulse window in 33 (level style). Every transit crosses a hopper, so the firing order never matters. The input sits on the build's edge (nothing south of it), where a real input line reaches it.
+name: counter33-ring11-ring3
+circuit: counter 33
+group: ring-chain
+group title: Chained dropper rings (counter N1 x N2 x ...)
+group note: each ring's comparator strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; copper bulbs may follow (`mctas circuit memory ring --n N1 --then N2,N3 [--bulbs K]`)
+port input: 0 0 0
+port output: -6 0 -2
+nbt: -4 0 -2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: -1 0 -2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -5 0 -3
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer -1:
+  .
+  S..S
+  .....S
+  ......S.S
+layer 0:
+  .....BI
+  CBSCASd
+  .FE.GRFEIEI
+  ....B.rSRSd
+layer 1:
+  .....G
+  .hA.HE
+  ..H
+  ....hDhDhDH

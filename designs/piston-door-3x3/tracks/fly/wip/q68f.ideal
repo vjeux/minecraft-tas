@@ -1,0 +1,46 @@
+phase between
+design designs/piston-door-3x3/tracks/fly/wip/q68f.txt
+# open: N's pulse fires O twice: Qv spits BM C TM up (TM into (1,3)), then pulls BM back
+open 0 set -2 -1 1 minecraft:redstone_block
+open 8 clear -2 -1 1
+open 16 set 0 4 1 minecraft:redstone_block
+open 22 set 1 4 1 minecraft:redstone_block
+open 22 set 2 4 1 minecraft:redstone_block
+open 26 clear 1 4 1
+open 26 clear 2 4 1
+open 32 clear 1 -3 1
+open 38 set 1 -2 1 minecraft:redstone_block
+open 42 clear 1 -2 1
+open 48 set 2 -2 1 minecraft:redstone_block
+open 52 clear 2 -2 1
+open 58 set 3 -1 1 minecraft:redstone_block
+open 59 clear 3 -1 1
+open 64 set 2 -3 1 minecraft:redstone_block
+open 70 set 2 -1 1 minecraft:redstone_block
+open 74 clear 2 -1 1
+open 80 clear 2 -3 1
+open 86 set 2 -2 1 minecraft:redstone_block
+open 90 clear 2 -2 1
+# close
+close 0 set 2 -2 1 minecraft:redstone_block
+close 1 clear 2 -2 1
+close 6 set 2 -3 1 minecraft:redstone_block
+close 12 set 2 -1 1 minecraft:redstone_block
+close 13 clear 2 -1 1
+close 18 clear 2 -3 1
+close 24 set 3 -1 1 minecraft:redstone_block
+close 28 clear 3 -1 1
+close 34 set 2 -2 1 minecraft:redstone_block
+close 35 clear 2 -2 1
+close 40 set -2 -1 1 minecraft:redstone_block
+close 50 set 1 -2 1 minecraft:redstone_block
+close 51 clear 1 -2 1
+close 56 set 1 -3 1 minecraft:redstone_block
+close 62 set 1 4 1 minecraft:redstone_block
+close 62 set 2 4 1 minecraft:redstone_block
+close 63 clear 1 4 1
+close 63 clear 2 4 1
+close 68 clear 0 4 1
+close 74 clear -2 -1 1
+close 82 set 1 4 1 minecraft:redstone_block
+close 83 clear 1 4 1

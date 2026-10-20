@@ -122,6 +122,11 @@ pub struct World {
     /// (tick, where) for the light engine's timing, and the state key holds the time mod 20.
     pub watch_light: bool,
     pub light_changes: Vec<(i64, BlockPos)>,
+    /// With `log_writes`: every cell whose state a write changed, in order, until the caller takes
+    /// them (`writes`). The viewer's big TNT-ground worlds look again only at what changed after a
+    /// tick, not at the whole box. Off by default; no effect on the simulation or the state key.
+    pub log_writes: bool,
+    pub writes: Vec<BlockPos>,
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
@@ -209,6 +214,8 @@ impl World {
             sculk: Default::default(),
             watch_light: false,
             light_changes: Vec::new(),
+            log_writes: false,
+            writes: Vec::new(),
             errors: Vec::new(),
             primed: Vec::new(),
             remove_primed: false,
@@ -349,6 +356,9 @@ impl World {
                     let now = self.time;
                     self.light_changes.retain(|&(t, _)| t >= now - 1);
                     self.light_changes.push((now, p));
+                }
+                if self.log_writes && self.cells[i] != s {
+                    self.writes.push(p);
                 }
                 self.cells[i] = s
             }

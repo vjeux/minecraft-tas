@@ -70,11 +70,16 @@ each build's page.
   speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
-  sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
+  sized once from its longest text, measured unrounded (`tap the lever`, `press the inputs`, the demo's phase,
   `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
-  meets something it does not model during the run: the view stops at the last exact state), the
+  meets something it does not model during the run: the view stops at the last exact state;
+  it wraps between clauses, never inside a short one: `demo: A off,` / `B off`), the
   time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
-  moves while it runs, `mctas web layout` checks it).
+  moves while it runs, `mctas web layout` checks it; on a viewer under 520 CSS px, a phone, on
+  two lines, seconds over ticks, so the left badge keeps room for its words). No tag or label
+  goes under the badges or the Record button, and the output strip sits under the time badge.
+  The flip button says `Flip` beside its lever icon (on a phone whose bar also holds the
+  contents button, the icon alone).
 * Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
   stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
@@ -97,7 +102,10 @@ each build's page.
   selects text or opens a callout on a long press (user-select / touch-callout off, no context
   menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
-  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
+  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0,
+  or from 1 s before its first change when that is more than 3 s away (a BUD switch's judge waits
+  240 gt before its first event; every tick is simulated, the counter shows the real tick, a
+  reset comes back there: `Player::skip_demo_wait`)
   (the left badge says the phase in words: `demo: A on, B off`, `demo: 2nd input pulse`,
   `demo: all inputs off`, `circuit::phase_words`; as wide as its widest phase from the start so it
   never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
@@ -142,10 +150,14 @@ each build's page.
   TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
   ticks (the judge's stimulus replayed for a triggered or switchable duper), at most 96 (cached
   per design: `Session::with_ground`). Its TNT land, bounce and explode on it and the craters
-  show: the ground's cells that changed (`Floor::changed`, rescanned every tick) and their
+  show: the ground's cells that changed (`Floor::changed`, followed from the world's write log,
+  redsim's opt-in `World::log_writes`: no scan of the big world per tick; a block written
+  outside the machine's box and the ground is drawn too, `Session::outside`) and their
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
-  box (`Session::machine_box`). A TNT flying past the ground's edge falls into the void, as in
+  box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
+  above the ground` beside a dashed line from its bottom down to the ground) and, up to 8
+  blocks, is framed with the ground under it, so it never reads as sitting on the grass. A TNT flying past the ground's edge falls into the void, as in
   the judge's world, or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
@@ -178,8 +190,10 @@ each build's page.
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
-  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
-  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`, the still build
+  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom (114 on a
+  phone's viewer, where the Record button sits above the bar beside the build: `live_window_with`), 46 px of the
+  top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
+  the badges on a phone), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
   only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
   high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
   little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
@@ -195,7 +209,7 @@ each build's page.
   gets its neighbours' light less one), through the game's brightness curve at the default
   brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
   fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
-  world's (`Session::floor_drawn` in `drawn_matches_simulation`).
+  world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
@@ -205,11 +219,13 @@ each build's page.
   labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
   gold while all are labelled) labels them all or only the story's. A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
-  and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
-  with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
+  and total count with its unit (`1,344 items`); shulker boxes first, as `12/27 slots` filled for one box or `3 boxes`
+  with a fill bar for several (none while they are all empty); at most two kinds, then `+n`. A shulker design's same-kind port
   chests that stand together share one tag with their letters (ITEMS A–C over the three chests
   a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
-  `OUT B`. Tags and labels are laid
+  `OUT B`; a judge chest's tag says what the judge does to it (`kept full`: a loader's sources
+  and every box chest, so their counts never go down; `emptied`: the outputs, the rejects, an
+  unloader's item chests). Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
@@ -218,9 +234,11 @@ each build's page.
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
   REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
-  judge's equipment reads as part of the input it drives.
+  judge's equipment reads as part of the input it drives; the repeater, its support and the
+  switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
+  redsim's blocks there all the same).
 * Record (vjeux 2026-10-20: "add a record video button using mediabunny in the viewer"): the
-  round red button over a live viewer's bottom right (above the bar; hidden where the browser
+  `● Record` pill over a live viewer's bottom right (above the bar; hidden where the browser
   has no WebCodecs `VideoEncoder`) records the viewer's own rendering of redsim's run from tick 0
   (blocks, entities, OUT and port boxes, tags and labels, the badges as shown): a separate player
   (the live camera, look, speed and demo) stepped exactly `1/30` s of game time per frame (exact

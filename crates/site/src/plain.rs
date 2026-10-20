@@ -109,7 +109,16 @@ pub fn one_liner(c: &Circuit) -> String {
         "pulse-extender" => format!("Even the shortest input pulse comes out at least {l} long."),
         "tff" => "Press once and the output turns on; press again and it turns off.".to_string(),
         "tff-reset" => "Each press flips the output on or off; a press on R turns it off.".to_string(),
-        "delay" => format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{} gt", if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() }))),
+        "delay" => {
+            let n = if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() };
+            // a 0-tick delay passes the signal on in the same tick: a signal carrier, not a delay
+            // (critique: "0-tick delay" on a page promising "a moment later")
+            if n == "0" {
+                "Carries a signal to its output in the same game tick, with no delay at all: a wire that does not slow the signal down.".to_string()
+            } else {
+                format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{n} gt")))
+            }
+        }
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
             let instant = m(c, "class") == "instant" || m(c, "latency") == "0 gt";
@@ -216,6 +225,7 @@ pub fn why_build(c: &Circuit) -> String {
         "pulse-limiter" => "stop a long press from keeping a piston or a dispenser busy: one short pulse however long a lever stays on".into(),
         "pulse-extender" => "make a 1-tick observer pulse long enough for a piston, a door or a lamp to notice it".into(),
         "tff" | "tff-reset" => "turn a button, which only gives a short pulse, into an on/off switch: one press opens a door, the next press closes it".into(),
+        "delay" if c.axis.trim_start_matches("N = ").starts_with("0 ") || m(c, "N").starts_with("0 ") => "pass a signal on without slowing it, where every other component adds a tick: keep one part of a machine in step with another".into(),
         "delay" => "time things: fire pistons one after another, or make a door wait before it closes".into(),
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
@@ -252,7 +262,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let b = base(&c.kind);
     match b {
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
-        "tnt-duper" => return "It runs by itself: watch the lit TNT drop out of the machine each cycle while the TNT block lands back in place.".to_string(),
+        "tnt-duper" => {
+            // (the try-it matches the card: a launcher throws its TNT, critique)
+            return if c.axis.contains("launched") {
+                "It runs by itself: watch it throw a lit TNT away each cycle while its TNT block stays in place.".to_string()
+            } else {
+                "It runs by itself: watch a lit TNT come out of the machine each cycle while its TNT block stays in place.".to_string()
+            };
+        }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
@@ -358,6 +375,13 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
+    // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
+        let detects = c.metrics.iter().find(|(k, _)| k == "detects").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !detects.split_whitespace().any(|w| w == "update") {
+            out.push("It does not notice pure block updates: a neighbour changing while the watched block itself stays the same gives no pulse.".to_string());
+        }
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),
@@ -368,6 +392,10 @@ pub fn warning(b: &Build) -> Option<String> {
         out.push("Works only facing the way it is shown here: build it from the download without turning it; turned another way it stops or changes its timing (our test tried all 4 directions).".to_string());
     } else if robustness.contains("position") || robustness.contains("offset") {
         out.push("Depends on where it is built: at another spot in the world its timing changed in our test, so try it where you build it.".to_string());
+    }
+    // what a chunk reload does to a clock (clockinfra's `reload`: never a reason to hide)
+    if let Some(w) = b.clock.as_ref().and_then(|c| reload_words(&c.reload)) {
+        out.push(w);
     }
     if out.is_empty() { None } else { Some(out.join(" ")) }
 }
@@ -382,7 +410,9 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
             match drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()) {
                 Some(0) => v.push("Works standing on the ground.".to_string()),
-                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT lands under it and blows it up.")),
+                // (true for launchers and droppers alike: critique, "lands under it" contradicted a
+                // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
+                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
                 None => {}
             }
         }
@@ -401,7 +431,8 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     }
     if !items.is_empty() {
         let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
-        v.push(format!("Comes loaded with {} in its containers: the download includes them; building it by hand, put them in first.", list.join(" and ")));
+        let one = items.len() == 1 && items[0].1 == 1;
+        v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
     }
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
@@ -421,6 +452,31 @@ fn thousands(n: u64) -> String {
         out.push(ch);
     }
     out
+}
+
+/// What a chunk reload does to a clock, in plain words (clockinfra's `reload`; the coordinator:
+/// "stops for good if its chunk unloads mid-cycle (you walk away and come back)"); None when it
+/// keeps going or was not checked.
+pub fn reload_words(reload: &str) -> Option<String> {
+    let r = reload.trim();
+    let (what, some) = match r.split_once(" in ") {
+        Some((w, k)) if k.ends_with(" builds") => (w.trim(), Some(k.trim_end_matches(" builds").to_string())),
+        _ => (r, None),
+    };
+    let some = some.map(|k| format!(" (in {k} of our test builds)")).unwrap_or_default();
+    let walk = "its chunk unloads mid-cycle (you walk away and come back)";
+    Some(if what == "stops" {
+        format!("Stops for good if {walk}{some}: start it again the way you started it after building it.")
+    } else if what == "glitch then resumes" {
+        format!("If {walk}, it skips a beat, then keeps going{some}.")
+    } else if let Some(p) = what.strip_prefix("changes period to ") {
+        let gt = p.trim_end_matches(" gt").trim();
+        format!("If {walk}, its period changes to {}{some}.", ticks(&format!("{gt} gt")))
+    } else if let Some(why) = what.strip_prefix("fails: ") {
+        format!("A chunk reload breaks it{some}: {why}.")
+    } else {
+        return None;
+    })
 }
 
 /// A door's plain lines: (what it does, why you would build it, how to try it).
@@ -444,7 +500,7 @@ pub fn door(b: &Build) -> (String, String, String) {
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
     };
-    (what, first_cap(&why), "Flip the lever (tap it in the view, or the flip button under it) and watch the door open; flip it again to close it.".to_string())
+    (what, first_cap(&why), "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
@@ -456,8 +512,9 @@ pub fn clock(b: &Build) -> (String, String, String) {
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Its output pulses by itself every {period}{cycle}, forever.{start}"),
-        "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
+        // (not "forever" when something stops it: critique, the daylight clock stops at night)
+        format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
+        if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { "A beat that runs only while the sun is up: lamps or machines that should work by day and rest at night." } else { "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself." }.to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
@@ -543,6 +600,11 @@ mod tests {
         let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
         assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
         assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
+        // a chunk reload, in plain words (clockinfra's reload column)
+        assert!(reload_words("stops").unwrap().starts_with("Stops for good if its chunk unloads mid-cycle"));
+        assert_eq!(reload_words("glitch then resumes in 2 of 4 builds").unwrap(), "If its chunk unloads mid-cycle (you walk away and come back), it skips a beat, then keeps going (in 2 of 4 of our test builds).");
+        assert!(reload_words("changes period to 12 gt").unwrap().contains("its period changes to 12 ticks (0.6 s)"));
+        assert!(reload_words("ok").is_none() && reload_words("").is_none());
     }
 
     #[test]
@@ -551,7 +613,7 @@ mod tests {
         let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
         let design = "nbt: 2 0 3 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:64},{Slot:1b,id:\"minecraft:cobblestone\",count:1047}]}";
         let v = needs(&b, design);
-        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT lands under it and blows it up.");
+        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT explodes close enough to destroy it.");
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);

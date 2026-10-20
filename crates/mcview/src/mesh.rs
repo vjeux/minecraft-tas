@@ -121,6 +121,9 @@ pub fn shade(n: [f32; 3]) -> f32 {
 /// AO brightness by the number of opaque neighbors around a corner (side, side, corner).
 const AO: [f32; 4] = [1.0, 0.8, 0.65, 0.5];
 
+/// How opaque a ghosted cell's faces are ([`Builder::ghost`]: the judge's test rig).
+pub const GHOST_ALPHA: u8 = 80;
+
 pub struct Builder<'a> {
     pub atlas: &'a Atlas,
     /// Cells holding an opaque full block (not moving).
@@ -132,6 +135,9 @@ pub struct Builder<'a> {
     /// More cells holding an opaque full block, drawn some other way (a TNT duper's intact
     /// ground around the ground cells drawn as blocks: [`floor`]): they cull and shade like blocks.
     pub extra_occ: HashSet<Pos>,
+    /// Cells drawn see-through ([`crate::scene::Look::ghost`]): their faces go to the translucent
+    /// pass at [`GHOST_ALPHA`], and they hide nothing (their neighbours keep their faces).
+    pub ghost: HashSet<Pos>,
     cache: HashMap<String, Option<Model>>,
     pub mesh: Mesh,
     /// A transform for the block model being drawn as part of an entity (a minecart's hopper, a
@@ -144,7 +150,7 @@ pub struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, extra_occ: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, extra_occ: HashSet::new(), ghost: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
     }
 
     fn occupied(&self, c: Pos) -> bool {
@@ -189,6 +195,7 @@ impl<'a> Builder<'a> {
                 if let Some(m) = self.model_at(it.state, Some(it.cell))
                     && m.full
                     && m.parts.iter().all(|p| p.layer == Layer::Opaque)
+                    && !self.ghost.contains(&it.cell)
                 {
                     self.occ.insert(it.cell);
                 }
@@ -643,8 +650,16 @@ impl<'a> Builder<'a> {
                 (tile as u32, uv)
             }
         };
-        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha)
-        let alpha = if self.white && p.layer != Layer::Translucent { 64u8 } else { 255u8 };
+        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha);
+        // a ghosted cell's faces: see-through, in the translucent pass
+        let ghost = cell.is_some_and(|c| self.ghost.contains(&c));
+        let alpha = if ghost {
+            GHOST_ALPHA
+        } else if self.white && p.layer != Layer::Translucent {
+            64u8
+        } else {
+            255u8
+        };
         for q in pts.iter_mut() {
             *q = [q[0] + base[0], q[1] + base[1], q[2] + base[2]];
             for k in 0..3 {
@@ -658,6 +673,10 @@ impl<'a> Builder<'a> {
             Vertex { pos: pts[k], uv: uv[k], layer, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
         });
         match p.layer {
+            _ if ghost => {
+                let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
+                self.mesh.translucent.push(Quad { v, center });
+            }
             Layer::Translucent => {
                 let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
                 self.mesh.translucent.push(Quad { v, center });

@@ -257,7 +257,16 @@ pub fn beats_generic(b: &Row, a: &Row) -> bool {
             .collect()
     };
     let (mb, ma) = (parse(b), parse(a));
-    let first = |v: &str| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok());
+    // `over 30 gt` (a period the judge could not bound) reads as just above 30: a lower-is-better
+    // metric's "over N" is worse than any value <= N, so it is no distinct property (it kept
+    // tff-crafter7, which loses every number to tff-bulb, on its own card: critique)
+    let first = |v: &str| {
+        let (over, v) = match v.strip_prefix("over ") {
+            Some(rest) => (0.5, rest),
+            None => (0.0, v),
+        };
+        v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()).map(|x| x + over)
+    };
     for (k, vb) in &mb {
         if WORSE_IF_PRESENT.contains(&k.as_str()) {
             continue;
@@ -839,20 +848,42 @@ pub fn set_captions(root: &Path, tsv: &str) -> Result<Vec<String>> {
         let cp = dir.join(CAPTIONS);
         let old = if cp.exists() { std::fs::read_to_string(&cp)? } else { "file\tcaption\n".to_string() };
         let cap = cap.trim().replace(['\t', '\n'], " ");
+        // `+ <sentence>`: insert the sentence after the plain part of the existing caption (before
+        // its " Details:"), or at its end
+        let insert = cap.strip_prefix("+ ").map(str::to_string);
         let mut found = false;
         let mut caps = String::new();
+        let mut shown = cap.clone();
         for l in old.lines() {
             if l.split('\t').next() == Some(file) {
-                caps.push_str(&format!("{file}\t{cap}\n"));
+                let new = match &insert {
+                    Some(s) => {
+                        let cur = l.split_once('\t').map(|x| x.1).unwrap_or("");
+                        if cur.contains(s.as_str()) {
+                            cur.to_string()
+                        } else if let Some(i) = cur.find(" Details:") {
+                            format!("{} {s}{}", &cur[..i], &cur[i..])
+                        } else {
+                            format!("{cur} {s}")
+                        }
+                    }
+                    None => cap.clone(),
+                };
+                caps.push_str(&format!("{file}\t{new}\n"));
+                shown = new;
                 found = true;
             } else {
                 caps.push_str(&format!("{l}\n"));
             }
         }
         if !found {
+            if insert.is_some() {
+                bail!("captions: {file} has no caption to insert into");
+            }
             caps.push_str(&format!("{file}\t{cap}\n"));
         }
         std::fs::write(&cp, caps)?;
+        let cap = shown;
         out.push(format!("{study}/{file}: {}", cap.split(". ").next().unwrap_or(&cap)));
     }
     Ok(out)

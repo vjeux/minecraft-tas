@@ -579,6 +579,9 @@ fn checks() -> Vec<Check> {
         ("torch-pulse-train", "cal-torch-pulse-train pulse-train P 12 gt, pulse 6 gt, latency 6 gt, stop 4 gt, 15 blocks, 2x3x6"),
         // R7: adjacent inputs driven from opposite sides, one through the design's own repeater
         ("d-latch-adjacent", "cal-d-latch-adjacent d-latch latency 6 gt, enable high, tileable every 2 (0 2 0), 7 blocks, 2x2x3"),
+        // study 11's stimulus scaled with a long timer: inputs up to 3x the sizing gap, honest
+        // min-pulse (an item timer reloads one item per 8 gt), 4 gt trains not judged past it
+        ("item-timer-off-delay", "cal-item-timer-off-delay off-delay L 310 gt, latency 4 gt, min-pulse 320 gt, 6 blocks, 2x2x3"),
     ];
     // R7 refusals: an observer watching the input cell (a real input changes no block there), the
     // window flip-flops whose clock feeds a comparator's side straight from the input cell (a
@@ -597,6 +600,9 @@ fn checks() -> Vec<Check> {
     // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
     // output refused, a comparator AND kept with its metrics
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
+    // a design file left with merge markers is not a design: parsing its HEAD half silently once
+    // put a broken file on main (clk-item 2026-10-20)
+    s.push("designs/circuits/selftest/merge-markers.txt".into());
     s.push("designs/circuits/selftest/comparator-and.txt".into());
     s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
     // the sequential memory kinds: a claim each refused (a reset that drives nothing, a level
@@ -621,11 +627,13 @@ fn checks() -> Vec<Check> {
     for f in ["oneshot-retriggered", "repeater-or-off-delay", "bulb-claims-retriggerable", "tile-off-delay-ring", "tile-off-delay-crosstalk"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
+    // the TNT judge's usefulness rule: a duper whose TNT explodes in its own water refused
+    s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 29 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge, study 12's 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths), inputs driven by real devices (R7): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side), three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim), two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) and a plain encoder claiming priority refused; five R7 refusals (an observer watching its input cell, three window flip-flops feeding a comparator's side from the input cell, study 12's dust encoder whose d3 input has no way in); a comparator AND kept (its b input through the design's own repeater, R7 model B); study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
+        what: "`circuit sim` (redsim) on the 30 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge, study 12's 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths), inputs driven by real devices (R7): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side), three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim), two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) and a plain encoder claiming priority refused; five R7 refusals (an observer watching its input cell, three window flip-flops feeding a comparator's side from the input cell, study 12's dust encoder whose d3 input has no way in); a comparator AND kept (its b input through the design's own repeater, R7 model B); study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -639,6 +647,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
             has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "REFUSED: designs/circuits/selftest/merge-markers.txt: parsing designs/circuits/selftest/merge-markers.txt: line 6: \"<<<<<<< HEAD\": unresolved merge markers, not a design")?;
             has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
             // R7: the update-less NOR's dust turned toward a redstone block written into an input
             // cell; the judge's stone there is no source to turn toward, so it never switches
@@ -667,12 +676,13 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused"))
+            has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 29 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 30 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
         quick: false,
         jvm: true,
         steps: vec![{
@@ -685,6 +695,8 @@ fn checks() -> Vec<Check> {
             s.push("designs/circuits/selftest/bulb-toggle-bud.txt".into());
             // study 11's `tile:`: three copies 5 apart, each judged against its own input
             s.push("designs/circuits/selftest/tile-off-delay-ring.txt".into());
+            // the TNT judge's usefulness rule in the game: TNT exploding in the duper's own water
+            s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
             s
         }],
         timeout: 600,
@@ -698,6 +710,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 6 gt, glitches 2, 7 blocks, 3x2x2, robust")?;
             has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
             has(&o[0], "FAIL: cal-bulb-toggle-bud bud: latches")?;
+            has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, robust")?;
             Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff and a bulb toggle claiming a latched BUD refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
         }),

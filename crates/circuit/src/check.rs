@@ -267,9 +267,11 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
-        Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
-        Kind::TntDuper => crate::tnt::check_duper(c, s, t),
-        Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
+        Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
+            Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
+            Kind::TntDuper => crate::tnt::check_duper(c, s, t),
+            _ => crate::tnt::check_triggered(c, s, t),
+        }),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
         Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
     }
