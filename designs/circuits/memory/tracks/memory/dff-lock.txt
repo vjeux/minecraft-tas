@@ -1,0 +1,25 @@
+# D flip-flop, repeater-lock master-slave: d runs through repeater A then repeater B to q. The clock locks A from the side through repeater L (a repeater's side lock reads only diodes, which the design owns), and the inverted clock, from torch T, locks B through repeater P. While the clock is low A follows d and B holds; on the rising edge A locks on d's value and B opens, so q takes d exactly at the edge.
+name: dff-lock
+circuit: dff
+port input.d: -1 1 0
+port input.clk: 0 1 3
+port output: 2 1 0
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  L minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  P minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  T minecraft:redstone_torch[lit=true]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  .SS.
+  .SS.
+  .SS.
+  .S..
+layer 1:
+  .AB.
+  .LP.
+  .TS.
+  .r..
