@@ -90,6 +90,19 @@ fn spread(t: &Trace, lo: usize, hi: usize) -> String {
     s
 }
 
+/// The cells of the primed TNT seen in frames `lo..hi`.
+fn cells(t: &Trace, lo: usize, hi: usize) -> Vec<[i32; 3]> {
+    let mut v: Vec<[i32; 3]> = t.primed.iter().filter(|q| (q.frame as usize) >= lo && (q.frame as usize) < hi).map(|q| [q.pos[0].floor() as i32, q.pos[1].floor() as i32, q.pos[2].floor() as i32]).collect();
+    v.sort();
+    v
+}
+
+/// Every cell of `b` within one cell of a cell of `a` (the game sees a TNT one tick after it
+/// spawned, sometimes already pushed a cell: a drifting duper walks further than that).
+fn same_place(a: &[[i32; 3]], b: &[[i32; 3]]) -> bool {
+    a.len() == b.len() && b.iter().all(|q| a.iter().any(|p| (0..3).all(|i| (p[i] - q[i]).abs() <= 1)))
+}
+
 /// `tnt-duper`.
 pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let from = c.clock.free_from() as usize;
@@ -121,6 +134,15 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     }
     if per.iter().any(|&n| n != per[0]) || per[0] == 0 {
         return Outcome { pass: false, why: format!("primed TNT per period {per:?}: not the same every period"), metrics: Vec::new(), table };
+    }
+    // the primes repeat in place too (clockinfra: a drifting duper is caught even when the block
+    // frames happen to repeat)
+    let first_cells = cells(t, start, start + p);
+    for k in 1..cycles {
+        let ck = cells(t, start + k * p, start + (k + 1) * p);
+        if !same_place(&first_cells, &ck) {
+            return Outcome { pass: false, why: format!("primed TNT drift: period {} spawns at {ck:?}, period 1 at {first_cells:?}", k + 1), metrics: Vec::new(), table };
+        }
     }
     let sp = spread(t, start, start + cycles * p);
     if !sp.is_empty() {
@@ -169,6 +191,16 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     }
     if per.iter().any(|&n| n != per[0]) || per[0] == 0 {
         return Outcome { pass: false, why: format!("primed TNT per pulse {per:?}: not the same every pulse"), metrics: Vec::new(), table };
+    }
+    let window = |k: usize| (starts[k], starts.get(k + 1).copied().unwrap_or(t.cells.len()));
+    let (a0, b0) = window(0);
+    let first_cells = cells(t, a0, b0);
+    for k in 1..starts.len() {
+        let (a, b) = window(k);
+        let ck = cells(t, a, b);
+        if !same_place(&first_cells, &ck) {
+            return Outcome { pass: false, why: format!("primed TNT drift: pulse {} spawns at {ck:?}, pulse 1 at {first_cells:?}", k + 1), metrics: Vec::new(), table };
+        }
     }
     let sp = spread(t, starts[0], t.cells.len());
     if !sp.is_empty() {
