@@ -45,12 +45,14 @@ A design's own dust AT the input cell does not fix it (measured: the judge drive
 
 Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blocks, latency 4 gt, robust. The same shape rebuilds AND (two subtract comparators, the second's side fed by the first's dust) and NAND; XOR and XNOR need a different mechanism entirely, since the dust ring is gone.
 
-## Priorities (rewritten after R7)
+## Priorities (rewritten after R7, updated as they are done)
 
-1. Rebuild AND and NAND on the repeater-at-the-input shape (the NIMPLY pair is the template).
-2. XOR and XNOR from scratch: nothing in the archive claims them any more.
-3. IMPLY, NOR and NOT, where only the lever and torch versions survive.
-4. Then the tileable rows and the original shrink targets.
+Done: AND 7b (torch), NOR 3b, IMPLY and IMPLY-BA 4b, NIMPLY and NIMPLY-BA 6b, XOR 32b — all with real signal inputs, all judged robust.
+
+1. XNOR: the XOR core plus one inverter. The torch must hang on a block the XOR's output dust powers, and in the current 5x5 footprint every neighbour of that block is a floor stone carrying a dust; run the output dust one cell out into free space first, then invert there.
+2. Shrink the XOR below 32 blocks. 16 of the 32 are floor stones, so a layout sharing floor lands near 24. The two detours are not optional: each input must reach the far comparator's side at full strength, which is what the repeaters restore.
+3. NAND (6b, torch) and AND (7b) both survived or were rebuilt and look at the bar.
+4. Re-measure the tile pitches for the rebuilt gates.
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
