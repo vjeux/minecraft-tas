@@ -28,6 +28,10 @@ pub struct SearchOptions {
     /// Kinds every sample must contain (palette shorthands).
     pub require: Vec<String>,
     pub samples: usize,
+    /// Keep only dupers with at least this many TNT per period (a seed that already dupes: 2+
+    /// asks for bursts), and at most `max_found` of them.
+    pub min_per: usize,
+    pub max_found: usize,
     pub ticks: u32,
     pub rng: u64,
     pub workers: usize,
@@ -320,11 +324,11 @@ pub fn search(o: &SearchOptions) -> Result<usize> {
                         continue;
                     }
                     let ex: Vec<(Pos, Block)> = extra.iter().map(|(p, s)| (*p, pal[*s].1)).collect();
-                    if let Some((p, per)) = dupes_counted(c, &ex, o.ticks, stats) {
+                    if let Some((p, per)) = dupes_counted(c, &ex, o.ticks, stats).filter(|(_, per)| *per >= o.min_per) {
                         let mut key: Vec<(Pos, String)> = extra.iter().map(|(p, s)| (*p, pal[*s].0.clone())).collect();
                         key.sort();
                         let mut g = found.lock().unwrap();
-                        if g.0.insert(key.clone()) {
+                        if g.1.len() < o.max_found && g.0.insert(key.clone()) {
                             let n = g.1.len();
                             let name = format!("tnt-search-p{p}-x{per}-{}b-{n}", seed_cells.len() + key.len());
                             let text = design_text(c, &key, &name);
