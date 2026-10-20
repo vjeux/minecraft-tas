@@ -34,6 +34,10 @@ struct App {
     shared: Vec<String>,
     /// The kind line of the last card drawn (a run of cards shows it only where it changes).
     last_kind: Option<String>,
+    /// Every group chip shown, not only the top ten.
+    all_groups: bool,
+    /// How many of the hits name what the search's words name (the rest only mention them).
+    named: usize,
 }
 
 thread_local! {
@@ -106,7 +110,7 @@ async fn load() -> Result<(), JsValue> {
             }
         }
     }
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None }));
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, all_groups: false, named: 0 }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -215,6 +219,9 @@ fn draw_panel() -> Result<(), JsValue> {
                 "block" => tri(&mut q.kinds_in, &mut q.kinds_out, &val),
                 "flag" => tri(&mut q.flags_in, &mut q.flags_out, &val),
                 _ => {}
+            }
+            if act == "groups-all" {
+                a.all_groups = !a.all_groups;
             }
         });
         // a tab click changed the sort: show it
@@ -383,6 +390,8 @@ fn refresh(write_hash: bool) {
             Ok((hits, facets)) => {
                 // the chips most of the first cards share, said once in the count line
                 a.shared = site_model::html::hits_common_chips(&a.site, &hits);
+                // where the cards that only mention the words begin
+                a.named = a.site.named_count(&a.q, &hits);
                 a.hits = hits;
                 a.facets = facets;
                 a.error.clear();
@@ -424,7 +433,15 @@ fn more() {
         let end = (a.shown + PAGE).min(a.hits.len());
         // (a run of cards: the home page shows a kind line only where the kind changes)
         let mut prev = a.last_kind.take();
-        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev)).collect();
+        let mut html = String::new();
+        for (k, h) in a.hits[a.shown..end].iter().enumerate() {
+            // the cards that only mention the search's words, under their own line
+            if a.named > 0 && a.shown + k == a.named {
+                html.push_str(&format!("<p class=\"also\">Also mentioning “{}”:</p>", esc(a.q.text.trim())));
+                prev = None;
+            }
+            html.push_str(&hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev));
+        }
         a.last_kind = prev;
         a.shown = end;
         (html, end, a.hits.len())
@@ -493,7 +510,23 @@ fn draw_dynamic() {
             }
         }
         groups.sort_by(|x, y| (!q.groups.contains(x.0), std::cmp::Reverse(x.1), x.0).cmp(&(!q.groups.contains(y.0), std::cmp::Reverse(y.1), y.0)));
-        let groups_html: String = groups.iter().map(|(g, n)| chip("group", g, &g.replace('+', " + "), *n, if q.groups.contains(*g) { "in" } else { "" })).collect();
+        // in words, the top ten unless asked for all (critique: two phone screens of raw ids
+        // like "calibrated_sculk_sensor + note_block")
+        let label = |g: &str| -> String {
+            match q.kind.as_str() {
+                "clock" => site_model::html::human_blocks(g),
+                "door" => {
+                    let w = site_model::html::door_category(g);
+                    if w.is_empty() { g.to_string() } else { w.to_string() }
+                }
+                _ => g.replace('+', " + "),
+            }
+        };
+        let limit = if a.all_groups { usize::MAX } else { 10 };
+        let mut groups_html: String = groups.iter().enumerate().filter(|(k, (g, _))| *k < limit || q.groups.contains(*g)).map(|(_, (g, n))| chip("group", g, &label(g), *n, if q.groups.contains(*g) { "in" } else { "" })).collect();
+        if groups.len() > 10 {
+            groups_html.push_str(&format!("<button type=\"button\" class=\"chip more\" data-act=\"groups-all\" data-val=\"\">{}</button>", if a.all_groups { "show fewer".to_string() } else { format!("show all {}", groups.len()) }));
+        }
         let kf = a.kind_filter.trim().to_lowercase();
         let mut blocks: Vec<(&String, usize)> = f.block_kinds.iter().map(|(k, v)| (k, *v)).collect();
         for k in q.kinds_in.iter().chain(&q.kinds_out) {
