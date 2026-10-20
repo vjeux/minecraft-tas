@@ -17,7 +17,7 @@ What a world-record entry means here, per N. "Blocks" is `mctas circuit verify`'
 1. Measure `tile:` on the repeater and comparator lines: a bus of n equal delays is what builders actually place, and the pitch is a number we can publish rather than guess. Two dust-free lines side by side should tile at pitch 1, which no other study here can claim.
 2. Odd N: 9 and 13 blocks are the outliers of the whole study. The N=1 design's tricks (a power-bumped dust, a quasi-connected piston) are the thing to re-apply.
 
-## R7 (real input devices): odd N no longer exists, and five designs were dominated
+## R7 (real input devices): odd N is NOT FOUND YET, and five designs were dominated
 
 Re-judged the whole study under R7. Every piston design shifted DOWN by exactly 1 gt, because R7's input changes during a tick, so the piston acts in that same tick instead of the next one:
 
@@ -29,7 +29,9 @@ Re-judged the whole study under R7. Every piston design shifted DOWN by exactly 
 
 So the five odd-N designs became even-N ones, and every one of them is dominated by a 2-block repeater line or a comparator line. They are removed. The N=0 design is kept and re-archived as `delay-qc-0`: it is the only archived circuit whose output follows its input with no delay at all while still driving a block update.
 
-ODD N IS NOW IMPOSSIBLE WITH A SIGNAL INPUT, and this is a proof, not a gap. Every redstone component moves an edge by an even number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2, dropper 4). The only source of a 1 gt shift was a piston whose input changes BETWEEN ticks, which made its block event land half a tick later. R7 drives every signal input with a repeater, whose output changes during a tick, so that half-tick is gone. A lever or button input still changes between ticks, so an odd-N design remains possible as a LEVER-input variation — a different variation, and worth archiving as such, not as the signal-input record.
+ODD N UNDER R7 IS AN OPEN GAP, not an impossibility. An earlier version of this file claimed a proof; it was wrong, and the correction matters more than the claim. The argument was: every redstone component moves an edge by an even number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2), the only odd source is a piston acting in the block-event phase, and that needs an input changing BETWEEN ticks, which R7 never does. The hidden assumption is "every component": it silently excluded BLOCK-ENTITY timings, and those are exactly where odd lengths live. Study 1 has `pulse-limiter-hopper-timer-L7/15/23/31`, robust under R7, at L = 8n - 1: a hopper moves an item every 8 gt in the block-entity phase, and the comparator reading it sees the transfer one gt before the next cooldown ends, so the chain is odd by construction. Other untried odd sources: a dropper's 4 gt scheduled tick, 0-tick piston retraction, the arrival frame of a moving block, an observer watching a block a piston moves, and a comparator reading a container in the same tick the container changes.
+
+So the right statement is: no odd-N delay line has been FOUND under R7, the piston route is closed (its half-tick came from the input's own timing), and the hopper/dropper route is open and untried for this kind. Next: a delay line whose stage is a hopper (8 gt per item, read by a comparator) rather than a repeater.
 
 What the study holds now: the repeater line (2 blocks per started 8 gt, every even N), the comparator line (2 gt per comparator, shorter pulses kept), the torch tower (N = 6 + 4n) and delay-qc-0. Both line cards tile side by side at pitch 1.
 
@@ -39,6 +41,6 @@ What the study holds now: the repeater line (2 blocks per started 8 gt, every ev
 
 ## Settled facts (do not re-derive)
 
-- Every redstone component moves an edge by an EVEN number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2, dropper 4). Odd N needs a piston acting in the block-event phase, and that only shifts by 1 gt when the input changes BETWEEN ticks: a lever or button, never an R7-driven signal.
+- Every REDSTONE component moves an edge by an even number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2). That is not the whole game: BLOCK-ENTITY timings give odd lengths (a hopper moves an item every 8 gt and its comparator reads the transfer a gt before the cooldown ends: study 1 L = 8n - 1, robust under R7), and so may a dropper tick, a 0-tick retraction, a moving block arrival, or a comparator reading a container mid-tick.
 - A repeater line is N = 2 x the sum of its delays, 2 blocks per repeater: blocks = 2 x ceil(N / 8).
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
