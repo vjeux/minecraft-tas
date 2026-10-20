@@ -19,6 +19,12 @@ pub struct FamilyArgs {
     pub l_range: Option<String>,
     #[arg(long)]
     pub out_dir: Option<PathBuf>,
+    /// With `oneshot-for`: the kind to declare (rising-edge, pulse-extender, pulse-limiter)
+    #[arg(long, default_value = "rising-edge")]
+    pub kind: String,
+    /// With `oneshot-mode`: rise, fall or dual
+    #[arg(long, default_value = "rise")]
+    pub mode: String,
     /// Write the instance (or, with --card-max-n, the family card) here
     #[arg(long)]
     pub out: Option<PathBuf>,
@@ -52,6 +58,22 @@ pub const FAMILIES: &[Family] = &[
         blocks: "10 + 4n",
         rule: "lengthen the U by one row: one more delay-4 repeater (on stone) in each column",
         how: "the limiter-u with delay-4 repeaters: 16 gt per row",
+    },
+    Family {
+        name: "oneshot-u",
+        kind: "rising-edge",
+        l: "?",
+        blocks: "17 + 4n",
+        rule: "lengthen the U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off (a bulb toggles only on rising edges of its power); the falling edge pulls the observer back where it faces nothing",
+    },
+    Family {
+        name: "oneshot-u1",
+        kind: "rising-edge",
+        l: "?",
+        blocks: "17 + 4n",
+        rule: "lengthen the U by one row: one more delay-1 repeater (on stone) in each column",
+        how: "the oneshot-u with delay-1 repeaters",
     },
 ];
 
@@ -105,10 +127,165 @@ pub fn limiter_u_for(l: u32) -> Option<String> {
     Some(limiter_u_text(&format!("pulse-limiter-u-L{l}"), &delays))
 }
 
+/// The bulb one-shot (a rising-edge detector of any L, also an extender and a limiter): a sticky
+/// piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and
+/// lights the bulb; a comparator reads the bulb into a U of repeaters (k rows, delay `d`) that comes
+/// back into the bulb and turns it off. Only the landing at the pushed position faces the bulb, so
+/// the falling edge (the observer pulled back) does nothing.
+/// A bulb one-shot of any mode: `rise` (the observer's back faces the bulb when pushed), `fall`
+/// (when back at rest: it fires there on the falling edge), `dual` (a fixed observer watching the
+/// input). Delays: the U's down column (top to bottom) then up column (bottom to top), 2k values.
+pub fn oneshot_text(name: &str, kind: &str, mode: &str, delays: &[u8]) -> String {
+    let k = delays.len() / 2;
+    // (bulb x, row of the bulb/comparator line, has piston)
+    let (bx, z0, piston) = match mode {
+        "fall" => (1i32, 1usize, true),
+        "dual" => (1, 0, false),
+        _ => (2, 1, true),
+    };
+    let w = (bx + 4) as usize; // x from -1 to bx + 2
+    let rows = z0 + k + 2;
+    let mut l0 = vec![vec!['.'; w]; rows];
+    let mut l1 = vec![vec!['.'; w]; rows];
+    let at = |x: i32| (x + 1) as usize;
+    if piston {
+        l1[0][at(0)] = 'P';
+        l1[0][at(1)] = 'O';
+    } else {
+        l1[0][at(0)] = 'V';
+    }
+    l1[z0][at(bx)] = 'B';
+    l1[z0][at(bx + 1)] = 'C';
+    l0[z0][at(bx + 1)] = 'S';
+    l1[z0][at(bx + 2)] = 'W';
+    l0[z0][at(bx + 2)] = 'S';
+    let mut palette = vec![
+        "  S minecraft:stone".to_string(),
+        "  P minecraft:sticky_piston[extended=false,facing=east]".into(),
+        "  O minecraft:observer[facing=north,powered=false]".into(),
+        "  V minecraft:observer[facing=west,powered=false]".into(),
+        "  B minecraft:waxed_copper_bulb[lit=false,powered=false]".into(),
+        "  C minecraft:comparator[facing=west,mode=compare,powered=false]".into(),
+        "  W minecraft:redstone_wire".into(),
+    ];
+    for j in 0..k {
+        let z = z0 + 1 + j;
+        let (cd, cu) = ((b'a' + j as u8) as char, (b'm' + j as u8) as char);
+        palette.push(format!("  {cd} minecraft:repeater[delay={},facing=north,locked=false,powered=false]", delays[j]));
+        palette.push(format!("  {cu} minecraft:repeater[delay={},facing=south,locked=false,powered=false]", delays[2 * k - 1 - j]));
+        l1[z][at(bx + 2)] = cd;
+        l0[z][at(bx + 2)] = 'S';
+        l1[z][at(bx)] = cu;
+        l0[z][at(bx)] = 'S';
+    }
+    for x in bx..=bx + 2 {
+        l1[z0 + k + 1][at(x)] = 'W';
+        l0[z0 + k + 1][at(x)] = 'S';
+    }
+    let rowtext = |l: &Vec<Vec<char>>| l.iter().map(|r| format!("  {}", r.iter().collect::<String>())).collect::<Vec<_>>().join("\n");
+    format!(
+        "name: {name}\ncircuit: {kind}\norigin: -1 0 0\nport input: -1 1 0\nport output: {} 1 {z0}\npalette:\n{}\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        bx + 1,
+        palette.join("\n"),
+        rowtext(&l0),
+        rowtext(&l1)
+    )
+}
+
+/// The 2k delays (1..4 each) adding up to `ticks` redstone ticks, k as small as possible.
+pub fn split_delays(ticks: u32) -> Vec<u8> {
+    let k = ticks.div_ceil(8).max(1) as usize;
+    let mut delays = vec![1u8; 2 * k];
+    let mut rest = ticks as i64 - 2 * k as i64;
+    for d in delays.iter_mut() {
+        let add = rest.clamp(0, 3);
+        *d += add as u8;
+        rest -= add;
+    }
+    delays
+}
+
+pub fn oneshot_u_text(name: &str, k: usize, d: u8) -> String {
+    // x from -1 (input) to 4; z from 0 to k + 2
+    let w = 6usize;
+    let rows = k + 3;
+    let mut l0 = vec![vec!['.'; w]; rows];
+    let mut l1 = vec![vec!['.'; w]; rows];
+    let at = |x: i32| (x + 1) as usize;
+    l1[0][at(0)] = 'P';
+    l1[0][at(1)] = 'O';
+    l1[1][at(2)] = 'B';
+    l1[1][at(3)] = 'C';
+    l0[1][at(3)] = 'S';
+    l1[1][at(4)] = 'W';
+    l0[1][at(4)] = 'S';
+    for j in 0..k {
+        let z = 2 + j;
+        l1[z][at(4)] = 'D';
+        l0[z][at(4)] = 'S';
+        l1[z][at(2)] = 'U';
+        l0[z][at(2)] = 'S';
+    }
+    for x in 2..=4 {
+        l1[k + 2][at(x)] = 'W';
+        l0[k + 2][at(x)] = 'S';
+    }
+    let rowtext = |l: &Vec<Vec<char>>| l.iter().map(|r| format!("  {}", r.iter().collect::<String>())).collect::<Vec<_>>().join("\n");
+    format!(
+        "name: {name}\ncircuit: rising-edge\norigin: -1 0 0\nport input: -1 1 0\nport output: 3 1 1\npalette:\n  S minecraft:stone\n  P minecraft:sticky_piston[extended=false,facing=east]\n  O minecraft:observer[facing=north,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  D minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  U minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        rowtext(&l0),
+        rowtext(&l1)
+    )
+}
+
+/// The smallest bulb one-shot for an even L >= 6: L = 2 + 2 x (sum of the 2k repeater delays).
+pub fn oneshot_for(l: u32, kind: &str) -> Option<String> {
+    if l < 6 || l % 2 == 1 {
+        return None;
+    }
+    let ticks = (l - 2) / 2;
+    let k = ticks.div_ceil(8) as usize;
+    let mut delays = vec![1u8; 2 * k];
+    let mut rest = ticks as i64 - 2 * k as i64;
+    for d in delays.iter_mut() {
+        let add = rest.min(3);
+        *d += add as u8;
+        rest -= add;
+    }
+    // the U's down column takes the first k delays, the up column the rest
+    let mut text = oneshot_u_text(&format!("pulse-oneshot-{kind}-L{l}"), k, 1);
+    let mut palette_extra = String::new();
+    let mut l1_rows: Vec<String> = Vec::new();
+    let mut in_l1 = false;
+    for line in text.lines() {
+        if line.starts_with("layer 1:") {
+            in_l1 = true;
+            continue;
+        }
+        if in_l1 {
+            l1_rows.push(line.to_string());
+        }
+    }
+    // rewrite the repeaters of each row with their own delays: letters a.. for down, A.. for up
+    for j in 0..k {
+        let (dd, du) = (delays[j], delays[2 * k - 1 - j]);
+        let (cd, cu) = ((b'a' + j as u8) as char, (b'm' + j as u8) as char);
+        palette_extra.push_str(&format!("  {cd} minecraft:repeater[delay={dd},facing=north,locked=false,powered=false]\n  {cu} minecraft:repeater[delay={du},facing=south,locked=false,powered=false]\n"));
+        let row = &mut l1_rows[2 + j];
+        *row = row.replacen('D', &cd.to_string(), 1).replacen('U', &cu.to_string(), 1);
+    }
+    let head = text.split("layer 1:").next().unwrap_or("").to_string();
+    text = format!("{}layer 1:\n{}\n", head.replacen("palette:\n", &format!("palette:\n{palette_extra}"), 1), l1_rows.join("\n"));
+    text = text.replacen("circuit: rising-edge", &format!("circuit: {kind}"), 1);
+    Some(text)
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
     match name {
+        "oneshot-u" => Some(oneshot_u_text(&format!("pulse-oneshot-u-n{n}"), k, 4)),
+        "oneshot-u1" => Some(oneshot_u_text(&format!("pulse-oneshot-u1-n{n}"), k, 1)),
         "limiter-u" => Some(limiter_u_text(&format!("pulse-limiter-u-n{n}"), &vec![1; 2 * k])),
         "limiter-u4" => Some(limiter_u_text(&format!("pulse-limiter-u4-n{n}"), &vec![4; 2 * k])),
         _ => None,
@@ -140,6 +317,47 @@ fn instance_text_v0(name: &str, n: u32) -> Option<String> {
 }
 
 pub fn run(a: FamilyArgs) -> Result<()> {
+    if a.name == "oneshot-mode" {
+        // any mode, any even L: rise / fall / dual, the U delays split to fit
+        let (Some(r), Some(dir)) = (&a.l_range, &a.out_dir) else { bail!("oneshot-mode needs --mode M --l-range a..b --out-dir D [--kind K]") };
+        let (lo, hi) = r.split_once("..").ok_or_else(|| anyhow::anyhow!("--l-range a..b"))?;
+        let (lo, hi): (u32, u32) = (lo.trim().parse()?, hi.trim().parse()?);
+        std::fs::create_dir_all(dir)?;
+        let base = match a.mode.as_str() {
+            "fall" | "rise" => 2,
+            _ => 2,
+        };
+        for l in (lo..=hi).filter(|l| l % 2 == 0) {
+            if l < base + 4 {
+                continue;
+            }
+            let delays = split_delays((l - base) / 2);
+            let name = format!("pulse-oneshot-{}-{}-L{l}", a.mode, a.kind);
+            let mut text = oneshot_text(&name, &a.kind, &a.mode, &delays);
+            let how = match a.mode.as_str() {
+                "fall" => "a sticky piston pushes an observer away and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb",
+                "dual" => "an observer watching the input fires on each edge into a copper bulb and lights it",
+                _ => "a sticky piston pushes an observer whose back then faces a copper bulb: it fires on landing and lights the bulb; pulled back on the falling edge, it fires into nothing",
+            };
+            let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
+            text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): {how}; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode {} --kind {} --l-range {l}..{l}.\n", a.kind, a.mode, a.kind));
+            std::fs::write(dir.join(format!("{name}.txt")), text)?;
+        }
+        return Ok(());
+    }
+    if a.name == "oneshot-for" {
+        let (Some(r), Some(dir)) = (&a.l_range, &a.out_dir) else { bail!("oneshot-for needs --l-range a..b --out-dir D [--kind K]") };
+        let (lo, hi) = r.split_once("..").ok_or_else(|| anyhow::anyhow!("--l-range a..b"))?;
+        let (lo, hi): (u32, u32) = (lo.trim().parse()?, hi.trim().parse()?);
+        std::fs::create_dir_all(dir)?;
+        for l in (lo..=hi).filter(|l| l % 2 == 0 && *l >= 6) {
+            let Some(mut text) = oneshot_for(l, &a.kind) else { continue };
+            let at = text.find('\n').map(|i| i + 1).unwrap_or(0);
+            text.insert_str(at, &format!("# One-shot ({}, L = {l} gt): a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's falling edge does nothing); the falling edge pulls the observer back where its pulse reaches nothing (generator: mctas circuit pulse family oneshot-for --l-range {l}..{l} --kind {}).\n", a.kind, a.kind));
+            std::fs::write(dir.join(format!("pulse-oneshot-{}-L{l}.txt", a.kind)), text)?;
+        }
+        return Ok(());
+    }
     if a.name == "limiter-for" {
         if let (Some(r), Some(dir)) = (&a.l_range, &a.out_dir) {
             let (lo, hi) = r.split_once("..").ok_or_else(|| anyhow::anyhow!("--l-range a..b"))?;
