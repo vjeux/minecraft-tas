@@ -1,5 +1,18 @@
 # Study 8 world-record targets (shulker loaders and unloaders)
 
+## The one loader and the one unloader (coordinator 2026-10-20: one world-best design per kind)
+
+- Loader: `shulker-loader-1wide-flush`. 49 blocks, 1x8x10, pitch 1, robust, 2.49 items/s (hopper
+  pace), every badge but mixed: always-on, 16-stack, unstackable, colours, restart, top-up, flush,
+  box-starved, drop-free, tileable(1). The other loaders are side variants and fold under it.
+  - Gap: size, which is mostly routing. The pitch-1 face layout gives the piston only its top
+    face and the dispenser only its bottom face, and puts the exact-15 read 4 cells south.
+  - A free-running catalog clock for the dispenser (clk-obs-p4-obs-4b) would save 7 blocks. The
+    judge refuses it because a loader must come to rest.
+  - Mixed: the box read needs every slot full, and mixed stacks never reach 15.
+- Unloader: `shulker-unloader-1wide`, 24 blocks, pitch 1, every badge. Gap: size. The greedy
+  shrink removes nothing, and the 20-block observer clock never self-starts.
+
 vjeux 2026-10-20: "world record kind of implementations ... 1 wide tilable ... quality over quantity".
 Each target below comes from the mechanics (VARIATIONS.md, NOTES.md). It is either met by an
 archived design or proven impossible here. Designs that miss the bar get folded or hidden.
