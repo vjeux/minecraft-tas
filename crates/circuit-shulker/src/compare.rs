@@ -1,18 +1,21 @@
 //! `mctas circuit shulker compare`: replay real-game shulker traces (designs/circuits/shulker/
 //! traces/exact/*.trace, from `mctas circuit shulker trace --exact`) in redsim, every cell and
 //! entity compared every tick: the gate of redsim's shulker port. The replay is the judge's run
-//! (crates/circuit/src/shulker.rs `run_in`, stepping 1 gt as when recording): the design placed
-//! as the judge places it, the judge's chests (raw), the settle, the box supply and the source
-//! filled, the start lever on, then each gt: one tick, the frame, the judge's visit (outputs,
-//! sinks and rejects emptied; the sources topped up to 27 stacks, compacted into slots 0..). The
-//! drops come from the trace's seed (`World::drop_seed`, as the bridge draws them).
+//! (crates/circuit/src/shulker.rs `run_in`, stepping 1 gt as when recording) through redsim's
+//! own driver of the judge's chests (`redsim::redstone::shulker::Chests`, which the in-browser
+//! viewer runs too) with the judge's supply: the design placed as the judge places it, the
+//! chests (raw), the settle, the box supply and the source filled, the start lever on, then each
+//! gt: one tick, the frame, the judge's visit (outputs, sinks and rejects emptied; the sources
+//! topped up to 27 stacks, compacted into slots 0..). The drops come from the trace's seed
+//! (`World::drop_seed`, as the bridge draws them).
 
-use anyhow::{Context, Result, anyhow, bail};
-use circuit::shulker::{Scenario, Stack as JStack, items_snbt};
+use anyhow::{Context, Result, bail};
+use circuit::shulker::{Scenario, Stack as JStack};
 use circuit::{Circuit, InputHow, Pos};
 use redsim::block::Block;
 use redsim::pos::BlockPos;
 use redsim::redstone::container::{self, Stack};
+use redsim::redstone::shulker::Chests;
 use redsim::world::World;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -37,25 +40,6 @@ fn bp(p: Pos) -> BlockPos {
 fn pos3(v: &Value) -> Option<[f64; 3]> {
     let a = v.as_array()?;
     Some([a.first()?.as_f64()?, a.get(1)?.as_f64()?, a.get(2)?.as_f64()?])
-}
-
-/// The judge's stack from a redsim one (a box's contents from its payload).
-fn jstack(w: &World, s: &Stack) -> JStack {
-    let mut j = JStack::new(&format!("minecraft:{}", container::item_name(s.item)), s.count as u32);
-    if s.payload != 0 {
-        j.contents = container::payload_slots(w, s.payload).iter().flatten().map(|x| jstack(w, x)).collect();
-    }
-    j
-}
-
-/// `read_chest`: the chest's stacks in slot order.
-fn read_chest(w: &World, p: Pos) -> Vec<JStack> {
-    w.containers.map.get(&bp(p)).map(|c| c.slots.iter().flatten().map(|s| jstack(w, s)).collect()).unwrap_or_default()
-}
-
-fn merge(w: &mut World, p: Pos, stacks: &[JStack]) -> Result<()> {
-    container::apply_block_entity(w, bp(p), &items_snbt(stacks)).map_err(|e| anyhow!("{e}"))?;
-    Ok(())
 }
 
 /// The game's state strings, canonical (redsim's spelling when it parses).
@@ -162,53 +146,24 @@ pub fn compare_one(path: &Path, max: usize) -> Result<Outcome> {
         Err(e) => return Ok(Outcome::Unmodeled(e)),
     };
     w.drop_seed = Some(seed);
-    // the judge's chests (raw), then the settle
-    let sources: Vec<Pos> = c.stores.iter().filter(|s| s.role == "items").map(|s| s.pos).collect();
-    let supplies: Vec<Pos> = c.stores.iter().filter(|s| s.role == "boxes").map(|s| s.pos).collect();
-    let rejects: Vec<Pos> = c.stores.iter().filter(|s| s.role == "reject").map(|s| s.pos).collect();
-    let outs: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
-    let chest = Block::parse(circuit::shulker::CHEST).map_err(|e| anyhow!(e))?;
-    let chests: Vec<(BlockPos, Block)> = c.stores.iter().map(|s| s.pos).chain(outs.iter().copied()).map(|p| (bp(p), chest)).collect();
-    w.place_raw(&chests);
+    // the judge's chests (raw), the settle, the box supply and the source, the lever: redsim's
+    // driver (`redstone::shulker::Chests`, the viewer's too) with the judge's own supply
+    let role = |r: &str| -> Vec<BlockPos> { c.stores.iter().filter(|s| s.role == r).map(|s| bp(s.pos)).collect() };
+    let outs: Vec<BlockPos> = c.outputs.iter().map(|o| bp(o.pos)).collect();
+    let supply: Vec<Stack> = sc.supply().iter().map(|s| rstack(&mut w, s)).collect::<Result<_>>()?;
+    let queue: Vec<Stack> = if loader { sc.source_stacks().iter().map(|s| rstack(&mut w, s)).collect::<Result<_>>()? } else { Vec::new() };
+    let mut chests = Chests::judged(loader, role("items"), role("boxes"), outs, role("reject"), supply, queue);
+    chests.place(&mut w);
     for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
         w.tick();
     }
-    // the box supply, the source, the lever
-    let supply = sc.supply();
-    for (k, chunk) in supply.chunks(27).enumerate() {
-        let p = *supplies.get(k).context("not enough boxes chests")?;
-        merge(&mut w, p, chunk)?;
-    }
-    let stacks = sc.source_stacks();
-    let mut cursor = 0usize;
-    let mut topup = |w: &mut World, cursor: &mut usize| -> Result<()> {
-        if !loader {
-            return Ok(());
-        }
-        for p in &sources {
-            if *cursor >= stacks.len() {
-                continue;
-            }
-            let mut have = read_chest(w, *p);
-            let before = have.len();
-            while have.len() < 27 && *cursor < stacks.len() {
-                have.push(stacks[*cursor].clone());
-                *cursor += 1;
-            }
-            if have.len() != before {
-                merge(w, *p, &have)?;
-            }
-        }
-        Ok(())
-    };
-    topup(&mut w, &mut cursor)?;
+    chests.start(&mut w);
     for i in &c.inputs {
         let mode = i.name == "mode" || i.name.starts_with("mode.");
         if i.how == InputHow::Lever && !mode && !w.use_block(bp(i.pos)) {
             return Ok(Outcome::Unmodeled(format!("the lever at {:?}", i.pos)));
         }
     }
-    let sinks: Vec<Pos> = if loader { Vec::new() } else { sources.clone() };
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<Pos, String> = HashMap::new();
     for (t, f) in frames.iter().enumerate() {
@@ -240,17 +195,27 @@ pub fn compare_one(path: &Path, max: usize) -> Result<Outcome> {
             return Ok(Outcome::Diverged(t as u32, diffs));
         }
         // the judge's visit (after each step's frame: none before the first step)
-        if t == 0 {
-            continue;
+        if t > 0 {
+            chests.visit(&mut w);
         }
-        for p in outs.iter().chain(&sinks).chain(&rejects) {
-            if !read_chest(&w, *p).is_empty() {
-                merge(&mut w, *p, &[])?;
-            }
-        }
-        topup(&mut w, &mut cursor)?;
     }
     Ok(Outcome::Ok(frames.len().saturating_sub(1) as u32))
+}
+
+/// A judge stack as a redsim one (a box's contents registered as its payload).
+fn rstack(w: &mut World, s: &JStack) -> Result<Stack> {
+    let item = container::item_id(&s.id).with_context(|| format!("item {} is not a redsim item", s.id))?;
+    let mut contents = Vec::new();
+    for (i, x) in s.contents.iter().enumerate() {
+        if !x.contents.is_empty() {
+            bail!("a box inside a box");
+        }
+        contents.push((i, Stack::new(container::item_id(&x.id).with_context(|| format!("item {}", x.id))?, x.count as u8)));
+    }
+    if s.name.is_some() {
+        bail!("a named box is not modeled by redsim");
+    }
+    Ok(Stack { item, count: s.count as u8, payload: container::new_payload(w, &contents) })
 }
 
 /// Every trace: one line each (OK, the first divergence, UNMODELED); an error when any is not OK.
