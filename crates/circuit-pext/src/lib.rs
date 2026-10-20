@@ -93,6 +93,33 @@ enum Cmd {
         #[arg(long, default_value_t = 40)]
         show: usize,
     },
+    /// N = 2 topology sweep, 1 wide (z = 0): the lever on A's back at (0,1,0), A (sticky, east) at
+    /// (1,1,0); the second sticky piston B (east) at every (bx, by) of the window with the payload
+    /// east of it; `grow` adds k blocks around each base (the region spans the base and 2 cells
+    /// around it). Answers "is there an N = 2 1-wide extender in 3 + k blocks" over topologies.
+    Topo {
+        #[arg(long, default_value_t = 3)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        /// B's x range `a..b` and y range.
+        #[arg(long, default_value = "1..3")]
+        bx: String,
+        #[arg(long, default_value = "0..3")]
+        by: String,
+        #[arg(long, default_value = "stone,slime,honey,rblock,observer,piston,sticky,dust,repeater1,torch")]
+        palette: String,
+        #[arg(long, default_value_t = 64)]
+        threads: usize,
+        #[arg(long, default_value_t = 2)]
+        near: i32,
+        /// No lever in the base: the lever (wall, floor or ceiling, in the plane) is one of the k
+        /// grown blocks (not counted), so every lever placement is searched.
+        #[arg(long)]
+        free_lever: bool,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
     /// Pulse-toggle trains for a stack of n sticky pistons (abstract 1D model): every pulse
     /// sequence that extends by n on one edge and retracts on the other, with each step's
     /// positions on both edges.
@@ -201,6 +228,42 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Large-neighborhood shrink: remove every `--remove`-subset of the design's blocks (all but
+    /// the payload, the input and the `--keep` cells) and grow back at most `--add` (default one
+    /// fewer) blocks of the palette near what is left (`grow`): every find is a smaller design.
+    Lns {
+        design: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        remove: usize,
+        #[arg(long)]
+        add: Option<usize>,
+        #[arg(long, default_value = "stone,slime,rblock,observer,sticky,piston,repeater1")]
+        palette: String,
+        #[arg(long, default_value_t = 64)]
+        threads: usize,
+        #[arg(long, allow_hyphen_values = true)]
+        plane_z: Option<i32>,
+        #[arg(long, default_value_t = 2)]
+        near: i32,
+        /// Cells never removed, `x,y,z;...`.
+        #[arg(long)]
+        keep: Option<String>,
+        /// Layers never removed (every block whose y is listed, e.g. `0,1` for a cascade's line and
+        /// its unit observers).
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        keep_y: Vec<i32>,
+        /// The input lever may move: it is removable like any block, and a subset that removes it
+        /// grows it back anywhere (lever states join the palette; the lever is never counted).
+        #[arg(long)]
+        free_lever: bool,
+        /// Region where blocks grow back (default: the design's box grown by 2).
+        #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
+        lo: Option<Pos>,
+        #[arg(long, value_parser = parse_pos, allow_hyphen_values = true)]
+        hi: Option<Pos>,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
 }
 
 fn parse_pos(s: &str) -> std::result::Result<Pos, String> {
@@ -230,6 +293,11 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
+        }
+        Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
+        Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, lo, hi, out_dir } => {
+            let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, region: (lo, hi), out_dir };
+            cmd_lns(&design, &o)
         }
         Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
             let reach = base + step * n;
@@ -426,6 +494,168 @@ fn cmd_grow(base: &PathBuf, o: &search::GrowOptions, show: usize) -> Result<()> 
             println!("{name}: {} blocks, extend {} retract {}: {}", f.blocks, c.extend, c.retract, added.join("; "));
         }
     }
+    Ok(())
+}
+
+/// `pext lns` settings (see `Cmd::Lns`).
+struct LnsOptions {
+    r: usize,
+    add: usize,
+    palette: String,
+    threads: usize,
+    plane_z: Option<i32>,
+    near: i32,
+    keep: Option<String>,
+    keep_y: Vec<i32>,
+    free_lever: bool,
+    region: (Option<Pos>, Option<Pos>),
+    out_dir: Option<PathBuf>,
+}
+
+/// `pext lns`: remove r blocks, grow back at most `add` (see `Cmd::Lns`).
+fn cmd_lns(path: &std::path::Path, o: &LnsOptions) -> Result<()> {
+    let (r, add, plane_z, region) = (o.r, o.add, o.plane_z, o.region);
+    let out_dir = o.out_dir.as_deref();
+    let p = Pext::load(path)?;
+    let keep: Vec<Pos> = match &o.keep {
+        Some(s) => s.split(';').map(|c| parse_pos(c).map_err(|e| anyhow!("{e}"))).collect::<Result<_>>()?,
+        None => Vec::new(),
+    };
+    let removable: Vec<Pos> =
+        p.design.blocks.keys().copied().filter(|q| (o.free_lever || *q != p.input) && *q != p.payload && !keep.contains(q) && !o.keep_y.contains(&q[1])).collect();
+    let mut pal = search::palette(&o.palette)?;
+    if plane_z.is_some() {
+        pal.retain(|s| !s.contains("facing=north") && !s.contains("facing=south"));
+    }
+    // a subset that removes the lever grows it back from these (in-plane when flat)
+    let mut levers = search::palette("minecraft:lever[face=wall,facing=east],minecraft:lever[face=wall,facing=west],minecraft:lever[face=floor,facing=north],minecraft:lever[face=ceiling,facing=north]")?;
+    if plane_z.is_none() {
+        levers.extend(search::palette("minecraft:lever[face=wall,facing=north],minecraft:lever[face=wall,facing=south]")?);
+    }
+    let pal_lever: Vec<String> = pal.iter().cloned().chain(levers).collect();
+    let (threads, near) = (o.threads, o.near);
+    let (lo, hi) = p.design.bounds().unwrap_or(([0; 3], [0; 3]));
+    let lo = region.0.unwrap_or([lo[0] - 2, lo[1] - 2, plane_z.unwrap_or(lo[2] - 2)]);
+    let hi = region.1.unwrap_or([hi[0] + 2, hi[1] + 2, plane_z.unwrap_or(hi[2] + 2)]);
+    let subsets = search::combos(removable.len(), r);
+    println!("{}: {} blocks, {} removable, {} subsets of {r}, growing back <= {add}", p.name(), p.blocks(), removable.len(), subsets.len());
+    let t0 = std::time::Instant::now();
+    // one subset per worker, each grow single-threaded: spawning a pool per subset costs more
+    // than the small grows themselves
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let done = std::sync::atomic::AtomicUsize::new(0);
+    let found: std::sync::Mutex<Vec<(usize, search::Find, Pext)>> = std::sync::Mutex::new(Vec::new());
+    let failed: std::sync::Mutex<Option<anyhow::Error>> = std::sync::Mutex::new(None);
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| loop {
+                let si = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if si >= subsets.len() {
+                    break;
+                }
+                let mut d = p.design.clone();
+                let mut lever_out = false;
+                for &i in &subsets[si] {
+                    d.blocks.remove(&removable[i]);
+                    if removable[i] == p.input {
+                        lever_out = true;
+                        d.ports.remove("input");
+                        d.meta.remove("port input");
+                    }
+                }
+                d.name = format!("{}-lns{si}", p.name());
+                if let Ok(base) = Pext::base(d) {
+                    let palette = if lever_out { pal_lever.clone() } else { pal.clone() };
+                    let go = search::GrowOptions { lo, hi, palette, k: add, kmin: 1, threads: 1, out_dir: None, plane_z, all: false, near: Some(near) };
+                    match search::grow(&base, &go, &|_, _, _| {}) {
+                        Ok(finds) => found.lock().unwrap().extend(finds.into_iter().map(|f| (si, f, Pext::base(base.design.clone()).expect("reparse")))),
+                        Err(e) => *failed.lock().unwrap() = Some(e),
+                    }
+                }
+                let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                if n % 50 == 0 {
+                    eprintln!("  {n}/{} subsets ({:.0} s)", subsets.len(), t0.elapsed().as_secs_f64());
+                }
+            });
+        }
+    });
+    if let Some(e) = failed.into_inner().unwrap() {
+        return Err(e);
+    }
+    let mut found = found.into_inner().unwrap();
+    found.sort_by_key(|(si, f, _)| (f.blocks, f.report.first().extend + f.report.first().retract, *si));
+    let mut best = p.blocks();
+    for (i, (si, f, base)) in found.iter().enumerate() {
+        let c = f.report.first();
+        let removed: Vec<String> = subsets[*si].iter().map(|&j| format!("{},{},{}", removable[j][0], removable[j][1], removable[j][2])).collect();
+        let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
+        println!("  subset {si} (-{}): {} blocks, extend {} retract {}: +{}", removed.join(" "), f.blocks, c.extend, c.retract, added.join("; "));
+        best = best.min(f.blocks);
+        if let Some(dir) = out_dir {
+            std::fs::create_dir_all(dir)?;
+            let name = format!("{}-{}b-s{si}-{}", p.name(), f.blocks, i + 1);
+            search::find_design(base, f, &name).save(&dir.join(format!("{name}.txt")))?;
+        }
+    }
+    println!("best: {best} blocks ({:.0} s)", t0.elapsed().as_secs_f64());
+    Ok(())
+}
+
+/// `pext topo`: the N = 2 1-wide topology sweep (see `Cmd::Topo`).
+#[allow(clippy::too_many_arguments)]
+fn cmd_topo(k: usize, kmin: usize, bx: &str, by: &str, palette: &str, threads: usize, near: i32, free_lever: bool, out_dir: Option<&std::path::Path>) -> Result<()> {
+    let range = |s: &str| -> Result<(i32, i32)> {
+        let (a, b) = s.split_once("..").ok_or_else(|| anyhow!("want a..b, got {s:?}"))?;
+        Ok((a.trim().parse()?, b.trim().parse()?))
+    };
+    let (bx0, bx1) = range(bx)?;
+    let (by0, by1) = range(by)?;
+    // the palette, flat: in-plane facings only (an out-of-plane observer or piston acts on air)
+    let mut pal: Vec<String> = search::palette(palette)?.into_iter().filter(|s| !s.contains("facing=north") && !s.contains("facing=south")).collect();
+    if free_lever {
+        pal.extend(search::palette("minecraft:lever[face=wall,facing=east],minecraft:lever[face=wall,facing=west],minecraft:lever[face=floor,facing=north],minecraft:lever[face=ceiling,facing=north]")?);
+    }
+    let t0 = std::time::Instant::now();
+    let mut all: Vec<(String, usize, u32, u32)> = Vec::new();
+    for y in by0..=by1 {
+        for x in bx0..=bx1 {
+            // B and the payload must not overlap the lever (0,1) or A (1,1)
+            if [(x, y), (x + 1, y)].iter().any(|c| *c == (0, 1) || *c == (1, 1)) {
+                continue;
+            }
+            let mut d = mctas::design::Design { name: format!("topo2-b{x}-{y}"), ..Default::default() };
+            d.meta.insert("circuit".into(), "piston-extender 2".into());
+            d.meta.insert("travel".into(), "1 0 0".into());
+            if !free_lever {
+                d.meta.insert("port input".into(), "lever".into());
+                d.ports.insert("input".into(), [0, 1, 0]);
+                d.blocks.insert([0, 1, 0], "minecraft:lever[face=wall,facing=west]".into());
+            }
+            d.ports.insert("payload".into(), [x + 1, y, 0]);
+            d.blocks.insert([1, 1, 0], "minecraft:sticky_piston[facing=east]".into());
+            d.blocks.insert([x, y, 0], "minecraft:sticky_piston[facing=east]".into());
+            d.blocks.insert([x + 1, y, 0], "minecraft:gold_block".into());
+            let p = Pext::base(d)?;
+            let lo = [-1, y.min(1) - 2, 0];
+            let hi = [x + 4, y.max(1) + 2, 0];
+            let o = search::GrowOptions { lo, hi, palette: pal.clone(), k, kmin, threads, out_dir: None, plane_z: Some(0), all: false, near: Some(near) };
+            let finds = search::grow(&p, &o, &|_, _, _| {})?;
+            println!("B at ({x},{y}): {} minimal finds ({:.0} s)", finds.len(), t0.elapsed().as_secs_f64());
+            for (i, f) in finds.iter().enumerate() {
+                let name = format!("{}-g{}", p.name(), i + 1);
+                let c = f.report.first();
+                let added: Vec<String> = f.added.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect();
+                println!("  {name}: {} blocks, extend {} retract {}: {}", f.blocks, c.extend, c.retract, added.join("; "));
+                if let Some(dir) = out_dir {
+                    std::fs::create_dir_all(dir)?;
+                    search::find_design(&p, f, &name).save(&dir.join(format!("{name}.txt")))?;
+                }
+                all.push((name, f.blocks, c.extend, c.retract));
+            }
+        }
+    }
+    all.sort_by_key(|(_, b, e, r)| (*b, *e + *r));
+    println!("{} designs over the sweep; best: {}", all.len(), all.first().map(|(n, b, e, r)| format!("{n} {b} blocks {e}/{r} gt")).unwrap_or_else(|| "none".into()));
     Ok(())
 }
 

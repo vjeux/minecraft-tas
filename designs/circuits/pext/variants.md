@@ -11,14 +11,14 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n2-rider-flat](archive/pext-n2-rider-flat.txt) | 8 | - |
 | [pext-n2-rider-3d](archive/pext-n2-rider-3d.txt) | 8 | - |
 
-**[pext-n3-cascade22](archive/pext-n3-cascade22.txt)** (piston-extender 3, N = 3; 22 blocks: gold_block, observer, piston, slime_block, sticky_piston, stone):
+**[pext-n3-flat-cascade16](archive/pext-n3-flat-cascade16.txt)** (piston-extender 3, N = 3; 16 blocks: gold_block, observer, piston, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n3-cascade-v1](archive/pext-n3-cascade-v1.txt) | 26 | - |
-| [pext-n3-sf43](archive/pext-n3-sf43.txt) | 43 | - |
-| [pext-n3-sf-v1](archive/pext-n3-sf-v1.txt) | 62 | - |
-| [pext-n3-sf38](archive/pext-n3-sf38.txt) | 38 | repeater |
+| [pext-n3-cascade-v1](archive/pext-n3-cascade-v1.txt) | 26 | stone |
+| [pext-n3-sf43](archive/pext-n3-sf43.txt) | 43 | stone |
+| [pext-n3-sf-v1](archive/pext-n3-sf-v1.txt) | 62 | stone |
+| [pext-n3-sf38](archive/pext-n3-sf38.txt) | 38 | repeater, stone |
 
 **[pext-n4-flat-cascade26](archive/pext-n4-flat-cascade26.txt)** (piston-extender 4, N = 4; 26 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston, stone):
 

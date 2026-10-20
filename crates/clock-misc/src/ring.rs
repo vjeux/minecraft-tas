@@ -144,7 +144,8 @@ pub fn build(r: &Relay, n: u32) -> String {
         let p = cells[i - 1];
         d.blocks.insert(*c, format!("minecraft:observer[facing={},powered=false]", facing([p[0] - c[0], p[1] - c[1], p[2] - c[2]])));
     }
-    d.ports.insert("output".into(), cells[0]);
+    // no declared output: a clock's output is an exterior air cell the judge picks (clockinfra,
+    // 2026-10-20: `clock sim --exterior`; a component cell inside the build no longer counts)
     d.ports.insert("start".into(), cells[1]);
     d.meta.insert("port start".into(), "last".into());
     let (_, b0) = formula(r, 0);

@@ -11,6 +11,30 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum ClockCmd {
+    /// The ambient vibration property of sculk clocks (`clock::vibration`): each clock run on
+    /// redsim with and without footsteps, items and blocks placed or broken around it (seeded by the
+    /// build); `yes` when its output sequence after the warmup is the same. A property, never a
+    /// verdict. `--archive`: every archived clock holding a sensor; `--game N`: spot-check N of them
+    /// in the game too. Writes the table (`--out`, default designs/clocks/archive/vibration.tsv).
+    Vibration {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        archive: bool,
+        /// Also run this many of them (spread over the list) in the game.
+        #[arg(long, default_value_t = 0)]
+        game: usize,
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// JVM workers for `--game` (capped by MCTAS_MAX_WORKERS).
+        #[arg(long, default_value_t = 6)]
+        workers: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Print each design's first N ambient events (tick, cell, event) instead of the table: for
+        /// comparing one build's run on redsim and in the game.
+        #[arg(long, default_value_t = 0)]
+        events: usize,
+    },
     /// Exact period on redsim (milliseconds): place like the judge, kick, run until the whole
     /// state repeats; prints the period, warmup, waveform per changing cell and at the output,
     /// the family, blocks placed and the swept box. Blocks redsim does not model: UNMODELED.
@@ -31,6 +55,14 @@ pub enum ClockCmd {
         /// Print every cell change of the first N ticks instead.
         #[arg(long)]
         trace: Option<u32>,
+        /// Only the clocks whose output rises several times per period at unequal spacing (no
+        /// single period a builder could time with), one line each, then a count.
+        #[arg(long)]
+        irregular: bool,
+        /// Print the best exterior output cell (an air cell where the judge's lamp gets evenly
+        /// spaced pulses, redsim's pick as `clock retap` makes it) and the line with it there.
+        #[arg(long)]
+        exterior: bool,
     },
     /// The official judge in the real game: N positions x 4 rotations, kick, run to the horizon,
     /// exact periodicity for >= 3 periods after warmup, the same period/waveform/family everywhere
@@ -60,6 +92,10 @@ pub enum ClockCmd {
         no_sim: bool,
         #[arg(long)]
         json: bool,
+        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods):
+        /// the period must hold across it (a clock must survive a chunk reload).
+        #[arg(long)]
+        reload: bool,
     },
     /// The judge, then keep it: a copy in designs/clocks/archive/ (header: date, source, the
     /// judge's line), its verdict row (verdicts-v1.tsv) and a caption (captions.tsv; default: the
@@ -75,6 +111,49 @@ pub enum ClockCmd {
         dedupe: bool,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 4000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
+    /// The verdict table's `gaps` column (the ticks between the output's rising edges over one
+    /// period), backfilled from redsim for every row whose redsim output reads like the judge's
+    /// line; lists the rows it cannot measure. `--write` rewrites verdicts-v1.tsv.
+    Gaps {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+    },
+    /// Archived clocks whose output pulses unevenly: move `port output` to a cell of the clock
+    /// that pulses evenly (redsim picks the longest such period), judge again in the game, and with
+    /// `--write` replace the archived design and its verdict row when the judge confirms the same
+    /// period with an even output (coordinator, 2026-10-20). Default: every archived clock.
+    Retap {
+        /// Archived design file names (default: every row of the verdict table).
+        files: Vec<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+        /// Only the files of shard i of n (`i/n`, by row order): run shards in parallel, each with
+        /// its own --results file, then --apply them all.
+        #[arg(long)]
+        shard: Option<String>,
+        /// Append one result line per file here instead of writing the archive (for --apply).
+        #[arg(long)]
+        results: Option<PathBuf>,
+        /// Apply results files to the archive (designs, rows, the hidden column) and print counts.
+        #[arg(long, num_args = 1..)]
+        apply: Vec<PathBuf>,
+        /// The chunk-reload pass instead: each clock still shown is judged in the game with a chunk
+        /// reload mid-run (`clock verify --reload`); one that does not survive it is hidden.
+        #[arg(long)]
+        reload_pass: bool,
         #[arg(long, default_value_t = 4)]
         positions: usize,
         #[arg(long, default_value_t = 4000)]
@@ -311,12 +390,31 @@ pub enum ClockCmd {
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
+    if let ClockCmd::Vibration { designs, archive, game, threads, workers, out, events } = cmd {
+        if events > 0 {
+            for path in &designs {
+                let c = Clock::load(path)?;
+                let r = simulate(&c, &SimOptions::default());
+                let ticks = clock::vibration::horizon(r.warmup, r.period);
+                println!("{}: warmup {} period {} output {:?}, swept {:?}", c.name(), r.warmup, r.period, r.output.as_ref().map(|o| o.pos), r.swept);
+                for (t, a) in clock::vibration::ambient_actions(&c, r.swept, ticks).into_iter().take(events) {
+                    if let clock::Action::GameEvent { pos, event } = a {
+                        println!("  tick {t}: {event} at {pos:?}");
+                    }
+                }
+            }
+            return Ok(());
+        }
+        return vibration_cmd(version, designs, archive, game, threads, workers, out);
+    }
     match cmd {
-        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace } => {
+        ClockCmd::Vibration { .. } => unreachable!("handled above"),
+        ClockCmd::Sim { designs, horizon, margin, json, quiet, trace, irregular, exterior } => {
             if designs.is_empty() {
                 bail!("clock sim <design>...");
             }
             let o = SimOptions { horizon, margin };
+            let (mut clocks, mut odd, mut none) = (0usize, 0usize, 0usize);
             for path in &designs {
                 let c = Clock::load(path)?;
                 if let Some(n) = trace {
@@ -326,7 +424,38 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     continue;
                 }
                 let t0 = std::time::Instant::now();
+                if exterior {
+                    let mut d = c.design.clone();
+                    d.ports.remove("output");
+                    let free = Clock::from_design(d)?;
+                    match clock::sim::lamp_outputs(&free, 1).into_iter().next() {
+                        Some((q, r)) => println!("EXTERIOR: {} port output: {} {} {}: {}", c.name(), q[0], q[1], q[2], r.summary()),
+                        None => println!("NO EXTERIOR: {}", c.name()),
+                    }
+                    continue;
+                }
                 let r = simulate(&c, &o);
+                if irregular {
+                    if r.verdict == Verdict::Clock {
+                        clocks += 1;
+                        if let Some(w) = r.output.as_ref().map(|o| &o.wave)
+                            && let Some((lo, hi)) = w.irregular()
+                        {
+                            odd += 1;
+                            // a cell a builder could tap instead: regular, the longest own period
+                            let tap = r.analysis.cells.iter().filter(|c| c.tappable()).filter_map(|c| c.output_period().map(|p| (p, c.pos))).max();
+                            if tap.is_none() {
+                                none += 1;
+                            }
+                            let tap = match tap {
+                                Some((p, pos)) => format!("regular tap: {pos:?} every {p} gt"),
+                                None => "no regular cell".into(),
+                            };
+                            println!("IRREGULAR: {} period {} gt, {} rising edges, gaps {:?} ({lo}..{hi} gt); {tap}", c.name(), r.period, w.edges, w.gaps);
+                        }
+                    }
+                    continue;
+                }
                 if json {
                     println!("{}", sim_json(&c, &r));
                 } else if quiet {
@@ -335,12 +464,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     print_sim(&c, &r, t0.elapsed().as_secs_f64() * 1000.0);
                 }
             }
+            if irregular {
+                println!("{odd} of {clocks} clocks (redsim CLOCK verdicts) have an irregular output; {none} of them have no regular cell at all");
+            }
         }
-        ClockCmd::Verify { designs, positions, no_rotations, horizon, margin, workers, verbose, no_sim, json } => {
+        ClockCmd::Verify { designs, positions, no_rotations, horizon, margin, workers, verbose, no_sim, json, reload } => {
             if designs.is_empty() {
                 bail!("clock verify <design>...");
             }
-            let o = VerifyOptions { positions, rotations: !no_rotations, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+            let o = VerifyOptions { positions, rotations: !no_rotations, horizon, margin, workers, version: version.to_string(), reload, ..Default::default() };
             let mut failed = false;
             let pool = clock::verify::spawn_pool(&o)?;
             for path in &designs {
@@ -388,6 +520,74 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             if failed > 0 {
                 std::process::exit(1);
             }
+        }
+        ClockCmd::Gaps { dir, write } => {
+            let b = clock::gaps::backfill(&dir, write)?;
+            for f in &b.unknown {
+                println!("UNMEASURED {f}");
+            }
+            println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
+        }
+        ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers } => {
+            if !apply.is_empty() {
+                let res = clock::gaps::read_results(&apply)?;
+                let a = clock::gaps::apply(&dir, &res)?;
+                for (kind, files) in &a.hidden {
+                    println!("HIDDEN {kind}: {} ({})", files.len(), files.join(", "));
+                }
+                println!("apply: {} results, {} moved, {} kept, {} hidden", res.len(), a.moved, a.kept, a.hidden.values().map(|v| v.len()).sum::<usize>());
+                return Ok(());
+            }
+            let mut files: Vec<String> = if files.is_empty() { clock::catalog::read_rows(&dir)?.into_iter().map(|r| r.file).collect() } else { files };
+            if let Some(s) = &shard {
+                let (i, n) = s.split_once('/').and_then(|(a, b)| Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?))).ok_or_else(|| anyhow::anyhow!("--shard i/n"))?;
+                files = files.into_iter().enumerate().filter(|(k, _)| k % n == i).map(|(_, f)| f).collect();
+            }
+            let o = VerifyOptions { positions, rotations: true, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+            let pool = clock::verify::spawn_pool(&o)?;
+            let mut out = match &results {
+                Some(p) => Some(std::fs::OpenOptions::new().create(true).append(true).open(p)?),
+                None => None,
+            };
+            let (mut moved, mut refused, mut notap, mut hidden) = (0, 0, 0, 0);
+            let shown: std::collections::BTreeSet<String> = if reload_pass { clock::catalog::read_rows(&dir)?.into_iter().filter(|r| r.shown()).map(|r| r.file).collect() } else { Default::default() };
+            for f in &files {
+                let r = if reload_pass {
+                    if !shown.contains(f) {
+                        continue;
+                    }
+                    clock::gaps::reload_check(&pool, &o, &dir, f)
+                } else {
+                    clock::gaps::retap(&pool, &o, &dir, f, write && out.is_none())
+                };
+                if let (Some(w), Ok(r)) = (out.as_mut(), r.as_ref()) {
+                    use std::io::Write as _;
+                    writeln!(w, "{}", r.result_line(f))?;
+                    w.flush()?;
+                }
+                match r {
+                    Ok(clock::gaps::Retap::Even) => {}
+                    Ok(clock::gaps::Retap::Moved { from, to, line, .. }) => {
+                        moved += 1;
+                        println!("MOVED {f}: output {from:?} -> {to:?}: {line}");
+                    }
+                    Ok(clock::gaps::Retap::Refused { to, line }) => {
+                        refused += 1;
+                        println!("REFUSED {f}: output -> {to:?}: {line}");
+                    }
+                    Ok(clock::gaps::Retap::NoTap(why)) => {
+                        notap += 1;
+                        println!("NO OUTPUT {f}: {why}");
+                    }
+                    Ok(clock::gaps::Retap::Hide(why)) => {
+                        hidden += 1;
+                        println!("HIDE {f}: {why}");
+                    }
+                    Ok(clock::gaps::Retap::Skip(why)) => println!("SKIP {f}: {why}"),
+                    Err(e) => println!("ERROR {f}: {e:#}"),
+                }
+            }
+            println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
         ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
             let mut items = Vec::new();
@@ -622,7 +822,7 @@ fn sim_json(c: &Clock, r: &SimReport) -> serde_json::Value {
         "dims": r.dims(),
         "volume": r.volume(),
         "start": r.start,
-        "output": r.output.as_ref().map(|o| json!({"pos": o.pos, "auto": o.auto, "on": o.wave.on, "edges": o.wave.edges, "pulses": o.wave.widths})),
+        "output": r.output.as_ref().map(|o| json!({"pos": o.pos, "auto": o.auto, "on": o.wave.on, "edges": o.wave.edges, "pulses": o.wave.widths, "gaps": o.wave.gaps, "irregular": o.wave.irregular(), "output_period": o.wave.output_period()})),
         "cells": r.analysis.cells.iter().map(wave_json).collect::<Vec<_>>(),
         "summary": r.summary(),
     })
@@ -689,4 +889,44 @@ fn verify_json(r: &VerifyReport, sim: Option<&SimReport>) -> serde_json::Value {
         }).collect::<Vec<_>>(),
         "redsim": sim.map(|s| agreement(r, s)),
     })
+}
+
+/// `mctas clock vibration`: the ambient property table (`clock::vibration`).
+fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usize, threads: usize, workers: usize, out: Option<PathBuf>) -> Result<()> {
+    let dir = PathBuf::from("designs/clocks/archive");
+    let mut paths = designs;
+    if archive {
+        let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        paths.extend(v);
+    }
+    if paths.is_empty() {
+        bail!("clock vibration <design>... | --archive");
+    }
+    let t0 = std::time::Instant::now();
+    let mut rows = clock::vibration::sim_rows(&paths, threads);
+    eprintln!("redsim: {} sculk clocks in {:.0} s", rows.len(), t0.elapsed().as_secs_f64());
+    if game > 0 && !rows.is_empty() {
+        // spread over the list, the rows that have a redsim property first
+        let have: Vec<usize> = (0..rows.len()).filter(|&i| rows[i].sim.is_some()).collect();
+        let step = (have.len() / game).max(1);
+        let picks: Vec<usize> = have.iter().step_by(step).take(game).copied().collect();
+        let gdir = if archive { dir.clone() } else { paths[0].parent().map(|p| p.to_path_buf()).unwrap_or_default() };
+        clock::vibration::game_rows(&mut rows, &gdir, &picks, workers, version)?;
+    }
+    let proof = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| p.proof)).count();
+    let sensitive = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| !p.proof)).count();
+    let none = rows.len() - proof - sensitive;
+    let agree = rows.iter().filter(|r| r.game.is_some()).filter(|r| r.game.as_ref().map(|g| g.proof) == r.sim.as_ref().map(|s| s.proof)).count();
+    let checked = rows.iter().filter(|r| r.game.is_some()).count();
+    let mut text = String::from(clock::vibration::TSV_HEADER);
+    text.push('\n');
+    for r in &rows {
+        text.push_str(&r.line());
+        text.push('\n');
+    }
+    let out = out.unwrap_or_else(|| dir.join("vibration.tsv"));
+    std::fs::write(&out, text)?;
+    println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
+    Ok(())
 }

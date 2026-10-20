@@ -54,14 +54,20 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         }
     }
     let aspect = o.width as f32 / o.height as f32;
-    let mut look = scene::default_look(&s);
+    let mut look = if o.picture { scene::default_look(&s) } else { scene::viewer_look(&s) };
     if o.picture {
         look.outlines.clear();
         look.port_outlines.clear();
     }
-    look.floor_margin = o.floor_margin;
-    // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
-    let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
+    // as the real-game pictures show it (`web compare`): their camera and their grass reach;
+    // else the viewer's (a door: the side its lever is seen from)
+    look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
+    let mut cam = if o.picture {
+        scene::picture_camera(&s, &look, aspect)
+    } else {
+        // the viewer's thumbnail camera (a door: the side its lever is seen from)
+        scene::thumb_camera(atlas, &s, &look, aspect)
+    };
     if o.yaw.is_some() || o.pitch.is_some() {
         if let Some(y) = o.yaw {
             cam.yaw = y.to_radians();
@@ -219,8 +225,9 @@ pub fn fit(off: &mut Offscreen, atlas: &Atlas, cases: &[(String, Vec<u8>)], w: u
         if !s.mode.is_door() {
             s.go_to_still(20_000);
         }
-        let look = scene::default_look(&s);
-        let cam = scene::default_camera(&s, &look, aspect);
+        let mut look = scene::default_look(&s);
+        look.floor_margin = Some(scene::PICTURE_GROUND_REACH);
+        let cam = scene::picture_camera(&s, &look, aspect);
         prepared.push(Case { mesh: scene::build(atlas, &s, 0.0, &look), cam, real });
     }
     let mut out = Vec::new();
@@ -320,7 +327,7 @@ pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u3
     // machine followed), the same interpolation
     let aspect = w as f32 / h as f32;
     let mut p = crate::player::Player::new(text, aspect)?;
-    p.show_inputs(atlas, aspect);
+    p.show_inputs(atlas, aspect, scene::live_window(h as f32));
     if p.session.mode.is_door() {
         p.flip();
     } else {

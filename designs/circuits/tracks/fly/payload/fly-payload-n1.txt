@@ -9,7 +9,7 @@ extend blocks: 6 + n
 extend rule: one more payload block: the slime column up from the front slime (9 at most), then the one down from the rear slime; the top block of a column is gold
 extend n: 1..18
 extend base: 1
-extend generator: mctas circuit fly gen payload --base designs/circuits/fly/archive/fly-horizontal-6b-10gt-e2cf52.txt --from 2,1,0 --dir up --cap 9 --from2 1,0,0 --dir2 down --n {n} --block minecraft:gold_block --out {out}
+extend generator: mctas circuit fly gen payload --base designs/circuits/tracks/fly/layouts/fly-horizontal-6b-10gt-e2cf52.txt --from 2,1,0 --dir up --cap 9 --from2 1,0,0 --dir2 down --n {n} --block minecraft:gold_block --out {out}
 circuit: flying-machine
 distance: 24
 travel: 1 0 0

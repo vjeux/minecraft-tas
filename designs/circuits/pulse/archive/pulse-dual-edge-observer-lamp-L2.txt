@@ -1,16 +1,14 @@
-# archived 2026-10-19T23:48Z from designs/circuits/tracks/pulse/hand/pulse-dual-edge-observer-lamp-L2.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-edge-observer-lamp-L2 dual-edge L 2 gt, delay 2 gt rising / 6 gt falling, min-pulse 1 gt, 2 blocks, 1x1x2, robust
+# archived 2026-10-20T14:07Z from /tmp/clkobs-runs/tiled/pulse-dual-edge-observer-lamp-L2-self-tile1.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-edge-observer-lamp-L2 dual-edge L 2 gt, delay 2 gt rising / 6 gt falling, min-pulse 1 gt, tileable every 1 (1 0 0), 2 blocks, 1x1x2, robust
 name: pulse-dual-edge-observer-lamp-L2
-# An observer watching a redstone lamp lit by the input: the lamp lights at once and goes out 4 gt
-# after the input falls, so the observer fires 2 gt after the rising edge and 6 gt after the
-# falling one, even for a 1 gt input (min-pulse 1, where an observer watching the input needs 4).
 circuit: dual-edge
-origin: 0 0 0
-port output: 0 0 -1
+tile: 1 0 0
 port input: 0 0 2
+port output: 0 0 0
+origin: 0 0 0
 palette:
-  A minecraft:observer[facing=south,powered=false]
-  B minecraft:redstone_lamp[lit=false]
+  O minecraft:observer[facing=south,powered=false]
+  R minecraft:redstone_lamp[lit=false]
 layer 0:
-  A
-  B
+  O
+  R

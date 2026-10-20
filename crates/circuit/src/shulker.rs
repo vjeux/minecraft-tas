@@ -600,6 +600,16 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     let base = w.get_region(sb, from, to)?;
     let groups = sc.groups.max(1) as usize;
     let mut log = RunLog { dims: design_dims(c), supplied_g: vec![0; groups], drained_g: vec![0; groups], ..Default::default() };
+    // a design aid: with MCTAS_SHULKER_WATCH set, what the settle changed (the snapshots compare
+    // against the settled state, so a design that settles somewhere else shows nothing there)
+    if std::env::var("MCTAS_SHULKER_WATCH").is_ok() {
+        log.notes.push("-- the settle changed".to_string());
+        for (p, s) in base.iter() {
+            if placed.get(p) != Some(s) {
+                log.notes.push(format!("   {:?} {} (placed as {})", p, clock::short(s), placed.get(p).map(clock::short).unwrap_or_default()));
+            }
+        }
+    }
     // what the design's own containers hold before the judge fills anything (a sorter's filter
     // hopper, filler boxes): theirs, not the judge's
     for be in w.block_entities(sb, from, to)? {
@@ -1074,7 +1084,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         sc.seed_salt = std::env::var("MCTAS_SHULKER_SALT").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
     }
     let offsets = clock::offsets(o.positions);
-    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    // a design aid: MCTAS_SHULKER_TURN=k judges rotation k alone (its table, its snapshots)
+    let only: Option<u8> = std::env::var("MCTAS_SHULKER_TURN").ok().and_then(|v| v.parse().ok());
+    let turns: Vec<u8> = match only {
+        Some(k) => vec![k],
+        None if o.rotations => vec![0, 1, 2, 3],
+        None => vec![0],
+    };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {

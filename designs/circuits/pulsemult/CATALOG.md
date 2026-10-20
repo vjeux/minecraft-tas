@@ -4,7 +4,7 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### off L = 52 + 56n gt
 
@@ -12,7 +12,7 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 n = 1: off L = 108 gt, 28 blocks · n = 2: off L = 164 gt, 32 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..7 (off L = 108 gt .. off L = 444 gt); judged in the game: n = 1, 2, 3, 4, 7.
+Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..7 (off L = 108 gt .. off L = 444 gt); judged in the game: off L = 108 gt, 164 gt, 220 gt, 276 gt, 332 gt, 388 gt, 444 gt.
 
 ### L = 60 + 56n gt
 
@@ -20,7 +20,7 @@ Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1.
 
 n = 1: L = 116 gt, 36 blocks · n = 2: L = 172 gt, 40 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..8 (L = 116 gt .. L = 508 gt); judged in the game: n = 1, 2, 3, 4, 8.
+Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..8 (L = 116 gt .. L = 508 gt); judged in the game: L = 116 gt retriggerable, 172 gt retriggerable, 228 gt retriggerable, 284 gt retriggerable, 340 gt retriggerable, 396 gt retriggerable, 452 gt retriggerable, 508 gt retriggerable.
 
 ### L = 62 + 56n gt
 
@@ -28,7 +28,7 @@ Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1.
 
 n = 1: L = 118 gt, 44 blocks · n = 2: L = 174 gt, 50 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring and one more dust (on its stone) in the link. n = 1..8 (L = 118 gt .. L = 510 gt); judged in the game: n = 1, 2, 3, 4, 8.
+Extend: one more comparator (on its stone) in each row of stage 2's ring and one more dust (on its stone) in the link. n = 1..8 (L = 118 gt .. L = 510 gt); judged in the game: L = 118 gt non-retriggerable, 174 gt non-retriggerable, 230 gt non-retriggerable, 286 gt non-retriggerable, 342 gt non-retriggerable, 398 gt non-retriggerable, 454 gt non-retriggerable, 510 gt non-retriggerable.
 
 ## Tunable groups
 
@@ -43,15 +43,15 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 | 2 | 9 | [pm-burst2-chase](archive/pm-burst2-chase.txt) | N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 1 gt, retrigger mixed, repeat 8 gt |
 | 3 | 9 | [pm-burst3-chase](archive/pm-burst3-chase.txt) | N 3, pulse 2 gt, period 4 gt, latency 14 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt |
 
-### N = 3, 5, 7
+### N = 3, 5, 7 square
 
-**Square /N divider (dropper ring + bulb, fed on both edges)** · divider · 3 designs · study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`). Smallest: [pm-div3-square](archive/pm-div3-square.txt) (N = 3, 13 blocks), [pm-div5-square](archive/pm-div5-square.txt) (N = 5, 16 blocks).
+**Square /N divider (dropper ring + bulb, fed on both edges)** · divider · 3 designs · study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`). Smallest: [pm-div3-square](archive/pm-div3-square.txt) (N = 3 square, 17 blocks), [pm-div5-square](archive/pm-div5-square.txt) (N = 5 square, 18 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 3 | 13 | [pm-div3-square](archive/pm-div3-square.txt) | N 3, duty 50%, output square, latency 37 gt, min-period 20 gt |
-| 5 | 16 | [pm-div5-square](archive/pm-div5-square.txt) | N 5, duty 50%, output square, latency 37 gt, min-period 20 gt |
-| 7 | 23 | [pm-div7-square](archive/pm-div7-square.txt) | N 7, duty 50%, output square, latency 37 gt, min-period 20 gt |
+| 3 square | 17 | [pm-div3-square](archive/pm-div3-square.txt) | N 3, duty 50%, output square, latency 39 gt, min-period 20 gt |
+| 5 square | 18 | [pm-div5-square](archive/pm-div5-square.txt) | N 5, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
+| 7 square | 25 | [pm-div7-square](archive/pm-div7-square.txt) | N 7, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
 
 ### off L = 4..28 gt (every 4)
 

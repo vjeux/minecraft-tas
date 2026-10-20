@@ -4,7 +4,7 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### N = 2 + 2n gt
 
@@ -12,18 +12,18 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 n = 0: N = 2 gt, 2 blocks · n = 1: N = 4 gt, 4 blocks
 
-Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N = 2 gt .. N = 22 gt); judged in the game: n = 0, 1, 2, 5, 10.
+Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N = 2 gt .. N = 22 gt); judged in the game: N = 2 gt, 4 gt, 6 gt, 8 gt, 10 gt, 12 gt, 14 gt, 16 gt, 18 gt, 20 gt, 22 gt.
 
 ### N = N = 2 x the sum of the delays gt
 
 **repeater line** · 4 families · 2 blocks (repeater + stone) per started 8 gt
 
-| family | N | blocks | n (N) | judged n |
+| family | N | blocks | n (N) | judged in the game |
 |---|---|---|---|---|
-| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | 0, 1, 2, 5, 10 |
-| [delay-rep4](archive/delay-rep4-n0.txt) | 4 + 8n | 2 + 2n | 0..10 (4 .. 84) | 0, 1, 2, 5, 10 |
-| [delay-rep6](archive/delay-rep6-n0.txt) | 6 + 8n | 2 + 2n | 0..10 (6 .. 86) | 0, 1, 2, 5, 10 |
-| [delay-rep8](archive/delay-rep8-n0.txt) | 8 + 8n | 2 + 2n | 0..10 (8 .. 88) | 0, 1, 2, 5, 10 |
+| [delay-rep4](archive/delay-rep4-n0.txt) | 4 + 8n | 2 + 2n | 0..10 (4 .. 84) | N = 4 gt, 12 gt, 20 gt, 28 gt, 36 gt, 44 gt, 52 gt, 60 gt, 68 gt, 76 gt, 84 gt |
+| [delay-rep6](archive/delay-rep6-n0.txt) | 6 + 8n | 2 + 2n | 0..10 (6 .. 86) | N = 6 gt, 14 gt, 22 gt, 30 gt, 38 gt, 46 gt, 54 gt, 62 gt, 70 gt, 78 gt, 86 gt |
+| [delay-rep8](archive/delay-rep8-n0.txt) | 8 + 8n | 2 + 2n | 0..10 (8 .. 88) | N = 8 gt, 16 gt, 24 gt, 32 gt, 40 gt, 48 gt, 56 gt, 64 gt, 72 gt, 80 gt, 88 gt |
+| [delay-rep2](archive/delay-rep2-n0.txt) | 2 + 8n | 2 + 2n | 0..10 (2 .. 82) | N = 2 gt, 10 gt, 18 gt, 26 gt, 34 gt, 42 gt, 50 gt, 58 gt, 66 gt, 74 gt, 82 gt |
 
 ### N = 6 + 4n gt
 
@@ -31,18 +31,18 @@ Extend: add one compare-mode comparator (on its stone) at the end. n = 0..10 (N 
 
 n = 0: N = 6 gt, 6 blocks · n = 1: N = 10 gt, 10 blocks
 
-Extend: add two torches and two blocks to the tower. n = 0..4 (N = 6 gt .. N = 22 gt); judged in the game: n = 0, 1, 2, 4.
+Extend: add two torches and two blocks to the tower. n = 0..4 (N = 6 gt .. N = 22 gt); judged in the game: N = 6 gt, 10 gt, 14 gt, 18 gt, 22 gt.
 
 ### N = N = 3 + 2 x the tail's delays gt
 
 **piston OR line (odd N)** · 4 families · a sticky piston's 3/1 copy OR'ed with itself 2 gt later, then a repeater tail
 
-| family | N | blocks | n (N) | judged n |
+| family | N | blocks | n (N) | judged in the game |
 |---|---|---|---|---|
-| [delay-piston-or11](archive/delay-piston-or11-n0.txt) | 11 + 8n | 13 + 2n | 0..6 (11 .. 59) | 0, 1, 2, 3, 6 |
-| [delay-piston-or5](archive/delay-piston-or5-n0.txt) | 5 + 8n | 13 + 2n | 0..6 (5 .. 53) | 0, 1, 2, 3, 6 |
-| [delay-piston-or7](archive/delay-piston-or7-n0.txt) | 7 + 8n | 13 + 2n | 0..6 (7 .. 55) | 0, 1, 2, 3, 6 |
-| [delay-piston-or9](archive/delay-piston-or9-n0.txt) | 9 + 8n | 13 + 2n | 0..6 (9 .. 57) | 0, 1, 2, 3, 6 |
+| [delay-piston-or11](archive/delay-piston-or11-n0.txt) | 11 + 8n | 13 + 2n | 0..6 (11 .. 59) | N = 11 gt, 19 gt, 27 gt, 35 gt, 43 gt, 51 gt, 59 gt |
+| [delay-piston-or5](archive/delay-piston-or5-n0.txt) | 5 + 8n | 13 + 2n | 0..6 (5 .. 53) | N = 5 gt, 13 gt, 21 gt, 29 gt, 37 gt, 45 gt, 53 gt |
+| [delay-piston-or7](archive/delay-piston-or7-n0.txt) | 7 + 8n | 13 + 2n | 0..6 (7 .. 55) | N = 7 gt, 15 gt, 23 gt, 31 gt, 39 gt, 47 gt, 55 gt |
+| [delay-piston-or9](archive/delay-piston-or9-n0.txt) | 9 + 8n | 13 + 2n | 0..6 (9 .. 57) | N = 9 gt, 17 gt, 25 gt, 33 gt, 41 gt, 49 gt, 57 gt |
 
 ## N = 1 gt
 

@@ -9,6 +9,8 @@ extend axis: 30 + 16n
 extend blocks: 32 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
+extend group title: long pulse on both edges: an observer, two copper bulbs and a loop of repeaters
+extend group note: Why a chain of repeaters: each change of the input must give the full pulse whatever the input does next, so the circuit has to remember it (the copper bulbs) and switch itself off after a delay; the constant-size hopper one-shots (13 blocks) answer one edge only, and a falling edge during their run would cut it short.
 extend base: 0
 extend generator: mctas circuit pulse family dual-edge-reset --n {n} --out {out}
 origin: 0 0 -3

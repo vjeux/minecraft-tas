@@ -181,6 +181,12 @@ pub enum WebCmd {
         /// (diagnostics: a WebGL limit, an element's state).
         #[arg(long)]
         eval: Option<String>,
+        /// Evaluate this JavaScript after `--before-at` seconds, then wait `--seconds` more
+        /// before the screenshot (an in-place swap: set `data-keep-camera` and `data-src`).
+        #[arg(long)]
+        before: Option<String>,
+        #[arg(long, default_value_t = 4.0)]
+        before_at: f64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
@@ -482,7 +488,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             Some(u) => crate::cdp::cmd_luma(&u, &window, min, &browser),
             None => cmd_luma_native(&designs, min),
         },
-        WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), &out, &browser),
+        WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
             if hold {
                 crate::cdp::cmd_hold(&url, &window, scale, touch, &browser)
@@ -763,6 +769,11 @@ fn circuit_attrs(d: &Path) -> String {
     if !events.is_empty() {
         out.push_str(&format!(" data-events=\"{}\"", html_escape(&events)));
     }
+    // a strength input's values (the hex kinds: the judge's chest fills)
+    if !s.levels.is_empty() {
+        let levels: Vec<String> = s.levels.iter().filter_map(|(t, i, v)| names.get(*i).map(|n| format!("{t} {n} {v}"))).collect();
+        out.push_str(&format!(" data-levels=\"{}\"", html_escape(&levels.join("; "))));
+    }
     out.push_str(&format!(" data-phases=\"{}\"", html_escape(&phases.join("; "))));
     out
 }
@@ -783,12 +794,15 @@ fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u3
                 Some(p) => *p,
                 None => continue,
             },
+            // the vibration test's game events change no block: nothing to show
+            EventAt::Input(_) | EventAt::Cell(_) => continue,
         };
         let (name, state) = match op {
             TargetOp::Place(st) => ("place", Some(st.clone())),
             TargetOp::Clear => ("clear", None),
             TargetOp::Shape(st) => ("shape", Some(st.clone())),
             TargetOp::Update => ("update", None),
+            TargetOp::GameEvent(_) => continue,
         };
         v.push((*t, pos, name, state));
     }
@@ -952,7 +966,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped) = (0, 0, 0, 0, 0);
+    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts) = (0, 0, 0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -962,13 +976,17 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
         let fly = is_flying_machine(&text);
         // circuits judged under a stimulus: inputs, BUD targets (data-events); shulker designs run
-        // with the judge's chests (`shulker_pair`)
+        // with the judge's chests (`shulker_pair`); designs with TNT run with exploding TNT
+        // (`tnt_pair`)
         let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
-        let circ = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        let tnt = !fly && !shulker && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        let circ = !fly && !shulker && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
+        } else if tnt {
+            tnt_pair(&text, probe.as_mut())
         } else if circ {
             circuit_pair(&text)
         } else {
@@ -989,8 +1007,19 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
                 continue;
             }
         };
+        // what the viewer draws is redsim's state, every tick (circuits: in `circuit_pair`)
+        if !circ {
+            let busy = tnt || shulker || mcview::design::Design::parse(&text).is_ok_and(|d| !d.entities.is_empty());
+            if let Err(e) = drawn_pass(&text, if busy { TNT_TICKS } else { DRAWN_TICKS }) {
+                bad += 1;
+                println!("FAIL {} {e}", d.display());
+                continue;
+            }
+        }
         if fly {
             flyers += 1;
+        } else if tnt {
+            tnts += 1;
         } else if circ || shulker {
             circuits += 1;
         } else {
@@ -1001,8 +1030,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim) and {circuits} circuits (same frames as circuit sim under the judge's stimulus) agree{}, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " (clocks, flying machines and shulker designs in the native and the wasm viewer)" } else { "" }
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
+        if probe.is_some() { " (clocks, flying machines, shulker and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -1073,11 +1102,21 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     let trace = match circuit::run::sim_trace(&c, &s, 3) {
         Ok(t) => t,
         Err(why) => {
-            // redsim cannot run it (a block it does not model): the viewer must say so too
-            return match mcview::Session::new(text, &mcview::Options::default()) {
-                Ok(v) if !v.simulated() => Ok(None),
-                _ => Err(format!("circuit sim: {why}")),
-            };
+            // redsim cannot run it (a block or a random draw it does not model): the viewer must
+            // say so too: shown as built, or stopping where redsim stops under the judge's
+            // stimulus (vjeux: only what redsim simulates)
+            let mut v = mcview::Session::new(text, &mcview::Options::default())?;
+            if !v.simulated() {
+                return Ok(None);
+            }
+            v.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
+            for _ in 0..=s.ticks {
+                if let Some(h) = &v.halted {
+                    return Ok(Some(format!("{} not simulated after {h} (circuit sim: {why})", kind.name())));
+                }
+                v.step();
+            }
+            return Err(format!("circuit sim: {why}; the viewer runs on"));
         }
     };
     let (from, to) = circuit::run::watch_box(&c, 3);
@@ -1086,19 +1125,122 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     if !session.simulated() {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
-    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s) });
+    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
+    // the judge's input devices (R7: a driven input's repeater, support and switch) are not the
+    // circuit's: circuit sim leaves them out of its frames
+    let judge: Vec<mcview::design::Pos> = session
+        .circuit_inputs
+        .iter()
+        .filter_map(|i| match i.how {
+            mcview::circuit::InputHow::Driven { dir, .. } => {
+                let (r, sup, sw) = mcview::circuit::driver_cells(i.pos, dir);
+                Some([r, sup, sw])
+            }
+            _ => None,
+        })
+        .flatten()
+        .collect();
     let frames = trace.cells.len();
     for (f, cells) in trace.cells.iter().enumerate() {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();
         let mine_all = session.cell_states();
-        let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p)).map(|(p, s)| (*p, s.as_str())).collect();
+        let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p) && !judge.contains(p)).map(|(p, s)| (*p, s.as_str())).collect();
         if theirs != mine {
-            let diff = theirs.iter().find(|x| !mine.contains(x)).map(|(p, s)| format!("{p:?} {s} in circuit sim")).or_else(|| mine.iter().find(|x| !theirs.contains(x)).map(|(p, s)| format!("{p:?} {s} in the viewer"))).unwrap_or_default();
-            return Err(format!("frame {f} differs from circuit sim's ({diff})"));
+            let only = |a: &Vec<(mcview::design::Pos, &str)>, b: &Vec<(mcview::design::Pos, &str)>| a.iter().filter(|x| !b.contains(x)).take(6).map(|(p, s)| format!("{p:?} {s}")).collect::<Vec<_>>().join(", ");
+            let diff = format!("circuit sim only: {}; the viewer only: {}", only(&theirs, &mine), only(&mine, &theirs));
+            let hows = |a: String, b: String| if a == b { String::new() } else { format!("; inputs: circuit sim {a}, the viewer {b}") };
+            return Err(format!("frame {f} differs from circuit sim's ({diff}){}", hows(format!("{:?}", c.inputs.iter().map(|i| format!("{} {:?}", i.name, i.how)).collect::<Vec<_>>()), format!("{:?}", session.circuit_inputs.iter().map(|i| format!("{} {:?}", i.name, i.how)).collect::<Vec<_>>()))));
         }
+        // and what the viewer draws is that state (vjeux: nothing animated by the viewer itself)
+        session.drawn_matches_simulation().map_err(|e| format!("frame {f}: drawn differs from redsim: {e}"))?;
         session.step();
     }
     Ok(Some(format!("{} {frames} frames agree", kind.name())))
+}
+
+/// Ticks of the drawn-state pass (`drawn_pass`) for a design without entities, TNT or shulker
+/// boxes (their runs: TNT_TICKS).
+const DRAWN_TICKS: u32 = 120;
+
+/// Everything the viewer draws is redsim's state (`Session::drawn_matches_simulation`: the
+/// blocks, and the entities and falling blocks at redsim's positions) on every tick of a run of
+/// `ticks` as placed (a circuit's run under the judge's stimulus: in `circuit_pair`).
+fn drawn_pass(text: &str, ticks: u32) -> Result<(), String> {
+    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    for _ in 0..=ticks {
+        s.drawn_matches_simulation().map_err(|e| format!("tick {}: drawn differs from redsim: {e}", s.tick))?;
+        if s.halted.is_some() {
+            break;
+        }
+        s.step();
+    }
+    Ok(())
+}
+
+/// Ticks a TNT design runs in `web check` (TNT primed early explode by ~85; several fuses).
+const TNT_TICKS: u32 = 400;
+
+/// A design with TNT (`mcview::session::is_tnt_design`) in the viewer (redsim's TNT entities and
+/// explosions: `explosion::explode_on`, seed 0, the viewer box's chunks) and in a reference run
+/// built from the repo's tools (`clock::sim::drive_custom`: the clock judge's placement and
+/// inputs in the viewer's box, the same configuration): the same blocks and entities (positions
+/// and motions, bit for bit) every tick for TNT_TICKS ticks as placed, and the same blocks in the
+/// wasm viewer when given. None when redsim does not run it (the viewer shows it as built).
+fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    if !s.simulated() {
+        return Ok(None);
+    }
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    // a TNT circuit as its judge builds it: its consumers and its driven inputs' devices (R7)
+    let c = match circuit::Circuit::from_design(d.clone()) {
+        Ok(cc) => match cc.with_consumers() {
+            Ok(cc) => cc.with_drivers().clock,
+            Err(_) => cc.with_drivers().clock,
+        },
+        Err(_) => match clock::Clock::from_design(d) {
+            Ok(c) => c,
+            Err(_) => return Ok(None),
+        },
+    };
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let chunks = redsim::redstone::shulker::chunk_range(from, to);
+    let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
+    let mut blasts = 0usize;
+    let mut destroyed = 0usize;
+    // the viewer stops at redsim's first error (something it does not model: vjeux, only what
+    // redsim simulates exactly is shown): the frames before it are compared
+    let mut stop: Option<(u32, String)> = None;
+    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| redsim::explosion::explode_on(w, 0, chunks), |t, w| {
+        if stop.is_none()
+            && let Some(e) = w.errors.first()
+        {
+            stop = Some((t, e.clone()));
+        }
+        if stop.is_some() {
+            return;
+        }
+        let b = w.blocks();
+        h = mcview::session::frame_hash(h, &b);
+        h = mcview::session::entity_hash(h, w);
+        hb = mcview::session::frame_hash(hb, &b);
+        blasts = w.explosions.len();
+        destroyed = w.explosions.iter().map(|x| x.destroyed.len()).sum();
+    })?;
+    if s.frames_entities_digest(TNT_TICKS) != h {
+        return Err(format!("frames 0..={TNT_TICKS} (blocks and entities) differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, TNT_TICKS)? != hb
+    {
+        return Err(format!("the wasm viewer's frames 0..={TNT_TICKS} differ from the reference run's"));
+    }
+    let shown = match &stop {
+        Some((t, e)) => format!("shown up to tick {t}, where redsim stops: {e}"),
+        None => format!("{TNT_TICKS} ticks"),
+    };
+    Ok(Some(format!("TNT design: {shown} agree (blocks and entities; {blasts} explosions, {destroyed} blocks destroyed)")))
 }
 
 /// Ticks a shulker design runs in `web check` (3 boxes and more of unstackables).
@@ -1251,6 +1393,10 @@ fn clock_pair(text: &str, horizon: u32, probe: Option<&mut mcview::tools::WasmPr
             Some(Some(w)) => Err(format!("clock sim {} but the wasm viewer finds {w:?}", r.verdict.word())),
             _ => Ok(None),
         },
+        // the clock judge's output rule (vjeux 2026-10-20: the output must be an empty cell where
+        // the signal arrives) is a verdict on where it is read, not on the simulation: the
+        // viewer runs the build as redsim does
+        (clock::sim::Verdict::Invalid, Ok(p)) if r.why.contains("the output cell") => Ok(Some(format!("W{} P{} (state W{} P{}); clock sim INVALID by the output rule: {}", p.warmup, p.period, p.state_warmup, p.state_period, r.why))),
         (v, Ok(p)) => Err(format!("clock sim {} but the viewer finds W{} P{}", v.word(), p.state_warmup, p.state_period)),
         (v, Err(e)) => Err(format!("clock sim {} (W{} P{}) but the viewer: {e}", v.word(), r.state_warmup, r.state_period)),
     }

@@ -98,7 +98,12 @@ pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kin
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
-    Ok((check::stimulus(c, &kind, &Sizing { gap }), Some(kind)))
+    // a triggered TNT duper with explosions: pulses at least a fuse apart (its last TNT has gone
+    // off before the next pulse), so the gap is the duper's, not the TNT pile's
+    let gap = if c.explodes() && o.gap.is_none() { gap.max(crate::tnt::TRIGGER_GAP) } else { gap };
+    let mut s = check::stimulus(c, &kind, &Sizing { gap });
+    let _ = &mut s;
+    Ok((s, Some(kind)))
 }
 
 /// Result of [`sim`].
@@ -113,7 +118,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
-            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
+            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") || c.input_refused.as_deref() == Some(e.as_str()) => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -124,17 +129,43 @@ impl SimReport {
 
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let schedule = Schedule::new(c.inputs.len());
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err(why.clone()), outcome: c.kind.as_ref().map(|_| Outcome::fail(why.clone(), Vec::new())) });
+    }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
+    // kicks; `circuit verify` sweeps every kick)
+    let mut cd = c.clone();
+    let mut drop_fail: Option<String> = None;
+    if c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        match crate::robust::safe_drop_screen(c, workers) {
+            Ok(h) => cd.drop = h,
+            Err(why) => drop_fail = Some(why),
+        }
+    }
+    let c = &cd;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
+        (Ok(_), Some(_)) if drop_fail.is_some() => Some(Outcome::fail(drop_fail.clone().unwrap_or_default(), Vec::new())),
         (Ok(t), Some(k)) => {
-            let out = check::check(c, k, &schedule, t);
+            let mut out = check::check(c, k, &schedule, t);
+            if out.pass && c.explodes() && o.stimulus.is_none() {
+                out.metrics.push(crate::robust::drop_metric(c.drop));
+            }
             let out = match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            // R7: the judge's input stones are never moved
+            let out = match c.input_entered(t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
                 _ => out,
             };
@@ -149,12 +180,31 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         (out, _) => out,
     };
+    // a sculk design: the device and ambient runs (crate::vibration)
+    let outcome = match (outcome, &kind, &trace) {
+        (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
+        (out, _, _) => out,
+    };
+    // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
+    let outcome = match (outcome, &kind, c.slice) {
+        (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
+            let margin = o.margin;
+            let gap0 = crate::compute::gap_of(&schedule);
+            Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+        }
+        (out, _, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
-/// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
+/// A design with a `tile:` header whose copies are judged too ([`tiled_check`]): study 11, and
+/// the sequential kinds builders tile into registers and counter rows (T flip-flops, latches,
+/// D flip-flops, shift cells, counters). The check itself is generic - every copy must pass its
+/// kind's own check and measure what the design measures alone.
 fn tiles(c: &Circuit, k: &Kind) -> bool {
-    c.tile.is_some() && k.study() == "pulsemult"
+    // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
+    // checker: study 1's pulse circuits and the sequential kinds tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
@@ -235,6 +285,13 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     // the judge's consumers are not the circuit's
     ins.extend(c.consumer_cells());
+    // nor are the judge's input devices (R7): a driven input's repeater, support and switch
+    for i in &c.inputs {
+        if let crate::InputHow::Driven { dir, .. } = i.how {
+            let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+            ins.extend([r, sup, sw]);
+        }
+    }
     // nor are the blocks the BUD judge places at the targets and around the design (its probe
     // block there; the design's own blocks moving through those cells count)
     let mut probes: Vec<Pos> = Vec::new();
@@ -382,15 +439,34 @@ pub fn spawn_pool(o: &Options) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let builds = vec![Build { turns: 0, offset: [0, 0, 0], result: Err(why.clone()) }];
+        return Ok(verdict(VerifyReport { name: c.name().to_string(), kind: c.kind.clone(), blocks: c.blocks(), schedule: Schedule::new(c.inputs.len()), builds, verdict: String::new(), pass: false, note: String::new() }));
+    }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         return crate::shulker::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
+    // vjeux 13:31Z), then every build stands that high above the grass ground
+    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+    let mut c = c.clone();
+    if c.explodes() && o.stimulus.is_none() {
+        match crate::robust::safe_drop(&c, workers) {
+            Ok((h, _)) => c.drop = h,
+            Err(why) => {
+                return Ok(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds: Vec::new(), verdict: why, pass: false, note: String::new() });
+            }
+        }
+    }
+    let c = &c;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
-        let rc = c.rotated(w, t)?.translated(off)?;
+        let mut rc = c.rotated(w, t)?.translated(off)?;
+        rc.drop = c.drop;
         let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
             Ok(tr) => tr,
             Err(why) => return Ok(Err(why)),
@@ -399,6 +475,16 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             Some(k) => check::check(&rc, k, &schedule, &tr),
             None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
         };
+        // R7: the judge's input stones are never moved
+        if out.pass
+            && kind.is_some()
+            && let Some(why) = rc.input_entered(&tr)
+        {
+            out = Outcome::fail(why, out.table);
+        }
+        if out.pass && rc.explodes() && o.stimulus.is_none() {
+            out.metrics.push(crate::robust::drop_metric(rc.drop));
+        }
         // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
         // the metric names the design's own step (the same in every build)
         if out.pass
@@ -408,6 +494,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
         }
+        // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
+        if out.pass
+            && o.stimulus.is_none()
+            && let (Some(Kind::Compute(spec)), Some(_)) = (&kind, rc.slice)
+        {
+            let gap0 = crate::compute::gap_of(&schedule);
+            out = crate::compute::slice_check(&rc, *spec, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
+        }
         // a tiled study-11 design: its copies side by side, each judged on its own (the metric
         // names the design's own step, the same in every build)
         if out.pass
@@ -416,6 +510,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(tl) = c.tile
         {
             out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
+        // a sculk design: the device and ambient runs in this build (crate::vibration)
+        if out.pass
+            && rc.has_sculk()
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
@@ -434,15 +536,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         rep.pass = false;
         rep.verdict = why;
     }
-    // TNT dupers (explosions on): every kick angle on redsim (crate::robust; vjeux: "pass every
-    // possible random number")
-    if rep.pass && c.explodes() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
-        if let Err(why) = crate::robust::tnt_robust(c, crate::robust::SAMPLES, workers) {
-            rep.pass = false;
-            rep.verdict = format!("not robust over every kick (redsim): {why}");
-        }
-    }
+    // TNT dupers (explosions on): every kick angle on both grounds was swept on redsim at the safe
+    // drop height before the builds (crate::robust::safe_drop; vjeux: "pass every possible random
+    // number")
     Ok(rep)
 }
 

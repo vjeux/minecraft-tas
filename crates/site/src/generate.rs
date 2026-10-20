@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 
 pub const STYLE: &str = include_str!("../assets/style.css");
 pub const FAVICON: &str = include_str!("../assets/favicon.svg");
+/// Pages vjeux deleted (2026-10-20 13:35Z: "I asked to remove the things from the header, it's
+/// not to put them back in the footer. Delete these pages altogether"): the door boards, the
+/// extendable families' index, the list of everything and the about page. `mctas site smoke`
+/// fails if one is written or linked.
+pub const DELETED_PAGES: [&str; 4] = ["boards.html", "families/index.html", "all.html", "about.html"];
 
 /// The repository commit (HEAD), or `unknown`.
 pub fn commit(repo: &Path) -> String {
@@ -90,6 +95,64 @@ pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<u
     Ok(n)
 }
 
+/// One card per mechanism: doors (the coordinator's decision (b): "near-identical variants become
+/// one card") with the same category, box and open/close times, and clocks (critique C46:
+/// identical pairs on the Clocks tab) with the same period, blocks, parts and output fold under
+/// one twin (a door: its `host`, listed on the twin's page; a clock: the `twin` flag, hidden from
+/// the default lists like the variants, listed among the twin's same-period clocks). A record
+/// (a door leading a board, a family's base) is never folded. Returns (doors, clocks) folded.
+fn fold_twins(builds: &mut [Build]) -> (usize, usize) {
+    let mut doors: BTreeMap<(String, String, Option<u32>, Option<u32>, String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let mut clocks: BTreeMap<(u32, u32, String, u32, u32), Vec<usize>> = BTreeMap::new();
+    // what a builder picks a door by besides its numbers: a door with one of these never hides
+    // under one without it
+    const DOOR_PROPS: [&str; 7] = ["slime-free", "flat", "rotation-safe", "hallway", "eligible", "wall", "ground"];
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(d) = &b.door {
+            if d.host.is_none() {
+                let props: Vec<String> = DOOR_PROPS.iter().filter(|p| b.flags.iter().any(|f| f == *p)).map(|p| p.to_string()).collect();
+                doors.entry((b.group.clone(), b.dims.clone().unwrap_or_default(), d.open, d.close, d.seamless.clone(), props)).or_default().push(i);
+            }
+        }
+        if let Some(c) = &b.clock {
+            if c.host.is_none() && !c.instance && c.card.is_none() && !b.flags.iter().any(|f| f == "census" || f == "variant") {
+                clocks.entry((c.period, b.blocks, b.group.clone(), c.on, c.edges)).or_default().push(i);
+            }
+        }
+    }
+    let mut folded = (0, 0);
+    for mut same in doors.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| {
+            let b = &builds[i];
+            (b.door.as_ref().is_none_or(|d| d.leads.is_empty()), b.blocks, b.volume, b.name.clone())
+        });
+        let rep = same[0];
+        let rep_id = builds[rep].id.clone();
+        for &i in &same[1..] {
+            if builds[i].door.as_ref().is_some_and(|d| !d.leads.is_empty()) {
+                continue;
+            }
+            let id = builds[i].id.clone();
+            if let Some(d) = builds[i].door.as_mut() {
+                d.host = Some(rep_id.clone());
+            }
+            builds[i].flags.push("variant".into());
+            if let Some(d) = builds[rep].door.as_mut() {
+                d.variants.push(id);
+            }
+            folded.0 += 1;
+        }
+    }
+    for mut same in clocks.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| (builds[i].name.starts_with("census-"), builds[i].volume, builds[i].name.clone()));
+        for &i in &same[1..] {
+            builds[i].flags.push("twin".into());
+            folded.1 += 1;
+        }
+    }
+    folded
+}
+
 /// The repository path of a build's design file.
 pub fn repo_design_path(b: &Build) -> String {
     match b.kind.as_str() {
@@ -113,11 +176,23 @@ fn usage_note(b: &Build) -> String {
     match (&b.door, &b.clock, &b.circuit) {
         (Some(_), _, _) => "Flip the lever to open the door, again to close it.".into(),
         (_, Some(c), _) => match c.start.strip_prefix("kick: last ") {
-            Some(cell) => format!("Kicked clock: after pasting, break and re-place the block at {cell} (relative to the design's origin) to start it."),
-            None if c.start.starts_with("self") => "Self-starting clock.".into(),
+            Some(cell) => format!("To start it after pasting, break and re-place the block at {cell} (from the design's origin)."),
+            None if c.start.starts_with("self") => "It starts by itself once pasted.".into(),
             None => format!("Start: {}.", c.start),
         },
-        (_, _, Some(c)) => format!("{}: inputs {}, outputs {}.", c.kind, c.inputs.join(", "), c.outputs.join(", ")),
+        // what it does and its connections, in words (critique C31: "flying-machine: inputs ,
+        // outputs ." printed empty lists)
+        (_, _, Some(c)) => {
+            let mut s = crate::plain::one_liner(c);
+            let names = |v: &[String]| v.iter().map(|n| n.to_uppercase()).collect::<Vec<_>>().join(", ");
+            match (c.inputs.is_empty(), c.outputs.is_empty()) {
+                (false, false) => s.push_str(&format!(" Input {}, output {}.", names(&c.inputs), names(&c.outputs))),
+                (false, true) => s.push_str(&format!(" Input {}.", names(&c.inputs))),
+                (true, false) => s.push_str(&format!(" Output {}.", names(&c.outputs))),
+                (true, true) => {}
+            }
+            s
+        }
         _ => String::new(),
     }
 }
@@ -130,7 +205,7 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
         let path = repo_design_path(b);
         let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
-        let desc = [b.caption.as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
         write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
         n += 1;
@@ -281,6 +356,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
+    // one card per mechanism (the coordinator's decision (b), critique C46): doors and clocks
+    // whose cards would read the same fold under one
+    let (fd, fc) = fold_twins(&mut builds);
+    eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
     // no simulator attribution in the captions (vjeux 02:01Z)
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);
@@ -357,10 +436,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
     write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
-    write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
-    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
-    write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
+    // pages vjeux deleted (13:35Z: "Delete these pages altogether"): never written, and gone from
+    // an output folder an earlier build left them in
+    for gone in DELETED_PAGES {
+        let _ = std::fs::remove_file(out.join(gone));
+    }
     // Litematica schematics of every build and every generated family member (a design that
     // cannot be exported fails the build: nothing is dropped silently)
     let n = write_litematics(&site, &repo, out)?;
@@ -389,7 +470,6 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let ms = by_card.get(&c.id).cloned().unwrap_or_default();
         write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
     }
-    write(&out.join("families/index.html"), &pages::families_index(&site, &by_card, scripts))?;
     eprintln!(
         "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
         out.display(),

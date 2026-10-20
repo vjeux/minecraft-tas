@@ -1,6 +1,6 @@
 # archived 2026-10-20T00:04Z from designs/circuits/memory/tracks/memory/counter2-bulb2.txt by mctas circuit archive
 # CIRCUIT: counter2-bulb2 counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1, robust
-# Counter 2 as a divider, two copper bulbs, 6 blocks (track memory): the input toggles bulb 1, its comparator toggles bulb 2 on every second pulse; bulb 2's comparator changes state once every two pulses and holds between (toggles style).
+# Counter 2 as a divider, two copper bulbs, 6 blocks (track memory): the input toggles bulb 1, its comparator toggles bulb 2 on every second pulse; bulb 2's comparator changes state once every two pulses and holds between (toggles style). The same build is counter4-bulb2, which is how the bulb chain is tuned: this entry is its divider reading, not a second machine, and a counter 2 needs only the 3-block counter2-bulb.
 name: counter2-bulb2
 circuit: counter 2
 group: bulb-chain

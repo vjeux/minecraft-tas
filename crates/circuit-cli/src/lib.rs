@@ -81,9 +81,13 @@ pub enum CircuitCmd {
         /// the archive and go back to their track (`update-less/` or `rejudged/`).
         #[arg(long)]
         rejudge: bool,
-        /// With --rejudge: only these studies (default: all).
+        /// With --rejudge or --fill-families: only these studies (default: all).
         #[arg(long)]
         study: Vec<String>,
+        /// Judge in the game every member of each archived extendable family that extend.tsv
+        /// does not list yet (every n of its range, up to 16 members), and add the passing ones.
+        #[arg(long)]
+        fill_families: bool,
         /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
         /// dominates): the file, its verdict row and its caption.
         #[arg(long)]
@@ -95,17 +99,39 @@ pub enum CircuitCmd {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
+    /// Replace archived designs' captions from a TSV file, one `<study>/<file><TAB><caption>` per
+    /// line (the site shows a caption's first sentence as the plain explanation, the rest under
+    /// details); `#` lines are comments. No game.
+    Captions {
+        file: PathBuf,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+    },
+    /// R7 comparison (redsim, no game): every archived design with a plain input run with the
+    /// judge's old block placement and with real input devices (the judge's stone powered by its
+    /// repeater); lists the ones passing only by the block placement, refused or changed.
+    R7 {
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+        /// Only these studies (default: all).
+        #[arg(long)]
+        study: Vec<String>,
+    },
     /// Set an archived design's caption (captions.tsv of its study's archive; no game): for the
     /// plain-language pass (one sentence a non-redstoner follows first, the detail after it).
     Caption {
         /// The study directory name (designs/circuits/<study>).
         study: String,
         /// The archived file (`tnt-launch-14b.txt` or without `.txt`).
-        file: String,
+        file: Option<String>,
         #[arg(long)]
-        text: String,
+        text: Option<String>,
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
+        /// Set every `file<TAB>caption` row of this file instead (after a merge took the other
+        /// side's captions.tsv, for instance).
+        #[arg(long)]
+        from: Option<PathBuf>,
     },
     /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
     /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
@@ -151,6 +177,12 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track arith's commands (crates/circuit-arith, study 12: adders, subtractors, incrementers,
+    /// comparators).
+    Arith {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Track fly's commands (crates/circuit-fly).
     Fly {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -184,8 +216,14 @@ fn info(c: &Circuit) -> String {
     for i in &c.inputs {
         let how = match &i.how {
             circuit::InputHow::Block { on, off } => format!("{} / {}", clock::short(on), clock::short(off)),
+            circuit::InputHow::Driven { dir, through } => format!(
+                "driven: {}, powered by the judge's repeater {dir:?} from it{}",
+                c.clock.design.blocks.get(&i.pos).map(|s| format!("the design's {}", clock::short(s))).unwrap_or_else(|| "the judge's stone".into()),
+                if *through { " (fed through the build)" } else { "" }
+            ),
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
+            circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
         };
         out.push_str(&format!("\n  input {} at {:?}: {how}", i.name, i.pos));
     }
@@ -214,7 +252,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Sim { designs, stimulus, gap, wave, table, margin } => {
             let o = Options { stimulus, gap, margin, version: version.to_string(), ..Default::default() };
             for p in &designs {
-                let c = Circuit::load(p)?;
+                // a design the judge refuses to load (R7: no way in for its input repeater) is
+                // reported and the others still run
+                let c = match Circuit::load(p) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {:#}", p.display(), e);
+                        continue;
+                    }
+                };
                 let r = circuit::verify::sim(&c, &o)?;
                 if let (true, Some(out)) = (table, &r.outcome) {
                     for l in &out.table {
@@ -274,18 +320,18 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, remove } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, remove } => {
             for spec in &remove {
                 println!("{}", circuit::archive::unarchive(&root, spec)?);
             }
-            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe {
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families {
                 return Ok(());
             }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
                 }
-                if designs.is_empty() && !rejudge {
+                if designs.is_empty() && !rejudge && !fill_families {
                     return Ok(());
                 }
             }
@@ -296,6 +342,11 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     println!("{l}");
                 }
             }
+            if fill_families {
+                for l in circuit::archive::fill_families(&pool, &root, &o, &study)? {
+                    println!("{l}");
+                }
+            }
             for p in &designs {
                 match circuit::archive::archive(&pool, p, &o, &root, caption.as_deref()) {
                     Ok(a) => println!("{} {}: {}", if a.new { "ARCHIVED" } else { "SKIPPED" }, a.file.display(), a.summary),
@@ -303,29 +354,47 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::Caption { study, file, text, root } => {
-            let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+        CircuitCmd::R7 { root, study } => {
+            let o = Options { version: version.to_string(), ..Default::default() };
+            for l in circuit::archive::r7_compare(&root, &study, &o)? {
+                println!("{l}");
+            }
+        }
+        CircuitCmd::Captions { file, root } => {
+            for l in circuit::archive::set_captions(&root, &std::fs::read_to_string(&file)?)? {
+                println!("{l}");
+            }
+        }
+        CircuitCmd::Caption { study, file, text, root, from } => {
+            // the rows to set: one from the flags, or every `file<TAB>caption` row of --from
+            let rows: Vec<(String, String)> = match &from {
+                Some(f) => std::fs::read_to_string(f)?.lines().filter_map(|l| l.split_once('\t')).filter(|(f, _)| *f != "file").map(|(f, c)| (f.to_string(), c.to_string())).collect(),
+                None => vec![(file.clone().unwrap_or_default(), text.clone().unwrap_or_default())],
+            };
             let dir = root.join(&study).join("archive");
-            anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
-            anyhow::ensure!(!text.contains('\t') && !text.contains('\n'), "a caption is one line without tabs");
             let path = dir.join("captions.tsv");
-            let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
-            let mut out = String::new();
-            let mut done = false;
-            for (i, line) in old.lines().enumerate() {
-                if i > 0 && line.split('\t').next() == Some(file.as_str()) {
-                    out.push_str(&format!("{file}\t{text}\n"));
-                    done = true;
-                } else {
-                    out.push_str(line);
-                    out.push('\n');
+            for (file, text) in rows {
+                let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+                anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
+                anyhow::ensure!(!text.is_empty() && !text.contains('\t') && !text.contains('\n'), "a caption is one non-empty line without tabs");
+                let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
+                let mut out = String::new();
+                let mut done = false;
+                for (i, line) in old.lines().enumerate() {
+                    if i > 0 && line.split('\t').next() == Some(file.as_str()) {
+                        out.push_str(&format!("{file}\t{text}\n"));
+                        done = true;
+                    } else {
+                        out.push_str(line);
+                        out.push('\n');
+                    }
                 }
+                if !done {
+                    out.push_str(&format!("{file}\t{text}\n"));
+                }
+                std::fs::write(&path, out)?;
+                println!("{}: caption of {file} set", path.display());
             }
-            if !done {
-                out.push_str(&format!("{file}\t{text}\n"));
-            }
-            std::fs::write(&path, out)?;
-            println!("{}: caption of {file} set", path.display());
         }
         CircuitCmd::Catalog { root } => {
             for l in circuit::archive::catalog(&root)? {
@@ -354,6 +423,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
+        CircuitCmd::Arith { args } => circuit_arith::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,

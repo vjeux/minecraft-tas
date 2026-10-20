@@ -3,6 +3,7 @@
 name: pulse-rise-odd2-L7
 circuit: rising-edge
 group: pulse-rise-odd2
+group title: odd-length rising-edge pulse: two pulses 1 tick apart
 # Odd pulses (rising-edge, L = 7 gt): two rising-edge detectors 1 gt apart: a copper bulb the input toggles on every rising edge, read by a comparator an observer watches (fires 4 gt after the edge), and a sticky piston pushing an observer that fires 2 gt after it lands (5 gt after the edge; pulled back on the falling edge it fires into an empty cell); each feeds a delay-3 repeater (6 gt pulses) into one dust, where the two pulses overlap into 6 + 1 = 7 gt.
 origin: -1 0 0
 port input: 0 1 1

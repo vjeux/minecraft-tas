@@ -48,7 +48,7 @@ impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
         let mut session = Session::new(text, &Options::default())?;
         session.find_auto_output(20_000);
-        let mut look = scene::default_look(&session);
+        let mut look = scene::viewer_look(&session);
         look.lit_marker = true;
         let camera = scene::default_camera(&session, &look, aspect);
         let pulse_inputs = crate::circuit::pulse_kind(&session.design);
@@ -172,7 +172,7 @@ impl Player {
             self.history = vec![Default::default(); outs.len()];
         }
         for (h, o) in self.history.iter_mut().zip(&outs) {
-            h.push_back(self.session.is_on(*o));
+            h.push_back(self.session.output_powered(*o));
             while h.len() > HISTORY {
                 h.pop_front();
             }
@@ -345,8 +345,10 @@ impl Player {
 
     /// Turn the camera (and its home) to a side every lever and button can be seen and clicked
     /// from, if the pictures' side hides one.
-    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32) {
-        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect);
+    /// The camera from the side every input can be seen from, its build in `window` (a live
+    /// viewer: [`scene::live_window`] of its height); the home view too.
+    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32, window: (f32, f32, f32)) {
+        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect, window);
         self.home = self.camera;
         self.dirty = true;
     }
@@ -391,13 +393,14 @@ impl Player {
         }
     }
 
-    /// The tick counter: `123 gt · 6.15 s`, plus the ticks since the last flip for a door.
+    /// The tick counter: `6.15 s · 123 ticks` (plain words: seconds first), plus the ticks since
+    /// the last flip for a door.
     pub fn label(&self) -> String {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
-        let mut out = format!("{t} gt · {}", seconds(t));
+        let mut out = format!("{} · {t} ticks", seconds(t));
         if s.last_input.is_some() && s.mode.is_door() {
-            out.push_str(&format!(" · flip +{} gt", s.since_input()));
+            out.push_str(&format!(" · flip +{}", s.since_input()));
         }
         out
     }

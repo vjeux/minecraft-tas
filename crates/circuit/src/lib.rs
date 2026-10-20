@@ -16,6 +16,7 @@
 
 pub mod archive;
 pub mod bud;
+pub mod compute;
 pub mod check;
 pub mod fly;
 pub mod pulsemult;
@@ -27,6 +28,7 @@ pub mod stimulus;
 pub mod tnt;
 pub mod trace;
 pub mod verify;
+pub mod vibration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clock::{Action, Clock};
@@ -39,6 +41,10 @@ pub use clock::Pos;
 /// The default on-state of an input cell: a redstone block written with updates.
 pub const INPUT_ON: &str = "minecraft:redstone_block";
 
+/// The judge's stone in a driven input's cell, and under its repeater (a block no design uses as
+/// a payload or a part: smooth stone).
+pub const DRIVEN_STONE: &str = "minecraft:smooth_stone";
+
 /// The judge's consumer, placed in every air output cell (vjeux/coordinator 2026-10-19: a circuit
 /// must DRIVE something): a redstone lamp. The output's level is still the best signal into the
 /// cell, and the lamp must follow it ([`check::update_less`]): an output that changes without a
@@ -49,13 +55,52 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InputHow {
     /// The cell is written with updates: `on` while the input is on, `off` (default air) while off;
-    /// the design holds `off` there.
+    /// the design holds `off` there. A plain `port input:` is this only with
+    /// `MCTAS_INPUT_DEVICE=block` (the old placement, kept for comparisons): see [`InputHow::Driven`].
     Block { on: String, off: String },
+    /// A plain `port input:` driven like a real build drives it (vjeux's critique R7, coordinator
+    /// 2026-10-20): the judge's stone sits in the input cell for the whole run, powered by the
+    /// judge's delay-1 repeater in the cell `dir` from it (outside the build's box, with a stone
+    /// under it), switched by a redstone block placed `2 dir` from the input cell 2 gt before each
+    /// input edge, so the stone's power changes exactly at the stimulus ticks. No block is ever
+    /// placed or removed next to the design; the design must not move the stone.
+    Driven { dir: Pos, through: bool },
     /// The design's lever in this cell (unpowered at rest), right-clicked at every input edge.
     Lever,
     /// The design's button in this cell, right-clicked at every rising input edge (the button's
     /// own pulse length; falling edges are the button's).
     Button,
+    /// A value 0..15 as a signal strength (study 12's hex kinds): the design's chest in this cell
+    /// (its state), whose contents the judge sets to the value's fill
+    /// ([`compute::strength_items`]) between ticks; the design reads it with its own comparator.
+    Strength { chest: String },
+}
+
+/// The horizontal directions a driven input's repeater may stand in, in the order they are tried.
+pub const DRIVE_DIRS: [Pos; 4] = [[0, 0, -1], [0, 0, 1], [-1, 0, 0], [1, 0, 0]];
+
+/// `MCTAS_INPUT_DEVICE=block` (or [`set_input_device_block`]): plain inputs written with a
+/// redstone block as before R7 (for the comparison run that lists the designs passing only by
+/// the judge's block placement, `mctas circuit r7`).
+pub fn input_device_block() -> bool {
+    INPUT_BLOCK.load(std::sync::atomic::Ordering::Relaxed) || std::env::var("MCTAS_INPUT_DEVICE").is_ok_and(|v| v == "block")
+}
+
+static INPUT_BLOCK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Load circuits with the old block placement (`true`) or real input devices (`false`, the judge).
+pub fn set_input_device_block(on: bool) {
+    INPUT_BLOCK.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn add(a: Pos, b: Pos) -> Pos {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+/// A driven input's judge cells: its repeater, the repeater's support and the switch.
+pub fn driver_cells(pos: Pos, dir: Pos) -> (Pos, Pos, Pos) {
+    let r = add(pos, dir);
+    (r, add(r, [0, -1, 0]), add(r, dir))
 }
 
 /// An input cell.
@@ -71,6 +116,34 @@ pub struct Input {
 pub struct Probe {
     pub name: String,
     pub pos: Pos,
+}
+
+/// The ground a TNT duper is judged on ([`Circuit::ground_blocks`]): a superflat floor (grass over
+/// two dirt over bedrock: explosions leave craters, as in a real world), and an obsidian floor (no
+/// craters: a TNT lands where it first touches down). A duper must survive on both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ground {
+    Grass,
+    Obsidian,
+}
+
+impl Ground {
+    pub const ALL: [Ground; 2] = [Ground::Grass, Ground::Obsidian];
+
+    /// Its layers, top first.
+    pub fn layers(self) -> &'static [&'static str] {
+        match self {
+            Ground::Grass => &["minecraft:grass_block", "minecraft:dirt", "minecraft:dirt", "minecraft:bedrock"],
+            Ground::Obsidian => &["minecraft:obsidian"],
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ground::Grass => "grass ground",
+            Ground::Obsidian => "obsidian ground",
+        }
+    }
 }
 
 /// What a circuit claims to be: the axis of its study and the checker it is judged by.
@@ -128,6 +201,9 @@ pub enum Kind {
     OnDelay,
     /// Study 11: pulses every P gt while the input is on (a gated clock).
     PulseTrain,
+    /// Study 12 ([`compute`]): an adder, subtractor, incrementer, comparator, multiplexer,
+    /// demultiplexer, decoder, encoder (exhaustive truth table) or binary counter, N bits.
+    Compute(compute::Spec),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -223,8 +299,12 @@ impl Kind {
             "off-delay" => Kind::OffDelay,
             "on-delay" => Kind::OnDelay,
             "pulse-train" => Kind::PulseTrain,
+            k if compute::Spec::parse(&w).is_some() => {
+                let _ = k;
+                Kind::Compute(compute::Spec::parse(&w).unwrap()?)
+            }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N)"
             ),
         })
     }
@@ -264,6 +344,7 @@ impl Kind {
             Kind::OffDelay => "off-delay".into(),
             Kind::OnDelay => "on-delay".into(),
             Kind::PulseTrain => "pulse-train".into(),
+            Kind::Compute(spec) => spec.kind_name(),
         }
     }
 
@@ -281,6 +362,7 @@ impl Kind {
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
+            Kind::Compute(..) => "compute",
         }
     }
 
@@ -344,11 +426,23 @@ pub struct Circuit {
     /// `tile: dx dy dz [copies]` (shulker and study-11 kinds): the design repeats every (dx, dy,
     /// dz) blocks.
     pub tile: Option<Tile>,
+    /// `slice: dx dy dz` (study 12 bit slices, [`compute::sliced`]): the design is one bit of a
+    /// ripple circuit; copy k + 1 sits one step from copy k, its chain input on copy k's chain
+    /// output.
+    pub slice: Option<Pos>,
     /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
     pub targets: Vec<bud::Target>,
     /// The update classes a BUD switch claims to detect (`bud: place remove ...`).
     pub bud_claims: Vec<String>,
+    /// R7: why the judge cannot drive one of its plain inputs like a real build (no way in for
+    /// its repeater); the judge refuses the design with it, the tools that only read it still load
+    /// it (the input stays a written block).
+    pub input_refused: Option<String>,
+    /// A TNT duper's drop: how many air blocks the judge leaves between its lowest block and the
+    /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
+    /// stands on the ground).
+    pub drop: i32,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -502,10 +596,179 @@ impl Circuit {
             None => None,
         };
         let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
+        let slice = match design.meta.get("slice") {
+            Some(t) => {
+                let v: Vec<i32> = t.split_whitespace().map(|x| x.parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("slice: {t:?}"))?;
+                if v.len() != 3 || v == [0, 0, 0] {
+                    bail!("slice: {t:?}: want dx dy dz (the step from one bit to the next)");
+                }
+                Some([v[0], v[1], v[2]])
+            }
+            None => None,
+        };
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, targets, bud_claims };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
         c.check_ports()?;
+        c.assign_drivers()?;
         Ok(c)
+    }
+
+    /// The box the design occupies during its run: its blocks' box, swept along its travel by a
+    /// piston extender's reach or a flying machine's distance.
+    pub fn swept_box(&self) -> Option<(Pos, Pos)> {
+        let (mut lo, mut hi) = self.clock.design.bounds()?;
+        let reach = match &self.kind {
+            Some(Kind::PistonExtender(n)) => *n as i32 + 1,
+            Some(Kind::FlyingMachine) => self.distance.unwrap_or(0) as i32 + 2,
+            _ => 0,
+        };
+        if let (Some(t), true) = (self.travel, reach > 0) {
+            for i in 0..3 {
+                lo[i] = lo[i].min(lo[i] + t[i] * reach);
+                hi[i] = hi[i].max(hi[i] + t[i] * reach);
+            }
+        }
+        Some((lo, hi))
+    }
+
+    /// Turn each plain input into a driven one ([`InputHow::Driven`]): the first direction of
+    /// [`DRIVE_DIRS`] whose repeater, support and switch cells are outside the box (a tiled run:
+    /// free of every copy's blocks) and free of design blocks, ports and other drivers; else one
+    /// through the build's air cells, its switch outside the box (static designs only: a moving
+    /// one keeps all three outside its swept box). The repeater never touches a design block
+    /// other than the input cell's.
+    fn assign_drivers(&mut self) -> Result<()> {
+        if input_device_block() {
+            return Ok(());
+        }
+        let Some((lo, hi)) = self.swept_box() else { return Ok(()) };
+        let tiled = self.clock.design.meta.contains_key("tiled");
+        let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
+        let mut taken: BTreeSet<Pos> = self.clock.design.ports.values().copied().collect();
+        taken.extend(self.clock.design.blocks.keys().copied());
+        let design_cells = taken.clone();
+        let mut refused: Option<String> = None;
+        for inp in &mut self.inputs {
+            let InputHow::Block { on, .. } = &inp.how else { continue };
+            // a redstone block written into the cell (over air, or over the design's own block
+            // such as `redstone_block stone`): driven instead, the design's block (if any)
+            // staying as the input's receiving block
+            if on != INPUT_ON {
+                continue;
+            }
+            let p = inp.pos;
+            // first a side leading straight out of the box; else one through air cells of the
+            // build (a real input line entering it), outside the swept box of a moving design
+            let moving = matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine));
+            let free = |q: Pos| !taken.contains(&q);
+            // a diode in the input cell (the design's own receiving repeater or comparator) takes
+            // its input only at its back (the cell in its facing direction): the judge's
+            // repeater must stand there, pointing into it
+            let here = self.clock.design.blocks.get(&p).map(|s| s.as_str()).unwrap_or("");
+            let back = if here.starts_with("minecraft:repeater") || here.starts_with("minecraft:comparator") {
+                match here.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()) {
+                    Some("north") => Some([0, 0, -1]),
+                    Some("south") => Some([0, 0, 1]),
+                    Some("west") => Some([-1, 0, 0]),
+                    Some("east") => Some([1, 0, 0]),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let fits = |d: &Pos| back.is_none_or(|b| b == *d);
+            let straight = |d: &Pos| {
+                let (r, sup, sw) = driver_cells(p, *d);
+                [r, sup, sw].iter().all(|q| free(*q) && (tiled || outside(*q)))
+            };
+            // the judge's repeater must act on the input cell only. A repeater powers only the
+            // block in front of it (DiodeBlock.getSignal answers only toward its facing) and its
+            // state change sends neighbour updates only to that block and its neighbours
+            // (DiodeBlock.updateNeighborsInFront), so the design blocks beside it that could still
+            // see it are an observer (it watches the repeater's state change) and a diode pointing
+            // into its side (it would lock the judge's repeater): no such block may touch it.
+            // Dust beside it is inert (dust connects only to a repeater's front and back).
+            let alone = |d: &Pos| {
+                let (r, sup, sw) = driver_cells(p, *d);
+                let quiet = DRIVE_DIRS.iter().chain(&[[0, 1, 0], [0, -1, 0]]).map(|n| add(r, *n)).filter(|q| *q != p && *q != sup && *q != sw).all(|q| {
+                    self.clock.design.blocks.get(&q).is_none_or(|s| !(s.starts_with("minecraft:observer") || s.starts_with("minecraft:repeater") || s.starts_with("minecraft:comparator")))
+                });
+                // the switch (a redstone block the judge places and removes) powers and updates
+                // all six of its neighbours: none but the repeater may be a design block or a port
+                // (an output cell holds the judge's lamp; another input's cell its receiving
+                // block). Another input's driver beside it is inert (a redstone block neither
+                // powers a stone nor locks a repeater from the side).
+                let isolated = DRIVE_DIRS.iter().chain(&[[0, 1, 0], [0, -1, 0]]).map(|n| add(sw, *n)).filter(|q| *q != r).all(|q| !design_cells.contains(&q));
+                quiet && isolated && fits(d)
+            };
+            let dir = DRIVE_DIRS.iter().copied().find(|d| straight(d) && alone(d)).map(|d| (d, false)).or_else(|| {
+                DRIVE_DIRS
+                    .iter()
+                    .copied()
+                    .find(|d| {
+                        let (r, sup, sw) = driver_cells(p, *d);
+                        [r, sup, sw].iter().all(|q| free(*q) && (!moving || outside(*q))) && outside(sw) && alone(d)
+                    })
+                    .map(|d| (d, true))
+            });
+            match dir {
+                Some((d, through)) => {
+                    let (r, sup, sw) = driver_cells(p, d);
+                    taken.extend([r, sup, sw]);
+                    inp.how = InputHow::Driven { dir: d, through };
+                }
+                None => {
+                    if refused.is_none() {
+                        refused = Some(format!(
+                            "input {} at {p:?}: no side of the input cell leads out of the build for the judge's input repeater (a free cell for the repeater, one under it and one beyond it outside the box; a moving design: all outside its swept box). R7: inputs are driven like a real build drives them; move the input to the edge of the build",
+                            inp.name
+                        ));
+                    }
+                }
+            }
+        }
+        self.input_refused = refused;
+        Ok(())
+    }
+
+    /// The circuit as the judge runs it: every driven input's stone, repeater and support placed
+    /// (the switch comes and goes with the input edges, [`Circuit::actions`]).
+    pub fn with_drivers(&self) -> Circuit {
+        let mut c = self.clone();
+        for inp in &self.inputs {
+            if let InputHow::Driven { dir, .. } = inp.how {
+                let (r, sup, _) = driver_cells(inp.pos, dir);
+                let facing = match dir {
+                    [0, 0, -1] => "north",
+                    [0, 0, 1] => "south",
+                    [-1, 0, 0] => "west",
+                    _ => "east",
+                };
+                c.clock.design.blocks.entry(inp.pos).or_insert_with(|| DRIVEN_STONE.to_string());
+                c.clock.design.blocks.insert(r, format!("minecraft:repeater[delay=1,facing={facing},locked=false,powered=false]"));
+                c.clock.design.blocks.insert(sup, DRIVEN_STONE.to_string());
+            }
+        }
+        c
+    }
+
+    /// The first frame where a driven input's cell lost its block (the judge's stone, or the
+    /// design's own receiving block: the design moved it), with the cell.
+    pub fn input_entered(&self, t: &trace::Trace) -> Option<String> {
+        for inp in &self.inputs {
+            if !matches!(inp.how, InputHow::Driven { .. }) {
+                continue;
+            }
+            let id = |s: &str| s.split('[').next().unwrap_or(s).to_string();
+            let want = id(self.clock.design.blocks.get(&inp.pos).map(|s| s.as_str()).unwrap_or(DRIVEN_STONE));
+            for (f, frame) in t.cells.iter().enumerate() {
+                let here = frame.binary_search_by_key(&inp.pos, |(q, _)| *q).ok().map(|i| t.names[frame[i].1 as usize].as_str());
+                if !here.is_some_and(|s| id(s) == want) {
+                    return Some(format!("the design moves the judge's input stone at {:?} (input {}, frame {f}: {}): an input cell is never entered", inp.pos, inp.name, here.map(clock::short).unwrap_or_else(|| "air".into())));
+                }
+            }
+        }
+        None
     }
 
     /// The ports the kind needs.
@@ -516,15 +779,27 @@ impl Circuit {
         if *k == Kind::Bud {
             return bud::check_ports(self);
         }
+        if let Kind::Compute(spec) = k {
+            return compute::check_ports(self, *spec);
+        }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
         }
         let names: Vec<&str> = self.inputs.iter().map(|i| i.name.as_str()).collect();
+        // a tiled run ([`tiled`]): copy k's ports are renamed `<name>.t<k>`, so the kind's port
+        // check runs on copy 0's names (`<name>` and `<name>.t<k>`, `copies` of each)
+        let copies = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok());
+        let base: Vec<&str> = match copies {
+            // copy k's port is `<name>.t<k>`, so the default-named input becomes `t<k>`
+            Some(_) => names.iter().filter(|n| crate::shulker::group_of(n) == 0).copied().collect(),
+            None => names.clone(),
+        };
         match k.inputs_needed() {
             Some(need) => {
                 let mut want: Vec<&str> = need.to_vec();
                 want.sort();
-                if names != want {
+                let ok = base == want && copies.is_none_or(|c| names.len() == want.len() * c);
+                if !ok {
                     bail!("{}: needs inputs {} (port input.<name>), has {:?}", k.name(), want.join(", "), names);
                 }
             }
@@ -540,11 +815,16 @@ impl Circuit {
                         bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
                     }
                 }
-                Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
+                Kind::Gate(_) if base.len() == 1 || base.len() == 2 => {
+                    // a tiled run ([`tiled`]): `copies` copies of the gate's 1 or 2 inputs
+                    if copies.is_some_and(|c| names.len() != base.len() * c) {
+                        bail!("gate: a tiled run needs each input on every copy, has {names:?}");
+                    }
+                }
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
-                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
-                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
+                // a tiled run ([`tiled`]) of a tileable design: one input per copy
+                _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -581,8 +861,11 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
-            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
+        }
+        if self.slice.is_some() {
+            bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
         }
         Ok(())
     }
@@ -675,6 +958,29 @@ impl Circuit {
         tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
     }
 
+    /// The ground a TNT duper with explosions stands on (coordinator 2026-10-20, after vjeux 13:13Z
+    /// "There's no way this tnt duper doesn't explode after a few seconds": in the void sandbox a
+    /// dropped TNT fell away forever): `reach` blocks around the design box, its top `drop` air
+    /// blocks under the design's lowest layer (0: right under it); the blocks, top layer first.
+    pub fn ground_blocks(&self, ground: Ground, reach: i32, drop: i32) -> Vec<(Pos, String)> {
+        let Some((lo, hi)) = self.clock.design.bounds() else { return Vec::new() };
+        let mut v = Vec::new();
+        for (k, st) in ground.layers().iter().enumerate() {
+            for x in lo[0] - reach..=hi[0] + reach {
+                for z in lo[2] - reach..=hi[2] + reach {
+                    v.push(([x, lo[1] - 1 - drop - k as i32, z], st.to_string()));
+                }
+            }
+        }
+        v
+    }
+
+    /// The lowest layer of the design: a TNT duper's frames leave out the ground below it (its
+    /// craters are not the machine).
+    pub fn lowest_y(&self) -> i32 {
+        self.clock.design.bounds().map(|(lo, _)| lo[1]).unwrap_or(0)
+    }
+
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
     /// block...): its "level" would be read by query alone, so a change without a block update would
     /// go unseen. An output cell is air (the judge's lamp goes there) or holds a redstone component
@@ -721,14 +1027,16 @@ impl Circuit {
     /// The design's blocks, except piston heads (part of their piston) and the blocks in input
     /// cells (a lever or button there is the stimulus device), plus design entities.
     pub fn blocks(&self) -> usize {
-        let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
+        // a lever, button or judge-written input cell is the input device, not a design block; a
+        // driven input's own receiving block (R7 model B: dust, a repeater) is one
+        let ins: BTreeSet<Pos> = self.inputs.iter().filter(|i| !matches!(i.how, InputHow::Driven { .. })).map(|i| i.pos).collect();
         self.clock.design.blocks.iter().filter(|(p, s)| !ins.contains(*p) && !s.starts_with("minecraft:piston_head")).count() + self.clock.design.entities.len()
     }
 
-    /// The kinds of blocks it is built with (as `Clock::kinds`), input cells left out.
+    /// The kinds of blocks it is built with (as `Clock::kinds`), input devices left out.
     pub fn kinds(&self) -> BTreeSet<String> {
         let mut d = self.clock.design.clone();
-        for i in &self.inputs {
+        for i in self.inputs.iter().filter(|i| !matches!(i.how, InputHow::Driven { .. })) {
             d.blocks.remove(&i.pos);
         }
         match Clock::from_design(d) {
@@ -768,6 +1076,10 @@ impl Circuit {
             let r = clock::rotate_pos(t.step, turns);
             d.meta.insert("tile".into(), format!("{} {} {} {}", r[0], r[1], r[2], t.copies));
         }
+        if let Some(st) = self.slice {
+            let r = clock::rotate_pos(st, turns);
+            d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
+        }
         Circuit::from_design(d)
     }
 
@@ -786,11 +1098,27 @@ impl Circuit {
                             Action::Place { pos: inp.pos, state: off.clone(), nbt: None }
                         }
                     }
+                    // the switch behind the judge's repeater, 2 gt (its delay) before the edge
+                    (InputHow::Driven { dir, .. }, on) => {
+                        let (_, _, sw) = driver_cells(inp.pos, *dir);
+                        let a = if on { Action::Place { pos: sw, state: INPUT_ON.to_string(), nbt: None } } else { Action::Clear { pos: sw } };
+                        v.push((t.saturating_sub(2), a));
+                        continue;
+                    }
                     (InputHow::Lever, _) => Action::Use { pos: inp.pos },
                     (InputHow::Button, true) => Action::Use { pos: inp.pos },
                     (InputHow::Button, false) => continue,
+                    // a strength input changes by `Schedule::levels`, not by edges
+                    (InputHow::Strength { .. }, _) => continue,
                 };
                 v.push((t, a));
+            }
+        }
+        // strength inputs: the chest's contents rewritten (its state unchanged: no block update,
+        // the contents change updates the comparators reading it)
+        for &(t, i, value) in &s.levels {
+            if let Some(Input { pos, how: InputHow::Strength { chest }, .. }) = self.inputs.get(i) {
+                v.push((t, Action::Place { pos: *pos, state: chest.clone(), nbt: Some(compute::strength_items(value)) }));
             }
         }
         let probes = if s.events.iter().any(|e| matches!(e.1, stimulus::EventAt::Probe(_))) { self.probe_cells() } else { Vec::new() };
@@ -804,17 +1132,41 @@ impl Circuit {
                     Some(p) => *p,
                     None => continue,
                 },
+                stimulus::EventAt::Input(i) => match self.inputs.get(*i) {
+                    Some(inp) => inp.pos,
+                    None => continue,
+                },
+                stimulus::EventAt::Cell(p) => *p,
             };
             let a = match op {
                 stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
                 stimulus::TargetOp::Clear => Action::Clear { pos },
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
+                stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
             };
             v.push((*t, a));
         }
         v.sort_by_key(|(t, _)| *t);
         v
+    }
+
+    /// Whether the design holds a sculk sensor (plain or calibrated): it hears game events, so
+    /// the judge adds the vibration test ([`vibration`]).
+    pub fn has_sculk(&self) -> bool {
+        self.clock.design.blocks.values().any(|s| s.contains("sculk_sensor"))
+    }
+
+    /// The design declares that its input arrives by a line from beyond any sensor's reach
+    /// (`input-device: far`): the vibration test emits no input-device events.
+    pub fn input_far(&self) -> bool {
+        self.clock.design.meta.get("input-device").is_some_and(|v| v.trim() == "far")
+    }
+
+    /// The design claims it is vibration-proof (`vibration: proof`): the vibration test refuses it
+    /// when ambient game events change it ([`vibration`]).
+    pub fn claims_vibration_proof(&self) -> bool {
+        self.clock.design.meta.get("vibration").is_some_and(|v| v.trim() == "proof")
     }
 
     /// The air cells next to the design (face neighbors of its blocks) that are no port of it, in
@@ -857,6 +1209,13 @@ fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputH
             }
             Ok(InputHow::Button)
         }
+        ["strength"] => {
+            let s = here.ok_or_else(|| anyhow!("strength input at {pos:?}: the design must hold a chest there (the judge fills it)"))?;
+            if !s.starts_with("minecraft:chest") || s.contains("type=left") || s.contains("type=right") {
+                bail!("strength input at {pos:?}: the design must hold a single chest there (minecraft:chest[type=single]), it has {s}");
+            }
+            Ok(InputHow::Strength { chest: s.to_string() })
+        }
         _ => {
             let (on, off) = match words.as_slice() {
                 [] => (INPUT_ON.to_string(), "minecraft:air".to_string()),
@@ -865,6 +1224,11 @@ fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputH
                 _ => bail!("want `lever`, `button` or `<on-state> [<off-state>]`, got {args:?}"),
             };
             let rest = here.unwrap_or("minecraft:air");
+            // R7: a plain input may hold the design's own receiving block (dust for a comparator's
+            // side, a repeater, a conductor...), which the judge's repeater powers from outside
+            if words.is_empty() && here.is_some() && !input_device_block() {
+                return Ok(InputHow::Block { on, off });
+            }
             if !trace::state_matches(rest, &off) {
                 bail!("input at {pos:?}: the design must hold its off-state {off} there (it has {rest})");
             }

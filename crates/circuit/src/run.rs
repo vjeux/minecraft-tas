@@ -50,12 +50,14 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
     let (from, to) = watch_box(c, margin);
     // the judge's consumer in every air output cell (crate::CONSUMER)
     let cc = if consumers { c.with_consumers().map_err(|e| format!("{e:#}"))? } else { c.clone() };
+    // the judge's input devices (R7): the driven inputs' stones and repeaters
+    let cc = cc.with_drivers();
     if let Some((p, st)) = clock::sim::unsupported(&cc.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
     if tnt && c.explodes() {
-        return sim_tnt(c, &cc, &actions, s, &probes, from, to, KICK_DEFAULT);
+        return sim_tnt(c, &cc, &actions, s, &probes, margin, KICK_DEFAULT, crate::Ground::Grass, false);
     }
     match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
@@ -78,62 +80,112 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
 /// sweep tries every kick: `tnt_kick_trace`).
 pub const KICK_DEFAULT: f64 = 0.0;
 
+/// How far the ground reaches around a TNT duper on redsim (a TNT past it falls into the void and
+/// explodes far below the machine).
+pub const GROUND_REACH: i32 = 24;
+
 /// A TNT duper with explosions on, on redsim (the exact explosion port, every ray at its largest
-/// roll), every primed TNT kicked by `kick`, removed out of range like the real-game judge does.
-pub fn tnt_kick_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64) -> std::result::Result<Trace, String> {
+/// roll), standing on `ground`, every primed TNT kicked by `kick`; with `removal`, a TNT
+/// OUT_OF_RANGE away is removed like the real-game judge does (without, each one flies on until it
+/// explodes: the strict run).
+pub fn tnt_kick_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64, ground: crate::Ground, removal: bool) -> std::result::Result<Trace, String> {
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
-    let (from, to) = watch_box(c, margin);
     let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
-    sim_tnt(c, &cc, &actions, s, &probes, from, to, kick)
+    sim_tnt(c, &cc, &actions, s, &probes, margin, kick, ground, removal)
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], from: Pos, to: Pos, kick: f64) -> std::result::Result<Trace, String> {
-    let o = clock::sim::TntOptions { kick, kicks: Vec::new(), max_rolls: true, out_of_range: OUT_OF_RANGE, design_box: c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])) };
-    match clock::sim::drive_tnt(&cc.clock, actions, s.ticks, probes, from, to, &o) {
-        Ok(d) => {
-            if let Some((_, why)) = d.driven.stopped {
-                return Err(why);
+fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], margin: i32, kick: f64, ground: crate::Ground, removal: bool) -> std::result::Result<Trace, String> {
+    let (lo, hi) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+    // the strict run (no removal) grows its ground until no burning TNT ever leaves it (a TNT
+    // past the ground's edge would fall into a void a real world does not have; coordinator)
+    let mut r = GROUND_REACH;
+    loop {
+        let from = [lo[0] - r - 2, lo[1] - 6 - c.drop, lo[2] - r - 2];
+        let to = [hi[0] + r + 2, hi[1] + 16, hi[2] + r + 2];
+        let o = clock::sim::TntOptions {
+            kick,
+            kicks: Vec::new(),
+            max_rolls: true,
+            out_of_range: if removal { OUT_OF_RANGE } else { f64::INFINITY },
+            design_box: (lo, hi),
+            machine_box: Some((lo, hi)),
+            floor: c.ground_blocks(ground, r, c.drop),
+            watch: Some(watch_box(c, margin)),
+            escape: if removal { None } else { Some(r as f64 - 1.0) },
+        };
+        let d = clock::sim::drive_tnt(&cc.clock, actions, s.ticks, probes, from, to, &o).map_err(|(_, why)| why)?;
+        if let Some((f, p)) = d.escaped {
+            if r >= MAX_GROUND_REACH {
+                return Err(format!("a burning TNT left a ground {r} blocks wide around the machine at frame {f} ({:.1}, {:.1}, {:.1})", p[0], p[1], p[2]));
             }
-            let mut t = Trace::new(c, d.driven.cells, d.driven.signals);
-            t.primed = d
-                .tnt
-                .iter()
-                .map(|r| crate::trace::Primed { frame: r.frame, pos: r.first_pos, motion: Some(r.first_motion), end: r.end, launch: r.launch, moved: r.moved, last_pos: r.last_pos, end_frame: r.end_frame, gone: r.gone })
-                .collect();
-            t.exploded = d.explosions.len() as u32;
-            t.explosions = d.explosions;
-            t.out_of_range = d.out_of_range;
-            Ok(t)
+            r *= 2;
+            continue;
         }
-        Err((_, why)) => Err(why),
+        if let Some((_, why)) = d.driven.stopped {
+            return Err(why);
+        }
+        let mut t = Trace::new(c, d.driven.cells, d.driven.signals);
+        t.primed = d
+            .tnt
+            .iter()
+            .map(|r| crate::trace::Primed { frame: r.frame, pos: r.first_pos, motion: Some(r.first_motion), end: r.end, launch: r.launch, moved: r.moved, last_pos: r.last_pos, end_frame: r.end_frame, gone: r.gone })
+            .collect();
+        t.exploded = d.explosions.len() as u32;
+        t.explosions = d.explosions;
+        t.out_of_range = d.out_of_range;
+        return Ok(t);
     }
 }
+
+/// The widest ground the strict redsim run grows to (blocks around the machine).
+pub const MAX_GROUND_REACH: i32 = 96;
+
+/// How far around a TNT duper the real-game sandbox loads chunks and lays its ground (no TNT is
+/// removed: a burning TNT that reaches the loaded area's edge, where it would freeze and never
+/// explode, fails the run; coordinator 2026-10-20).
+pub const GAME_REACH: i32 = 80;
 
 /// Run a circuit (already turned and moved) in the real game, in a fresh sandbox: `Ok(Err(why))`
 /// when the run itself breaks a rule (an entity, a block reaching the edge of the watched box).
 pub fn game_trace(w: &mut Worker, c: &Circuit, s: &Schedule, margin: i32) -> Result<std::result::Result<Trace, String>> {
     let (from, to) = watch_box(c, margin);
     // TNT dupers with explosions: load far enough around for every burning TNT to keep ticking
-    // until it explodes or is out of range (OUT_OF_RANGE)
-    let pad = if c.explodes() { OUT_OF_RANGE as i32 + 2 } else { 0 };
+    // until it explodes (GAME_REACH)
+    let pad = if c.explodes() { GAME_REACH + 2 } else { 0 };
     let chunks = [(from[0] - pad).div_euclid(16), (from[2] - pad).div_euclid(16), (to[0] + pad).div_euclid(16), (to[2] + pad).div_euclid(16)];
     let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
-    let r = game_in(w, sb, c, s, from, to, margin);
+    // TNT dupers stand on the ground (Circuit::ground_blocks): grass over dirt over bedrock over
+    // the whole loaded area, so every TNT lands and explodes on it like in a real world
+    if c.explodes() {
+        let (x0, z0, x1, z1) = (chunks[0] * 16, chunks[1] * 16, chunks[2] * 16 + 15, chunks[3] * 16 + 15);
+        let (lo, _) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+        for (k, st) in crate::Ground::Grass.layers().iter().enumerate() {
+            let y = lo[1] - 1 - c.drop - k as i32;
+            w.fill(sb, [x0, y, z0], [x1, y, z1], st, mctas::sim::PlaceMode::Raw)?;
+        }
+    }
+    let r = game_in(w, sb, c, s, from, to, margin, [chunks[0] * 16, chunks[1] * 16, chunks[2] * 16 + 15, chunks[3] * 16 + 15]);
     let _ = w.drop_sandbox(sb);
     r
 }
 
-fn frame_cells(f: &Region, extras: &HashMap<Pos, String>) -> Vec<(Pos, String)> {
-    let mut v: Vec<(Pos, String)> = f.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| (p, clock::wave::with_extra(s, extras.get(&p).map(|e| e.as_str())))).collect();
+/// A frame's non-air cells from `min_y` up (a TNT duper's ground below its lowest layer is left
+/// out: its craters are not the machine).
+fn frame_cells(f: &Region, extras: &HashMap<Pos, String>, min_y: i32) -> Vec<(Pos, String)> {
+    let mut v: Vec<(Pos, String)> = f.iter().filter(|(p, s)| p[1] >= min_y && !mctas::blockstate::is_air(s)).map(|(p, s)| (p, clock::wave::with_extra(s, extras.get(&p).map(|e| e.as_str())))).collect();
     v.sort_by_key(|(p, _)| *p);
     v
 }
 
-fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Pos, margin: i32) -> Result<std::result::Result<Trace, String>> {
+/// `loaded`: the sandbox's loaded area (x0, z0, x1, z1): a burning TNT reaching its edge fails the
+/// run (it would freeze there and never explode).
+#[allow(clippy::too_many_arguments)]
+fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Pos, margin: i32, loaded: [i32; 4]) -> Result<std::result::Result<Trace, String>> {
+    let min_y = if c.explodes() { c.lowest_y() } else { i32::MIN };
     // the judge's consumer in every air output cell (crate::CONSUMER)
-    let cc = c.with_consumers()?;
+    let cc = c.with_consumers()?.with_drivers();
     clock::verify::place(w, sb, &cc.clock)?;
     // every block must be able to stand where it is (a player could build it): the placement
     // removes a floating dust (its shape update) and keeps a floating lever, torch or repeater,
@@ -181,10 +233,10 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         let ex = extras_of(w.block_entities(sb, from, to)?);
         let sg: Vec<u8> = if probes.is_empty() { Vec::new() } else { w.signals(sb, &probes)?.into_iter().map(|(b, _)| b).collect() };
         if cells.len() as u32 == t + 1 {
-            *cells.last_mut().unwrap() = frame_cells(&f, &ex);
+            *cells.last_mut().unwrap() = frame_cells(&f, &ex, min_y);
             *signals.last_mut().unwrap() = sg;
         } else {
-            cells.push(frame_cells(&f, &ex));
+            cells.push(frame_cells(&f, &ex, min_y));
             signals.push(sg);
         }
         let next = actions.first().map(|(at, _)| *at).unwrap_or(s.ticks).min(s.ticks).min(t + seg);
@@ -197,7 +249,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         }
         for (f, dump) in st.frames.iter().zip(&st.block_entities) {
             let ex = extras_of(mctas::sim::parse_block_entities(dump)?);
-            cells.push(frame_cells(f, &ex));
+            cells.push(frame_cells(f, &ex, min_y));
         }
         signals.extend(st.signals.iter().map(|v| best_of(v)));
         if tnt {
@@ -249,19 +301,13 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
                 };
                 if explode {
-                    // out of range: 16+ blocks from the design's box, beyond any reach of its
-                    // explosion (blocks up to about 7, entities up to 8): harmless to the machine;
-                    // removed and counted (it would otherwise fly out of the loaded sandbox)
-                    let (lo, hi) = design_box;
-                    let dist = (0..3).map(|i| (lo[i] as f64 - e.pos[i]).max(e.pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, |a, b| a.max(b));
-                    if dist > OUT_OF_RANGE {
-                        out_of_range += 1;
-                        if let Some(&k) = tnt_index.get(&e.uuid) {
-                            primed[k].gone = Some((e.pos, e.motion));
-                        }
-                        burning.remove(&e.uuid);
-                        w.exec(sb, &format!("kill {}", e.uuid))?;
-                        continue;
+                    // a burning TNT near the loaded area's edge would freeze there (entities only
+                    // tick in loaded chunks) and never explode: the run cannot judge it (no TNT is
+                    // removed: every one explodes where it lands)
+                    let _ = design_box;
+                    let edge = 2.0;
+                    if e.pos[0] < loaded[0] as f64 + edge || e.pos[0] > loaded[2] as f64 + 1.0 - edge || e.pos[2] < loaded[1] as f64 + edge || e.pos[2] > loaded[3] as f64 + 1.0 - edge {
+                        return Ok(Err(format!("frame {next}: a burning TNT reached the edge of the loaded area at ({:.1}, {:.1}, {:.1}), {GAME_REACH} blocks around the machine: it would freeze there and never explode", e.pos[0], e.pos[1], e.pos[2])));
                     }
                     burning.insert(e.uuid.clone(), fuse);
                 }
@@ -317,6 +363,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
         signals.truncate(k);
     }
     let ents = w.entities(sb)?;
+    // a TNT duper on the ground: the items its craters drop and the TNT still burning are part
+    // of the scenario (a machine block a blast destroys shows in the frames instead)
+    let ents: Vec<_> = if explode { ents.into_iter().filter(|e| !matches!(e.kind.trim_start_matches("minecraft:"), "item" | "tnt")).collect() } else { ents };
     let foreign = ents.len().saturating_sub(c.clock.design.entities.len());
     if foreign > 0 && ended.is_none() {
         let e = &ents[0];

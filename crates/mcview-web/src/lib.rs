@@ -68,8 +68,6 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
-    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
-    pub trace: Option<String>,
     pub tick: Option<u32>,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
@@ -78,6 +76,9 @@ pub(crate) struct View {
     /// `data-events`: the judge's actions at cells (a BUD switch's target and footprint probes),
     /// replayed in the auto-demo.
     pub events: Option<String>,
+    /// `data-levels`: a strength input's values (`<frame> <input> <value>; ...`: the judge's
+    /// chest fills, the hex circuits), replayed by the auto-demo.
+    pub levels: Option<String>,
     /// `data-phases`: the checker's phase labels.
     pub phases: Option<String>,
     /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
@@ -597,11 +598,11 @@ impl App {
         }
         v.src = src;
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
-        v.trace = el.get_attribute("data-trace").filter(|s| !s.is_empty());
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
         v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
+        v.levels = el.get_attribute("data-levels").filter(|s| !s.trim().is_empty());
         v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
         v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
         v.yaw = attr_f32(el, "data-yaw");
@@ -670,11 +671,11 @@ impl App {
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
-            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
             events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
+            levels: el.get_attribute("data-levels").filter(|s| !s.trim().is_empty()),
             phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
             input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
@@ -786,15 +787,8 @@ impl App {
         self.url_text(&src)
     }
 
-    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
-    /// `View::trace` first).
-    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
-        let url = self.views.get(&id)?.trace.clone()?;
-        self.url_text(&url)
-    }
-
     /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
-    /// arrives, every view using it (as design or recording) is queued again.
+    /// arrives, every view using it is queued again.
     fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
         if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
@@ -806,7 +800,7 @@ impl App {
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str());
                     let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
@@ -914,9 +908,13 @@ impl App {
                     s.go_to_still(20_000);
                 }
             }
-            let look = scene::default_look(&s);
+            let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
+            let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
+            // a thumbnail is a picture, nothing to press: no outlines over a small build (the
+            // live viewer has them, with its tags)
+            look.outlines.clear();
+            look.port_outlines.clear();
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();

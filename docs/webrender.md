@@ -21,17 +21,17 @@ each build's page.
   (`live`).
 * `data-src` = URL of a design `.txt` (the repo format, relative to the page) or `data-design` = the
   text itself. Optional: `data-tick` (the still frame's tick), `data-yaw`, `data-pitch` (degrees),
-  `data-trace` (a real-game recording, `designs/clocks/traces/<stem>.trace`, played by a full
-  viewer only when redsim cannot run the design itself: UNMODELED at placement or during its
-  4000 gt check; boats, minecarts, item entities, armor stands and fluids run live in redsim),
-  `data-autoplay` (a full viewer starts playing).
+  `data-autoplay` (a full viewer starts playing). (`data-trace`, a real-game recording, is no
+  longer played, vjeux 2026-10-20: the view shows only what redsim simulates exactly; a design
+  redsim cannot run is shown as built with `not simulated: <reason>`.)
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
 * Swapping a design in place (the site's variant picker): change attributes on the existing
   element, `data-src` LAST; the viewer re-reads every `data-*` attribute at that moment and
   loads the new design without flashing its fallback: a live viewer keeps the person's camera
-  when `data-keep-camera` is set (unless the new build would be out of view), its play state and
+  when `data-keep-camera` is set (its direction always; its distance and target too unless the
+  new build does not fit it, then they are fitted again: never cut), its play state and
   speed, and rebuilds its input buttons, tags and overlays; a thumbnail is drawn again. Live
   viewers that support it carry the class `mcview-live-src` once ready (`mctas web swap` checks
   it). A lost WebGL context (iOS drops the oldest when a page holds many; a GPU reset) is made
@@ -43,28 +43,51 @@ each build's page.
   background tabs and headless browsers draw them too.
 * Still frame: a door at rest (settled after placement: closed); a clock at the most active tick
   of one period after its warmup (most changing cells on, nothing moving), the way
-  `mctas clock shot` picks the real-game pictures; the orange stained-glass marker next to the
-  output (`port output`, else the clock judge's own output: the pictures' rule), glowing while the
-  output is on; lime outlines on levers / buttons / input ports. The complete build shows from tick
+  `mctas clock shot` picks the real-game pictures. A clock's output (`port output`, else the
+  clock judge's own output) is in the circuits' OUT box and tag (vjeux, 2026-10-20: not the
+  pictures' orange stained-glass marker, which only `web compare` keeps); every output's box,
+  clocks' and circuits', turns red (outline, a translucent red fill, its tag's text) while the
+  output is powered: its own power state when it has one (a lamp lit, dust with power, a
+  powered repeater or observer), else a redstone signal into its cell (a big dripleaf, a solid
+  block); air never is (`Session::output_powered`, redsim's state every tick). A clock's empty
+  output cell holds the clock judge's lamp (`clock::sim::judge_lamp`, clocks only: not a design
+  with a `circuit:` kind or an input port), placed after the design's blocks; its OUT signal is
+  the power delivered into the cell, not the lamp's lit state. Lime outlines on
+  levers / buttons / input ports. The complete build shows from tick
   0: the `port start` kick (a block placed last, a button pressed) is applied before tick 0 is shown,
   in the clock judge's order.
 * Full viewer (touch first): one finger or the mouse drags to orbit, two fingers pinch to zoom and
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
   simulation starts, so the build responds); the camera stays above the ground and starts on the
-  side every lever and button can be seen from (a door's lever is often behind the build from the
-  pictures' side). Bar of
+  side every lever, button and input cell can be tapped from at its centre (an empty input cell
+  counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
+  it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
+  OUT lamp); no tag covers an input's cell. Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
-  100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors); badges at the top: what runs
-  (redsim, a recording, or shown as built) on the left, the tick counter in gt and seconds on the
-  right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
+  100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
+  that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
+  speed: `Session::short_cycle`), flip the lever (f, doors); a strip under the counter shows
+  each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
+  badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
+  sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
+  `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
+  meets something it does not model during the run: the view stops at the last exact state), the
+  time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
+  moves while it runs, `mctas web layout` checks it).
 * Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
   stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
   ...`), `data-input-mode` = `pulse` | `toggle` (default from the kind: edges, limiters,
   extenders, T flip-flops, delays, RS latches and counters pulse; gates, D latches and piston
-  extenders toggle). Inputs are driven like `Circuit::actions` (the cell written with updates,
-  default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
+  extenders toggle). Inputs are driven like `Circuit::actions`: a plain input like a real build
+  (the judge's R7, 2026-10-20: `circuit::assign_drivers` ported as `mcview::circuit::inputs`):
+  the judge's delay-1 repeater in the first free side cell out of the build, a smooth stone under
+  it, the judge's smooth stone in an empty input cell (or the design's own receiving block), and a
+  redstone block one cell further out as its switch, placed or removed 2 gt before each input edge
+  in the demo (the input cell's power changes at the stimulus tick) and at once on a tap (2 gt
+  later through the repeater); an input with no way in keeps the old cell writing (the judge
+  refuses the design); `lever` used at every edge; `button` used at rising edges. One
   44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
   on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
   the input's cell, its device or its tag does the same, and a press held there past 250 ms
@@ -75,9 +98,10 @@ each build's page.
   menu). Lime tags name the inputs over their cells, orange tags the
   outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
   `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
-  (the left badge shows `demo · <phase>`, as wide as its widest phase from the start so it never
-  resizes), looped until the person's first input (any button, tap, play/pause/step/reset); then
-  the inputs are theirs.
+  (the left badge says the phase in words: `demo: A on, B off`, `demo: 2nd input pulse`,
+  `demo: all inputs off`, `circuit::phase_words`; as wide as its widest phase from the start so it
+  never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
+  then the inputs are theirs.
 * `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
   `data-stimulus`: after placement): the judge's actions at cells besides the inputs
   (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed
@@ -86,13 +110,30 @@ each build's page.
   updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
   replays the BUD switches' events through this parser frame by frame against `circuit sim`.
   Cyan tags name a BUD switch's TARGET cells.
-* TNT dupers run live (redsim primes TNT); the primed TNT is drawn like the game's
-  `TntRenderer` (swelling over the last 10 ticks of its fuse, flashing 75% white every 5) and
-  moved by the viewer (`mcview::tnt`, redsim records only when and where TNT primes): the game's
-  `PrimedTnt.tick` (gravity, the game's collision, air drag, ground friction, slime bounce) and
-  `PistonMovingBlockEntity.moveCollidedEntities` (moving blocks push it, a moving slime block
-  launches it at one block per tick); its sideways direction (random in the game) comes from a
-  hash of the cell and time; it vanishes at fuse 0 without exploding (the judge removes it).
+* `data-levels="<frame> <input> <value>; ..."` (frames like `data-stimulus`, inputs by name,
+  values 0..15): a strength input's values (`port input.a: x y z strength`, the judge's hex
+  kinds, `circuit::stimulus::Schedule::levels`), replayed in the auto-demo like the judge: the
+  input's chest placed again (its state unchanged), then its contents set to the value's fill
+  (`circuit::strength_items`: the fewest cobblestone whose comparator signal is the value). A
+  tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
+  sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
+  not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+* TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
+  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
+  entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
+  never explodes, as in the game):
+  each primed TNT is redsim's `PrimedTnt` entity (its kick from the mirrored level random; moved
+  by the engine: gravity, collisions, slime, moving blocks), drawn like the game's `TntRenderer`
+  (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
+  EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
+  as items, a TNT block it hits primes, other TNT is pushed; a blast destroying a moving block
+  drops what it moves. A TNT flying off the design falls into the void below the drawn ground
+  (the judge's world has none) and explodes there harmlessly (its rays stop at the build height:
+  nothing is destroyed), or freezes where it leaves the forced chunks.
+  `web check` runs each TNT design against a reference built from the repo's tools
+  (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
+  for 400 ticks, native and wasm. The camera frames the TNT's flight in redsim's run within 8
+  blocks of the build (a launcher's TNT leaves the view as it flies on).
 * Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
   judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
   tick for tick against the real game): the judge's chest on each `items`, `boxes`, `output` and
@@ -107,27 +148,79 @@ each build's page.
   draw what the game draws, and every archived shulker design runs live. A start lever is
   the visitor's to flip (the judge flips it at its start); always-on designs start by
   themselves. A design whose run redsim cannot follow (it runs 1000 gt ahead on load) is shown
-  as built, with a still shulker box in the box cell (in front of the dispenser): none of the
-  archive today. Chests and shulker boxes are drawn
+  as built (with the judge's chests, nothing else added): none of the archive today. Chests and
+  shulker boxes are drawn
   with the game's `ChestModel` / `ShulkerModel` and entity textures. `web check` runs every
   shulker design against a reference run built from the repo's tools (the clock judge's
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
-* A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
-  pictures' framing, which may cut a tall build).
-* Containers: ONE compact label per container holding something (hoppers, droppers, dispensers,
-  chests, the shulker designs' carts and chest boats), live every tick: per item kind its icon
-  (the game's item sprite, else its block texture) and total count (`1,344`); shulker boxes
-  first, as `12/27` slots filled for one box or `×3` with a fill bar for several; at most two
-  kinds, then `+n`. A container under a tag (a shulker design's ITEMS / BOXES / OUT chest) shows
-  its contents in the tag itself. Tags and labels are laid out every frame so that none overlap
-  each other, an outlined cell, the badges or the bar: one that would collide goes higher or
+* Camera: every view (live viewers and thumbnails) fits the build's whole moving extent
+  (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
+  placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
+  ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
+  blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
+  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
+  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
+  5 blocks across and 3 high in every direction is framed as if it were that big (a 4-block
+  clock stands in some grass, its OUT box clear of the controls). The browser draws like a
+  client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
+  pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
+  reaches 420 blocks around (past it); near
+  the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
+  the four air cells around it in the layer between the grass and the build (a covered column
+  gets its neighbours' light less one), through the game's brightness curve at the default
+  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
+  `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
+  blocks).
+* Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
+  judge's port chests (their contents inside their tag) and the shulker boxes being filled or
+  emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)
+  shows its label when tapped (a tap again hides it). On every other design all containers are
+  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
+  gold while all are labelled) labels them all or only the story's. A label is ONE compact
+  pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
+  and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
+  with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
+  chests that stand together share one tag with their letters (ITEMS A–C over the three chests
+  a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
+  `OUT B`. Tags and labels are laid
+  out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
+  leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
-  (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). A bar button (grid
-  icon) hides the labels.
-* Outlines: the inputs lime (when the design runs: something to press), every other circuit port
-  in its tag's colour: OUT orange, ITEMS gold, BOXES lilac, TARGET cyan (shown as built too).
+  (`mcview::labels`: what a label says and the layout; `overlay.rs` draws).
+* Outlines (live viewers; thumbnails have none): the inputs lime (when the design runs: something
+  to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
+  REJECT pink, TARGET cyan (shown as built too).
+
+## Only what redsim simulates
+
+vjeux (2026-10-20): the 3D view shows only what redsim simulates exactly; anything redsim cannot
+simulate is shown as built with a plain `not simulated: <reason>`, never animated by
+viewer-side logic. What the viewer draws is redsim's state of the tick; what it adds is the
+game client's own rendering of that state: interpolation between the tick's start and end
+positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMinecartRenderer
+.oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
+primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels; and annotations
+(tags, labels, outlines, the OUT boxes red while their output is powered). Audit of 2026-10-20
+(removed):
+
+* the viewer's own primed TNT (`mcview::tnt`: a fixed kick, gravity, collisions, vanishing at
+  fuse 0): deleted; primed TNT is redsim's `PrimedTnt` entity and explodes in redsim;
+* falling blocks drawn from `y - vy` (a guess at last tick's height): drawn from redsim's
+  position before the tick (kept by the session each tick);
+* real-game recordings played for designs redsim could not run (`data-trace`): not played;
+* a still shulker box added to shown-as-built shulker designs: not added;
+* a run redsim reports an error in (`World::errors`: something it does not model) kept
+  animating: it stops at the last exact state (`Session::halted`) and says so.
+
+Kept (exact): the auto-demo replays the judge's own stimulus and events; the shulker designs'
+chests are the judge's driver; the clocks' still frame and loop are ticks of redsim's run.
+`Session::drawn_matches_simulation` checks it: every still block drawn is the world's block (a
+quartz-like block simulated as stone drawn under its own name), nothing in an air cell, the
+entities and falling blocks drawn are exactly redsim's at redsim's positions; `web check` runs it
+on every tick of every archived design's run (circuits under the judge's stimulus, every frame;
+clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any difference.
 
 ## How it works
 
@@ -140,9 +233,9 @@ each build's page.
   shown as built). `mctas web check --wasm web/viewer/mcview_bg.wasm` also runs the detector inside
   the shipped wasm (natively, with the wasmi interpreter) and requires the same numbers: the
   browser simulates exactly like redsim.
-* `mcview::replay` plays a real-game recording (JSON Lines from `mctas clock misc trace-export`:
-  changed cells and every entity per tick), once through the warmup, then one period looped, with
-  entities interpolated between ticks.
+* `mcview::replay` reads a real-game recording (JSON Lines from `mctas clock misc trace-export`:
+  changed cells and every entity per tick) for the tools; the viewer no longer plays them (see
+  [Only what redsim simulates](#only-what-redsim-simulates)).
 * Entities (redsim's entity list: boats and chest boats, minecarts and hopper minecarts, item
   entities, armor stands; redsim's falling blocks) are summoned like the judge (after the blocks),
   simulated live and drawn interpolated between ticks; their clocks' period follows the real-game
@@ -228,7 +321,7 @@ each build's page.
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
-| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js>]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value) |
+| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |

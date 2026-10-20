@@ -354,32 +354,75 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<h2>What it does</h2>", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "about.html#glossary"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: what it does, how to try it, the judge's test, metric meanings", ok, b.page.clone());
-        // the redstone first (vjeux): the live view comes before the explanation
-        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>What it does</h2>")).is_some_and(|(v, w)| v < w);
+        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // the redstone first (vjeux): the live view comes before the explanation (the heading's
+        // two sentences aside)
+        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
         check("circuit page: the live 3D view before the explanation", first, b.page.clone());
     }
+    let c = site.builds.iter().find(|b| b.kind == "clock" && b.page.ends_with("clk-obs-p4-obs-4b.html")).or_else(|| site.builds.iter().find(|b| b.kind == "clock"));
+    if let Some(b) = c {
+        let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        check("clock page: its output over time (start-up shaded, every period marked)", html.contains("<h2>Its output over time</h2>") && html.contains("class=\"wave fit\"") && html.contains("class=\"warm\""), b.page.clone());
+    }
+    // family pages: a title in words, no link to the deleted families index (a relative
+    // `index.html` there resolves to it)
+    let bad: Vec<String> = site
+        .cards
+        .iter()
+        .filter(|c| {
+            let html = std::fs::read_to_string(dir.join(&c.page)).unwrap_or_default();
+            let h1 = html.split("<h1>").nth(1).and_then(|s| s.split("</h1>").next()).unwrap_or("");
+            html.contains("href=\"index.html\"") || h1.contains(" = ") || h1.is_empty()
+        })
+        .map(|c| c.page.clone())
+        .collect();
+    check("family pages: a title in words, no dead link", bad.is_empty(), if bad.is_empty() { format!("{} pages", site.cards.len()) } else { bad.join(", ") });
+    // the Doors tab opens on solid doors (sculk doors can be set off by footsteps: coordinator
+    // 13:54Z)
+    // the players' words find what they name, first (critique C12)
+    for (text, want) in [("toggle", "Toggle switch"), ("one shot", "One-shot timer"), ("hidden door", "door"), ("double piston extender", "Piston extender"), ("timer", "One-shot timer")] {
+        let q = site_model::Query::from_fragment(&format!("q={}", site_model::encode(text)));
+        let first = site.run(&q).ok().and_then(|(h, _)| h.first().copied()).and_then(|h| match h {
+            site_model::Hit::Build(i) => site.builds.get(i).map(|b| if b.kind == "door" { "door".to_string() } else { b.group.clone() }),
+            _ => Some("family member".to_string()),
+        });
+        check(&format!("search \"{text}\": a match first{}", if want.is_empty() { String::new() } else { format!(", {want}") }), first.as_deref().is_some_and(|g| want.is_empty() || g.starts_with(want)), format!("first: {first:?}"));
+    }
+    let dq = site_model::Query::from_fragment("kind=door");
+    if let Ok((dhits, _)) = site.run(&dq) {
+        let first: Vec<&str> = dhits.iter().take(3).filter_map(|h| match h {
+            site_model::Hit::Build(i) => site.builds.get(*i).map(|b| b.group.as_str()),
+            _ => None,
+        }).collect();
+        check("the Doors tab opens on solid doors", !first.is_empty() && first.iter().all(|g| *g == "solid"), format!("first: {first:?}"));
+    }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
-    check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    let plain_first = study.find(crate::explain::study_uses("memory")).zip(study.find("class=\"card")).zip(study.find("How we test and rank them")).is_some_and(|((u, c), t)| u < c && c < t);
+    check("study page: what you would use them for, the designs, then how we test", study.contains("<h1>Memory and counters</h1>") && plain_first, "circuits/memory/index.html".into());
     // cards and pages lead with the properties (vjeux 12:09Z), kinds are base kinds (12:15Z)
     let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
     check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
     let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
-    let reaches: Vec<u32> = pext_page.split("<div class=\"title\">N = ").skip(1).filter_map(|s| s.split(' ').next()?.parse().ok()).collect();
+    // the general extenders (the sand elevators have their own section after them)
+    let general = pext_page.split("Sand elevator:").next().unwrap_or(&pext_page);
+    let reaches: Vec<u32> = general.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
     check(
-        "study cards: the property line leads, sorted by the main number",
-        reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && pext_page.contains("<div class=\"kind\">Piston extender</div>") && pext_page.contains("<div class=\"name\">"),
+        "study cards: the property line leads, sorted by the main number, no design names",
+        reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && !pext_page.contains("class=\"name\"") && !pext_page.contains(">pext-n"),
         format!("pext reaches in order: {reaches:?}"),
     );
     let mut named: Vec<String> = Vec::new();
     for b in site.builds.iter().filter(|b| b.kind == "circuit").take(30) {
         let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        if html.contains(&format!("<h1>{}</h1>", b.name)) || !html.contains("<p class=\"design-name\">") {
+        let details = html.find("<details class=\"more\">").unwrap_or(html.len());
+        let head = &html[..details];
+        if head.contains(&format!(">{}<", b.name)) || head.contains(&format!("({})", b.name)) || !html[details..].contains(&format!("<code>{}</code>", b.name)) {
             named.push(b.name.clone());
         }
     }
-    check("design pages: the property line is the title, the name below", named.is_empty(), if named.is_empty() { "30 pages".into() } else { named.join(", ") });
+    check("design pages: the property line is the title, the design's name only in the details", named.is_empty(), if named.is_empty() { "30 pages".into() } else { named.join(", ") });
     // the machines' studies: a variations table with the best design per variation
     for folder in ["shulker", "tnt", "bud", "pulsemult"] {
         if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
@@ -437,13 +480,42 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             crate::circuits::hidden(&c.study, &format!("{}.txt", b.name)).map(|_| b.name.clone())
         })
         .collect();
-    let hidden_pages = crate::circuits::hidden_rules().iter().filter(|(s, p, _)| {
-        std::fs::read_dir(dir.join("circuits").join(s)).map(|rd| rd.flatten().any(|e| crate::circuits::glob(&format!("{p}.html"), &e.file_name().to_string_lossy()) || crate::circuits::glob(p, &e.file_name().to_string_lossy().replace(".html", ".txt")))).unwrap_or(false)
-    }).count();
+    let studies: std::collections::BTreeSet<String> = crate::circuits::hidden_rules().into_iter().map(|(s, _, _)| s).collect();
+    let hidden_pages = studies
+        .iter()
+        .map(|s| {
+            std::fs::read_dir(dir.join("circuits").join(s))
+                .map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().strip_suffix(".html").is_some_and(|stem| crate::circuits::hidden(s, &format!("{stem}.txt")).is_some())).count())
+                .unwrap_or(0)
+        })
+        .sum::<usize>();
     check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
-    let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    // the pages vjeux deleted (13:35Z) are neither written nor linked from anywhere
+    let written: Vec<&str> = crate::generate::DELETED_PAGES.iter().copied().filter(|p| dir.join(p).exists()).collect();
+    let linking: Vec<String> = sample
+        .iter()
+        .filter(|p| {
+            let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
+            crate::generate::DELETED_PAGES.iter().any(|d| {
+                // a link to the page itself (`"about.html"`, `../about.html#x`), not a longer name
+                // that ends like it (`pulse-oneshot-fall.html`)
+                html.match_indices(d).any(|(i, _)| {
+                    let before = html[..i].chars().last();
+                    let after = html[i + d.len()..].chars().next();
+                    matches!(before, Some('/') | Some('"')) && matches!(after, Some('"') | Some('#'))
+                })
+            })
+        })
+        .cloned()
+        .collect();
+    check(
+        "deleted pages (boards, families index, everything, about): none written, none linked",
+        written.is_empty() && linking.is_empty(),
+        format!("{} written{}, {} of {} pages link one{}", written.len(), written.first().map(|p| format!(" ({p})")).unwrap_or_default(), linking.len(), sample.len(), linking.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()),
+    );
     for p in &sample {
         let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
         let mut visible = String::new();
@@ -486,7 +558,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let members = hits.iter().filter(|h| matches!(h, site_model::Hit::Member(_))).count();
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
-    check("time search 48 gt: family members shown with their n", members == 0 || dom.contains("<span class=\"n\">n = "), format!("{} member cards", dom.matches("class=\"card member\"").count()));
+    check("time search 48 gt: family members shown, without family ids", members == 0 || (dom.contains("class=\"card member\"") && !dom.contains("<span class=\"n\">")), format!("{} member cards", dom.matches("class=\"card member\"").count()));
     check("time search 48 gt: the count names the period", dom.contains("with a period of 48 gt (2.4 s)"), "summary".into());
     // the header's search form from another page (index.html?kind=clock&q=48): the Clocks tab's
     // search box takes a period
@@ -503,14 +575,14 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let f = c.families.first()?;
         let m = site.members.iter().find(|m| m.card == c.id && m.family == f.id && m.n == f.n_lo + 1 && m.build.is_none())?;
         let letter = m.axis.split_once(" = ").map(|(l, _)| l.to_string())?;
-        Some((format!("{letter} {}", m.period), m.family.clone(), m.n))
+        Some((format!("{letter} {}", m.period), m.family.clone(), m.n, c.id.clone()))
     });
-    if let Some((value, family, n)) = probe {
+    if let Some((value, family, n, card)) = probe {
         let frag = format!("kind=circuit&value={}", site_model::encode(&value));
         let q = site_model::Query::from_fragment(&frag);
         let (fhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
         let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
-        let shown = dom.contains(&format!("{family} <span class=\"n\">n = {n}</span>"));
+        let shown = dom.contains(&format!("families/{card}.html#n{n}\""));
         check(&format!("circuit value search {value}: the generated family member"), result_count(&dom) == Some(fhits.len()) && shown, format!("{family} n = {n}: {:?} results, engine says {}", result_count(&dom), fhits.len()));
     }
     // a facet filter from the URL
