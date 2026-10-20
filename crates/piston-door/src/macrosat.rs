@@ -173,6 +173,9 @@ struct Opts {
     frame3: bool,
     /// `--max-pistons N`: at most N pistons (c70b: leaner seeds).
     max_pistons: Option<usize>,
+    /// `--physics` (c70b: replayable seeds): co-firing and rest QC stability without the
+    /// wirability filters of `--strict`.
+    physics: bool,
 }
 
 struct Model {
@@ -829,6 +832,9 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
                 }
             }
         }
+        if o.physics && !o.strict {
+            cofire(sat, g, ty, s, &acts, &feed);
+        }
         if o.strict {
             cofire(sat, g, ty, s, &acts, &feed);
             // a lever-touched piston never moves (w86): a piston standing in a cell the lever
@@ -1035,6 +1041,27 @@ fn build(g: Grid, o: &Opts) -> Model {
             for w in 0..n {
                 let xs: Vec<Lit> = (edge * o.h..(edge + 1) * o.h).map(|s| u[s][w]).collect();
                 at_most_k(&mut sat, &xs, k);
+            }
+        }
+    }
+    if o.physics || o.strict {
+        // rest QC stability (c70b): a piston extended at rest is powered in its own cell, which
+        // QC-arms a retracted piston right below it: that one must fire at the edge's first step
+        for rest in [0, o.h] {
+            for c in 0..n {
+                let Some(b) = g.step(c, 3) else { continue };
+                for d2 in 0..4 {
+                    let mine: Vec<Lit> = acts[rest].iter().filter(|a| a.c == b && a.d == d2).map(|a| a.lit).collect();
+                    for k1 in [false, true] {
+                        for d1 in 0..4 {
+                            for k2 in [false, true] {
+                                let mut cl = vec![!ty[rest][c][piston(k1, d1, true)], !ty[rest][b][piston(k2, d2, false)]];
+                                cl.extend(mine.iter().copied());
+                                sat.add(&cl);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1596,6 +1623,7 @@ fn opts_of(a: &Args) -> Result<Opts> {
         static_cond: a.has("static-cond") || strict,
         frame3: a.has("frame3") || strict,
         max_pistons: a.s("max-pistons").and_then(|v| v.parse().ok()),
+        physics: a.has("physics"),
     })
 }
 
