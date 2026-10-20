@@ -710,6 +710,23 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         }
         t.rect(2, 0, 3, 15, rgb(0x8a8a8a)).rect(12, 0, 13, 15, rgb(0x8a8a8a));
     });
+    // a curve joining the south and east edges (the game's rail_corner, shape south_east)
+    add("rail_corner", &|t| {
+        t.fill(CLEAR);
+        for y in 0..16 {
+            for x in 0..16 {
+                let (dx, dy) = (16.0 - (x as f32 + 0.5), 16.0 - (y as f32 + 0.5));
+                let r = (dx * dx + dy * dy).sqrt();
+                let a = dy.atan2(dx).to_degrees();
+                let sleeper = (a % 22.5) < 6.0 && (1.5..14.5).contains(&r);
+                if (3.0..4.2).contains(&r) || (12.8..14.0).contains(&r) {
+                    t.px[y * 16 + x] = rgb(0x8a8a8a);
+                } else if sleeper {
+                    t.px[y * 16 + x] = rgb(0x6b5034);
+                }
+            }
+        }
+    });
     add("powered_rail", &|t| {
         t.fill(CLEAR);
         for y in [1, 5, 9, 13] {
@@ -756,6 +773,13 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     });
     add("dropper_front", &|t| {
         t.fill(rgb(0x787878)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
+    });
+    // facing up or down: the hole in the furnace-top face (the game's *_front_vertical)
+    add("dispenser_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(5, 6, 10, 9, rgb(0x141414)).rect(6, 5, 9, 10, rgb(0x141414));
+    });
+    add("dropper_front_vertical", &|t| {
+        t.fill(rgb(0x6e6e6e)).vary(0.05).outline(0, 0, 15, 15, rgb(0x5a5a5a)).rect(4, 4, 11, 11, rgb(0x2a2a2a)).rect(6, 6, 9, 9, rgb(0x141414));
     });
     add("crafter_top", &|t| {
         t.fill(rgb(0x6e6a68)).vary(0.04).outline(0, 0, 15, 15, rgb(0x4a4644)).rect(2, 2, 13, 13, rgb(0x5a5654)).map(|x, y, c| if (2..14).contains(&x) && (2..14).contains(&y) && (x % 4 == 1 || y % 4 == 1) { rgb(0x403c3a) } else { c });

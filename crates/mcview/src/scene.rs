@@ -95,6 +95,10 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         for e in &s.design.entities {
             b.entity(&EntityDraw { kind: e.kind.clone(), pos: [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32], yaw: entity_yaw(e.nbt.as_deref()) });
         }
+    } else {
+        for e in s.entities(partial) {
+            b.entity(&e);
+        }
     }
     if let Some(m) = look.marker {
         b.marker(m, true, [255, 255, 255], look.lit_marker && s.output_on().unwrap_or(false));

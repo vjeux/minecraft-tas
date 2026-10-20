@@ -327,9 +327,6 @@ impl Session {
                 }
             }
         }
-        if !design.entities.is_empty() {
-            unsimulated.push("entities (minecarts...) are not simulated by redsim".into());
-        }
         let mut s = Session {
             design,
             mode,
@@ -425,6 +422,10 @@ impl Session {
                     w.place_raw(&silent);
                     nbt(w, None, last)?;
                     w.place_updates(&silent);
+                }
+                // the design's entities, once the blocks stand (as the judge summons them)
+                for e in self.design.entities.clone() {
+                    redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| format!("not modeled by redsim: {why}"))?;
                 }
                 if let Some((k, at)) = kick {
                     self.actions = match k {
@@ -641,6 +642,40 @@ impl Session {
             return r.state_at(p).is_some_and(active_state);
         }
         self.simulated() && active(&self.world.get(bp(p)))
+    }
+
+    /// The simulated entities to draw, each at its position `partial` of the way through the
+    /// current tick (from where it started the tick), like the game interpolates them.
+    pub fn entities(&self, partial: f32) -> Vec<crate::mesh::EntityDraw> {
+        use redsim::entity::EntityKind;
+        let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
+        self.world
+            .entities
+            .list
+            .iter()
+            .filter(|e| !e.removed)
+            .map(|e| {
+                // the design's own type id (its wood, ...) for the entities it summons (spawned
+                // first, in file order), else the kind's
+                let kind = match self.design.entities.get(e.id as usize) {
+                    Some(d) => d.kind.clone(),
+                    None => match &e.kind {
+                        EntityKind::Boat(b) if b.chest => "minecraft:oak_chest_boat".to_string(),
+                        EntityKind::Boat(_) => "minecraft:oak_boat".to_string(),
+                        EntityKind::Minecart(m) if m.hopper => "minecraft:hopper_minecart".to_string(),
+                        EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
+                        EntityKind::Item(_) => String::new(),
+                        EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                    },
+                };
+                let kind = match &e.kind {
+                    EntityKind::Item(it) => format!("item:{}", it.item),
+                    _ => kind,
+                };
+                let yaw = e.y_rot_o + (e.y_rot - e.y_rot_o) * partial;
+                crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
+            })
+            .collect()
     }
 
     /// The containers redsim models (droppers, dispensers, hoppers) with their stacks: (cell,
@@ -935,10 +970,35 @@ impl Session {
             return Err(format!("not modeled by redsim: {why}"));
         }
         let end = self.free_from();
+        let found = if !self.design.entities.is_empty() {
+            // designs with entities never repeat their exact state (an entity's doubles drift):
+            // the real-game judge's rule (`clock::sim::entity_clock_period`): the block frames over
+            // 4000 gt, periodic for 3 periods from the first free tick
+            let mut s = self.fresh();
+            let mut ids: HashMap<u128, u64> = HashMap::new();
+            let mut frames: Vec<u64> = Vec::with_capacity(ENTITY_HORIZON as usize + 1);
+            for t in 0..=ENTITY_HORIZON {
+                s.apply_due();
+                s.check(t)?;
+                let d = frame_digest(&s.world);
+                let n = ids.len() as u64;
+                frames.push(*ids.entry(d).or_insert(n));
+                if t < ENTITY_HORIZON {
+                    s.world.tick();
+                    s.tick += 1;
+                }
+            }
+            Some(detect_period(&frames, end as usize, 3).map(|(w, p)| (w as u32, p as u32)).ok_or_else(|| format!("not periodic for 3 periods within {ENTITY_HORIZON} gt (the judge's rule for designs with entities)"))?)
+        } else {
+            None
+        };
         let mut s = self.fresh();
         let mut seen: HashMap<u128, u32> = HashMap::new();
-        let mut found = None;
+        let mut found = found;
         for t in 0..=horizon {
+            if found.is_some() {
+                break;
+            }
             s.apply_due();
             s.check(t)?;
             if t >= end {
@@ -1253,6 +1313,35 @@ pub fn cells_of(w: &World) -> Vec<Block> {
 }
 
 /// `out`, `out_a`, `out2`, `output`, `output_b`...: a port named after `prefix`.
+/// The real-game judge's horizon for designs with entities (`clock::sim::ENTITY_HORIZON`).
+pub const ENTITY_HORIZON: u32 = 4000;
+
+/// `clock::wave::detect_period`: the smallest period of a sequence of frame ids periodic from some
+/// warmup on, seen in `frames[start..]`: per candidate p the earliest W from which
+/// `frames[t] == frames[t + p]` holds to the end, with at least `min_periods` periods after it;
+/// the smallest W, then the smallest p.
+pub fn detect_period(frames: &[u64], start: usize, min_periods: usize) -> Option<(usize, usize)> {
+    let n = frames.len();
+    if n <= start + 1 {
+        return None;
+    }
+    let mut best: Option<(usize, usize)> = None;
+    let maxp = (n - start) / min_periods.max(1);
+    for p in 1..=maxp {
+        let mut w = n - p;
+        while w > start && frames[w - 1] == frames[w - 1 + p] {
+            w -= 1;
+        }
+        if n - w < min_periods * p {
+            continue;
+        }
+        if best.is_none_or(|(bw, bp)| (w, p) < (bw, bp)) {
+            best = Some((w, p));
+        }
+    }
+    best
+}
+
 fn is_port_named(name: &str, prefix: &str) -> bool {
     let long = if prefix == "in" { "input" } else { "output" };
     let rest = name.strip_prefix(long).or_else(|| name.strip_prefix(prefix));
@@ -1270,6 +1359,22 @@ mod tests {
     use super::*;
 
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
+
+    #[test]
+    fn entity_clocks_run_their_entities() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-boat-ring-3x3.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let start = s.entities(0.0);
+        assert_eq!(start.len(), 1, "the boat");
+        assert_eq!(start[0].kind, "minecraft:oak_boat");
+        for _ in 0..60 {
+            s.step();
+        }
+        let later = s.entities(0.0);
+        let moved = (0..3).map(|k| (later[0].pos[k] - start[0].pos[k]).abs()).sum::<f32>();
+        assert!(moved > 0.5, "the boat moves with the current: {:?} -> {:?}", start[0].pos, later[0].pos);
+    }
 
     #[test]
     fn auto_output_is_the_clock_judges() {
