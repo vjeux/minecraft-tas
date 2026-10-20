@@ -17,8 +17,28 @@ What a world-record entry means here, per N. "Blocks" is `mctas circuit verify`'
 1. Measure `tile:` on the repeater and comparator lines: a bus of n equal delays is what builders actually place, and the pitch is a number we can publish rather than guess. Two dust-free lines side by side should tile at pitch 1, which no other study here can claim.
 2. Odd N: 9 and 13 blocks are the outliers of the whole study. The N=1 design's tricks (a power-bumped dust, a quasi-connected piston) are the thing to re-apply.
 
-## Settled facts (do not re-derive)
+## R7 (real input devices): odd N no longer exists, and five designs were dominated
+
+Re-judged the whole study under R7. Every piston design shifted DOWN by exactly 1 gt, because R7's input changes during a tick, so the piston acts in that same tick instead of the next one:
+
+| design | was | now |
+|---|---|---|
+| delay-piston-qc-1 | N 1 | N 0 |
+| delay-piston-or-3 | N 3 | N 2 (9 blocks) |
+| delay-piston-or5/7/9/11 | N 5/7/9/11 | N 4/6/8/10 (13 blocks) |
+
+So the five odd-N designs became even-N ones, and every one of them is dominated by a 2-block repeater line or a comparator line. They are removed. The N=0 design is kept and re-archived as `delay-qc-0`: it is the only archived circuit whose output follows its input with no delay at all while still driving a block update.
+
+ODD N IS NOW IMPOSSIBLE WITH A SIGNAL INPUT, and this is a proof, not a gap. Every redstone component moves an edge by an even number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2, dropper 4). The only source of a 1 gt shift was a piston whose input changes BETWEEN ticks, which made its block event land half a tick later. R7 drives every signal input with a repeater, whose output changes during a tick, so that half-tick is gone. A lever or button input still changes between ticks, so an odd-N design remains possible as a LEVER-input variation — a different variation, and worth archiving as such, not as the signal-input record.
+
+What the study holds now: the repeater line (2 blocks per started 8 gt, every even N), the comparator line (2 gt per comparator, shorter pulses kept), the torch tower (N = 6 + 4n) and delay-qc-0. Both line cards tile side by side at pitch 1.
 
 - Every redstone component moves an edge by an EVEN number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2). Odd N therefore needs a piston, which acts in the block-event phase: an input changing between ticks makes it act 1 gt later.
+- A repeater line is N = 2 x the sum of its delays, 2 blocks per repeater: blocks = 2 x ceil(N / 8).
+- A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
+
+## Settled facts (do not re-derive)
+
+- Every redstone component moves an edge by an EVEN number of gt (dust 0, repeater 2/4/6/8, comparator 2, torch 2, observer 2, dropper 4). Odd N needs a piston acting in the block-event phase, and that only shifts by 1 gt when the input changes BETWEEN ticks: a lever or button, never an R7-driven signal.
 - A repeater line is N = 2 x the sum of its delays, 2 blocks per repeater: blocks = 2 x ceil(N / 8).
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
