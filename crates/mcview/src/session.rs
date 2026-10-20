@@ -424,15 +424,20 @@ impl Session {
         // design, the settle, the boxes and the items (the start lever left to the visitor; the
         // probe below runs with it on); then the judge's visit before every tick (`step`)
         if let Some(mut ch) = crate::circuit::shulker_chests(&s.design) {
-            world.drop_seed = Some(0);
+            // the judge's sandbox (clk-misc): the level random mirrored and the drops seeded from
+            // the seed the judge builds this design with (its watch box), so a dropper choosing
+            // among stacks and a hopper choosing among minecarts draw what the game draws
+            if let Some((from, to)) = crate::circuit::judge_box(&s.design) {
+                redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
+            }
             ch.place(&mut world);
             for _ in 0..redsim::redstone::shulker::SETTLE {
                 world.tick();
             }
             ch.start(&mut world);
             // (the start lever stays off: the visitor turns it on, as the judge does at its start)
-            // a run redsim cannot follow (a dropper choosing among different stacks, a minecart
-            // pushing entities): shown as built, chests and all
+            // a run redsim cannot follow (something it does not model; the random choices are
+            // drawn from the mirrored level random above): shown as built, chests and all
             let (mut pw, mut pc) = (world.clone(), ch.clone());
             for ci in &s.circuit_inputs {
                 if ci.how == crate::circuit::InputHow::Lever && !(ci.name == "mode" || ci.name.starts_with("mode.")) {

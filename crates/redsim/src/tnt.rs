@@ -35,10 +35,13 @@ pub const DEAD_CORALS: [&str; 5] = ["tube", "brain", "bubble", "fire", "horn"];
 /// record that still takes its entity id (later entities keep the game's ids).
 fn prime(w: &mut World, p: BlockPos) -> bool {
     w.primed.push((w.time, p));
+    // `new PrimedTnt(...)` draws its kick from the level random (`nextDouble()`): with the level
+    // random mirrored, that draw happens (and is the kick an entity takes); else `tnt_kick` stands in
+    let drawn = w.rng().map(|r| r.next_double());
     match w.tnt_kick {
         Some(u) => {
             let pos = crate::entity::Vec3::new(p.x as f64 + 0.5, p.y as f64, p.z as f64 + 0.5);
-            crate::entity::primed_tnt::spawn(w, pos, u);
+            crate::entity::primed_tnt::spawn(w, pos, drawn.unwrap_or(u));
         }
         None => w.entities.next_id += 1,
     }

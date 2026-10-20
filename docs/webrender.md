@@ -99,14 +99,20 @@ each build's page.
   `reject` port (tags ITEMS, BOXES, OUT) placed after the design, the settle (40 gt), then the
   box chests and a loader's sources kept full and the outputs emptied before every tick
   (endless), with unstackables (27 per box: a box every ~11 s) unless the design sorts (a
-  `reject` port: its kind's own item); drops as the bridge seeds them (seed 0). A start lever is
+  `reject` port: its kind's own item). The world is the judge's sandbox for the design (since
+  2026-10-20, clk-misc): its level random mirrored (`World::mirror_level_random`) and its drops
+  seeded from the seed the judge builds it with (`redstone::shulker::judge_sandbox`: the watch
+  box, the design's blocks and ports plus 3, gives the seed and the forced chunks), so a dropper
+  choosing among stacks (dropper75) and a hopper choosing among minecarts (the rail unloaders)
+  draw what the game draws, and every archived shulker design runs live. A start lever is
   the visitor's to flip (the judge flips it at its start); always-on designs start by
-  themselves. A design whose run redsim cannot follow (it runs 1000 gt ahead on load: a dropper
-  choosing among different stacks, a minecart pushing entities) is shown as built, with a still
-  shulker box in the box cell (in front of the dispenser). Chests and shulker boxes are drawn
+  themselves. A design whose run redsim cannot follow (it runs 1000 gt ahead on load) is shown
+  as built, with a still shulker box in the box cell (in front of the dispenser): none of the
+  archive today. Chests and shulker boxes are drawn
   with the game's `ChestModel` / `ShulkerModel` and entity textures. `web check` runs every
   shulker design against a reference run built from the repo's tools (the clock judge's
-  placement, `circuit::Circuit`'s ports), as placed and after its start lever: the same frames,
+  placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
+  which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
 * A circuit's camera frames its whole build (no real-game picture to match: clocks keep the
   pictures' framing, which may cut a tall build).

@@ -346,6 +346,22 @@ final class Sandbox {
         return this.level.getGameTime();
     }
 
+    /**
+     * The level random's internal state ({@code LegacyRandomSource.seed}: the 48-bit LCG state
+     * after setSeed's scramble), read without advancing it: what redsim's level-random mirror is
+     * checked against, tick by tick (trace-export's "rng"). Read-only (clk-misc, 2026-10-20).
+     */
+    long randomState() {
+        Object random = this.level.getRandom();
+        try {
+            Field f = random.getClass().getDeclaredField("seed");
+            f.setAccessible(true);
+            return ((java.util.concurrent.atomic.AtomicLong) f.get(random)).get();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the level random " + random.getClass().getName() + " has no seed field", e);
+        }
+    }
+
     int blockEventCount() {
         return ((Collection<?>) get(BLOCK_EVENTS, this.level)).size();
     }
