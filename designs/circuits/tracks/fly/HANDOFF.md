@@ -9,12 +9,12 @@
     (fly-horizontal-7b-9gt-e75c5f: a redstone block riding on the front part beside the cell the
     rear piston lands in, so the pulled piston fires as it lands, 1 gt instead of an observer's 2);
     fly-d1 (7 blocks 10 gt/block, the first derivation, the calibration's origin; a variant).
-  * up: 6 blocks **9 gt/block** robust (fly-up-6b-9gt-0e4df1, -339615: a redstone block on the
-    honey part fires the pusher as it lands, no rear observer). They took out the up 6-block 10
+  * up: 6 blocks **9 gt/block** robust (5 types: fly-up-6b-9gt-*, a redstone block in place of
+    the rear observer fires the pusher as it lands). They took out the up 6-block 10
     gt/block types and fly-up-7b-9gt-ff426b (fly-d1 tilted up: the front observer quasi-connects
     the landing pusher through the slime two above it), now in tracks/fly/vertical and c6all.
-  * down: 6 blocks 10 gt/block (17 types, all east-west only: Java's update order); 7 blocks 10
-    gt/block robust (fly-down-7b-10gt-aca731).
+  * down: 6 blocks 10 gt/block robust in every orientation (8 types with a redstone block in place
+    of the rear observer); 17 observer-only 6-block types, east-west only (rotation-dependent).
   * two-way: fly-two-way-14b (the reversible 6-block engine 01ce95 between two 4-block return
     stations, round trip 98 gt over 6 positions, robust; calibration cal-two-way-machine).
   * payload: family fly-payload-e2cf52 (base fly-payload-n1): the 6-block engine carrying n =
