@@ -33,6 +33,8 @@ pub struct Live {
     flip: HtmlButtonElement,
     speed: HtmlButtonElement,
     speed_i: usize,
+    /// The person picked a speed (the speed button): a fast machine no longer starts slowed.
+    speed_chosen: bool,
     touches: Vec<Touch>,
     /// The current gesture moved (orbit, pan, pinch): not a tap.
     moved: bool,
@@ -63,6 +65,8 @@ pub struct Live {
 
 /// Speeds the speed button cycles through: label, game ticks per second.
 const SPEEDS: [(&str, f32); 7] = [("1×", 20.0), ("2×", 40.0), ("5×", 100.0), ("20×", 400.0), ("100×", 2000.0), ("¼×", 5.0), ("½×", 10.0)];
+/// The slow-motion speed a fast machine starts at (¼×).
+const SLOW: usize = 5;
 
 /// A press on an input longer than this (ms) holds it on (shorter: a tap).
 const HOLD_MS: f64 = 250.0;
@@ -275,6 +279,7 @@ pub fn start(app: &mut App, id: u32) {
         flip: flip.clone(),
         speed: speed.clone(),
         speed_i: 0,
+        speed_chosen: false,
         touches: Vec::new(),
         moved: false,
         pan_button: false,
@@ -412,7 +417,6 @@ pub fn load(app: &mut App, id: u32) {
         return;
     }
     let el = v.el.clone();
-    let has_trace = v.trace.is_some();
     let text = match app.text_of(id) {
         None => return,
         Some(Err(e)) => {
@@ -424,15 +428,8 @@ pub fn load(app: &mut App, id: u32) {
         }
         Some(Ok(t)) => t,
     };
-    // a recording to play (data-trace): wait for it too; without it the design is shown as built
-    let trace = if has_trace {
-        match app.trace_of(id) {
-            None => return,
-            Some(r) => Some(r),
-        }
-    } else {
-        None
-    };
+    // (vjeux: the view shows only what redsim simulates exactly: no real-game recording is
+    // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
     match Player::new(&text, aspect) {
@@ -452,24 +449,6 @@ pub fn load(app: &mut App, id: u32) {
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
-            }
-            let mut trace_note = None;
-            // the recording only for what redsim cannot run itself (UNMODELED): else it runs live
-            let modeled = p.session.simulated() && p.session.period(mcview::session::ENTITY_HORIZON).err().is_none_or(|e| !e.starts_with("UNMODELED"));
-            let trace = if modeled { None } else { trace };
-            match trace {
-                Some(Ok(tt)) => match p.session.attach_trace(&tt) {
-                    Ok(()) => {
-                        p.look = mcview::scene::default_look(&p.session);
-                        p.look.lit_marker = true;
-                        p.invalidate();
-                        let r = p.session.replay.as_ref().unwrap();
-                        trace_note = Some(format!("recorded in the game · {} gt loop", r.period));
-                    }
-                    Err(e) => trace_note = Some(format!("recording unreadable: {e}")),
-                },
-                Some(Err(e)) => trace_note = Some(format!("recording unavailable: {e}")),
-                None => {}
             }
             let l = v.live.as_mut().unwrap();
             let circuit = !p.session.circuit_inputs.is_empty() && p.session.simulated();
@@ -597,14 +576,13 @@ pub fn load(app: &mut App, id: u32) {
                     });
                 }
             }
-            l.base_status = match (&trace_note, &p.session.unsimulated) {
-                (Some(n), _) => n.clone(),
-                (None, Some(why)) => {
+            l.base_status = match &p.session.unsimulated {
+                Some(why) => {
                     let _ = l.status.set_attribute("title", why);
-                    "shown as built".to_string()
+                    format!("not simulated: {}", short_reason(why))
                 }
-                (None, None) if circuit => format!("{} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
-                (None, None) => match p.session.mode {
+                None if circuit => format!("{} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
+                None => match p.session.mode {
                     mcview::Mode::Door { .. } => "tap the lever".to_string(),
                     _ => String::new(),
                 },
@@ -628,6 +606,15 @@ pub fn load(app: &mut App, id: u32) {
                     p.camera = c;
                 }
                 playing |= was_playing;
+            }
+            // a machine whose blocks repeat in under 10 gt (a 4 gt clock flickers at 5 Hz at 1x)
+            // starts in slow motion, ¼x, until the person picks a speed (exact frames: nothing
+            // is interpolated between them but moving blocks and entities)
+            if !l.speed_chosen
+                && let Some(p) = l.player.as_ref()
+            {
+                let fast = p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && p.session.short_cycle(9, 120).is_some();
+                l.set_speed(if fast { SLOW } else { 0 });
             }
             if let Some(p) = l.player.as_mut() {
                 p.tps = SPEEDS[l.speed_i].1;
@@ -671,6 +658,18 @@ fn demo_text(p: &Player, phase: Option<&str>) -> String {
         Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
         None => "demo: the judge's test".to_string(),
     }
+}
+
+/// Why redsim cannot run a design, short (the badge; the whole reason in its tooltip):
+/// `block "oak_fence" is not modeled by redsim; ...` -> `oak_fence`.
+fn short_reason(why: &str) -> String {
+    let first = why.split(';').next().unwrap_or(why).trim();
+    if let Some(rest) = first.strip_prefix("block \"")
+        && let Some(name) = rest.split('"').next()
+    {
+        return format!("{name} (redsim does not model it)");
+    }
+    first.split(':').next().unwrap_or(first).trim().to_string()
 }
 
 /// Advance and draw one frame; true while it needs more frames (playing, dragging).
@@ -815,9 +814,15 @@ impl Live {
         self.redraw = true;
     }
 
-    /// The badge: the demo's phase (in words) while it runs, else what runs.
+    /// The badge: the demo's phase (in words) while it runs, else what runs; a run redsim could
+    /// not follow stops and says so.
     fn sync_status(&mut self) {
         let text = match &self.player {
+            Some(p) if p.session.halted.is_some() => {
+                let why = p.session.halted.clone().unwrap_or_default();
+                let _ = self.status.set_attribute("title", &why);
+                format!("not simulated after {}", why.split(':').next().unwrap_or("this tick"))
+            }
             Some(p) if p.session.demo.is_some() => demo_text(p, p.phase()),
             _ => self.base_status.clone(),
         };
@@ -844,7 +849,13 @@ impl Live {
     }
 
     fn next_speed(&mut self) {
-        self.speed_i = (self.speed_i + 1) % SPEEDS.len();
+        self.speed_chosen = true;
+        self.set_speed((self.speed_i + 1) % SPEEDS.len());
+    }
+
+    /// Show and use speed `i` of [`SPEEDS`].
+    fn set_speed(&mut self, i: usize) {
+        self.speed_i = i;
         let (name, tps) = SPEEDS[self.speed_i];
         self.speed.set_text_content(Some(name));
         self.speed.set_title(&format!("Speed: {name} = {tps} game ticks per second"));

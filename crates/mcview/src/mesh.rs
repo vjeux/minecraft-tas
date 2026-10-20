@@ -252,7 +252,7 @@ impl<'a> Builder<'a> {
             // TntRenderer: the block model centred on the entity, swelling over the last 10
             // ticks, flashing white every 5 (the white overlay: 75% white)
             if let Some(m) = self.model(state) {
-                let (scale, white) = crate::tnt::look(e.fuse);
+                let (scale, white) = crate::entitymodel::tnt_look(e.fuse);
                 self.xf = Some(crate::entitymodel::M::id().translate([e.pos[0], e.pos[1] + 0.5, e.pos[2]]).scale([scale, scale, scale]).translate([-0.5, -0.5, -0.5]));
                 self.white = white;
                 self.add_model(&m, [0.0; 3], None, None);
@@ -452,6 +452,13 @@ impl<'a> Builder<'a> {
         }
         let m = Model { parts, ..Default::default() };
         self.add_model(&m, base, None, None);
+    }
+
+    /// A powered output's box filled with translucent red (its outline drawn by [`Builder::marker`]).
+    pub fn out_fill(&mut self, cell: Pos) {
+        let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];
+        let p = Part::new([-0.2, -0.2, -0.2], [16.2, 16.2, 16.2]).all("out_powered").layer(models::Layer::Translucent).emissive(true).nocull();
+        self.add_model(&Model::one(p), base, None, None);
     }
 
     fn add_model(&mut self, m: &Model, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {

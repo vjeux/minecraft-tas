@@ -105,6 +105,27 @@ pub fn default_look(s: &Session) -> Look {
     Look { marker, lit_marker: false, outlines, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
 }
 
+/// An OUT box's outline colour (the OUT tag's), and while its output is powered.
+pub const OUT_COLOUR: [u8; 3] = [255, 176, 74];
+pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
+
+/// The viewer's look (live viewers, thumbnails): [`default_look`], with a clock's output in the
+/// circuits' OUT box (vjeux: red while powered) instead of the real-game pictures' orange glass
+/// marker (kept for `web compare`).
+pub fn viewer_look(s: &Session) -> Look {
+    let mut look = default_look(s);
+    if !s.design.meta.contains_key("circuit")
+        && !s.mode.is_door()
+        && let Some(o) = s.outputs.first()
+    {
+        look.marker = None;
+        if !look.port_outlines.iter().any(|(p, _)| p == o) {
+            look.port_outlines.push((*o, OUT_COLOUR));
+        }
+    }
+    look
+}
+
 /// The frame of a session at `partial` (0..1) after its current tick.
 pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let blocks = s.render_blocks(partial);
@@ -132,7 +153,13 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         b.marker(*o, false, [110, 230, 40], false);
     }
     for (o, c) in &look.port_outlines {
-        b.marker(*o, false, *c, false);
+        // an output's box: red while it is powered (redsim's state this tick)
+        if s.outputs.contains(o) && s.output_powered(*o) {
+            b.marker(*o, false, OUT_POWERED, false);
+            b.out_fill(*o);
+        } else {
+            b.marker(*o, false, *c, false);
+        }
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
@@ -231,7 +258,16 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
         }
     }
     let ents = if s.simulated() { s.entities(0.0) } else { Vec::new() };
-    for e in ents.iter().map(|e| e.pos).chain(s.design.entities.iter().map(|e| [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32])) {
+    let mut ent_pos: Vec<[f32; 3]> = ents.iter().map(|e| e.pos).chain(s.design.entities.iter().map(|e| [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32])).collect();
+    // a design with entities or TNT: where they go in redsim's run (a launched TNT's flight, a
+    // cart's loop), within VIEW_REACH blocks of the build (one flung far away leaves the view)
+    if !s.design.entities.is_empty() || crate::session::is_tnt_design(&s.design) {
+        let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
+        let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
+        let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH);
+        ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near));
+    }
+    for e in ent_pos {
         for k in 0..8 {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
         }
@@ -239,13 +275,23 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
     pts
 }
 
+/// How many ticks of redsim's run frame a design's moving entities ([`view_points`]).
+const VIEW_RUN: u32 = 200;
+/// How far beyond the build those entities stay framed.
+const VIEW_REACH: f32 = 8.0;
+
 /// The viewer's framing from direction `dir`: [`view_points`] filling `window` (see
 /// [`LIVE_WINDOW`]) at the pictures' cropped field of view.
 pub fn view_camera(s: &Session, look: &Look, aspect: f32, dir: [f32; 3], window: (f32, f32, f32)) -> Camera {
+    view_camera_at(s, look, &view_points(s, look), aspect, dir, window)
+}
+
+/// [`view_camera`] with the points already known.
+fn view_camera_at(s: &Session, look: &Look, pts: &[[f32; 3]], aspect: f32, dir: [f32; 3], window: (f32, f32, f32)) -> Camera {
     let (lo, hi) = frame_bounds(s, look);
     let crop = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
     let mut cam = Camera::frame(lo, hi, dir, crop, aspect, 0.85);
-    cam.fit_points(&view_points(s, look), aspect, window.0, window.1, window.2);
+    cam.fit_points(pts, aspect, window.0, window.1, window.2);
     cam
 }
 
@@ -308,12 +354,13 @@ pub fn click_point(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: 
 /// (and click) every lever and button from: a door's lever is often behind the build from the
 /// pictures' side.
 pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32)) -> Camera {
-    let base = view_camera(s, look, aspect, CAM_DIR, window);
+    let pts = view_points(s, look);
+    let base = view_camera_at(s, look, &pts, aspect, CAM_DIR, window);
     if s.inputs.is_empty() || !s.simulated() {
         return base;
     }
     for (sx, sz) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)] {
-        let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera(s, look, aspect, [CAM_DIR[0] * sx, CAM_DIR[1], CAM_DIR[2] * sz], window) };
+        let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [CAM_DIR[0] * sx, CAM_DIR[1], CAM_DIR[2] * sz], window) };
         if s.inputs.iter().all(|c| click_point(atlas, s, &cam, *c, aspect).is_some()) {
             return cam;
         }

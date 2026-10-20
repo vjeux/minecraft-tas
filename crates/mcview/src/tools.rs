@@ -54,7 +54,7 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         }
     }
     let aspect = o.width as f32 / o.height as f32;
-    let mut look = scene::default_look(&s);
+    let mut look = if o.picture { scene::default_look(&s) } else { scene::viewer_look(&s) };
     if o.picture {
         look.outlines.clear();
         look.port_outlines.clear();

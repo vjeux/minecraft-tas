@@ -535,6 +535,10 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("marker_lit", &|t| {
         t.fill(rgba(0xff9a1a, 205)).outline(0, 0, 15, 15, rgba(0xffe08a, 250)).outline(1, 1, 14, 14, rgba(0xffc04a, 230)).rect(2, 2, 3, 3, rgba(0xfff0c0, 235));
     });
+    // a powered output's box (the viewer's OUT box, red while powered): a translucent red fill
+    add("out_powered", &|t| {
+        t.fill(rgba(0xff3b30, 72));
+    });
     add("grass_side", &|t| {
         t.fill(rgb(0x866043)).vary(0.1).map(|x, y, c| {
             let fringe = 2 + ((x * 7 + 3) % 5 == 0) as i32 + ((x * 3) % 4 == 1) as i32;

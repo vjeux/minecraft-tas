@@ -37,6 +37,10 @@ struct Tag {
     content: String,
     /// Its size, measured again when its contents change.
     size: (f64, f64),
+    /// Its colour, and the output cell it names (its text red while that output is powered).
+    colour: String,
+    out: Option<[i32; 3]>,
+    lit: bool,
 }
 
 pub struct Overlays {
@@ -158,7 +162,7 @@ impl Overlays {
             let n = cells.len().max(1) as f32;
             let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
             let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
-            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0) }
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name: String = ci.name.to_uppercase().chars().take(3).collect();
@@ -177,16 +181,26 @@ impl Overlays {
             let t = make(&self.layer, &g.label, g.colour, g.cells);
             self.tags.push(t);
         }
+        // a clock's output: the circuits' OUT box and tag (vjeux: instead of the orange glass)
+        let clock_out = !p.session.design.meta.contains_key("circuit") && !p.session.mode.is_door();
+        if clock_out && let Some(o) = p.session.outputs.first() {
+            let t = make(&self.layer, "OUT", "#ffb04a", vec![*o]);
+            self.tags.push(t);
+        }
+        // the tags naming an output turn red while it is powered
+        for t in self.tags.iter_mut() {
+            t.out = t.cells.iter().copied().find(|c| p.session.outputs.contains(c));
+        }
         if let Some((c, _)) = self.history.take() {
             c.remove();
         }
-        if !p.session.circuit_inputs.is_empty() && !p.history.is_empty() {
+        if (!p.session.circuit_inputs.is_empty() || clock_out && p.session.simulated()) && !p.history.is_empty() {
             let c: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
             let rows = p.history.len() as u32;
             c.set_width(HISTORY as u32 * 3);
             c.set_height(rows * 8 + (rows - 1) * 2);
             let _ = c.set_attribute("style", &format!("position:absolute;right:8px;top:34px;width:{}px;height:{}px;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
-            c.set_title("the output, on (orange) or off, over the last 40 game ticks");
+            c.set_title("the output: powered (red) or not, over the last 40 game ticks");
             let _ = self.layer.append_child(&c);
             if let Some(ctx) = c.get_context("2d").ok().flatten().and_then(|x| x.dyn_into::<CanvasRenderingContext2d>().ok()) {
                 self.history = Some((c, ctx));
@@ -341,6 +355,13 @@ impl Overlays {
                 hide(&tg.el);
                 continue;
             };
+            // an output's tag: red while it is powered
+            let lit = tg.out.is_some_and(|o| p.session.output_powered(o));
+            if lit != tg.lit {
+                let _ = tg.el.style().set_property("color", if lit { "#ff5a4f" } else { &tg.colour });
+                self.tags[i].lit = lit;
+            }
+            let tg = &self.tags[i];
             let (wt, ht) = tg.size;
             let rect = match layout.place(&view, ax, ay, wt, ht, 5) {
                 Some((rect, _)) => rect,
@@ -413,7 +434,7 @@ impl Overlays {
                 let y = row as f64 * 10.0;
                 let pad = HISTORY - hist.len().min(HISTORY);
                 for (k, on) in hist.iter().enumerate() {
-                    ctx.set_fill_style_str(if *on { "#ffab3d" } else { "#3a3a3a" });
+                    ctx.set_fill_style_str(if *on { "#ff5a4f" } else { "#3a3a3a" });
                     ctx.fill_rect(((pad + k) * 3) as f64, y + if *on { 0.0 } else { 5.0 }, 2.0, if *on { 8.0 } else { 3.0 });
                 }
             }
