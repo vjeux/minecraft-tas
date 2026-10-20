@@ -112,9 +112,14 @@ direct feed, behind its above cell for a QC feed plus a glass block placed and r
 | `--physics --max-pistons 14` (c70b's seeds) | UNSAT everywhere at h 6 / h 8 so far |
 
 **What the bounds mean.** Every UNSAT is bounded by H parallel steps per edge. c70b's working
-(unwired) mm01-7x7 needs 20 steps in this model (UNSAT at h 10, SAT at h 20), so these results only
-rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A real proof needs much
-longer horizons (h 10 takes hours per placement) or an unbounded method.
+(unwired) mm01-7x7 needs 20 steps in the old permissive feed model (UNSAT at h 10, SAT at h 20),
+so these results only rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A
+real proof needs much longer horizons (h 10 takes hours per placement) or an unbounded method.
+They also cover only the macro palette: air, stone, obsidian, redstone blocks, static wiring cells,
+normal and sticky pistons. Designs that carry an observer (it fires on arrival and powers what it
+faces at its new cell) or ride signals on slime structures (fly's gadgets 2 and 3, explore/fly
+tracks/fly/wip/) are outside it. A lever on a piston outside the box (holding it and, by QC, the
+piston below) and QC through an empty above cell are inside it.
 
 **The central 7x7 near-miss (2026-10-20).** The plain feed model found (-2..4, -2..4) SAT at h 6
 (20 000 s; sat/v8/). On its fixed layout `--physics` was SAT at h 8, but the ideal-rs replay of
