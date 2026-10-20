@@ -74,7 +74,32 @@ Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use;
 The best design of each variation is archived (`mctas circuit archive`); a design that is bigger
 and slower than an archived one of the same variation is dominated and stays out.
 
-## Results so far (2026-10-20, explore/tnt)
+## Explosions on (vjeux 2026-10-20 11:53Z): the re-judge
+
+"You didn't model tnt explosion. This will blow up the machine." Every TNT duper is now judged
+with its explosions (the default; `explode: off` is analysis only and is not archived). The eight
+designs archived before, in the real game at 16 builds:
+
+| design | with explosions | now |
+|---|---|---|
+| tnt-duper-12b (smallest) | BLOWN UP: some TNT land on its frame (the 0.02 kick drifts a TNT up to 1 block) | out of the archive (tracks/tnt, `explode: off`) |
+| tnt-duper-triggered-13b | BLOWN UP (a destroyed block's item at the end) | out; survivable triggered: open |
+| tnt-lever-12b | BLOWN UP | replaced by archive/tnt-lever-launch-15b (survives: every TNT out of range) |
+| tnt-honey-15b (slime-free) | BLOWN UP | out; survivable slime-free: open |
+| tnt-precise-28b | survives (water channel), but NOT precise any more: the explosions knock the next TNT (spread 6.3 blocks) | out (same blocks as survive-28b) |
+| tnt-survive-28b | survives (44 exploded in water, 45 out of range) | out: dominated by the 15-block launcher |
+| tnt-launch-15b | survives: all 96 TNT leave out of range | archived: the SMALLEST survivable duper |
+| tnt-drop-16b | survives: all TNT fall straight down out of range | archived |
+
+PRECISE under explosions: open, and maybe impossible at 200 TNT/min: when TNT k goes off at the
+point, TNT k+1 (6 gt younger) is already near that point and the blast pushes it; only a path
+shielded from the blast (exposure 0) or a pinned TNT could stay exact.
+
+Next (coordinator 12:02Z, vjeux "pass every possible random number"): the redsim judge sweeps
+every critical kick angle and evaluates every explosion at the maximum ray factor (clk-misc builds
+the exact explosion), then spot-checks in the game.
+
+## Results so far (2026-10-20, explore/tnt; explosions OFF, kept for the record)
 
 | variation | status | design / measure |
 |---|---|---|

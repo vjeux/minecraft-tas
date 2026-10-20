@@ -1,11 +1,10 @@
-# archived 2026-10-20T07:56Z from designs/circuits/tracks/tnt/tnt-lever-12b.txt by mctas circuit archive
-# CIRCUIT: tnt-lever-12b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt, 12 blocks, 3x2x4, robust
-name: tnt-lever-12b
+# archived 2026-10-20T12:14Z from designs/circuits/tracks/tnt/tnt-lever-launch-15b.txt by mctas circuit archive
+# CIRCUIT: tnt-lever-launch-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt, 15 blocks, 3x3x4, robust (survives its own explosions: 0 exploded, 137 out of range, design intact)
+name: tnt-lever-launch-15b
 circuit: tnt-duper
 port input: 0 0 1
 origin: 0 0 -1
 palette:
-  A minecraft:stone
   D minecraft:dead_tube_coral_fan[waterlogged=false]
   O minecraft:obsidian
   R minecraft:redstone_block
@@ -22,4 +21,9 @@ layer 1:
   ..T
   .D
   ..rR
-  ...A
+  ...S
+layer 2:
+  .
+  .
+  ..S
+  ..SS

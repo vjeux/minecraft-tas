@@ -34,14 +34,29 @@ pub fn ends_traced(c: &Clock, u: f64, ticks: u32, follow: bool) -> Result<Vec<En
     let mut w = build(c, 4)?;
     w.tnt_kick = Some(u);
     let mut actions = c.actions();
+    // a circuit with an input (a triggered or switchable duper): the judge's stimulus too
+    if let Ok(cc) = circuit::Circuit::from_design(c.design.clone())
+        && let Some(kind) = cc.kind.clone()
+        && !cc.inputs.is_empty()
+    {
+        let s = circuit::check::stimulus(&cc, &kind, &circuit::check::Sizing::default());
+        actions.extend(cc.actions(&s));
+        actions.sort_by_key(|(t, _)| *t);
+    }
     let mut born: HashMap<u32, u32> = HashMap::new();
     let mut out = Vec::new();
     for t in 0..ticks {
         while actions.first().is_some_and(|(at, _)| *at == t) {
             let (_, a) = actions.remove(0);
-            if let clock::Action::Place { pos, state, .. } = a {
-                let b = redsim::Block::parse(&state).map_err(|e| format!("kick block: {e}"))?;
-                w.set_block(redsim::BlockPos::new(pos[0], pos[1], pos[2]), b, redsim::world::flags::ALL);
+            match a {
+                clock::Action::Place { pos, state, .. } => {
+                    let b = redsim::Block::parse(&state).map_err(|e| format!("kick block: {e}"))?;
+                    w.set_block(redsim::BlockPos::new(pos[0], pos[1], pos[2]), b, redsim::world::flags::ALL);
+                }
+                clock::Action::Clear { pos } => {
+                    w.set_block(redsim::BlockPos::new(pos[0], pos[1], pos[2]), redsim::Block::Air, redsim::world::flags::ALL);
+                }
+                _ => {}
             }
         }
         w.tick();
