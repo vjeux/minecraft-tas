@@ -585,6 +585,8 @@ pub struct Options {
     /// With `islands`: cells the lever sits on or in (a plan without lever events): islands next
     /// to them start at t0 of both edges.
     pub lever_cells: Vec<Pos>,
+    /// `--search` also offers overlapping pulse pairs: b starting d gt after a, for these d.
+    pub pair_offsets: Vec<u32>,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -1174,6 +1176,22 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                     let rb = || Some("minecraft:redstone_block".to_string());
                     moves.push(Step::new(vec![(0, a, rb()), (0, b, rb()), (2, a, None), (2, b, None)]));
                     pocket_of.push(None);
+                }
+            }
+        }
+        if !o.pair_offsets.is_empty() {
+            // overlapping pulses: b starts d gt after a, before the build goes idle (a push and a
+            // pull that only work while the other piston is still moving)
+            for &a in &cells {
+                for &b in &cells {
+                    if a == b || in_pocket(&a) || in_pocket(&b) {
+                        continue;
+                    }
+                    for &d in &o.pair_offsets {
+                        let rb = || Some("minecraft:redstone_block".to_string());
+                        moves.push(Step::new(vec![(0, a, rb()), (2, a, None), (d, b, rb()), (d + 2, b, None)]));
+                        pocket_of.push(None);
+                    }
                 }
             }
         }
