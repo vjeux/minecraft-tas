@@ -16,3 +16,15 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [pext-n2-sf8-flat](archive/pext-n2-sf8-flat.txt) | 8 | - |
+
+**[pext-n3-cascade-v1](archive/pext-n3-cascade-v1.txt)** (piston-extender 3, N = 3; 26 blocks: gold_block, observer, slime_block, sticky_piston, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [pext-n3-rider-v1](archive/pext-n3-rider-v1.txt) | 31 | redstone_wire |
+
+**[pext-n3-cascade22](archive/pext-n3-cascade22.txt)** (piston-extender 3, N = 3; 22 blocks: gold_block, observer, piston, slime_block, sticky_piston, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [pext-n3-rider24](archive/pext-n3-rider24.txt) | 24 | redstone_lamp, redstone_wire |
