@@ -36,7 +36,16 @@ is the short version for whoever picks the work up.
   1.5 min) and `mctas web luma <all archived designs>` natively: no mostly-black frame. NOTE: a
   demo page carries a COPY of the bundle (`web demo` copies web/viewer): re-run `web demo` after
   `web bundle`, and build with plain `cargo build --release` (`-p mctas` does not relink the
-  binary).
+  binary). After a recorder change (the Record button): `mctas web record
+  '<demo page>?mcview-debug' -o /tmp/rec --index <i>` on a clock, a door and a TNT duper
+  (headless Chromium has no H.264 encoder: VP9 WebM), `ffprobe -count_frames` each (codec, size,
+  duration, frames, `color_range=tv`) and a contact sheet (`ffmpeg -vf
+  fps=1,scale=400:-2,tile=2x5`) looked at; WebKit once: put a `data/site.json` (`{"version": 1,
+  "generated": "", "commit": "", "builds": []}`) in the demo dir, copy its index.html to
+  `rec.html`, then `mctas site smoke --dir <demo dir> --engine webkit --page rec.html --click
+  'css:[data-mcview-record]' --frames 10 --interval 9000` must print `record: saved ...` for
+  desktop and phone (WebKitGTK encodes through GStreamer: `dnf install gstreamer1-plugins-good`
+  for VP9; without it the console says the browser cannot encode).
 - Push to `explore/webrender` and tell the coordinator: it merges and deploys (ONE deployer;
   never deploy, never ask site to redeploy).
 

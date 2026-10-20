@@ -44,7 +44,24 @@ Expected size, constant for every N: about 20 blocks with the torch latch, about
 
 Nine same-N counters that were strictly bigger than another entry with the same metrics line are out of the archive (`circuit archive --remove`): counter12-ring3-ring4 18b, counter16-ring4-ring4 20b, counter18-ring9-bulb1 28b, counter20-ring5-ring4 22b, counter2-ring 8b, counter4-ring9 9b, counter4-ring 10b, counter5-star 12b, counter9-ring9 25b. counter3-ring and counter3-corner are both 8 blocks, so they stay as equivalent layouts. counter 38 at 57 blocks beside counter 48 at 20 is not a mislabel: a composite N chains into small rings while a prime factor forces one long ring, so size tracks the factorisation of N, not N.
 
-## R7 (real input devices): six designs removed, two kinds now empty
+## D flip-flop under R7: where the rebuild stands (2026-10-20)
+
+The latch is rebuilt and archived: `d-latch-r7`, 8 blocks, enable high, robust. The fix is clk-rt's rule, the same one that rebuilt the gates: an input that feeds a comparator's SIDE must arrive on the design's own repeater in the input cell, because a comparator side never reads the judge's powered stone. (d-latch-high, which had the enable arriving as a bare input cell, is removed: under R7 it reads 0 and the latch never opens.)
+
+The flip-flop is NOT done, and the honest state after a long session on it: the two-latch shape is right, each latch works alone, and the best build so far gets the FIRST clock cycle correct and then holds — `dff-r7` in this folder, 30 blocks, failing at "M 2 clk rises: q = 1, want 0". Everything learned, so the next attempt starts from the facts and not from scratch:
+- A subtract comparator takes the MAX of its two side cells (`getAlternateSignal`), so the master's enable (NOT clk) and the slave's enable (clk) must never touch the same cell. That is the whole geometric difficulty: with the latches side by side their side cells are 2 apart, and the clock must reach both while being inverted for exactly one.
+- Routing the clock BELOW the latches (y = -1 or a dust lane south of them) is what finally got a clean build; carrying it above fails on support (a dust needs its own floor, and the latches' redstone blocks are already there).
+- The data must ALSO arrive on its own repeater when it feeds a comparator side, not only the enable. A bare dust in the d cell reads 0, exactly as the enable did.
+- Judged dead ends, each measured rather than guessed: a bulb-gated repeater (the bulb toggles per edge, so q follows the bulb and not d), an observer on the clock's input block (its 2 gt pulse is shorter than the judge's clock phase), both latches in one row (shared side cell), the clock carried on a layer above (support), the torch moved to the slave side (same failure mirrored), and the output taken from the master's repeater (then q is the master, not the flip-flop).
+- Next: keep the working y=-1 clock lane, but separate the two latches along z instead of x, so the enables arrive from opposite faces and the data path never crosses the clock lane.
+
+### The repeater-lock route (coordinator's suggestion, 2026-10-20)
+
+A repeater's side lock reads only diodes, which the design owns, so it avoids the comparator side-MAX problem entirely. It also found the bug behind every earlier failure: **a repeater's `facing` is the direction it READS from**, so lock repeaters that "point at" a latch in the layout were pointing away from their own inputs. With that corrected the repeater-lock LATCH passes: 6 blocks, enable low, 4 gt, robust (it does not beat the archived 4-block d-latch-repeater, so it is not archived).
+
+The master-slave built from two of them still fails, and the failure is now specific and repeatable: q is TRANSPARENT (`M 1 d=1 clk=0: q = 1, want 0`) instead of held, so at clk=0 both repeaters pass instead of only the master. Six placements of the two lock repeaters were judged (both locks north of the data line, both south, one each side, the torch on the master, the torch on the slave, and the clock entering from the far side); each either leaves q transparent or fails the support check. The slave probe on its own also fails to pass data, which says the slave's lock is permanently engaged rather than clock-driven — that is the thing to isolate next: build ONLY the slave latch, confirm it opens and closes with its enable, and only then join it to the master.
+
+Until it passes, `dff`, `dff-enable` and `shift 2` stay empty rather than holding a design that fails the judge.
 
 Re-judged both studies under R7 and removed what fails the judge: rs-loop (12b), dff-window (10b), dffe-window (13b), shift2-window (20b), tff-window (17b), tff-masterslave (24b). All six are window or master-slave designs that time their copy against the input's own edges; R7 drives the input with a repeater, whose shortest pulse is 2 gt and whose edge lands inside a tick rather than between ticks, so the window never opens where the design expects. Widening the window repeater (delay 2, 3, 4) does not fix dff-window: the clock edge itself is in the wrong phase, not merely too short.
 
@@ -54,3 +71,33 @@ Consequences, stated plainly rather than hidden:
 - `rs-latch` keeps rs-dropper (4b) and rs-crafter (6b); `d-latch` keeps both; every counter except the refused dropper rings survives.
 
 The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out of the build) are a different matter: they are not wrong, the judge simply cannot drive them. The item counter (39 blocks, any N) already replaces every large-N one, so the gap they leave is only at small composite N, where the bulb chain and the corner ring cover it.
+
+## Sizes after the rebuild (2026-10-20)
+
+| kind | design | blocks | note |
+|---|---|---|---|
+| dff | dff-lock | 9 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust, irreducible. Was 15: the clock block itself is the master lock's back and carries the slave's wall torch, so there is no clock wiring at all |
+| shift 2 | shift2-lock | 27 | was 30: stage 1 is the 9-block dff on the clock block; a dust on the clock block carries the clock round to stage 2's stone (18 blocks for stage 2 — the loop-back from stage 1's output to a second stage sharing the clock block and torch from their other faces would cost more than it saves) |
+| dff-enable | dffe-lock | 12 | was 18: the 9-block dff plus a second lock on the slave from e (wall torch + repeater + stone); latency 6 gt, robust, irreducible |
+
+The dff went 31 -> 18 by the in-game shrink, then 18 -> 15 by hand: the shrink removes blocks but never re-routes, and the clock line it left ran three cells further than it needed. The stage is two repeaters on the data line (B west, A south locking B from the side), a wall torch for the inverted phase, and one clock dust above; a second stage reuses the same dust.
+
+dff-enable went 31 -> 18 by NOT gating the clock at all. The first build ANDed e into the clock (31 blocks, latency 38 gt, position-dependent), and every cheaper AND failed on support: a torch cannot hold the dust above it, a stone the dust reads has no support either, and the NAND one layer lower arrives a tick late and misses the first edge. The fix is a repeater fact: a repeater is locked when EITHER side is powered (`getAlternateSignal` takes the max of both sides), so the enable needs no gate, only its own lock on the slave's free side — a wall torch on the e cell and one repeater, 3 blocks. With e off the slave stays locked through any clock edge and q holds; the master still tracks d, which is harmless because the slave only reads it on an edge with e on. The judge changes e only while the clock is low (seq.rs), the same setup assumption every enable flip-flop makes.
+
+## ONE design per kind (vjeux 21:47Z, 2026-10-20)
+
+- D latch: d-latch-repeater, 4 blocks (transparent while e is off). The 8-block enable-high latch is removed: the same 4 blocks with the 1-block NOT on the enable (a wall torch on the e block feeding the side repeater) is an enable-high latch in 5 blocks, judged robust (latency 6 gt), and the caption says so.
+- RS latch: rs-dropper, 4 blocks, 6 gt, tileable every 2. rs-crafter (6 blocks, 13 gt) removed.
+- D flip-flop 15, with enable 18, shift-2 30: one each. Open: shift-2 should beat 2 x dff by sharing the inverted clock (one torch for both slaves) once the two phases run on opposite sides of the data line.
+- T flip-flop with reset: tffr-dropring 8 blocks, the only one; open.
+- Counters: one per N by the fold (item counter from 17 up, clk-rt's ring counters and the bulb chains below).
+
+## Next target: the item counter (39 blocks today, any N from 17 to 576)
+
+Same mechanism, priced part by part from today's tricks, should land near 18:
+- A, B: two droppers facing each other, the pile in A (2).
+- Input: a dust lying on each dropper, the input block beside one of them (2). A HELD dropper (already powered) does not fire, so the input pulse fires only the free one.
+- Hold: comparator C reads the bulb W and points into a stone X beside A (W lit: A held); a wall torch hanging on X sits beside B (W off: B held) (C + support + X + torch = 4).
+- Empty detection: comparator a reads A and points into stone Ka, comparator b reads B into Kb; a wall torch on each is lit while its dropper is EMPTY (a, b, 2 supports, Ka, Kb, 2 torches = 8).
+- W: the copper bulb, touching BOTH torches (the 2-block NAND trick: a bulb is powered by any neighbouring torch, and a torch also powers a bulb directly above or below it) (1).
+The hard part is geometry, not logic: Ka and Kb sit on the far sides of A and B, and both torches must touch W. Torches above or below W count too, which is the freedom a layout should use. Worth a small layout search (a few roles, a 5x4x5 box) rather than hand placement.

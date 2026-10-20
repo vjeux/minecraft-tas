@@ -1,0 +1,6 @@
+phase between
+design designs/piston-door-3x3/tracks/fly/wip/sides-s0.txt
+open 0 set 0 4 1 minecraft:redstone_block
+open 0 set 2 4 1 minecraft:redstone_block
+close 0 clear 0 4 1
+close 0 clear 2 4 1

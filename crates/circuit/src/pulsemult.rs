@@ -45,6 +45,17 @@ pub const TRAIN_GAPS: [u32; 6] = [1, 2, 4, 8, 16, 32];
 pub const CLOCK_PERIODS: [u32; 12] = [40, 30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2];
 pub const WINDOWS: [u32; 3] = [20, 60, 200];
 
+/// `base`, then longer inputs (120, 160, 240, 320, 480... gt) up to three times the sizing gap
+/// (the redsim recovery time + 10, about L for a timer, so at least three inputs longer than a
+/// timer's reload): a long timer is judged on inputs as long as its own delay (coordinator
+/// 2026-10-20: an item timer needs an input about as long as its delay to reload, and its
+/// min-pulse must say so honestly).
+pub fn long_lens(base: &[u32], gap: u32) -> Vec<u32> {
+    const LONG: [u32; 14] = [120, 160, 240, 320, 480, 640, 960, 1280, 1920, 2560, 3840, 5120, 7680, 10240];
+    let top = base.iter().copied().max().unwrap_or(0);
+    base.iter().copied().chain(LONG.iter().copied().filter(|l| *l > top && *l <= 3 * gap)).collect()
+}
+
 fn gt(n: i64) -> String {
     format!("{n} gt")
 }
@@ -64,7 +75,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
         *t += len + gap;
     };
     let pairs = |s: &mut Schedule, t: &mut u32| {
-        for d in PAIR_DELAYS {
+        for d in long_lens(&PAIR_DELAYS, gap) {
             s.pulse(0, *t, 4);
             s.pulse(0, *t + d, 4);
             s.phase(*t, *t + d + 4 + gap, format!("pair {d}"));
@@ -87,13 +98,14 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
             }
         }
         Kind::Monostable(_) => {
-            for l in ISO_LENS {
+            for l in long_lens(&ISO_LENS, gap) {
                 pulse(&mut s, &mut t, l);
             }
             pairs(&mut s, &mut t);
         }
         Kind::OffDelay => {
-            for l in OFF_LENS {
+            let lens = long_lens(&OFF_LENS, gap);
+            for &l in &lens {
                 pulse(&mut s, &mut t, l);
             }
             for g in TRAIN_GAPS {
@@ -103,9 +115,21 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
                 s.phase(t, t + 3 * (4 + g) + gap, format!("train {g}"));
                 t += 3 * (4 + g) + gap;
             }
+            // a long timer (an item timer reloads one item per 8 gt): trains of its longest input,
+            // a gap shorter and a gap longer than its delay (about the sizing gap)
+            if gap >= 200 {
+                let p = *lens.last().unwrap_or(&4);
+                for g in [gap / 4, 2 * gap] {
+                    for k in 0..3 {
+                        s.pulse(0, t + k * (p + g), p);
+                    }
+                    s.phase(t, t + 3 * (p + g) + gap, format!("ltrain {g}"));
+                    t += 3 * (p + g) + gap;
+                }
+            }
         }
         Kind::OnDelay => {
-            for l in FILTER_LENS {
+            for l in long_lens(&FILTER_LENS, gap) {
                 pulse(&mut s, &mut t, l);
             }
         }
@@ -474,11 +498,19 @@ fn off_delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let lens: Vec<u32> = rows.iter().map(|r| r.0).collect();
     let ok: Vec<bool> = rows.iter().map(|x| x.1 == Some(r)).collect();
     let Some(mp) = min_pulse(&lens, &ok, 3) else { return fail("fewer than the 3 longest inputs give input + L", table) };
-    if mp > 4 {
+    // the restart test: trains of 4 gt inputs, or, for a long timer whose min-pulse is longer
+    // (an item timer reloads one item per 8 gt), trains of its longest input ("ltrain")
+    let long_trains: Vec<(usize, usize, u32)> = phases(s, "ltrain ").collect();
+    let prefix = if mp <= 4 {
+        "train "
+    } else if !long_trains.is_empty() && input_runs(t, long_trains[0].0, long_trains[0].1.min(out.len())).first().is_some_and(|r| r.1 as u32 >= mp) {
+        table.push(format!("trains of 4 gt inputs: not judged (min-pulse {mp} gt); trains of the longest input instead"));
+        "ltrain "
+    } else {
         return fail(format!("min-pulse {mp} gt: the restart test's 4 gt inputs are not handled"), table);
-    }
+    };
     // trains: gaps shorter than L are bridged
-    for (from, to, g) in phases(s, "train ") {
+    for (from, to, g) in phases(s, prefix) {
         let to = to.min(out.len());
         let ins = input_runs(t, from, to);
         let os = runs_in(&orun, from, to);

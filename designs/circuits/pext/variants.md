@@ -38,7 +38,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n5-sf-sweep136](archive/pext-n5-sf-sweep136.txt) | 136 | stone |
 | [pext-n5-sf105](archive/pext-n5-sf105.txt) | 105 | stone |
 
-**[pext-n6-flat-cascade38](archive/pext-n6-flat-cascade38.txt)** (piston-extender 6, N = 6; 38 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n6-flat-cascade37](archive/pext-n6-flat-cascade37.txt)** (piston-extender 6, N = 6; 37 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
@@ -53,7 +53,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n7-cascade58](archive/pext-n7-cascade58.txt) | 58 | stone |
 | [pext-n7-sf-sweep254](archive/pext-n7-sf-sweep254.txt) | 254 | stone |
 
-**[pext-n8-flat-cascade53](archive/pext-n8-flat-cascade53.txt)** (piston-extender 8, N = 8; 53 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n8-flat-cascade52](archive/pext-n8-flat-cascade52.txt)** (piston-extender 8, N = 8; 52 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|

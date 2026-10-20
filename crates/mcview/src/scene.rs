@@ -1,6 +1,7 @@
 //! A session as a picture: its blocks (moving ones mid-way), the output marker (orange stained
-//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, the
-//! grass ground; and the default camera framing it like `mctas clock shot`.
+//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, a TNT
+//! duper's ground (real blocks); the pictures' grass ground (`web compare` only); and the default
+//! camera framing it like `mctas clock shot`.
 
 use crate::atlas::Atlas;
 use crate::camera::{CAM_DIR, Camera, VFOV};
@@ -8,6 +9,7 @@ use crate::design::Pos;
 use crate::mesh::{self, Builder, EntityDraw, Item, Mesh, Vertex};
 use crate::session::{Session, bp};
 use redsim::Block;
+use std::collections::HashSet;
 
 /// How far the viewer's grass reaches around the build: past the browser viewer's render
 /// distance (24 chunks, 384 blocks), so its fogged end sits at the horizon and no edge shows.
@@ -36,6 +38,9 @@ pub struct Look {
     pub ground: Option<f32>,
     /// How far the ground reaches around the build (None: 110 around a door, 56 otherwise).
     pub floor_margin: Option<f32>,
+    /// Cells drawn see-through (redsim's blocks there, ghosted): the judge's test rig of a driven
+    /// input (R7: its repeater, the repeater's support and the switch), not the build.
+    pub ghost: Vec<Pos>,
 }
 
 /// Where the real-game pictures put the orange marker (`clock/src/shot.rs::marker_cell`): the
@@ -103,31 +108,37 @@ pub fn default_look(s: &Session) -> Look {
         [(v >> 16) as u8, (v >> 8) as u8, v as u8]
     };
     let port_outlines: Vec<(Pos, [u8; 3])> = crate::circuit::port_tags(&s.design).into_iter().filter(|(_, p, _)| !outlines.contains(p)).map(|(_, p, c)| (p, hex(c))).collect();
-    // a driven input (R7): one lime box around its cell and the judge's devices driving it
+    // a driven input (R7): one lime box around its cell and the judge's devices driving it, the
+    // devices ghosted in the viewer (critique: the switch is the test rig, not the build)
     let mut input_spans: Vec<(Pos, Pos)> = Vec::new();
+    let mut ghost: Vec<Pos> = Vec::new();
     if s.simulated() {
         for ci in &s.circuit_inputs {
             if let crate::circuit::InputHow::Driven { dir, .. } = ci.how {
                 // the input, its repeater and the switch in a row (the repeater's stone support
                 // under it stays plain)
-                let (r, _, sw) = crate::circuit::driver_cells(ci.pos, dir);
+                let (r, sup, sw) = crate::circuit::driver_cells(ci.pos, dir);
                 let cells = [ci.pos, r, sw];
                 let lo = std::array::from_fn(|k| cells.iter().map(|c| c[k]).min().unwrap_or(0));
                 let hi = std::array::from_fn(|k| cells.iter().map(|c| c[k]).max().unwrap_or(0));
                 input_spans.push((lo, hi));
                 outlines.retain(|p| *p != ci.pos);
+                ghost.extend([r, sup, sw]);
             }
         }
     }
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
+    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None, ghost }
 }
 
 /// An OUT box's outline colour (the OUT tag's), and while its output is powered.
 pub const OUT_COLOUR: [u8; 3] = [255, 176, 74];
 pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
+
+/// The side tiles of a TNT duper's ground layers (`Floor::LAYERS`), top first.
+pub const FLOOR_SIDES: [&str; 4] = ["grass_side", "dirt", "dirt", "bedrock"];
 
 /// The viewer's look (live viewers, thumbnails): [`default_look`], with a clock's output in the
 /// circuits' OUT box (vjeux: red while powered) instead of the real-game pictures' orange glass
@@ -137,6 +148,11 @@ pub fn viewer_look(s: &Session) -> Look {
     // no orange glass anywhere in the viewer: an output has its OUT box (a circuit's from its
     // port tags, a clock's added here)
     look.marker = None;
+    // no ground but real blocks (vjeux 2026-10-20 17:53Z: "Please don't put a fake ground if the
+    // tnt goes through it"): the judges' worlds are void under a design, so the viewer draws no
+    // surface there (the sky goes on below the horizon); a TNT duper stands on its judge's
+    // ground, real blocks of its world (`Session::floor`, drawn by `build`)
+    look.ground = None;
     if !s.design.meta.contains_key("circuit")
         && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
@@ -150,10 +166,46 @@ pub fn viewer_look(s: &Session) -> Look {
 
 /// The frame of a session at `partial` (0..1) after its current tick.
 pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
-    let blocks = s.render_blocks(partial);
+    let mut blocks = s.render_blocks(partial);
+    // a TNT duper's ground (real blocks of its world, `Session::floor`): what changed in it (a
+    // crater, something fallen in) and the ground cells next to that are drawn as blocks, the rest
+    // by its intact faces (`mesh::floor`); the intact cells around the drawn ones occlude and
+    // shade them like the blocks they are
+    let floor = s.floor.as_ref().filter(|_| s.simulated() && s.replay.is_none());
+    let mut skip: HashSet<Pos> = HashSet::new();
+    let mut extra_occ: HashSet<Pos> = HashSet::new();
+    const NEXT: [[i32; 3]; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    let add = |c: Pos, d: [i32; 3]| [c[0] + d[0], c[1] + d[1], c[2] + d[2]];
+    if let Some(f) = floor {
+        let mut as_blocks: HashSet<Pos> = HashSet::new();
+        for (c, _) in &f.changed {
+            skip.insert(*c);
+            for n in std::iter::once(*c).chain(NEXT.iter().map(|d| add(*c, *d))) {
+                if f.contains(n) && f.shown(n).is_some() {
+                    as_blocks.insert(n);
+                }
+            }
+        }
+        for c in &as_blocks {
+            skip.insert(*c);
+            if let Some(state) = f.shown(*c) {
+                blocks.push(crate::session::RBlock { cell: *c, offset: [0.0; 3], state });
+            }
+        }
+        for c in &as_blocks {
+            for d in NEXT {
+                let n = add(*c, d);
+                if f.contains(n) && !skip.contains(&n) {
+                    extra_occ.insert(n);
+                }
+            }
+        }
+    }
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
+    b.extra_occ = extra_occ;
+    b.ghost = look.ghost.iter().copied().collect();
     b.blocks(&items);
     if let Some(r) = &s.replay {
         for e in r.entities(partial) {
@@ -188,6 +240,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     let occ = b.opaque_cells().clone();
     let mut m = b.mesh;
+    if let Some(f) = floor {
+        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &occ));
+    }
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
         // the sky like the game's render distance); `web compare` passes the real-game pictures'
@@ -241,8 +296,14 @@ pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
 /// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
 /// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
 pub fn live_window(h: f32) -> (f32, f32, f32) {
+    live_window_with(h, 74.0)
+}
+
+/// [`live_window`] with `bottom` CSS px kept clear at the bottom (a phone's viewer: the bar and
+/// the Record button above it on the right).
+pub fn live_window_with(h: f32, bottom: f32) -> (f32, f32, f32) {
     let h = h.max(120.0);
-    let y0 = -1.0 + 2.0 * 74.0 / h;
+    let y0 = -1.0 + 2.0 * bottom / h;
     let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
     (0.8, y0, y1)
 }
@@ -308,6 +369,8 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     if let Some(b) = s.picture {
         boxes.push(b);
     }
+    // a driven input's whole lime box (its cell, the judge's repeater and switch)
+    boxes.extend(look.input_spans.iter().copied());
     // a design that travels (a piston extender's payload): its whole swept path (without the
     // corridor's free cells; a still: not); a flying machine is followed instead
     let flies = s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine"));
@@ -342,6 +405,17 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     for e in ent_pos {
         for k in 0..8 {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
+        }
+    }
+    // a TNT duper standing above its judge's ground (8 blocks or less): the ground under it is in
+    // the picture, so its height shows (critique: from above it looked like it sat on the grass)
+    if let Some(f) = &s.floor {
+        let (lo, hi) = f.design_box;
+        let up = lo[1] - 1 - f.hi[1];
+        if up > 0 && up as f32 <= VIEW_REACH {
+            for (x, z) in [(lo[0], lo[2]), (hi[0] + 1, hi[2] + 1)] {
+                pts.push([x as f32, f.hi[1] as f32 + 1.0, z as f32]);
+            }
         }
     }
     // a tiny build (smaller than MIN_VIEW_W in every direction): framed as if MIN_VIEW_W blocks
@@ -522,6 +596,34 @@ mod tests {
     /// An input whose centre hides behind another block from the pictures' side (here A behind
     /// the judge's lamp in the output cell in front of it) makes the camera start on a side every
     /// input's centre can be tapped from.
+    /// Critique on an R7 gate: the judge's switch (a red block) and repeater are the test rig,
+    /// not the build: they are drawn see-through (redsim's blocks there all the same), and the
+    /// camera frames each input's whole lime box (one ran off the edge).
+    #[test]
+    fn the_judges_rig_is_ghosted_and_framed() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-and-5b-r7.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let driven: Vec<_> = s.circuit_inputs.iter().filter_map(|ci| if let crate::circuit::InputHow::Driven { dir, .. } = ci.how { Some(crate::circuit::driver_cells(ci.pos, dir)) } else { None }).collect();
+        assert_eq!(driven.len(), 2, "two driven inputs");
+        for (r, sup, sw) in &driven {
+            for c in [r, sup, sw] {
+                assert!(look.ghost.contains(c), "{c:?} ghosted");
+            }
+        }
+        assert!(s.circuit_inputs.iter().all(|ci| !look.ghost.contains(&ci.pos)), "the input cells stay solid");
+        let pts = view_points(&s, &look);
+        for (lo, hi) in &look.input_spans {
+            for corner in [[lo[0] as f32, lo[1] as f32, lo[2] as f32], [hi[0] as f32 + 1.0, hi[1] as f32 + 1.0, hi[2] as f32 + 1.0]] {
+                assert!(pts.contains(&corner), "{corner:?} framed");
+            }
+        }
+        // ghosted faces go to the translucent pass, see-through
+        let atlas = crate::atlas::Atlas::build();
+        let m = build(&atlas, &s, 0.0, &look);
+        assert!(m.translucent.iter().any(|q| q.v[0].color[3] == mesh::GHOST_ALPHA));
+    }
+
     #[test]
     fn empty_input_cells_are_tappable() {
         let text = "name: t\ncircuit: gate and\nport input.a: 0 1 0\nport input.b: 1 1 0\nport output: 0 1 1\npalette:\n  S minecraft:stone\nlayer 0:\n  SS\n  S.\n";

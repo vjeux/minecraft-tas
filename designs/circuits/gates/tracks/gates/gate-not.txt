@@ -1,0 +1,11 @@
+# NOT gate, 1 block: a wall torch hanging on the input block itself. The input powers that block, the torch goes out, and the torch is the output: lit exactly when the input is off. A row of them side by side inverts a whole bus.
+name: gate-not
+circuit: gate not
+tile: 0 0 1
+port input: 0 1 0
+port output: 1 1 0
+origin: 1 0 0
+palette:
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+layer 1:
+  T

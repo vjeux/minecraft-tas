@@ -239,6 +239,72 @@ pub fn cmd_snap(url: &str, window: &str, scale: f32, seconds: f64, scroll_y: f64
     Ok(())
 }
 
+/// `mctas web record`: press the Record button of a page's live viewer `index` and keep the video
+/// it downloads (`<design>.mp4|.webm`) in `out`; prints the file and the page's console.
+pub fn cmd_record(url: &str, out: &Path, index: usize, window: &str, scale: f32, timeout: u64, browser: &Path) -> Result<()> {
+    std::fs::create_dir_all(out)?;
+    let dir = std::fs::canonicalize(out)?;
+    let before: Vec<std::ffi::OsString> = std::fs::read_dir(&dir)?.flatten().map(|e| e.file_name()).collect();
+    let mut b = Browser::start(browser, window, scale, url)?;
+    // downloads land in `out` (a browser-wide setting: sent before attaching to the page)
+    b.call("Browser.setDownloadBehavior", json!({ "behavior": "allow", "downloadPath": dir.to_string_lossy(), "eventsEnabled": true }))?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    b.call("Runtime.enable", json!({}))?;
+    let t0 = Instant::now();
+    loop {
+        let n = b.eval("document.querySelectorAll('.mcview-live-src').length")?.as_u64().unwrap_or(0) as usize;
+        if n > index {
+            break;
+        }
+        if t0.elapsed() > Duration::from_secs(90) {
+            bail!("no live viewer {index} on {url} after 90 s; console: {:?}", b.console);
+        }
+        b.drain(Duration::from_millis(500));
+    }
+    b.drain(Duration::from_secs(1));
+    let pressed = b.eval(&format!("(() => {{ const r = document.querySelectorAll('[data-mcview-record]')[{index}]; if (!r) return 'none'; if (getComputedStyle(r).display === 'none') return 'hidden'; r.click(); return 'pressed'; }})()"))?;
+    match pressed.as_str() {
+        Some("pressed") => {}
+        Some("hidden") => bail!("the Record button is hidden: this browser cannot encode video (no VideoEncoder)"),
+        other => bail!("no Record button {index}: {other:?}"),
+    }
+    let start = Instant::now();
+    let mut last_note = Instant::now();
+    loop {
+        b.drain(Duration::from_millis(500));
+        let done: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)?
+            .flatten()
+            .filter(|e| !before.contains(&e.file_name()))
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "mp4" || x == "webm"))
+            .collect();
+        if let Some(p) = done.first() {
+            // complete once its size holds (the browser writes it in one go from the blob)
+            let n0 = std::fs::metadata(p)?.len();
+            b.drain(Duration::from_millis(800));
+            if n0 > 0 && std::fs::metadata(p)?.len() == n0 {
+                for l in b.console.iter().filter(|l| l.contains("record") || l.starts_with("exception") || l.starts_with("error")) {
+                    println!("console {l}");
+                }
+                println!("{} ({} KB, {:.1} s after the press)", p.display(), n0 / 1024, start.elapsed().as_secs_f64());
+                return Ok(());
+            }
+        }
+        if last_note.elapsed() > Duration::from_secs(10) {
+            last_note = Instant::now();
+            println!("recording: {}", b.eval(&format!("(document.querySelectorAll('[data-mcview-record]')[{index}] || {{}}).textContent"))?);
+        }
+        let failed: Vec<&String> = b.console.iter().filter(|l| l.contains("record:") && !l.contains("record: saved")).collect();
+        if !failed.is_empty() {
+            bail!("the recording failed: {failed:?}");
+        }
+        if start.elapsed() > Duration::from_secs(timeout) {
+            bail!("no video after {timeout} s; console: {:?}", b.console.iter().filter(|l| l.contains("record") || l.starts_with("exception")).collect::<Vec<_>>());
+        }
+    }
+}
+
 fn base64_decode(s: &str) -> Result<Vec<u8>> {
     let val = |c: u8| -> Option<u32> {
         Some(match c {

@@ -949,6 +949,62 @@ pub struct Blast {
     pub destroyed: Vec<(BlockPos, Block)>,
     /// How many cells the rays reached (`toBlow`, air included: the shuffle's length).
     pub positions: usize,
+    /// A fluid (water, lava, a waterlogged block) in the cell of its center: every ray loses 30
+    /// power there, so it destroys nothing.
+    pub in_fluid: bool,
+    /// What it would destroy on open ground ([`open_ground`]): its usefulness as a TNT.
+    pub open_ground: usize,
+}
+
+/// The cells a blast at `center` would destroy on OPEN GROUND, at its weakest rolls (every ray at
+/// `0.7 * radius`, `Rolls::Min`): the world around replaced by stone under the blast's own cell
+/// layer (`y < floor(center.y)`) and air above, keeping only the fluids where `fluid_at` says so
+/// (resistance 100, never destroyed). 0 means the TNT is useless where it explodes (in or over
+/// water): the TNT judge's rule (vjeux 2026-10-20: "a tnt duper that explodes in water is
+/// useless").
+pub fn open_ground(center: Vec3, radius: f32, fluid_at: &dyn Fn(BlockPos) -> bool) -> usize {
+    let ground_top = mth::floor(center.y);
+    let step = 0.3f32 as f64;
+    let mut hit: std::collections::HashSet<BlockPos> = std::collections::HashSet::new();
+    for xx in 0..16 {
+        for yy in 0..16 {
+            for zz in 0..16 {
+                if !(xx == 0 || xx == 15 || yy == 0 || yy == 15 || zz == 0 || zz == 15) {
+                    continue;
+                }
+                let mut xd = (xx as f32 / 15.0f32 * 2.0f32 - 1.0f32) as f64;
+                let mut yd = (yy as f32 / 15.0f32 * 2.0f32 - 1.0f32) as f64;
+                let mut zd = (zz as f32 / 15.0f32 * 2.0f32 - 1.0f32) as f64;
+                let d = (xd * xd + yd * yd + zd * zd).sqrt();
+                xd /= d;
+                yd /= d;
+                zd /= d;
+                let mut power = radius * 0.7f32;
+                let (mut xp, mut yp, mut zp) = (center.x, center.y, center.z);
+                while power > 0.0 {
+                    let pos = BlockPos::new(mth::floor(xp), mth::floor(yp), mth::floor(zp));
+                    if pos.y < crate::gravity::MIN_Y || pos.y > crate::gravity::MAX_Y {
+                        break;
+                    }
+                    let fluid = fluid_at(pos);
+                    let ground = pos.y < ground_top;
+                    if fluid {
+                        power -= (100.0f32 + 0.3f32) * 0.3f32;
+                    } else if ground {
+                        power -= (6.0f32 + 0.3f32) * 0.3f32;
+                    }
+                    if power > 0.0 && ground && !fluid {
+                        hit.insert(pos);
+                    }
+                    xp += xd * step;
+                    yp += yd * step;
+                    zp += zd * step;
+                    power -= 0.225_000_01f32;
+                }
+            }
+        }
+    }
+    hit.len()
 }
 
 /// A world where TNT lives and explodes like in a bridge sandbox seeded `seed` with the forced
@@ -979,7 +1035,10 @@ pub fn explode(w: &mut World, source: Option<u32>, center: Vec3, radius: f32) {
     if !w.sculk.is_empty() {
         w.errors.push("explosion: its vibration near sculk sensors is not modeled".into());
     }
-    w.explosions.push(Blast { time: w.time, center, destroyed: Vec::new(), positions: 0 });
+    let fluid_at = |q: BlockPos| !crate::fluid::fluid_state(w, q).is_empty();
+    let cell = BlockPos::new(mth::floor(center.x), mth::floor(center.y), mth::floor(center.z));
+    let (in_fluid, useful) = (fluid_at(cell), open_ground(center, radius, &fluid_at));
+    w.explosions.push(Blast { time: w.time, center, destroyed: Vec::new(), positions: 0, in_fluid, open_ground: useful });
     let blow = exploded_positions(w, center, radius, rolls);
     if let Some(b) = w.explosions.last_mut() {
         b.positions = blow.len();
