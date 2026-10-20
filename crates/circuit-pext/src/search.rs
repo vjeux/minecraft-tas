@@ -257,6 +257,15 @@ pub struct MinOptions {
     pub threads: usize,
     /// Only place new blocks in this z plane (keeps a flat design flat).
     pub plane_z: Option<i32>,
+    /// Save the current best here after every step (a long run that is stopped keeps its progress).
+    pub checkpoint: Option<std::path::PathBuf>,
+}
+
+fn checkpoint(o: &MinOptions, d: &mctas::design::Design) {
+    if let Some(p) = &o.checkpoint {
+        let _ = d.save(p);
+        eprintln!("  step: {} blocks (saved {})", d.blocks.len(), p.display());
+    }
 }
 
 /// Greedy shrink: remove any block (not the input or payload) while it still works; then try
@@ -287,6 +296,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
         if let Some(np) = removal {
             cur = np;
             out.push(cur.design.clone());
+            checkpoint(o, &cur.design);
             continue;
         }
         // 2. a substitution plus a removal; 3. a block placed in an empty cell next to the design
@@ -365,6 +375,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             Some((_, np)) => {
                 cur = np;
                 out.push(cur.design.clone());
+                checkpoint(o, &cur.design);
             }
             None => break,
         }
