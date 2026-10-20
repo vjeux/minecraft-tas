@@ -235,6 +235,11 @@ pub struct Circuit {
     /// part of a flying machine's place on its study's axis.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub direction: String,
+    /// Other archived designs that are the SAME build under another kind (the same blocks and
+    /// ports: the copper bulb T flip-flop is both `tff-bulb` and `counter2-bulb`), by build id.
+    /// Pages only.
+    #[serde(skip)]
+    pub same_build: Vec<String>,
     /// The tunable group it belongs to (one mechanism with other repeater delays, comparator modes
     /// or a longer line: the catalog's `group` column), and on the group's shown design (the
     /// smallest) the group's span (`L 6-40 gt, 16 values`); the other members are hidden by
