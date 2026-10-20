@@ -161,6 +161,9 @@ enum Cmd {
         /// Designs written per (speed, class, blocks).
         #[arg(long, default_value_t = 1000)]
         keep: usize,
+        /// Keep only the candidates faster than their base.
+        #[arg(long)]
+        faster: bool,
     },
     /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
     /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
@@ -378,9 +381,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep } => {
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep, faster } => {
             let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
-            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers };
+            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers, faster };
             let found = grow::grow(&ms, &o)?;
             std::fs::create_dir_all(&out_dir)?;
             let mut seen: std::collections::BTreeMap<(String, String, usize), usize> = std::collections::BTreeMap::new();
@@ -471,6 +474,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     continue;
                 }
                 let fwd = station_search_procs(path, &o, &palette, procs, &dir.join("fwd"))?;
+                if fwd.is_empty() {
+                    println!("{}: no station ahead (k <= {}): no two-way machine", m.name(), o.k);
+                    continue;
+                }
                 let bwd = station_search_procs(&rev_path, &o, &palette, procs, &dir.join("bwd"))?;
                 println!("{}: {} forward stations, {} backward stations", m.name(), fwd.len(), bwd.len());
                 let mut made = 0;

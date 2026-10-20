@@ -20,6 +20,8 @@ pub struct GrowOptions {
     pub horizon: u32,
     pub margin: i32,
     pub workers: usize,
+    /// Keep only the candidates FASTER than their base.
+    pub faster: bool,
 }
 
 /// A grown machine that flies differently from its base.
@@ -210,7 +212,8 @@ pub fn grow(designs: &[Machine], o: &GrowOptions) -> Result<Vec<Grown>> {
                         if let Some((mask, p, d, f)) = fly(&c, k, &co) {
                             let n = d.iter().map(|x| x.abs()).sum::<i32>().max(1) as u32;
                             // a new speed: P/n differs from the base's
-                            if (p as u64) * (b.speed.1 as u64) != (b.speed.0 as u64) * (n as u64) {
+                            let (new, old) = ((p as u64) * (b.speed.1 as u64), (b.speed.0 as u64) * (n as u64));
+                            if if o.faster { new < old } else { new != old } {
                                 found.lock().unwrap().push(Grown { base: b.name.clone(), cells: c, kick: k, period: p, d, first: f, mask });
                             }
                         }
