@@ -272,6 +272,7 @@ dependencies = [
  "anyhow",
  "circuit",
  "circuit-bud",
+ "circuit-compute",
  "circuit-delay",
  "circuit-fly",
  "circuit-gates",
@@ -285,6 +286,18 @@ dependencies = [
  "clap",
  "clock",
  "mctas",
+]
+
+[[package]]
+name = "circuit-compute"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "circuit-delay",
+ "clap",
+ "mctas",
+ "redsim",
 ]
 
 [[package]]

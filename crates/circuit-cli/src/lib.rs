@@ -114,6 +114,12 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track compute's commands (crates/circuit-compute): study 12 muxes, decoders, encoders,
+    /// binary counters and the census.
+    Compute {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Track tff's commands (crates/circuit-tff).
     Tff {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -308,6 +314,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
         CircuitCmd::Bud { args } => circuit_bud::run(args)?,
+        CircuitCmd::Compute { args } => circuit_compute::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,
         CircuitCmd::Memory { args } => circuit_memory::run(args)?,
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,

@@ -1,0 +1,15 @@
+[package]
+name = "circuit-compute"
+description = "Study 12, track compute (mctas circuit compute ...): muxes, demuxes, decoders, encoders, binary counters (and the shared census); owned by clk-obs, see docs/circuits.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+circuit-delay = { path = "../circuit-delay" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }
