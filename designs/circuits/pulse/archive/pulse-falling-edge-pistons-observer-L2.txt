@@ -1,21 +1,18 @@
-# archived 2026-10-19T23:50Z from designs/circuits/tracks/pulse/hand/pulse-falling-edge-pistons-observer-L2.txt by mctas circuit archive
-# CIRCUIT: pulse-falling-edge-pistons-observer-L2 falling-edge L 2 gt, delay 5 gt, min-pulse 4 gt, 3 blocks, 1x3x2, robust
+# archived 2026-10-20T14:12Z from /tmp/clkobs-runs/tiled/pulse-falling-edge-pistons-observer-L2-tile1.txt by mctas circuit archive
+# CIRCUIT: pulse-falling-edge-pistons-observer-L2 falling-edge L 2 gt, delay 5 gt, min-pulse 4 gt, tileable every 1 (1 0 0), 3 blocks, 1x3x2, robust
 name: pulse-falling-edge-pistons-observer-L2
-# An observer watching the input, a sticky piston under it (quasi-powered by the input, armed
-# silently) and a sticky piston behind it (powered by the observer): the rising edge sets the
-# pistons moving so the observer's first pulse misses the output cell; on the falling edge the
-# observer fires in place into it (2 gt, 5 gt after the edge). Inputs of 4 gt or more.
 circuit: falling-edge
-origin: 0 0 1
-port output: 0 1 2
+tile: 1 0 0
 port input: 0 1 0
+port output: 0 1 2
+origin: 0 0 1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=up]
-  B minecraft:observer[facing=north,powered=false]
-  C minecraft:sticky_piston[extended=false,facing=down]
+  O minecraft:observer[facing=north,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=up]
 layer 0:
-  A
+  s
   .
 layer 1:
-  B
-  C
+  O
+  S
