@@ -1141,11 +1141,19 @@ fn shulker_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
     };
     let item = redsim::redstone::container::item_id(item).ok_or("no such item")?;
     let levers: Vec<[i32; 3]> = c.inputs.iter().filter(|i| i.how == circuit::InputHow::Lever && !(i.name == "mode" || i.name.starts_with("mode."))).map(|i| i.pos).collect();
+    // the judge's sandbox (its watch box: seed and forced chunks), from the circuit crate; the
+    // viewer computes it from its own design (`mcview::circuit::judge_box`): the same box, or the
+    // viewer would draw another level random than the judge's
+    let judge = circuit::run::watch_box(&c, redsim::redstone::shulker::JUDGE_MARGIN);
+    let viewer_box = mcview::design::Design::parse(text).ok().and_then(|d| mcview::circuit::judge_box(&d));
+    if viewer_box != Some(judge) {
+        return Err(format!("the viewer's judge box {viewer_box:?} is not the judge's watch box {judge:?}"));
+    }
     // the reference run, its start lever on (`lever`) or off: its frames' hash, None when redsim
     // meets something it does not model
     let reference = |lever: bool| -> Result<Option<u64>, String> {
         let mut w = clock::sim::world_for(&c.clock, from, to)?;
-        w.drop_seed = Some(0);
+        redsim::redstone::shulker::judge_sandbox(&mut w, judge.0, judge.1);
         let mut ch = Chests::endless(loader, item, role("items"), role("boxes"), outs.iter().map(|p| bp(*p)).collect(), rejects.clone());
         ch.place(&mut w);
         for _ in 0..SETTLE {
