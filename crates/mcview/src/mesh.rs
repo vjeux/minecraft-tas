@@ -150,6 +150,7 @@ impl<'a> Builder<'a> {
     pub fn blocks(&mut self, items: &[Item]) {
         self.occ.clear();
         self.names.clear();
+        let states: HashMap<Pos, &str> = items.iter().filter(|it| it.offset == [0.0; 3]).map(|it| (it.cell, it.state)).collect();
         for it in items {
             if it.offset == [0.0; 3] {
                 // water and bubble columns are one fluid: no faces between them
@@ -167,6 +168,12 @@ impl<'a> Builder<'a> {
             }
         }
         for it in items {
+            // water: the game's sloped surface (corner heights from the neighbouring cells), not
+            // cuboids (their steps showed as lines across a pool)
+            if it.offset == [0.0; 3] && matches!(base_name(it.state), "minecraft:water" | "minecraft:bubble_column") {
+                self.water(it.cell, &states);
+                continue;
+            }
             // water under water fills its cell (the game's surface is only at the top)
             let state = if it.offset == [0.0; 3] && base_name(it.state) == "minecraft:water" && self.names.get(&[it.cell[0], it.cell[1] + 1, it.cell[2]]).is_some_and(|n| n == "minecraft:water") {
                 "minecraft:water[level=8]"
@@ -196,6 +203,91 @@ impl<'a> Builder<'a> {
         }
         if let Some(m) = models::entity_model(&e.kind) {
             self.add_model(&m, e.pos, None, Some(e.yaw));
+        }
+    }
+
+    /// A water (or bubble column) cell like the game draws fluids: its surface at each corner the
+    /// average height of the water cells sharing that corner (full when water stands above any
+    /// of them), faces only toward cells that are neither water nor opaque cubes.
+    fn water(&mut self, cell: Pos, states: &HashMap<Pos, &str>) {
+        let is_water = |names: &HashMap<Pos, String>, p: Pos| names.get(&p).is_some_and(|n| n == "minecraft:water");
+        // the own height of a water cell (in blocks): full under water, else the game's amount / 9
+        let level_of = |p: Pos| -> Option<u32> {
+            states.get(&p).map(|s| {
+                if base_name(s) == "minecraft:bubble_column" {
+                    0
+                } else {
+                    s.split("level=").nth(1).and_then(|r| r.split([',', ']']).next()).and_then(|v| v.parse().ok()).unwrap_or(0)
+                }
+            })
+        };
+        let names = &self.names;
+        let height = |p: Pos| -> Option<f32> {
+            if !is_water(names, p) {
+                return None;
+            }
+            if is_water(names, [p[0], p[1] + 1, p[2]]) {
+                return Some(1.0);
+            }
+            let l = level_of(p).unwrap_or(0);
+            Some(if l == 0 || l >= 8 { 8.0 / 9.0 } else { (8 - l) as f32 / 9.0 })
+        };
+        let above = is_water(names, [cell[0], cell[1] + 1, cell[2]]);
+        // corner (dx, dz) in {0,1}: the cells sharing it
+        let corner = |dx: i32, dz: i32| -> f32 {
+            if above {
+                return 1.0;
+            }
+            let (mut sum, mut n) = (0.0f32, 0.0f32);
+            for (ox, oz) in [(dx - 1, dz - 1), (dx, dz - 1), (dx - 1, dz), (dx, dz)] {
+                let q = [cell[0] + ox, cell[1], cell[2] + oz];
+                if let Some(h) = height(q) {
+                    if h >= 1.0 {
+                        return 1.0;
+                    }
+                    sum += h;
+                    n += 1.0;
+                }
+            }
+            if n > 0.0 { sum / n } else { 8.0 / 9.0 }
+        };
+        let h = [corner(0, 0), corner(0, 1), corner(1, 1), corner(1, 0)];
+        let tile = self.atlas.tile("water") as u32;
+        let (x, y, z) = (cell[0] as f32, cell[1] as f32, cell[2] as f32);
+        let mut quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
+            let l = shade(n);
+            let c = (255.0 * l).round() as u8;
+            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer: tile, color: [c, c, c, 255] });
+            let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
+            b.mesh.translucent.push(Quad { v, center });
+            for q in pts {
+                for k in 0..3 {
+                    b.mesh.lo[k] = b.mesh.lo[k].min(q[k]);
+                    b.mesh.hi[k] = b.mesh.hi[k].max(q[k]);
+                }
+            }
+        };
+        let open = |b: &Self, q: Pos| !is_water(&b.names, q) && !b.occupied(q);
+        // the surface (seen from above and below)
+        if !above {
+            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0]);
+            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0]);
+        }
+        if open(self, [cell[0], cell[1] - 1, cell[2]]) {
+            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0]);
+        }
+        // sides: north (-z) uses corners 0 (x0,z0) and 3 (x1,z0); south (+z) 1 and 2; west (-x)
+        // 0 and 1; east (+x) 3 and 2
+        let sides: [(Pos, [[f32; 3]; 4], [f32; 2], [f32; 3]); 4] = [
+            ([0, 0, -1], [[x + 1.0, y, z], [x, y, z], [x, y + h[0], z], [x + 1.0, y + h[3], z]], [h[3], h[0]], [0.0, 0.0, -1.0]),
+            ([0, 0, 1], [[x, y, z + 1.0], [x + 1.0, y, z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [h[1], h[2]], [0.0, 0.0, 1.0]),
+            ([-1, 0, 0], [[x, y, z], [x, y, z + 1.0], [x, y + h[1], z + 1.0], [x, y + h[0], z]], [h[0], h[1]], [-1.0, 0.0, 0.0]),
+            ([1, 0, 0], [[x + 1.0, y, z + 1.0], [x + 1.0, y, z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0]], [h[2], h[3]], [1.0, 0.0, 0.0]),
+        ];
+        for (d, pts, top, n) in sides {
+            if open(self, [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]]) {
+                quad(self, pts, [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]], n);
+            }
         }
     }
 
