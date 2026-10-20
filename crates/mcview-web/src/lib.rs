@@ -76,6 +76,9 @@ pub(crate) struct View {
     /// `data-events`: the judge's actions at cells (a BUD switch's target and footprint probes),
     /// replayed in the auto-demo.
     pub events: Option<String>,
+    /// `data-levels`: a strength input's values (`<frame> <input> <value>; ...`: the judge's
+    /// chest fills, the hex circuits), replayed by the auto-demo.
+    pub levels: Option<String>,
     /// `data-phases`: the checker's phase labels.
     pub phases: Option<String>,
     /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
@@ -599,6 +602,7 @@ impl App {
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
         v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
+        v.levels = el.get_attribute("data-levels").filter(|s| !s.trim().is_empty());
         v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
         v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
         v.yaw = attr_f32(el, "data-yaw");
@@ -671,6 +675,7 @@ impl App {
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
             events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
+            levels: el.get_attribute("data-levels").filter(|s| !s.trim().is_empty()),
             phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
             input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
@@ -905,7 +910,7 @@ impl App {
             }
             let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect, scene::THUMB_WINDOW);
+            let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
             // a thumbnail is a picture, nothing to press: no outlines over a small build (the
             // live viewer has them, with its tags)
             look.outlines.clear();

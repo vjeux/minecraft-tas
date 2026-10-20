@@ -1,6 +1,4 @@
-# archived 2026-10-20T13:04Z from designs/circuits/tracks/tnt/tnt-triggered-launch-15b.txt by mctas circuit archive
-# CIRCUIT: tnt-triggered-launch-15b tnt-duper-triggered per pulse 1, latency 4 gt, gap 100 gt, 15 blocks, 3x3x4, robust (survives its own explosions: 0 exploded, 6 out of range, design intact)
-name: tnt-triggered-launch-15b
+name: tnt-triggered-launch-16b
 circuit: tnt-duper-triggered
 port input: 0 0 1 minecraft:air minecraft:redstone_block
 origin: 0 0 -1
@@ -12,6 +10,11 @@ palette:
   T minecraft:tnt[unstable=false]
   r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   s minecraft:sticky_piston[extended=false,facing=north]
+layer -1:
+  .
+  .
+  .O
+  .
 layer 0:
   .
   .SSS

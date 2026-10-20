@@ -146,8 +146,12 @@ pub struct Door {
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ClockInfo {
-    /// Period in game ticks (20 gt = 1 s).
+    /// Period in game ticks (20 gt = 1 s): the whole state's cycle.
     pub period: u32,
+    /// The output's own period when it pulses several times, evenly, per cycle (clockinfra's
+    /// gaps: N equal gaps g): what a builder means by the clock's time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pulse_every: Option<u32>,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
@@ -188,6 +192,13 @@ pub struct ClockInfo {
     pub instance: bool,
 }
 
+impl ClockInfo {
+    /// How often its output pulses: the output's own period, else the whole cycle.
+    pub fn every(&self) -> u32 {
+        self.pulse_every.unwrap_or(self.period)
+    }
+}
+
 fn is_false(b: &bool) -> bool {
     !*b
 }
@@ -203,6 +214,19 @@ pub struct Circuit {
     /// study last (the gates with their own levers, the sand elevators).
     #[serde(default)]
     pub order: u32,
+    /// Its place within its kind (0 = the first shown design of the kind): the Circuits tab opens
+    /// on the first of every kind, then the second... (critique C40: it opened on six cards of
+    /// one kind).
+    #[serde(default)]
+    pub rank: u32,
+    /// The variation a machine is the best design for (a shulker loader's badge where it is the
+    /// fastest, then smallest): its card leads with it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lead: String,
+    /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
+    /// rising-edge detector): its card says it is also one of those.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<String>,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -283,6 +307,10 @@ pub struct Circuit {
     /// only.
     #[serde(skip)]
     pub stimulus: String,
+    /// A strength input's values over the judge's test (`<frame> <input> <value>; ...`, the hex
+    /// kinds), for the viewer's demo (`data-levels`). Pages only.
+    #[serde(skip)]
+    pub levels: String,
     #[serde(skip)]
     pub phases: String,
     /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
@@ -503,9 +531,9 @@ pub const STATUS_FORMULA: &str = "formula";
 /// A member's status in words.
 pub fn status_label(s: &str) -> &'static str {
     match s {
-        STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated, not judged in the game",
-        _ => "formula, not individually judged",
+        STATUS_JUDGED => "tested in the game",
+        STATUS_REDSIM => "simulated",
+        _ => "formula only",
     }
 }
 
@@ -533,6 +561,8 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("census", "found by the census, not the smallest of its period", "clock"),
+    ("twin", "the same numbers as another clock shown", "clock"),
+    ("kind-twin", "the same build as a design of another kind", "circuit"),
     ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "several clocks in one", "clock"),
@@ -882,6 +912,8 @@ struct View<'a> {
     group: &'a str,
     /// A circuit's [`Circuit::order`] (0 for doors and clocks).
     order: u32,
+    /// A circuit's [`Circuit::rank`].
+    rank: u32,
     name: &'a str,
     blocks: i64,
     volume: Option<i64>,
@@ -915,7 +947,7 @@ impl Site {
         for b in &self.builds {
             if let Some(c) = &b.clock {
                 if c.host.is_none() && !c.instance {
-                    *count.entry(c.period).or_default() += 1;
+                    *count.entry(c.every()).or_default() += 1;
                 }
             }
         }
@@ -945,17 +977,18 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: b.circuit.as_ref().map(|c| c.rank).unwrap_or(0),
                     name: &b.name,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
-                    period: b.clock.as_ref().map(|c| c.period as i64),
-                    main: b.clock.as_ref().map(|c| c.period as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
+                    period: b.clock.as_ref().map(|c| c.every() as i64),
+                    main: b.clock.as_ref().map(|c| c.every() as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
                     open: b.door.as_ref().and_then(|d| d.open).map(|v| v as i64),
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census"),
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
@@ -972,6 +1005,7 @@ impl Site {
                     kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: u32::MAX,
                     name: &m.family,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
@@ -1040,6 +1074,10 @@ impl Site {
                 return false;
             }
             if !q.variants && v.variant {
+                return false;
+            }
+            // a build listed under two kinds shows once, unless its own kind is picked
+            if !q.variants && q.groups.is_empty() && v.flags.iter().any(|f| f == "kind-twin") {
                 return false;
             }
             if skip != Skip::Groups && !q.groups.is_empty() && !q.groups.contains(v.group) {
@@ -1128,9 +1166,10 @@ impl Site {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
                             "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
-                            // circuits: by study (pulse shapers first, not the block change
-                            // detectors' alphabetical lead: critique C40), the basics last
-                            _ => (2, format!("{:05} {}", v.order, v.group), v.main.unwrap_or(big)),
+                            // circuits: the first of every kind, then the second of every kind...
+                            // (critique C40), each round by study (pulse shapers first), the
+                            // basics last
+                            _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
                         }
                     };
                     key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))

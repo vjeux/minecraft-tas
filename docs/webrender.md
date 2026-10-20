@@ -49,7 +49,10 @@ each build's page.
   clocks' and circuits', turns red (outline, a translucent red fill, its tag's text) while the
   output is powered: its own power state when it has one (a lamp lit, dust with power, a
   powered repeater or observer), else a redstone signal into its cell (a big dripleaf, a solid
-  block); air never is (`Session::output_powered`, redsim's state every tick). Lime outlines on
+  block); air never is (`Session::output_powered`, redsim's state every tick). A clock's empty
+  output cell holds the clock judge's lamp (`clock::sim::judge_lamp`, clocks only: not a design
+  with a `circuit:` kind or an input port), placed after the design's blocks; its OUT signal is
+  the power delivered into the cell, not the lamp's lit state. Lime outlines on
   levers / buttons / input ports. The complete build shows from tick
   0: the `port start` kick (a block placed last, a button pressed) is applied before tick 0 is shown,
   in the clock judge's order.
@@ -57,25 +60,34 @@ each build's page.
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
   simulation starts, so the build responds); the camera stays above the ground and starts on the
-  side every lever and button can be seen from (a door's lever is often behind the build from the
-  pictures' side). Bar of
+  side every lever, button and input cell can be tapped from at its centre (an empty input cell
+  counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
+  it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
+  OUT lamp); no tag covers an input's cell. Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
   speed: `Session::short_cycle`), flip the lever (f, doors); a strip under the counter shows
-  each output's last 40 gt (red: powered), on clocks and circuits; badges at the top: what to do or
-  what runs on the left (`tap the lever`, `press the inputs`, the demo's phase, `not simulated:
-  <reason>` for a design shown as built, `not simulated after tick N` when redsim meets something
-  it does not model during the run: the view stops at the last exact state), the tick counter in
-  gt and seconds on the
-  right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
+  each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
+  badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
+  sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
+  `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
+  meets something it does not model during the run: the view stops at the last exact state), the
+  time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
+  moves while it runs, `mctas web layout` checks it).
 * Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
   stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
   ...`), `data-input-mode` = `pulse` | `toggle` (default from the kind: edges, limiters,
   extenders, T flip-flops, delays, RS latches and counters pulse; gates, D latches and piston
-  extenders toggle). Inputs are driven like `Circuit::actions` (the cell written with updates,
-  default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
+  extenders toggle). Inputs are driven like `Circuit::actions`: a plain input like a real build
+  (the judge's R7, 2026-10-20: `circuit::assign_drivers` ported as `mcview::circuit::inputs`):
+  the judge's delay-1 repeater in the first free side cell out of the build, a smooth stone under
+  it, the judge's smooth stone in an empty input cell (or the design's own receiving block), and a
+  redstone block one cell further out as its switch, placed or removed 2 gt before each input edge
+  in the demo (the input cell's power changes at the stimulus tick) and at once on a tap (2 gt
+  later through the repeater); an input with no way in keeps the old cell writing (the judge
+  refuses the design); `lever` used at every edge; `button` used at rising edges. One
   44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
   on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
   the input's cell, its device or its tag does the same, and a press held there past 250 ms
@@ -98,14 +110,26 @@ each build's page.
   updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
   replays the BUD switches' events through this parser frame by frame against `circuit sim`.
   Cyan tags name a BUD switch's TARGET cells.
+* `data-levels="<frame> <input> <value>; ..."` (frames like `data-stimulus`, inputs by name,
+  values 0..15): a strength input's values (`port input.a: x y z strength`, the judge's hex
+  kinds, `circuit::stimulus::Schedule::levels`), replayed in the auto-demo like the judge: the
+  input's chest placed again (its state unchanged), then its contents set to the value's fill
+  (`circuit::strength_items`: the fewest cobblestone whose comparator signal is the value). A
+  tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
+  sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
+  not model) must stop at the same tick in the viewer (`not simulated after tick N`).
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
-  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces):
+  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
+  entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
+  never explodes, as in the game):
   each primed TNT is redsim's `PrimedTnt` entity (its kick from the mirrored level random; moved
   by the engine: gravity, collisions, slime, moving blocks), drawn like the game's `TntRenderer`
   (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
   EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
-  as items, a TNT block it hits primes, other TNT is pushed. A TNT flying off the design falls into
-  the void below the drawn ground (the judge's world has none) and explodes there harmlessly.
+  as items, a TNT block it hits primes, other TNT is pushed; a blast destroying a moving block
+  drops what it moves. A TNT flying off the design falls into the void below the drawn ground
+  (the judge's world has none) and explodes there harmlessly (its rays stop at the build height:
+  nothing is destroyed), or freezes where it leaves the forced chunks.
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
   for 400 ticks, native and wasm. The camera frames the TNT's flight in redsim's run within 8
@@ -136,19 +160,31 @@ each build's page.
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
   blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
-  the bar and the badges in a live viewer (`LIVE_WINDOW`), centred in a thumbnail
-  (`THUMB_WINDOW`). The grass reaches 200 blocks around (past the fog's end: no edge shows).
+  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom, 46 px of the
+  top at the viewer's own height), centred in a thumbnail (`THUMB_WINDOW`); a build smaller than
+  5 blocks across and 3 high in every direction is framed as if it were that big (a 4-block
+  clock stands in some grass, its OUT box clear of the controls). The browser draws like a
+  client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
+  pictures' 6): the ground's fogged end sits at the horizon, no curved band under it; the grass
+  reaches 420 blocks around (past it); near
+  the build its top is lit like the game's smooth lighting: each corner at the mean sky light of
+  the four air cells around it in the layer between the grass and the build (a covered column
+  gets its neighbours' light less one), through the game's brightness curve at the default
+  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's contact shadow.
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
-* Containers: what tells the story is labelled by default: the judge's port chests (their
-  contents inside their tag) and the shulker boxes being filled or emptied. Any other container
-  (hoppers, droppers, dispensers, chests, carts, chest boats) shows its label when tapped (a tap
-  again hides it); the bar's contents button (grid icon) labels them all. A label is ONE compact
+* Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
+  judge's port chests (their contents inside their tag) and the shulker boxes being filled or
+  emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)
+  shows its label when tapped (a tap again hides it). On every other design all containers are
+  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
+  gold while all are labelled) labels them all or only the story's. A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
   and total count (`1,344`); shulker boxes first, as `12/27` slots filled for one box or `×3`
   with a fill bar for several; at most two kinds, then `+n`. A shulker design's same-kind port
-  chests that stand together share one tag (ITEMS over the three chests a-c, their contents
-  summed: `circuit::port_groups`); named outputs read `OUT A`, `OUT B`. Tags and labels are laid
+  chests that stand together share one tag with their letters (ITEMS A–C over the three chests
+  a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
+  `OUT B`. Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out

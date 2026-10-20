@@ -99,6 +99,9 @@ pub struct Session {
     pub picture: Option<(Pos, Pos)>,
     /// The judge's consumer lamps placed in a circuit's air output cells (they show the output).
     pub consumers: Vec<Pos>,
+    /// The clock judge's lamp in a clock's empty output cell (`clock::sim::judge_lamp`): the OUT
+    /// signal there is the power delivered into the cell, not the lamp's own lit state.
+    pub judge_lamp: Option<Pos>,
     /// Where each falling block (by entity id) was before the tick just run: drawn between there
     /// and where it is (redsim keeps no previous position for them).
     prev_falling: Vec<(u32, [f64; 3])>,
@@ -275,10 +278,23 @@ impl Session {
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
         }
+        // a circuit's inputs as its judge reads them, on the design as written (before its
+        // consumers: the drivers' directions depend on the build's own box)
+        let circuit_inputs = crate::circuit::inputs(&design);
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
             design.blocks.insert(*p, crate::circuit::CONSUMER.to_string());
+        }
+        // and every driven input's stone, repeater and support (R7, `Circuit::with_drivers`; the
+        // switch comes and goes with the input edges)
+        for ci in &circuit_inputs {
+            if let crate::circuit::InputHow::Driven { dir, .. } = ci.how {
+                let (r, sup, _) = crate::circuit::driver_cells(ci.pos, dir);
+                design.blocks.entry(ci.pos).or_insert_with(|| crate::circuit::DRIVEN_STONE.to_string());
+                design.blocks.insert(r, crate::circuit::driver_repeater(dir));
+                design.blocks.insert(sup, crate::circuit::DRIVEN_STONE.to_string());
+            }
         }
         // a shulker loader or unloader: the judge's chests on its ports, run by redsim's driver
         // once the design stands (`redstone::shulker::Chests`, below); their cells are in the box
@@ -299,7 +315,6 @@ impl Session {
                 inputs.push(*p);
             }
         }
-        let circuit_inputs = crate::circuit::inputs(&design);
         for ci in &circuit_inputs {
             if !inputs.contains(&ci.pos) {
                 inputs.push(ci.pos);
@@ -361,6 +376,16 @@ impl Session {
                 }
             }
         }
+        // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in a clock's
+        // declared output cell when the design leaves it empty, placed after the design's blocks
+        // (what `clock::sim::parse_blocks` does); not a block of the design. Clocks only: a
+        // design with a `circuit:` kind or an input port keeps its judge's consumers.
+        let judge_lamp = design.ports.get("output").map(|(p, _)| *p).filter(|p| !design.blocks.contains_key(p) && !design.meta.contains_key("circuit") && !design.ports.keys().any(|k| k.starts_with("input")));
+        if let Some(op) = judge_lamp
+            && let Ok(b) = Block::parse(JUDGE_LAMP)
+        {
+            blocks.push((bp(op), b));
+        }
         // shown as built (below): a shulker design's chests (the judge places them) keep it
         // readable; nothing the judge does not place is added
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
@@ -393,6 +418,7 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers,
+            judge_lamp,
             prev_falling: Vec::new(),
             halted: None,
             shulker: None,
@@ -701,10 +727,34 @@ impl Session {
                     self.world.use_block(bp(ci.pos));
                 }
             }
+            crate::circuit::InputHow::Strength { .. } => {
+                self.set_strength(i, if on { 15 } else { 0 });
+            }
+            // the judge's switch behind its repeater: placed or removed (the input cell's power
+            // follows 2 gt later, through the repeater)
+            crate::circuit::InputHow::Driven { dir, .. } => {
+                let (_, _, sw) = crate::circuit::driver_cells(ci.pos, *dir);
+                let b = if on { Block::parse(crate::circuit::INPUT_ON).unwrap_or(Block::Air) } else { Block::Air };
+                self.world.set_block(bp(sw), b, flags::ALL);
+            }
         }
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
+    /// again (its state unchanged), then its contents set to the value's fill
+    /// ([`crate::circuit::strength_items`]).
+    fn set_strength(&mut self, i: usize, value: u8) {
+        let Some(crate::circuit::InputHow::Strength { chest }) = self.circuit_inputs.get(i).map(|c| c.how.clone()) else { return };
+        let pos = bp(self.circuit_inputs[i].pos);
+        self.world.set_block(pos, chest, flags::ALL);
+        if let Err(e) = redsim::redstone::container::apply_block_entities(&mut self.world, [(pos, crate::circuit::strength_items(value).as_str())]) {
+            self.world.errors.push(format!("strength input: {e}"));
+        }
+        self.input_on[i] = value > 0;
+        self.last_input = Some(self.tick);
     }
 
     /// A short pulse on input `i`: on now, off `len` ticks later (a tap on a pulse input).
@@ -732,9 +782,20 @@ impl Session {
         let t = self.tick;
         if let Some(d) = self.demo.clone() {
             for (i, e) in d.edges.iter().enumerate() {
+                // a driven input's switch goes 2 gt (its repeater's delay) before the edge, so the
+                // input cell's power changes at the stimulus tick (`Circuit::actions`)
+                let early = if matches!(self.circuit_inputs.get(i).map(|c| &c.how), Some(crate::circuit::InputHow::Driven { .. })) { 2 } else { 0 };
                 for &(at, on) in e {
-                    if at == t {
+                    if at.saturating_sub(early) == t {
                         self.set_input(i, on);
+                    }
+                }
+            }
+            // the judge's strength values (after the edges, like `Circuit::actions`)
+            if self.simulated() {
+                for &(at, i, value) in &d.levels {
+                    if at == t {
+                        self.set_strength(i, value);
                     }
                 }
             }
@@ -805,6 +866,11 @@ impl Session {
         let b = self.world.get(bp(o));
         if matches!(b, Block::Air) {
             return false;
+        }
+        // the clock judge's lamp: the power delivered into its cell (what dust or a repeater
+        // there would get; the lamp's own 4 gt off-delay is the lamp's, not the clock's)
+        if self.judge_lamp == Some(o) {
+            return self.world.best_neighbor_signal(bp(o)) > 0;
         }
         powered_by_state(&b.to_string()).unwrap_or_else(|| self.world.has_neighbor_signal(bp(o)))
     }
@@ -1411,6 +1477,7 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers: Vec::new(),
+            judge_lamp: self.judge_lamp,
             prev_falling: Vec::new(),
             halted: None,
             shulker: self.shulker_initial.clone(),
@@ -1631,6 +1698,9 @@ pub fn entity_hash(mut h: u64, w: &World) -> u64 {
     h
 }
 
+/// The block the clock judge puts in a clock's empty output cell (`clock::sim::JUDGE_LAMP`).
+pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
+
 /// A design with a TNT block: it runs with redsim's TNT entities and explosions
 /// (`explosion::explode_on`).
 pub fn is_tnt_design(d: &Design) -> bool {
@@ -1845,7 +1915,7 @@ mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-launch-15b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-drop-16b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);

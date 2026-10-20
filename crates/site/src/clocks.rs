@@ -124,7 +124,12 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
     let caps = read_captions(&dir);
     let text_of = |file: &str| std::fs::read_to_string(dir.join(file)).unwrap_or_default();
     let composite: BTreeSet<String> = all_rows.iter().filter(|r| text_of(&r.file).lines().any(|l| l.trim_start().starts_with("# composite"))).map(|r| r.file.clone()).collect();
-    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file)).cloned().collect();
+    // the catalog's own rule (`Row::shown`): a clock the coordinator ruled out of a normal survival
+    // world (`hidden`: no output, command-only, daytime only...) or whose output pulses unevenly
+    // (clockinfra's `gaps`: C38, "a clock on the site must deliver evenly spaced pulses at its
+    // declared output") is not published; the repository keeps it
+    let off_site = all_rows.iter().filter(|r| !r.shown()).count();
+    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && r.shown()).cloned().collect();
     let type_of: BTreeMap<String, String> = {
         let keys = catalog::type_keys(&dir, &rows);
         rows.iter().map(|r| (r.file.clone(), keys.get(&r.file).cloned().unwrap_or_else(|| r.type_key.clone()))).collect()
@@ -328,6 +333,9 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             door: None,
             clock: Some(ClockInfo {
                 period: r.period,
+                // with N equal gaps g between the output's rising edges, the output pulses every
+                // g ticks: the builder's period (clockinfra: "show that as the clock's time")
+                pulse_every: catalog::parse_gaps(&r.gaps).filter(|g| !g.is_empty() && !catalog::uneven(g)).map(|g| g[0]).filter(|g| *g > 0 && *g < r.period),
                 warmup: r.warmup,
                 on: r.on,
                 edges: r.edges,
@@ -351,7 +359,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         });
     }
     builds.sort_by(|a, b| {
-        let p = |x: &Build| x.clock.as_ref().map(|c| c.period).unwrap_or(0);
+        let p = |x: &Build| x.clock.as_ref().map(|c| c.every()).unwrap_or(0);
         (p(a), a.blocks, a.volume, &a.name).cmp(&(p(b), b.blocks, b.volume, &b.name))
     });
     // the members of every family
@@ -429,26 +437,32 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         });
     }
     // the census clocks (named `census-...`, captions that are the census tool's log) leave the
-    // default lists and search unless they are the smallest clock of their period (the
-    // coordinator's decision (a)); their pages stay, the other clocks of a period link them
-    let mut smallest: BTreeMap<u32, u32> = BTreeMap::new();
+    // default lists and search unless one is THE record of its period (the smallest; a named clock
+    // wins a tie) (the coordinator's decision (a)); their pages stay, the other clocks of a period
+    // link them
+    let mut record: BTreeMap<u32, (u32, bool, u32, String)> = BTreeMap::new();
     for b in &builds {
         if let Some(c) = &b.clock {
             if c.host.is_none() && !c.instance {
-                let e = smallest.entry(c.period).or_insert(u32::MAX);
-                *e = (*e).min(b.blocks);
+                let key = (b.blocks, b.name.starts_with("census-"), b.volume.unwrap_or(u32::MAX), b.name.clone());
+                let e = record.entry(c.every()).or_insert_with(|| key.clone());
+                if key < *e {
+                    *e = key;
+                }
             }
         }
     }
     let mut folded = 0;
     for b in builds.iter_mut() {
         let Some(c) = &b.clock else { continue };
-        if b.name.starts_with("census-") && c.card.is_none() && smallest.get(&c.period).is_some_and(|m| b.blocks > *m) && !b.flags.iter().any(|f| f == "variant") {
+        let is_record = record.get(&c.every()).is_some_and(|r| r.3 == b.name);
+        if b.name.starts_with("census-") && c.card.is_none() && !is_record && !b.flags.iter().any(|f| f == "variant") {
             b.flags.push("census".into());
             folded += 1;
         }
     }
-    notes.push(format!("clocks: {folded} census clocks off the default lists (not the smallest of their period)"));
+    notes.push(format!("clocks: {folded} census clocks off the default lists (not the record of their period)"));
+    notes.push(format!("clocks: {off_site} archived clocks not published (the catalog's rule: ruled out of survival, or an uneven output)"));
     Ok(ClockExport { builds, cards, members, notes })
 }
 

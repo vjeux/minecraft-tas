@@ -148,6 +148,11 @@ impl<'a> Builder<'a> {
         self.occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
     }
 
+    /// The cells holding an opaque full cube so far (they occlude and block the sky's light).
+    pub fn opaque_cells(&self) -> &HashSet<Pos> {
+        &self.occ
+    }
+
     fn model(&mut self, state: &str) -> Option<Model> {
         self.model_at(state, None)
     }
@@ -679,7 +684,48 @@ pub fn variant_of_4(x: i32, y: i32, z: i32) -> u32 {
     ((4 * next31) >> 31) as u32
 }
 
-pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<Vertex> {
+/// The game's brightness for a light level (`LightTexture`: the overworld curve
+/// `f / (4 - 3f)` of `f = level / 15`, then the default brightness setting, 0.5, halfway to
+/// `1 - (1 - b)^4`).
+pub fn light_brightness(level: f32) -> f32 {
+    let f = (level / 15.0).clamp(0.0, 1.0);
+    let b = f / (4.0 - 3.0 * f);
+    let bright = 1.0 - (1.0 - b).powi(4);
+    b + (bright - b) * 0.5
+}
+
+/// The sky light in the air layer just above the grass (the one between the grass and the build:
+/// the floor is one block under the lowest cell), from the opaque cells `occ` at `ly` and above:
+/// a column under one gets the light of its neighbours less one (the game's light propagation
+/// within the layer), the others 15. Only the covered cells are returned.
+fn layer_sky_light(occ: &HashSet<Pos>, ly: i32) -> HashMap<(i32, i32), u8> {
+    let covered: HashSet<(i32, i32)> = occ.iter().filter(|c| c[1] >= ly).map(|c| (c[0], c[2])).collect();
+    let mut light: HashMap<(i32, i32), u8> = covered.iter().map(|c| (*c, 0u8)).collect();
+    let level = |l: &HashMap<(i32, i32), u8>, c: (i32, i32)| -> u8 { if covered.contains(&c) { l.get(&c).copied().unwrap_or(0) } else { 15 } };
+    // relax until stable (at most 15 rounds: light falls by one per block)
+    for _ in 0..15 {
+        let mut changed = false;
+        let cells: Vec<(i32, i32)> = light.keys().copied().collect();
+        for c in cells {
+            // a cell holding an opaque block at this layer passes no light
+            if occ.contains(&[c.0, ly, c.1]) {
+                continue;
+            }
+            let best = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| (c.0 + dx, c.1 + dz)).filter(|n| !occ.contains(&[n.0, ly, n.1])).map(|n| level(&light, n)).max().unwrap_or(0);
+            let v = best.saturating_sub(1);
+            if v > light[&c] {
+                light.insert(c, v);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    light
+}
+
+pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &HashSet<Pos>) -> Vec<Vertex> {
     // a one-block-thick layer of grass blocks: the grass tile repeated once per block on top,
     // dirt under it and grass-block sides around it (seen from below or from the edge too)
     let top = atlas.tile("grass_top") as u32;
@@ -705,6 +751,16 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
     let (ix0, ix1, iz0, iz1) = (x0 as i32, x1 as i32, z0 as i32, z1 as i32);
     let near = 24;
     let (nx0, nx1, nz0, nz1) = ((lo[0].floor() as i32 - near).max(ix0), (hi[0].ceil() as i32 + near).min(ix1), (lo[2].floor() as i32 - near).max(iz0), (hi[2].ceil() as i32 + near).min(iz1));
+    // the game's smooth lighting of a grass top: each corner at the mean sky light of the four air
+    // cells around it, over the grass (darker under the build: its contact shadow)
+    let light = layer_sky_light(occ, gy + 1);
+    let corner = |cx: i32, cz: i32| -> [u8; 4] {
+        let mut sum = 0.0;
+        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
+            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
+        }
+        lum(light_brightness(sum / 4.0))
+    };
     for bz in nz0..nz1 {
         for bx in nx0..nx1 {
             let k = variant_of_4(bx, gy, bz);
@@ -719,10 +775,10 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
             };
             let (fx, fz) = (bx as f32, bz as f32);
             quad([
-                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: c },
-                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: c },
-                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: c },
-                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: c },
+                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: corner(bx, bz) },
+                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: corner(bx, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: corner(bx + 1, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: corner(bx + 1, bz) },
             ]);
         }
     }

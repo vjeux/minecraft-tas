@@ -64,10 +64,9 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
     let mut cam = if o.picture {
         scene::picture_camera(&s, &look, aspect)
-    } else if s.mode.is_door() {
-        scene::camera_showing_inputs(atlas, &s, &look, aspect, scene::THUMB_WINDOW)
     } else {
-        scene::view_camera(&s, &look, aspect, crate::camera::CAM_DIR, scene::THUMB_WINDOW)
+        // the viewer's thumbnail camera (a door: the side its lever is seen from)
+        scene::thumb_camera(atlas, &s, &look, aspect)
     };
     if o.yaw.is_some() || o.pitch.is_some() {
         if let Some(y) = o.yaw {
@@ -328,7 +327,7 @@ pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u3
     // machine followed), the same interpolation
     let aspect = w as f32 / h as f32;
     let mut p = crate::player::Player::new(text, aspect)?;
-    p.show_inputs(atlas, aspect);
+    p.show_inputs(atlas, aspect, scene::live_window(h as f32));
     if p.session.mode.is_door() {
         p.flip();
     } else {

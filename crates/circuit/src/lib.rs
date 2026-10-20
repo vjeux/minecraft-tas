@@ -118,6 +118,34 @@ pub struct Probe {
     pub pos: Pos,
 }
 
+/// The ground a TNT duper is judged on ([`Circuit::ground_blocks`]): a superflat floor (grass over
+/// two dirt over bedrock: explosions leave craters, as in a real world), and an obsidian floor (no
+/// craters: a TNT lands where it first touches down). A duper must survive on both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ground {
+    Grass,
+    Obsidian,
+}
+
+impl Ground {
+    pub const ALL: [Ground; 2] = [Ground::Grass, Ground::Obsidian];
+
+    /// Its layers, top first.
+    pub fn layers(self) -> &'static [&'static str] {
+        match self {
+            Ground::Grass => &["minecraft:grass_block", "minecraft:dirt", "minecraft:dirt", "minecraft:bedrock"],
+            Ground::Obsidian => &["minecraft:obsidian"],
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Ground::Grass => "grass ground",
+            Ground::Obsidian => "obsidian ground",
+        }
+    }
+}
+
 /// What a circuit claims to be: the axis of its study and the checker it is judged by.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -411,6 +439,10 @@ pub struct Circuit {
     /// its repeater); the judge refuses the design with it, the tools that only read it still load
     /// it (the input stays a written block).
     pub input_refused: Option<String>,
+    /// A TNT duper's drop: how many air blocks the judge leaves between its lowest block and the
+    /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
+    /// stands on the ground).
+    pub drop: i32,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -575,7 +607,7 @@ impl Circuit {
             None => None,
         };
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -924,6 +956,29 @@ impl Circuit {
     pub fn explodes(&self) -> bool {
         let tnt = matches!(self.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
         tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
+    }
+
+    /// The ground a TNT duper with explosions stands on (coordinator 2026-10-20, after vjeux 13:13Z
+    /// "There's no way this tnt duper doesn't explode after a few seconds": in the void sandbox a
+    /// dropped TNT fell away forever): `reach` blocks around the design box, its top `drop` air
+    /// blocks under the design's lowest layer (0: right under it); the blocks, top layer first.
+    pub fn ground_blocks(&self, ground: Ground, reach: i32, drop: i32) -> Vec<(Pos, String)> {
+        let Some((lo, hi)) = self.clock.design.bounds() else { return Vec::new() };
+        let mut v = Vec::new();
+        for (k, st) in ground.layers().iter().enumerate() {
+            for x in lo[0] - reach..=hi[0] + reach {
+                for z in lo[2] - reach..=hi[2] + reach {
+                    v.push(([x, lo[1] - 1 - drop - k as i32, z], st.to_string()));
+                }
+            }
+        }
+        v
+    }
+
+    /// The lowest layer of the design: a TNT duper's frames leave out the ground below it (its
+    /// craters are not the machine).
+    pub fn lowest_y(&self) -> i32 {
+        self.clock.design.bounds().map(|(lo, _)| lo[1]).unwrap_or(0)
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
