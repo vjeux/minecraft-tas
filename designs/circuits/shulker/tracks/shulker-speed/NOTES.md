@@ -111,6 +111,23 @@ The deeper reason a threshold cannot work either: with a hopper feeder, the back
 The obvious gate, "the box is nearly full", is not available in this layout: the box has exactly ONE readable face (north, through the stone at (0,1,-1)), and the full detector C already uses it. Comparators are horizontal, so the free cell under the box cannot read it, and reading through two stones finds no container.
 Conclusion: mixed + restart needs the feeder to be a DROPPER that drains faster than it is fed (5/s out, 2.5/s in), so the feeder is empty except in a jam, where a dropper facing a full box keeps its item. That needs the placement one-shot for the first item, so it has to be built on the FLUSH loader (127b), not on the mixed loader. The remaining obstacle there: all five non-box faces of Y1 are occupied (2 observers, 2 feed hoppers, the collection hopper K), so the jam comparator has no read path. The next step is a re-layout that frees one face of the feeding dropper for a comparator - for instance moving the collection hopper K one cell east and reading Y1 through the freed stone.
 
+## 10/s loader: the design is now unblocked (2026-10-20), ready to build
+
+Two source facts settle the parts that blocked it:
+- `ShulkerBoxDispenseBehavior` (net/minecraft/core/dispenser) extends `OptionalDispenseItemBehavior`: a failed placement only sets success=false and RETURNS the stack. So firing the dispenser while the box cell is occupied is harmless - no item entity, nothing lost. Pulsing a block next to D is therefore allowed.
+- An observer outputs into the block behind it; a dropper is a full solid block, so an observer firing INTO the dropper also makes that dropper a strongly powered conductor. The box cell next to it then has a neighbour signal, and the dropper UNDER the box fires by quasi-connectivity in the same tick.
+
+Full layout (box cell X at (0,1,0)):
+- D (0,2,0) facing down; boxes chest (0,4,0) through a hopper (0,3,0) facing down.
+- Y1 (0,0,0) dropper facing up. NO observers: it is fired by QC from Y2 (above), in both clock phases.
+- Y1 feeds: (-1,0,0) hopper east and (0,0,-1) hopper south = 5/s. (0,0,1) stays a stone so nothing pulls out of Y2.
+- Y2 (0,1,1) dropper facing north. Observers: (1,1,1) facing east (watches the phase-A dust at (2,1,1)) and (0,1,2) facing south (watches the phase-B dust at (0,1,3)).
+- Y2 feeds: (0,2,1) hopper down and (-1,1,1) hopper east = 5/s.
+- Read stone (0,1,-1), box comparator (0,1,-2) facing north; piston (-2,1,0) with its stone at (-1,1,0); drop cell (1,1,0) over the collection hopper K (1,0,0) facing east into the output at (2,0,0).
+- Gate: the dropper75 gate (0<L<15 squared into an 8 gt subtract-comparator clock) rebuilt at y=1 north of the box, since both phases are now needed at y=1 only. Phase B is phase A through a delay-2 repeater, so the two observers fire 4 gt apart and each dropper sees a rising edge every 4 gt = 5/s each.
+- Supply 10/s: exactly TWO item chests, each over a hopper minecart, each cart over two hoppers (a cart at a cell edge, x=0.01 or 0.99, straddles two cells, and both hoppers below pull from it: 5/s per chest). Chest A at (0,4,1) over a cart at (0,3,1) feeding (0,2,1) and (-1,2,1) -> (-1,1,1). Chest B at (-3,4,0) over a cart at (-3,3,0) straddling z, feeding two hopper lines at y=0 east into Y1's west and north faces.
+- Two chests, not three, so the drain is balanced: with three chests the judge puts 27 stacks in each, the cart chest empties first and the rate falls back to 7.5/s. With two the judge tops them up from the remaining budget and both run dry together.
+
 ## Combo (loader + unloader, `port input.mode` lever): plan
 
 One items chest cannot be both the loader's source (above the feed hopper) and the unloader's sink (fed by the hopper under the box), and the judge fills the item chests in name order with 81 stacks, so a sink named items.b would get 27 stacks in loader mode. Plan: loader sources items.a/b/c into one pool hopper over the feed hopper, unloader sink items.d (gets no budget in loader mode); one comparator reading the box through the read stone feeds both detectors (compare with a redstone block = full; squared + subtract pulse = became empty); the mode lever locks the full-detector repeater (unloader mode) and, through a torch, the unloading hopper and the empty-pulse path (loader mode).
