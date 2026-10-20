@@ -1,0 +1,87 @@
+name: pext-n4-stack-gen
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 4 1 4 lever
+port payload: 5 1 0
+origin: -1 0 -4
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -2:
+  .
+  ......C
+  ......A
+  ......A
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  ......C
+  ....CDDD
+  ......O.B
+  ......ADD
+  .
+  ......ooC
+  .
+  .
+layer 0:
+  .
+  ......C
+  ....CBCOB
+  .....BADO
+  .....BOA
+  .....B.A
+  .....BOAC
+  .....oC
+  .....s
+layer 1:
+  ....C
+  ...BA.oB
+  ...CAOCOO
+  ...AAAAAA
+  BDSSSSG
+  B..BBBBBB
+  oooCBBOOC
+  ....CBoA
+  .....L
+layer 2:
+  ....oooB
+  ...ODDDC
+  ...C.OB.O
+  BDDDDDD
+  O....CC
+  .
+  ...oOOO.C
+  ....ooA
+  .
+layer 3:
+  .
+  ......OB
+  ...ooOABO
+  .....CAB
+  .....AAD
+  .
+  .....ODDD
+  .
+  .
+layer 4:
+  .
+  .
+  .....oooO
+  .....A
+  .
+  .
+  .
+  .
+  .

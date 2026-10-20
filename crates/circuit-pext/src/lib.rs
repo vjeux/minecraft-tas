@@ -14,6 +14,7 @@ pub mod game;
 pub mod rs;
 pub mod search;
 pub mod spec;
+pub mod stack;
 pub mod trains;
 
 use anyhow::{Result, anyhow, bail};
@@ -130,6 +131,20 @@ enum Cmd {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
+    /// Generate a SLIME-FREE plain-stack extender from an interleaved static schedule (see
+    /// crates/circuit-pext/src/stack.rs) and check it on redsim.
+    Stack {
+        #[arg(long)]
+        n: usize,
+        #[arg(long, default_value_t = 12)]
+        max_train: usize,
+        #[arg(long, default_value_t = 3)]
+        hops: usize,
+        #[arg(long, default_value_t = 0)]
+        pick: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Add an observer chain to a design: every cell of --path (`x,y,z;x,y,z;...`) gets an observer
     /// watching the previous cell (the first one watches --from), so a change at --from runs down
     /// the path 2 gt per cell.
@@ -156,6 +171,9 @@ enum Cmd {
         /// Breadth-first search for the shortest train whose every step static cells can deliver.
         #[arg(long)]
         bfs: bool,
+        /// Interleaved delivery: the two edges' steps at different times (see trains::interleave).
+        #[arg(long)]
+        interleave: bool,
     },
     /// Greedy shrink on redsim: remove blocks, or swap one for a palette state and remove
     /// another, while the extender keeps working; writes each step to --out.
@@ -291,6 +309,25 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
+        Cmd::Stack { n, max_train, hops, pick, out } => {
+            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick })?;
+            for l in &log {
+                println!("  {l}");
+            }
+            let p = Pext::from_design(d.clone())?;
+            match rs::Prepared::new(&p, 2) {
+                Ok(prep) => {
+                    let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
+                    println!("{}", summary(&p, &r));
+                }
+                Err(e) => println!("not modeled: {e}"),
+            }
+            if let Some(out) = out {
+                d.save(&out)?;
+                println!("wrote {}", out.display());
+            }
+            Ok(())
+        }
         Cmd::Spine { base, from, path, out } => {
             let mut d = mctas::design::Design::load(&base)?;
             let parse = |s: &str| -> Result<Pos> {
@@ -322,8 +359,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
             Ok(())
         }
-        Cmd::Trains { n, max, show, shift, bfs } => {
-            if bfs {
+        Cmd::Trains { n, max, show, shift, bfs, interleave } => {
+            if interleave {
+                trains::report_interleave(n, max, show)
+            } else if bfs {
                 trains::report_bfs(n, shift, max)
             } else {
                 trains::report(n, max, show, shift)
