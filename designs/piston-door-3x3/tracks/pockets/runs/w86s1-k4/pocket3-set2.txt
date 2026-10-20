@@ -1,0 +1,29 @@
+name: pocket3-set2
+covers: (1,4)o2 (1,4)c20
+port door: 0 0 0
+port lever: 5 4 0
+origin: -1 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  .AA
+layer -2:
+  ..A
+layer -1:
+  .A..B
+layer 0:
+  CCCC.B
+layer 1:
+  CCCC.B
+layer 2:
+  CCCC.B
+layer 3:
+  s...BO
+layer 4:
+  .SS.oB
