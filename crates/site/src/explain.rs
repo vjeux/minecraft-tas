@@ -413,21 +413,29 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         return "<p>Download the design (below) to build it in the game; the 3D view needs a browser with WebGL.</p>".into();
     }
     let mut s = String::new();
+    // a design the browser's simulator cannot run yet (the shulker study has its own words)
+    if !c.unmodeled.is_empty() && !base(&c.kind).starts_with("shulker") {
+        s.push_str(&format!(
+            "<p>The 3D view shows this design <b>as built</b>: the browser's simulator cannot run it yet ({}). The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            esc(&c.unmodeled)
+        ));
+        return s;
+    }
     if base(&c.kind) == "flying-machine" {
         s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
         return s;
     }
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" => {
-            s.push_str("<p>The 3D view shows the machine as it is built. Shulker boxes, item transfers and dropped boxes are judged in the real game only: the browser's simulator does not model shulker boxes yet, so the view does not run the machine. The judge puts its chests at the design's ITEMS, BOXES and OUTPUT cells. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>");
+            s.push_str("<p>The 3D view shows the machine as it is built, with the judge's chests at the cells tagged ITEMS, BOXES and OUT, and a shulker box where the dispenser places it. Shulker boxes, item transfers and dropped boxes are judged in the real game only: the browser's simulator does not model shulker boxes yet, so the view does not run the machine. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>");
             return s;
         }
         "tnt-duper" => {
-            s.push_str("<p>The duper runs by itself as soon as it is built: the view plays it from the start. Watch the piston push the TNT block every cycle and a lit TNT drop out of the machine each time, while the TNT block lands again in its place. Pause and step one game tick at a time with the bar's buttons; drag to look around, pinch or scroll to zoom.</p>");
+            s.push_str("<p>The duper runs by itself as soon as it is built: the view plays it from the start. Watch the piston push the TNT block every cycle and a lit TNT (flashing white) drop out of the machine each time, while the TNT block lands again in its place; a lit TNT vanishes when its fuse runs out instead of exploding. Pause and step one game tick at a time with the bar's buttons; drag to look around, pinch or scroll to zoom.</p>");
             return s;
         }
         "bud" => {
-            s.push_str("<p>The judge places, removes and changes a block at the cell next to the design that it watches (its target), and the timing diagram below shows when each change happens and when the output fires. In the 3D view the output is tagged OUT; drag to look around, pinch or scroll to zoom.</p>");
+            s.push_str("<p><b>The view plays the judge's own test</b> on a loop: the judge places, removes and changes a block at the cell tagged TARGET (in cyan), and the badge names each step (the same test is drawn as a timing diagram below). The output is tagged OUT: watch it fire on the changes the design detects. Touch any control to stop the demo; drag to look around, pinch or scroll to zoom.</p>");
             return s;
         }
         _ => {}
@@ -568,7 +576,7 @@ pub const STUDIES: [(&str, &str, &str); 10] = [
     (
         "shulker",
         "Shulker loaders and unloaders",
-        "Machines that pack items into shulker boxes (loaders) or unpack them (unloaders). The judge, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and 4 rotations. Extra scenarios give badges: 16-stack and unstackable items, mixed items, always on, a box supply that runs out, colours kept, a part-full box flushed when the input stops... Designs are ranked by speed (items per second), then blocks placed.",
+        "Machines that pack items into shulker boxes (loaders) or unpack them (unloaders). Only a dispenser can place a box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. The judge, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and 4 rotations, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... Designs are ranked by speed (items per second), then blocks placed; why builds want each variation is in designs/circuits/shulker/VARIATIONS.md.",
     ),
     (
         "tnt",

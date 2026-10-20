@@ -1,5 +1,5 @@
 # archived 2026-10-20T07:47Z from designs/circuits/tracks/tnt/precise/tnt-precise-28b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-28b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 28 blocks, 5x5x6, robust (precise: 85 TNT at one point at fuse 1)
+# CIRCUIT: tnt-precise-28b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 28 blocks, 5x5x6, robust (precise: 85 TNT at one point at fuse 1; launched at (0.0005, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); stationary: every TNT at rest for 33+ gt before fuse 1)
 name: tnt-precise-28b
 circuit: tnt-duper
 origin: 0 0 -3

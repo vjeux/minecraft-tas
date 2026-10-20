@@ -1,0 +1,13 @@
+name: rt-push-sand
+# redsim test scene (not a clock): a falling sand (summoned at y 9) drops past a sticky piston
+# facing east that fires at tick 15 (4 gt), as the sand crosses y 4..5: its head shoves the falling
+# block sideways (moveCollidedEntities on a falling block); it then falls off its column and lands.
+port start: 0 4 0 minecraft:redstone_block 4 at 15
+entity: minecraft:falling_block 2.5 9.0 0.5 {BlockState:"minecraft:sand",Time:1}
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=east,extended=false]
+layer 0:
+  SSSSSS
+layer 4:
+  .P....

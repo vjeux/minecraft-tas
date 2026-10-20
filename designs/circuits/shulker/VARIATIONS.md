@@ -58,8 +58,8 @@ escaping the watched box, or a final state that is not at rest (no block changes
 | 2 | 16-stack items (snowballs, pearls, eggs) | ender-pearl and egg storage | the same with 3 x 432 snowballs | badge `16-stack` |
 | 3 | unstackables (tools, armour) | gear storage, 27 per box | 3 x 27 iron shovels | badge `unstackable` |
 | 4 | mixed items | farm or storage overflow packed as-is | 3 iron ingots once (a rare item: its slot stays partial), then 16 rounds of cobblestone, snowballs and dirt in full and partial stacks, 6 empty boxes; every item must end in a delivered box, every box but the last with 27 occupied slots, the last within 6000 gt of the source running dry | badge `mixed` |
-| 5 | filtered (one item kind) | pack one item, pass the rest on | `filter: <item>` header + `port reject:`; mixed input; boxes may hold only the filter item, everything else must reach reject | badge `filter` |
-| 6 | speed | big farms (raw items/s) | items/s = the steady flow (items leaving the source chests between 10% and 90% of the total, over the gt between those moments, from per-gt frames), boxes/min = that flow over the items per box; also the theoretical ceiling of its feed (feeders x their rate) | number, ranked |
+| 5 | filtered (one item kind) | pack one item, pass the rest on | a `port reject:` chest; one box's worth of the item in full stacks with 8 dirt or 2 sticks after each; the box must hold the item alone, everything else must reach reject (the design's own filter items are left out of the inventory) | badge `filter` |
+| 6 | speed | big farms (raw items/s) | items/s = the items in the delivered boxes over the gt from the start to the last box (hoppers buffer what leaves the source, so the source's outflow overstates a loader), boxes/min = that over the items per box; also the theoretical ceiling of its feed (feeders x their rate) | number, ranked |
 | 7 | compactness | small builds | design blocks (judge chests excluded), volume, footprint, height | numbers |
 | 8 | tileable side by side | one loader per item kind, in rows | `tile: dx dy dz [copies]` header: the judge builds 3 copies at that offset, each with its own chests (ports renamed `<port>.t<k>`), all running at once; each copy must deliver its own 3 boxes from its own items | badge `tileable(N)` (N = the step's length) |
 | 9 | input forms | how items arrive in a real build | `items: chest` (default), `items: hopper` (a judge hopper pushes into the port cell at 2.5/s), `items: stream` (the judge spawns item entities in the port cell at 10/s, like a water stream) | badge per form |
@@ -72,7 +72,7 @@ escaping the watched box, or a final state that is not at rest (no block changes
 | 16 | lag-friendly | servers and big farms | at rest: the design's hoppers left unlocked (they look for items every gt); later: block state changes in one box cycle | `hoppers awake` |
 | 17 | no floor drops | no items left lying around, nothing lost if it lags | item entities polled every gt in the unstackables scenario (the same 3 drops as any item): the longest one alive and whether one touched the ground | badge `drop-free` (picked up within 8 gt, never on the ground) |
 | 18 | materials | survival cost | the bill of the design blocks: iron (hopper 5, piston 1, ...), quartz, redstone, and slime or honey if any | numbers |
-| 19 | loader + unloader combo | one station for both jobs | `port mode: lever`: judged as a loader with it off and as an unloader with it on | badge `combo` |
+| 19 | loader + unloader combo | one station for both jobs | `port input.mode: x y z lever`: judged as its kind with the lever off, and as the other kind (unstackables) with it on, on the same chests | badge `combo` |
 
 Unloader variations (kind `shulker-unloader`):
 

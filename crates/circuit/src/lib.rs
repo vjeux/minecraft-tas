@@ -431,10 +431,13 @@ impl Circuit {
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
-                    // a tiled run ([`shulker::tiled`]) has one lever per copy
+                    // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
+                    // combo's mode lever (badge `combo`)
                     let most = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()).unwrap_or(1);
-                    if names.len() > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
-                        bail!("{}: at most one input, a lever the judge turns on once (`port input: x y z lever`); none = always on", k.name());
+                    let starts = names.iter().filter(|n| !(**n == "mode" || n.starts_with("mode."))).count();
+                    let modes = names.len() - starts;
+                    if starts > most || modes > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
+                        bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
                     }
                 }
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
@@ -558,6 +561,12 @@ impl Circuit {
         v.sort();
         v.dedup();
         v
+    }
+
+    /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
+    /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    pub fn explodes(&self) -> bool {
+        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone

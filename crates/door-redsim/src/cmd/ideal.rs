@@ -1,7 +1,22 @@
-//! `door sheet`, `door ideal-rs`: ideal schedules on redsim.
+//! `door sheet`, `door ideal-rs`, `door feeds`: ideal schedules on redsim.
 
 use anyhow::Result;
 use std::path::PathBuf;
+
+#[derive(clap::Args)]
+pub struct FeedsArgs {
+    /// The ideal schedule (its design is replayed on redsim, one open and one close).
+    schedule: PathBuf,
+    /// The build box in the door plane, `X0..X1,Y0..Y1` (design coordinates; default: the
+    /// design's blocks): only cells inside it that stay free all cycle can feed.
+    #[arg(long, value_name = "X0..X1,Y0..Y1")]
+    r#box: Option<String>,
+}
+
+pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
+    let bx = args.r#box.as_deref().map(crate::feeds::parse_box).transpose()?;
+    crate::feeds::cli(&args.schedule, bx)
+}
 
 #[derive(clap::Args)]
 pub struct SheetArgs {
