@@ -108,6 +108,14 @@ pub const FAMILIES: &[Family] = &[
         how: "the bulb-triggered one-shot (oneshot-bulb-rise) judged as an extender",
     },
     Family {
+        name: "fall-psub-u4",
+        kind: "falling-edge",
+        l: "15 + 16n",
+        blocks: "22 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (an odd delay: the block lands in the block-entity phase); the comparator's side gets the input inverted by a redstone torch and delayed by a U of delay-4 repeaters (an even delay), so after the falling edge the output is on for an odd number of ticks",
+    },
+    Family {
         name: "limiter-psub-u4",
         kind: "pulse-limiter",
         l: "13 + 16n",
@@ -537,6 +545,38 @@ pub fn limiter_psub_u_text(name: &str, kind: &str, k: usize, d: u8) -> String {
     )
 }
 
+/// The falling-edge piston-subtract: a sticky piston the input powers pushes a redstone block out
+/// from behind a subtract comparator and pulls it back on the falling edge (it lands in the
+/// block-entity phase: odd delay); the side gets the input inverted by a torch (through dust into
+/// its block) and delayed by two repeaters: L = 2 (d1 + d2) - 1.
+pub fn fall_psub_text(name: &str, d1: u8, d2: u8) -> String {
+    let l = 2 * (d1 as i32 + d2 as i32) - 1;
+    format!(
+        "name: {name}\ncircuit: falling-edge\n# Odd falling-edge pulses (L = {l} gt): a sticky piston the input powers pushes a redstone block out from behind a subtract comparator and pulls it back on the falling edge (the piston moves the tick after the input, the block lands in the block-entity phase: an odd delay); the comparator's side gets the input inverted by a redstone torch (through dust into its block) and delayed by two repeaters ({d1} and {d2}: an even delay), so after the falling edge the output is on from the block's return until the torch's signal arrives: L = 2 x ({d1} + {d2}) - 1 = {l} gt.\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  Q minecraft:repeater[delay={d1},facing=west,locked=false,powered=false]\n  U minecraft:repeater[delay={d2},facing=west,locked=false,powered=false]\nlayer 0:\n  .S...\n  .SSSS\nlayer 1:\n  SW.AB\n  TQUWC\n"
+    )
+}
+
+/// The falling-edge piston-subtract with a repeater U after the torch (an extendable odd family).
+pub fn fall_psub_u_text(name: &str, k: usize, d: u8) -> String {
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in -1..=(k as i32 + 1) {
+        let (r0, r1) = match z {
+            -1 => (".S...", "SW.AB"),
+            0 => ("...SS", "T..WC"),
+            z if z == k as i32 + 1 => ("SSSS.", "WWWW."),
+            _ => ("S..S.", "N..M."),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: falling-edge\norigin: -2 0 -1\nport input: 0 1 -1\nport output: 2 1 1\npalette:\n  S minecraft:stone\n  W minecraft:redstone_wire\n  T minecraft:redstone_wall_torch[facing=south,lit=true]\n  A minecraft:sticky_piston[extended=false,facing=east]\n  B minecraft:redstone_block\n  C minecraft:comparator[facing=north,mode=subtract,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=true]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=true]\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
@@ -549,6 +589,7 @@ pub fn instance_text(name: &str, n: u32) -> Option<String> {
         "dual-lock" => Some(dual_lock_text(&format!("pulse-dual-lock-n{n}"), k, 4)),
         "dual-edge-reset" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset-n{n}"), k, 4)),
         "limiter-psub-u4" => Some(limiter_psub_u_text(&format!("pulse-limiter-psub-u4-n{n}"), "pulse-limiter", k, 4)),
+        "fall-psub-u4" => Some(fall_psub_u_text(&format!("pulse-fall-psub-u4-n{n}"), k, 4)),
         "limiter-psub-u1" => Some(limiter_psub_u_text(&format!("pulse-limiter-psub-u1-n{n}"), "pulse-limiter", k, 1)),
         "dual-edge-reset1" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset1-n{n}"), k, 1)),
         "oneshot-bulb-rise" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-rise-n{n}"), "rising-edge", &vec![4; 2 * k])),
@@ -595,6 +636,7 @@ pub fn group_of(family: &str, kind: &str) -> &'static str {
         ("dual-lock" | "dual-lock1", _) => "pulse-dual-lock",
         ("dual-edge-reset" | "dual-edge-reset1", _) => "pulse-dual-edge-reset",
         ("limiter-psub-u4" | "limiter-psub-u1", _) => "pulse-limiter-psub",
+        ("fall-psub-u4", _) => "pulse-fall-psub",
         ("oneshot-bulb-rise", _) => "pulse-oneshot-bulb-rise",
         ("oneshot-bulb-ext", _) => "pulse-oneshot-bulb-ext",
         _ => "pulse-other",
@@ -638,6 +680,16 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         if a.mode == "piston" {
             // the piston-subtract limiter: L = 2 (d1 + d2) - 3 = 1, 3, ..., 13
             let short = if a.kind == "rising-edge" { "rise-psub" } else { "limiter-psub" };
+            if a.kind == "falling-edge" {
+                // the falling-edge version: L = 2 (d1 + d2) - 1 = 3, ..., 15
+                for s in 2..=8u8 {
+                    let (d1, d2) = (s / 2, s - s / 2);
+                    let name = format!("pulse-fall-psub-L{}", 2 * s as i32 - 1);
+                    let text = crate::stamp::stamp(&fall_psub_text(&name, d1, d2), "pulse-fall-psub", None, None);
+                    std::fs::write(dir.join(format!("{name}.txt")), text)?;
+                }
+                return Ok(());
+            }
             for s in 2..=8u8 {
                 let (d1, d2) = (s / 2, s - s / 2);
                 let name = format!("pulse-{short}-L{}", 2 * s as i32 - 3);
