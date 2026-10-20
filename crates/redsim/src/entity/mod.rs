@@ -121,6 +121,9 @@ pub struct Entity {
     pub last_known_position: Option<Vec3>,
     pub last_known_speed: Vec3,
     pub invulnerable_time: i32,
+    /// The game's network id (`getId()`), which some logic reads (`ItemEntity.tick`'s
+    /// `(tickCount + getId()) % 4`): the insertion id unless a trace gives the game's.
+    pub network_id: i32,
     /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
     pub fluid: fluid_push::FluidInteraction,
 }
@@ -173,6 +176,7 @@ impl Entity {
             last_known_position: None,
             last_known_speed: Vec3::ZERO,
             invulnerable_time: 0,
+            network_id: id as i32,
             fluid: Default::default(),
         }
     }
@@ -197,19 +201,64 @@ pub struct Entities {
     pub next_id: u32,
 }
 
+/// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
+fn snbt_keys(nbt: &str) -> Vec<String> {
+    let s = nbt.trim();
+    let inner = s.strip_prefix('{').and_then(|x| x.strip_suffix('}')).unwrap_or(s);
+    let mut keys = Vec::new();
+    let (mut depth, mut quote, mut at_key) = (0i32, false, true);
+    let mut cur = String::new();
+    for ch in inner.chars() {
+        if quote {
+            if ch == '"' {
+                quote = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => quote = true,
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
+            ',' if depth == 0 => {
+                at_key = true;
+                cur.clear();
+                continue;
+            }
+            ':' if depth == 0 && at_key => {
+                keys.push(cur.trim().to_string());
+                at_key = false;
+                continue;
+            }
+            _ => {}
+        }
+        if at_key && depth == 0 {
+            cur.push(ch);
+        }
+    }
+    keys
+}
+
 /// `summon <type> x y z [nbt]` as the judge summons a design's entities (`entity:` lines): the
 /// kind from the type id (payload defaults; the kinds' owners refine them from the NBT), the
-/// position, and `Rotation:[yaw, pitch]` from the NBT when given. Returns the entity's id.
+/// position, and `Rotation:[yaw, pitch]` from the NBT when given. Returns the entity's id. NBT
+/// redsim does not model (container contents...) is refused.
 pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
     let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    if let Some(n) = nbt {
+        let allowed: &[&str] = if id == "item" { &["Motion", "Rotation", "Item", "PickupDelay", "Age"] } else { &["Motion", "Rotation"] };
+        if let Some(k) = snbt_keys(n).into_iter().find(|k| !allowed.contains(&k.as_str())) {
+            return Err(format!("entity {type_id} with {k} in its data ({n}) is not modeled by redsim"));
+        }
+    }
     let kind = match id {
         "oak_boat" | "spruce_boat" | "birch_boat" | "jungle_boat" | "acacia_boat" | "dark_oak_boat" | "mangrove_boat" | "cherry_boat" | "pale_oak_boat" | "bamboo_raft" => EntityKind::Boat(boat::BoatState::default()),
         "oak_chest_boat" | "spruce_chest_boat" | "birch_chest_boat" | "jungle_chest_boat" | "acacia_chest_boat" | "dark_oak_chest_boat" | "mangrove_chest_boat" | "cherry_chest_boat" | "pale_oak_chest_boat" | "bamboo_chest_raft" => {
-            EntityKind::Boat(boat::BoatState::default())
+            EntityKind::Boat(boat::BoatState { chest: true, ..Default::default() })
         }
-        "minecart" | "hopper_minecart" | "chest_minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
+        // hopper and chest minecarts need their kinds (contents, hopper sucking): not yet
+        "minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
         "armor_stand" => EntityKind::ArmorStand(armor_stand::ArmorStandState::default()),
-        "item" => EntityKind::Item(item::ItemState::default()),
+        "item" => EntityKind::Item(item::ItemState::from_nbt(nbt)),
         _ => return Err(format!("entity {type_id} is not modeled by redsim")),
     };
     let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
@@ -230,6 +279,16 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
     if let Some(e) = w.entities.list.last_mut() {
         e.x_rot = pitch;
         e.x_rot_o = pitch;
+        // Motion:[x, y, z] (doubles)
+        if let Some(n) = nbt
+            && let Some(i) = n.find("Motion:[")
+        {
+            let inner = n[i + "Motion:[".len()..].split(']').next().unwrap_or("");
+            let v: Vec<f64> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['d', 'D', 'f', 'F']).parse().ok()).collect();
+            if v.len() == 3 {
+                e.delta_movement = Vec3::new(v[0], v[1], v[2]);
+            }
+        }
     }
     Ok(id)
 }

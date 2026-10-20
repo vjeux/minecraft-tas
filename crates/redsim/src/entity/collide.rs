@@ -728,3 +728,14 @@ pub fn apply_effects_from_blocks_between(w: &mut World, i: usize, from: Vec3, to
     }
     check_inside_blocks(w, i, &[Movement { from, to, axis_dependent: None }]);
 }
+
+/// `Entity.applyEffectsFromBlocksForLastMovements()` (item entities at rest):
+/// `applyEffectsFromBlocks(finalMovementsThisTick)`, the moves recorded last time, replayed as
+/// [`apply_effects_from_blocks`] replays this tick's (clockinfra, for `item.rs`).
+pub fn apply_effects_for_last_movements(w: &mut World, i: usize) {
+    let moves = w.entities.list[i].final_movements.clone();
+    if w.entities.list[i].removed || w.entities.list[i].no_physics {
+        return;
+    }
+    check_inside_blocks(w, i, &moves);
+}
