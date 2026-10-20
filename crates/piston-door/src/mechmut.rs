@@ -14,7 +14,7 @@ use crate::cosearch as cs;
 use crate::families::{self as fam, Bx, K, Mech, Out, Pc, St};
 use crate::mechsynth::Act;
 use anyhow::{Context, Result};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// A schedule as (piece, action) pairs: portable across neighbours (piston ids are not).
@@ -56,13 +56,21 @@ pub struct Var {
     /// Island start (families' wiring analysis): firings without a started feed region, best
     /// lever region (0 = every region can start).
     pub start: usize,
-    /// d67's `door feeds` on the redsim-working plan: (firings with no option, one-cell
-    /// conflicts, firings with only flagged options).
-    pub feeds: (usize, usize, usize),
+    /// d67's `door feeds` on the redsim-working plan: (firings with no option, regions that
+    /// cannot start, one-cell conflicts, firings with only flagged options).
+    pub feeds: (usize, usize, usize, usize),
     /// The firing cells of the unfed receivers (families' wiring analysis).
     pub unfed_at: String,
     pub so: Sched,
     pub sc: Sched,
+    /// Cells this variant must keep free (the global `--reserve` + its seed's own, e.g. a
+    /// macrosat model's wiring cells with `--reserve-wiring`).
+    pub reserve: Vec<(i8, i8)>,
+    /// w86's `ideal-rs --extent` on the redsim-working plan: the door-plane bounding box of every
+    /// non-air cell over the cycle, inputs and lever excluded, as (w, h); (0, 0) when unknown.
+    pub extent: (i32, i32),
+    /// Where the seed came from (a macrosat dump's file name, or "").
+    pub origin: String,
 }
 
 impl Var {
@@ -79,8 +87,11 @@ impl Var {
             // --rank-unfed: the fewest pistons with no free feed cell first (pockets3's bar), then
             // d67's feed table (no option, one-cell conflicts, only flagged options), the pocket
             // load and the most actions of one piston on one edge
-            let (fn_, fc, fw) = self.feeds;
-            return vec![self.missing, real_bad, self.unfed, self.start, fn_, fc, conn, fw, self.load, self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons];
+            let (fn_, fs, fc, fw) = self.feeds;
+            // the extent leaving the box (the judge's volume grows) ranks right after redsim
+            let out = usize::from(self.extent.0 > 0 && (self.extent.0 > self.bx.w as i32 || self.extent.1 > self.bx.h as i32));
+            let vol = (self.extent.0 * self.extent.1) as usize;
+            return vec![self.missing, real_bad, out, self.unfed, self.start, fn_, fs, fc, conn, fw, self.load, self.maxp, vol, self.inside, self.never, self.weak, cr, self.events, self.pistons];
         }
         vec![self.missing, real_bad, self.inside, conn, self.never, self.weak, self.unfed, self.load, self.pistons, cr, self.events]
     }
@@ -319,7 +330,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     let maxp = [&open_e, &close_e]
         .iter()
         .map(|edge| {
-            let mut n = [0usize; 16];
+            let mut n = [0usize; 32];
             for e in edge.iter() {
                 n[e.id as usize] += 1;
             }
@@ -333,12 +344,21 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     let real = validated.as_ref().map(|s| s.is_some());
     // d67's feed table on the working plan (none / conflicts / weak firings; usize::MAX / 2 when
     // not validated or not analysable)
+    let bad4 = (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2);
     let feeds = match validated.as_ref().and_then(|s| s.as_ref()) {
         Some(s) => match crate::feeds::analyze_schedule(s, "mechmut", Some((bx.x0 as i32, bx.y0 as i32, (bx.x0 + bx.w - 1) as i32, (bx.y0 + bx.h - 1) as i32))) {
-            Ok(r) => (r.none.len(), r.conflicts.len(), r.weak.len()),
-            Err(_) => (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2),
+            Ok(r) => (r.none.len(), r.cannot_start.len(), r.conflicts.len(), r.weak.len()),
+            Err(_) => bad4,
         },
-        None => (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2),
+        None => bad4,
+    };
+    // w86's --extent on the working plan (the volume the judge will see)
+    let extent = match validated.as_ref().and_then(|s| s.as_ref()) {
+        Some(s) => match crate::ideal_rs::extent(s, s.vars()) {
+            Ok((lo, hi)) => (hi[0] - lo[0] + 1, hi[1] - lo[1] + 1),
+            Err(_) => (0, 0),
+        },
+        None => (0, 0),
     };
     let w = fam::wiring(&m, &rest, &sol);
     let (unfed_list, lever_held) = fam::unfed_cells(&m, &rest, &sol);
@@ -394,6 +414,9 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         unfed_at,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
+        reserve: reserve.to_vec(),
+        extent,
+        origin: String::new(),
     })
 }
 
@@ -510,13 +533,15 @@ pub struct Opts {
     pub keep: Vec<Pc>,
     /// Cells no piece may cover and no state of the cycle may occupy (room for an observer).
     pub reserve: Vec<(i8, i8)>,
+    /// A macrosat seed keeps its model's wiring cells free too.
+    pub reserve_wiring: bool,
 }
 
 /// A placeholder variant for a mechanism that does not solve (beam steering only; fewer pieces
 /// first among equal growth).
 fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), unfed_at: String::new(), so: Vec::new(), sc: Vec::new(), reserve: Vec::new(), extent: (0, 0), origin: String::new() }
 }
 
 /// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
@@ -551,17 +576,306 @@ fn progress(bx: Bx, p: &[Pc], cap: usize) -> usize {
     best + 1
 }
 
+/// A search seed: a mechanism, optionally its own schedule (macrosat's actions, replayed first),
+/// the cells it must keep free, and where it came from.
+pub struct Seed {
+    pub bx: Bx,
+    pub pieces: Vec<Pc>,
+    pub hint: Option<(Sched, Sched)>,
+    pub reserve: Vec<(i8, i8)>,
+    pub origin: String,
+}
+
+/// A `door macrosat` dump (clockinfra's model printout: the `macrosat: box WxH at (x0,y0)` line,
+/// the `rest:` and `open:` grids, `open|close step N: KIND (x, y) facing ...` action lines, and,
+/// from 2026-10-20 11:18Z, `%` wiring cells and a `wiring:` line). Returns the box, the pieces
+/// (pistons, stones outside the 3x3, obsidian, redstone blocks; door blocks implied), the wiring
+/// cells, and the schedule as (cell it fires from, actions) per edge. In older dumps a wiring cell
+/// and a retracted normal west piston are both `w`: a `w` in both grids at the same cell that no
+/// action names is wiring.
+pub fn parse_macrosat(text: &str) -> Result<Option<(Bx, Vec<Pc>, Vec<(i8, i8)>, [Vec<((i8, i8), Vec<Act>)>; 2])>> {
+    let Some(head) = text.lines().find(|l| l.starts_with("macrosat: box ")) else { return Ok(None) };
+    // "macrosat: box 6x8 at (-1,-2), h 6 ..."
+    let rest = head.trim_start_matches("macrosat: box ");
+    let (wh, after) = rest.split_once(" at (").context("macrosat header: box")?;
+    let (w, h) = wh.split_once('x').context("macrosat header: WxH")?;
+    let (xy, _) = after.split_once(')').context("macrosat header: (x0,y0)")?;
+    let (x0, y0) = xy.split_once(',').context("macrosat header: x0,y0")?;
+    let bx = Bx { w: w.trim().parse()?, h: h.trim().parse()?, x0: x0.trim().parse()?, y0: y0.trim().parse()? };
+    // a grid after a "<name>:" line: rows "  y tok tok ..." (y descending)
+    let grid = |name: &str| -> Option<HashMap<(i8, i8), String>> {
+        let mut lines = text.lines().skip_while(|l| l.trim() != format!("{name}:")).skip(1);
+        let mut g = HashMap::new();
+        for _ in 0..bx.h {
+            let l = lines.next()?;
+            let mut t = l.split_whitespace();
+            let y: i8 = t.next()?.parse().ok()?;
+            for (i, tok) in t.enumerate() {
+                g.insert((bx.x0 + i as i8, y), tok.to_string());
+            }
+        }
+        Some(g)
+    };
+    let r = grid("rest").context("macrosat dump: no rest grid")?;
+    let o = grid("open");
+    // actions: "open  step  0: EXTEND (4, 2) west line 0  [fed from ...]"
+    let mut sched: [Vec<((i8, i8), Vec<Act>)>; 2] = [Vec::new(), Vec::new()];
+    let mut named: HashSet<(i8, i8)> = HashSet::new();
+    for l in text.lines() {
+        let edge = if l.starts_with("open ") && l.contains(" step ") {
+            0
+        } else if l.starts_with("close ") && l.contains(" step ") {
+            1
+        } else {
+            continue;
+        };
+        let Some((_, body)) = l.split_once(": ") else { continue };
+        let mut t = body.split_whitespace();
+        let kind = t.next().unwrap_or("");
+        let Some((cx, cy)) = body.split_once('(').and_then(|(_, r)| r.split_once(')')).and_then(|(c, _)| c.split_once(',')) else { continue };
+        let (Ok(x), Ok(y)) = (cx.trim().parse::<i8>(), cy.trim().parse::<i8>()) else { continue };
+        let acts = match kind {
+            "EXTEND" | "RETRACT" => vec![Act::L],
+            "PULSE" => vec![Act::P],
+            "PULSE-PULL" => vec![Act::L, Act::L],
+            _ => continue,
+        };
+        // older dumps list actions that change nothing (macrosat leaves them out since
+        // 2026-10-20): a pulse into air, a pulse-pull of one block or one that pulls nothing
+        let line_len: Option<usize> = body.split(" line ").nth(1).and_then(|r| r.split_whitespace().next()).and_then(|v| v.parse().ok());
+        let pulls = body.contains("(pulls)");
+        let junk = match (kind, line_len) {
+            ("PULSE", Some(0)) => true,
+            ("PULSE-PULL", Some(1)) => true,
+            ("PULSE-PULL", Some(0)) => !pulls,
+            _ => false,
+        };
+        if junk {
+            continue;
+        }
+        named.insert((x, y));
+        sched[edge].push(((x, y), acts));
+    }
+    let wiring_line: Vec<(i8, i8)> = text
+        .lines()
+        .find(|l| l.starts_with("wiring:"))
+        .map(|l| {
+            l.trim_start_matches("wiring:")
+                .split(')')
+                .filter_map(|s| {
+                    let (a, b) = s.trim().trim_start_matches('(').split_once(',')?;
+                    Some((a.trim().parse().ok()?, b.trim().parse().ok()?))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut pieces = Vec::new();
+    let mut wiring = wiring_line.clone();
+    for (&(x, y), tok) in &r {
+        let tok = tok.as_str();
+        let ext = tok.ends_with('*');
+        let c = tok.trim_end_matches('*');
+        let piston = |ch: char| -> Option<(bool, u8)> {
+            let f = match ch.to_ascii_lowercase() {
+                'e' => 0,
+                'w' => 1,
+                'u' => 2,
+                'd' => 3,
+                _ => return None,
+            };
+            Some((ch.is_ascii_uppercase(), f))
+        };
+        match c {
+            "." | ">" | "<" | "'" | "," | "}" | "{" | "^" | "v" => {}
+            "%" => wiring.push((x, y)),
+            "#" => {
+                if !fam::in_t(x, y) {
+                    pieces.push(Pc { x, y, k: K::Stone });
+                }
+            }
+            "O" => pieces.push(Pc { x, y, k: K::Obsidian }),
+            "R" => pieces.push(Pc { x, y, k: K::Redstone }),
+            "w" if !ext
+                && !named.contains(&(x, y))
+                && (wiring_line.contains(&(x, y)) || o.as_ref().is_some_and(|g| g.get(&(x, y)).is_some_and(|t| t == "w"))) =>
+            {
+                if !wiring.contains(&(x, y)) {
+                    wiring.push((x, y));
+                }
+            }
+            _ => {
+                let mut ch = c.chars();
+                let (Some(ch0), None) = (ch.next(), ch.next()) else { anyhow::bail!("macrosat dump: unknown glyph {tok:?} at ({x},{y})") };
+                let (sticky, f) = piston(ch0).with_context(|| format!("macrosat dump: unknown glyph {tok:?} at ({x},{y})"))?;
+                pieces.push(Pc { x, y, k: K::Piston { sticky, f, ext } });
+            }
+        }
+    }
+    pieces.sort();
+    wiring.sort();
+    wiring.dedup();
+    let pieces = prune_idle(&pieces, &named, o.as_ref());
+    Ok(Some((bx, pieces, wiring, sched)))
+}
+
+/// macrosat's schedule as families events: per action, the piston standing at the named cell
+/// in the replayed state. Err (why) when the replay fails (a cell holds no piston, an action is
+/// refused): the seed is then solved from scratch.
+fn macrosat_sched(bx: Bx, pieces: &[Pc], sched: &[Vec<((i8, i8), Vec<Act>)>; 2]) -> std::result::Result<(Sched, Sched), String> {
+    let (m, rest) = Mech::new(bx, pieces).ok_or_else(|| format!("families refuses the rest state: {}", refusal(bx, pieces)))?;
+    let mut c = rest.clone();
+    let mut out: [Vec<fam::E>; 2] = [Vec::new(), Vec::new()];
+    for (edge, acts) in sched.iter().enumerate() {
+        for (k, ((x, y), list)) in acts.iter().enumerate() {
+            let id = (0..m.info.len()).find(|&id| bx.xy(c.pp[id] as usize) == (*x, *y)).ok_or_else(|| format!("{} action {k}: no piston at ({x},{y})", ["open", "close"][edge]))?;
+            for &act in list {
+                let e = fam::E { id: id as u8, act };
+                match m.apply(&c, e) {
+                    Out::Ok(n) => c = n,
+                    Out::Noop => return Err(format!("{} action {k}: {:?} of {} at ({x},{y}) changes nothing in families' model", ["open", "close"][edge], act, m.pieces[m.pid[id]].code())),
+                    Out::Illegal => return Err(format!("{} action {k}: {:?} of {} at ({x},{y}) is illegal in families' model", ["open", "close"][edge], act, m.pieces[m.pid[id]].code())),
+                }
+                out[edge].push(e);
+            }
+        }
+        if edge == 0 && !m.is_open(&c) {
+            return Err("not open after macrosat's open actions in families' model".into());
+        }
+    }
+    if c != rest {
+        return Err("not back at rest after macrosat's close actions in families' model".into());
+    }
+    Ok((to_sched(&m, &out[0]), to_sched(&m, &out[1])))
+}
+
+/// Why `Mech::new` refuses a piece list (for the log).
+fn refusal(bx: Bx, pieces: &[Pc]) -> String {
+    let np = pieces.iter().filter(|p| matches!(p.k, K::Piston { .. })).count();
+    if np > 32 {
+        return format!("{np} pistons (families' model holds at most 32)");
+    }
+    let mut seen: HashSet<(i8, i8)> = (0..3).flat_map(|x| (0..3).map(move |y| (x, y))).collect();
+    for p in pieces {
+        for c in p.cells() {
+            if !bx.has(c.0, c.1) {
+                return format!("{} leaves the box", p.code());
+            }
+            if !seen.insert(c) {
+                return format!("{} overlaps another piece or the door", p.code());
+            }
+        }
+    }
+    if pieces.iter().any(|p| matches!(p.k, K::Redstone)) {
+        return "a redstone block's rest state is not settled (a piston beside it would move)".into();
+    }
+    "a piston held at rest QC-arms a retracted piston right below it".into()
+}
+
+/// macrosat models are not minimal (nothing in the SAT model penalizes extra pieces): drop the
+/// pistons no action names that stand at the same cell in the rest and open grids (they never
+/// fire and were not moved by the open edge).
+fn prune_idle(pieces: &[Pc], named: &HashSet<(i8, i8)>, open: Option<&HashMap<(i8, i8), String>>) -> Vec<Pc> {
+    pieces
+        .iter()
+        .filter(|p| {
+            let K::Piston { sticky, f, ext } = p.k else { return true };
+            if named.contains(&(p.x, p.y)) {
+                return true;
+            }
+            let glyph = {
+                let c = ['e', 'w', 'u', 'd'][f as usize];
+                let c = if sticky { c.to_ascii_uppercase() } else { c };
+                if ext { format!("{c}*") } else { c.to_string() }
+            };
+            !open.is_some_and(|g| g.get(&(p.x, p.y)).is_some_and(|t| *t == glyph))
+        })
+        .copied()
+        .collect()
+}
+
+/// The seeds in `input`: a file of `W H x0 y0 pieces` lines, a macrosat dump, or a folder (every
+/// macrosat dump under it, recursively). `reserve_wiring`: a macrosat seed keeps its wiring cells
+/// free.
+pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool) -> Result<Vec<Seed>> {
+    let mut files = Vec::new();
+    if input.is_dir() {
+        let mut stack = vec![input.to_path_buf()];
+        while let Some(d) = stack.pop() {
+            for e in std::fs::read_dir(&d)? {
+                let p = e?.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p.extension().is_some_and(|x| x == "txt") {
+                    files.push(p);
+                }
+            }
+        }
+        files.sort();
+    } else {
+        files.push(input.to_path_buf());
+    }
+    let mut seeds = Vec::new();
+    for f in &files {
+        let text = std::fs::read_to_string(f).with_context(|| format!("{}", f.display()))?;
+        let label = f.strip_prefix(input).unwrap_or(f).display().to_string();
+        if let Some((bx, pieces, wiring, sched)) = parse_macrosat(&text).with_context(|| f.display().to_string())? {
+            let hint = macrosat_sched(bx, &pieces, &sched);
+            let mut res = reserve.to_vec();
+            if reserve_wiring {
+                res.extend(wiring.iter().copied());
+            }
+            eprintln!(
+                "[mechmut] macrosat {label}: {}x{} at ({},{}), {} pieces ({} pistons), wiring {:?}{}",
+                bx.w,
+                bx.h,
+                bx.x0,
+                bx.y0,
+                pieces.len(),
+                pieces.iter().filter(|p| matches!(p.k, K::Piston { .. })).count(),
+                wiring,
+                match &hint {
+                    Ok(_) => String::new(),
+                    Err(e) => format!("; its schedule does not replay: {e}"),
+                }
+            );
+            seeds.push(Seed { bx, pieces, hint: hint.ok(), reserve: res, origin: label });
+        } else if !input.is_dir() {
+            for (bx, pieces) in parse_lines(&text)? {
+                seeds.push(Seed { bx, pieces, hint: None, reserve: reserve.to_vec(), origin: String::new() });
+            }
+        }
+    }
+    Ok(seeds)
+}
+
 /// Beam search from every input mechanism; returns every kept variant, best first.
-pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
+pub fn search(seeds: &[Seed], o: &Opts) -> Vec<Var> {
     let mut seen: HashSet<Vec<Pc>> = HashSet::new();
     let mut kept: Vec<Var> = Vec::new();
     let mut beam: Vec<Var> = Vec::new();
-    let seed_res = cs::par_map(seeds, o.threads, |(bx, p)| eval(*bx, p, o.cap, None, &o.reserve));
-    for ((bx, p), res) in seeds.iter().zip(seed_res) {
+    let seed_res = cs::par_map(seeds, o.threads, |s| {
+        let hint = s.hint.as_ref().map(|(so, sc)| (so, sc, None));
+        eval(s.bx, &s.pieces, o.cap, hint, &s.reserve)
+    });
+    for (s, res) in seeds.iter().zip(seed_res) {
+        let (bx, p) = (&s.bx, &s.pieces);
         seen.insert(p.clone());
         match res {
-            Some(v) => {
-                eprintln!("[mechmut] seed {}: redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}", v.line(), v.real, v.connect, v.never, v.unfed, v.class, v.pistons, v.events);
+            Some(mut v) => {
+                v.origin = s.origin.clone();
+                eprintln!(
+                    "[mechmut] seed {}{}: redsim {:?} connect {} never-fed {} unfed {} class {} pistons {} events {}{}",
+                    if s.origin.is_empty() { String::new() } else { format!("[{}] ", s.origin) },
+                    v.line(),
+                    v.real,
+                    v.connect,
+                    v.never,
+                    v.unfed,
+                    v.class,
+                    v.pistons,
+                    v.events,
+                    if v.replayed { " (its own schedule replays)" } else { "" }
+                );
                 beam.push(v.clone());
                 kept.push(v);
             }
@@ -576,11 +890,13 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                         Ok(Some(s)) => format!("solves ({} + {} events) but a filter drops it (FULL frame, reserve, inside, unfed)", s.open.len(), s.close.len()),
                     },
                 };
-                eprintln!("[mechmut] seed fails: {why}: {} {:?}", p.iter().map(|q| q.code()).collect::<Vec<_>>().join(" "), bx);
+                eprintln!("[mechmut] seed fails{}: {why}: {} {:?}", if s.origin.is_empty() { String::new() } else { format!(" [{}]", s.origin) }, p.iter().map(|q| q.code()).collect::<Vec<_>>().join(" "), bx);
                 if o.repair {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let mut v = partial(*bx, p, 10);
+                    v.reserve = s.reserve.clone();
+                    v.origin = s.origin.clone();
                     if ADD.load(std::sync::atomic::Ordering::Relaxed) {
                         v.missing = progress(*bx, p, o.bfs_cap.max(100_000));
                         eprintln!("[mechmut]   (growth from it: {} 3x3 cells stay filled at best)", v.missing);
@@ -593,7 +909,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
     for round in 1..=o.rounds {
         let mut cand: Vec<(usize, Vec<Pc>, Change)> = Vec::new();
         for (k, v) in beam.iter().enumerate() {
-            for (n, ch) in neighbours(v.bx, &v.pieces, &o.keep, &o.reserve) {
+            for (n, ch) in neighbours(v.bx, &v.pieces, &o.keep, &v.reserve) {
                 if seen.insert(n.clone()) {
                     cand.push((k, n, ch));
                 }
@@ -606,16 +922,24 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
         let grow = ADD.load(std::sync::atomic::Ordering::Relaxed);
         let res = cs::par_map(&cand, o.threads, |(k, p, ch)| {
             let parent = &beam[*k];
-            match eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &o.reserve) {
+            let r = match eval(parent.bx, p, o.bfs_cap, Some((&parent.so, &parent.sc, *ch)), &parent.reserve) {
                 Some(v) => Some(v),
                 // --add growth: an unsolved neighbour steers the beam by how far it opens, only
                 // when it opens strictly further than its (unsolved) parent
                 None if grow && parent.missing > 0 => {
                     let mi = progress(parent.bx, p, o.bfs_cap.clamp(20_000, 200_000));
-                    (mi < parent.missing || (mi == parent.missing && mi < 10)).then(|| partial(parent.bx, p, mi))
+                    (mi < parent.missing || (mi == parent.missing && mi < 10)).then(|| {
+                        let mut v = partial(parent.bx, p, mi);
+                        v.reserve = parent.reserve.clone();
+                        v
+                    })
                 }
                 None => None,
-            }
+            };
+            r.map(|mut v| {
+                v.origin = parent.origin.clone();
+                v
+            })
         });
         let new: Vec<Var> = res.into_iter().flatten().collect();
         let nrep = new.iter().filter(|v| v.replayed).count();
@@ -677,16 +1001,19 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 
 /// The command: read the seeds, search, print the ranked TSV, export the top designs.
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
-    let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
+    let seeds = read_seeds(input, &o.reserve, o.reserve_wiring)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\tfeeds_cannot_start\textent\torigin\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.1, v.feeds.2, v.start));
+        tsv.push_str(&format!(
+            "{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}x{}\t{}\n",
+            v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.2, v.feeds.3, v.start, v.feeds.1, v.extent.0, v.extent.1, v.origin
+        ));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,

@@ -130,10 +130,10 @@ impl Bx {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct St {
     pub g: [u8; MAXC],
-    pub pow: u16,
-    pub pp: [u8; 16],
+    pub pow: u32,
+    pub pp: [u8; 32],
     /// Pistons held on by quasi-connectivity (the piston right above them is powered).
-    pub qc: u16,
+    pub qc: u32,
 }
 
 /// Quasi-connectivity coupling (default on): whatever powers a piston X also gives X's cell a
@@ -259,8 +259,8 @@ impl Mech {
         let mut pieces = pieces.to_vec();
         pieces.sort();
         let mut g = [AIR; MAXC];
-        let mut pp = [0u8; 16];
-        let mut pow = 0u16;
+        let mut pp = [0u8; 32];
+        let mut pow = 0u32;
         let mut info = Vec::new();
         let mut pid = Vec::new();
         for x in 0..3 {
@@ -284,7 +284,7 @@ impl Mech {
                 K::Redstone => g[bx.idx(p.x, p.y)] = RB,
                 K::Piston { sticky, f, ext } => {
                     let id = info.len();
-                    if id >= 16 {
+                    if id >= 32 {
                         return None;
                     }
                     info.push((sticky, f));
@@ -312,7 +312,7 @@ impl Mech {
             // a piston held out at rest by a redstone block beside it is not wired: no level bit
             for id in 0..m.info.len() {
                 if m.ext_rest[id] && m.rpow(&st, id) {
-                    st.pow &= !(1u16 << id);
+                    st.pow &= !(1u32 << id);
                     m.ext_rest[id] = false;
                 }
             }
@@ -451,13 +451,13 @@ impl Mech {
         if j == id {
             return Out::Ok(n);
         }
-        let bit = 1u16 << j;
+        let bit = 1u32 << j;
         let ev = E { id: j as u8, act: e.act };
         match e.act {
             Act::P => {
                 // Y fires while X is out (mid-pulse): an extended X cannot be pushed, so a Y
                 // facing up into X is blocked (the elevator's lift under its pulled piston).
-                if self.info[id].1 != 3 && n.pow & bit == 0 && !self.ext(s, j) && s.pow & (1u16 << id) == 0 && !self.ext(s, id) && s.g[below] == BODY + j as u8 {
+                if self.info[id].1 != 3 && n.pow & bit == 0 && !self.ext(s, j) && s.pow & (1u32 << id) == 0 && !self.ext(s, id) && s.g[below] == BODY + j as u8 {
                     let (sticky, f) = self.info[id];
                     let Ok(list) = self.push_list(s, self.step(p, f), f) else { return Out::Ok(n) };
                     let mut mid = s.clone();
@@ -509,7 +509,7 @@ impl Mech {
         let id = e.id as usize;
         let (sticky, f) = self.info[id];
         let p = s.pp[id] as usize;
-        let bit = 1u16 << id;
+        let bit = 1u32 << id;
         let powered = s.pow & bit != 0;
         let ext = self.ext(s, id);
         if !self.forbid.is_empty() && self.forbid[p] {
@@ -584,7 +584,7 @@ impl Mech {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn apply_inner(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool) -> Out {
+    fn apply_inner(&self, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u32, powered: bool, ext: bool) -> Out {
         let mut n = s.clone();
         match e.act {
             Act::L => {
@@ -895,20 +895,20 @@ fn cons_on() -> bool {
 fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: usize, want: usize) -> (Vec<(St, Vec<E>)>, bool) {
     let kk = CONS_K.load(Ordering::Relaxed);
     let track = kk > 0;
-    let k = kk.clamp(1, 15) as u64;
+    let k = kk.clamp(1, 15) as u128;
     let extra = CONS_EXTRA.load(Ordering::Relaxed);
-    // actions beyond one per piston in an action vector
-    let excess = |c: u64| (0..16).map(|i| ((c >> (4 * i)) & 15).saturating_sub(1) as usize).sum::<usize>();
+    // actions beyond one per piston in an action vector (4 bits per piston, 32 pistons)
+    let excess = |c: u128| (0..32).map(|i| ((c >> (4 * i)) & 15).saturating_sub(1) as usize).sum::<usize>();
     // at most this many incomparable action vectors kept per state (the exact Pareto set blows
     // up): a dropped one makes a "none" verdict unproven
     let pareto = CONS_PARETO.load(Ordering::Relaxed).max(1);
     let mut pruned = false;
     let no_in = CONS_NO_INSIDE.load(Ordering::Relaxed);
     let ids = m.info.len();
-    let le = |a: u64, b: u64| (0..ids).all(|i| (a >> (4 * i)) & 15 <= (b >> (4 * i)) & 15);
-    let mut nodes: Vec<(St, u64)> = vec![(start.clone(), 0)];
+    let le = |a: u128, b: u128| (0..ids).all(|i| (a >> (4 * i)) & 15 <= (b >> (4 * i)) & 15);
+    let mut nodes: Vec<(St, u128)> = vec![(start.clone(), 0)];
     let mut parent: Vec<(u32, Option<E>)> = vec![(0, None)];
-    let mut seen: HashMap<St, Vec<u64>> = HashMap::new();
+    let mut seen: HashMap<St, Vec<u128>> = HashMap::new();
     seen.insert(start.clone(), vec![0]);
     let mut q = VecDeque::from([0u32]);
     let mut found: Vec<(St, Vec<E>)> = Vec::new();
@@ -944,7 +944,7 @@ fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: u
                 }
             }
             let Out::Ok(n) = m.apply(&st, e) else { continue };
-            let nc = if track { c + (1u64 << (4 * id)) } else { 0 };
+            let nc = if track { c + (1u128 << (4 * id)) } else { 0 };
             if track && extra != usize::MAX && excess(nc) > extra {
                 continue;
             }
@@ -1044,13 +1044,13 @@ pub fn reach_open(m: &Mech, rest: &St, cap: usize) -> Result<bool, ()> {
     if n > 64 {
         return Err(());
     }
-    let key = |s: &St| -> ([u8; 64], u16) {
+    let key = |s: &St| -> ([u8; 64], u32) {
         let mut k = [0u8; 64];
         k[..n].copy_from_slice(&s.g[..n]);
         (k, s.pow)
     };
     let evs = m.events_pulse();
-    let mut seen: HashSet<([u8; 64], u16)> = HashSet::new();
+    let mut seen: HashSet<([u8; 64], u32)> = HashSet::new();
     seen.insert(key(rest));
     let mut q: VecDeque<St> = VecDeque::from([rest.clone()]);
     while let Some(s) = q.pop_front() {

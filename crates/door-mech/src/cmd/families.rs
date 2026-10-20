@@ -6,7 +6,9 @@ use std::path::PathBuf;
 
 #[derive(clap::Args)]
 pub struct MechmutArgs {
-    /// Seed mechanisms: lines `W H x0 y0 piece piece ...` (box in door coordinates).
+    /// Seed mechanisms: a file of lines `W H x0 y0 piece piece ...` (box in door coordinates), a
+    /// `door macrosat` dump (its rest layout as the mechanism, its actions as the first schedule
+    /// tried), or a folder (every macrosat dump under it).
     input: PathBuf,
     /// State cap of the seeds' exact solve (the smaller-door mechanisms need 1-5M).
     #[arg(long, default_value_t = 5_000_000)]
@@ -85,10 +87,13 @@ pub struct MechmutArgs {
     /// State cap of the `door connect` check per variant.
     #[arg(long, default_value_t = 100_000)]
     connect_cap: usize,
+    /// macrosat seeds: keep the model's wiring cells free (no piece, never swept).
+    #[arg(long)]
+    reserve_wiring: bool,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed, connect_cap } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed, connect_cap, reserve_wiring } = args;
     crate::mechmut::CONNECT_CAP.store(connect_cap, std::sync::atomic::Ordering::Relaxed);
     crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
@@ -122,7 +127,7 @@ pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
             .collect::<Result<_>>()?,
         None => Vec::new(),
     };
-    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve }, out.as_deref(), ideal_out.as_deref())
+    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve, reserve_wiring }, out.as_deref(), ideal_out.as_deref())
 }
 
 #[derive(clap::Args)]
