@@ -69,3 +69,5 @@ fly-horizontal-6b-10gt-d0adfc.txt	flies horizontally: piston facing forward + st
 fly-horizontal-6b-10gt-ee3111.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
 fly-horizontal-6b-10gt-fe361f.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
 fly-up-6b-10gt-9e15a0.txt	flies up: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
+fly-payload-9-15b.txt	payload: the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying a column of 8 slime + a gold block on its front slime: 9 blocks is the most a 3-block part can carry (a piston moves at most 12 blocks; 10 never moves)
+fly-payload-18-24b.txt	payload: the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying 18 blocks, 9 on each part (8 slime + a gold block up from the front slime, the same down from the rear slime): the biggest load the engine moves (a 10th block on the rear: the pull fails and the machine breaks)
