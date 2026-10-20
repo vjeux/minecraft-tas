@@ -124,6 +124,15 @@ pub struct Door {
     /// table: (key, value).
     #[serde(default)]
     pub props: Vec<(String, String)>,
+    /// The fill variants of one mechanism (`note: door fill of <design>`): the best of them (by
+    /// size, then blocks) stands for the others, hidden with the variants by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<String>,
+    /// The design it is a fill variant of (repository path).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub fill_of: String,
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -352,7 +361,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("kicked", "needs a start kick", "clock"),
     ("chiral", "chiral", "clock"),
     ("extendable", "extendable family", "clock"),
-    ("variant", "variant of a smaller design", "clock,circuit"),
+    ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("composite", "composite (beat)", "clock"),
     ("calibration", "judge calibration design", "circuit"),
     ("instant", "instant (0 gt latency)", "circuit"),
@@ -672,7 +681,7 @@ impl Site {
                     kinds: &b.kinds,
                     flags: &b.flags,
                     text: [&b.name, &b.caption, &b.group],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some()),
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
                 })
             }
             Hit::Member(i) => {

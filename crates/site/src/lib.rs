@@ -29,6 +29,9 @@ pub enum SiteCmd {
     Build(BuildArgs),
     /// Publish a generated folder as the gh-pages branch (GitHub Pages), one orphan commit.
     Deploy(DeployArgs),
+    /// Build, smoke-test (when a headless Chrome is there) and deploy, in one command: what to
+    /// run after merging into main.
+    Publish(BuildArgs),
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
         #[arg(long, default_value = "site")]
@@ -75,6 +78,10 @@ pub struct BuildArgs {
     /// building it.
     #[arg(long)]
     pub pkg: Option<PathBuf>,
+    /// Take the filtering UI from a git ref's `pkg/` instead of building it (e.g.
+    /// `origin/gh-pages`, the last deploy: for a box without the wasm32 target or wasm-bindgen).
+    #[arg(long, conflicts_with = "pkg")]
+    pub pkg_ref: Option<String>,
     /// Skip the filtering UI (no WebAssembly build; the index then only links to all.html).
     #[arg(long)]
     pub no_wasm: bool,
@@ -113,6 +120,16 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
     match cmd {
         SiteCmd::Build(a) => generate::build(&a),
         SiteCmd::Deploy(a) => deploy::deploy(&a),
+        SiteCmd::Publish(a) => {
+            generate::build(&a)?;
+            match serve::smoke(&a.out, None, 20_000, None) {
+                Ok(0) => println!("smoke: all checks passed"),
+                Ok(n) => bail!("{n} smoke check(s) failed: not deployed"),
+                Err(e) if format!("{e}").contains("no headless Chrome") => println!("smoke: skipped ({e})"),
+                Err(e) => return Err(e),
+            }
+            deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false })
+        }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
         SiteCmd::Smoke { dir, chrome, budget, url } => {
             let fails = serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?;

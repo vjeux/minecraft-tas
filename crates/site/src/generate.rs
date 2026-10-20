@@ -60,6 +60,15 @@ pub fn copy_files(from: &Path, to: &Path, ext: Option<&str>) -> Result<usize> {
 
 /// Copy `<git ref>:web/viewer/*` into `to` (git ls-tree + git show, bytes as committed).
 pub fn viewer_from_ref(repo: &Path, r: &str, to: &Path) -> Result<usize> {
+    let n = files_from_ref(repo, r, "web/viewer/", to)?;
+    if !to.join("mcview.js").exists() {
+        bail!("{r}: no web/viewer/mcview.js");
+    }
+    Ok(n)
+}
+
+/// Copy the files of `<git ref>:<folder>` (not recursive into subfolders' names: flattened) into `to`.
+pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<usize> {
     let git = |args: &[&str]| -> Result<Vec<u8>> {
         let o = std::process::Command::new("git").arg("-C").arg(repo).args(args).output()?;
         if !o.status.success() {
@@ -67,7 +76,7 @@ pub fn viewer_from_ref(repo: &Path, r: &str, to: &Path) -> Result<usize> {
         }
         Ok(o.stdout)
     };
-    let list = String::from_utf8(git(&["ls-tree", "-r", "--name-only", r, "web/viewer/"])?)?;
+    let list = String::from_utf8(git(&["ls-tree", "-r", "--name-only", r, folder])?)?;
     std::fs::create_dir_all(to)?;
     let mut n = 0;
     for path in list.lines().filter(|l| !l.is_empty()) {
@@ -75,8 +84,8 @@ pub fn viewer_from_ref(repo: &Path, r: &str, to: &Path) -> Result<usize> {
         std::fs::write(to.join(name), git(&["show", &format!("{r}:{path}")])?)?;
         n += 1;
     }
-    if !to.join("mcview.js").exists() {
-        bail!("{r}: no web/viewer/mcview.js");
+    if n == 0 {
+        bail!("{r}: nothing under {folder}");
     }
     Ok(n)
 }
@@ -171,12 +180,17 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let app = if a.no_wasm {
         false
     } else {
-        match &a.pkg {
-            Some(dir) => {
+        match (&a.pkg, &a.pkg_ref) {
+            (Some(dir), _) => {
                 copy_files(dir, &out.join("pkg"), None)?;
                 true
             }
-            None => {
+            (None, Some(r)) => {
+                let n = files_from_ref(&repo, r, "pkg/", &out.join("pkg"))?;
+                eprintln!("UI: {n} files from {r}:pkg (not rebuilt)");
+                true
+            }
+            (None, None) => {
                 web::build_ui(&repo, &out.join("pkg"))?;
                 true
             }
