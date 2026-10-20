@@ -80,6 +80,7 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | falling-edge | L 10 / L 30, vibration-sensitive | 2 / 4 blocks, min-pulse 2 | `pulse-fall-trapdoor-cal-L10` (the sensor's back on the input: deaf while it is on), `pulse-fall-sculk-L30` | **record** (repo only) |
 | falling-edge | L 1 | 4 blocks | `pulse-fall-note-qc-L1` left the archive at the R7 re-judge; after clk-rt's driver fix it still fails ("pulse 2: the input never turned on": its pistons disturb the judge's input driver) | folded; target: a 1 gt falling edge with a clean input side |
 | falling-edge | any L | constant size | `pulse-fall-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 6 (the piston lifts the observer away; pulled back, it fires into the bulb) | **constant size reached** (was 17 + 4n) |
+| falling-edge | instant | delay 0 | none: a sticky piston pulling a stone out of a dust step opens it in the falling tick (the instant dual edge does), but its push on the rising edge opens the same steps | target: keep the line dead while the rising-edge push moves the stone |
 | dual-edge | L 2 | 2 blocks (since R7: an observer needs a block that changes state beside the input) | `pulse-dual-edge-observer-lamp-L2`: the observer watches a lamp the input lights (delay 2 / 6, min-pulse 2, tiles every 1) | **record**; with a note block or copper bulb instead of the lamp the delays are equal (2 / 2) but min-pulse is 5 |
 | dual-edge | L 2, instant | delay 0 | `pulse-dual-instant-L2`: 11 blocks, delay 0 on both edges, min-pulse 4. A redstone block feeds a dust line down a step and up another; a stone cuts one step; the input's sticky piston moves it to the other step and back, and while it moves both steps are open | **record** (fastest; was delay 2) |
 | dual-edge | L 4..8 even | 4 blocks | `pulse-dual-lamp-repeater-L4/6/8` (min-pulse 4 / 8 / 15, tiles every 1) | holds |
@@ -96,6 +97,7 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | pulse-extender | L 4..8 | 2 blocks (bound) | one repeater (min-pulse 2, tiles every 1 reading the repeater) | **record**; L 2 has nothing to extend since R7 |
 | pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 2 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
+| pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge | target |
 
 Folded at the R7 re-judge (in `designs/circuits/pulse/tracks/rejudged/`, the reason in each file's
 first line): the 1-block observer dual-edge and observer+repeater L4/6/8 (the observer watched the
