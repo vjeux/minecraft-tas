@@ -59,6 +59,7 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         look.outlines.clear();
         look.input_spans.clear();
         look.port_outlines.clear();
+        look.ghost.clear();
     }
     // as the real-game pictures show it (`web compare`): their camera and their grass reach;
     // else the viewer's (a door: the side its lever is seen from)
