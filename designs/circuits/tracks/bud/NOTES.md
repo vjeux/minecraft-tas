@@ -64,7 +64,12 @@ archived as one group).
 
 * An all-five detector needs two sensors (an observer for shape-only changes, a QC sensor for pure
   updates): an observer's back can never update a piston that is beside the target (the back cell
-  is 2 cells from the target), so their outputs must be merged by wiring.
+  is 2 cells from the target), so their outputs must be merged by wiring. Feeding the observer into
+  the piston through dust fails either way (tried on the slime BUD): the observer's 2 gt pulse
+  updates the piston again 2 gt into its push (the jam: it spits the slime block), and delayed
+  past the push it fires the piston a second time after a placement. So the outputs must be OR'd
+  outside the piston: about 12-16 blocks of dust and supports (the slime BUD's output is 3 high,
+  the fast one's is beside the target), a union of two archived designs: not built.
 * Dropper / dispenser QC BUDs: `TRIGGERED` (a flags-2 change an observer sees, latency 2) stays set
   until the dropper is updated while unpowered, and droppers cannot be moved (block entity): a
   self-resetting one needs a moving power source that comes back without updating it; none in 3
