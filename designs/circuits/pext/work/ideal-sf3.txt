@@ -1,0 +1,21 @@
+# N=3 SLIME-FREE (plain stack A B C + payload), IDEAL pulses (redstone blocks beside the line):
+# the pulse-toggle train A A C B A C B C (`pext trains --n 3 --bfs`), every step from fixed cells,
+# the simultaneous pairs staggered by 2 gt: A t8, A t14, C x4 t20 + x5 t22, B x2 t28 + x3 t30,
+# A t36, C x4 t42, B x3 t48 + x2 t50, C x5 t56 + x3 t58.
+name: ideal-sf3
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 1 lever
+port payload: 4 1 0
+ideal: both 8 set 1 1 -1 minecraft:redstone_block; both 10 clear 1 1 -1; both 14 set 1 1 -1 minecraft:redstone_block; both 16 clear 1 1 -1; both 20 set 4 1 1 minecraft:redstone_block; both 22 clear 4 1 1; both 22 set 5 1 1 minecraft:redstone_block; both 24 clear 5 1 1; both 28 set 2 1 1 minecraft:redstone_block; both 30 clear 2 1 1; both 30 set 3 1 1 minecraft:redstone_block; both 32 clear 3 1 1; both 36 set 1 1 -1 minecraft:redstone_block; both 38 clear 1 1 -1; both 42 set 4 1 1 minecraft:redstone_block; both 44 clear 4 1 1; both 48 set 3 1 1 minecraft:redstone_block; both 50 clear 3 1 1; both 50 set 2 1 1 minecraft:redstone_block; both 52 clear 2 1 1; both 56 set 5 1 1 minecraft:redstone_block; both 58 clear 5 1 1; both 58 set 3 1 1 minecraft:redstone_block; both 60 clear 3 1 1
+palette:
+  L minecraft:lever[face=floor,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+layer 0:
+  .
+  K
+layer 1:
+  .AAAG
+  L

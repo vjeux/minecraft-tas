@@ -65,3 +65,24 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   each step's static delivery (single cell, both cells at once, staggered); `--bfs` searches the
   shortest fully deliverable train: N=3 plain has one (AACBACBC), N=3 rider and N>=4 none, which
   is why the cascade (only round starts addressed) plus edge-delayed sources is the way past N=3.
+* Generator `pext cascade --n N` (any N; family cards pext-cascade-r2/r0/r1): one westward
+  observer spine at y=3 behind the line, each pulse cell's pulser fired 4 gt after the spine passes
+  it, +4 gt towers where a round must wait (gap >= 6 gt between round starts of one edge). The lamp
+  is not needed: a static pulse may serve different rounds on the two edges (x7 = D's round on the
+  on-edge, C's round on the off-edge), and rounds overlap (cascade waves 6 gt apart never meet).
+  Blocks 12N - 7 - 2 floor((N-1)/3), extend 14N - 6, retract 16N - 8.
+* FLAT (`--flat`, 1 wide, family cards pext-cascade-flat-*): the pulser of cell x sits two above the
+  line at (x, 3, 0) facing up and powers the piston through the air cell above it (QC: its update
+  reaches the piston through that cell); it watches the spine node right above it. One observer per
+  pulse instead of two: blocks 10N - 5 - floor((N-1)/3). Minimized in the plane (`minimize
+  --plane-z 0`) these are the smallest designs for every N >= 3 (N=3 19 blocks ... N=8 54).
+* Judge rule (learned the hard way): once extended, the payload must STAY while the input is on;
+  a design whose payload reaches the target, leaves and comes back fails (circuit archive refused a
+  20-block N=3 that did; pext sim/verify/minimize check it now).
+
+## Slime-free N=3: pext-n3-sf43
+* Plain stack A B C + payload; the train A A C B A C B C (the BFS result) with every step from fixed
+  pulsers (A three times, x4/x5 and x2/x3 pairs staggered 2 gt: the late pulse finds a piston whose
+  base is still a moving block, so its pull fails), 12 pulsers on one observer spine that sweeps the
+  line five times (rails behind, in front, below, above; `pext spine` builds a chain along a path),
+  62 blocks, minimized to 43 without slime in the palette.
