@@ -43,10 +43,12 @@ floor(14 f) + (f > 0 ? 1 : 0).
   redstone block placed with updates for 1, air for 0) and reads an output bit as the level into
   its cell (on = level > 0, with the judge's lamp there: study 4's update-correctness rule holds).
 * **Signal strength** (hex): a 4-bit value 0..15 on ONE line. Input: `port input.a: x y z
-  strength`: the judge puts a barrel (27 slots) in that cell, filled with the item count whose
-  strength is the value (n items of a 64-stack: the smallest n with floor(14 n / 1728) + 1 = v), and
-  the design reads it with its own comparator (counted). Output: the level read in the output cell
-  (a dust's power or a comparator's strength), which must EQUAL the value, not just be on.
+  strength` on a single chest of the design (redsim models chests, not barrels; single chests never
+  join, since `ChestBlock.updateShape` only joins a chest that already points at its neighbor): the
+  judge rewrites its contents to the item count whose strength is the value (n items of a 64-stack:
+  the smallest n with floor(14 n / 1728) + 1 = v), and the design reads it with its own comparator
+  (counted). Output: the level read in the output cell (a dust's power or a comparator's strength),
+  which must EQUAL the value, not just be on. Calibrated: `cal-hex-gt`, below.
   Variations: `hex` adders (modulo 16 or saturating), and hex comparators: a comparator in
   SUBTRACT mode with a on its back and b on its side outputs a - b when a > b and 0 otherwise, so
   it is exactly `gt` (b reaches the side through b's reader comparator, since a side input reads
@@ -67,7 +69,7 @@ arithmetic.
 | `comparator N` | a.., b.. | any of eq, lt, gt, le, ge, ne | eq = (a = b), lt = (a < b), ... |
 | `mux N` | s0..s(N-1), d0..d(2^N - 1) | q | q = d[s] |
 | `demux N` | s.., d | q0..q(2^N - 1) | q[s] = d, every other q = 0 |
-| `decoder N` | a.., optional en | q0..q(2^N - 1) | q[a] = 1 (and en), every other q = 0 |
+| `decoder N` | a.., optional e (enable) | q0..q(2^N - 1) | q[a] = 1 (and e), every other q = 0 |
 | `encoder N` | d0..d(2^N - 1) | q0..q(N-1), optional valid | one-hot d: q = the index; all zero: valid = 0 (q free) |
 | `encoder N priority` | as above | as above | for EVERY input: q = the highest set index |
 | `binary-counter N` | clk, optional reset | q0..q(N-1) | after k clk pulses, q = k mod 2^N; reset clears it |

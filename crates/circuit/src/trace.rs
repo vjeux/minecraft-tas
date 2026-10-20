@@ -60,6 +60,7 @@ impl Trace {
                 let on = match &inp.how {
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
+                    InputHow::Strength { .. } => false,
                 };
                 t.inputs[k].push(on);
             }

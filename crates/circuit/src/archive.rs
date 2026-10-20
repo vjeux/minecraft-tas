@@ -344,6 +344,7 @@ pub fn type_key(c: &Circuit) -> String {
             crate::InputHow::Block { on, .. } => id(on),
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+            crate::InputHow::Strength { .. } => "strength".to_string(),
         };
         d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);

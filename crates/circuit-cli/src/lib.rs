@@ -168,6 +168,7 @@ fn info(c: &Circuit) -> String {
             circuit::InputHow::Block { on, off } => format!("{} / {}", clock::short(on), clock::short(off)),
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
+            circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
         };
         out.push_str(&format!("\n  input {} at {:?}: {how}", i.name, i.pos));
     }

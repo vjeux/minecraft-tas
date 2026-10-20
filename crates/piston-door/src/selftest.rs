@@ -538,6 +538,7 @@ fn checks() -> Vec<Check> {
         ("dust-encoder2", "cal-dust-encoder2 encoder 2 latency 0 gt, class instant, 16 blocks, 4x2x3"),
         ("bulb-counter2", "cal-bulb-counter2 binary-counter 2 latency 6 gt, edge rising, per bit 4.0 blocks, 8 blocks, 5x2x2"),
         ("bulb-counter-slice", "cal-bulb-counter-slice binary-counter 1 latency 2 gt, edge falling, per bit 5.0 blocks, slice 5 blocks per bit, latency 2 + 4 (N-1) gt, 5 blocks, 3x2x2"),
+        ("hex-gt", "cal-hex-gt comparator 4 hex latency 4 gt (b goes 0 -> 8 from a=8 b=0), per bit 1.0 blocks, 4 blocks, 1x2x2"),
         ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
         ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
         ("bulb-burst2", "cal-bulb-burst2 burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1"),
@@ -579,7 +580,7 @@ fn checks() -> Vec<Check> {
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 31 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, study 12's dust 4-to-2 encoder, 2-bit bulb ripple counter and its bit slice stacked to 4 bits): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) and a plain encoder claiming priority refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 32 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, study 12's dust 4-to-2 encoder, 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) and a plain encoder claiming priority refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -615,7 +616,7 @@ fn checks() -> Vec<Check> {
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 31 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 32 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
