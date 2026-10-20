@@ -301,6 +301,10 @@ pub struct Circuit {
     /// the boxes it sends out. Pages only.
     #[serde(skip)]
     pub view_run: Option<ViewRun>,
+    /// The design file has `extend` headers: the base design of an extendable family (one more
+    /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
+    #[serde(skip)]
+    pub extends: bool,
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
