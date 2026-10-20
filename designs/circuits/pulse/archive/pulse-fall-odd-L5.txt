@@ -2,6 +2,8 @@
 # CIRCUIT: pulse-fall-odd-L5 falling-edge L 5 gt, delay 9 gt, min-pulse 6 gt, 16 blocks, 5x2x4, robust
 name: pulse-fall-odd-L5
 circuit: falling-edge
+group: pulse-fall-odd
+group title: odd-length falling-edge pulse: two pulses 1 tick apart
 # Odd falling-edge pulses: two falling-edge detectors 1 gt apart: a sticky piston pulls back an
 # observer that fires 2 gt after it lands (5 gt after the edge), and a redstone torch the input
 # turns off (through dust into its block) lights again 2 gt after the edge and toggles a copper

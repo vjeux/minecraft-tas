@@ -3,6 +3,7 @@
 name: pulse-limiter-odd2-L9
 circuit: pulse-limiter
 group: pulse-limiter-odd2
+group title: odd-length pulse limiter: two pulses 1 tick apart
 # Odd pulses (pulse-limiter, L = 9 gt): two rising-edge detectors 1 gt apart: a copper bulb the input toggles on every rising edge, read by a comparator an observer watches (fires 4 gt after the edge), and a sticky piston pushing an observer that fires 2 gt after it lands (5 gt after the edge; pulled back on the falling edge it fires into an empty cell); each feeds a delay-4 repeater (8 gt pulses) into one dust, where the two pulses overlap into 8 + 1 = 9 gt.
 origin: -1 0 0
 port input: 0 1 1

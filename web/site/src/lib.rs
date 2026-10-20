@@ -7,7 +7,7 @@
 //! lives in the URL fragment, so every search is a link. The cards' 3D thumbnails are
 //! `data-mcview` elements that webrender's viewer (viewer/mcview.js) renders when it is loaded.
 
-use site_model::html::{esc, hit_card};
+use site_model::html::{esc, hit_card, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -499,8 +499,8 @@ fn draw_dynamic() {
             .collect();
         let groups_title = match q.kind.as_str() {
             "door" => "Category",
-            "clock" => "Clock family (the blocks that change state)",
-            "circuit" => "Circuit kind",
+            "clock" => "Made of (the blocks that change state)",
+            "circuit" => "What it does",
             _ => "Category or family",
         };
         let time_msg: Option<(String, bool)> = if !a.error.is_empty() {
@@ -540,14 +540,18 @@ fn draw_dynamic() {
             if members > 0 {
                 s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
             }
+            // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
+            if a.hits.is_empty() && !q.text.trim().is_empty() {
+                s.push_str(&format!(". Try: {}", nearest_searches(&q.text)));
+            }
             s
         } else {
             format!("<span class=\"error\">The search did not parse: {}</span>", esc(&a.error))
         };
         let placeholder = match q.kind.as_str() {
-            "clock" => "Search clocks, or a period: 48 gt, 2.5 s",
+            "clock" => "Search: 48 ticks, 2.5 s…",
             "door" => "Search doors",
-            "circuit" => "Search: toggle, piston extender, timer, or a number like 12",
+            "circuit" => "Search: toggle, timer, 12…",
             _ => "Search every build",
         };
         (tabs, groups_html, groups_title, blocks_html, flags_html, placeholder, count)

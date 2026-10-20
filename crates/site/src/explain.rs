@@ -99,7 +99,7 @@ pub fn kind_title(kind: &str) -> String {
         "dff" => "Copies its input on each clock pulse (D flip-flop)".into(),
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
-        "counter" => "Counter: reacts every Nth pulse".into(),
+        "counter" => "Counter: counts pulses and reacts on a set count".into(),
         "bud" => "Block change detector (BUD switch)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
         "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
@@ -173,32 +173,32 @@ pub fn kind_summary(kind: &str) -> String {
         "rising-edge" => "when the input turns on, the output gives one short pulse; nothing when it turns off".into(),
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
         "dual-edge" => "a short output pulse every time the input changes, on or off".into(),
-        "pulse-limiter" => "the output pulse lasts at most L, however long the input stays on".into(),
-        "pulse-extender" => "any input pulse, even a 1-tick one, gives an output pulse of at least L".into(),
-        "tff" => "each input pulse flips the output: on, off, on, off... (a push-button switch)".into(),
-        "delay" => "the output is the input, N game ticks later (every pulse comes out the same length)".into(),
+        "pulse-limiter" => "the output pulse is cut to a set length, however long the input stays on".into(),
+        "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
+        "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
+        "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output is a fixed logic function of the inputs (NOT, AND, OR, XOR...)".into(),
         "rs-latch" => "a pulse on S turns the output on and it stays on; a pulse on R turns it off".into(),
         "d-latch" => "while the enable input E is active the output follows the data input D; otherwise it holds the last value".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
         "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
-        "shift" => "a row of N D flip-flops: each clock edge moves every bit one step along, so the data input comes out N clock edges later".into(),
-        "tff-reset" => "a T flip-flop with a reset input: each input pulse flips the output, a pulse on R turns it off".into(),
+        "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
+        "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
         "adder" => "adds two binary numbers, bit by bit with the carry".into(),
-        "counter" => "counts input pulses: the output changes once every N pulses (a frequency divider)".into(),
-        "piston-extender" => "one input pushes a block N cells out, the next brings it back exactly".into(),
+        "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
+        "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
         "bud" => "fires its output when a block is placed, removed or changed at its target cell, although nothing there powers it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
-        "tnt-duper-triggered" => "lights TNT on every input pulse without using up its TNT block".into(),
-        "burst" => "turns one input pulse into exactly N output pulses".into(),
-        "divider" => "slows a clock down: the output goes through one on-off cycle for every N input pulses".into(),
-        "monostable" => "gives one output pulse of a fixed length L for each input pulse, however short the input".into(),
-        "off-delay" => "keeps the output on for L more game ticks after the input turns off".into(),
-        "on-delay" => "turns the output on only once the input has been on for T game ticks, so shorter inputs are ignored".into(),
-        "pulse-train" => "pulses the output every P game ticks for as long as the input is on".into(),
+        "tnt-duper-triggered" => "lights TNT on every press without using up its TNT block".into(),
+        "burst" => "turns one press into an exact number of pulses".into(),
+        "divider" => "slows a clock down: the output goes on and off once for every few input pulses".into(),
+        "monostable" => "gives one output pulse of a set length for each press, however short the press".into(),
+        "off-delay" => "keeps the output on for a set time after the input turns off".into(),
+        "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
+        "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         _ => String::new(),
     }
 }
@@ -1031,12 +1031,31 @@ pub const STUDY_USES: [(&str, &str); 11] = [
     ("shulker", "Box up a farm's output automatically, or unpack shulker boxes into a storage system, without opening them by hand."),
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
-    ("pulsemult", "Timers and pulse tools: keep a door open while people keep stepping on a pressure plate (one-shot timer), keep a light on a while after the last press (stay-on timer), ignore accidental taps (hold-to-activate), fire a dispenser exactly 3 times per press (burst), or slow a clock down (clock slower)."),
+    ("pulsemult", "Timers and pulse tools: keep a door open while people keep stepping on a pressure plate (one-shot timer), keep a light on a while after the last press (stay-on timer), ignore accidental taps (hold-to-activate), fire a dispenser exactly 3 times per press (burst), or slow a clock down (clock divider)."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
 pub fn study_uses(folder: &str) -> &'static str {
     STUDY_USES.iter().find(|s| s.0 == folder).map(|s| s.1).unwrap_or("")
+}
+
+/// A study's one line on the circuits index: what you get, concretely (critique: "Combine
+/// signals." said nothing).
+pub fn study_blurb(folder: &str) -> &'static str {
+    match folder {
+        "pulse" => "One short pulse from a lever, long presses cut short, quick blips stretched.",
+        "tff" => "One button that turns things on, then off.",
+        "delay" => "The same signal, a set number of ticks later.",
+        "gates" => "AND, OR, NOT, XOR: a door that needs two levers, a light switched from both ends.",
+        "memory" => "Remember an event until reset, or react on every 2nd, 3rd... pulse.",
+        "pext" => "Push a block 2 to 12 blocks out and pull it back exactly.",
+        "fly" => "Machines that fly by themselves: trains, tree farms, world eaters.",
+        "shulker" => "Box a farm's output into shulker boxes, or unpack them into storage.",
+        "tnt" => "Endless lit TNT, without crafting any.",
+        "bud" => "Notice a block placed, removed or grown next to it.",
+        "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
+        _ => "",
+    }
 }
 
 pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {

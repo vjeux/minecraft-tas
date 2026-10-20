@@ -428,6 +428,27 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             axis: String::new(),
         });
     }
+    // the census clocks (named `census-...`, captions that are the census tool's log) leave the
+    // default lists and search unless they are the smallest clock of their period (the
+    // coordinator's decision (a)); their pages stay, the other clocks of a period link them
+    let mut smallest: BTreeMap<u32, u32> = BTreeMap::new();
+    for b in &builds {
+        if let Some(c) = &b.clock {
+            if c.host.is_none() && !c.instance {
+                let e = smallest.entry(c.period).or_insert(u32::MAX);
+                *e = (*e).min(b.blocks);
+            }
+        }
+    }
+    let mut folded = 0;
+    for b in builds.iter_mut() {
+        let Some(c) = &b.clock else { continue };
+        if b.name.starts_with("census-") && c.card.is_none() && smallest.get(&c.period).is_some_and(|m| b.blocks > *m) && !b.flags.iter().any(|f| f == "variant") {
+            b.flags.push("census".into());
+            folded += 1;
+        }
+    }
+    notes.push(format!("clocks: {folded} census clocks off the default lists (not the smallest of their period)"));
     Ok(ClockExport { builds, cards, members, notes })
 }
 

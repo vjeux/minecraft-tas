@@ -115,7 +115,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
-            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
+            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") || c.input_refused.as_deref() == Some(e.as_str()) => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -126,6 +126,11 @@ impl SimReport {
 
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let schedule = Schedule::new(c.inputs.len());
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err(why.clone()), outcome: c.kind.as_ref().map(|_| Outcome::fail(why.clone(), Vec::new())) });
+    }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
@@ -137,6 +142,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Ok(t), Some(k)) => {
             let out = check::check(c, k, &schedule, t);
             let out = match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            // R7: the judge's input stones are never moved
+            let out = match c.input_entered(t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
                 _ => out,
             };
@@ -168,11 +178,14 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
-/// A study-11 design with a `tile:` header: its copies are judged too ([`tiled_check`]).
+/// A design with a `tile:` header whose copies are judged too ([`tiled_check`]): study 11, and
+/// the sequential kinds builders tile into registers and counter rows (T flip-flops, latches,
+/// D flip-flops, shift cells, counters). The check itself is generic - every copy must pass its
+/// kind's own check and measure what the design measures alone.
 fn tiles(c: &Circuit, k: &Kind) -> bool {
     // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
-    // checker: study 1's pulse circuits tile the same way
-    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse")
+    // checker: study 1's pulse circuits and the sequential kinds tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates")
 }
 
 /// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
@@ -253,6 +266,13 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     // the judge's consumers are not the circuit's
     ins.extend(c.consumer_cells());
+    // nor are the judge's input devices (R7): a driven input's repeater, support and switch
+    for i in &c.inputs {
+        if let crate::InputHow::Driven { dir, .. } = i.how {
+            let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+            ins.extend([r, sup, sw]);
+        }
+    }
     // nor are the blocks the BUD judge places at the targets and around the design (its probe
     // block there; the design's own blocks moving through those cells count)
     let mut probes: Vec<Pos> = Vec::new();
@@ -400,6 +420,11 @@ pub fn spawn_pool(o: &Options) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let builds = vec![Build { turns: 0, offset: [0, 0, 0], result: Err(why.clone()) }];
+        return Ok(verdict(VerifyReport { name: c.name().to_string(), kind: c.kind.clone(), blocks: c.blocks(), schedule: Schedule::new(c.inputs.len()), builds, verdict: String::new(), pass: false, note: String::new() }));
+    }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         return crate::shulker::verify_in_pool(pool, c, o);
     }
@@ -417,6 +442,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             Some(k) => check::check(&rc, k, &schedule, &tr),
             None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
         };
+        // R7: the judge's input stones are never moved
+        if out.pass
+            && kind.is_some()
+            && let Some(why) = rc.input_entered(&tr)
+        {
+            out = Outcome::fail(why, out.table);
+        }
         // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
         // the metric names the design's own step (the same in every build)
         if out.pass

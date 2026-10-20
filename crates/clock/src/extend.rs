@@ -209,6 +209,12 @@ impl Family {
         v
     }
 
+    /// The n values a circuit family is judged at: every n of its range when it has at most
+    /// `EVERY_MAX` members (no unjudged step between judged ones), else [`Family::sample`].
+    pub fn judged_ns(&self) -> Vec<i64> {
+        if self.n_hi - self.n_lo < EVERY_MAX { (self.n_lo..=self.n_hi).collect() } else { self.sample() }
+    }
+
     /// Build instance n with the generator (argv split on spaces; `{n}` and `{out}` replaced;
     /// `mctas` is this executable). The base n with no generator: the design itself.
     pub fn build(&self, base_path: &Path, n: i64, dir: &Path) -> Result<PathBuf> {
@@ -246,6 +252,9 @@ pub struct Instance {
 }
 
 pub const EXTEND_TSV: &str = "extend.tsv";
+
+/// A circuit family with at most this many members is judged at every n ([`Family::judged_ns`]).
+pub const EVERY_MAX: i64 = 16;
 
 pub fn read_instances(archive: &Path) -> Vec<Instance> {
     std::fs::read_to_string(archive.join(EXTEND_TSV))

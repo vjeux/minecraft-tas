@@ -3,6 +3,7 @@
 name: pulse-rise-psub-L5
 circuit: rising-edge
 group: pulse-rise-psub
+group title: odd-length rising-edge pulse: a piston-moved redstone block
 # Odd pulses (rising-edge, L = 5 gt): a subtract comparator's rear gets a redstone block that a sticky piston pushes behind it (the piston moves in the tick after the input changes and the block lands in the block-entity phase: an odd delay), its side gets the input through two repeaters (delays 2 and 2: an even delay); the output is on from the rear's arrival until the side's: L = 2 x (2 + 2) - 3 = 5 gt. An observer watching the input holds the piston through dust for 2 gt more, so a 1 gt input cannot make it leave its block behind the comparator (its retraction is cancelled until the block has landed).
 origin: -2 0 0
 port input: 0 1 0

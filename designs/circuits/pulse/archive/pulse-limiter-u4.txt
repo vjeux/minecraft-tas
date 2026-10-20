@@ -11,6 +11,7 @@ extend axis: 16 + 16n
 extend blocks: 10 + 4n
 extend rule: lengthen the U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
+extend group title: long pulse limiter: a comparator and a loop of repeaters
 extend base: 0
 extend generator: mctas circuit pulse family limiter-u4 --n {n} --out {out}
 origin: 0 0 -1

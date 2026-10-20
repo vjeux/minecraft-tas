@@ -81,9 +81,13 @@ pub enum CircuitCmd {
         /// the archive and go back to their track (`update-less/` or `rejudged/`).
         #[arg(long)]
         rejudge: bool,
-        /// With --rejudge: only these studies (default: all).
+        /// With --rejudge or --fill-families: only these studies (default: all).
         #[arg(long)]
         study: Vec<String>,
+        /// Judge in the game every member of each archived extendable family that extend.tsv
+        /// does not list yet (every n of its range, up to 16 members), and add the passing ones.
+        #[arg(long)]
+        fill_families: bool,
         /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
         /// dominates): the file, its verdict row and its caption.
         #[arg(long)]
@@ -94,6 +98,24 @@ pub enum CircuitCmd {
     Catalog {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
+    },
+    /// Replace archived designs' captions from a TSV file, one `<study>/<file><TAB><caption>` per
+    /// line (the site shows a caption's first sentence as the plain explanation, the rest under
+    /// details); `#` lines are comments. No game.
+    Captions {
+        file: PathBuf,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+    },
+    /// R7 comparison (redsim, no game): every archived design with a plain input run with the
+    /// judge's old block placement and with real input devices (the judge's stone powered by its
+    /// repeater); lists the ones passing only by the block placement, refused or changed.
+    R7 {
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+        /// Only these studies (default: all).
+        #[arg(long)]
+        study: Vec<String>,
     },
     /// Set an archived design's caption (captions.tsv of its study's archive; no game): for the
     /// plain-language pass (one sentence a non-redstoner follows first, the detail after it).
@@ -190,6 +212,11 @@ fn info(c: &Circuit) -> String {
     for i in &c.inputs {
         let how = match &i.how {
             circuit::InputHow::Block { on, off } => format!("{} / {}", clock::short(on), clock::short(off)),
+            circuit::InputHow::Driven { dir, through } => format!(
+                "driven: {}, powered by the judge's repeater {dir:?} from it{}",
+                c.clock.design.blocks.get(&i.pos).map(|s| format!("the design's {}", clock::short(s))).unwrap_or_else(|| "the judge's stone".into()),
+                if *through { " (fed through the build)" } else { "" }
+            ),
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
             circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
@@ -221,7 +248,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Sim { designs, stimulus, gap, wave, table, margin } => {
             let o = Options { stimulus, gap, margin, version: version.to_string(), ..Default::default() };
             for p in &designs {
-                let c = Circuit::load(p)?;
+                // a design the judge refuses to load (R7: no way in for its input repeater) is
+                // reported and the others still run
+                let c = match Circuit::load(p) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {:#}", p.display(), e);
+                        continue;
+                    }
+                };
                 let r = circuit::verify::sim(&c, &o)?;
                 if let (true, Some(out)) = (table, &r.outcome) {
                     for l in &out.table {
@@ -281,18 +316,18 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, remove } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, remove } => {
             for spec in &remove {
                 println!("{}", circuit::archive::unarchive(&root, spec)?);
             }
-            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe {
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families {
                 return Ok(());
             }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
                 }
-                if designs.is_empty() && !rejudge {
+                if designs.is_empty() && !rejudge && !fill_families {
                     return Ok(());
                 }
             }
@@ -303,11 +338,27 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     println!("{l}");
                 }
             }
+            if fill_families {
+                for l in circuit::archive::fill_families(&pool, &root, &o, &study)? {
+                    println!("{l}");
+                }
+            }
             for p in &designs {
                 match circuit::archive::archive(&pool, p, &o, &root, caption.as_deref()) {
                     Ok(a) => println!("{} {}: {}", if a.new { "ARCHIVED" } else { "SKIPPED" }, a.file.display(), a.summary),
                     Err(e) => println!("REFUSED {}: {e:#}", p.display()),
                 }
+            }
+        }
+        CircuitCmd::R7 { root, study } => {
+            let o = Options { version: version.to_string(), ..Default::default() };
+            for l in circuit::archive::r7_compare(&root, &study, &o)? {
+                println!("{l}");
+            }
+        }
+        CircuitCmd::Captions { file, root } => {
+            for l in circuit::archive::set_captions(&root, &std::fs::read_to_string(&file)?)? {
+                println!("{l}");
             }
         }
         CircuitCmd::Caption { study, file, text, root } => {

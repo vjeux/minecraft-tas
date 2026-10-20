@@ -1,6 +1,7 @@
-# Copper bulb T flip-flop, 3 blocks (track tff): the input (a redstone block written next to it) powers a waxed copper bulb, which toggles LIT on every rising edge of its power, in the update itself; a comparator on stone reads the bulb (15 / 0) and the output is the cell it points into: latency 2 gt (the comparator), 1 gt pulses accepted, trains down to 2 gt periods followed.
+# Copper bulb T flip-flop, 3 blocks (track tff): the input (a redstone block written next to it) powers a waxed copper bulb, which toggles LIT on every rising edge of its power, in the update itself; a comparator on stone reads the bulb (15 / 0) and the output is the cell it points into: latency 2 gt (the comparator), 1 gt pulses accepted, trains down to 2 gt periods followed. A stack of them tiles with NO gap (`tile: 0 2 0`: the slice is 2 blocks tall, stone under bulb + comparator), so a register column costs 3 blocks per bit. Pitch 1 is impossible in any direction: the state block and its reader are two cells, and side by side the comparators suppress each other through their side input (ComparatorBlock.getAlternateSignal), which the judge measures as latency 9 gt instead of 2.
 name: tff-bulb
 circuit: tff
+tile: 0 2 0
 port input: -1 1 0
 port output: 2 1 0
 origin: 0 0 0

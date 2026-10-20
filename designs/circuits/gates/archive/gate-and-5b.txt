@@ -1,10 +1,11 @@
-# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-and-5b.txt by mctas circuit archive
-# CIRCUIT: gate-and-5b gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust
+# archived 2026-10-20T15:32Z from designs/circuits/gates/tracks/gates/gate-and-5b.txt by mctas circuit archive
+# CIRCUIT: gate-and-5b gate and function and, latency 4 gt, tileable every 3 (0 0 3), 5 blocks, 3x2x1, robust
 # AND gate (track gates): two subtract comparators. The first reads a constant redstone block at its
 # back and input b at its side: 15 - b = NOT b, into the side of the second, which reads input a at
 # its back: a - NOT b = a AND b. 4 gt (two comparators).
 name: gate-and-5b
 circuit: gate and
+tile: 0 0 3
 port input.a: 0 1 0
 port input.b: 1 1 0
 port output: 0 1 1
