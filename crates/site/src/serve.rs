@@ -354,10 +354,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<p class=\"oneliner\">", "<h2>Why build it</h2>", "<b>Try it:</b>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: one plain sentence, why build it, try it; our test and the measurements in the details", ok, b.page.clone());
-        // the redstone first (vjeux): the live view comes before the explanation
-        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Why build it</h2>")).is_some_and(|(v, w)| v < w);
+        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // the redstone first (vjeux): the live view comes before the explanation (the heading's
+        // two sentences aside)
+        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
         check("circuit page: the live 3D view before the explanation", first, b.page.clone());
     }
     let c = site.builds.iter().find(|b| b.kind == "clock" && b.page.ends_with("clk-obs-p4-obs-4b.html")).or_else(|| site.builds.iter().find(|b| b.kind == "clock"));
