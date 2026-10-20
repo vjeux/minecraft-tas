@@ -4,7 +4,7 @@
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
 
-**[shulker-loader-pitch3](archive/shulker-loader-pitch3.txt)** (shulker-loader, load 64-stack; 26 blocks: comparator, dispenser, hopper, observer, redstone_block, redstone_wire, repeater, sticky_piston, stone):
+**[shulker-loader-pitch3](archive/shulker-loader-pitch3.txt)** (shulker-loader, load 64-stack; 25 blocks: comparator, dispenser, hopper, observer, redstone_block, redstone_wire, repeater, sticky_piston, stone):
 
 | variant | blocks | adds |
 |---|---|---|
