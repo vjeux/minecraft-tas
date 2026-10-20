@@ -408,3 +408,7 @@ left (-1,0..2), right (3,0..2); corners (-1,-1) (3,-1) (-1,3) (3,3) are free cel
 - w86's m83 (9x6; BR climbs by P (4,2) carried into (3,2) by K (5,2); sensors only in the two bottom pockets
   via --sound-cells): UNSAT in 129 s with and without the left carried pair kept ideal, same core: close (1,4)
   (held top-middle) + K (5,2) + (4,1) + RP0 (4,0): the right side's close.
+- Phases: m69V works in both input phases (tile 38/28, between-ticks 39/29); m69U only in tile (between-ticks
+  breaks MR's row at open). c70b's mechmut (families' model + redsim replay) is running from m69T; m69V does
+  not solve in families' model within 5M states (its moves are reach-pulls of piston bases + carried pistons
+  firing from new cells).
