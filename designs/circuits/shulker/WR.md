@@ -160,6 +160,37 @@ What that leaves:
   to it.
 - The open problem is routing the full signal from the read side to the piston side, around X.
 
+## Loader with a real box read: RECORD at pitch 3, `shulker-loader-pitch3`
+
+25 blocks, copies every 3 blocks (`tile: 3 0 0`), robust, 2.50 items/s. Badges: always-on,
+16-stack, unstackable, colours, restart, top-up, box-starved, drop-free, tileable(3). That is
+the 31-block 5x5x5 auto loader's set plus tiling. The auto loader stays shown for its lag: 3
+hoppers awake against 4.
+
+The middle column is a free crossbar: diodes there move signals between the two outer columns
+without touching a neighbour.
+
+Box cell X:
+- Feed hopper above.
+- Dispenser below, facing up. Its boxes come from the chest on column 1 through two hoppers.
+- East: compare-mode comparator with a redstone block on its side, 15 only when full. Its output
+  goes into column 2.
+- North: the pushed stone of a sticky piston.
+- South: the drop cell over the output hopper.
+
+Logic:
+- Full line: dust, then two repeaters north along column 2, then a repeater west into the stone
+  behind the piston.
+- The dispenser fires on any change of its contents: a comparator reads it through a stone, and
+  two observers power the stone under the dispenser.
+- It also fires after every break: an observer is the support of the first full-line repeater,
+  and the observer watching it powers the read-through stone.
+- The in-game shrink removed the drop cell's south wall (26 to 25).
+
+Open: the flush badge, which needs the feed hopper's falling edge routed to the piston without
+breaking an empty box on restart. Fewer hoppers awake would also help: the boxes chest cannot
+sit on the dispenser's hopper, because the read comparator holds that cell.
+
 ## Speed per 1-wide slice (ceilings)
 
 - **Unloader:** the only way out of X is down. A hopper minecart pulls 20/s, but in-slice it
