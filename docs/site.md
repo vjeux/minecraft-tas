@@ -67,8 +67,19 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   machines' studies (shulker loaders, TNT dupers, BUD switches) get a Variations table on their
   study page: the best design for each variation of their VARIATIONS.md, from the metrics
   (badges, items/s, rate, detected classes). The page's plain-language
-  texts (what each kind does, how to try it, what each metric means, the studies' introductions,
-  the glossary) live in `crates/site/src/explain.rs`. The catalog's folds (`catalog.tsv`):
+  texts live in `crates/site/src/plain.rs` (vjeux 13:06Z: "explain all the builds so someone can
+  understand them": every build page leads with one sentence of what it does with its own numbers,
+  then why you would build it and how to try it; kinds in everyday words with the community's
+  name in parentheses, `explain::kind_title` / `site_model::html::kind_words`) and
+  `crates/site/src/explain.rs` (the in-depth texts, metric meanings, the studies' plain intros
+  `STUDY_USES` and their "How we test" texts `STUDIES`). Our test, the measurements, the
+  properties and the design's file name fold into one collapsed "Details" (vjeux 13:11Z: no design
+  ids in any list or card; the name stays in the URL, the downloads and that details table).
+  Captions that are agent or tool logs are dropped (`explain::caption_plain`); the first sentence
+  of a designer's caption shows as "How this design does it". Pages vjeux deleted (13:35Z): the
+  door boards, the families index, the list of everything and the about page
+  (`generate::DELETED_PAGES`: never written, removed from an old output folder, and a smoke check
+  fails if one exists or is linked). The catalog's folds (`catalog.tsv`):
   equivalent layouts (`variant_of` naming a design of the same kind, value, block count and block
   kinds) hide under their shown design ("Also N other layouts"), dominance variants as before, and
   a tunable group (`group`: one mechanism, other repeater delays) shows as one card (its smallest

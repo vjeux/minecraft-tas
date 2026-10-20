@@ -127,7 +127,7 @@ pub struct BuildArgs {
     /// `origin/gh-pages`, the last deploy: for a box without the wasm32 target or wasm-bindgen).
     #[arg(long, conflicts_with = "pkg")]
     pub pkg_ref: Option<String>,
-    /// Skip the filtering UI (no WebAssembly build; the index then only links to all.html).
+    /// Skip the filtering UI (no WebAssembly build; the index then only links to the circuits).
     #[arg(long)]
     pub no_wasm: bool,
     /// GitHub release whose `<stem>.mp4` assets are the doors' videos (`gh`); empty: no links.

@@ -267,8 +267,9 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         (_, 1) => format!("Hold {} under the view for a long press, tap it for a short one", names[0]),
         _ => format!("Use the {} buttons under the view to drive the inputs", list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "and")),
     };
-    let watch = "the lamp marked OUT lights while the output is on";
+    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the lamp marked OUT lights while the output is on" };
     let hint = match b {
+        "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
         "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
         "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
@@ -283,7 +284,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     if press.is_empty() {
         return format!("Watch the view: {watch}.{demo}");
     }
-    format!("{press}: {}.{demo}", if hint.is_empty() { watch.to_string() } else { format!("{hint} ({watch})") })
+    format!(
+        "{press}: {}.{demo}",
+        match (hint.is_empty(), c.outputs.is_empty()) {
+            (true, _) => watch.to_string(),
+            (false, true) => hint,
+            (false, false) => format!("{hint} ({watch})"),
+        }
+    )
 }
 
 fn rate(items_s: &str) -> String {
@@ -311,6 +319,27 @@ fn first_cap(s: &str) -> String {
     }
 }
 
+/// What a builder must know before building it, near the top (critique, coordinator 13:54Z):
+/// a sculk door can be set off by footsteps; a directional build works only facing one way.
+pub fn warning(b: &Build) -> Option<String> {
+    if b.kind == "door" && b.group == "sculk" {
+        return Some("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
+    }
+    let robustness = match (&b.circuit, &b.clock) {
+        (Some(c), _) => c.robustness.as_str(),
+        (None, Some(c)) => c.robustness.as_str(),
+        _ => "",
+    };
+    let directional = robustness.starts_with("rotation") || (b.kind == "door" && b.door.is_some() && !b.flags.iter().any(|f| f == "rotation-safe"));
+    if directional {
+        return Some("Works only when built facing the way it is shown here: turned another way, it breaks.".to_string());
+    }
+    if robustness.contains("position") || robustness.contains("offset") {
+        return Some("Depends on where it is built: it does not work at every spot in the world, so test it where you build it.".to_string());
+    }
+    None
+}
+
 /// A door's plain lines: (what it does, why you would build it, how to try it).
 pub fn door(b: &Build) -> (String, String, String) {
     let d = b.door.as_ref();
@@ -330,7 +359,7 @@ pub fn door(b: &Build) -> (String, String, String) {
 pub fn clock(b: &Build) -> (String, String, String) {
     let c = b.clock.as_ref();
     let period = c.map(|c| ticks(&format!("{} gt", c.period))).unwrap_or_default();
-    let start = c.map(|c| if c.start.is_empty() || c.start == "self-starting" { " It starts on its own once built." } else { " It needs one kick to start." }).unwrap_or("");
+    let start = c.map(|c| if c.start.is_empty() || c.start.starts_with("self") { " It starts on its own once built." } else { " It needs one kick to start." }).unwrap_or("");
     (
         format!("Pulses by itself every {period}, forever.{start}"),
         "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),

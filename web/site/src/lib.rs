@@ -65,7 +65,7 @@ pub fn start() {
         if let Err(e) = load().await {
             log(&format!("redstonepedia: {e:?}"));
             if let Some(f) = by_id("filters") {
-                f.set_inner_html(&format!("<p class=\"error\">Could not load the data: {}. <a href=\"all.html\">The list of everything</a> works without it.</p>", esc(&format!("{e:?}"))));
+                f.set_inner_html(&format!("<p class=\"error\">Could not load the data: {}. <a href=\"circuits/index.html\">The circuits</a> work without it.</p>", esc(&format!("{e:?}"))));
             }
         }
     });

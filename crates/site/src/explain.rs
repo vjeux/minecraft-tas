@@ -905,12 +905,12 @@ pub fn phase_label(kind: &str, label: &str) -> String {
         return label.to_string();
     }
     match (base(kind), what) {
-        ("divider", "clock") => format!("clock, a pulse every {v} gt"),
-        ("pulse-train", "pulse") => format!("input on for {v} gt"),
-        ("burst" | "monostable" | "off-delay" | "on-delay", "pulse") => format!("one {v} gt pulse"),
-        ("burst" | "monostable", "pair") => format!("2 pulses {v} gt apart"),
-        ("burst", "train") => format!("6 presses, one every {v} gt"),
-        ("off-delay", "train") => format!("3 pulses, gaps of {v} gt"),
+        ("divider", "clock") => format!("a clock pulsing every {v} ticks"),
+        ("pulse-train", "pulse") => format!("input on for {v} ticks"),
+        ("burst" | "monostable" | "off-delay" | "on-delay", "pulse") => format!("a {v}-tick press"),
+        ("burst" | "monostable", "pair") => format!("2 presses {v} ticks apart"),
+        ("burst", "train") => format!("6 presses, {v} ticks apart"),
+        ("off-delay", "train") => format!("3 presses, {v}-tick gaps"),
         _ => label.to_string(),
     }
 }
@@ -1043,32 +1043,6 @@ pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
     STUDIES.iter().find(|s| s.0 == folder).map(|s| (s.1, s.2))
 }
 
-/// The about page's glossary.
-pub fn glossary() -> String {
-    let items: [(&str, &str); 15] = [
-        ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
-        ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
-        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime and outputs in orange; the redstone lamp the judge adds in an output cell lights while the output is on (an orange marker glows instead where the output cell holds a block of the design)."),
-        ("pulse", "the input (or output) on for a while, then off again; its length in gt."),
-        ("edge", "the moment a signal changes: rising edge = it turns on, falling edge = it turns off."),
-        ("L", "the length of an output pulse (pulse circuits)."),
-        ("N", "the main number of a study: a delay line's delay in gt, a counter's count, a piston extender's reach in blocks."),
-        ("delay", "time from the input's edge to the start of the output pulse."),
-        ("latency", "the worst time from an input change to the output's change; 0 gt = instant."),
-        ("min-pulse", "the shortest input pulse a circuit handles correctly (every longer one works too)."),
-        ("min-gap", "the shortest gap between two pulses that a delay line still keeps apart."),
-        ("min-period", "the fastest pulse train a T flip-flop follows: one pulse every this many gt."),
-        ("period", "a clock's (or an engine's) cycle length in gt: its whole state repeats every period."),
-        ("blocks", "blocks placed (a piston head is part of its piston; the input device is not counted); entities count one each."),
-        ("robust", "it works the same at 4 positions and 4 rotations in the real game; otherwise position- or rotation-dependent."),
-    ];
-    let mut s = String::from("<dl class=\"glossary\">\n");
-    for (k, v) in items {
-        s.push_str(&format!("<dt id=\"g-{}\">{}</dt><dd>{}</dd>\n", k.split_whitespace().next().unwrap_or(k).to_lowercase(), esc(k), esc(v)));
-    }
-    s.push_str("</dl>\n");
-    s
-}
 
 /// A caption without its simulator attribution (vjeux: "we don't need the attribution"): every
 /// sentence naming redsim goes.
@@ -1088,15 +1062,16 @@ pub fn scrub_attribution(caption: &str) -> String {
 /// The design's caption without its bookkeeping prefix (`Counter 2, dropper ring, 8 blocks
 /// (track memory, ...): ` -> the explanation after it).
 pub fn how_sentence(caption: &str) -> String {
-    let c = drop_source_paths(caption.trim());
-    let c = c.as_str();
+    // the bookkeeping head first (`Counter 2, dropper ring, 8 blocks (track memory, ...): `), then
+    // the source paths and tool commands left in the rest
+    let c = caption.trim();
     if let Some(i) = c.find("): ") {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
-            return site_model::html::esc(&first_cap(&c[i + 3..]));
+            return site_model::html::esc(&first_cap(&drop_source_paths(&c[i + 3..])));
         }
     }
-    site_model::html::esc(c)
+    site_model::html::esc(&drop_source_paths(c))
 }
 
 /// A caption a visitor can read (escaped HTML), or nothing: agent logs ("Agents c77 + pockets3:
@@ -1105,7 +1080,7 @@ pub fn how_sentence(caption: &str) -> String {
 pub fn caption_plain(caption: &str) -> String {
     let c = caption.trim();
     let lc = c.to_lowercase();
-    let log = lc.starts_with("agents ") || lc.starts_with("agent ") || lc.starts_with("from track") || lc.starts_with("track ") || lc.starts_with("found by") || lc.contains("`mctas ") || lc.contains("mctas clock") || lc.contains("mctas door");
+    let log = lc.starts_with("agents ") || lc.starts_with("agent ") || lc.starts_with("from track") || lc.starts_with("track ") || lc.starts_with("found by") || lc.starts_with("clock:") || lc.starts_with("circuit:") || lc.contains("`mctas ") || lc.contains("mctas clock") || lc.contains("mctas door") || lc.contains("census-k");
     if c.is_empty() || log {
         return String::new();
     }
@@ -1143,7 +1118,9 @@ fn drop_source_paths(c: &str) -> String {
     while let Some(i) = s[from..].find('(').map(|i| i + from) {
         let Some(j) = s[i..].find(')').map(|j| j + i) else { break };
         let inner = &s[i + 1..j];
-        if inner.contains("crates/") || inner.ends_with(".rs") || inner.contains(".rs ") {
+        // a source path, a tool command, a repo file or an agent track: not for visitors
+        // (critique C15)
+        if inner.contains("crates/") || inner.ends_with(".rs") || inner.contains(".rs ") || inner.contains("mctas ") || inner.contains(".md") || inner.contains("designs/") || inner.starts_with("track ") || inner.contains("; track ") {
             let start = if i > 0 && s.as_bytes()[i - 1] == b' ' { i - 1 } else { i };
             s.replace_range(start..=j, "");
             from = start;

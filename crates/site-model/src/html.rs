@@ -150,10 +150,7 @@ pub fn badges(b: &Build) -> Vec<String> {
         if badges.len() > 4 {
             v.push(format!("+{} more", badges.len() - 4));
         }
-        let detects = m("detects");
-        if !detects.is_empty() {
-            v.push(format!("detects {}", detects.split_whitespace().collect::<Vec<_>>().join(", ")));
-        }
+        // (what a BUD switch notices is its headline)
     }
     v
 }
@@ -232,9 +229,32 @@ pub fn kind_words(kind: &str) -> String {
     ch.next().map(|f| f.to_uppercase().collect::<String>() + ch.as_str()).unwrap_or_default()
 }
 
+/// A circuit's value in words, from its axis (`L = 12 gt` -> `12 ticks`; a piston extender's
+/// `N = 3` -> `reach 3`; a counter's -> `every 3rd`): a picker chip, a member's value.
+pub fn value_words(kind: &str, axis: &str) -> String {
+    let v = axis.split_once(" = ").map(|(_, v)| v.trim()).unwrap_or(axis.trim());
+    // `12 gt` or `12 gt retriggerable` (the kind's qualifier is the same for every version)
+    let w: Vec<&str> = v.split_whitespace().collect();
+    if w.len() >= 2 && w[1] == "gt" {
+        return tk(&format!("{} gt", w[0]));
+    }
+    let n = v.split_whitespace().next().unwrap_or(v);
+    match kind.split_whitespace().next().unwrap_or("") {
+        "piston-extender" => format!("reach {n}"),
+        "counter" | "divider" => format!("every {}", nth(n)),
+        "burst" => format!("{n} pulses"),
+        "shift" | "adder" => format!("{n} bits"),
+        "delay" => tk(&format!("{n} gt")),
+        _ => v.to_string(),
+    }
+}
+
 /// A tunable group's span in words: `L 12-36 gt, 13 values` -> `13 versions, 12 to 36 ticks`.
 pub fn span_words(span: &str) -> String {
-    let (range, count) = span.split_once(", ").unwrap_or((span, ""));
+    let Some((range, count)) = span.split_once(", ") else {
+        // not a range of values (`2 versions`): as it is
+        return span.to_string();
+    };
     let n = count.split_whitespace().next().unwrap_or("");
     let mut w = range.split_whitespace();
     let (_letter, r, unit) = (w.next().unwrap_or(""), w.next().unwrap_or(""), w.next().unwrap_or(""));
@@ -351,11 +371,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
     };
     let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| said(label, k)).collect() };
     match k0 {
-        "rising-edge" | "falling-edge" | "dual-edge" => (format!("{}-tick pulse", num(cm(c, "L"))), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
-        "pulse-limiter" => (format!("at most {l}"), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
-        "pulse-extender" => (format!("at least {l}"), sub(&[("starts after {}", "delay"), ("needs a {} input", "min-pulse")])),
+        "rising-edge" | "falling-edge" | "dual-edge" => (format!("{}-tick pulse", num(cm(c, "L"))), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
+        "pulse-limiter" => (format!("at most {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
+        "pulse-extender" => (format!("at least {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
         "tff" => (human_blocks(&c.axis), sub(&[("reacts in {}", "latency"), ("follows presses {} apart", "min-period")])),
-        "delay" => (format!("{}-tick delay", if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) }), sub(&[("needs a {} input", "min-pulse"), ("keeps gaps of {}", "min-gap")])),
+        "delay" => (format!("{}-tick delay", if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) }), sub(&[("needs an input of at least {}", "min-pulse"), ("keeps gaps of {}", "min-gap")])),
         "gate" => {
             let f = if cm(c, "function").is_empty() { k1 } else { cm(c, "function") };
             let instant = cm(c, "class") == "instant" || cm(c, "latency") == "0 gt";
@@ -419,9 +439,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "divider" => (format!("slows by {k1}{}", if cm(c, "output") == "square" { " · even on/off" } else { "" }), sub(&[("follows clocks down to {}", "min-period")])),
         "monostable" => (
             format!("on for {l}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
-            sub(&[("starts after {}", "delay"), ("ready again after {}", "re-arm")]),
+            // (a retriggerable timer's re-arm reads like a contradiction next to "restarts on
+            // every press": critique C49; it stays in the measurements)
+            if k1 == "retriggerable" { sub(&[("starts after {}", "delay")]) } else { sub(&[("starts after {}", "delay"), ("ready again after {}", "re-arm")]) },
         ),
-        "off-delay" => (format!("stays on {l} after"), sub(&[("needs a {} input", "min-pulse")])),
+        "off-delay" => (format!("stays on {l} after"), sub(&[("needs an input of at least {}", "min-pulse")])),
         "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("comes out {} shorter", "shortening")])),
         "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
         _ => {
