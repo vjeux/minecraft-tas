@@ -241,6 +241,17 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         if let Some(v) = &d.video {
             s.push_str(&row("Video", &format!("<a href=\"{}\">watch (real game)</a>", esc(v))));
         }
+        if !d.fill_of.is_empty() {
+            s.push_str(&row("Filled from", &format!("<a href=\"{REPO_URL}/blob/main/{}\">{}</a> (<code>door fill</code>: the same mechanism, other blocks in its free cells)", esc(&d.fill_of), esc(d.fill_of.rsplit('/').next().unwrap_or(&d.fill_of)))));
+        }
+        if let Some(h) = &d.host {
+            s.push_str(&row("Variant of", &format!("{} (the best filling of the same mechanism)", link_build(site, h, prefix))));
+        }
+        if !d.variants.is_empty() {
+            let shown: Vec<String> = d.variants.iter().take(40).map(|v| link_build(site, v, prefix)).collect();
+            let more = if d.variants.len() > 40 { format!(" and {} more", d.variants.len() - 40) } else { String::new() };
+            s.push_str(&row(&format!("Fill variants ({})", d.variants.len()), &format!("{}{more}", shown.join(", "))));
+        }
     }
     if let Some(c) = &b.clock {
         s.push_str(&row("Period", &esc(&gt_time(c.period))));

@@ -44,6 +44,13 @@ impl Default for Sizing {
 
 /// The input pulse lengths the pulse checkers try.
 pub const PULSE_LENS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+
+/// [`PULSE_LENS`], then longer pulses (60, 80, 120, 160, 240, 320... gt) up to twice the recovery
+/// gap: the longest input must exceed a long limiter's or extender's L (the gap covers its output).
+pub fn pulse_lens(gap: u32) -> Vec<u32> {
+    const LONG: [u32; 13] = [60, 80, 120, 160, 240, 320, 480, 640, 960, 1280, 1920, 2560, 3840];
+    PULSE_LENS.iter().copied().chain(LONG.iter().copied().filter(|l| *l <= 2 * gap)).collect()
+}
 /// The pulse lengths the delay checker tries, then the gaps between two 20 gt pulses.
 pub const DELAY_LENS: [u32; 11] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30];
 pub const DELAY_GAPS: [u32; 8] = [1, 2, 3, 4, 5, 6, 8, 10];
@@ -75,7 +82,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     t += gap + 40;
                 }
             } else {
-                for &l in &PULSE_LENS {
+                for l in pulse_lens(gap) {
                     s.pulse(0, t, l);
                     s.phase(t, t + l + gap, format!("pulse {l}"));
                     t += l + gap;
