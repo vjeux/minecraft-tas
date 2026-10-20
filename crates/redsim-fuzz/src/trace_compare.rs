@@ -151,6 +151,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
                         EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
                         EntityKind::Item(_) => "minecraft:item".to_string(),
                         EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                        EntityKind::PrimedTnt(_) => "minecraft:tnt".to_string(),
                     },
                     pos: [e.pos.x, e.pos.y, e.pos.z],
                     motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
@@ -223,6 +224,8 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let (from, to) = (trace.from, trace.to);
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(bp(from), size);
+    // TNT entities (their kick replaced: each new one takes the game's state when first seen)
+    w.tnt_kick = Some(0.0);
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
     match c.placement {
@@ -260,6 +263,7 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     // from level.random); the trace's TNT entities are compared as spawns (new ids per tick, by
     // the cell they stand in) with redsim's primes of that tick, and left out of the entity check
     let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut sim_tnt_seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
     let mut primed_seen = 0usize;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
@@ -318,7 +322,8 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         // (a TNT is first seen one tick after it spawned and may already have been pushed one
         // cell by the machine: counts per tick must match, cells within 1)
         let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
-        let mut game_spawns: Vec<[i32; 3]> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+        let new_game: Vec<&TraceEntity> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).collect();
+        let mut game_spawns: Vec<[i32; 3]> = new_game.iter().map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
         let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().map(|(_, p)| [p.x, p.y, p.z]).collect();
         primed_seen = w.primed.len();
         game_spawns.sort();
@@ -327,8 +332,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
             ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
         }
-        let others: Vec<TraceEntity> = ents.iter().filter(|e| !is_tnt(e)).cloned().collect();
-        entity_diffs(&others, &entities_of(&w), &mut ed);
+        // redsim's TNT entities (World::tnt_kick): the game's random kick is unknown, so each new
+        // TNT takes the game's state at its first sighting; from then on it is compared bit for bit
+        let new_sim: Vec<usize> = (0..w.entities.list.len()).filter(|&k| matches!(w.entities.list[k].kind, redsim::entity::EntityKind::PrimedTnt(_)) && !w.entities.list[k].removed && sim_tnt_seen.insert(w.entities.list[k].id)).collect();
+        for (g, &k) in new_game.iter().zip(&new_sim) {
+            let e = &mut w.entities.list[k];
+            e.set_pos(redsim::entity::Vec3::new(g.pos[0], g.pos[1], g.pos[2]));
+            e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
+        }
+        entity_diffs(ents, &entities_of(&w), &mut ed);
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {
