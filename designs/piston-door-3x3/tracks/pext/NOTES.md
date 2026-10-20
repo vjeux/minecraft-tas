@@ -94,6 +94,13 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   satwire loop: cores cycle (-2,1) -> (-1,-2) -> (1,-2) -> (-1,-2), no train after 7 rounds.
 * `--islands` screen of all 73 of c70b's smaller/ plans (1M pairs): none; closest (3M, `--stone`):
   bars-7x7 mm06, t1r22-u mm01/mm04 (2 cells off).
+* `door selffeed` on u-island mm02's train: (1,-3) -> observer at (0,-2) facing west (watching
+  SU(-1,-2), feeding SU(1,-2)) and (4,1,1) -> observer at (4,0) facing down: `uisl-mm02-sf.ideal`,
+  open 49 / close 47, redsim 32x3 + game; satwire core then close SU(-1,-2).
+* clockinfra's macrosat m86-a (8x6, start-clean): no train with idle-separated moves (its parallel
+  steps overlap); `--pair-offsets 1,2,3` (b pulsed 1-3 gt after a, no idle between) reproduces it:
+  `m86a-train-e4.ideal`, 34 pulses + open-only (4,2,1) + close-only (2,4,1), open 36 / close 36,
+  redsim 32x3 + game. With `--islands --lever-cell=2,4,1`: no train (4 cells off).
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,
