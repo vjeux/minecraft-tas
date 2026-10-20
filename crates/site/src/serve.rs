@@ -362,6 +362,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // the machines' studies: a variations table with the best design per variation
+    for folder in ["shulker", "tnt", "bud"] {
+        if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
+            let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
+            let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
+            let best = table.matches("<a href=").count();
+            check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
+        }
+    }
     // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
     // different sizes, not others of size 1"): every card there has another value
     if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {

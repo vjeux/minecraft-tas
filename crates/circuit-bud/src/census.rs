@@ -23,7 +23,8 @@ pub struct CensusArgs {
     pub k: usize,
     /// `all` (pistons, observers, droppers, dispensers in every facing, redstone block, slime,
     /// honey, stone, glass, lamp, dust, torches, repeaters, comparators), `qc` (observer-free piston
-    /// parts: pistons, slime, honey, redstone block, stone) or a comma list of block states.
+    /// parts: pistons, slime, honey, redstone block, stone), `dropper` (droppers, dispensers,
+    /// observers, sticky pistons, redstone block, stone, slime) or a `;`-separated list of states.
     #[arg(long, default_value = "all")]
     pub palette: String,
     /// Cells within this distance (per axis) of the target.
@@ -49,6 +50,17 @@ const HFACINGS: [&str; 4] = ["north", "south", "east", "west"];
 fn palette(name: &str) -> Vec<String> {
     let mut v: Vec<String> = Vec::new();
     match name {
+        "dropper" => {
+            for f in FACINGS {
+                v.push(format!("minecraft:dropper[facing={f},triggered=false]"));
+                v.push(format!("minecraft:dispenser[facing={f},triggered=false]"));
+                v.push(format!("minecraft:observer[facing={f},powered=false]"));
+                v.push(format!("minecraft:sticky_piston[extended=false,facing={f}]"));
+            }
+            for b in ["redstone_block", "stone", "slime_block"] {
+                v.push(format!("minecraft:{b}"));
+            }
+        }
         "all" | "qc" => {
             for f in FACINGS {
                 v.push(format!("minecraft:sticky_piston[extended=false,facing={f}]"));
@@ -74,7 +86,7 @@ fn palette(name: &str) -> Vec<String> {
                 }
             }
         }
-        list => v.extend(list.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty())),
+        list => v.extend(list.split([';', ' ']).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())),
     }
     v
 }
@@ -88,7 +100,30 @@ fn nbrs(p: Pos) -> [Pos; 6] {
     [[p[0] + 1, p[1], p[2]], [p[0] - 1, p[1], p[2]], [p[0], p[1] + 1, p[2]], [p[0], p[1] - 1, p[2]], [p[0], p[1], p[2] + 1], [p[0], p[1], p[2] - 1]]
 }
 
-/// Connected cell sets of `k` cells around the target (origin), one of them beside it.
+/// The 8 symmetries around the vertical axis through the target (4 turns x mirror).
+fn sym(p: Pos, g: usize) -> Pos {
+    let [mut x, y, mut z] = p;
+    if g >= 4 {
+        x = -x;
+    }
+    for _ in 0..(g % 4) {
+        (x, z) = (-z, x);
+    }
+    [x, y, z]
+}
+
+/// Whether a sorted cell set is the smallest of its 8 images (one representative per symmetry
+/// class: the palettes hold every facing, so the states cover the other images).
+fn canonical(s: &[Pos]) -> bool {
+    (1..8).all(|g| {
+        let mut img: Vec<Pos> = s.iter().map(|p| sym(*p, g)).collect();
+        img.sort();
+        s <= img.as_slice()
+    })
+}
+
+/// Connected cell sets of `k` cells around the target (origin), one of them beside it, one per
+/// symmetry class.
 fn cell_sets(k: usize, reach: i32) -> Vec<Vec<Pos>> {
     let t: Pos = [0, 0, 0];
     let ok = |p: &Pos| *p != t && p.iter().all(|c| c.abs() <= reach);
@@ -111,7 +146,7 @@ fn cell_sets(k: usize, reach: i32) -> Vec<Vec<Pos>> {
         }
         sets = next;
     }
-    sets.into_iter().collect()
+    sets.into_iter().filter(|s| canonical(s)).collect()
 }
 
 fn design(cells: &[Pos], states: &[&String], out: Option<Pos>) -> mctas::design::Design {
@@ -279,6 +314,55 @@ pub fn run(a: CensusArgs) -> Result<()> {
                 std::fs::write(dir.join(format!("{name}.txt")), text)?;
             }
         }
+    }
+    Ok(())
+}
+
+#[derive(clap::Args, Debug)]
+pub struct TraceArgs {
+    pub design: PathBuf,
+    /// First frame shown (default: the first event).
+    #[arg(long)]
+    pub from: Option<u32>,
+    /// Frames shown.
+    #[arg(long, default_value_t = 40)]
+    pub frames: u32,
+    /// The frames each event is given.
+    #[arg(long, default_value_t = 30)]
+    pub gap: u32,
+}
+
+/// Print a BUD design's run on redsim, frame by frame, in a window.
+pub fn trace(a: TraceArgs) -> Result<()> {
+    let c = Circuit::load(&a.design)?;
+    let s = circuit::bud::stimulus_with(&c, &Sizing { gap: a.gap }, false);
+    let actions = c.actions(&s);
+    let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let (from, to) = circuit::run::watch_box(&c, 2);
+    let run = clock::sim::drive(&c.clock, &actions, s.ticks, &probes, from, to).map_err(|(_, why)| anyhow::anyhow!(why))?;
+    if let Some((t, why)) = &run.stopped {
+        println!("stopped at frame {t}: {why}");
+    }
+    let start = a.from.unwrap_or_else(|| s.phases.first().map(|p| p.0).unwrap_or(0)).saturating_sub(1) as usize;
+    let end = (start + a.frames as usize).min(run.cells.len());
+    let mut prev: BTreeMap<Pos, String> = run.cells.get(start.saturating_sub(1)).map(|f| f.iter().cloned().collect()).unwrap_or_default();
+    for f in start..end {
+        let now: BTreeMap<Pos, String> = run.cells[f].iter().cloned().collect();
+        let mut diff: Vec<String> = Vec::new();
+        for (p, st) in &now {
+            if prev.get(p) != Some(st) {
+                diff.push(format!("{p:?}={}", clock::short(st)));
+            }
+        }
+        for p in prev.keys() {
+            if !now.contains_key(p) {
+                diff.push(format!("{p:?}=air"));
+            }
+        }
+        let phase = s.phases.iter().rev().find(|(a0, _, _)| *a0 as usize <= f).map(|(a0, _, l)| format!("{l} +{}", f - *a0 as usize)).unwrap_or_default();
+        let lvl = run.signals.get(f).and_then(|v| v.first()).copied().unwrap_or(0);
+        println!("{f:5} out {lvl:2} [{phase}] {}", diff.join(" "));
+        prev = now;
     }
     Ok(())
 }

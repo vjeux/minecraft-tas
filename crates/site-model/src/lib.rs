@@ -286,6 +286,12 @@ pub struct Circuit {
     /// air output cells), so the lamp shows the output; else the orange marker does. Pages only.
     #[serde(skip)]
     pub output_lamp: bool,
+    /// The judge's other actions (the BUD kind's block updates at its target and probe cells),
+    /// for the viewer's demo (`data-events`): `<frame> <op> <x> <y> <z> [<state>]; ...` with op
+    /// `place` (with updates), `clear`, `shape` (shape updates only) or `update` (a pure block
+    /// update around the cell), positions in the design's coordinates. Pages only.
+    #[serde(skip)]
+    pub events: String,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
@@ -300,7 +306,8 @@ pub struct Wave {
 
 /// One signal of a [`Wave`]: an input (on/off), an output (its level 0..15), or a position track
 /// (`scale` > 0: a piston extender's payload, 0 = home .. N = extended; a flying machine's
-/// displacement along its travel), as runs of equal value: (from frame, value).
+/// displacement along its travel), as runs of equal value: (from frame, value); or the judge's
+/// actions at a BUD's target (`marks`: frame, `place` / `clear` / `shape` / `update`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WaveRow {
     pub name: String,
@@ -312,6 +319,7 @@ pub struct WaveRow {
     pub target: Option<u32>,
     /// A short annotation (`extends in 9 gt, back in 9 gt`).
     pub note: String,
+    pub marks: Vec<(u32, String)>,
 }
 
 impl WaveRow {

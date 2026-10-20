@@ -1,9 +1,10 @@
-# archived 2026-10-20T06:38Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
-# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 31 redstone, 1 slime, 44 blocks, 5x5x8, robust
-# Smallest always-on shulker unloader so far, 44 blocks (track shulker-speed, clk-item): clk-rt's
-# always-on unloader without the hopper lock (its repeater, dust, stone and two floors): the
-# unloading hopper is still on its 8 gt cooldown from the box's last item when the piston breaks
-# the box, so the moving stone pushes the drop away before the hopper can take it. The dispenser
+# archived 2026-10-20T06:49Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
+# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free+tileable(5), bill 16 iron, 5 quartz, 31 redstone, 1 slime, 41 blocks, 5x5x7, robust
+# Smallest always-on shulker unloader so far, 41 blocks (track shulker-speed, clk-item): clk-rt's
+# always-on unloader without the hopper lock (its repeater, dust, stone and two floors) and without
+# the drop cell's side walls and the wall south of the box cell: the unloading hopper is still on its 8 gt
+# cooldown from the box's last item when the piston breaks the box, and the moving stone pushes
+# the drop out of its reach in time (16 builds with 16 different drop draws). The dispenser
 # above the box cell places full boxes, the hopper under it empties them; a squared comparator
 # reading feeds a subtract comparator directly and 4 gt late (a pulse when the box runs empty,
 # never on a new full box); a sticky piston two cells away pushes a stone into the box and the
@@ -12,6 +13,7 @@
 # dispenser through the drop cell's roof, watched by an observer, places the first box and
 # restarts after the supply ran out.
 name: shulker-small-unloader
+tile: 5 0 0
 circuit: shulker-unloader
 port items: 0 0 -1
 port boxes: 0 3 -1
@@ -56,9 +58,9 @@ layer 1:
   ...rV.
   ...Wrr
   ...C.r
-  ..SS.r
+  ...S.r
   .S..SP
-  ..SS..
+  ......
 layer 2:
   ......
   ......

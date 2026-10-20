@@ -1,0 +1,42 @@
+name: e78s-56b-44-fill-43b-2
+note: door fill of designs/piston-door-3x3/tracks/pockets/finds/e78s-56b-44.txt: (-2,-3) sticky_piston[extended=false,facing=up] (0,-3) dropper[facing=west,triggered=false] (-2,-2) air (-2,-1) observer[facing=west,powered=false]
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  D minecraft:dropper[facing=west,triggered=false]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
+  L minecraft:lever[face=floor,facing=east,powered=true]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:target[power=0]
+  n minecraft:note_block[instrument=harp,note=0,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -3:
+  soDsonG
+layer -2:
+  .RBsOTC
+layer -1:
+  BAG..EA
+layer 0:
+  S.GGG.E
+layer 1:
+  S.GGG.E
+layer 2:
+  GGGGGGA
+layer 3:
+  roPPPBN
+layer 4:
+  ..FFF
+layer 5:
+  ...L
