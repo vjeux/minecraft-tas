@@ -201,6 +201,18 @@ pub static RING_ESCAPE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::
 /// `--feedable`: keep only candidates whose every piston has a cell wiring could feed it from at
 /// rest (see [`feedable`]).
 pub static FEEDABLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--fed`: keep only SOLVED mechanisms whose every receiver has a free feed cell over the cycle
+/// ([`unfed_cells`]; one box-edge piston may be the lever's).
+pub static FED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The `--fed` bar on a solution.
+pub fn fed_ok(m: &Mech, rest: &St, sol: &Sol) -> bool {
+    if !FED.load(Ordering::Relaxed) {
+        return true;
+    }
+    let (list, lever) = unfed_cells(m, rest, sol);
+    list.len() <= usize::from(lever)
+}
 
 /// `--feedable` (c77's filter for the 7x7 wiggle doors): every piston of `v` has a FEED cell at
 /// rest: a neighbour (not its head side) or, by quasi-connectivity, the cell above it or one of
@@ -859,7 +871,145 @@ fn astar(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, h: &dyn Fn(&St) -> u3
 /// (h = door blocks still in the 3x3, the center counting 2; then cells differing from rest).
 /// Ok(None) = proven impossible in the pulse model and not found with levels within the cap;
 /// Err(()) = the pulse graph itself hit the cap.
+/// `--max-actions K` (0 = off): every solve allows at most K actions (pulses or level toggles) per
+/// piston per edge (pockets3: each pulse needs its own watchable event next to the piston's feed
+/// pocket; 1-2 per edge is wirable).
+pub static CONS_K: AtomicUsize = AtomicUsize::new(0);
+/// `--no-inside`: no piston fires while its base is inside the 3x3 (a piston carried into the door
+/// square can only be fed through door blocks).
+pub static CONS_NO_INSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn cons_on() -> bool {
+    CONS_K.load(Ordering::Relaxed) > 0 || CONS_NO_INSIDE.load(Ordering::Relaxed)
+}
+
+/// One edge of the constrained search: BFS over (state, actions per piston, 4 bits each) from
+/// `start`; a state already reached with componentwise no more actions dominates. Returns up to
+/// `want` paths to distinct goal states (fewest actions first) and whether the search was complete.
+fn cons_edge(m: &Mech, start: &St, goal: &dyn Fn(&St) -> bool, evs: &[E], cap: usize, want: usize) -> (Vec<(St, Vec<E>)>, bool) {
+    let kk = CONS_K.load(Ordering::Relaxed);
+    let track = kk > 0;
+    let k = kk.clamp(1, 15) as u64;
+    // at most this many incomparable action vectors kept per state (the exact Pareto set blows
+    // up): a dropped one makes a "none" verdict unproven
+    const PARETO: usize = 3;
+    let mut pruned = false;
+    let no_in = CONS_NO_INSIDE.load(Ordering::Relaxed);
+    let ids = m.info.len();
+    let le = |a: u64, b: u64| (0..ids).all(|i| (a >> (4 * i)) & 15 <= (b >> (4 * i)) & 15);
+    let mut nodes: Vec<(St, u64)> = vec![(start.clone(), 0)];
+    let mut parent: Vec<(u32, Option<E>)> = vec![(0, None)];
+    let mut seen: HashMap<St, Vec<u64>> = HashMap::new();
+    seen.insert(start.clone(), vec![0]);
+    let mut q = VecDeque::from([0u32]);
+    let mut found: Vec<(St, Vec<E>)> = Vec::new();
+    let mut found_st: HashSet<St> = HashSet::new();
+    let path = |mut i: u32, parent: &[(u32, Option<E>)]| -> Vec<E> {
+        let mut v = Vec::new();
+        while let (p, Some(e)) = parent[i as usize] {
+            v.push(e);
+            i = p;
+        }
+        v.reverse();
+        v
+    };
+    if goal(start) {
+        found.push((start.clone(), Vec::new()));
+        found_st.insert(start.clone());
+        if found.len() >= want {
+            return (found, true);
+        }
+    }
+    let mut complete = true;
+    while let Some(i) = q.pop_front() {
+        let (st, c) = nodes[i as usize].clone();
+        for &e in evs {
+            let id = e.id as usize;
+            if track && (c >> (4 * id)) & 15 >= k {
+                continue;
+            }
+            if no_in {
+                let (x, y) = m.bx.xy(st.pp[id] as usize);
+                if in_t(x, y) {
+                    continue;
+                }
+            }
+            let Out::Ok(n) = m.apply(&st, e) else { continue };
+            let nc = if track { c + (1u64 << (4 * id)) } else { 0 };
+            let entry = seen.entry(n.clone()).or_default();
+            if entry.iter().any(|&o| le(o, nc)) {
+                continue;
+            }
+            if entry.len() >= PARETO {
+                pruned = true;
+                continue;
+            }
+            if nodes.len() >= cap {
+                complete = false;
+                continue;
+            }
+            entry.push(nc);
+            let j = nodes.len() as u32;
+            nodes.push((n.clone(), nc));
+            parent.push((i, Some(e)));
+            q.push_back(j);
+            if goal(&n) && found_st.insert(n.clone()) {
+                found.push((n, path(j, &parent)));
+                if found.len() >= want {
+                    return (found, false);
+                }
+            }
+        }
+    }
+    (found, complete && !pruned)
+}
+
+/// The constrained solve (`--max-actions` / `--no-inside`): open = a constrained search from rest
+/// to an open state, close = a fresh constrained search from that open state back to rest (up to
+/// 32 open states tried, fewest actions first); pulses (+ levels of the extended-at-rest pistons)
+/// first, every level next when `levels`. Ok(None) = PROVEN none under the constraints.
+fn solve_cons(m: &Mech, rest: &St, cap: usize, levels: bool) -> Result<Option<Sol>, ()> {
+    let pulse = solve_cons_with(m, rest, cap, &m.events_pulse(), false);
+    match pulse {
+        Ok(Some(_)) => pulse,
+        _ if !levels => pulse,
+        // the pulse events are a subset of the level events: the level verdict decides
+        _ => solve_cons_with(m, rest, cap, &m.events(true), true),
+    }
+}
+
+fn solve_cons_with(m: &Mech, rest: &St, cap: usize, evs: &[E], levels: bool) -> Result<Option<Sol>, ()> {
+    let (opens, c1) = cons_edge(m, rest, &|s| m.is_open(s), evs, cap, 32);
+    if opens.is_empty() {
+        return if c1 { Ok(None) } else { Err(()) };
+    }
+    let mut any_cap = !c1;
+    for (o, open) in &opens {
+        let (back, c2) = cons_edge(m, o, &|s| s == rest, evs, cap, 1);
+        any_cap |= !c2 && back.is_empty();
+        let Some((_, close)) = back.into_iter().next() else { continue };
+        let mut cyc = vec![rest.clone()];
+        let mut c = rest.clone();
+        for e in open.iter().chain(close.iter()) {
+            if let Out::Ok(nx) = m.apply(&c, *e) {
+                c = nx;
+            }
+            cyc.push(c.clone());
+        }
+        let refs: Vec<&St> = cyc.iter().collect();
+        if !m.holes_ok(&refs, o) {
+            continue;
+        }
+        let extent = m.extent(&refs);
+        return Ok(Some(Sol { open: open.clone(), close, sym: None, sym_levels: false, states: 0, extent, levels }));
+    }
+    if any_cap { Err(()) } else { Ok(None) }
+}
+
 pub fn solve(m: &Mech, rest: &St, cap: usize, levels: bool) -> Result<Option<Sol>, ()> {
+    if cons_on() {
+        return solve_cons(m, rest, cap, levels);
+    }
     match solve_full(m, rest, cap, &m.events_pulse()) {
         Ok(Some(s)) => return Ok(Some(s)),
         Err(()) => return Err(()),
@@ -2039,6 +2189,55 @@ pub struct Wire {
     pub why: String,
 }
 
+/// The receivers no free cell can feed (the wiring analysis below), minus those next to (or
+/// under, by quasi-connectivity) a STATIC ring stone that a free off-ring cell can strongly power
+/// (c77). Returns their firing cells and whether one of them may be the lever's (the lever stands
+/// outside the volume: a box-edge piston with a free outward side that is not its head, as w86's
+/// m69g lever on top of (1,4)).
+pub fn unfed_cells(m: &Mech, rest: &St, sol: &Sol) -> (Vec<(i8, i8)>, bool) {
+    let bx = m.bx;
+    let mut states = vec![rest.clone()];
+    let mut c = rest.clone();
+    for e in sol.open.iter().chain(sol.close.iter()) {
+        if let Out::Ok(n) = m.apply(&c, *e) {
+            c = n;
+        }
+        states.push(c.clone());
+    }
+    let pieces = &m.pieces;
+    let at = |s: &St, x: i8, y: i8| if bx.has(x, y) { s.g[bx.idx(x, y)] } else { AIR };
+    let w = wiring(m, rest, sol);
+    let swept = |x: i8, y: i8| states.iter().any(|s| at(s, x, y) != AIR && at(s, x, y) != STONE) || pieces.iter().any(|p| p.cells().contains(&(x, y)) && !matches!(p.k, K::Stone));
+    let free_off = |x: i8, y: i8| bx.has(x, y) && !in_t(x, y) && !in_r(x, y) && !swept(x, y);
+    let static_ring = |x: i8, y: i8| in_r(x, y) && !swept(x, y) && F.iter().any(|d| free_off(x + d.0, y + d.1));
+    let list: Vec<(i8, i8)> = w
+        .why
+        .split("; ")
+        .filter(|s| s.ends_with("has no free cell to feed it"))
+        .filter_map(|s| {
+            // "<code> at (x,y) has no free cell to feed it"
+            let xy = s.split(" at (").nth(1)?.split(')').next()?;
+            let (xs, ys) = xy.split_once(',')?;
+            Some((xs.parse::<i8>().ok()?, ys.parse::<i8>().ok()?))
+        })
+        .filter(|&(x, y)| {
+            let near = F.iter().any(|d| static_ring(x + d.0, y + d.1)) || static_ring(x, y + 1) || F.iter().any(|d| (x + d.0, y + 1 + d.1) != (x, y) && static_ring(x + d.0, y + 1 + d.1));
+            !near
+        })
+        .collect();
+    // (the lever hangs on or stands on a piston that is never moved: d67 game-checked that
+    // anything attached to a moving piston pops)
+    let lever_ok = list.iter().any(|&(x, y)| {
+        let Some(id) = (0..m.info.len()).find(|&id| bx.xy(rest.pp[id] as usize) == (x, y)) else { return false };
+        if states.iter().any(|s| s.pp[id] != rest.pp[id]) {
+            return false;
+        }
+        let head = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(F[f as usize]) } else { None });
+        F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
+    });
+    (list, lever_ok)
+}
+
 pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     let bx = m.bx;
     let n = bx.n();
@@ -2624,6 +2823,7 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
         }
         log(&format!("{w}x{h}: {} candidate mechanisms ({total} generated, {:.1}s)", cands.len(), t0.elapsed().as_secs_f64()));
         let found: Mutex<Vec<(Bx, Vec<Pc>)>> = Mutex::new(Vec::new());
+        let unfed_n = AtomicUsize::new(0);
         let capped = AtomicUsize::new(0);
         let capped_list: Mutex<Vec<usize>> = Mutex::new(Vec::new());
         let next = AtomicUsize::new(0);
@@ -2639,7 +2839,13 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                     // the full box (any offset) for solving
                     if let Some((m, rest)) = Mech::new(*bx, v) {
                         match solve(&m, &rest, o.cap, o.levels) {
-                            Ok(Some(_)) => found.lock().unwrap().push((*bx, v.clone())),
+                            Ok(Some(sol)) => {
+                                if fed_ok(&m, &rest, &sol) {
+                                    found.lock().unwrap().push((*bx, v.clone()));
+                                } else {
+                                    unfed_n.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
                             Ok(None) => {}
                             Err(()) => {
                                 capped.fetch_add(1, Ordering::Relaxed);
@@ -2669,8 +2875,15 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
                     }
                     let (bx, v) = &cands[capped_list[k]];
                     if let Some((m, rest)) = Mech::new(*bx, v) {
-                        match solve_pulse_astar(&m, &rest, o.cap) {
-                            Ok(Some(_)) => found.lock().unwrap().push((*bx, v.clone())),
+                        // (the A* pass knows no wirability bars: with them, capped stays unresolved)
+                        match if cons_on() { Err(()) } else { solve_pulse_astar(&m, &rest, o.cap) } {
+                            Ok(Some(sol)) => {
+                                if fed_ok(&m, &rest, &sol) {
+                                    found.lock().unwrap().push((*bx, v.clone()));
+                                } else {
+                                    unfed_n.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
                             Ok(None) => {}
                             Err(()) => {
                                 unresolved.fetch_add(1, Ordering::Relaxed);
@@ -2691,7 +2904,12 @@ pub fn run(version: &str, o: &Opts) -> Result<()> {
         }
         let capped = AtomicUsize::new(unresolved);
         let found = found.into_inner().unwrap();
-        log(&format!("{w}x{h}: {} open+close ({} candidates unresolved: pulse graph over the cap and A* found nothing), minimizing", found.len(), capped.load(Ordering::Relaxed)));
+        log(&format!(
+            "{w}x{h}: {} open+close ({} candidates unresolved: pulse graph over the cap and A* found nothing{}), minimizing",
+            found.len(),
+            capped.load(Ordering::Relaxed),
+            if FED.load(Ordering::Relaxed) { format!("; {} solved but an unfed receiver (--fed)", unfed_n.load(Ordering::Relaxed)) } else { String::new() }
+        ));
         // minimal + canonical + every offset of this box that fits
         let mins: Mutex<HashSet<Vec<Pc>>> = Mutex::new(HashSet::new());
         let next = AtomicUsize::new(0);

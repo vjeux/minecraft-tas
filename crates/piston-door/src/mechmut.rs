@@ -84,6 +84,8 @@ pub static VALIDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBo
 pub static OUTSIDE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--rank-unfed`: rank by unfed pistons right after the redsim verdict (instead of inside firings).
 pub static RANK_UNFED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--max-unfed N`: reject variants with more unfed receivers (after the lever allowance).
+pub static MAX_UNFED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(usize::MAX);
 
 fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> bool {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -311,34 +313,11 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
     let real = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
     let w = fam::wiring(&m, &rest, &sol);
-    // families' wiring counts only free off-ring cells as feeds; a piston next to (or under, by
-    // quasi-connectivity) a STATIC ring stone that a free off-ring cell can strongly power is fed
-    // too (c77): count only the pistons with neither
-    let swept = |x: i8, y: i8| states.iter().any(|s| at(s, x, y) != fam::AIR && at(s, x, y) != fam::STONE) || pieces.iter().any(|p| p.cells().contains(&(x, y)) && !matches!(p.k, K::Stone));
-    let free_off = |x: i8, y: i8| bx.has(x, y) && !fam::in_t(x, y) && !fam::in_r(x, y) && !swept(x, y);
-    let static_ring = |x: i8, y: i8| fam::in_r(x, y) && !swept(x, y) && fam::F.iter().any(|d| free_off(x + d.0, y + d.1));
-    let unfed_list: Vec<(i8, i8)> = w
-        .why
-        .split("; ")
-        .filter(|s| s.ends_with("has no free cell to feed it"))
-        .filter_map(|s| {
-            // "<code> at (x,y) has no free cell to feed it"
-            let xy = s.split(" at (").nth(1)?.split(')').next()?;
-            let (xs, ys) = xy.split_once(',')?;
-            Some((xs.parse::<i8>().ok()?, ys.parse::<i8>().ok()?))
-        })
-        .filter(|&(x, y)| {
-            let near = fam::F.iter().any(|d| static_ring(x + d.0, y + d.1)) || static_ring(x, y + 1) || fam::F.iter().any(|d| (x + d.0, y + 1 + d.1) != (x, y) && static_ring(x + d.0, y + 1 + d.1));
-            !near
-        })
-        .collect();
-    // the lever stands outside the volume: ONE unfed piston on the box edge (a free outward side
-    // that is not its head) can be the lever's own (w86's m69g: the lever on top of (1,4))
-    let lever_ok = unfed_list.iter().any(|&(x, y)| {
-        let head = pieces.iter().find(|p| (p.x, p.y) == (x, y)).and_then(|p| if let K::Piston { f, .. } = p.k { Some(fam::F[f as usize]) } else { None });
-        fam::F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
-    });
+    let (unfed_list, lever_ok) = fam::unfed_cells(&m, &rest, &sol);
     let unfed = unfed_list.len() - usize::from(lever_ok);
+    if unfed > MAX_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
+        return None;
+    }
     let unfed_at = unfed_list.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" ") + if lever_ok { " [one may be the lever's]" } else { "" };
     // `door connect` (connect.rs): free-cell regions after the run's footprint, each piston fed
     // from a region next to it (or its quasi cell, a plain ring stone, a door block), a region
@@ -474,7 +453,17 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                 kept.push(v);
             }
             None => {
-                eprintln!("[mechmut] seed does not solve within the cap (or no FULL frame): {} {:?}", p.iter().map(|q| q.code()).collect::<Vec<_>>().join(" "), bx);
+                // why: the bare solve's verdict (cap / proven none under the bars / solves but
+                // dropped by a filter)
+                let why = match Mech::new(*bx, p) {
+                    None => "families refuses the rest state".to_string(),
+                    Some((m, rest)) => match fam::solve(&m, &rest, o.cap, true) {
+                        Err(()) => format!("cap {} hit", o.cap),
+                        Ok(None) => "PROVEN no open+close (under the wirability bars if set)".to_string(),
+                        Ok(Some(s)) => format!("solves ({} + {} events) but a filter drops it (FULL frame, reserve, inside, unfed)", s.open.len(), s.close.len()),
+                    },
+                };
+                eprintln!("[mechmut] seed fails: {why}: {} {:?}", p.iter().map(|q| q.code()).collect::<Vec<_>>().join(" "), bx);
                 if o.repair {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway

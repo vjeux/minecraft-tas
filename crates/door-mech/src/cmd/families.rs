@@ -58,10 +58,22 @@ pub struct MechmutArgs {
     /// firings and door connect.
     #[arg(long)]
     rank_unfed: bool,
+    /// Wirability bar on every solve: at most this many actions per piston per edge (0 = off).
+    #[arg(long, default_value_t = 0)]
+    max_actions: usize,
+    /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
+    #[arg(long)]
+    no_inside: bool,
+    /// Reject variants with more unfed receivers than this (after the lever allowance).
+    #[arg(long)]
+    max_unfed: Option<usize>,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, max_unfed } = args;
+    crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
+    crate::mechmut::MAX_UNFED.store(max_unfed.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::VALIDATE.store(validate, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::OUTSIDE_ONLY.store(outside_only, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::RANK_UNFED.store(rank_unfed, std::sync::atomic::Ordering::Relaxed);
@@ -646,10 +658,25 @@ pub struct FamiliesArgs {
     /// (structural, optimistic: a neighbour, or the QC cell above and its neighbours).
     #[arg(long)]
     feedable: bool,
+    /// Wirability bar on every solve: at most this many actions (pulses or level toggles) per
+    /// piston per edge (0 = off). The constrained search is exhaustive: no solution = proven none
+    /// under the bar.
+    #[arg(long, default_value_t = 0)]
+    max_actions: usize,
+    /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
+    #[arg(long)]
+    no_inside: bool,
+    /// Keep only solved mechanisms whose every receiver has a free feed cell (the wiring
+    /// analysis' unfed list; one box-edge piston may be the lever's).
+    #[arg(long)]
+    fed: bool,
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, fed } = args;
+    crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
+    crate::families::FED.store(fed, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE_ONLY.store(ring_escape_only, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE.store(ring_escape, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE_MAX.store(ring_escape_max, std::sync::atomic::Ordering::Relaxed);
