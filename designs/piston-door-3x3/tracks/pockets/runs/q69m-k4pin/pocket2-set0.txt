@@ -1,0 +1,37 @@
+name: pocket2-set0
+covers: (3,-1)o94
+port door: 0 0 0
+port lever: 4 7 0
+origin: -1 0 0
+palette:
+  A minecraft:piston_head[facing=down,short=false,type=sticky]
+  B minecraft:piston_head[facing=up,short=false,type=sticky]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:sticky_piston[extended=true,facing=up]
+  G minecraft:stone
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  p minecraft:piston[extended=false,facing=up]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  .FCPR
+layer -2:
+  pB.CF
+layer -1:
+  POC.D
+layer 0:
+  SGGGG
+layer 1:
+  SGGGG
+layer 2:
+  SGGGG
+layer 3:
+  SSAs
+layer 4:
+  SDEA
+layer 5:
+  ...E

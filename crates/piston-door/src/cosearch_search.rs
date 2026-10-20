@@ -2549,7 +2549,9 @@ fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], statics: &[(i32,
     let fmt = |v: &[u32]| v.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
     for i in 0..pockets.len() {
         let has = |k: &usize| groups.iter().any(|g| g.k == *k);
-        let forced: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k] == [i] && has(k)).collect();
+        // (--pin-assist inputs stay ideal: nobody's load)
+        let pinned = |k: &usize| (p.pin_mask >> *k) & 1 == 1;
+        let forced: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k] == [i] && has(k) && !pinned(k)).collect();
         let shared: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k].len() > 1 && feeders[*k].contains(&i) && has(k)).collect();
         if forced.is_empty() && shared.is_empty() {
             continue;
@@ -2625,9 +2627,9 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usi
 fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool)) {
     let (names, (dx, dy), why) = show;
     let feeders = pocket_feeders(p, pockets, statics);
-    // lever-time inputs (every pulse at the flip, both edges: a lever-held piston's level) are the
-    // lever's own: available from the flip, no pocket's load (the lever may hang outside the box)
-    let lever_time: Vec<bool> = (0..feeders.len()).map(|k| groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k)).collect();
+    // lever-time inputs (every pulse at the flip, both edges: a lever-held level) and --pin-assist
+    // inputs (kept ideal: "any source") are given: available from the flip, no pocket's load
+    let lever_time: Vec<bool> = (0..feeders.len()).map(|k| (p.pin_mask >> k) & 1 == 1 || (groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k))).collect();
     let forced: Vec<Vec<usize>> = (0..pockets.len()).map(|i| (0..feeders.len()).filter(|k| feeders[*k] == [i] && !lever_time[*k]).collect()).collect();
     // the latest tick each pocket's first forced pulse may come (its window's far end): a trigger
     // after it is too late on that edge
