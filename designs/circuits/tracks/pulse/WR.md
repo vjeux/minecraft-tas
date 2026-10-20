@@ -112,6 +112,12 @@ the input; fall-odd and dual-odd now give even lengths and were removed), dual-t
 and fall-note-qc-L1 (see above). Dual-lock L18/L34 and dual-edge-reset came back with a copper
 bulb in the input cell.
 
+Folded as dominated since (removed from the archive): the repeater-loop one-shots at the hopper
+one-shots' lengths (rising edge and falling edge L 8, 16, 24, 32, 40, extender L 16, 24, 32, 40:
+17 to 25 blocks against 13 with the same delay and min-pulse; the loop one-shots stay for the
+other lengths), pulse-limiter-u-L4/6/8 (the instant limiters), pulse-dual-observers-qc-L2-1 (a
+moved output).
+
 The vibration test (docs/circuits.md, "Vibrations"): a sculk design must ignore its own input's lever
 (a hard rule, or it says `input-device: far`), and `vibration-proof` says whether footsteps, items and
 blocks around it leave it alone; a design that is not proof is its own class (axis `...,
