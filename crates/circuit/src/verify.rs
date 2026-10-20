@@ -149,10 +149,18 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     // the judge's consumers are not the circuit's
     ins.extend(c.consumer_cells());
+    // nor are the blocks the BUD judge places at the targets and around the design (its probe
+    // block there; the design's own blocks moving through those cells count)
+    let mut probes: Vec<Pos> = Vec::new();
+    let probe_id = c.targets.first().map(|t| t.a.split('[').next().unwrap_or("").to_string()).unwrap_or_default();
+    if c.kind == Some(Kind::Bud) {
+        ins.extend(c.targets.iter().map(|t| t.pos));
+        probes = c.probe_cells();
+    }
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
-        for (p, _) in f.iter().filter(|(p, _)| !ins.contains(p)) {
+        for (p, _) in f.iter().filter(|(p, s)| !ins.contains(p) && !(probes.contains(p) && t.names[*s as usize].split('[').next() == Some(probe_id.as_str()))) {
             for i in 0..3 {
                 lo[i] = lo[i].min(p[i]);
                 hi[i] = hi[i].max(p[i]);

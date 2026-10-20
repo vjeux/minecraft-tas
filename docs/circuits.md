@@ -257,7 +257,12 @@ kick) before the first input.
   8, 6, 4, 2 gt apart (per family: update, state, shape, place/remove) give the `re-arm` time (the
   shortest gap down to which both events give their own pulse); a pair that leaves the output on
   JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
-  Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ), jams.
+  Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
+  the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
+  the probe cells where any of them gives a pulse (`>=` when a probe jams it). The box leaves out
+  the target cells and the probe block in the probe cells.
+  Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ), jams,
+  footprint.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 

@@ -16,7 +16,7 @@
 //! which both events are detected). Read VARIATIONS.md (designs/circuits/bud/) for why these five.
 
 use crate::check::{Outcome, Sizing};
-use crate::stimulus::{SETTLE, Schedule, TargetOp};
+use crate::stimulus::{EventAt, SETTLE, Schedule, TargetOp};
 use crate::trace::{Trace, runs};
 use crate::{Circuit, Pos};
 use anyhow::{Result, bail};
@@ -81,13 +81,19 @@ pub fn check_ports(c: &Circuit) -> Result<()> {
 }
 
 fn ev(s: &mut Schedule, t: u32, span: u32, i: usize, op: TargetOp, label: String) {
-    s.events.push((t, i, op));
+    s.events.push((t, EventAt::Target(i), op));
     s.phase(t, t + span, label);
 }
 
 /// The BUD stimulus: idle, then per target: place / remove x3, state x3 (both ways), shape x3, update
 /// x3; idle; then the re-arm pairs. `gap`: the frames each event is given (the circuit's recovery).
 pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
+    stimulus_with(c, z, true)
+}
+
+/// [`stimulus`]; `full` false stops after the classes and the idle span (no footprint probes, no
+/// re-arm pairs: the census's screen).
+pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
     let gap = z.gap.clamp(30, 200);
     let mut s = Schedule::new(0);
     let mut t = c.clock.free_from() + SETTLE;
@@ -124,6 +130,20 @@ pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
     }
     s.phase(t, t + 2 * gap, "idle");
     t += 2 * gap;
+    if !full {
+        s.ticks = t;
+        return s;
+    }
+    // the footprint: place, remove and a pure update at every cell around the design (the cells
+    // that trigger it, the targets aside); a probe that leaves the output on ends it
+    let a0 = c.targets.first().map(|t| t.a.clone()).unwrap_or_else(|| DEFAULT_A.to_string());
+    for k in 0..c.probe_cells().len() {
+        for (op, what) in [(TargetOp::Place(a0.clone()), "place"), (TargetOp::Clear, "remove"), (TargetOp::Update, "update")] {
+            s.events.push((t, EventAt::Probe(k), op));
+            s.phase(t, t + gap, format!("probe {k} {what}"));
+            t += gap;
+        }
+    }
     // re-arm pairs, last (a pair too close together may jam a design: nothing after a jam is
     // measured): two events g apart then the gap, from the longest g down, every family at each g
     for g in REARM_GAPS.iter().rev().copied() {
@@ -140,8 +160,8 @@ pub fn stimulus(c: &Circuit, z: &Sizing) -> Schedule {
                     ev(&mut s, t, gap, i, TargetOp::Place(a.clone()), format!("rsetup {fam} {n}"));
                     t += gap;
                 }
-                s.events.push((t, i, e1));
-                s.events.push((t + g, i, e2));
+                s.events.push((t, EventAt::Target(i), e1));
+                s.events.push((t + g, EventAt::Target(i), e2));
                 s.phase(t, t + g + gap, format!("rearm {fam} {g} {n}"));
                 t += g + gap;
                 if setup {
@@ -163,18 +183,25 @@ fn class_of(label: &str) -> Option<&'static str> {
 
 /// Judge a BUD run.
 pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
-    let out = t.out_seq(0);
+    judge(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims)
+}
+
+/// Judge an output sequence (on per frame) against a BUD schedule: `from` is the first frame the
+/// output must be off at rest, `targets` the number of target cells, `claims` the claimed classes.
+/// The census screens every candidate output cell of a design with it.
+pub fn judge(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &[String]) -> Outcome {
     let mut table = Vec::new();
-    let from = (c.clock.free_from() + SETTLE / 2) as usize;
     let first = s.phases.first().map(|p| p.0 as usize).unwrap_or(out.len());
     if out[from.min(out.len())..first.min(out.len())].iter().any(|x| *x) {
         return Outcome::fail("the output is on at rest (before the first update)", table);
     }
-    let all = runs(&out);
+    let all = runs(out);
     let starting = |a: u32, b: u32| -> Vec<(usize, usize)> { all.iter().copied().filter(|(st, _)| *st >= a as usize && *st < b as usize).collect() };
     // per class: (event frame, pulses starting in its window)
     let mut events: Vec<(&'static str, u32, Vec<(usize, usize)>)> = Vec::new();
     let mut rearm: Vec<(String, u32, usize, bool)> = Vec::new();
+    // footprint probes: (cell index, pulses, off at the end)
+    let mut probes: Vec<(usize, usize, bool)> = Vec::new();
     for (a, b, label) in &s.phases {
         let ps = starting(*a, *b);
         let end = (*b as usize).saturating_sub(1).min(out.len().saturating_sub(1));
@@ -185,6 +212,10 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             continue;
         }
         if w.first() == Some(&"rsetup") {
+            continue;
+        }
+        if w.first() == Some(&"probe") {
+            probes.push((w.get(1).and_then(|k| k.parse().ok()).unwrap_or(0), ps.len(), !out[end]));
             continue;
         }
         // the output must be off again before the next event
@@ -236,7 +267,7 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if detected.is_empty() {
         return Outcome::fail("detects nothing: no update class gives an output pulse", table);
     }
-    for w in &c.bud_claims {
+    for w in claims {
         if !detected.contains(&w.as_str()) {
             return Outcome::fail(format!("claims {w} but does not detect it (detects {})", detected.join(" ")), table);
         }
@@ -313,6 +344,24 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if let Some((fam, g)) = jam {
         // two updates this close leave it stuck on (it needs a block update to recover)
         metrics.push(("jams".to_string(), format!("{fam} pair {g} gt apart")));
+    }
+    // footprint: the targets plus every cell around the design where a place, a removal or a pure
+    // update gives a pulse; counting stops at a probe that leaves the output on
+    let mut hit: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+    let mut stuck = false;
+    for (k, n, off) in &probes {
+        if *n > 0 {
+            hit.insert(*k);
+        }
+        if !*off {
+            stuck = true;
+            break;
+        }
+    }
+    if !probes.is_empty() {
+        let cells = targets + hit.len();
+        table.push(format!("  footprint: {targets} target(s) + probe cells {:?} of {}{}", hit, probes.len() / 3, if stuck { " (a probe jammed it)" } else { "" }));
+        metrics.push(("footprint".to_string(), format!("{}{cells} cell{}", if stuck { ">= " } else { "" }, if cells == 1 { "" } else { "s" })));
     }
     Outcome { pass: true, why: String::new(), metrics, table }
 }
