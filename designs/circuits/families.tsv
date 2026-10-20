@@ -15,3 +15,6 @@ delay	delay-rep4	delay-repeater-line	delay	4 + 8n	2 + 2n	0	10	delay/archive/dela
 delay	delay-rep6	delay-repeater-line	delay	6 + 8n	2 + 2n	0	10	delay/archive/delay-rep6-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
 delay	delay-rep8	delay-repeater-line	delay	8 + 8n	2 + 2n	0	10	delay/archive/delay-rep8-n0.txt	add one delay-4 repeater (on its stone) at the end	0, 1, 2, 5, 10
 delay	delay-torch		delay	6 + 4n	6 + 4n	0	4	delay/archive/delay-torch-n0.txt	add two torches and two blocks to the tower	0, 1, 2, 4
+pext	pext-cascade-r2	pext-cascade	piston-extender 2	2 + 3n	17 + 34n	0	4	pext/archive/pext-cascade-r2-n0.txt	every n adds 3 units (slime + sticky piston + carried observer), their round-start pulsers and 9 cells of observer spine	0, 1, 2, 4
+pext	pext-cascade-r0	pext-cascade	piston-extender 3	3 + 3n	29 + 34n	0	4	pext/archive/pext-cascade-r0-n0.txt	every n adds 3 units (slime + sticky piston + carried observer), their round-start pulsers and 9 cells of observer spine	0, 1, 2, 4
+pext	pext-cascade-r1	pext-cascade	piston-extender 4	4 + 3n	39 + 34n	0	4	pext/archive/pext-cascade-r1-n0.txt	every n adds 3 units (slime + sticky piston + carried observer), their round-start pulsers and 9 cells of observer spine	0, 1, 2, 4
