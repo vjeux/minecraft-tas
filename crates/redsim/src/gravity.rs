@@ -308,14 +308,10 @@ pub fn tick_one(w: &mut World, i: usize) {
             }
             let vertical_collision = dy != my;
             if vertical_collision && dy.abs() > 0.0 {
-                // restituteMovementAfterCollisions -> updateEntityMovementAfterFallOn of the block
-                // under it: slime bounces (0.8 for non-living entities), the rest stops the fall
-                let support = w.get(BlockPos::new(e.x.floor() as i32, (e.y - 0.2).floor() as i32, e.z.floor() as i32));
-                if matches!(support, Block::Simple(Simple::SlimeBlock)) && e.vy < 0.0 {
-                    e.vy = -e.vy * 0.8;
-                } else {
-                    e.vy = 0.0;
-                }
+                // restituteMovementAfterCollisions (26.3): the effect block 0.2 below, in the
+                // block's own column
+                let effect = BlockPos::new(e.x.floor() as i32, (e.y - 0.2).floor() as i32, e.z.floor() as i32);
+                vertical_restitution(w, &mut e, my, dy < 0.0, effect);
             }
             vertical_collision && dy < 0.0
         };
@@ -354,13 +350,40 @@ pub fn tick_one(w: &mut World, i: usize) {
     }
 }
 
+/// The vertical part of `Entity.restituteMovementAfterCollisions` (26.3, as `collide::restitute`
+/// for the other entities): a landing bounces only on slime (1.0F x 0.8F: not a living entity),
+/// never on honey (`SUPPRESSES_BOUNCE`), and only when falling faster than gravity (0.04), with
+/// the gravity and air-drag compensation of the share of the tick spent moving
+/// (`movement_y / vy`); any other vertical hit leaves `-vy * 0.0` (a signed zero). A bounce emits
+/// `GameEvent.BOUNCE`: a model error when sculk sensors could hear it.
+fn vertical_restitution(w: &mut World, e: &mut FallingBlock, movement_y: f64, below: bool, effect_pos: BlockPos) {
+    let cur = e.vy;
+    let mut restitution = 0.0f64;
+    if below {
+        let effect = w.get(effect_pos);
+        let block = if matches!(effect, Block::Simple(Simple::SlimeBlock)) { 1.0f32 } else { 0.0f32 } * 0.8f32;
+        let suppressed = matches!(effect, Block::Simple(Simple::HoneyBlock));
+        restitution = if !(-cur <= 0.04) && !suppressed { restitution.max(block as f64) } else { 0.0 };
+    }
+    let (gravity_comp, drag) = if restitution > 0.0 {
+        let portion = movement_y / cur;
+        (portion * 0.04, crate::entity::mth::lerp(portion, 1.0, 0.98f32 as f64))
+    } else {
+        (0.0, 1.0)
+    };
+    e.vy = (gravity_comp - cur) * drag * restitution;
+    if restitution > 0.0 && !w.sculk.is_empty() {
+        w.errors.push("falling block bounce game event near sculk sensors is not modeled".into());
+    }
+}
+
 /// `Entity.move` of a falling block off its column (moved sideways by a piston, or with
 /// sideways motion from a moving slime block), for its own tick and for piston moves (after
 /// `limitPistonMovement`): every block shape around its box (`collide::collide_box`; moving
 /// blocks under the piston move's `NOCLIP` lose their shape), `restituteMovementAfterCollisions`
-/// (a sideways hit stops that axis, a vertical one takes the column model's bounce or stop) and
+/// (a sideways hit stops that axis, a vertical one the 26.3 bounce, [`vertical_restitution`]) and
 /// `getBlockSpeedFactor` (soul sand, honey). Returns whether it hit the ground.
-pub fn move_general(w: &World, e: &mut FallingBlock, delta: crate::entity::Vec3) -> bool {
+pub fn move_general(w: &mut World, e: &mut FallingBlock, delta: crate::entity::Vec3) -> bool {
     use crate::entity::mth;
     let mv = crate::entity::collide::collide_box(w, e.bb(), delta);
     let len = mv.length_sqr();
@@ -380,12 +403,18 @@ pub fn move_general(w: &World, e: &mut FallingBlock, delta: crate::entity::Vec3)
             e.vz = -e.vz * 0.0;
         }
         if vertical {
-            let support = w.get(BlockPos::new(e.x.floor() as i32, (e.y - 0.2).floor() as i32, e.z.floor() as i32));
-            if matches!(support, Block::Simple(Simple::SlimeBlock)) && e.vy < 0.0 {
-                e.vy = -e.vy * 0.8;
-            } else {
-                e.vy = 0.0;
+            // getOnPosLegacy: 0.2 below, under the supporting block found for the landing
+            let mut effect = BlockPos::new(e.x.floor() as i32, (e.y - 0.2).floor() as i32, e.z.floor() as i32);
+            if delta.y < 0.0 {
+                let bb = e.bb();
+                let test = crate::entity::Aabb::new(bb.min_x, bb.min_y - 1.0e-6, bb.min_z, bb.max_x, bb.min_y, bb.max_z);
+                let pos = crate::entity::Vec3::new(e.x, e.y, e.z);
+                let support = crate::entity::collide::find_supporting_block(w, pos, test).or_else(|| crate::entity::collide::find_supporting_block(w, pos, test.move_by(-mv.x, 0.0, -mv.z)));
+                if let Some(s) = support {
+                    effect = BlockPos::new(s.x, effect.y, s.z);
+                }
             }
+            vertical_restitution(w, e, mv.y, delta.y < 0.0, effect);
         }
     }
     let sf = |b: &Block| if matches!(b, Block::Simple(Simple::SoulSand) | Block::Simple(Simple::HoneyBlock)) { 0.4f32 } else { 1.0f32 };

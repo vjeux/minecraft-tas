@@ -231,7 +231,7 @@ pub fn collide(w: &World, i: usize, movement: Vec3) -> Vec3 {
 
 /// `CollisionGetter.findSupportingBlock`: the colliding block nearest the entity's position
 /// (ties: the greater position by `Vec3i.compareTo`: y, then z, then x).
-fn find_supporting_block(w: &World, pos: Vec3, bb: Aabb) -> Option<BlockPos> {
+pub fn find_supporting_block(w: &World, pos: Vec3, bb: Aabb) -> Option<BlockPos> {
     let mut best: Option<BlockPos> = None;
     let mut best_d = f64::MAX;
     for (p, _) in block_collisions(w, bb) {
