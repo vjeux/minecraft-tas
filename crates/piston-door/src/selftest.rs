@@ -454,6 +454,15 @@ fn checks() -> Vec<Check> {
     });
     const NOKICK: &str = "designs/clocks/selftest/observer-pair-no-kick.txt";
     v.push(Check {
+        name: "clock:item-despawn".into(),
+        what: "`clock sim` says NO-REPEAT for a leaf clock fed by an item a player could drop: the item despawns at age 6000 and the judge runs item designs 12000 gt (a clock must run forever)",
+        quick: true,
+        jvm: false,
+        steps: vec![args("clock sim -q designs/clocks/selftest/item-despawn.txt")],
+        timeout: 120,
+        pred: Box::new(|o| has(&o[0], "NO-REPEAT: ").map(|_| "NO-REPEAT (the item despawns)".into())),
+    });
+    v.push(Check {
         name: "clock:sim-negative".into(),
         what: "`clock sim` says STOPS for the observer pair placed silently (no start kick: nothing ever fires)",
         quick: true,
@@ -490,6 +499,27 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
+    v.push(Check {
+        name: "clock:verify-reload".into(),
+        what: "`clock verify --reload` (the chunks saved, unloaded and loaded again mid-run): the torch-repeater clock survives it; the observer pair does not in every rotation (it comes back at P4)",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("clock verify {CAL}/torch-repeater.txt --positions 1 --workers 4 --reload --no-sim")),
+            args(&format!("?clock verify {CAL}/observer-pair.txt --positions 2 --horizon 1000 --workers 8 --reload --no-sim")),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("CLOCK: cal-torch-repeater")).ok_or(format!("torch-repeater: {}", tail(&o[0])))?;
+            if !l.ends_with("robust") {
+                return Err(format!("torch-repeater not robust across a reload: {l}"));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK: cal-observer-pair") && l.ends_with("robust")) {
+                return Err(format!("the observer pair passed the reload in every rotation: {}", tail(&o[1])));
+            }
+            Ok("torch-repeater survives a reload, the observer pair does not".into())
+        }),
     });
     v.push(Check {
         name: "clock:verify-entities".into(),

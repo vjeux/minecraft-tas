@@ -68,6 +68,10 @@ pub enum ClockCmd {
         no_sim: bool,
         #[arg(long)]
         json: bool,
+        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods):
+        /// the period must hold across it (a clock must survive a chunk reload).
+        #[arg(long)]
+        reload: bool,
     },
     /// The judge, then keep it: a copy in designs/clocks/archive/ (header: date, source, the
     /// judge's line), its verdict row (verdicts-v1.tsv) and a caption (captions.tsv; default: the
@@ -418,11 +422,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("{odd} of {clocks} clocks (redsim CLOCK verdicts) have an irregular output; {none} of them have no regular cell at all");
             }
         }
-        ClockCmd::Verify { designs, positions, no_rotations, horizon, margin, workers, verbose, no_sim, json } => {
+        ClockCmd::Verify { designs, positions, no_rotations, horizon, margin, workers, verbose, no_sim, json, reload } => {
             if designs.is_empty() {
                 bail!("clock verify <design>...");
             }
-            let o = VerifyOptions { positions, rotations: !no_rotations, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+            let o = VerifyOptions { positions, rotations: !no_rotations, horizon, margin, workers, version: version.to_string(), reload, ..Default::default() };
             let mut failed = false;
             let pool = clock::verify::spawn_pool(&o)?;
             for path in &designs {
