@@ -73,3 +73,17 @@ Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use;
 
 The best design of each variation is archived (`mctas circuit archive`); a design that is bigger
 and slower than an archived one of the same variation is dominated and stays out.
+
+## Results so far (2026-10-20, explore/tnt)
+
+| variation | status | design / measure |
+|---|---|---|
+| smallest, self-running | 12 blocks, 200 TNT/min, P6, robust | archive/tnt-duper-12b (local search `circuit tnt improve`: 3.5M distinct dupers seen, none under 12 in this family) |
+| smallest, per pulse | 13 blocks, 1 TNT per pulse, latency 1 gt, robust | archive/tnt-duper-triggered-13b |
+| rate | 200 TNT/min per duper: the sticky piston's push + pull take 6 gt, 1 TNT each | tiles below scale it |
+| TILEABLE | yes, robust in the game: 4 copies touching along the push axis (step 4, 3x2x16) or with a 1-block gap across it (step 4, 15x2x4): 800 TNT/min; touching across (step 3) or stacked: they interfere | `circuit tnt tile` + `circuit verify` |
+| direction | both archived dupers DROP their TNT (it falls from the cell it was primed in) | `circuit tnt precision` |
+| PRECISE | not yet: at first sight the spread is 0.039 across (the random 0.02 kick) and 0.55 along the push (some cycles the moving frame pushes the TNT, some not) | `circuit tnt precision`; the code's way to exact: push the TNT against a wall on both horizontal axes after its kick (a piston push stops at the wall: that coordinate becomes exact and the collision zeroes that motion) |
+| item-free | yes (dead coral fans drop nothing) | |
+| MOVABLE | not found: inside a push, only a dust's connection change (computed on the fly) gives a TNT power without updating it first, and dust cannot ride a piston; the one other silent source in the code is an observer landing powered on a cell where an observer tick is still pending | open |
+| burst, lever on/off, slime-free | open | |

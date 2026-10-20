@@ -4,6 +4,7 @@
 
 pub mod game;
 pub mod improve;
+pub mod precision;
 pub mod search;
 pub mod sim;
 
@@ -31,6 +32,37 @@ enum Cmd {
         /// Print every cell change of the first N ticks.
         #[arg(long, default_value_t = 0)]
         trace: u32,
+        /// TILEABLE: run N copies side by side (copy k moved by k x --offset).
+        #[arg(long, default_value_t = 1)]
+        tile: usize,
+        /// The tiling step `dx,dy,dz` (default: the box width along x).
+        #[arg(long)]
+        offset: Option<String>,
+    },
+    /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
+    /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
+    /// the mean motion, the direction class.
+    Precision {
+        designs: Vec<PathBuf>,
+        /// TNT to follow.
+        #[arg(long, default_value_t = 16)]
+        n: usize,
+        #[arg(long, default_value_t = 3000)]
+        max_ticks: u32,
+        #[arg(long, default_value_t = 8)]
+        margin: i32,
+    },
+    /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
+    /// TILEABLE variation with `circuit verify`.
+    Tile {
+        design: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        n: usize,
+        /// `dx,dy,dz`.
+        #[arg(long)]
+        offset: String,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Run designs in the real game (the base build): every primed TNT recorded (tick, position,
     /// motion) and killed before it can explode, the TNT blocks standing, the period; then redsim's
@@ -109,12 +141,60 @@ enum Cmd {
 pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit tnt".to_string()).chain(args))?;
     match cli.cmd {
-        Cmd::Sim { designs, ticks, margin, trace } => {
+        Cmd::Sim { designs, ticks, margin, trace, tile, offset } => {
             for d in &designs {
-                let c = clock::Clock::load(d)?;
+                let mut c = clock::Clock::load(d)?;
+                if tile > 1 {
+                    let off: clock::Pos = match &offset {
+                        Some(s) => {
+                            let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                            anyhow::ensure!(v.len() == 3, "--offset dx,dy,dz");
+                            [v[0], v[1], v[2]]
+                        }
+                        None => {
+                            let (lo, hi) = c.design.bounds().ok_or_else(|| anyhow::anyhow!("empty design"))?;
+                            [hi[0] - lo[0] + 1, 0, 0]
+                        }
+                    };
+                    c = sim::tiled(&c, tile, off)?;
+                    println!("{}: {tile} copies, step {off:?}", d.display());
+                }
                 let r = sim::run(&c, ticks, margin, trace, false);
                 println!("{}: {}", d.display(), r.line());
             }
+        }
+        Cmd::Precision { designs, n, max_ticks, margin } => {
+            let mut w = mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig::default())?;
+            for d in &designs {
+                let c = clock::Clock::load(d)?;
+                // a design with an input (a triggered duper): one 4 gt pulse every 40 gt
+                let cc = circuit::Circuit::from_design(c.design.clone())?;
+                let extra = if cc.inputs.is_empty() {
+                    Vec::new()
+                } else {
+                    let mut s = circuit::stimulus::Schedule::new(cc.inputs.len());
+                    for k in 0..(max_ticks / 40) {
+                        s.pulse(0, cc.clock.free_from() + 20 + 40 * k, 4);
+                    }
+                    s.ticks = max_ticks;
+                    cc.actions(&s)
+                };
+                let tr = precision::follow(&mut w, &c, &extra, n, max_ticks, margin)?;
+                println!("{}:", d.display());
+                for l in precision::report(&tr) {
+                    println!("  {l}");
+                }
+            }
+        }
+        Cmd::Tile { design, n, offset, out } => {
+            let c = clock::Clock::load(&design)?;
+            let v: Vec<i32> = offset.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "--offset dx,dy,dz");
+            let t = sim::tiled(&c, n, [v[0], v[1], v[2]])?;
+            let mut d = t.design.clone();
+            d.name = format!("{}-x{n}", c.design.name);
+            std::fs::write(&out, d.to_text())?;
+            println!("{}: {n} copies of {} ({} blocks)", out.display(), c.design.name, d.blocks.len());
         }
         Cmd::Run { designs, ticks, margin, spawns } => {
             let mut w = mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig::default())?;
@@ -124,7 +204,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{}: game: {}", d.display(), g.run.line());
                 if spawns {
                     for s in &g.spawns {
-                        println!("  gt {}: pos {:?} motion {:?}", s.tick, s.pos, s.motion);
+                        println!("  gt {}: pos {:?} motion {:?} {}", s.tick, s.pos, s.motion, s.state);
                     }
                 }
                 let r = sim::run(&c, ticks, margin, 0, true);
