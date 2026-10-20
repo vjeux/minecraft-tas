@@ -1,5 +1,5 @@
 # archived 2026-10-20T16:40Z from designs/circuits/tracks/tnt/precise/tnt-airburst-75b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 75 blocks, 10x7x15, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (0.0053, 0.1568, -1.0000) blocks/gt, spread (0.0389, 0.0000, 0.0000))
+# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 75 blocks, 10x7x15, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (0.0030, 0.1568, -1.0000) blocks/gt, spread (0.0389, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
 name: tnt-airburst
 circuit: tnt-duper
 port start: -3 1 2 minecraft:redstone_block 2
