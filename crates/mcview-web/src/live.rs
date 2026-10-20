@@ -381,6 +381,7 @@ pub fn load(app: &mut App, id: u32) {
                 Some(Ok(tt)) => match p.session.attach_trace(&tt) {
                     Ok(()) => {
                         p.look = mcview::scene::default_look(&p.session);
+                        p.look.lit_marker = true;
                         p.invalidate();
                         let r = p.session.replay.as_ref().unwrap();
                         trace_note = Some(format!("recorded in the game · {} gt loop", r.period));

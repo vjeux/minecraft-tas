@@ -533,7 +533,7 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
         t.fill(rgba(0xd87f33, 110)).outline(0, 0, 15, 15, rgba(0xe89a50, 190)).rect(2, 2, 3, 3, rgba(0xf8c890, 140));
     });
     add("marker_lit", &|t| {
-        t.fill(rgba(0xffb347, 175)).outline(0, 0, 15, 15, rgba(0xfff1b0, 245)).outline(1, 1, 14, 14, rgba(0xffd27a, 215)).rect(2, 2, 3, 3, rgba(0xfff8e0, 220));
+        t.fill(rgba(0xff9a1a, 205)).outline(0, 0, 15, 15, rgba(0xffe08a, 250)).outline(1, 1, 14, 14, rgba(0xffc04a, 230)).rect(2, 2, 3, 3, rgba(0xfff0c0, 235));
     });
     add("grass_side", &|t| {
         t.fill(rgb(0x866043)).vary(0.1).map(|x, y, c| {

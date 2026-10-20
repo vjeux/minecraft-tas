@@ -301,12 +301,15 @@ impl Renderer {
         let vp = frame.camera.view_proj(aspect);
         let eye = frame.camera.eye();
         let d = frame.camera.dist;
+        // like the game at a long render distance: the ground stays green almost to the horizon,
+        // fogged out just before the far plane (and the floor's edge)
+        let fog_end = ((d * 8.0 + 200.0) * 0.95).min(480.0);
         let u = Uniforms {
             vp,
             eye: [eye[0], eye[1], eye[2], 1.0],
-            fog: [d * 1.6 + 8.0, d * 3.2 + 24.0, 0.0, 0.0],
-            sky_top: [0.47, 0.65, 1.0, 1.0],
-            sky_low: [0.73, 0.83, 1.0, 1.0],
+            fog: [fog_end * 0.6, fog_end, 0.0, 0.0],
+            sky_top: [0.55, 0.70, 1.0, 1.0],
+            sky_low: [0.70, 0.81, 1.0, 1.0],
             inv_vp: invert(&vp),
         };
         self.queue.write_buffer(&self.uniforms, 0, bytemuck::bytes_of(&u));
