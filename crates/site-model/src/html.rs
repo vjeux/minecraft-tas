@@ -525,6 +525,8 @@ pub fn props(b: &Build) -> Props {
         _ => match &b.circuit {
             Some(c) => {
                 let (main, sub) = circuit_props(c);
+                // a sand elevator lifts its block up (its own section: critique)
+                let main = if b.group == "Sand elevator" { format!("{} up", main.replace("reach ", "lifts ")) } else { main };
                 let mut chips: Vec<String> = Vec::new();
                 if !c.span.is_empty() {
                     chips.push(format!("{} versions", c.span.split(", ").last().unwrap_or("").trim_end_matches(" values").trim_end_matches(" versions")));

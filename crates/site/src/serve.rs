@@ -383,7 +383,9 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
     check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
     let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
-    let reaches: Vec<u32> = pext_page.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
+    // the general extenders (the sand elevators have their own section after them)
+    let general = pext_page.split("Sand elevator:").next().unwrap_or(&pext_page);
+    let reaches: Vec<u32> = general.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
     check(
         "study cards: the property line leads, sorted by the main number, no design names",
         reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && !pext_page.contains("class=\"name\"") && !pext_page.contains(">pext-n"),

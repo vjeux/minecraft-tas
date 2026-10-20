@@ -271,6 +271,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
         "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
+        "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: set the speed to 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
         "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
         "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
