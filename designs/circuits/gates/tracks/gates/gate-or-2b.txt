@@ -3,6 +3,7 @@
 # (With the output cell itself between the inputs the OR needs no block at all.)
 name: gate-or-2b
 circuit: gate or
+tile: 0 0 2
 port input.a: 0 1 0
 port input.b: 2 1 0
 port output: 1 -1 0

@@ -3,6 +3,7 @@
 # its back: a - NOT b = a AND b. 4 gt (two comparators).
 name: gate-and-5b
 circuit: gate and
+tile: 0 0 3
 port input.a: 0 1 0
 port input.b: 1 1 0
 port output: 0 1 1
