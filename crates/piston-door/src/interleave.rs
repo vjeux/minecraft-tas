@@ -229,6 +229,59 @@ fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, trai
     }
 }
 
+/// `--segments`: a plan cut into the pieces between the moments its build is idle with no input
+/// held: each piece keeps the plan's own timing (overlapping pulses and holds inside it), so a
+/// train can use a piece whose actions only work together.
+fn segments(start: &World, evs: &[(u32, Pos, Option<String>)]) -> Vec<Step> {
+    let mut evs = evs.to_vec();
+    evs.sort_by_key(|e| e.0);
+    let mut w = start.clone();
+    let mut out = Vec::new();
+    let mut cur: Vec<(u32, Pos, Option<String>)> = Vec::new();
+    let mut seg_start = 0u32;
+    let mut held: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
+    let mut t = 0u32;
+    let mut i = 0;
+    while i < evs.len() {
+        if evs[i].0 == t {
+            if !cur.is_empty() && w.idle() && held.is_empty() {
+                out.push(Step::new(std::mem::take(&mut cur)));
+                seg_start = t;
+            }
+            if cur.is_empty() {
+                seg_start = t;
+            }
+            while i < evs.len() && evs[i].0 == t {
+                let (_, q, st) = &evs[i];
+                let b = match st {
+                    Some(x) => match cs::convert_state(x) {
+                        Ok(b) => b,
+                        Err(_) => return out,
+                    },
+                    None => Block::Air,
+                };
+                if st.is_some() {
+                    held.insert(*q);
+                } else {
+                    held.remove(q);
+                }
+                w.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
+                cur.push((t - seg_start, *q, st.clone()));
+                i += 1;
+            }
+        }
+        if i < evs.len() {
+            w.tick();
+            t += 1;
+        }
+    }
+    if !cur.is_empty() {
+        out.push(Step::new(cur));
+    }
+    out
+}
+
+/// One run at the judge's rules is too slow per move; `Limits` holds the search's budgets.
 /// Per-move pocket budgets for `--search`: the pocket a move fires from (if any) and how many
 /// moves each pocket may fire in the whole train.
 struct Limits {
@@ -402,6 +455,8 @@ pub struct Options {
     pub cells: Vec<Pos>,
     /// Offer one-edge pulses (wiring gates them on the lever's state) at this search cost; 0 = off.
     pub edge_cost: usize,
+    /// Offer the plan's idle-to-idle segments (with their own timing) as moves.
+    pub segments: bool,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -838,6 +893,20 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             for &c in &cells {
                 for edge in [1u8, 2] {
                     moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)], edge });
+                    pocket_of.push(None);
+                }
+            }
+        }
+        if o.segments {
+            // the plan's idle-to-idle pieces, each with its own timing, on both edges
+            let open_start = if uses.is_empty() && lever.is_empty() { w0.clone() } else { a0.clone() };
+            let close_start = if uses.is_empty() && lever.is_empty() { wopen.clone() } else { b0.clone() };
+            let ok = |st: &Step| !st.evs.iter().any(|e| lever.iter().any(|l| l.0 == e.1) || uses.contains(&e.1));
+            let segs: Vec<Step> = segments(&open_start, &open_ev).into_iter().chain(segments(&close_start, &close_ev)).filter(|s| ok(s)).collect();
+            say!(o, "{} plan segments as moves: {}", segs.len(), segs.iter().map(|s| format!("{}({} gt)", s.label(), s.len())).collect::<Vec<_>>().join(" "));
+            for st in segs {
+                if !moves.contains(&st) {
+                    moves.push(st);
                     pocket_of.push(None);
                 }
             }
