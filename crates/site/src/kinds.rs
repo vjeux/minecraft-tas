@@ -159,6 +159,30 @@ fn chosen(builds: &[Build]) -> BTreeMap<(String, String), Vec<usize>> {
 /// no card) and drops every other circuit build; returns the notes.
 pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     let chosen = chosen(builds);
+    let all = kinds_of(builds);
+    // why each kept design is the one (critique: "cards don't say why they're the best"): the
+    // coordinator's reason for a pick, else smallest (or best) of the designs tested for its kind,
+    // or for its size
+    let mut claims: BTreeMap<usize, String> = BTreeMap::new();
+    for ((study, kind), keep) in &chosen {
+        let cands = all.get(&(study.clone(), kind.clone())).cloned().unwrap_or_default();
+        let tested = |n: usize| if n == 1 { "the only one tested".to_string() } else { format!("of {n} tested") };
+        for &i in keep {
+            let row = row_of(&builds[i]).map(|r| r.0);
+            let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
+            let smallest = pool.iter().all(|&j| builds[j].blocks >= builds[i].blocks);
+            let path = format!("{study}/{kind}");
+            let reason = match (path.as_str(), builds[i].name.as_str()) {
+                ("shulker/shulker-loader", "shulker-loader-1wide") => "the loader that tiles side by side".to_string(),
+                _ if pool.len() == 1 => tested(1),
+                _ if parametric(kind) && smallest => format!("smallest for its size {}", tested(pool.len())),
+                _ if parametric(kind) => format!("best for its size {}", tested(pool.len())),
+                _ if smallest => format!("smallest {}", tested(pool.len())),
+                _ => format!("best {}", tested(pool.len())),
+            };
+            claims.insert(i, reason);
+        }
+    }
     let mut kept: BTreeSet<usize> = chosen.values().flatten().copied().collect();
     let generators: BTreeSet<usize> = kinds_of(builds)
         .iter()
@@ -169,13 +193,11 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     kept.extend(generators.iter().copied());
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
-    // card (flying machines: the sideways one first)
-    let mut group_of: BTreeMap<usize, (String, Vec<usize>)> = BTreeMap::new();
+    // card (flying machines: the sideways one first), one entry per group
+    let mut group_of: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for ((study, kind), keep) in &chosen {
         if parametric(kind) && keep.len() > 1 {
-            for &i in keep {
-                group_of.insert(i, (format!("kind:{study}:{kind}"), keep.clone()));
-            }
+            group_of.insert(format!("kind:{study}:{kind}"), keep.clone());
         }
     }
     let mut notes = vec![format!("one design per kind: {} kinds, {} designs kept of {before} circuit designs (the rest stay in the repository, unpublished)", chosen.len(), kept.len())];
@@ -183,7 +205,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         notes.push(format!("kind {study}/{kind}: {}", keep.iter().map(|&i| builds[i].name.clone()).collect::<Vec<_>>().join(", ")));
     }
     // the folds of the old lists no longer apply: every kept design is its kind's
-    let groups: Vec<(usize, String, Vec<usize>)> = group_of.iter().map(|(&i, (g, m))| (i, g.clone(), m.clone())).collect();
+    let groups: Vec<(String, Vec<usize>)> = group_of.into_iter().collect();
     for i in kept.iter().copied() {
         let b = &mut builds[i];
         b.flags.retain(|f| !matches!(f.as_str(), "variant" | "layout" | "faster" | "mirrored" | "tunable" | "kind-twin" | "census" | "twin" | "size" | "generator"));
@@ -195,14 +217,38 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.host = None;
             c.layout_of = None;
             c.lead.clear();
+            c.claim = claims.get(&i).cloned().unwrap_or_default();
             c.tunable.clear();
             c.span.clear();
             c.span_blocks.clear();
             c.card_member = false;
         }
     }
-    for (_, g, members) in &groups {
-        let rep = *members.iter().min_by_key(|&&j| (builds[j].blocks, row_of(&builds[j]).map(|r| r.0).unwrap_or(i64::MAX), builds[j].name.clone())).unwrap_or(&members[0]);
+    // a parametric kind's card: its smallest design, unless that build already pictures another
+    // kind's card (critique: the toggle switch and the counter showed one build, so did the
+    // rising edge and the signal shortener): then its next smallest
+    let id_of = |b: &Build| b.circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, b.name)).unwrap_or_default();
+    let mut pictured: BTreeSet<String> = BTreeSet::new();
+    for ((_, kind), keep) in &chosen {
+        if !(parametric(kind) && keep.len() > 1) {
+            for &i in keep {
+                pictured.insert(id_of(&builds[i]));
+                pictured.extend(builds[i].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default());
+            }
+        }
+    }
+    for (g, members) in &groups {
+        let mut order: Vec<usize> = members.clone();
+        order.sort_by_key(|&j| (builds[j].blocks, row_of(&builds[j]).map(|r| r.0).unwrap_or(i64::MAX), builds[j].name.clone()));
+        let twin = |j: usize| pictured.contains(&id_of(&builds[j])) || builds[j].circuit.as_ref().is_some_and(|c| c.same_build.iter().any(|s| pictured.contains(s)));
+        let rep = order.iter().copied().find(|&j| !twin(j)).unwrap_or(order[0]);
+        pictured.insert(id_of(&builds[rep]));
+        pictured.extend(builds[rep].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default());
+        // the card speaks for the kind: the best of every design tested, size by size
+        let tested = g.strip_prefix("kind:").and_then(|k| k.split_once(':')).and_then(|(s, k)| all.get(&(s.to_string(), k.to_string()))).map(|v| v.len()).unwrap_or(0);
+        if let Some(c) = builds[rep].circuit.as_mut() {
+            c.claim = format!("the best of {tested} designs tested, size by size");
+        }
         let values: BTreeSet<i64> = members.iter().filter_map(|&j| builds[j].circuit.as_ref().and_then(|c| c.value)).collect();
         let fly = builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("flying-machine"));
         let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
@@ -258,19 +304,38 @@ pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
     let leads = |b: &Build| b.door.as_ref().map(|d| d.leads.clone()).unwrap_or_default();
     let before = builds.iter().filter(|b| b.door.is_some()).count();
     builds.retain(|b| b.door.is_none() || !leads(b).is_empty());
+    // a record of "X, not rotation-safe" that the record of X (which works facing any way) beats
+    // or ties on size is the best at nothing (critique: the one-way sculk door, 40 blocks, under
+    // the any-way one, 37)
+    let size = |b: &Build| (b.volume.unwrap_or(u32::MAX), b.blocks);
+    let dominated: BTreeSet<String> = builds
+        .iter()
+        .filter(|b| {
+            let l = leads(b);
+            !l.is_empty()
+                && l.iter().all(|x| {
+                    x.strip_suffix(", not rotation-safe").is_some_and(|base| builds.iter().any(|o| o.id != b.id && leads(o).iter().any(|y| y == base) && size(o) <= size(b)))
+                })
+        })
+        .map(|b| b.id.clone())
+        .collect();
+    builds.retain(|b| !dominated.contains(&b.id));
     let main = builds.iter().position(|b| leads(b).iter().any(|l| l == "solid"));
+    // what the one card holds: how many records sit behind it
+    let records = builds.iter().filter(|b| b.door.is_some()).count();
     let mut kept = 0;
     for (i, b) in builds.iter_mut().enumerate() {
         let Some(d) = b.door.as_mut() else { continue };
         d.host = None;
         d.variants.clear();
+        d.records = if Some(i) == main { records } else { 0 };
         kept += 1;
         b.flags.retain(|f| !matches!(f.as_str(), "variant" | "twin" | "size"));
         if Some(i) != main {
             b.flags.push("size".into());
         }
     }
-    vec![format!("one door card: {kept} board records kept of {before} doors (the rest stay in the repository, unpublished)")]
+    vec![format!("one door card: {kept} board records kept of {before} doors ({} best at nothing dropped; the rest stay in the repository, unpublished)", dominated.len())]
 }
 
 /// Clocks (vjeux 21:47Z: "one card per period is the per-size table of a single clock kind
@@ -309,8 +374,11 @@ pub fn select_clocks(builds: &mut Vec<Build>, cards: &mut Vec<site_model::Card>,
     // the card: the smallest kept clock (robust first); the others are rows of its table
     let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some() && kept.contains(&b.id)).min_by_key(|(_, b)| (!robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
     let periods: Vec<u32> = best.keys().copied().collect();
+    // the card's range reaches as far as the families do (critique: "4 to 10816 ticks" over
+    // families up to 312816): `lo-hi:tested`
+    let fam_hi = cards.iter().filter(|c| c.kind != "circuit").flat_map(|c| c.families.iter().map(|f| f.period.eval(f.n_hi))).max().unwrap_or(0);
     let range = match (periods.first(), periods.last()) {
-        (Some(lo), Some(hi)) => format!("{lo} to {hi} ticks, {} periods", periods.len()),
+        (Some(lo), Some(hi)) => format!("{lo}-{}:{}", (*hi as i64).max(fam_hi), periods.len()),
         _ => String::new(),
     };
     for (i, b) in builds.iter_mut().enumerate() {
