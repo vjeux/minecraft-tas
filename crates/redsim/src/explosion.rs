@@ -59,10 +59,11 @@ pub fn block_resistance(b: &Block) -> f32 {
     let simple = |s: &S| -> f32 {
         match s.name() {
             "obsidian" | "crying_obsidian" | "netherite_block" => 1200.0,
+            "bedrock" => 3_600_000.0,
             "end_stone" => 9.0,
             "glass" | "tinted_glass" | "white_stained_glass" | "black_stained_glass" | "glowstone" | "sea_lantern" => 0.3,
             "packed_ice" | "soul_sand" | "soul_soil" | "dirt" | "mud" | "magma_block" => 0.5,
-            "clay" => 0.6,
+            "clay" | "grass_block" => 0.6,
             "calcite" => 0.75,
             "sandstone" | "quartz_block" => 0.8,
             n if n.ends_with("_wool") => 0.8,

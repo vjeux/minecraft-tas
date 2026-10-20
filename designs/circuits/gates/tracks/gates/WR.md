@@ -23,8 +23,42 @@ The headline variation is the SIGNAL-input gate: both inputs are redstone signal
 3. A glitch-free IMPLY at 3-4 blocks (the archived 3b torch version reports `glitches 2`).
 4. Tileable rows once a function is at its bar: measure the pitch with `tile:` rather than claiming it.
 
+## R7 (real input devices, on main 2026-10-20): FIFTEEN archived gates were invalid, and are out
+
+Re-judged every gate under R7, where the judge drives an input with a repeater pointing into the cell instead of placing a redstone block in it. Fifteen of the twenty-three failed and are removed from the archive (a design that fails the judge cannot sit in it claiming a record):
+
+| design | what the judge measured |
+|---|---|
+| gate-xor-ring-14b | behaves as OR |
+| gate-xnor-ring-16b | behaves as NOR |
+| gate-and-5b | always false (0000) |
+| gate-nimply-cmp-2b / -ba-cmp-2b | passes a / passes b through |
+| gate-nor-bump-4b, gate-not-bump-4b, gate-imply-bump-4b, gate-imply-ba-bump-4b, gate-nand-bump-8b | always true |
+| gate-nimply-bump-4b / -ba-bump-4b | behave as OR |
+| gate-nor-torch-3b, gate-imply-torch-3b, gate-imply-ba-torch-3b | the output is not steady at rest |
+
+What survives, with the tile pitches I measured: gate-or-2b (pitch 2), gate-or-lever-1b, gate-not-torch-3b (3), gate-not-lever-2b, gate-nor-lever-2b, gate-nand-torch-6b (4), plus the two rebuilt below. Both delay cards survive too (pitch 1).
+
+THE RULE, from the game's source and confirmed by the judge: a comparator's or repeater's SIDE input is `DiodeBlock.getAlternateSignal` -> `SignalGetter.getControlInputSignal`, which answers only for a redstone block, redstone dust or a diode. A plain block, however strongly powered, gives 0. Every removed design read its input through a plain block that a placed redstone block used to be: the whole "bump" family is that trick, and the dust rings read ring power the placed block supplied.
+
+A design's own dust AT the input cell does not fix it (measured: the judge drives it correctly, `probe-side`, yet a comparator beside it still reads 0). What works is giving the design its own REPEATER at the input cell, whose output feeds a dust that feeds the comparator's side: the judge drives a receiving repeater at its back, and the dust is then a real signal source.
+
+Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blocks, latency 4 gt, robust. The same shape rebuilds AND (two subtract comparators, the second's side fed by the first's dust) and NAND; XOR and XNOR need a different mechanism entirely, since the dust ring is gone.
+
+## Priorities (rewritten after R7)
+
+1. Rebuild AND and NAND on the repeater-at-the-input shape (the NIMPLY pair is the template).
+2. XOR and XNOR from scratch: nothing in the archive claims them any more.
+3. IMPLY, NOR and NOT, where only the lever and torch versions survive.
+4. Then the tileable rows and the original shrink targets.
+
+- `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
+- A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
+- The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+
 ## Settled facts
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
+- A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.

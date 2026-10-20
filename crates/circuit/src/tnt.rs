@@ -23,6 +23,9 @@ use crate::{Circuit, Kind, Pos};
 /// Ticks a self-running duper runs after its kick: 8 periods of up to 110 gt fit in the second
 /// half (a slow duper whose period exceeds a fuse keeps one TNT alive at a time: the PRECISE one).
 pub const RUN: u32 = 1800;
+/// The smallest gap between a triggered duper's pulses with explosions on: a TNT's fuse (80 gt)
+/// and some (the previous pulse's TNT has exploded before the next pulse).
+pub const TRIGGER_GAP: u32 = 100;
 /// Periods a self-running duper must repeat for.
 pub const CYCLES: usize = 8;
 /// Pulses and pulse length of the triggered stimulus.
@@ -386,6 +389,21 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
         });
         if straight {
             v.push("dropped: every TNT falls straight down out of range".to_string());
+        }
+    }
+    // DROPPED on the ground (the judge's ground, a drop under the machine): every TNT goes off
+    // below the machine, within 8 blocks of its box sideways (the pile at the bottom scatters a
+    // few blocks; a launched TNT lands 12+ away) and 3+ blocks under it
+    if ended.len() >= 8
+        && let Some((lo, hi)) = c.clock.design.bounds()
+    {
+        let below = ended.iter().all(|q| {
+            let p = q.end.unwrap().0;
+            let side = |i: usize| (lo[i] as f64 - p[i]).max(p[i] - (hi[i] as f64 + 1.0)).max(0.0);
+            side(0).max(side(2)) <= 8.0 && p[1] <= lo[1] as f64 - 3.0
+        });
+        if below && !v.iter().any(|f| f.starts_with("dropped:")) {
+            v.push("dropped: every TNT goes off below the machine".to_string());
         }
     }
     v.join("; ")

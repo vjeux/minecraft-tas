@@ -1,5 +1,5 @@
-# archived 2026-10-20T08:29Z from designs/circuits/tracks/tnt/tnt-drop-16b.txt by mctas circuit archive
-# CIRCUIT: tnt-drop-16b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, 16 blocks, 3x3x6, robust (survives its own explosions: 0 exploded, 293 out of range, design intact; launched at (-0.0008, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000); dropped: every TNT falls straight down out of range)
+# archived 2026-10-20T16:21Z from designs/circuits/tracks/tnt/tnt-drop-16b.txt by mctas circuit archive
+# CIRCUIT: tnt-drop-16b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 7 gt, safe drop 31 blocks, 16 blocks, 3x3x6, robust (survives its own explosions: 286 exploded, design intact; launched at (-0.0018, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000))
 name: tnt-drop-16b
 circuit: tnt-duper
 origin: 0 0 -3

@@ -1,5 +1,5 @@
-# archived 2026-10-20T12:14Z from designs/circuits/tracks/tnt/tnt-lever-launch-15b.txt by mctas circuit archive
-# CIRCUIT: tnt-lever-launch-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt, 15 blocks, 3x3x4, robust (survives its own explosions: 0 exploded, 137 out of range, design intact)
+# archived 2026-10-20T16:08Z from /tmp/tnt/lever-launch-15b-archived.txt by mctas circuit archive
+# CIRCUIT: tnt-lever-launch-15b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt, safe drop 6 blocks, 15 blocks, 3x3x4, robust (survives its own explosions: 137 exploded, design intact)
 name: tnt-lever-launch-15b
 circuit: tnt-duper
 port input: 0 0 1

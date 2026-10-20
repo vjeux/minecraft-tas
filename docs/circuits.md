@@ -266,28 +266,41 @@ kick) before the first input.
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
   **Explosions are on by default** (vjeux 2026-10-20: "You didn't model tnt explosion. This will
-  blow up the machine"): the game run lets every primed TNT explode, and a TNT 16+ blocks from the
-  design's box (`run::OUT_OF_RANGE`: beyond the reach of its blast, blocks up to about 7, entities
-  up to 8) is removed and counted as out of range (the sandbox is loaded 18 blocks around for
-  them). The duper must survive: a self-running one's block frames repeat with its period from
-  before its first explosion through the end of the run (`blown up: its first explosion (frame F)
-  changes it` otherwise); a triggered one waits 100 gt after its last pulse and must be back in
-  its rest state; a switchable one's running windows end with the same frames as its first
-  period, its stopped windows the same; at least one TNT exploded or left out of range; no item
-  entity at the end (a destroyed block drops one). The line then carries `(survives its own
-  explosions: N exploded, M out of range, design intact)`. On redsim (clk-misc's exact explosion
-  port, `clock::sim::drive_tnt`) the same run has every primed TNT kicked by one `d`, every ray at
-  its largest roll (`Rolls::Max`: surviving it is surviving every roll), TNT removed out of range
-  the same way. **All randoms** (vjeux 2026-10-20: "pass every possible random number"):
-  `circuit verify` then runs `circuit::robust::tnt_robust`: the kick's `nextDouble()` swept over
+  blow up the machine"), and the duper stands **on the ground** (vjeux 13:13Z: "There's no way
+  this tnt duper doesn't explode after a few seconds": the first judge's void sandbox let every
+  dropped TNT fall away forever). The ground (`Circuit::ground_blocks`) is a superflat floor, grass
+  over two dirt over bedrock (explosions leave craters, as in a real world), or obsidian (no
+  craters); a slime frame resting on grass drags it, so a design that needs air under its moving
+  slimes carries its own foot (an obsidian block one lower: the ground goes under it).
+  **SAFE DROP HEIGHT** (vjeux 13:31Z, the metric `safe drop N blocks`, `0 blocks (on the ground)`;
+  a card reads `safe on the ground` / `needs an N-block drop`): the smallest number of air blocks
+  between the duper's lowest block and the ground at which it stays intact on BOTH grounds for
+  every kick (`circuit::robust::safe_drop`: a screen at 16 kicks per ground for drops 0, 1, 2 ...
+  40, then the full all-kicks sweep at the first drop that passes); none up to 40 fails (`it needs
+  a pit deeper than 40`). Every redsim run is strict: no TNT is removed, each explodes where it
+  lands, and the ground grows (24, 48, 96 blocks around) until no burning TNT ever leaves it. The
+  game run stands the duper that high above a grass ground covering its whole loaded area,
+  `run::GAME_REACH` = 40 blocks around; no TNT is removed, and a burning TNT reaching the loaded
+  area's edge (where it would freeze, never exploding) fails the run. The duper must survive: a
+  self-running one's block frames (the ground below its lowest layer left out) repeat with its
+  period from before its first explosion through the end of the run (`blown up: its first
+  explosion (frame F) changes it` otherwise); a triggered one (pulses at least `tnt::TRIGGER_GAP`
+  = 100 gt apart: one TNT's fuse) waits 100 gt after its last pulse and must be back in its rest
+  state; a switchable one's running windows end with the same frames as its first period, its
+  stopped windows the same; no entity at the end but the craters' items and burning TNT. The line
+  then carries `(survives its own explosions: N exploded, design intact)`. On redsim (clk-misc's
+  exact explosion port, `clock::sim::drive_tnt`) every primed TNT is kicked by one `d` and every
+  ray is at its largest roll (`Rolls::Max`: surviving it is surviving every roll). **All randoms**
+  (vjeux 2026-10-20: "pass every possible random number"): the kick's `nextDouble()` swept over
   [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
-  piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
-  claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
-  (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
-  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
-  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
-  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
-  check). `explode: off` is for analysis only (the measuring calibrations): the archive
+  piece and boundary judged on both grounds; every one must pass with the same metrics (and the
+  same PRECISE claim) (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run
+  (per-spawn kicks: next). `Rolls::Max` covers every roll because a blast's destroyed set only
+  grows with the rolls and knockback ignores them; a destroyed machine block fails the run, the
+  ground's craters do not (clockinfra's check). The evidence: `mctas circuit tnt blasts` lists
+  every explosion's distance to the machine and the blocks destroyed, in the void and on both
+  grounds at the safe drop (`--ticks` for a long run). `explode: off` is for analysis only (the
+  measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,

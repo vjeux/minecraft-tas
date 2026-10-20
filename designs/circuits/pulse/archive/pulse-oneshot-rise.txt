@@ -12,6 +12,7 @@ extend blocks: 17 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
 extend group title: long rising-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters
+extend group note: Lengths of the form 8n (8, 16, 24, 32... ticks) come from the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open), the same size for any length; this chain gives the lengths it can't (18, 34, 50... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-rise --n {n} --out {out}
 origin: -1 0 0

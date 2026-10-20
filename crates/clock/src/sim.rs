@@ -213,8 +213,13 @@ struct Started {
 pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
 
 /// The cell of the judge's lamp: the declared output when the design leaves it empty (an air
-/// output cell). Not a block of the design: never counted, never in the family or the box.
+/// output cell). Not a block of the design: never counted, never in the family or the box. Clocks
+/// only: a circuit (a `circuit:` kind, or an input port) keeps its own consumer rule
+/// (`circuit::consumer_cells`).
 pub fn judge_lamp(c: &Clock) -> Option<Pos> {
+    if c.design.meta.contains_key("circuit") || c.design.ports.contains_key("input") || c.design.ports.keys().any(|k| k.starts_with("input")) {
+        return None;
+    }
     c.output.filter(|op| !c.design.blocks.contains_key(op))
 }
 
@@ -641,6 +646,17 @@ pub struct TntOptions {
     /// rule, `circuit::run::OUT_OF_RANGE`).
     pub out_of_range: f64,
     pub design_box: (Pos, Pos),
+    /// When set, only a destroyed block inside this box blows the machine up (the others, a floor
+    /// under it for instance, are counted in `TntDriven::blasts`).
+    pub machine_box: Option<(Pos, Pos)>,
+    /// Ground blocks placed (raw) before the run; frames leave out everything under the design
+    /// box's lowest layer (its craters are not the machine).
+    pub floor: Vec<(Pos, String)>,
+    /// The cells the frames record (default: the whole world box).
+    pub watch: Option<(Pos, Pos)>,
+    /// A burning TNT whose horizontal distance to `design_box` exceeds this has left the ground
+    /// (`TntDriven::escaped`; the caller grows the ground and runs again).
+    pub escape: Option<f64>,
 }
 
 /// One primed TNT followed by [`drive_tnt`] (the fields the real-game runner records).
@@ -664,6 +680,11 @@ pub struct TntDriven {
     /// The frame of every explosion.
     pub explosions: Vec<u32>,
     pub out_of_range: u32,
+    /// Every explosion: its frame, its center, the blocks it destroyed inside `machine_box` (the
+    /// design box when unset) and elsewhere.
+    pub blasts: Vec<(u32, [f64; 3], usize, usize)>,
+    /// The first burning TNT that went past `TntOptions::escape`: its frame and position.
+    pub escaped: Option<(u32, [f64; 3])>,
 }
 
 /// [`drive_with`] for TNT dupers with their explosions (redsim's exact port): every primed TNT is
@@ -679,6 +700,14 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
     }
     blocks.sort_by_key(|(p, _)| *p);
     let mut s = start_box(c, &blocks, from, to)?;
+    // the ground, raw (it stands under the design before anything runs)
+    if !o.floor.is_empty() {
+        let mut ground: Vec<(BlockPos, Block)> = Vec::with_capacity(o.floor.len());
+        for (p, st) in &o.floor {
+            ground.push((bp(*p), Block::parse(st).map_err(|e| (Verdict::Unmodeled, format!("ground {st}: {e}")))?));
+        }
+        s.world.place_raw(&ground);
+    }
     s.world.remove_primed = false;
     s.world.tnt_kick = Some(o.kick);
     s.world.tnt_kicks = o.kicks.clone();
@@ -687,16 +716,20 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
     }
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0 };
+    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), escaped: None };
     let mut index: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
     let mut blasts_seen = 0usize;
     let (mut primed_seen, mut chain_seen) = (0usize, 0usize);
     let (lo, hi) = o.design_box;
     for t in 0..=ticks {
         // explosions of the last tick: a design block they destroyed blows the machine up
+        let (mlo, mhi) = o.machine_box.unwrap_or(o.design_box);
+        let inside = |p: &BlockPos| p.x >= mlo[0] && p.x <= mhi[0] && p.y >= mlo[1] && p.y <= mhi[1] && p.z >= mlo[2] && p.z <= mhi[2];
         for b in &s.world.explosions[blasts_seen..] {
             out.explosions.push(t);
-            if let Some((p, blk)) = b.destroyed.first() {
+            let mine = b.destroyed.iter().filter(|(p, _)| o.machine_box.is_none() || inside(p)).count();
+            out.blasts.push((t, [b.center.x, b.center.y, b.center.z], mine, b.destroyed.len() - mine));
+            if let Some((p, blk)) = b.destroyed.iter().find(|(p, _)| o.machine_box.is_none() || inside(p)) {
                 out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t}", p)));
             }
         }
@@ -704,6 +737,9 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
         if out.driven.stopped.is_some() {
             break;
         }
+        // a blast's drops (the ground's craters; a machine block destroyed has already stopped
+        // the run) are expected here
+        s.world.drops.clear();
         if let Err((_, why)) = between_ticks(&mut s, t) {
             out.driven.stopped = Some((t, why));
             break;
@@ -730,6 +766,12 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
                 r.end_frame = t;
             }
             let dist = (0..3).map(|i| (lo[i] as f64 - pos[i]).max(pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, f64::max);
+            if let Some(reach) = o.escape {
+                let hdist = [0usize, 2].iter().map(|&i| (lo[i] as f64 - pos[i]).max(pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, f64::max);
+                if hdist > reach && out.escaped.is_none() {
+                    out.escaped = Some((t, pos));
+                }
+            }
             if dist > o.out_of_range && !e.removed {
                 e.removed = true;
                 r.gone = Some((pos, mot));
@@ -746,7 +788,25 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             out.driven.primed.push((t, p.arr()));
         }
         chain_seen = s.world.chain_primed.len();
-        let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
+        let mut v: Vec<(Pos, String)> = match o.watch {
+            // the watched cells only, nothing under the design's lowest layer (the ground)
+            Some((wf, wt)) => {
+                let mut v = Vec::new();
+                for x in wf[0]..=wt[0] {
+                    for y in wf[1].max(lo[1])..=wt[1] {
+                        for z in wf[2]..=wt[2] {
+                            let p = BlockPos::new(x, y, z);
+                            let b = s.world.get(p);
+                            if !matches!(b, Block::Air) {
+                                v.push(([x, y, z], wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref())));
+                            }
+                        }
+                    }
+                }
+                v
+            }
+            None => s.world.blocks().into_iter().filter(|(p, _)| o.floor.is_empty() || p.y >= lo[1]).map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect(),
+        };
         v.sort_by_key(|(p, _)| *p);
         out.driven.cells.push(v);
         out.driven.signals.push(probes.iter().map(|q| s.world.best_neighbor_signal(bp(*q)).clamp(0, 15) as u8).collect());
