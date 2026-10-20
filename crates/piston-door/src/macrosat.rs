@@ -144,6 +144,7 @@ struct Act {
 }
 
 /// Options of a run.
+#[derive(Clone)]
 struct Opts {
     h: usize,
     feed: bool,
@@ -153,6 +154,13 @@ struct Opts {
     obsidian: bool,
     rblocks: bool,
     explain: bool,
+    /// Mirror symmetry breaking on free layouts of boxes symmetric about x = 1 (`--no-sym` off).
+    sym: bool,
+    /// `--private`: a wiring cell feeds one piston cell only (a candidate filter).
+    private: bool,
+    /// Island start (on with `--feed` unless `--no-start`): a wiring region acts only after the
+    /// lever or a change next to it.
+    start: bool,
 }
 
 struct Model {
@@ -333,6 +341,12 @@ impl StepBook {
 fn push_acts(sat: &mut Sat, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], src: &[Vec<Lit>], s: usize, c: usize, d: usize, line: &[usize], book: &mut StepBook, acts: &mut Vec<Act>) {
     for l in 0..line.len().min(13) {
         for kind in [Kind::Extend, Kind::Pulse, Kind::PulsePull] {
+            // actions that change nothing are left out (dropping one from a plan changes no
+            // state and only removes a feed requirement): a pulse into air, a pulse-pull of one
+            // block (it comes straight back), a pulse-pull into air at the box edge
+            if (kind == Kind::Pulse && l == 0) || (kind == Kind::PulsePull && (l == 1 || (l == 0 && line.len() < 2))) {
+                continue;
+            }
             let a = sat.var();
             if kind == Kind::PulsePull {
                 sat.add(&[!a, ty[s][c][piston(true, d, false)]]);
@@ -370,11 +384,13 @@ fn push_acts(sat: &mut Sat, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], src: &[Vec<Li
                 }
                 Kind::PulsePull => {
                     if l == 0 && line.len() >= 2 {
-                        // into air: the block 2 ahead comes in when it is movable
+                        // into air: the block 2 ahead comes in (it must be movable: otherwise
+                        // the action changes nothing)
                         let q = sat.var();
                         sat.add(&[!q, a]);
                         sat.add(&[!q, mv[s][line[1]]]);
                         sat.add(&[q, !a, !mv[s][line[1]]]);
+                        sat.add(&[!a, q]);
                         sat.add(&[!q, src[line[0]][FROM + opp(d)]]);
                         sat.add(&[!q, src[line[1]][TO_AIR]]);
                         book.just(line[0], FROM + opp(d), q);
@@ -433,11 +449,28 @@ fn ret_act(sat: &mut Sat, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], src: &[Vec<Lit>
 
 /// The feed literals of step `s`: per (cell * 4 + facing), the literals that feed a piston there.
 /// One way to feed a piston at one step: its selector, the cells it reads (no other action of the
-/// step may write them) and the cell to name in the report.
+/// step may write them), the cell to name in the report and the action kinds it can fire
+/// (`K_*` bits).
 struct FeedOpt {
     u: Lit,
     cells: Vec<usize>,
     at: usize,
+    kinds: u8,
+    /// The wiring cell it draws on (`--private`: a wiring cell feeds one piston cell only).
+    wire: Option<usize>,
+}
+
+const K_ALL: u8 = 0b1111;
+const K_EXTEND: u8 = 0b0001;
+const K_RETRACT: u8 = 0b1000;
+
+fn kind_bit(k: Kind) -> u8 {
+    match k {
+        Kind::Extend => 0b0001,
+        Kind::Pulse => 0b0010,
+        Kind::PulsePull => 0b0100,
+        Kind::Retract => 0b1000,
+    }
 }
 
 /// A selector that implies "the lever touches cell e".
@@ -445,15 +478,19 @@ fn lever_opt(sat: &mut Sat, lev_at: &[Option<Lit>], e: usize, opts: &mut Vec<Fee
     if let Some(at) = lev_at[e] {
         let u = sat.var();
         sat.add(&[!u, at]);
-        opts.push(FeedOpt { u, cells: Vec::new(), at: e });
+        opts.push(FeedOpt { u, cells: Vec::new(), at: e, kinds: K_ALL, wire: None });
     }
 }
 
-/// The feed options of step `s`, per (cell * 4 + facing): a power source (wiring cell, redstone
-/// block) in a feed cell; a conductor (stone, obsidian) in a feed cell with a power source or the
-/// lever next to it; the lever next to the piston or to the cell above it (above the box: on the
-/// top face of the piston's top-row neighbor).
-fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], s: usize) -> HashMap<usize, Vec<FeedOpt>> {
+/// The feed options of step `s`, per (cell * 4 + facing): a wiring cell (a controllable source)
+/// in a feed cell; a conductor (stone, obsidian) in a feed cell with a wiring cell or the lever
+/// next to it (a redstone block does not power blocks); the lever next to the piston or to the
+/// cell above it (above the box: on the top face of the piston's top-row neighbor). A redstone
+/// block is a CONSTANT source: it fires a piston only by arriving (an extend: it was not in that
+/// feed cell one step earlier, or the piston just moved there) or by leaving (a retract); neither
+/// at the first step of an edge, which starts from a settled state (`prev` = the state and the
+/// sources one step earlier, inside the edge).
+fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], s: usize, prev: Option<&[Vec<Lit>]>) -> HashMap<usize, Vec<FeedOpt>> {
     let n = g.n();
     let mut out = HashMap::new();
     for c in 0..n {
@@ -472,19 +509,33 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
             }
             for q in g.feed_cells(c, d) {
                 let u = sat.var();
-                sat.add(&[!u, ty[s][q][WIRE], ty[s][q][RBLOCK]]);
-                opts.push(FeedOpt { u, cells: vec![q], at: q });
+                sat.add(&[!u, ty[s][q][WIRE]]);
+                opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_ALL, wire: Some(q) });
                 for r in (0..4).filter_map(|e| g.step(q, e)).filter(|&r| r != c) {
                     let u = sat.var();
                     sat.add(&[!u, ty[s][q][STONE], ty[s][q][OBS]]);
-                    sat.add(&[!u, ty[s][r][WIRE], ty[s][r][RBLOCK]]);
-                    opts.push(FeedOpt { u, cells: vec![q, r], at: q });
+                    sat.add(&[!u, ty[s][r][WIRE]]);
+                    opts.push(FeedOpt { u, cells: vec![q, r], at: q, kinds: K_ALL, wire: Some(r) });
                 }
                 if let Some(at) = lev_at[q] {
                     let u = sat.var();
                     sat.add(&[!u, ty[s][q][STONE], ty[s][q][OBS]]);
                     sat.add(&[!u, at]);
-                    opts.push(FeedOpt { u, cells: vec![q], at: q });
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_ALL, wire: None });
+                }
+                if let Some(psrc) = prev {
+                    // a redstone block arriving in the feed cell (or the piston arriving next to it)
+                    let u = sat.var();
+                    sat.add(&[!u, ty[s][q][RBLOCK]]);
+                    let mut cl = vec![!u, !ty[s - 1][q][RBLOCK]];
+                    cl.extend((0..4).map(|e| psrc[c][FROM + e]));
+                    sat.add(&cl);
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_EXTEND, wire: None });
+                    // a redstone block leaving it
+                    let u = sat.var();
+                    sat.add(&[!u, ty[s - 1][q][RBLOCK]]);
+                    sat.add(&[!u, !ty[s][q][RBLOCK]]);
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_RETRACT, wire: None });
                 }
             }
             out.insert(c * 4 + d, opts);
@@ -494,8 +545,8 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
 }
 
 /// One step: sources, actions, justification, independence, feed.
-#[allow(clippy::too_many_arguments)]
-fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>) {
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize, prev_src: Option<&[Vec<Lit>]>, private: Option<&[Vec<Lit>]>, started: Option<&[Lit]>) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>, Vec<Vec<Lit>>) {
     let n = g.n();
     let src = sources(sat, g, ty, s);
     let mut book = StepBook::default();
@@ -531,17 +582,26 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
     // the feed, read in the state the step starts from: an action fires only through one of its
     // options, whose cells no other action of the step writes
     let wr = independence(sat, o, &acts, &book, n);
-    let feed = if o.feed { feed_step(sat, g, ty, lev_at, s) } else { HashMap::new() };
+    let feed = if o.feed { feed_step(sat, g, ty, lev_at, s, prev_src) } else { HashMap::new() };
     if o.feed {
         for a in &acts {
             let opts = &feed[&(a.c * 4 + a.d)];
+            let bit = kind_bit(a.kind);
             let mut cl = vec![!a.lit];
-            cl.extend(opts.iter().map(|f| f.u));
+            cl.extend(opts.iter().filter(|f| f.kinds & bit != 0).map(|f| f.u));
             if let Some(ex) = exempt {
                 cl.push(ex[a.c]);
             }
             sat.add(&cl);
-            for f in opts {
+            for f in opts.iter().filter(|f| f.kinds & bit != 0) {
+                // --private: the wiring cell is this piston cell's alone
+                if let (Some(uw), Some(w)) = (private, f.wire) {
+                    sat.add(&[!a.lit, !f.u, uw[w][a.c]]);
+                }
+                // the wiring cell's region must have started (the lever, or a change it saw)
+                if let (Some(st), Some(w)) = (started, f.wire) {
+                    sat.add(&[!a.lit, !f.u, st[w]]);
+                }
                 for &q in &f.cells {
                     if a.writes.contains(&q) {
                         continue;
@@ -551,9 +611,15 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
                     }
                 }
             }
+            // a redstone block in a feed cell keeps the piston powered: no retract
+            if a.kind == Kind::Retract {
+                for q in g.feed_cells(a.c, a.d) {
+                    sat.add(&[!a.lit, !ty[s][q][RBLOCK]]);
+                }
+            }
         }
     }
-    (acts, feed)
+    (acts, feed, src)
 }
 
 /// The actions of one step are independent: at most one writes a cell, nobody reads a cell
@@ -594,6 +660,50 @@ fn independence(sat: &mut Sat, o: &Opts, acts: &[Act], book: &StepBook, n: usize
     wr
 }
 
+/// Mirror symmetry breaking for a box symmetric about x = 1 (the door's middle column): every
+/// solution's mirror image (east and west swapped) is one too, so keep the rest layouts that are
+/// lexicographically <= their mirror image (cells of the left half paired with their mirror cell,
+/// row by row; types in index order, the mirror cell's type with east and west swapped).
+fn mirror_break(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) {
+    if g.x0 + (g.x0 + g.w - 1) != 2 {
+        return;
+    }
+    let swap = |t: usize| -> usize {
+        match t {
+            5..=20 => {
+                let i = t - 5;
+                let (sticky, d, ext) = (i >= 8, (i % 8) / 2, i % 2 == 1);
+                piston(sticky, if d < 2 { d ^ 1 } else { d }, ext)
+            }
+            21..=28 => {
+                let i = t - 21;
+                let (sticky, d) = (i >= 4, i % 4);
+                head(sticky, if d < 2 { d ^ 1 } else { d })
+            }
+            _ => t,
+        }
+    };
+    let mut eq = sat.tru();
+    for y in g.y0..g.y0 + g.h {
+        for x in g.x0..1 {
+            let (c, m) = (g.idx(x, y).unwrap(), g.idx(2 - x, y).unwrap());
+            // while equal so far: type(c) <= swap(type(m))
+            for v in 0..NT {
+                let mut cl = vec![!eq, !ty[0][c][v]];
+                cl.extend((0..NT).filter(|&w| swap(w) >= v).map(|w| ty[0][m][w]));
+                sat.add(&cl);
+            }
+            let next = sat.var();
+            for v in 0..NT {
+                // equal here (type(c) = swap(type(m))) and equal so far -> equal so far next
+                let w = (0..NT).find(|&w| swap(w) == v).unwrap();
+                sat.add(&[!eq, !ty[0][c][v], !ty[0][m][w], next]);
+            }
+            eq = next;
+        }
+    }
+}
+
 fn build(g: Grid, o: &Opts) -> Model {
     let mut sat = Sat::new(FlagMode::Forbid);
     let n = g.n();
@@ -607,8 +717,31 @@ fn build(g: Grid, o: &Opts) -> Model {
     let mut acts = Vec::with_capacity(steps);
     let mut feed = Vec::with_capacity(steps);
     let mut any: Vec<Lit> = Vec::new();
+    let mut prev_src: Option<Vec<Vec<Lit>>> = None;
+    // --private: per (wiring cell, piston cell) "this wiring cell feeds that piston cell", at most
+    // one piston cell per wiring cell (a candidate filter: a component feeding several pistons at
+    // different times is what wiring usually cannot do; not a proof rule)
+    let private: Option<Vec<Vec<Lit>>> = if o.private {
+        let uw: Vec<Vec<Lit>> = (0..n).map(|_| (0..n).map(|_| sat.var()).collect()).collect();
+        for row in &uw {
+            sat.at_most_one(row);
+        }
+        Some(uw)
+    } else {
+        None
+    };
+    let mut cum: Vec<Lit> = vec![!sat.tru(); n];
     for s in 0..steps {
-        let (a, f) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s);
+        // the sources one step earlier inside the same edge (each edge starts settled)
+        let prev = if s % o.h != 0 { prev_src.as_deref() } else { None };
+        // what each cell's neighbors changed so far in this edge (an observer there could see it)
+        cum = match prev {
+            None => vec![!sat.tru(); n],
+            Some(psrc) => seen_changes(&mut sat, g, psrc, &cum),
+        };
+        let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, s)) } else { None };
+        let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, private.as_deref(), started.as_deref());
+        prev_src = Some(src);
         // an idle step is followed by idle steps only (within an edge)
         let v = sat.var();
         let mut cl = vec![!v];
@@ -625,6 +758,9 @@ fn build(g: Grid, o: &Opts) -> Model {
         feed.push(f);
     }
     door(&mut sat, g, &ty, o);
+    if o.fix.is_none() && o.sym {
+        mirror_break(&mut sat, g, &ty);
+    }
     if let Some(fix) = &o.fix {
         let mut fixed = vec![None; n];
         for &(x, y, t) in fix {
@@ -640,6 +776,73 @@ fn build(g: Grid, o: &Opts) -> Model {
         }
     }
     Model { sat, g, ty, acts, lv, feed, exempt }
+}
+
+/// Per cell: "a neighbor of this cell changed in this edge so far" (any source option other than
+/// STAY moves or toggles the neighbor: it is a moving block or a new state for 2 gt, which an
+/// observer sees), from the previous value and the sources of the step just done.
+fn seen_changes(sat: &mut Sat, g: Grid, psrc: &[Vec<Lit>], cum: &[Lit]) -> Vec<Lit> {
+    (0..g.n())
+        .map(|w| {
+            let v = sat.var();
+            let mut cl = vec![!v, cum[w]];
+            for c in (0..4).filter_map(|d| g.step(w, d)) {
+                cl.extend((1..NSRC).map(|opt| psrc[c][opt]));
+            }
+            sat.add(&cl);
+            v
+        })
+        .collect()
+}
+
+/// ISLAND START (clk-misc + pockets3, d67's `door feeds` cannot_start): wiring cells form
+/// electrically isolated regions (4-connected, joined through one conductor block between two of
+/// them: a component powers it, a component on its other side reads it); a region can only act
+/// once it has started: one of its cells is next to the lever's block, or next to a cell that
+/// changed earlier in this edge (an observer's delay: a change in the same step is too late).
+/// Returns per cell "a started wiring cell" (propagated by layers, one per cell of the box).
+/// Not encoded: "a region that sees the same changes on both edges acts the same on both".
+fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], cum: &[Lit], s: usize) -> Vec<Lit> {
+    let n = g.n();
+    let mut st: Vec<Lit> = (0..n)
+        .map(|w| {
+            let v = sat.var();
+            sat.add(&[!v, ty[0][w][WIRE]]);
+            let mut cl = vec![!v, cum[w]];
+            cl.extend((0..4).filter_map(|d| g.step(w, d)).filter_map(|e| lev_at[e]));
+            sat.add(&cl);
+            v
+        })
+        .collect();
+    for _ in 0..n {
+        // a conductor between two wiring cells passes power on (a component strongly powers it,
+        // a component on its other side reads it): one block, never block to block
+        let bridge: Vec<Lit> = (0..n)
+            .map(|q| {
+                let v = sat.var();
+                sat.add(&[!v, ty[s][q][STONE], ty[s][q][OBS]]);
+                let mut cl = vec![!v];
+                cl.extend((0..4).filter_map(|d| g.step(q, d)).map(|w| st[w]));
+                sat.add(&cl);
+                v
+            })
+            .collect();
+        let next: Vec<Lit> = (0..n)
+            .map(|w| {
+                let v = sat.var();
+                sat.add(&[!v, ty[0][w][WIRE]]);
+                let mut cl = vec![!v, st[w]];
+                for q in (0..4).filter_map(|d| g.step(w, d)) {
+                    cl.push(st[q]);
+                    cl.push(bridge[q]);
+                }
+                sat.add(&cl);
+                v
+            })
+            .collect();
+        st = next;
+    }
+    st
 }
 
 /// The door: square stone at rest, air when open with the 12 frame cells stone, back to rest.
@@ -711,15 +914,17 @@ fn kind_name(k: Kind) -> &'static str {
     }
 }
 
-fn report(m: &Model, o: &Opts) {
+fn report(m: &Model, o: &Opts) -> String {
+    use std::fmt::Write as _;
     let g = m.g;
-    println!("rest:");
+    let mut out = String::new();
+    let _ = writeln!(out, "rest:");
     for l in state_lines(m, 0) {
-        println!("{l}");
+        let _ = writeln!(out, "{l}");
     }
     for &(e, l) in &m.lv {
         if m.sat.value(l) {
-            println!("lever on the block at {:?} (its front/back face, or its outer face at the box edge)", g.xy(e));
+            let _ = writeln!(out, "lever on the block at {:?} (its front/back face, or its outer face at the box edge)", g.xy(e));
         }
     }
     for s in 0..2 * o.h {
@@ -730,13 +935,14 @@ fn report(m: &Model, o: &Opts) {
                 k => format!("{} {:?} {} line {}{}", kind_name(k), g.xy(a.c), DNAME[a.d], a.l, if pulled { " (pulls)" } else { "" }),
             };
             let fed = m.feed.get(s).and_then(|f| f.get(&(a.c * 4 + a.d))).and_then(|v| v.iter().find(|f| m.sat.value(f.u)).map(|f| g.xy(f.at)));
-            println!("{} step {s:>2}: {what}{}", if s < o.h { "open " } else { "close" }, fed.map(|q| format!("  [fed from {q:?}]")).unwrap_or_default());
+            let _ = writeln!(out, "{} step {s:>2}: {what}{}", if s < o.h { "open " } else { "close" }, fed.map(|q| format!("  [fed from {q:?}]")).unwrap_or_default());
         }
     }
-    println!("open:");
+    let _ = writeln!(out, "open:");
     for l in state_lines(m, o.h) {
-        println!("{l}");
+        let _ = writeln!(out, "{l}");
     }
+    out
 }
 
 /// A design file's blocks in the plane z = door.z as model types (levers and blocks outside the
@@ -793,6 +999,113 @@ fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
     Ok(out)
 }
 
+/// A solved model as an ideal-input design + plan (`door ideal-rs` / `door ideal` replay them):
+/// the rest layout in the plane (wiring cells left as air: the free cells for the wiring), a
+/// redstone block at z = 1 behind every piston extended at rest (its rest power), and per action
+/// an input at z = 1 behind the piston: EXTEND sets it, RETRACT clears it, PULSE is a 2 gt pulse
+/// (a sticky piston spits), PULSE-PULL a 4 gt pulse; steps 10 gt apart (`let sK` per step, so a
+/// replay can retime them with `--set`). Inputs at z = 1 also power
+/// the cell above the piston below by quasi-connectivity: a replay can misfire where the model
+/// assumed independent inputs.
+fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
+    use std::fmt::Write as _;
+    let g = m.g;
+    let val = |s: usize, c: usize| (0..NT).find(|&t| m.sat.value(m.ty[s][c][t])).unwrap_or(AIR);
+    let state = |t: usize| -> String {
+        match t {
+            STONE => "minecraft:stone".into(),
+            OBS => "minecraft:obsidian".into(),
+            RBLOCK => "minecraft:redstone_block".into(),
+            5..=20 => {
+                let i = t - 5;
+                let (sticky, d, ext) = (i >= 8, (i % 8) / 2, i % 2 == 1);
+                format!("minecraft:{}[extended={ext},facing={}]", if sticky { "sticky_piston" } else { "piston" }, DNAME[d])
+            }
+            21..=28 => {
+                let i = t - 21;
+                let (sticky, d) = (i >= 4, i % 4);
+                format!("minecraft:piston_head[facing={},short=false,type={}]", DNAME[d], if sticky { "sticky" } else { "normal" })
+            }
+            _ => "minecraft:air".into(),
+        }
+    };
+    let mut pal: Vec<(String, char)> = Vec::new();
+    let chars: Vec<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".chars().collect();
+    let mut char_of = |pal: &mut Vec<(String, char)>, st: String| -> char {
+        match pal.iter().find(|p| p.0 == st) {
+            Some(p) => p.1,
+            None => {
+                let ch = chars[pal.len()];
+                pal.push((st, ch));
+                ch
+            }
+        }
+    };
+    let held: Vec<usize> = (0..g.n()).filter(|&c| (5..=20).contains(&val(0, c)) && (val(0, c) - 5) % 2 == 1).collect();
+    let rb = if held.is_empty() { ' ' } else { char_of(&mut pal, "minecraft:redstone_block".into()) };
+    let mut layers = String::new();
+    let mut wires = Vec::new();
+    for y in g.y0..g.y0 + g.h {
+        let (mut row, mut back) = (String::new(), String::new());
+        for x in g.x0..g.x0 + g.w {
+            let c = g.idx(x, y).unwrap();
+            let t = val(0, c);
+            if t == WIRE {
+                wires.push((x, y));
+            }
+            back.push(if held.contains(&c) { rb } else { '.' });
+            let st = state(t);
+            if st == "minecraft:air" {
+                row.push('.');
+            } else {
+                row.push(char_of(&mut pal, st));
+            }
+        }
+        if held.is_empty() {
+            let _ = writeln!(layers, "layer {y}:\n  {row}");
+        } else {
+            let _ = writeln!(layers, "layer {y}:\n  {row}\n  {back}");
+        }
+    }
+    let mut d = String::new();
+    let name = prefix.rsplit('/').next().unwrap_or(prefix);
+    let _ = writeln!(d, "name: {name}\n# macrosat (h {} per edge{}): wiring cells (left as air) {wires:?}; pistons extended at rest hold a redstone block at z = 1", o.h, if o.feed { ", every firing fed" } else { "" });
+    let _ = writeln!(d, "port door: 0 0 0\norigin: {} 0 0\npalette:", g.x0);
+    for (st, ch) in &pal {
+        let _ = writeln!(d, "  {ch} {st}");
+    }
+    d.push_str(&layers);
+    let mut p = String::new();
+    let _ = writeln!(p, "phase between\ndesign {prefix}.txt");
+    // one variable per step of each edge (open sK / close cK), 10 gt apart: `--set` retimes them
+    for k in 0..o.h {
+        let _ = writeln!(p, "let s{k} = {}\nlet c{k} = {}", 1 + 10 * k, 1 + 10 * k);
+    }
+    for s in 0..2 * o.h {
+        let edge = if s < o.h { "open" } else { "close" };
+        let t = format!("{}{}", if s < o.h { "s" } else { "c" }, s % o.h);
+        for a in m.acts[s].iter().filter(|a| m.sat.value(a.lit)) {
+            let (x, y) = g.xy(a.c);
+            let rb = "minecraft:redstone_block";
+            match a.kind {
+                Kind::Extend => {
+                    let _ = writeln!(p, "{edge} {t} set {x} {y} 1 {rb}");
+                }
+                Kind::Retract => {
+                    let _ = writeln!(p, "{edge} {t} clear {x} {y} 1");
+                }
+                Kind::Pulse => {
+                    let _ = writeln!(p, "{edge} {t} set {x} {y} 1 {rb}\n{edge} {t}+2 clear {x} {y} 1");
+                }
+                Kind::PulsePull => {
+                    let _ = writeln!(p, "{edge} {t} set {x} {y} 1 {rb}\n{edge} {t}+4 clear {x} {y} 1");
+                }
+            }
+        }
+    }
+    (d, p)
+}
+
 /// `--plan FILE`: force a known action sequence, one action per step (a check of the encoding:
 /// a plan the model's semantics accept must solve at once). Lines `open|close EXT|PULSE|PP|RET x
 /// y facing`; the steps after each edge's lines are idle.
@@ -845,14 +1158,16 @@ fn force_plan(m: &mut Model, path: &str, h: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn cli(raw: &[String]) -> Result<()> {
-    let a = Args::parse(raw);
-    let bx: Vec<i32> = a.s("box").unwrap_or("-2,-2,4,4").split(',').map(|v| v.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+fn grid_of(s: &str) -> Result<Grid> {
+    let bx: Vec<i32> = s.split(',').map(|v| v.trim().parse::<i32>()).collect::<Result<_, _>>()?;
     if bx.len() != 4 {
-        bail!("--box x0,y0,x1,y1");
+        bail!("box {s:?}: want x0,y0,x1,y1");
     }
-    let g = Grid { x0: bx[0], y0: bx[1], w: bx[2] - bx[0] + 1, h: bx[3] - bx[1] + 1 };
-    let o = Opts {
+    Ok(Grid { x0: bx[0], y0: bx[1], w: bx[2] - bx[0] + 1, h: bx[3] - bx[1] + 1 })
+}
+
+fn opts_of(a: &Args) -> Result<Opts> {
+    Ok(Opts {
         h: a.get("h", 8usize),
         feed: a.has("feed"),
         lever: a.has("lever"),
@@ -864,9 +1179,17 @@ pub fn cli(raw: &[String]) -> Result<()> {
         obsidian: !a.has("no-obsidian"),
         rblocks: !a.has("no-rblocks"),
         explain: a.has("explain"),
-    };
+        sym: !a.has("no-sym"),
+        private: a.has("private"),
+        start: !a.has("no-start"),
+    })
+}
+
+/// Build and solve one instance: its header line, then the verdict and the report.
+fn run_one(g: Grid, o: &Opts, a: &Args) -> Result<(String, String)> {
+    use std::fmt::Write as _;
     let t0 = std::time::Instant::now();
-    let mut m = build(g, &o);
+    let mut m = build(g, o);
     if let Some(p) = a.s("plan") {
         force_plan(&mut m, p, o.h)?;
     }
@@ -882,7 +1205,7 @@ pub fn cli(raw: &[String]) -> Result<()> {
         let _ = m.sat.s.set_option("seed", seed);
     }
     m.sat.drop_caches();
-    eprintln!(
+    let head = format!(
         "macrosat: box {}x{} at ({},{}), h {} per edge, feed {}, lever {}, {}, fix {}: {} vars, {} clauses, built in {:.1} s",
         g.w,
         g.h,
@@ -902,20 +1225,83 @@ pub fn cli(raw: &[String]) -> Result<()> {
     let r = if assumps.is_empty() { m.sat.s.solve()? } else { rustsat::solvers::SolveIncremental::solve_assumps(&mut m.sat.s, &assumps)? };
     let secs = t1.elapsed().as_secs_f64();
     let what = if o.feed { " with every firing fed" } else { "" };
+    let mut out = String::new();
     match r {
         SolverResult::Sat => {
-            println!("SAT in {secs:.1} s: a mechanism{what} within {} steps per edge", o.h);
-            report(&m, &o);
+            let _ = writeln!(out, "SAT in {secs:.1} s: a mechanism{what} within {} steps per edge", o.h);
+            out.push_str(&report(&m, o));
+            if let Some(prefix) = a.s("export") {
+                let prefix = if a.pos.first().map(|s| s.as_str()) == Some("sweep") { format!("{prefix}-{}_{}_{}_{}-h{}", g.x0, g.y0, g.x0 + g.w - 1, g.y0 + g.h - 1, o.h) } else { prefix.to_string() };
+                let (design, plan) = export(&m, o, &prefix);
+                std::fs::write(format!("{prefix}.txt"), design)?;
+                std::fs::write(format!("{prefix}.ideal"), plan)?;
+                let _ = writeln!(out, "exported {prefix}.txt + {prefix}.ideal");
+            }
         }
         SolverResult::Unsat => {
-            println!("UNSAT in {secs:.1} s: no mechanism{what} within {} steps per edge in this box", o.h);
+            let _ = writeln!(out, "UNSAT in {secs:.1} s: no mechanism{what} within {} steps per edge in this box", o.h);
             if let Some(ex) = &m.exempt {
                 let core = rustsat::solvers::SolveIncremental::core(&mut m.sat.s)?;
                 let cells: Vec<(i32, i32)> = (0..g.n()).filter(|&c| core.contains(&ex[c])).map(|c| g.xy(c)).collect();
-                println!("core: exempting the pistons firing at {cells:?} from the feed would allow it");
+                let _ = writeln!(out, "core: exempting the pistons firing at {cells:?} from the feed would allow it");
             }
         }
-        SolverResult::Interrupted => println!("INTERRUPTED after {secs:.1} s"),
+        SolverResult::Interrupted => {
+            let _ = writeln!(out, "INTERRUPTED after {secs:.1} s");
+        }
     }
+    Ok((head, out))
+}
+
+/// `macrosat sweep --boxes "x0,y0,x1,y1;..." --hs 8,12 --jobs N --out DIR [model flags]`: every
+/// box x horizon in its own thread, `DIR/<x0>_<y0>_<x1>_<y1>-h<h>.txt` each, one summary line per
+/// instance as it finishes.
+fn sweep(a: &Args) -> Result<()> {
+    let boxes: Vec<(String, Grid)> = a.s("boxes").ok_or_else(|| anyhow!("--boxes"))?.split(';').filter(|s| !s.trim().is_empty()).map(|s| Ok((s.trim().to_string(), grid_of(s)?))).collect::<Result<_>>()?;
+    let hs: Vec<usize> = a.s("hs").unwrap_or("8").split(',').map(|v| v.trim().parse::<usize>()).collect::<Result<_, _>>()?;
+    let out = std::path::PathBuf::from(a.s("out").unwrap_or("/tmp/macrosat"));
+    std::fs::create_dir_all(&out)?;
+    let base = opts_of(a)?;
+    let mut queue: Vec<(String, Grid, usize)> = Vec::new();
+    for &h in &hs {
+        for (label, g) in &boxes {
+            queue.push((label.clone(), *g, h));
+        }
+    }
+    queue.reverse();
+    let queue = std::sync::Arc::new(std::sync::Mutex::new(queue));
+    let jobs = a.get("jobs", 4usize).max(1);
+    std::thread::scope(|sc| {
+        for _ in 0..jobs {
+            let (queue, base, out) = (queue.clone(), base.clone(), out.clone());
+            sc.spawn(move || {
+                loop {
+                    let Some((label, g, h)) = queue.lock().unwrap().pop() else { break };
+                    let o = Opts { h, ..base.clone() };
+                    let file = out.join(format!("{}-h{h}.txt", label.replace(',', "_")));
+                    match run_one(g, &o, a) {
+                        Ok((head, text)) => {
+                            let _ = std::fs::write(&file, format!("{head}\n{text}"));
+                            println!("{label} h{h}: {}", text.lines().next().unwrap_or(""));
+                        }
+                        Err(e) => println!("{label} h{h}: ERROR {e}"),
+                    }
+                }
+            });
+        }
+    });
+    Ok(())
+}
+
+pub fn cli(raw: &[String]) -> Result<()> {
+    let a = Args::parse(raw);
+    if a.pos.first().map(|s| s.as_str()) == Some("sweep") {
+        return sweep(&a);
+    }
+    let g = grid_of(a.s("box").unwrap_or("-2,-2,4,4"))?;
+    let o = opts_of(&a)?;
+    let (head, text) = run_one(g, &o, &a)?;
+    eprintln!("{head}");
+    print!("{text}");
     Ok(())
 }
