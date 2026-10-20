@@ -354,6 +354,10 @@ pub struct Circuit {
     /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
     #[serde(skip)]
     pub extends: bool,
+    /// An extendable family's values from its base design's headers (`extend axis: 30 + 16n`,
+    /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_range: Option<(i64, i64, i64)>,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]
@@ -1209,6 +1213,30 @@ impl Site {
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
         });
         Ok((hits.into_iter().map(|(h, _)| h).collect(), facets))
+    }
+
+    /// How many of `hits` (in [`Site::run`]'s order for the same query) name what the query's
+    /// words name, the rest only mentioning them (a caption, a name): 0 when nothing names it or
+    /// everything does (critique: "toggle" showed its 4 toggle switches, then doors and clocks
+    /// that only mention the word, with nothing telling them apart).
+    pub fn named_count(&self, q: &Query, hits: &[Hit]) -> usize {
+        let q = with_synonyms(q);
+        let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
+        if words.is_empty() {
+            return 0;
+        }
+        let index: BTreeMap<&str, usize> = self.builds.iter().enumerate().map(|(i, b)| (b.id.as_str(), i)).collect();
+        let named = |h: &Hit| -> bool {
+            let Some(v) = self.view(*h, &index) else { return false };
+            let f = v.function.strip_prefix("gate ").unwrap_or("");
+            if !f.is_empty() && words.iter().any(|w| w == f) && words.iter().all(|w| w == f || w == "gate") {
+                return true;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            words.iter().all(|w| kind.contains(w.as_str()))
+        };
+        let n = hits.iter().take_while(|h| named(h)).count();
+        if n == hits.len() { 0 } else { n }
     }
 }
 

@@ -347,7 +347,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         ));
     }
     body.push_str(&format!(
-        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design as text</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{} The text file is the same build as a plain-text design, for this project's own tools.</p>\n<p>Blocks used: {}</p></section>\n",
+        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design as text</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{} The text file is the same build written as plain text, block by block.</p>\n<p>Blocks used: {}</p></section>\n",
         esc(&crate::generate::litematic_path(&b.design)),
         esc(&b.design),
         if b.kind == "door" || b.circuit.is_some() || b.clock.is_some() { " Verified in the real game." } else { "" },
@@ -1077,12 +1077,17 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         None => format!("Clock made of {}", base.map(|b| site_model::html::human_blocks(&b.group)).unwrap_or_default()),
     };
     let title = match (lo_m, hi_m) {
-        (Some(a), Some(b)) if !circuit => format!("A pulse every {} to {} ticks ({} to {})", a.period, b.period, site_model::real_time(a.period), site_model::real_time(b.period)),
+        // (short, the seconds in the line under it: critique, a huge title on a phone)
+        (Some(a), Some(b)) if !circuit => format!("Every {} to {} ticks", a.period, b.period),
         (Some(a), Some(b)) => format!("Every size, from {} to {}", member_value(a, &kind_of_base), member_value(b, &kind_of_base)),
         _ => card.title.clone(),
     };
     body.push_str(&format!("<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n", esc(&what), esc(&site_model::html::keep_units(&title))));
     let mut lede = format!("{} sizes, all ready to download", sorted.len());
+    // (a clock family's range in seconds, under its short title)
+    if let (Some(a), Some(b), false) = (lo_m, hi_m, circuit) {
+        lede = format!("A pulse every {} to {}: {lede}", site_model::real_time(a.period), site_model::real_time(b.period));
+    }
     if let Some(s) = step {
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
             "" => format!("each size pulses {s} ticks slower"),
@@ -1114,7 +1119,21 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
                 esc(&member_caption(m, &kind_of_base))
             ));
         }
-        body.push_str(&format!("<p><b>Each step adds:</b> {}. Pick a size in the table to see it in the 3D view.</p>\n", esc(&f.rule)));
+        // (a design's own label for a part, "hopper A", means nothing in the view: dropped)
+        let rule: String = {
+            let words: Vec<&str> = f.rule.split(' ').collect();
+            let keep: Vec<&str> = words
+                .iter()
+                .enumerate()
+                .filter(|(k, w)| {
+                    let letter = w.trim_end_matches([',', '.', ';', ':']);
+                    !(letter.len() == 1 && letter.chars().all(|c| c.is_ascii_uppercase()) && *k > 0 && words[k - 1].chars().all(|c| c.is_ascii_lowercase()))
+                })
+                .map(|(_, w)| *w)
+                .collect();
+            keep.join(" ")
+        };
+        body.push_str(&format!("<p><b>Each step adds:</b> {}. Pick a size in the table to see it in the 3D view.</p>\n", esc(&rule)));
     }
     if !card.works_with.is_empty() {
         body.push_str(&format!("<p>Works with any one of these {} blocks in place of the {}: {}.</p>\n", card.works_with.len(), esc(&site_model::html::human_blocks(&card.works_with[0])), esc(&card.works_with.iter().map(|w| site_model::html::human_blocks(w)).collect::<Vec<_>>().join(", "))));
@@ -1143,8 +1162,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     }
     let screen = if circuit { "gives exactly its value in simulation" } else { "runs at exactly its period in simulation" };
     body.push_str(&format!("<section><h2>Every size</h2><p>Each size is generated from the smallest design, one step at a time. <span class=\"badge st-judged\">tested in the game</span> = tested in the real game; <span class=\"badge st-redsim\">simulated</span> = it {screen}, not tested in the game; <span class=\"badge st-formula\">formula only</span> = not checked one by one.</p>\n"));
-    body.push_str(&format!("<table class=\"list\"><thead><tr><th>{value_head}</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n"));
-    for m in members {
+    let row_of = |m: &Member| -> String {
         let anchor = site_model::html::member_anchor(m, site);
         // the value is the row's name (no family id or n: vjeux 13:11Z); it swaps the view in place
         let value_cell = if m.design.is_empty() {
@@ -1160,16 +1178,40 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&m.design)), esc(&m.design))
         };
         let page_link = if m.build.is_some() { format!(" · <a href=\"{prefix}{}\">page</a>", esc(&member_href(m, site))) } else { String::new() };
-        body.push_str(&format!(
+        format!(
             "<tr id=\"{}\"><td>{value_cell}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}{page_link}</td></tr>\n",
             esc(&anchor),
             m.blocks,
             esc(&m.dims.as_deref().unwrap_or("").replace('x', "×")),
             esc(&m.status),
             esc(status_label(&m.status)),
-        ));
+        )
+    };
+    let head = format!("<table class=\"list\"><thead><tr><th>{value_head}</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n");
+    // a big family: the tested and simulated sizes and every 10th, the rest folded (critique: 319
+    // rows, 30 phone screens, most of them "formula only")
+    if members.len() > 40 {
+        let in_key = |k: usize, m: &Member| m.status != "formula" || k % 10 == 0 || k + 1 == members.len();
+        body.push_str(&format!("<p>The sizes tested in the game or simulated, and every 10th size:</p>{head}"));
+        for (k, m) in members.iter().enumerate() {
+            if in_key(k, m) {
+                body.push_str(&row_of(m));
+            }
+        }
+        body.push_str(&format!("</tbody></table>\n<details><summary>All {} sizes</summary>{head}", members.len()));
+        for (k, m) in members.iter().enumerate() {
+            if !in_key(k, m) {
+                body.push_str(&row_of(m));
+            }
+        }
+        body.push_str("</tbody></table></details></section>\n");
+    } else {
+        body.push_str(&head);
+        for m in members {
+            body.push_str(&row_of(m));
+        }
+        body.push_str("</tbody></table></section>\n");
     }
-    body.push_str("</tbody></table></section>\n");
     // the formula, for the curious (critique P10: "keep them in details")
     let formula = if card.note.is_empty() { card.heading.clone() } else { format!("{}; {}", card.heading, card.note) };
     body.push_str(&format!("<details class=\"more\"><summary>The formula behind the sizes</summary><p><code>{}</code></p><p class=\"hint\">n counts the steps from the smallest size.</p></details>\n", esc(&formula)));
@@ -1291,7 +1333,13 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
             row("smallest", "fewest blocks placed (not counting the chests our test adds)", pick_min(loaders.clone(), &|b| (b.blocks as i64, -speed(b))), pick_min(unloaders.clone(), &|b| (b.blocks as i64, -speed(b))), false, false);
             row("fastest", "most items per second at the steady rate", pick_min(loaders.clone(), &|b| (-speed(b), b.blocks as i64)), pick_min(unloaders.clone(), &|b| (-speed(b), b.blocks as i64)), false, false);
             for badge in ["16-stack", "unstackable", "mixed", "filter", "tileable", "always-on", "restart", "box-starved", "colours", "flush", "top-up", "drop-free", "combo", "any-box"] {
-                let with = |v: &[&'a Build]| -> Option<&'a Build> { pick_min(v.iter().copied().filter(|b| has_badge(b, badge)).collect(), &|b| (b.blocks as i64, -speed(b))) };
+                // (tiling: the closest pitch first, then blocks; critique: the row picked a
+                // pitch-3 loader over the 1-wide one that tiles side by side)
+                let pitch = |b: &Build| -> i64 { cmetric(b, "badges").split('+').find_map(|x| x.strip_prefix("tileable(")?.trim_end_matches(')').parse().ok()).unwrap_or(1) };
+                let with = |v: &[&'a Build]| -> Option<&'a Build> {
+                    let have: Vec<&'a Build> = v.iter().copied().filter(|b| has_badge(b, badge)).collect();
+                    if badge == "tileable" { pick_min(have, &|b| (pitch(b) * 1000 + b.blocks as i64, -speed(b))) } else { pick_min(have, &|b| (b.blocks as i64, -speed(b))) }
+                };
                 let loader_only = matches!(badge, "mixed" | "filter" | "flush" | "top-up");
                 let unloader_only = badge == "any-box";
                 row(badge, crate::explain::badge_meaning(badge), with(&loaders), with(&unloaders), unloader_only, loader_only);
@@ -1476,18 +1524,49 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     // the study's extendable families: one line per card, its range in words (critique P10)
     let cards: Vec<&Card> = site.cards.iter().filter(|c| c.kind == "circuit" && c.study == folder).collect();
     if !cards.is_empty() {
-        after.push_str("<section><h2>Designs you can make longer</h2><p>Add one more step to get a longer delay, a longer pulse or a further reach: every size is ready to download from the design's page.</p><table class=\"list\"><thead><tr><th>design</th><th>sizes</th><th>blocks</th></tr></thead><tbody>\n");
+        let longer = match folder {
+            "delay" => "a longer delay",
+            "pext" => "a further reach",
+            "pulse" | "pulsemult" => "a longer pulse or timer",
+            "memory" => "a bigger count",
+            _ => "a bigger size",
+        };
+        after.push_str(&format!("<section><h2>Designs you can make longer</h2><p>Add one more step to get {longer}: every size is ready to download from the design's page.</p><table class=\"list\"><thead><tr><th>design</th><th>sizes you can build</th><th>blocks</th></tr></thead><tbody>\n"));
         for c in cards {
             let f = c.families.first();
             let base = f.and_then(|f| site.builds.iter().find(|b| b.id == f.build));
-            let name = base.map(|b| site_model::html::props(b).title).unwrap_or_else(|| c.title.clone());
-            let sizes = f.map(|f| format!("{} sizes", f.n_hi.saturating_sub(f.n_lo) + 1)).unwrap_or_default();
+            let name = base
+                .map(|b| {
+                    // (what it is made of tells two families of the same smallest size apart)
+                    let made = b.circuit.as_ref().map(|c| c.family.clone()).filter(|f| !f.is_empty() && f.split('+').count() <= 3).map(|f| format!(" · made of {}", site_model::html::human_blocks(&f))).unwrap_or_default();
+                    format!("{}{made}", site_model::html::props(b).title)
+                })
+                .unwrap_or_else(|| c.title.clone());
+            // the range in words, not "11 sizes, 2 + 2n" (critique: n was never explained): the
+            // values at the first and last size, and the step between sizes
+            let sizes = f
+                .map(|f| {
+                    let (lo, hi) = (f.period.eval(f.n_lo), f.period.eval(f.n_hi));
+                    let step = if f.n_hi > f.n_lo { f.period.eval(f.n_lo + 1) - lo } else { 0 };
+                    let count = f.n_hi.saturating_sub(f.n_lo) + 1;
+                    let unit = match folder {
+                        "pext" => "reach ",
+                        _ => "",
+                    };
+                    let ticks = if folder == "pext" || folder == "memory" { "" } else { " ticks" };
+                    if step > 1 {
+                        format!("{unit}{lo} to {hi}{ticks}, in steps of {step} ({count} sizes)")
+                    } else {
+                        format!("{unit}{lo} to {hi}{ticks} ({count} sizes)")
+                    }
+                })
+                .unwrap_or_default();
             after.push_str(&format!(
                 "<tr><td><a href=\"{prefix}{}\">{}</a></td><td>{}</td><td>{}</td></tr>\n",
                 esc(&c.page),
                 esc(&name),
                 esc(&sizes),
-                esc(&f.map(|f| f.blocks_text.clone()).unwrap_or_default())
+                esc(&f.map(|f| format!("{} to {}", f.blocks.eval(f.n_lo), f.blocks.eval(f.n_hi))).unwrap_or_default())
             ));
         }
         after.push_str("</tbody></table></section>\n");
