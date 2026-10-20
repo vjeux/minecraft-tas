@@ -1,0 +1,24 @@
+# Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design (climb from clk-sculk-climb2-p1184-1 (walker 93))
+name: clk-sculk-climb3-p1508-1
+# how: climb from clk-sculk-climb2-p1184-1 (walker 93)
+port start: 0 0 0 last
+origin: 0 0 -1
+palette:
+  C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  D minecraft:dispenser[facing=up,triggered=false]
+  O minecraft:observer[facing=west,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  c minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .
+  CODs
+  ...S
+layer 1:
+  ....S
+  .
+  .
+layer 2:
+  .
+  ...c
+  .
