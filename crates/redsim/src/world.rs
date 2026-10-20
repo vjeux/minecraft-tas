@@ -295,7 +295,9 @@ impl World {
 
     /// `Level.removeBlock` (no fluids: air).
     pub fn remove_block(&mut self, pos: BlockPos, moved: bool) -> bool {
-        self.set_block(pos, Block::Air, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
+        // Level.removeBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state(self, pos).create_legacy_block();
+        self.set_block(pos, keep, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
     }
 
     /// `Level.destroyBlock`: the drop (an item entity) is recorded in `drops`.
@@ -307,7 +309,9 @@ impl World {
         if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
-        let destroyed = self.set_block_limit(pos, Block::Air, flags::ALL, limit);
+        // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state_of(&s).create_legacy_block();
+        let destroyed = self.set_block_limit(pos, keep, flags::ALL, limit);
         if destroyed {
             self.game_event_state("block_destroy", pos, s);
         }

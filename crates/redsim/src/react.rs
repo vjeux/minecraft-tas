@@ -59,12 +59,46 @@ pub fn entities_in(w: &World, b: Bounds, f: Filter) -> usize {
 /// `BlockBehaviour.entityInside` for the blocks an entity's sweep meets (called by the entity
 /// core's `checkInsideBlocks`; `precise`: the entity's box at its target meets the cell).
 pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bool) {
-    let _ = (i, precise);
     match s {
         Block::Plate { .. } => plate::entity_inside(w, s, p),
         Block::Tripwire { .. } => tripwire::entity_inside(w, s, p),
+        // BubbleColumnBlock.entityInside: above the column's top (nothing with a collision shape
+        // or a fluid above) the entity is launched, inside it is pushed
+        Block::BubbleColumn { drag } => {
+            if precise {
+                let above = w.get(p.above());
+                let nothing_above = crate::behavior::collision_boxes(&above).is_empty() && crate::fluid::fluid_state(w, p.above()).is_empty();
+                if nothing_above {
+                    on_above_bubble_column(w, i, drag);
+                } else {
+                    on_inside_bubble_column(w, i, drag);
+                }
+            }
+        }
         _ => {}
     }
+}
+
+/// `Entity.onAboveBubbleColumn` (boats override it: `AbstractBoat.onAboveBubbleColumn`).
+fn on_above_bubble_column(w: &mut World, i: usize, drag: bool) {
+    if matches!(w.entities.list[i].kind, crate::entity::EntityKind::Boat(_)) {
+        crate::entity::boat::on_above_bubble_column(w, i, drag);
+        return;
+    }
+    // `handleOnAboveBubbleColumn`
+    let e = &mut w.entities.list[i];
+    let m = e.delta_movement;
+    let yd = if drag { crate::entity::vec3::jmax(-0.9, m.y - 0.03) } else { crate::entity::vec3::jmin(1.8, m.y + 0.1) };
+    e.delta_movement = crate::entity::Vec3::new(m.x, yd, m.z);
+}
+
+/// `Entity.onInsideBubbleColumn` (`handleOnInsideBubbleColumn`; the fall distance is reset).
+fn on_inside_bubble_column(w: &mut World, i: usize, drag: bool) {
+    let e = &mut w.entities.list[i];
+    let m = e.delta_movement;
+    let yd = if drag { crate::entity::vec3::jmax(-0.3, m.y - 0.03) } else { crate::entity::vec3::jmin(0.7, m.y + 0.06) };
+    e.delta_movement = crate::entity::Vec3::new(m.x, yd, m.z);
+    e.fall_distance = 0.0;
 }
 
 /// `getEntityInsideCollisionShape` where it is not the full cell: the box an entity's box must

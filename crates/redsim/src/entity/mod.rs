@@ -197,6 +197,43 @@ pub struct Entities {
     pub next_id: u32,
 }
 
+/// `summon <type> x y z [nbt]` as the judge summons a design's entities (`entity:` lines): the
+/// kind from the type id (payload defaults; the kinds' owners refine them from the NBT), the
+/// position, and `Rotation:[yaw, pitch]` from the NBT when given. Returns the entity's id.
+pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
+    let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    let kind = match id {
+        "oak_boat" | "spruce_boat" | "birch_boat" | "jungle_boat" | "acacia_boat" | "dark_oak_boat" | "mangrove_boat" | "cherry_boat" | "pale_oak_boat" | "bamboo_raft" => EntityKind::Boat(boat::BoatState::default()),
+        "oak_chest_boat" | "spruce_chest_boat" | "birch_chest_boat" | "jungle_chest_boat" | "acacia_chest_boat" | "dark_oak_chest_boat" | "mangrove_chest_boat" | "cherry_chest_boat" | "pale_oak_chest_boat" | "bamboo_chest_raft" => {
+            EntityKind::Boat(boat::BoatState::default())
+        }
+        "minecart" | "hopper_minecart" | "chest_minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
+        "armor_stand" => EntityKind::ArmorStand(armor_stand::ArmorStandState::default()),
+        "item" => EntityKind::Item(item::ItemState::default()),
+        _ => return Err(format!("entity {type_id} is not modeled by redsim")),
+    };
+    let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
+    if let Some(n) = nbt
+        && let Some(i) = n.find("Rotation:[")
+    {
+        let rest = &n[i + "Rotation:[".len()..];
+        let inner = rest.split(']').next().unwrap_or("");
+        let v: Vec<f32> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['f', 'F', 'd', 'D']).parse().ok()).collect();
+        if let Some(y) = v.first() {
+            yaw = *y;
+        }
+        if let Some(p) = v.get(1) {
+            pitch = *p;
+        }
+    }
+    let id = w.entities.add(kind, Vec3::new(pos[0], pos[1], pos[2]), yaw);
+    if let Some(e) = w.entities.list.last_mut() {
+        e.x_rot = pitch;
+        e.x_rot_o = pitch;
+    }
+    Ok(id)
+}
+
 impl Entities {
     /// `addFreshEntity`: appended (ticked after every older entity). Returns its id.
     pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
