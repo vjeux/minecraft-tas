@@ -606,6 +606,11 @@ fn cofire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, acts: &[Act], 
     // QC feed): keyed by (that cell, the wiring cell)
     let mut px: HashMap<(usize, usize), Lit> = HashMap::new();
     for a in acts {
+        // a rising signal (extend, pulse) fires and holds its neighbours; a falling one (a
+        // retract's feed turning off) fires nothing
+        if a.kind == Kind::Retract {
+            continue;
+        }
         let bit = kind_bit(a.kind);
         for f in feed[&(a.c * 4 + a.d)].iter().filter(|f| f.kinds & bit != 0) {
             if let Some(q) = f.cond {
@@ -622,11 +627,18 @@ fn cofire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, acts: &[Act], 
         }
     }
     let must = |sat: &mut Sat, v: Lit, x: usize, d: usize| {
-        let mine: Vec<Lit> = acts.iter().filter(|b| b.c == x && b.d == d).map(|b| b.lit).collect();
+        let mine: Vec<Lit> = acts.iter().filter(|b| b.c == x && b.d == d && b.kind != Kind::Retract).map(|b| b.lit).collect();
+        let retracts: Vec<Lit> = acts.iter().filter(|b| b.c == x && b.d == d && b.kind == Kind::Retract).map(|b| b.lit).collect();
         for k in [false, true] {
             let mut cl = vec![!v, !ty[s][x][piston(k, d, false)]];
             cl.extend(mine.iter().copied());
             sat.add(&cl);
+            // an extended piston the signal reaches is held out: it cannot retract in this step
+            // (one held by QC only does not even get an update when the signal ends: the 7x7
+            // v8 (-2,-2) export's (4,0) under the lever-pulsed conductor (4,2))
+            for &r in &retracts {
+                sat.add(&[!v, !ty[s][x][piston(k, d, true)], !r]);
+            }
         }
     };
     // the signal into x powers a piston at x (unless x faces the source) and, by QC, the piston
@@ -1045,9 +1057,44 @@ fn build(g: Grid, o: &Opts) -> Model {
         }
     }
     if o.physics || o.strict {
-        // rest QC stability (c70b): a piston extended at rest is powered in its own cell, which
-        // QC-arms a retracted piston right below it: that one must fire at the edge's first step
-        for rest in [0, o.h] {
+        // redstone-block stability: a retracted piston next to a redstone block (any side but its
+        // front) is powered and extends at once: it extends in the next step, and never sits so at
+        // rest (the 7x7 v8 (-2,-2) export's (1,-2), powered again when (4,-2) pushes the redstone
+        // block back next to it); by QC (the block next to its above cell), at rest it fires at
+        // the edge's first step
+        for s in 0..2 * o.h {
+            let rest = s % o.h == 0;
+            for c in 0..n {
+                for d in 0..4 {
+                    let fire: Vec<Lit> = acts[s].iter().filter(|a| a.c == c && a.d == d && a.kind != Kind::Retract).map(|a| a.lit).collect();
+                    for q in (0..4).filter(|&e| e != d).filter_map(|e| g.step(c, e)) {
+                        for k in [false, true] {
+                            let mut cl = vec![!ty[s][c][piston(k, d, false)], !ty[s][q][RBLOCK]];
+                            if !rest {
+                                cl.extend(fire.iter().copied());
+                            }
+                            sat.add(&cl);
+                        }
+                    }
+                    // QC (w86: armed, it fires on the first block update it gets, maybe steps
+                    // later; forbidding a lingering arm keeps replays faithful): a retracted piston
+                    // whose above cell has a redstone block next to it fires in that very step
+                    if let Some(a) = g.step(c, 2) {
+                        for q in (0..4).filter_map(|e| g.step(a, e)).filter(|&q| q != c) {
+                            for k in [false, true] {
+                                let mut cl = vec![!ty[s][c][piston(k, d, false)], !ty[s][q][RBLOCK]];
+                                cl.extend(fire.iter().copied());
+                                sat.add(&cl);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // QC stability (c70b, at rest; every settled state since w86's arming note): a piston
+        // extended is powered in its own cell, which QC-arms a retracted piston right below it:
+        // that one must fire in the next step (at rest: the edge's first step)
+        for rest in 0..2 * o.h {
             for c in 0..n {
                 let Some(b) = g.step(c, 3) else { continue };
                 for d2 in 0..4 {
