@@ -1,5 +1,6 @@
-//! Armor stands (clk-misc, the dripleaf-stand clock): `ArmorStand`. SKELETON: the payload type,
-//! the dimensions and a tick that records a model error until clk-misc fills it.
+//! Armor stands (clk-misc, the dripleaf-stand clock): `ArmorStand` (a `LivingEntity` without AI)
+//! standing on blocks. SKELETON: the payload type, the dimensions and a tick that records a model
+//! error until clk-misc fills it (`LivingEntity.tick` / `aiStep` / `travel`).
 
 use crate::world::World;
 

@@ -1,0 +1,11 @@
+name: rt-boat-slide
+# redsim test scene (not a clock): a boat thrown along +x on stone into a wall (friction, collision).
+entity: minecraft:oak_boat 1.0 1.0 1.0 {Motion:[0.9d,0.0d,0.0d]}
+palette:
+  S minecraft:stone
+layer 0:
+  SSSSSSSS
+  SSSSSSSS
+layer 1:
+  .......S
+  .......S
