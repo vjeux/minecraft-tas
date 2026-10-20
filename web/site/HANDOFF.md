@@ -37,9 +37,17 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 10:50Z, explore/site after main c188d60ab; box devvm59220, devvm59165 is gone)
+## State (2026-10-20 12:35Z, explore/site after main f3f8f663a; box devvm59220, devvm59165 is gone)
 
-- 5629 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
+- Cards and build pages lead with the properties (kind in small capitals, the main property and
+  blocks as the headline, secondary metrics, chips, the name small); circuit kinds are base kinds
+  in words (the number is a property); lists sort by the main number, then blocks.
+- `crates/site/hidden.tsv`: circuits not published (the slime-free piston extenders);
+  `mctas site dominated` lists the material-only dominated designs for the coordinator to check.
+- Study 11 (pulse multipliers, dividers, monostables, timers): study page with variations and
+  linked rows (studies 1 / 2 / 5), per-kind explanations, demos.
+
+- 5644 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
   match; `door fill` variants folded under the best filling of their mechanism), clocks (the
   catalog's grouping), 408 circuits in 10 studies (the archives; vjeux keeps the basic
   single-component ones: "The interaction model is useful"; the shulker loaders, TNT dupers and

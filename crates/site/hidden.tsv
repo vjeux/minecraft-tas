@@ -1,0 +1,12 @@
+# Circuit designs REDSTONEPEDIA does not publish: they stay in the repository's archives (research,
+# the judge's history) but get no card, page, search hit, count or download on the site. One line
+# each: <study>/<archived file pattern, * = any text> TAB <why>. Read by crates/site/src/circuits.rs
+# (`hidden`); `mctas site smoke` checks that none of them is published.
+pext/pext-*-sf*	vjeux 2026-10-20 12:12Z on pext-n5-sf-sweep136: "Why would anyone use this monstrosity? It's bigger and slower than the other ones we have" (the slime-free line of the piston extenders)
+# 2026-10-20 12:46Z, the coordinator from `mctas site dominated`: bigger than a copper-bulb counter of the same N, no better, only copper-free
+memory/counter2-ring	3 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
+memory/counter4-ring	4 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
+memory/counter4-ring9	3 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
+memory/counter12-ring3-ring4	4 blocks bigger than counter12-ring3-bulb2, same counter, only avoids copper bulbs
+memory/counter16-ring4-ring4	8 blocks bigger than counter16-bulb4, same counter, only avoids copper bulbs
+memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same counter, only avoids copper bulbs

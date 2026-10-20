@@ -562,7 +562,7 @@ pub fn load(app: &mut App, id: u32) {
                     l.shown_status = String::from("\u{0}");
                 }
             }
-            if !p.session.containers().is_empty() {
+            if mcview::labels::has_containers(&p.session) {
                 let _ = l.containers.style().set_property("display", "inline-flex");
                 let _ = l.containers.style().set_property("color", "#ffd27a");
             }
@@ -703,7 +703,7 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 let cam = format!("{:.4},{:.4},{:.4},{:.4},{:.4},{:.4}", c.yaw, c.pitch, c.dist, c.target[0], c.target[1], c.target[2]);
                 let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} cam={cam} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
-            l.overlays.update(p, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
+            l.overlays.update(p, &atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
         }
         let playing = p.playing;
         if changed {

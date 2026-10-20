@@ -232,10 +232,14 @@ fn details(c: &Design) -> Details {
         }
     };
     d.summary = r.summary(c);
+    // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
+    // demo badge and the timing diagram
+    let kind_name = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label(&kind_name, l))).collect();
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
     }
-    d.phases = r.schedule.phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
+    d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
     // the judge's actions at the BUD's target and probe cells, in the design's coordinates
     let probes = c.probe_cells();
     d.events = r
@@ -316,7 +320,7 @@ fn details(c: &Design) -> Details {
             _ => {}
         }
         if !rows.is_empty() && t.frames() > 1 {
-            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: r.schedule.phases.clone() });
+            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: phases.clone() });
         }
     }
     d
@@ -400,8 +404,48 @@ fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> 
     slots.into_iter().map(|m| m.into_inner().ok().flatten().expect("every item mapped")).collect()
 }
 
+/// The designs the site does not publish (crates/site/hidden.tsv): (study, file pattern, why).
+pub fn hidden_rules() -> Vec<(String, String, String)> {
+    include_str!("../hidden.tsv")
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .filter_map(|l| {
+            let (pat, why) = l.split_once('\t')?;
+            let (study, file) = pat.split_once('/')?;
+            Some((study.to_string(), file.to_string(), why.to_string()))
+        })
+        .collect()
+}
+
+/// `*` matches any text (several allowed); the rest literally.
+pub fn glob(pattern: &str, s: &str) -> bool {
+    let parts: Vec<&str> = pattern.split('*').collect();
+    if parts.len() == 1 {
+        return pattern == s;
+    }
+    let mut rest = match s.strip_prefix(parts[0]) {
+        Some(r) => r,
+        None => return false,
+    };
+    for (i, p) in parts.iter().enumerate().skip(1) {
+        if i == parts.len() - 1 {
+            return rest.ends_with(p);
+        }
+        match rest.find(p) {
+            Some(k) => rest = &rest[k + p.len()..],
+            None => return false,
+        }
+    }
+    true
+}
+
+/// Why the site does not publish `study/file` (crates/site/hidden.tsv), if it does not.
+pub fn hidden(study: &str, file: &str) -> Option<String> {
+    hidden_rules().into_iter().find(|(s, p, _)| s == study && (glob(p, file) || glob(&format!("{p}.txt"), file))).map(|(_, _, why)| why)
+}
+
 /// The archived circuits of every study.
-fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
+fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
     let mut out = Vec::new();
     for (study, _title) in STUDIES {
         let dir = archive_dir(root, study);
@@ -412,6 +456,12 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                 continue;
             }
         };
+        // the designs the site does not publish (crates/site/hidden.tsv)
+        let before = rows.len();
+        let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden(study, &r.file).is_none()).collect();
+        if rows.len() < before {
+            notes.push(format!("{study}: {} designs not published (crates/site/hidden.tsv)", before - rows.len()));
+        }
         if rows.is_empty() {
             continue;
         }
@@ -423,8 +473,10 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
         }
         let mut host: BTreeMap<usize, usize> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone(), rows[i].kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect())).collect();
-            for (k, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
+            // as `mctas circuit catalog` folds (palette alone is never a distinction)
+            let items: Vec<(usize, i64, String)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone())).collect();
+            let robust: Vec<bool> = g.iter().map(|&i| circuit::archive::is_robust(&rows[i])).collect();
+            for (k, h) in clock::catalog::fold_hosts_robust(&items, &robust, |a, b| circuit::archive::beats_on_variation(&rows[g[a]], &rows[g[b]])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[k], g[h]);
                 }
@@ -477,12 +529,21 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             if host_id.is_some() {
                 flags.push("variant".into());
             }
+            // the design's own input device (vjeux: "one button" matters to a builder), and its
+            // box's shape
+            if let Some(d) = &det {
+                if d.devices.iter().any(|x| x == "button") {
+                    flags.push("button".into());
+                } else if d.devices.iter().any(|x| x == "lever") {
+                    flags.push("lever".into());
+                }
+            }
             let id = id_of(r);
             let kinds = parsed.as_ref().map(|p| p.kinds.clone()).unwrap_or_else(|| r.kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect());
             out.push(Build {
                 id: id.clone(),
                 kind: "circuit".into(),
-                group: r.kind.clone(),
+                group: site_model::html::kind_words(&r.kind),
                 name: r.file.trim_end_matches(".txt").to_string(),
                 page: format!("{id}.html"),
                 design: format!("designs/circuits/{study}/{}", r.file),
@@ -515,6 +576,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
+                    extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -529,14 +591,32 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
 /// (`designs/circuits/calibration/`, `selftest/`) stay in the repository for the judge and are
 /// not published (vjeux: "They are not useful to people").
 pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
+    export_with(repo, false)
+}
+
+/// [`export`], with the designs crates/site/hidden.tsv keeps off the site too (`keep_hidden`:
+/// the dominated-design audit).
+pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<String>)> {
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
-    let mut builds = archived(&root, &mut notes);
+    let mut builds = archived(&root, &mut notes, keep_hidden);
     apply_catalog(&root, &mut builds, &mut notes);
     builds.sort_by(|a, b| {
-        let s = |x: &Build| x.circuit.as_ref().map(|c| (c.study.clone(), c.value.unwrap_or(i64::MAX))).unwrap_or_default();
-        (s(a), &a.group, a.blocks, &a.name).cmp(&(s(b), &b.group, b.blocks, &b.name))
+        // study (in the studies' order), kind, then the kind's main number, then blocks: every
+        // list follows this order (vjeux 12:09Z: sort by the main number, then blocks)
+        let s = |x: &Build| {
+            x.circuit
+                .as_ref()
+                .map(|c| (STUDIES.iter().position(|s| s.0 == c.study).unwrap_or(usize::MAX), x.group.clone(), c.value.unwrap_or(i64::MAX)))
+                .unwrap_or((usize::MAX, String::new(), i64::MAX))
+        };
+        (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
     });
+    // the dominated-design audit, at every build (a study re-archived: new candidates show here)
+    if !keep_hidden {
+        let probe = site_model::Site { builds: builds.clone(), ..Default::default() };
+        notes.extend(crate::audit::notes(&probe));
+    }
     Ok((builds, notes))
 }
 
@@ -616,8 +696,13 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         values.sort();
         values.dedup();
         let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
+        // `L = 12 gt retriggerable` -> (`L`, ` gt`); `off L = 12 gt` -> (`L`, ` gt`): the letter
+        // before ` = ` (study 11 puts `on` / `off` in front) and the unit after the number
         let (prefix, unit) = match axis.split_once(" = ") {
-            Some((p, v)) => (p.to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
+            Some((p, v)) => (
+                p.split_whitespace().last().unwrap_or("").to_string(),
+                if v.split_whitespace().nth(1) == Some("gt") { " gt" } else { "" },
+            ),
             None => (String::new(), ""),
         };
         let span = match (values.first(), values.last()) {
@@ -956,6 +1041,17 @@ mod tests {
         assert_eq!(l[2], "delays 4+4+4");
         let (t, _) = variant_differences(&[f("redstone block", &[2], 5), f("redstone block", &[4], 5)]);
         assert_eq!(t, "the repeater delays");
+    }
+
+    #[test]
+    fn hidden_designs_match_their_patterns() {
+        assert!(glob("pext-*-sf*", "pext-n5-sf-sweep136.txt"));
+        assert!(glob("pext-*-sf*", "pext-n2-sf7-1-button.txt"));
+        assert!(!glob("pext-*-sf*", "pext-n2-sand6.txt"));
+        assert!(!glob("pext-*-sf*", "pext-n3-flat-cascade19.txt"));
+        assert!(hidden("pext", "pext-n4-sf60.txt").is_some());
+        assert!(hidden("pulse", "pext-n4-sf60.txt").is_none());
+        assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
     }
 
     #[test]
