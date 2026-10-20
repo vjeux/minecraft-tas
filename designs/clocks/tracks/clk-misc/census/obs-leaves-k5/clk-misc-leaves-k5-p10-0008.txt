@@ -1,0 +1,19 @@
+name: clk-misc-leaves-k5-p10-0008
+# clk-obs census (k=5, palette obs,sticky,stone,minecraft:oak_log,minecraft:oak_leaves[persistent=true]): P=10 (redsim), family oak_leaves+oak_log+observer+sticky_piston, kick last 0 0 1, swept volume 6.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 1 last
+palette:
+  A minecraft:stone
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  E minecraft:oak_log[axis=y]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  .
+  E
