@@ -3,8 +3,9 @@
 Seven studies in the clock study's spirit ([clocks.md](clocks.md)): for each kind of contraption,
 find as many structurally different designs as possible for each value of its main number,
 smallest first, every one judged in the REAL game, archived and cataloged. The brief is vjeux's
-(2026-10-19, "Let's do 1-7"); clockinfra owns the judge (crates/circuit, crates/circuit-cli, this
-page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <track> ...`).
+(2026-10-19, "Let's do 1-7"; study 9, TNT dupers, 2026-10-20); clockinfra owns the judge
+(crates/circuit, crates/circuit-cli, this page), each track owns its crate
+(`crates/circuit-<track>`, `mctas circuit <track> ...`).
 
 | study | track | kinds | axis (the gallery's main number) | metrics |
 |---|---|---|---|---|
@@ -16,6 +17,7 @@ page), each track owns its crate (`crates/circuit-<track>`, `mctas circuit <trac
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
+| 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
@@ -204,6 +206,18 @@ kick) before the first input.
   trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
   trip's period and the positions it stands intact at; `latency`: the kick to the first change;
   the box is the design's own.
+* **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
+  primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
+  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  the frames must repeat with a period P through the run's second half for at least 8 periods,
+  every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
+  again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
+  `rate` (the gallery's axis): 1200 n / P TNT per minute; `period`, `per period`, `latency` (the
+  kick to the first spawn). The spread of the primed TNT's position and motion (precision: the
+  game's random 0.02 kick) is in the table, not in the metrics the builds are compared on.
+* **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
+  the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
+  block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
 * **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
   crates/circuit/src/shulker.rs; the variations and how each is measured:
   designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:
