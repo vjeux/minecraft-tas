@@ -38,13 +38,19 @@ pub fn header(prefix: &str, kind: Option<&str>) -> String {
     header_with(prefix, kind, None)
 }
 
-/// The shown designs per tab (the index's own counts with no search), computed once per build.
+/// What each tab's one card holds (critique 91a98b26c: "Doors 1 · Clocks 1" read as one door and
+/// one clock): the door records, the clock periods, the circuit kinds.
+fn kind_counts(site: &Site) -> [usize; 3] {
+    let doors = site.builds.iter().filter(|b| b.door.is_some()).count();
+    let periods = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "generator")).count();
+    let kinds = site.run(&site_model::Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
+    [doors, periods, kinds]
+}
+
+/// The tabs' counts, computed once per build.
 fn tab_counts(site: &Site) -> [usize; 3] {
     static COUNTS: std::sync::OnceLock<[usize; 3]> = std::sync::OnceLock::new();
-    *COUNTS.get_or_init(|| {
-        let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
-        [n("door"), n("clock"), n("circuit")]
-    })
+    *COUNTS.get_or_init(|| kind_counts(site))
 }
 
 /// [`header`] with the tabs' counts: every page's header reads like the index's (critique C44:
@@ -1177,18 +1183,30 @@ fn member_caption(m: &Member, kind: &str) -> String {
 
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
-    // what each tab shows (critique C1: one number per thing, the one a visitor can browse)
-    let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
+    // what the tabs' cards hold (critique 91a98b26c: "1 piston doors, 1 clocks" read as one door
+    // and one clock)
+    let [doors, periods, kinds] = kind_counts(site);
+    let parts: Vec<String> = [
+        (doors, if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") }),
+        (periods, if periods == 1 { "the best clock".to_string() } else { format!("the best clock for each of {periods} periods") }),
+        (kinds, if kinds == 1 { "the best design of 1 circuit kind".to_string() } else { format!("the best design of {kinds} circuit kinds") }),
+    ]
+    .into_iter()
+    .filter(|(n, _)| *n > 0)
+    .map(|(_, w)| w)
+    .collect();
+    let holds = match parts.len() {
+        0 => String::new(),
+        1 => parts[0].clone(),
+        n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+    };
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, each design tested tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, each tested tick by tick in the real game, only the best of each kind: {holds}.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
-         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n",
-        n("door"),
-        n("clock"),
-        if n("circuit") > 0 { format!(", {} circuits", n("circuit")) } else { String::new() }
+         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"
     );
     shell(SITE_NAME, "Redstone builds you can download: piston doors, clocks and circuits, each tested in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
 }
@@ -1472,6 +1490,6 @@ mod tests {
         let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
-        assert!(p.contains("1 piston doors, 2 clocks"));
+        assert!(p.contains("only the best of each kind: the best 3×3 piston door and the best clock for each of 2 periods."), "{p}");
     }
 }
