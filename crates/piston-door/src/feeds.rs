@@ -236,7 +236,7 @@ pub fn analyze_full(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, s
         }
     }
     let mut region: BTreeMap<P2, (char, usize)> = BTreeMap::new();
-    let mut label = b'A';
+    let mut letter = b'A';
     for c in free.iter() {
         if region.contains_key(c) {
             continue;
@@ -252,8 +252,8 @@ pub fn analyze_full(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, s
             }
             k += 1;
         }
-        let l = label as char;
-        label = if label == b'Z' { b'a' } else { label + 1 };
+        let l = letter as char;
+        letter = if letter == b'Z' { b'a' } else { letter + 1 };
         for q in &comp {
             region.insert(*q, (l, comp.len()));
         }
