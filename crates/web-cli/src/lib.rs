@@ -40,6 +40,10 @@ pub enum WebCmd {
         /// Only failures and the summary.
         #[arg(long, short)]
         quiet: bool,
+        /// Also run the period detector of this built wasm (web/viewer/mcview_bg.wasm, run by an
+        /// interpreter) and require the same numbers: the browser simulates exactly like redsim.
+        #[arg(long)]
+        wasm: Option<PathBuf>,
     },
     /// Build the browser bundle: `crates/mcview-web` for wasm32 (profile `web`), then wasm-bindgen
     /// (`--target web --out-name mcview`): `<out>/mcview.js` + `<out>/mcview_bg.wasm`. Needs the
@@ -61,6 +65,9 @@ pub enum WebCmd {
         /// How many of the designs get a live viewer (the first ones).
         #[arg(long, default_value_t = 2)]
         live: usize,
+        /// The live viewers start playing (`data-autoplay`).
+        #[arg(long)]
+        autoplay: bool,
     },
     /// Serve a directory over HTTP on localhost (to open a demo page in a browser).
     Serve {
@@ -68,16 +75,102 @@ pub enum WebCmd {
         #[arg(long, default_value_t = 8000)]
         port: u16,
     },
+    /// Sanity check against the real game: each design's real-game picture
+    /// (`<img-dir>/<stem>.jpg`, from `mctas clock shot`) next to the viewer's frame of the same
+    /// moment and camera, as `<out>/<stem>.cmp.png`, with the mean RGB difference per pixel and on
+    /// a coarse 32x18 grid.
+    Compare {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "designs/clocks/img")]
+        img_dir: PathBuf,
+        #[arg(long, short)]
+        out: PathBuf,
+    },
+    /// Texture contact sheet: PNGs scaled up (nearest) in a grid, in the given order (row by row),
+    /// to pick textures by eye.
+    Sheet {
+        pngs: Vec<PathBuf>,
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        scale: u32,
+        #[arg(long, default_value_t = 8)]
+        cols: u32,
+    },
+    /// A grid of frames over time, as the browser animates them: a door from its lever flip, a
+    /// clock from its still moment, `--step` game ticks apart (0.5 shows moving blocks mid-way).
+    Strip {
+        design: PathBuf,
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 6)]
+        cols: u32,
+        #[arg(long, default_value_t = 4)]
+        rows: u32,
+        #[arg(long, default_value_t = 0.5)]
+        step: f32,
+        #[arg(long, default_value_t = 320)]
+        width: u32,
+        #[arg(long, default_value_t = 240)]
+        height: u32,
+    },
 }
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
         WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch }),
-        WebCmd::Check { designs, horizon, quiet } => cmd_check(&designs, horizon, quiet),
+        WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
-        WebCmd::Demo { designs, out, viewer, live } => cmd_demo(&designs, &out, &viewer, live),
+        WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
+        WebCmd::Compare { designs, img_dir, out } => cmd_compare(&designs, &img_dir, &out),
+        WebCmd::Sheet { pngs, out, scale, cols } => {
+            let (rgba, w, h) = mcview::tools::sheet(&pngs, scale, cols).map_err(anyhow::Error::msg)?;
+            mcview::render::headless::write_png(&out, w, h, &rgba).map_err(anyhow::Error::msg)?;
+            println!("{} ({} textures)", out.display(), pngs.len());
+            Ok(())
+        }
+        WebCmd::Strip { design, out, cols, rows, step, width, height } => {
+            let atlas = mcview::atlas::Atlas::build();
+            let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+            let text = std::fs::read_to_string(&design)?;
+            let (rgba, w, h) = mcview::tools::strip(&mut off, &atlas, &text, cols, rows, step, width, height).map_err(anyhow::Error::msg)?;
+            mcview::render::headless::write_png(&out, w, h, &rgba).map_err(anyhow::Error::msg)?;
+            println!("{} ({cols}x{rows} frames, {step} gt apart)", out.display());
+            Ok(())
+        }
     }
+}
+
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path) -> Result<()> {
+    let atlas = mcview::atlas::Atlas::build();
+    let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+    std::fs::create_dir_all(out)?;
+    let (mut n, mut sum_px, mut sum_coarse) = (0, 0.0, 0.0);
+    for d in designs {
+        let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        let jpg = img_dir.join(format!("{stem}.jpg"));
+        let Ok(bytes) = std::fs::read(&jpg) else {
+            println!("{stem}: no picture at {}", jpg.display());
+            continue;
+        };
+        let text = std::fs::read_to_string(d)?;
+        match mcview::tools::compare(&mut off, &atlas, &text, &bytes) {
+            Ok(c) => {
+                let path = out.join(format!("{stem}.cmp.png"));
+                mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;
+                println!("{stem}: pixel diff {:.1}, coarse diff {:.1} ({}) -> {}", c.pixel_diff, c.coarse_diff, c.note, path.display());
+                n += 1;
+                sum_px += c.pixel_diff;
+                sum_coarse += c.coarse_diff;
+            }
+            Err(e) => println!("{stem}: ERROR {e}"),
+        }
+    }
+    if n > 0 {
+        println!("web compare: {n} pictures, mean pixel diff {:.1}, mean coarse diff {:.1} (0 = identical, 255 = opposite)", sum_px / n as f64, sum_coarse / n as f64);
+    }
+    Ok(())
 }
 
 /// A tool from PATH, else from ~/.cargo/bin.
@@ -123,7 +216,7 @@ fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize) -> Result<()> {
+fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
     std::fs::create_dir_all(out.join("designs"))?;
     std::fs::create_dir_all(out.join("viewer"))?;
     for f in ["mcview.js", "mcview_bg.wasm"] {
@@ -137,7 +230,7 @@ fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize) -> Resu
         let src = html_escape(&format!("designs/{name}"));
         let label = html_escape(name.trim_end_matches(".txt"));
         if i < live {
-            lives.push_str(&format!("<section><h2>{label}</h2><div class=\"live\" data-mcview=\"full\" data-src=\"{src}\"><p class=\"fallback\">loading {label}</p></div></section>\n"));
+            lives.push_str(&format!("<section><h2>{label}</h2><div class=\"live\" data-mcview=\"full\" data-src=\"{src}\"{}><p class=\"fallback\">loading {label}</p></div></section>\n", if autoplay { " data-autoplay" } else { "" }));
         }
         thumbs.push_str(&format!("<a class=\"card\" href=\"#\" title=\"{label}\"><div class=\"thumb\" data-mcview=\"thumb\" data-src=\"{src}\"><p class=\"fallback\">{label}</p></div><span>{label}</span></a>\n"));
     }
@@ -258,7 +351,11 @@ fn same_parse(text: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool) -> Result<()> {
+fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>) -> Result<()> {
+    let mut probe = match wasm {
+        Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
+        None => None,
+    };
     let (mut ok, mut bad, mut skipped) = (0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
@@ -267,7 +364,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool) -> Result<()> {
             println!("FAIL {} parse: {e}", d.display());
             continue;
         }
-        let line = match clock_pair(&text, horizon) {
+        let line = match clock_pair(&text, horizon, probe.as_mut()) {
             Ok(Some(l)) => l,
             Ok(None) => {
                 skipped += 1;
@@ -287,16 +384,16 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool) -> Result<()> {
             println!("ok   {} {line}", d.display());
         }
     }
-    println!("web check: {ok} clocks agree, {skipped} parse-only, {bad} failures");
+    println!("web check: {ok} clocks agree{}, {skipped} parse-only, {bad} failures", if probe.is_some() { " (native viewer, wasm viewer and clock sim)" } else { "" });
     if bad > 0 {
         bail!("{bad} failures");
     }
     Ok(())
 }
 
-/// A clock's numbers from both detectors: Some(summary) when they agree, None when the design is
-/// not a redsim clock, Err when they differ.
-fn clock_pair(text: &str, horizon: u32) -> Result<Option<String>, String> {
+/// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they
+/// agree, None when the design is not a redsim clock, Err when they differ.
+fn clock_pair(text: &str, horizon: u32, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
     let design = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
     if design.ports.contains_key("door") {
         return Ok(None);
@@ -305,13 +402,28 @@ fn clock_pair(text: &str, horizon: u32) -> Result<Option<String>, String> {
     let r = clock::sim::simulate(&c, &clock::sim::SimOptions { horizon, margin: 4 });
     let s = mcview::Session::new(text, &mcview::Options::default())?;
     let mine = s.period(horizon);
+    let wasm = match probe {
+        Some(p) => Some(p.period(text, horizon)?),
+        None => None,
+    };
     match (r.verdict, mine) {
         (clock::sim::Verdict::Clock | clock::sim::Verdict::Stops | clock::sim::Verdict::Composite, Ok(p)) => {
             let theirs = (r.state_warmup, r.state_period, r.warmup, r.period);
             let ours = (p.state_warmup, p.state_period, p.warmup, p.period);
-            if theirs == ours { Ok(Some(format!("W{} P{} (state W{} P{})", p.warmup, p.period, p.state_warmup, p.state_period))) } else { Err(format!("clock sim {theirs:?} vs viewer {ours:?}")) }
+            if theirs != ours {
+                return Err(format!("clock sim {theirs:?} vs viewer {ours:?}"));
+            }
+            if let Some(w) = wasm
+                && w != Some(ours)
+            {
+                return Err(format!("clock sim and the native viewer {ours:?} vs the wasm viewer {w:?}"));
+            }
+            Ok(Some(format!("W{} P{} (state W{} P{})", p.warmup, p.period, p.state_warmup, p.state_period)))
         }
-        (clock::sim::Verdict::Unmodeled | clock::sim::Verdict::Invalid | clock::sim::Verdict::NoRepeat, Err(_)) => Ok(None),
+        (clock::sim::Verdict::Unmodeled | clock::sim::Verdict::Invalid | clock::sim::Verdict::NoRepeat, Err(_)) => match wasm {
+            Some(Some(w)) => Err(format!("clock sim {} but the wasm viewer finds {w:?}", r.verdict.word())),
+            _ => Ok(None),
+        },
         (v, Ok(p)) => Err(format!("clock sim {} but the viewer finds W{} P{}", v.word(), p.state_warmup, p.state_period)),
         (v, Err(e)) => Err(format!("clock sim {} (W{} P{}) but the viewer: {e}", v.word(), r.state_warmup, r.state_period)),
     }
