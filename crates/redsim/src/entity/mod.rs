@@ -12,8 +12,12 @@
 //! model error (a run using them is not trustworthy) until M2 fills them. Falling blocks still
 //! live in `gravity.rs` (they move into this list as a kind in M2, bit-identical).
 
+pub mod armor_stand;
 pub mod boat;
+pub mod collide;
+pub mod fluid_push;
 pub mod item;
+pub mod kinds;
 pub mod minecart;
 pub mod mth;
 pub mod vec3;
@@ -39,6 +43,7 @@ pub enum EntityKind {
     Boat(boat::BoatState),
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
+    ArmorStand(armor_stand::ArmorStandState),
 }
 
 impl EntityKind {
@@ -48,6 +53,17 @@ impl EntityKind {
             EntityKind::Boat(_) => (boat::WIDTH, boat::HEIGHT),
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
+            EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+        }
+    }
+
+    /// `EntityDimensions.eyeHeight` (`eyeHeight(..)` in `EntityTypes`, else height * 0.85F).
+    pub fn eye_height(&self) -> f32 {
+        match self {
+            EntityKind::Boat(_) => 0.5625,
+            EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
+            EntityKind::Item(_) => 0.2125,
+            EntityKind::ArmorStand(_) => 1.7775,
         }
     }
 }
@@ -89,6 +105,24 @@ pub struct Entity {
     pub first_tick: bool,
     pub fall_distance: f64,
     pub tick_count: i32,
+    // ---- movement (collide.rs, clk-misc) ----
+    /// `movementThisTick` (recorded by `move`, replayed by `applyEffectsFromBlocks`).
+    pub movement_this_tick: Vec<collide::Movement>,
+    /// `finalMovementsThisTick`.
+    pub final_movements: Vec<collide::Movement>,
+    /// `mainSupportingBlockPos`.
+    pub main_support: Option<BlockPos>,
+    /// `onGroundNoBlocks`.
+    pub on_ground_no_blocks: bool,
+    /// `stuckSpeedMultiplier` (cobwebs and the like: never set by a modeled block).
+    pub stuck_speed: Vec3,
+    pub no_physics: bool,
+    /// `lastKnownPosition` / `lastKnownSpeed` (`computeSpeed`).
+    pub last_known_position: Option<Vec3>,
+    pub last_known_speed: Vec3,
+    pub invulnerable_time: i32,
+    /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
+    pub fluid: fluid_push::FluidInteraction,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -130,6 +164,16 @@ impl Entity {
             first_tick: true,
             fall_distance: 0.0,
             tick_count: 0,
+            movement_this_tick: Vec::new(),
+            final_movements: Vec::new(),
+            main_support: None,
+            on_ground_no_blocks: false,
+            stuck_speed: Vec3::ZERO,
+            no_physics: false,
+            last_known_position: None,
+            last_known_speed: Vec3::ZERO,
+            invulnerable_time: 0,
+            fluid: Default::default(),
         }
     }
 
@@ -167,7 +211,8 @@ impl Entities {
     }
 }
 
-/// The entity phase: every live entity's `tick`, in insertion order; removed ones leave the list.
+/// The entity phase: every live entity's `commonTick` then `tick` (`ServerLevel.tickNonPassenger`),
+/// in insertion order; removed ones leave the list.
 pub fn tick_all(w: &mut World) {
     if w.entities.list.is_empty() {
         return;
@@ -177,33 +222,73 @@ pub fn tick_all(w: &mut World) {
         if w.entities.list[i].removed {
             continue;
         }
+        common_tick(w, i);
         match w.entities.list[i].kind {
             EntityKind::Boat(_) => boat::tick(w, i),
             EntityKind::Minecart(_) => minecart::tick(w, i),
             EntityKind::Item(_) => item::tick(w, i),
+            EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
         }
     }
     w.entities.list.retain(|e| !e.removed);
 }
 
-/// `Entity.move(type, delta)` of entity `i` (index in the list). STUB until M2.
-pub fn move_(w: &mut World, i: usize, _mover: MoverType, delta: Vec3) {
-    w.errors.push("entity move is not modeled yet (redsim M2)".into());
-    let p = w.entities.list[i].pos.add_v(delta);
-    w.entities.list[i].set_pos(p);
+/// `Entity.commonTick`: `invulnerableTime`, `setOldPosAndRot`, `tickCount`.
+pub fn common_tick(w: &mut World, i: usize) {
+    let e = &mut w.entities.list[i];
+    if e.invulnerable_time > 0 {
+        e.invulnerable_time -= 1;
+    }
+    e.xo = e.pos.x;
+    e.x_old = e.pos.x;
+    e.yo = e.pos.y;
+    e.y_old = e.pos.y;
+    e.zo = e.pos.z;
+    e.z_old = e.pos.z;
+    e.y_rot_o = e.y_rot;
+    e.x_rot_o = e.x_rot;
+    e.tick_count += 1;
 }
 
-/// `Entity.checkInsideBlocks` + `applyEffectsFromBlocks` of entity `i`: every block whose shape
-/// the entity's box touches gets its `entityInside` (clk-misc's plates, tripwire, detector rails,
-/// dripleaf, bubble columns). STUB until M2.
-pub fn check_inside_blocks(w: &mut World, _i: usize) {
-    w.errors.push("entity checkInsideBlocks is not modeled yet (redsim M2)".into());
+/// `Entity.baseTick` (no passengers, portals, fire or lava in the modeled worlds):
+/// `computeSpeed`, `wasEyeInWater`, `updateFluidInteraction`, `checkBelowWorld`, `firstTick`.
+pub fn base_tick(w: &mut World, i: usize) {
+    {
+        let e = &mut w.entities.list[i];
+        let last = *e.last_known_position.get_or_insert(e.pos);
+        e.last_known_speed = e.pos.subtract_v(last);
+        e.last_known_position = Some(e.pos);
+        // the previous tick's trackers
+        e.was_eye_in_water = e.fluid.eye_in_water();
+    }
+    fluid_push::update_fluid_interaction(w, i);
+    let e = &mut w.entities.list[i];
+    // `checkBelowWorld`: below the world's bottom by 64
+    if e.pos.y < (crate::gravity::MIN_Y - 64) as f64 {
+        e.removed = true;
+    }
+    e.first_tick = false;
 }
 
-/// `Entity.updateFluidHeightAndDoFluidPushing(tag, flowScale)`. STUB until M2 (false).
-pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, _i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
-    w.errors.push("entity fluid pushing is not modeled yet (redsim M2)".into());
-    false
+/// `Entity.move(type, delta)` of entity `i` (index in the list): `collide::move_`.
+pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
+    collide::move_(w, i, mover, delta);
+}
+
+/// `Entity.applyEffectsFromBlocks()` of entity `i`: `collide::apply_effects_from_blocks`.
+pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
+    collide::apply_effects_from_blocks(w, i);
+}
+
+/// `CollisionGetter.noCollision(entity, box)`.
+pub fn no_collision(w: &World, i: usize, bb: Aabb) -> bool {
+    collide::no_collision(w, i, bb)
+}
+
+/// `Entity.updateFluidInteraction` (the old name `updateFluidHeightAndDoFluidPushing`): see
+/// [`fluid_push::update_fluid_interaction`]; the fluid and scale are the game's (water, 0.014).
+pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
+    fluid_push::update_fluid_interaction(w, i)
 }
 
 impl World {

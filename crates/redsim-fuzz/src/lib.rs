@@ -17,6 +17,9 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::sync::Mutex;
 
+/// Exact real-game traces of entity / fluid clocks replayed in redsim (track clk-misc).
+pub mod trace_compare;
+
 /// splitmix64.
 #[derive(Clone)]
 pub struct Rng(u64);
