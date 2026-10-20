@@ -4,6 +4,7 @@
 //! The judge's checkers are crates/circuit/src/pulsemult.rs's `monostable`, `off_delay` and
 //! `on_delay`; the designs live in designs/circuits/pulsemult/tracks/timer/.
 
+pub mod cells;
 pub mod rehead;
 pub mod rings;
 
@@ -42,6 +43,19 @@ enum Cmd {
         #[arg(long, default_value = "26.3")]
         version: String,
     },
+    /// A design's run on redsim under an explicit stimulus (`10+ 14-`, as `circuit sim
+    /// --stimulus`): every cell that changes, frame by frame, from `--from` to `--to`.
+    Cells {
+        design: PathBuf,
+        #[arg(long)]
+        stimulus: String,
+        #[arg(long, default_value_t = 0)]
+        from: u32,
+        #[arg(long, default_value_t = u32::MAX)]
+        to: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     /// Comparator-ring off-delays (crates/circuit-timer/src/rings.rs): two comparators in a ring,
     /// every dust return line in the box, every input and output cell, judged on redsim; the
     /// smallest pass of each L is written to `<out>/off-delay-ring-L<L>.txt`.
@@ -63,5 +77,6 @@ pub fn run(args: Vec<String>) -> Result<()> {
     match cli.cmd {
         Cmd::As { kind, designs, out, prefix, quiet, margin, version } => rehead::run(&kind, &designs, out.as_deref(), &prefix, quiet, margin, &version),
         Cmd::Rings { out, max_line, workers, version } => rings::run(&out, max_line, workers, &version),
+        Cmd::Cells { design, stimulus, from, to, margin } => cells::run(&design, &stimulus, from, to, margin),
     }
 }
