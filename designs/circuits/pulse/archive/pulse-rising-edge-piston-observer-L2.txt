@@ -1,5 +1,5 @@
 # archived 2026-10-20T14:13Z from /tmp/clkobs-runs/tiled/pulse-rising-edge-piston-observer-L2-tile1.txt by mctas circuit archive
-# CIRCUIT: pulse-rising-edge-piston-observer-L2 rising-edge L 2 gt, delay 5 gt, min-pulse 4 gt, tileable every 1 (1 0 0), 2 blocks, 1x3x1, robust
+# CIRCUIT: pulse-rising-edge-piston-observer-L2 rising-edge L 2 gt, delay 4 gt, min-pulse 4 gt, tileable every 1 (1 0 0), 2 blocks, 1x4x1, robust
 name: pulse-rising-edge-piston-observer-L2
 circuit: rising-edge
 tile: 1 0 0

@@ -1,5 +1,5 @@
 # archived 2026-10-20T14:07Z from /tmp/clkobs-runs/tiled/pulse-dual-edge-observer-lamp-L2-self-tile1.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-edge-observer-lamp-L2 dual-edge L 2 gt, delay 2 gt rising / 6 gt falling, min-pulse 1 gt, tileable every 1 (1 0 0), 2 blocks, 1x1x2, robust
+# CIRCUIT: pulse-dual-edge-observer-lamp-L2 dual-edge L 2 gt, delay 2 gt rising / 6 gt falling, min-pulse 2 gt (the shortest a real input makes), tileable every 1 (1 0 0), 2 blocks, 1x1x2, robust
 name: pulse-dual-edge-observer-lamp-L2
 circuit: dual-edge
 tile: 1 0 0

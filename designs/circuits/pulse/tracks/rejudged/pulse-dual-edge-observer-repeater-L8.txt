@@ -1,0 +1,19 @@
+# rejudged (2026-10-20T16:41Z, mctas circuit archive --rejudge): FAIL: pulse-dual-edge-observer-repeater-L8 dual-edge: the longest input pulse (40 gt) gives 0 output pulse(s): want one per edge
+name: pulse-dual-edge-observer-repeater-L8
+circuit: dual-edge
+group: pulse-dual-edge-observer-repeater
+group title: pulse on both edges: an observer and a repeater
+tile: 1 0 0
+port input: 0 1 2
+port output: 0 1 0
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=south,powered=false]
+  R minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+  .
+layer 1:
+  R
+  O
