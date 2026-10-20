@@ -129,6 +129,8 @@ pub fn waterlogged(b: &Block) -> Option<bool> {
     match *b {
         // ---- entity-reacting blocks (clk-misc): their waterlogged variants ----
         Block::BigDripleaf { waterlogged, .. } => Some(waterlogged),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { waterlogged, .. } | Block::CoralWallFan { waterlogged, .. } => Some(waterlogged),
         _ => None,
     }
 }
@@ -139,6 +141,9 @@ pub fn set_waterlogged(b: Block, v: bool) -> Option<Block> {
     match b {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::BigDripleaf { facing, tilt, .. } => Some(Block::BigDripleaf { facing, tilt, waterlogged: v }),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { kind, .. } => Some(Block::CoralFan { kind, waterlogged: v }),
+        Block::CoralWallFan { kind, facing, .. } => Some(Block::CoralWallFan { kind, facing, waterlogged: v }),
         _ => None,
     }
 }

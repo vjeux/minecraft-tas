@@ -22,6 +22,7 @@ pub mod redstone;
 pub mod sculk;
 pub mod snapshot;
 pub mod ticks;
+pub mod tnt;
 pub mod world;
 
 pub use block::{Block, Kind};

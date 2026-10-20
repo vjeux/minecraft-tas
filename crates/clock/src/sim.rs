@@ -278,6 +278,14 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
             Action::Clear { pos } => {
                 s.world.set_block(bp(pos), Block::Air, flags::ALL);
             }
+            Action::ShapeSet { pos, state } => {
+                let b = Block::parse(&state).map_err(|e| (Verdict::Unmodeled, e))?;
+                s.world.set_block(bp(pos), b, flags::CLIENTS);
+            }
+            Action::Update { pos } => {
+                let src = s.world.get(bp(pos)).kind();
+                s.world.update_neighbors_at(bp(pos), src);
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -371,6 +379,8 @@ pub struct Driven {
     /// The run stopped early: the tick and why (a drop, a write outside the box, a case redsim does
     /// not model); `cells` and `signals` hold the frames before it.
     pub stopped: Option<(u32, String)>,
+    /// TNT primed (track tnt): (the frame it first shows in, its cell).
+    pub primed: Vec<(u32, Pos)>,
 }
 
 /// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
@@ -379,22 +389,34 @@ pub struct Driven {
 /// tick 0..=ticks. Fails on a block redsim does not model; a problem during the run (a drop, a write
 /// outside the box) stops it ([`Driven::stopped`]).
 pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
+    drive_with(c, extra, ticks, probes, from, to, false)
+}
+
+/// [`drive`]; `remove_primed`: the caller removes every primed TNT before it explodes (the TNT
+/// judge), so an explosion is no model note.
+pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool) -> Result<Driven, (Verdict, String)> {
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
-        if let Action::Place { state, .. } = a {
+        if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
             Block::parse(state).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
         }
     }
     blocks.sort_by_key(|(p, _)| *p);
     let mut s = start_box(c, &blocks, from, to)?;
+    s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None };
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() };
+    let mut primed_seen = 0usize;
     for t in 0..=ticks {
         if let Err((_, why)) = between_ticks(&mut s, t) {
             out.stopped = Some((t, why));
             break;
         }
+        for &(_, p) in &s.world.primed[primed_seen..] {
+            out.primed.push((t, p.arr()));
+        }
+        primed_seen = s.world.primed.len();
         let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
         v.sort_by_key(|(p, _)| *p);
         out.cells.push(v);

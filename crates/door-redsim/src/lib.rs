@@ -47,6 +47,17 @@ pub enum DoorCmd {
     /// block change of the first cycle at the first position; `--compact-dir` pulls every input
     /// group as early as the mechanism allows and writes `<name>-cpt.ideal` with its windows.
     IdealRs(cmd::ideal::IdealRsArgs),
+    /// Replace a plan's ideal inputs by OBSERVERS watching the mechanism itself (piston-door
+    /// selffeed.rs, track pext): for each input, every observer in a free plane cell that powers
+    /// the same piston (directly, through the cell above it, or through a solid block touching
+    /// either) is judged on redsim with that input removed; greedy rounds keep the fastest that
+    /// works at the full positions. What is left is a smaller plan for the wiring tools.
+    Selffeed(cmd::selffeed::SelffeedArgs),
+    /// ONE pulse train for both lever edges (piston-door interleave.rs, track pext): merge a
+    /// plan's open and close step sequences, a step of one edge firing during the other only where
+    /// it changes nothing there (breadth-first over the steps done on each edge), then judge the
+    /// merged train as a plan with the same events on both edges.
+    Interleave(cmd::selffeed::InterleaveArgs),
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -63,6 +74,8 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RedsimCase(a) => cmd::fuzz::cmd_redsim_case(version, a),
         DoorCmd::RedsimVerify(a) => cmd::judge::cmd_redsim_verify(version, a),
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
+        DoorCmd::Selffeed(a) => cmd::selffeed::cmd_selffeed(a),
+        DoorCmd::Interleave(a) => cmd::selffeed::cmd_interleave(a),
         DoorCmd::Pistfuzz(a) => cmd::fuzz::cmd_pistfuzz(version, a),
     }
 }
