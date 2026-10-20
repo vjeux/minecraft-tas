@@ -312,11 +312,18 @@ fn block_speed_factor(w: &World, i: usize) -> f32 {
     }
 }
 
-/// `Entity.restituteMovementAfterCollisions` (no modeled block bounces: restitution 0, so a
-/// collided axis keeps `-v * 0`, a signed zero).
+/// `Entity.restituteMovementAfterCollisions`: no modeled entity bounces by itself
+/// (`getEntityBounciness` 0: a collided horizontal axis keeps `-v * 0`, a signed zero); landing
+/// faster than gravity on a bouncy block (`getBounceRestitution`: slime 1.0F; x 0.8F for a
+/// non-living entity; honey suppresses bounces) gives the vertical bounce with the gravity and
+/// drag compensation of the part of the tick spent moving, and a BOUNCE game event.
 fn restitute(w: &mut World, i: usize, x_col: bool, z_col: bool, movement: Vec3) {
+    let effect = w.get(get_on_pos(w, &w.entities.list[i], 0.2));
+    let gravity = super::kinds::gravity(w, i);
+    let air_drag = super::kinds::air_drag(w, i);
+    let living = matches!(w.entities.list[i].kind, super::EntityKind::ArmorStand(_));
     let e = &mut w.entities.list[i];
-    let restitution = 0.0f64;
+    let mut restitution = 0.0f64;
     let cur = e.delta_movement;
     let mut after = cur;
     if x_col {
@@ -325,12 +332,31 @@ fn restitute(w: &mut World, i: usize, x_col: bool, z_col: bool, movement: Vec3) 
     if z_col {
         after = after.with_axis(2, -cur.z * restitution);
     }
+    let mut bounced = restitution > 0.0 && (x_col || z_col);
     if e.vertical_collision {
-        let _ = movement;
-        let (gravity_comp, drag) = (0.0f64, 1.0f64);
+        if e.vertical_collision_below {
+            let block = match effect {
+                Block::Simple(crate::block::Simple::SlimeBlock) => 1.0f32,
+                _ => 0.0f32,
+            };
+            let block = if living { block } else { block * 0.8f32 };
+            let suppressed = matches!(effect, Block::Simple(crate::block::Simple::HoneyBlock));
+            restitution = if !(-cur.y <= gravity) && !suppressed { restitution.max(block as f64) } else { 0.0 };
+        }
+        let (gravity_comp, drag) = if restitution > 0.0 {
+            let portion = movement.y / cur.y;
+            bounced = true;
+            (portion * gravity, mth::lerp(portion, 1.0, air_drag))
+        } else {
+            (0.0, 1.0)
+        };
         after = after.with_axis(1, (gravity_comp - cur.y) * drag * restitution);
     }
     e.delta_movement = after;
+    if bounced && !w.sculk.is_empty() {
+        // GameEvent.BOUNCE at the entity's exact position: not modeled for sculk sensors
+        w.errors.push("entity bounce game event near sculk sensors is not modeled".into());
+    }
 }
 
 /// `Entity.limitPistonMovement(vec)`: one axis only (x, else y, else z), and what pistons move it
@@ -735,6 +761,32 @@ fn check_inside_blocks(w: &mut World, i: usize, moves: &[Movement]) {
     }
 }
 
+/// The `stepOn` part of `Entity.applyEffectsFromBlocks(movements)`: an entity on the ground acts
+/// on the block at `getOnPosLegacy()`. Slime: `|vy| < 0.1` scales the horizontal motion by
+/// `0.4 + |vy| * 0.2` (nobody sneaks); magma under a living entity (damage) and sculk sensors
+/// (a STEP vibration) are model errors; the other modeled blocks have no `stepOn`.
+fn step_on(w: &mut World, i: usize) {
+    if !w.entities.list[i].on_ground {
+        return;
+    }
+    let pos = get_on_pos(w, &w.entities.list[i], 0.2);
+    match w.get(pos) {
+        Block::Simple(crate::block::Simple::SlimeBlock) => {
+            let e = &mut w.entities.list[i];
+            let ay = e.delta_movement.y.abs();
+            if ay < 0.1 {
+                let s = 0.4 + ay * 0.2;
+                e.delta_movement = e.delta_movement.multiply(s, 1.0, s);
+            }
+        }
+        Block::Simple(crate::block::Simple::MagmaBlock) if matches!(w.entities.list[i].kind, super::EntityKind::ArmorStand(_)) => {
+            w.errors.push("a living entity on magma (hot floor damage) is not modeled".into());
+        }
+        Block::Sculk { .. } => w.errors.push("an entity stepping on a sculk sensor is not modeled".into()),
+        _ => {}
+    }
+}
+
 /// `Entity.applyEffectsFromBlocks()`: this tick's recorded moves (else old -> current position),
 /// replayed through the blocks they sweep.
 pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
@@ -753,6 +805,7 @@ pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
     if w.entities.list[i].removed || w.entities.list[i].no_physics {
         return;
     }
+    step_on(w, i);
     check_inside_blocks(w, i, &moves);
 }
 
@@ -767,6 +820,7 @@ pub fn apply_effects_from_blocks_between(w: &mut World, i: usize, from: Vec3, to
     if w.entities.list[i].removed || w.entities.list[i].no_physics {
         return;
     }
+    step_on(w, i);
     check_inside_blocks(w, i, &[Movement { from, to, axis_dependent: None }]);
 }
 
@@ -778,5 +832,6 @@ pub fn apply_effects_for_last_movements(w: &mut World, i: usize) {
     if w.entities.list[i].removed || w.entities.list[i].no_physics {
         return;
     }
+    step_on(w, i);
     check_inside_blocks(w, i, &moves);
 }

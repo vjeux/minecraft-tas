@@ -382,3 +382,11 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
     (4), MB (3), R0 + MB (5, lean palette k=5); R1 (1,-2) never. Dropped: left/right halves cannot share the lever.
   - 8x6 m73 (w86, real lever on the top trio): k=4 corner (3,3) o8/c48, (4,1) o2/c2, R5 c8; the top-left drives
     nothing (a flip watcher fires at ~t2 on BOTH edges, the plan's close pulses are at c48/c54): needs re-timing.
+  - 7x7 mm01-11 (c70b via c77): P (the wiggle piston) never driven from (0,-2) / (-1,-2) (solid or sculk).
+  - 6x7 = 42b (c70b's repair search, mm01..mm08): only mm01/02/03/05 are FULL (frame 12/12 when open); feed report:
+    pistons firing inside the door square / flanked frame cells have no free feed; pockets k=3: 1 input each;
+    satwire solid UNSAT at once, one-piston cores (mm01 (1,-2) open, mm02/03 (3,-1) close, mm05 (2,2) close).
+    c70b's mechmut now rejects firings inside the door square (--outside-only) and fills FULL frames.
+  - 6x9 m69T mechmut variants (c70b): satwire with c78l's lever-behind-held-piston recipe UNSAT, cores close (4,0)
+    / (4,1): their held levels drop at t30/t60/t72, not at the flip; under a strict lever rule the macro model has
+    no solution for the family (c70b, 01:55Z).
