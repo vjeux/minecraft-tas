@@ -14,14 +14,34 @@ use std::sync::Mutex;
 
 /// Decompile `version` unless it already is (or `force`). Returns the source root.
 pub fn decompile(version: &str, force: bool) -> Result<PathBuf> {
-    let root = paths::source_dir(version);
+    decompile_jar(version, force, false)
+}
+
+/// The client jar's source (`$MCTAS_HOME/versions/<v>/src-client`: models, renderers, the
+/// screen), from the client jar already downloaded (`versions/<v>/client.jar`: `mctas door
+/// video` or `mctas web reference` fetch it), with the server's libraries for types.
+pub fn decompile_client(version: &str, force: bool) -> Result<PathBuf> {
+    decompile_jar(version, force, true)
+}
+
+fn decompile_jar(version: &str, force: bool, client: bool) -> Result<PathBuf> {
+    let root = if client { paths::version_dir(version).join("src-client") } else { paths::source_dir(version) };
     let stamp = root.join(".mctas-decompiled");
     if stamp.exists() && !force {
         return Ok(root);
     }
     let install = setup::install_server(version)?;
+    let jar = if client {
+        let j = paths::version_dir(version).join("client.jar");
+        if !j.exists() {
+            bail!("no client jar at {} (mctas web reference downloads it)", j.display());
+        }
+        j
+    } else {
+        install.server_jar.clone()
+    };
     let vineflower = setup::vineflower()?;
-    let tmp = paths::version_dir(version).join("src.tmp");
+    let tmp = paths::version_dir(version).join(if client { "src-client.tmp" } else { "src.tmp" });
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp)?;
     let mut libs: Vec<String> = std::fs::read_dir(&install.libs_dir)?
@@ -29,9 +49,13 @@ pub fn decompile(version: &str, force: bool) -> Result<PathBuf> {
         .map(|e| e.path().display().to_string())
         .filter(|p| p.ends_with(".jar"))
         .collect();
+    if client {
+        // the server jar resolves the shared classes' types
+        libs.push(install.server_jar.display().to_string());
+    }
     libs.sort();
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
-    eprintln!("decompiling Minecraft {version} with Vineflower ({threads} threads)");
+    eprintln!("decompiling Minecraft {version}{} with Vineflower ({threads} threads)", if client { " (client)" } else { "" });
     // Vineflower stops parsing value options after --silent: keep them first.
     let status = Command::new(&install.java)
         .arg("-Xmx16g")
@@ -42,7 +66,7 @@ pub fn decompile(version: &str, force: bool) -> Result<PathBuf> {
         .arg(format!("-e={}", libs.join(",")))
         .arg("--silent")
         .arg("--folder")
-        .arg(&install.server_jar)
+        .arg(&jar)
         .arg(&tmp)
         .status()
         .context("running Vineflower")?;

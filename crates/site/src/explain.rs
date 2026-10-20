@@ -92,7 +92,26 @@ pub fn kind_title(kind: &str) -> String {
         "counter" => format!("Counter (counts to {})", kind_number(kind).unwrap_or(0)),
         "piston-extender" => format!("Piston extender (reach {})", kind_number(kind).unwrap_or(0)),
         "flying-machine" => "Flying machine".into(),
+        "shulker-loader" => format!("Shulker box loader ({})", stack_words(kind_number(kind).unwrap_or(64))),
+        "shulker-unloader" => format!("Shulker box unloader ({})", stack_words(kind_number(kind).unwrap_or(64))),
+        "bud" => "BUD switch (block update detector)".into(),
+        "tnt-duper" => "TNT duper (self-running)".into(),
+        "tnt-duper-triggered" => "TNT duper (one shot per pulse)".into(),
         _ => kind.to_string(),
+    }
+}
+
+/// `64` -> `64-stack items`, `1` -> `unstackable items`.
+fn stack_words(stack: u32) -> String {
+    if stack <= 1 { "unstackable items".to_string() } else { format!("{stack}-stack items") }
+}
+
+/// What a box holds of items of that max stack, and an example item.
+fn box_items(stack: u32) -> (u32, &'static str) {
+    match stack {
+        0 | 1 => (27, "iron shovels"),
+        16 => (432, "snowballs"),
+        _ => (27 * stack, "cobblestone"),
     }
 }
 
@@ -112,12 +131,20 @@ pub fn kind_summary(kind: &str) -> String {
         "counter" => "counts input pulses: the output changes once every N pulses (a frequency divider)".into(),
         "piston-extender" => "one input pushes a block N cells out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
+        "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
+        "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
+        "bud" => "fires its output when a block is placed, removed or changed at its target cell, although nothing there powers it".into(),
+        "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
+        "tnt-duper-triggered" => "lights TNT on every input pulse without using up its TNT block".into(),
         _ => String::new(),
     }
 }
 
 /// The paragraph at the top of a circuit page: what this circuit does, with its numbers.
 pub fn what_it_does(c: &Circuit) -> String {
+    if let Some(html) = what_machines_do(c) {
+        return html;
+    }
     let l = with_seconds(metric(c, "L"));
     let delay = with_seconds(metric(c, "delay"));
     let min_pulse = with_seconds(metric(c, "min-pulse"));
@@ -239,6 +266,121 @@ pub fn what_it_does(c: &Circuit) -> String {
     }
 }
 
+/// The meanings of the shulker study's badges and the BUD classes (the variations tables and the
+/// pages' "also passes" lists).
+pub fn badge_meaning(b: &str) -> &'static str {
+    match b {
+        "16-stack" => "16-stack items too (snowballs, ender pearls, eggs: 432 a box)",
+        "unstackable" => "unstackable items too (tools, armour: 27 a box)",
+        "mixed" => "mixed items, full and partial stacks, packed as they come",
+        "filter" => "packs one kind of item and passes the rest on",
+        "tileable" => "copies side by side work together (one per item kind)",
+        "always-on" => "no lever: it runs by itself",
+        "restart" => "when the items pause and come back, it carries on by itself",
+        "box-starved" => "nothing is lost while the empty-box supply runs out; it resumes when boxes come back",
+        "colours" => "boxes keep their colour and their name",
+        "flush" => "sends out a part-full box when the input stops for good",
+        "top-up" => "fills half-used boxes too",
+        "drop-free" => "box items never lie on the ground (picked up within 8 gt)",
+        "combo" => "one station loads and unloads, switched by a lever",
+        "any-box" => "empties every kind of box: full, half-full, mixed, already empty",
+        "place" => "a block placed at the target",
+        "remove" => "a block removed from the target",
+        "state" => "the target's block changing state (a log turned)",
+        "shape" => "a change that sends shape updates only, the way crops grow: observers see it, pistons do not",
+        "update" => "a pure block update next to the target, nothing changing: pistons and dispensers see it (quasi-connectivity), observers do not",
+        _ => "",
+    }
+}
+
+/// The paragraphs of the studies of machines (shulker loaders, BUD switches, TNT dupers).
+fn what_machines_do(c: &Circuit) -> Option<String> {
+    let badges: Vec<String> = metric(c, "badges").split('+').filter(|s| !s.is_empty()).map(String::from).collect();
+    let also = |what: &str| -> String {
+        if badges.is_empty() {
+            return String::new();
+        }
+        let items: String = badges.iter().map(|b| format!("<li><b>{}</b>: {}</li>", esc(b), esc(badge_meaning(b)))).collect();
+        format!("<p>It also passes these {what} (each a separate run of the judge):</p><ul class=\"badgelist\">{items}</ul>")
+    };
+    let html = match base(&c.kind) {
+        "shulker-loader" | "shulker-unloader" => {
+            let stack = kind_number(&c.kind).unwrap_or(64);
+            let (per_box, example) = box_items(stack);
+            let loader = base(&c.kind) == "shulker-loader";
+            let items_s = metric(c, "items/s");
+            let cycle = metric(c, "cycle");
+            let first = metric(c, "first box");
+            let cycle_s = cycle.trim_end_matches(" gt").trim().parse::<u32>().ok().map(real_time).unwrap_or_default();
+            let lead = if loader {
+                format!(
+                    "<p>It <b>packs items into shulker boxes</b>. The judge puts a chest of items at the design's <b>ITEMS</b> cell and a chest of empty shulker boxes at its <b>BOXES</b> cell; the machine places a box, fills it, and once it is completely full sends it away, with everything in it, to the chest at its <b>OUTPUT</b> cell. In the test the judge supplies three boxes' worth of {} ({} {example}, {per_box} a box) and all three full boxes must arrive, with no item lost or duplicated and nothing left on the ground, at 4 positions and 4 rotations in the real game.</p>",
+                    esc(&stack_words(stack)),
+                    3 * per_box
+                )
+            } else {
+                format!(
+                    "<p>It <b>unpacks shulker boxes</b>. The judge puts a chest of full shulker boxes at the design's <b>BOXES</b> cell; the machine places a box, empties it into the chest at its <b>ITEMS</b> cell, and sends the empty box to the chest at its <b>OUTPUT</b> cell. In the test the judge supplies three full boxes of {} ({per_box} {example} a box) and every item and all three empty boxes must arrive, nothing lost or duplicated, at 4 positions and 4 rotations in the real game.</p>",
+                    esc(&stack_words(stack))
+                )
+            };
+            let speed = if items_s.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    "<p>It moves <b>{} items per second</b>{}{}.</p>",
+                    esc(items_s),
+                    if cycle_s.is_empty() { String::new() } else { format!(": one box every {} ({})", esc(cycle), cycle_s) },
+                    if first.is_empty() { String::new() } else { format!("; the first box arrives {} after the start", esc(&with_seconds(first))) }
+                )
+            };
+            format!("{lead}{speed}{}", also("scenarios"))
+        }
+        "bud" => {
+            let detects: Vec<&str> = metric(c, "detects").split_whitespace().collect();
+            let misses: Vec<&str> = ["place", "remove", "state", "shape", "update"].into_iter().filter(|k| !detects.contains(k)).collect();
+            let list = |v: &[&str]| v.iter().map(|k| format!("<b>{k}</b>")).collect::<Vec<_>>().join(", ");
+            let latency = with_seconds(metric(c, "latency"));
+            let pulse = with_seconds(metric(c, "pulse"));
+            let rearm = with_seconds(metric(c, "re-arm"));
+            let jams = metric(c, "jams");
+            format!(
+                "<p>A <b>BUD switch</b> (block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
+                if detects.is_empty() { "nothing".to_string() } else { list(&detects) },
+                if misses.is_empty() { "; it misses nothing".to_string() } else { format!("; it does not see {}", list(&misses)) },
+                if pulse.is_empty() { String::new() } else { format!("Each detection gives a {pulse} output pulse") },
+                if latency.is_empty() { String::new() } else { format!(", {latency} after the change. ") },
+                if rearm.is_empty() { String::new() } else { format!("It can detect the next change {rearm} later (re-arm). ") },
+                if jams.is_empty() { String::new() } else { format!("Two changes close together jam it: {}.", esc(jams)) }
+            )
+        }
+        "tnt-duper" => {
+            let rate = metric(c, "rate");
+            let period = with_seconds(metric(c, "period"));
+            let per = metric(c, "per period");
+            format!(
+                "<p>It <b>keeps lighting TNT forever without using up its TNT block</b>{}. Every {} a piston pushes the TNT block: a piston copies every block it moves before it clears the old cells, and a TNT that gets a block update while powered at that instant is lit where it stands (a primed TNT that falls and explodes 80 gt, 4 s, later) while its moved copy lands as a TNT block again.{}</p>",
+                if rate.is_empty() { String::new() } else { format!(": <b>{}</b>", esc(rate)) },
+                if period.is_empty() { "cycle".to_string() } else { period },
+                if per.is_empty() { String::new() } else { format!(" Each push lights {} TNT.", esc(per)) }
+            )
+        }
+        "tnt-duper-triggered" => {
+            let per = metric(c, "per pulse");
+            let latency = with_seconds(metric(c, "latency"));
+            let gap = with_seconds(metric(c, "gap"));
+            format!(
+                "<p>Each input pulse <b>lights {} TNT</b>{} and the TNT block is back in place for the next pulse: the TNT is never used up.{}</p><p>How: a piston copies every block it moves before it clears the old cells, and a TNT that gets a block update while powered at that instant is lit where it stands while its moved copy lands as a TNT block again.</p>",
+                if per.is_empty() { "one".to_string() } else { esc(per) },
+                if latency.is_empty() { String::new() } else { format!(" ({latency} after the pulse)") },
+                if gap.is_empty() { String::new() } else { format!(" Pulses must be at least {gap} apart.") }
+            )
+        }
+        _ => return None,
+    };
+    Some(html)
+}
+
 /// `2nd`, `3rd`, `11th`, `21st`.
 fn ordinal(n: u32) -> String {
     let suffix = match (n % 10, n % 100) {
@@ -275,6 +417,21 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
         return s;
     }
+    match base(&c.kind) {
+        "shulker-loader" | "shulker-unloader" => {
+            s.push_str("<p>The 3D view shows the machine as it is built. Shulker boxes, item transfers and dropped boxes are judged in the real game only: the browser's simulator does not model shulker boxes yet, so the view does not run the machine. The judge puts its chests at the design's ITEMS, BOXES and OUTPUT cells. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>");
+            return s;
+        }
+        "tnt-duper" => {
+            s.push_str("<p>The duper runs by itself as soon as it is built: the view plays it from the start. Watch the piston push the TNT block every cycle and a lit TNT drop out of the machine each time, while the TNT block lands again in its place. Pause and step one game tick at a time with the bar's buttons; drag to look around, pinch or scroll to zoom.</p>");
+            return s;
+        }
+        "bud" => {
+            s.push_str("<p>The judge places, removes and changes a block at the cell next to the design that it watches (its target), and the timing diagram below shows when each change happens and when the output fires. In the 3D view the output is tagged OUT; drag to look around, pinch or scroll to zoom.</p>");
+            return s;
+        }
+        _ => {}
+    }
     if !c.stimulus.is_empty() {
         s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>");
     }
@@ -297,9 +454,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     }
     let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
     if !outs.is_empty() {
+        // webrender bbe3bf7ba: the judge's own lamp stands in every air output cell and shows the
+        // output; an output cell that holds a block of the design gets the orange marker instead
+        let shows = if c.output_lamp {
+            format!(
+                "the output is tagged <span class=\"tag-out\">{}</span>: the <b>redstone lamp</b> in that cell (the lamp the judge itself adds to read the output) <b>lights while the output is on</b>",
+                esc(&outs.join(", "))
+            )
+        } else {
+            format!("the output is tagged <span class=\"tag-out\">{}</span>: the orange glass marker next to it <b>glows while the output is on</b>", esc(&outs.join(", ")))
+        };
         s.push_str(&format!(
-            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; the output is the <span class=\"tag-out\">orange</span> glass tagged <b>{}</b>, which <b>glows while the output is on</b> (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>",
-            esc(&outs.join(", "))
+            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; {shows} (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>"
         ));
     }
     s
@@ -313,6 +479,26 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("counter", "N") => "how many input pulses one output cycle takes",
         (_, "N") => "the delay: how much later the output copies the input",
         ("flying-machine", "latency") => "game ticks from the start until the machine first moves",
+        ("bud", "latency") => "game ticks from the change at the target to the output pulse",
+        ("tnt-duper", "latency") => "game ticks from the start to the first lit TNT",
+        ("tnt-duper-triggered", "latency") => "game ticks from the input pulse to the lit TNT",
+        ("tnt-duper", "period") => "game ticks between two pushes (the engine's cycle)",
+        ("bud", "pulse") => "the length of each output pulse",
+        (_, "boxes/min") => "full boxes delivered per minute, at the steady rate",
+        (_, "items/s") => "items moved per second at the steady rate (from 10% to 90% of the total)",
+        (_, "first box") => "game ticks from the start until the first box arrives",
+        (_, "cycle") => "game ticks per box at the steady rate",
+        (_, "hoppers awake") => "hoppers left unlocked at rest: each one looks for items every game tick (lag on busy servers)",
+        (_, "badges") => "the extra scenarios it passes, each a separate run of the judge (see what it does above)",
+        (_, "bill") => "what its blocks cost to craft: iron, quartz, redstone, slime",
+        (_, "detects") => "the kinds of change at the target that fire the output (place, remove, state, shape, update)",
+        (_, "re-arm") => "the shortest time between two changes that are both detected",
+        (_, "jams") => "changes too close together for it",
+        (_, "footprint") => "the cells around the design that must be left alone for it to work",
+        (_, "rate") => "lit TNT per minute",
+        (_, "per period") => "TNT lit by each push",
+        (_, "per pulse") => "TNT lit by each input pulse",
+        (_, "gap") => "the shortest time between two input pulses that both light their TNT",
         (_, "latency") => "the worst time from an input change to the output's change",
         (_, "delay") => "the time from the input's edge to the start of the output pulse",
         (_, "min-pulse") => "the shortest input pulse handled correctly (every longer one works too)",
@@ -343,7 +529,7 @@ pub fn metric_value(v: &str) -> String {
 }
 
 /// The studies, in order: (folder, title, what it collects and how designs are ranked).
-pub const STUDIES: [(&str, &str, &str); 7] = [
+pub const STUDIES: [(&str, &str, &str); 10] = [
     (
         "pulse",
         "Pulse circuits",
@@ -379,6 +565,21 @@ pub const STUDIES: [(&str, &str, &str); 7] = [
         "Flying machines",
         "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, two-way machines) and speed in game ticks per block; ranked by blocks placed.",
     ),
+    (
+        "tnt",
+        "TNT dupers",
+        "Machines that keep making lit TNT without using up their TNT block. A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every input pulse. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in the variations table below.",
+    ),
+    (
+        "bud",
+        "BUD switches",
+        "Block update detectors: a block placed, removed or changed at the target cell fires the output, although nothing there powers it. The judge tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design detects, its latency, its pulse, how soon it can fire again (re-arm) and its footprint. Designs are ranked by what they detect, then blocks placed.",
+    ),
+    (
+        "shulker",
+        "Shulker loaders and unloaders",
+        "A loader fills empty shulker boxes from an item stream and hands them out full; an unloader empties full boxes. Only a dispenser can place a box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. The judge puts its own chests on the design's ports (items, empty or full boxes, the output) and runs 3 boxes of cobblestone in the real game, counting every item and box; the axis is load or unload and the item's stack size. Badges say which variations a design also handles (no start lever, other stack sizes, box colours and names, a paused or starved supply, a partial box at the end, mixed items, a filter, no item left on the floor, tileable side by side); the full list and why builds want each is in designs/circuits/shulker/VARIATIONS.md.",
+    ),
 ];
 
 pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
@@ -390,7 +591,7 @@ pub fn glossary() -> String {
     let items: [(&str, &str); 15] = [
         ("gt (game tick)", "the game's time step: 20 game ticks = 1 second, so 1 gt = 0.05 s. Every time on this site is in gt, with seconds next to it."),
         ("rt (redstone tick)", "2 game ticks, the unit repeater delays are counted in (a repeater set to 1 waits 1 rt = 2 gt)."),
-        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime, the output is orange glass that glows while the output is on."),
+        ("input / output", "the cells a circuit is driven from and read at. In the 3D view inputs are tagged in lime and outputs in orange; the redstone lamp the judge adds in an output cell lights while the output is on (an orange marker glows instead where the output cell holds a block of the design)."),
         ("pulse", "the input (or output) on for a while, then off again; its length in gt."),
         ("edge", "the moment a signal changes: rising edge = it turns on, falling edge = it turns off."),
         ("L", "the length of an output pulse (pulse circuits)."),
@@ -506,6 +707,14 @@ pub fn wave_svg(w: &Wave) -> String {
             s.push_str(&format!("<path class=\"wpos\" d=\"{}\"/>", d.trim_end()));
             continue;
         }
+        // the judge's actions at a BUD's target: one mark each, coloured by what it does
+        if !r.marks.is_empty() {
+            for (f, what) in &r.marks {
+                let xm = x(*f as f64);
+                s.push_str(&format!("<line class=\"mk mk-{}\" x1=\"{xm:.1}\" y1=\"{y0:.1}\" x2=\"{xm:.1}\" y2=\"{:.1}\"/>", esc(what), y0 - hmax));
+            }
+            continue;
+        }
         // the step outline as a filled polygon
         let mut pts: Vec<String> = vec![format!("{:.1},{y0:.1}", x(0.0))];
         for (k, (t, l)) in r.steps.iter().enumerate() {
@@ -587,6 +796,11 @@ mod tests {
         g.devices = vec!["lever".into(), "redstone block".into()];
         let h = how_to_try(&g, true);
         assert!(h.contains("click the <b>lever</b> tagged <b>A</b>") && h.contains("tap the <b>B</b> button"), "{h}");
+        // the output: the judge's lamp when every output cell gets one, else the orange marker
+        assert!(h.contains("orange glass marker"), "{h}");
+        g.output_lamp = true;
+        let h = how_to_try(&g, true);
+        assert!(h.contains("<b>redstone lamp</b>") && !h.contains("orange glass"), "{h}");
     }
 
     #[test]

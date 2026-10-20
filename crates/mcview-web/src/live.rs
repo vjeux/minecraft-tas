@@ -480,13 +480,13 @@ pub fn load(app: &mut App, id: u32) {
                 l.play.set_disabled(true);
                 let _ = l.play.style().set_property("opacity", "0.4");
             }
+            if let Some(ph) = &v.phases {
+                p.phases = mcview::circuit::parse_phases(ph);
+            }
             if circuit {
                 // the judge's way to drive each input, a button per input, the auto-demo
                 if let Some(m) = &v.input_mode {
                     p.pulse_inputs = m.trim() == "pulse";
-                }
-                if let Some(ph) = &v.phases {
-                    p.phases = mcview::circuit::parse_phases(ph);
                 }
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 for (i, name) in names.iter().enumerate() {
@@ -517,11 +517,49 @@ pub fn load(app: &mut App, id: u32) {
                     }
                     l.inputs.push((b, false));
                 }
-                if let (Some(st), true) = (&v.stimulus, v.autoplay) {
-                    match mcview::circuit::parse_stimulus(st, &names, 40) {
-                        Ok(s) => p.session.attach_demo(s),
-                        Err(e) => log(&format!("data-stimulus: {e}")),
+            }
+            // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
+            // actions at cells (data-events: a BUD switch's target and footprint probes)
+            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some()) {
+                let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+                let mut demo = match &v.stimulus {
+                    Some(st) if !names.is_empty() => match mcview::circuit::parse_stimulus(st, &names, 40) {
+                        Ok(s) => Some(s),
+                        Err(e) => {
+                            log(&format!("data-stimulus: {e}"));
+                            None
+                        }
+                    },
+                    _ => None,
+                };
+                if let Some(ev) = &v.events {
+                    match mcview::circuit::parse_events(ev) {
+                        Ok(events) if !events.is_empty() => {
+                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new() });
+                            let last = events.iter().map(|(t, _, _)| *t).max().unwrap_or(0);
+                            d.ticks = d.ticks.max(last + 40);
+                            d.events = events;
+                        }
+                        Ok(_) => {}
+                        Err(e) => log(&format!("data-events: {e}")),
                     }
+                }
+                if let Some(d) = demo {
+                    p.session.attach_demo(d);
+                    // the badge shows each phase in turn: as wide as its widest label from the
+                    // start, so it never resizes while the demo plays
+                    let mut labels = vec!["demo · the judge's test".to_string()];
+                    labels.extend(p.phases.iter().map(|(_, _, l)| format!("demo · {l}")));
+                    let mut widest = 0i32;
+                    for t in &labels {
+                        l.status.set_text_content(Some(t));
+                        widest = widest.max(l.status.offset_width());
+                    }
+                    if widest > 0 {
+                        // offset_width counts the 8 px paddings: min-width is the content's
+                        let _ = l.status.style().set_property("min-width", &format!("{}px", widest - 16));
+                    }
+                    l.shown_status = String::from("\u{0}");
                 }
             }
             if !p.session.containers().is_empty() {
@@ -821,7 +859,7 @@ impl Live {
 
     /// The tiles changed (the game's textures arrived): upload them, draw again.
     pub fn atlas_changed(&mut self, atlas: &mcview::atlas::Atlas) {
-        if let Some(g) = &self.gpu {
+        if let Some(g) = &mut self.gpu {
             g.r.upload_atlas(atlas);
         }
         if let Some(p) = self.player.as_mut() {

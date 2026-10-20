@@ -18,7 +18,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 7] = [
+pub const STUDIES: [(&str, &str); 10] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -26,6 +26,9 @@ pub const STUDIES: [(&str, &str); 7] = [
     ("memory", "Memory"),
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
+    ("shulker", "Shulker loaders and unloaders"),
+    ("tnt", "TNT dupers"),
+    ("bud", "BUD switches"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -140,6 +143,57 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Whether design `b` does better than `a` on one of its kind's VARIATION metrics, which keeps it
+/// out of `a`'s dominance fold (a variant must be no better than its host on anything but blocks).
+/// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
+/// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. Other kinds
+/// fold on blocks alone: a study whose designs trade blocks against a metric its axis does not
+/// carry adds that metric here.
+pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
+    // where the host does (study 10)
+    if b.kind == "bud" && a.kind == "bud" {
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
+    }
+    // TNT dupers (study 9): a PRECISE duper (every TNT at one point at fuse 1) keeps its own
+    // card over a smaller one that is not
+    if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
+        return b.summary.contains("(precise") && !a.summary.contains("(precise");
+    }
+    if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
+        return false;
+    }
+    if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
+        if fb > fa * 1.01 {
+            return true;
+        }
+    }
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
+/// dominates): the file, its verdict row and its caption.
+pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
+    let (study, file) = spec.split_once('/').ok_or_else(|| anyhow::anyhow!("--remove {spec}: want <study>/<file>"))?;
+    let dir = archive_dir(root, study);
+    let rows = read_rows(&dir)?;
+    if !rows.iter().any(|r| r.file == file) {
+        anyhow::bail!("--remove {spec}: no such row in {}", dir.join(VERDICTS).display());
+    }
+    write_rows(&dir, &rows.into_iter().filter(|r| r.file != file).collect::<Vec<_>>())?;
+    let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| l.split('\t').next() != Some(file)).map(|l| format!("{l}\n")).collect();
+    std::fs::write(dir.join(CAPTIONS), caps)?;
+    let _ = std::fs::remove_file(dir.join(file));
+    Ok(format!("REMOVED {}", dir.join(file).display()))
+}
+
 /// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
 /// stone: `clock::ident`) whose run on redsim under the kind's stimulus is identical modulo the swap
 /// (every cell's full state at every frame); the circuit itself when redsim does not model it.
@@ -201,6 +255,9 @@ pub fn tunable_key(c: &Circuit) -> String {
     for p in &c.outputs {
         d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
     }
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -242,6 +299,10 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
+    // a BUD's target cells (where the judge acts) are part of its structure
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
@@ -253,13 +314,21 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        Kind::Bud => format!("detects {}", m("detects")),
+        // the item class: the gallery's rows; speed and size are the columns
+        Kind::ShulkerLoader(s) => format!("load {s}-stack"),
+        Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper => m("rate"),
+        Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }
 }
 
@@ -382,6 +451,8 @@ fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
+        // a counter's axis is its kind, `counter N`
+        None if a.starts_with("counter ") => ("N".to_string(), String::new()),
         None => (String::new(), String::new()),
     }
 }
@@ -771,10 +842,11 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         return String::new();
     }
     let mut md = String::from(
-        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line (a `group:` header, or the same layout with only those settings changed); its members are not repeated below.\n",
+        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.\n",
     );
     for (name, kind, members) in cards {
         let (label, unit) = axis_label(&members[0].axis);
+        let label = if label.is_empty() { "value".to_string() } else { label };
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let vals: Vec<i64> = members.iter().filter_map(|r| axis_number(&r.axis)).collect();
         let meta = |k: &str| members.iter().find_map(|r| circuits.get(&r.file).and_then(|c| c.clock.design.meta.get(k).cloned()));
@@ -790,7 +862,16 @@ fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<Stri
         small.sort_by(|a, b| (a.blocks, axis_number(&a.axis), a.volume, &a.file).cmp(&(b.blocks, axis_number(&b.axis), b.volume, &b.file)));
         let smallest: Vec<String> = small.iter().take(2).map(|r| format!("[{}](archive/{}) ({}, {} blocks)", r.file.trim_end_matches(".txt"), r.file, r.axis, r.blocks)).collect();
         let (core, rnote) = range_text(&vals);
-        md.push_str(&format!("\n### {label} = {core}{u}{rnote}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
+        // a non-numeric axis (a BUD's detected classes): the members' values themselves
+        let heading = if vals.is_empty() {
+            let mut v: Vec<&str> = members.iter().map(|r| r.axis.as_str()).collect();
+            v.sort();
+            v.dedup();
+            v.join(" / ")
+        } else {
+            format!("{label} = {core}{u}{rnote}")
+        };
+        md.push_str(&format!("\n### {heading}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
         let fam: Vec<String> = fams
             .iter()
             .filter(|(fr, _, _)| circuits.get(&fr.file).and_then(|c| c.clock.design.meta.get("group")).is_some_and(|g| g == name))
@@ -841,11 +922,13 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let mut tgroups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r)) {
             let Some(c) = circuits.get(&r.file) else { continue };
-            let id = match c.clock.design.meta.get("group") {
-                Some(g) => format!("h:{g}"),
-                None => format!("t:{}", tunable_key(c)),
+            let (kind_key, id) = match c.clock.design.meta.get("group") {
+                // an explicit group spans the kind's argument too (`counter N`: one card for
+                // every N of one mechanism)
+                Some(g) => (r.kind.split_whitespace().next().unwrap_or(&r.kind).to_string(), format!("h:{g}")),
+                None => (r.kind.clone(), format!("t:{}", tunable_key(c))),
             };
-            tgroups.entry((r.kind.clone(), id)).or_default().push(r);
+            tgroups.entry((kind_key, id)).or_default().push(r);
         }
         tgroups.retain(|_, v| v.len() >= 2);
         let mut group_of: BTreeMap<String, String> = BTreeMap::new();
@@ -873,7 +956,9 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
             for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
-                if let Some(h) = h {
+                // a design better than its host on a variation metric (shulker: flow, badges,
+                // lag) is its own card, never a variant
+                if let Some(h) = h.filter(|h| !beats_on_variation(g[i], g[*h])) {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
@@ -995,7 +1080,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             let mut folded = 0usize;
             for v in g.values() {
                 let items: Vec<(usize, i64, String, BTreeSet<String>)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-                folded += clock::catalog::fold_hosts(&items).into_iter().filter(|h| h.is_some()).count();
+                folded += clock::catalog::fold_hosts(&items).into_iter().enumerate().filter(|(i, h)| h.is_some_and(|h| !beats_on_variation(v[*i], v[h]))).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };

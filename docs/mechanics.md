@@ -772,6 +772,13 @@ behaves identically in the official server.**
   hold it up.
 * A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
   item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* **Known gap (2026-10-19, not chased):** `door redsim-verify` FAILS 8 of the 12 archived gravity
+  doors that pass the real judge (g1-67b, g1-69b, g3-60b, g4-51b, g6-49b, sf1-66b, sf1-68b,
+  sf3-64b; g7, g8, g9, g10 pass): redsim's falling-block model (`gravity.rs`, pistmodel) is
+  stricter than the game somewhere in these doors. As a search pre-screen it would reject them.
+* In redsim, falling blocks take their ids from the counter every entity shares and tick with the
+  other entities in spawn order (`entity::tick_phase`); they do not run `applyEffectsFromBlocks`
+  (plates, tripwires and bubble columns do not see them).
 * Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
   (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
 * An isolated redstone dust is a dot and powers nothing sideways; written as a cross
@@ -841,6 +848,26 @@ basin: 6000 cases, 0 mismatches, 2026-10-19).
 * A full source above soul sand (up) or magma (down) schedules a 20 gt block tick that turns the
   water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
   support goes away turns back into water 5 gt after its shape update.
+
+## TNT and dead coral fans (`TntBlock`, `BaseCoralFanBlock`, `PistonBaseBlock.moveBlocks`) — redsim (track tnt)
+
+Modeled in `crates/redsim/src/tnt.rs` (study 9, TNT dupers: designs/circuits/tnt/VARIATIONS.md),
+checked by `redsim-fuzz fuzz --palette core,piston:6,simple:6,tnt:4,coral:4` (12000 cases, 0
+mismatches) and the exact trace of the real-game dupe tnt-c1.
+
+* A TNT primes on placement (a different old block) or any neighbor update while it has a neighbor
+  signal, then is removed (`removeBlock`, flags 3). It is not a conductor. In redsim a prime is a
+  record (`World::primed`: tick, cell), not an entity (the `PrimedTnt`'s kick draws from
+  `level.random`); a primed TNT reaching its explosion tick is an UNMODELED note unless the caller
+  removes primed TNT first (the TNT judge does).
+* Dead coral fans are pushable (slime drags them), have no collision and drop nothing; a floor fan
+  pops on a DOWN shape update without a sturdy top below, a wall fan on the update from its back.
+* The dupe: `moveBlocks` copies every pushed state first and blanks the sources last. A fan
+  riding the structure pops when the cell under it turns `moving_piston` (the flag-324 write
+  updates shapes before the block entity exists) and updates a TNT still at its source; if the
+  TNT is powered then, it primes while its moving copy lands. A TNT can never rest next to power,
+  so the power must appear inside the push: a dust whose connections change (it computes them on
+  the fly) is the source every duper found so far uses.
 
 ## 12. redsim: the exact model (track redmodel)
 

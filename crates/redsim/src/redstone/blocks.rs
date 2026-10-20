@@ -619,9 +619,7 @@ pub mod scaffolding {
             if old == 7 {
                 // FallingBlockEntity.fall: the cell becomes air (flags 3), then the entity
                 // carrying the new state (distance 7) joins the entity list
-                let e = crate::gravity::FallingBlock { block: ns, x: pos.x as f64 + 0.5, y: pos.y as f64, z: pos.z as f64 + 0.5, vy: 0.0, time: 0, removed: false };
-                w.set_block_and_update(pos, Block::Air);
-                w.gravity.entities.push(e);
+                crate::gravity::fall(w, ns, pos);
             } else {
                 w.destroy_block(pos, true, 512);
             }

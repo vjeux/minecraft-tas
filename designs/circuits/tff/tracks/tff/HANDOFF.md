@@ -15,10 +15,12 @@ rotations) by `mctas circuit archive`. Drafts: designs/circuits/{tff,memory}/tra
 - `circuit memory census --kind rs-latch|d-latch|'counter N' --inputs 'r=..;s=..' ...`: same
   engine with the judge's latch/counter stimuli (specs.rs). `circuit memory check D` prints the
   census view of one design.
-- `circuit memory ring --n N[,N..] [--max-dust k] [--bulbs K | --then N2] --out DIR`: dropper-ring
-  counters around the input cell (cycle search, hopper rules, relays, comparator placement, K bulb
-  stages -> counter N*2^K, or a second ring around a stone the first ring's comparator powers ->
-  counter N*N2). Instant.
+- `circuit memory ring --n N[,N..] [--max-dust k] [--bulbs K] [--then a,b,..] [--divider] --out DIR`:
+  dropper-ring counters around the input cell (cycle search over the cells the input fires
+  directly, through dust, dust relays or repeater relays; hopper rules; comparator placement),
+  K bulb stages (counter N*2^K), more rings around stones the previous comparators power
+  (counter N*a*b..), or a ring + bulbs judged as a toggles-style divider. Parallel over layouts;
+  instant up to N=17, minutes for 19-25 (`--max-dust 3-4`).
 - Palette shorthands: clock census names plus `dropper1`/`hopper1`/`dispenser1` (holding 1 stone)
   and `state{snbt}`.
 
@@ -61,18 +63,33 @@ ring5-bulb2 17 / ring5-ring4 22; 21 ring7-ring3 28; 22 ring11-bulb1 32; 24 ring3
 ring13-bulb1 39; 28 ring7-ring4 29; 32 bulb5 15; then multi-stage chains (`--then a,b`, `--bulbs`
 after a chain): 18 ring3-ring3-bulb1 20, 27 ring3x3x3 26, 30 ring5-ring3-bulb1 24, 33 ring11-ring3
 39, 34 ring17-bulb1 50, 36 ring3-ring3-bulb2 23, 39 ring13-ring3 46, 40 ring5-bulb3 20, 45 ring5x3x3
-30, 48 ring3-bulb4 20; dividers (toggles style) for 3, 5, 7 (ring + one bulb).
+30, 48 ring3-bulb4 20; repeater-relay rings 19 (54), 23 (65), 25 (72), 38 ring19-bulb1 57; dividers
+(toggles style) for 3, 5, 7 (ring + one bulb). Missing up to 40: 29, 31, 35, 37 (no ring of 29/31
+with 4 relays; a ring of 5+ around a chain stone breaks the hopper rules).
 
 Learned: the judge's level style takes any output whose end-of-window level has period N, so a
 TFF is a counter 2 and n bulbs make a counter 2^n. Ring rules: droppers of one ring share a grid
 parity; hoppers never face up and never sit under a container (they pull); a dust next to the
 input connects to it (a line) and fires the cell beyond and its floor; a dust under the input is
 a cross; a dust pointing into a stone makes it a relay that fires its own neighbours (rings to 17).
+Counters carry tunable-group headers (`circuit memory stamp-groups`, the ring generator stamps its
+own): bulb-chain, dropper-ring, ring-bulbs, ring-chain, ring-divider = 5 catalog cards.
+
+Sequential kinds (judge kinds added by this track, crates/circuit/src/seq.rs, docs/circuits.md):
+tffr-dropring (tff-reset, 8b: the dropper-ring TFF with r next to the q dropper only), dff-window
+(dff, 10b redstone: a repeater latch opened for 2 gt after the clock's falling edge by a comparator
+reading a wire powered by the clock while on and by a NOT-clock stone while off), dffe-window
+(dff-enable, 13b: + a NOT-e subtract comparator powering the wire), shift2-window (shift 2, 20b:
+two latches on one 5 gt window wire, the output latch opened by a comparator 2..7 gt after the
+fall, the input latch by a delay-4 repeater 4..9 gt after it; equal windows always race, and a
+repeater longer than the window gap swallows it). Calibrations: cal-dropper-tff-reset,
+cal-window-dff, cal-window-dff-enable, cal-window-shift1 + 4 refusals in designs/circuits/selftest/.
 
 ## Next
-- Smaller redstone TFF: a different core (the 18-block one spends 7 blocks on the NOT-q loop and
-  8 on the lock window); maybe a lever-input variant (the gates track archives lever variants).
-- Ring chains with three stages (27 = 3x3x3), relays chained through repeaters for rings > 17,
-  counters 19, 23, 25, 27, 29+.
-- Third RS / D latch mechanism (piston RS: none <= 5 blocks in 3x2x2 / 4x2x1), extendable cards
-  once `extend:` lands for circuits (bulb chains: counter 2^n = 3n blocks; ring N + k bulbs).
+- Smaller redstone TFF: a different core (the 17-block one spends 6 blocks on the NOT-q loop and
+  8 on the lock window); the auto-floor census over 3x1x3 found none with up to 6 components (12
+  blocks), all three input positions (150 min on 166 cores).
+- A master-slave dff (9b if the clock cell can feed a master-lock repeater and a slave-lock
+  subtract comparator's side at once: no layout found yet), shift N > 2 (staggered windows), a
+  copper-bulb tff-reset (needs r AND q).
+- Third RS / D latch mechanism (piston RS: none <= 5 blocks in 3x2x2 / 4x2x1).

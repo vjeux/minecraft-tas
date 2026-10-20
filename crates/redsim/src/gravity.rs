@@ -10,7 +10,11 @@
 //!   a moving piston in its cell makes it bounce and wait; a replaceable cell where it would not
 //!   keep falling gets the block (`setBlockAndUpdate`); anything else breaks it into an item.
 //! * Not modeled: horizontal motion (a falling block spawned by the game has none and nothing
-//!   here gives it any), entities pushed by moving pistons, fluids.
+//!   here gives it any), entities pushed by moving pistons, fluids; `applyEffectsFromBlocks`
+//!   (pressure plates, tripwires and bubble columns do not see falling blocks, and plate or
+//!   tripwire counts leave them out).
+//! * The entity list: falling blocks take their ids from the counter every entity shares and tick
+//!   with the other entities in id order ([`crate::entity::tick_phase`]).
 
 use crate::behavior as bh;
 use crate::block::{Block, Simple};
@@ -29,6 +33,19 @@ pub struct FallingBlock {
     pub vy: f64,
     pub time: i32,
     pub removed: bool,
+    /// Its entity id, from the counter every entity shares ([`crate::entity::Entities::next_id`]):
+    /// the entity phase ticks falling blocks and the other entities together in id order.
+    pub id: u32,
+}
+
+/// `FallingBlockEntity.fall`: the entity is made (taking the next entity id), the cell becomes
+/// air (flags 3), then the entity joins the entity list.
+pub fn fall(w: &mut World, block: Block, p: BlockPos) {
+    let id = w.entities.next_id;
+    w.entities.next_id += 1;
+    let e = FallingBlock { block, x: p.x as f64 + 0.5, y: p.y as f64, z: p.z as f64 + 0.5, vy: 0.0, time: 0, removed: false, id };
+    w.set_block_and_update(p, Block::Air);
+    w.gravity.entities.push(e);
 }
 
 /// Falling-block entities, ticked in insertion order in the entity phase.
@@ -71,9 +88,7 @@ pub fn update_shape(w: &mut World, state: Block, p: BlockPos, _dir: Dir, _np: Bl
 /// `FallingBlock.tick`: `FallingBlockEntity.fall` when the cell below is free.
 pub fn tick(w: &mut World, state: Block, p: BlockPos) {
     if is_free(w.get(p.below())) && p.y >= MIN_Y {
-        let e = FallingBlock { block: state, x: p.x as f64 + 0.5, y: p.y as f64, z: p.z as f64 + 0.5, vy: 0.0, time: 0, removed: false };
-        w.set_block_and_update(p, Block::Air);
-        w.gravity.entities.push(e);
+        fall(w, state, p);
     }
 }
 
@@ -224,18 +239,27 @@ fn collide_y(w: &World, e: &FallingBlock, dy: f64) -> f64 {
     allowed
 }
 
-/// The entity phase for falling blocks (`FallingBlockEntity.tick`).
+/// The entity phase for falling blocks alone (`FallingBlockEntity.tick`); with other entities,
+/// [`crate::entity::tick_phase`] interleaves them by id.
 pub fn tick_entities(w: &mut World) {
     let n = w.gravity.entities.len();
     for i in 0..n {
+        tick_one(w, i);
+    }
+    w.gravity.entities.retain(|e| !e.removed);
+}
+
+/// One falling block's `FallingBlockEntity.tick` (the caller drops the removed ones afterwards).
+pub fn tick_one(w: &mut World, i: usize) {
+    {
         let mut e = w.gravity.entities[i];
         if e.removed {
-            continue;
+            return;
         }
         if e.block.is_air() {
             e.removed = true;
             w.gravity.entities[i] = e;
-            continue;
+            return;
         }
         e.time += 1;
         e.vy += -0.04;
@@ -280,11 +304,10 @@ pub fn tick_entities(w: &mut World) {
                 } else {
                     w.drops.push((p, e.block));
                 }
-                continue;
+                return;
             }
         }
         e.vy *= 0.98f32 as f64;
         w.gravity.entities[i] = e;
     }
-    w.gravity.entities.retain(|e| !e.removed);
 }

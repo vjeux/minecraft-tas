@@ -28,6 +28,10 @@ pub enum Action {
     Place { pos: Pos, block: Block, nbt: Option<String> },
     Use { pos: Pos },
     Clear { pos: Pos },
+    /// Change the block with shape updates only (flags 2: the BUD judge).
+    ShapeSet { pos: Pos, block: Block },
+    /// A pure block update around the cell (`Level.updateNeighborsAt`: the BUD judge).
+    Update { pos: Pos },
 }
 
 /// What kind of contraption a design is (from its ports).
@@ -95,6 +99,11 @@ pub struct Session {
     pub picture: Option<(Pos, Pos)>,
     /// The judge's consumer lamps placed in a circuit's air output cells (they show the output).
     pub consumers: Vec<Pos>,
+    /// The primed TNT in flight ([`crate::tnt`]: redsim records when TNT primes, the viewer moves
+    /// the entity itself).
+    pub primed: Vec<crate::tnt::PrimedTnt>,
+    /// How many of `world.primed` have their entity.
+    primed_seen: usize,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -260,6 +269,17 @@ impl Session {
         for p in &consumers {
             design.blocks.insert(*p, crate::circuit::CONSUMER.to_string());
         }
+        // a shulker loader or unloader: the judge's chests on its ports and a box in its box cell
+        // (shown as built: redsim models no shulker boxes and chests)
+        let shulker = crate::circuit::is_shulker(&design);
+        if shulker {
+            for p in crate::circuit::chest_cells(&design) {
+                design.blocks.insert(p, crate::circuit::CHEST.to_string());
+            }
+            for p in crate::circuit::box_cells(&design) {
+                design.blocks.insert(p, "minecraft:shulker_box[facing=up]".to_string());
+            }
+        }
         let mode = Mode::of(&design)?;
         let (mut lo, mut hi) = design.bounds().ok_or("empty design")?;
         let mut outputs = Vec::new();
@@ -318,6 +338,9 @@ impl Session {
         let mut world = World::new(min, size);
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
+        if shulker {
+            unsimulated.push("redsim does not model shulker boxes and chests yet: the judge runs it in the game".to_string());
+        }
         let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
         for (p, s) in &design.blocks {
             match convert(s) {
@@ -328,7 +351,7 @@ impl Session {
                     blocks.push((bp(*p), b));
                 }
                 Err(e) => {
-                    if !unsimulated.contains(&e) {
+                    if !unsimulated.contains(&e) && !shulker {
                         unsimulated.push(e);
                     }
                 }
@@ -356,12 +379,17 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers,
+            primed: Vec::new(),
+            primed_seen: 0,
         };
         if !unsimulated.is_empty() {
-            // Shown as built: every block the model knows placed raw, nothing ticks.
+            // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
+            // to drive: no inputs).
             world.place_raw(&blocks);
             s.world = world;
             s.unsimulated = Some(unsimulated.join("; "));
+            s.circuit_inputs.clear();
+            s.input_on.clear();
             return Ok(s);
         }
         if let Err(e) = s.place(&mut world, &blocks, o) {
@@ -370,9 +398,12 @@ impl Session {
             w.place_raw(&blocks);
             s.world = w;
             s.unsimulated = Some(e);
+            s.circuit_inputs.clear();
+            s.input_on.clear();
             return Ok(s);
         }
         s.world = world;
+        s.primed_seen = s.world.primed.len();
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
@@ -473,6 +504,8 @@ impl Session {
             self.last_input = None;
             self.input_on = vec![false; self.circuit_inputs.len()];
             self.releases.clear();
+            self.primed.clear();
+            self.primed_seen = self.world.primed.len();
             self.apply_due();
             self.inputs_due();
         }
@@ -531,6 +564,13 @@ impl Session {
                 Action::Clear { pos } => {
                     self.world.set_block(bp(pos), Block::Air, flags::ALL);
                 }
+                Action::ShapeSet { pos, block } => {
+                    self.world.set_block(bp(pos), block, flags::CLIENTS);
+                }
+                Action::Update { pos } => {
+                    let src = self.world.get(bp(pos)).kind();
+                    self.world.update_neighbors_at(bp(pos), src);
+                }
             }
         }
     }
@@ -549,8 +589,29 @@ impl Session {
         self.apply_due();
         self.world.tick();
         self.tick += 1;
+        self.tick_primed();
         self.apply_due();
         self.inputs_due();
+    }
+
+    /// The primed TNT of the tick just run: the TNT primed in it get their entity, then every
+    /// entity ticks (the entity phase) and the blocks that moved push it (the block-entity
+    /// phase); a TNT at fuse 0 vanishes (the judge removes it before it explodes).
+    fn tick_primed(&mut self) {
+        for k in self.primed_seen..self.world.primed.len() {
+            let (time, p) = self.world.primed[k];
+            self.primed.push(crate::tnt::PrimedTnt::new(p, time));
+        }
+        self.primed_seen = self.world.primed.len();
+        if self.primed.is_empty() {
+            return;
+        }
+        let floor = self.design.bounds().map(|(lo, _)| lo[1] as f64).unwrap_or(0.0);
+        for t in self.primed.iter_mut() {
+            crate::tnt::tick(&self.world, t, floor);
+        }
+        crate::tnt::push(&self.world, &mut self.primed, floor);
+        self.primed.retain(|t| t.fuse > 0);
     }
 
     /// Ticks run since the last input (or since rest / placement).
@@ -608,7 +669,7 @@ impl Session {
         self.inputs_due();
     }
 
-    /// The demo's edges and the pending releases due at this tick.
+    /// The demo's edges and events, and the pending releases due at this tick.
     fn inputs_due(&mut self) {
         let t = self.tick;
         if let Some(d) = self.demo.clone() {
@@ -616,6 +677,29 @@ impl Session {
                 for &(at, on) in e {
                     if at == t {
                         self.set_input(i, on);
+                    }
+                }
+            }
+            if self.simulated() {
+                for (at, p, op) in &d.events {
+                    if *at != t {
+                        continue;
+                    }
+                    let q = bp(*p);
+                    match op {
+                        crate::circuit::EventOp::Place(b) => {
+                            self.world.set_block(q, *b, flags::ALL);
+                        }
+                        crate::circuit::EventOp::Clear => {
+                            self.world.set_block(q, Block::Air, flags::ALL);
+                        }
+                        crate::circuit::EventOp::Shape(b) => {
+                            self.world.set_block(q, *b, flags::CLIENTS);
+                        }
+                        crate::circuit::EventOp::Update => {
+                            let src = self.world.get(q).kind();
+                            self.world.update_neighbors_at(q, src);
+                        }
                     }
                 }
             }
@@ -674,6 +758,7 @@ impl Session {
                         EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
                         EntityKind::Item(_) => String::new(),
                         EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                        EntityKind::PrimedTnt(_) => "minecraft:tnt".to_string(),
                     },
                 };
                 let kind = match &e.kind {
@@ -681,8 +766,27 @@ impl Session {
                     _ => kind,
                 };
                 let yaw = e.y_rot_o + (e.y_rot - e.y_rot_o) * partial;
-                crate::mesh::EntityDraw { kind, pos: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)], yaw }
+                let pitch = e.x_rot_o + (e.x_rot - e.x_rot_o) * partial;
+                let pos = [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)];
+                let age = e.tick_count as f32 + partial;
+                if let EntityKind::Minecart(_) = &e.kind {
+                    // on a rail: the rail's line and slope (AbstractMinecartRenderer.oldRender)
+                    let p64 = [e.xo + (e.pos.x - e.xo) * partial as f64, e.yo + (e.pos.y - e.yo) * partial as f64, e.zo + (e.pos.z - e.zo) * partial as f64];
+                    let (p, rot, xrot) = crate::entitymodel::minecart_pose(&self.world, p64, yaw, pitch);
+                    return crate::mesh::EntityDraw { kind, pos: [p[0] as f32, p[1] as f32, p[2] as f32], yaw: rot, pitch: xrot, age, ..Default::default() };
+                }
+                crate::mesh::EntityDraw { kind, pos, yaw, pitch, age, ..Default::default() }
             })
+            .chain(self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+                // a falling block, from where it was last tick
+                let y0 = f.y - f.vy;
+                crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [f.x as f32, (y0 + (f.y - y0) * partial as f64) as f32, f.z as f32], ..Default::default() }
+            }))
+            .chain(self.primed.iter().map(|t| {
+                // a primed TNT between where it started the tick and where it is; TntRenderer's
+                // fuse as drawn: getFuse() - partialTicks + 1
+                crate::mesh::EntityDraw { kind: "primed:minecraft:tnt[unstable=false]".to_string(), pos: [lerp(t.prev[0], t.pos[0]), lerp(t.prev[1], t.pos[1]), lerp(t.prev[2], t.pos[2])], fuse: t.fuse as f32 - partial + 1.0, ..Default::default() }
+            }))
             .collect()
     }
 
@@ -1087,6 +1191,8 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers: Vec::new(),
+            primed: Vec::new(),
+            primed_seen: self.primed_seen,
         };
         s.apply_due();
         s
@@ -1248,7 +1354,8 @@ impl Session {
 
     /// Find the clock judge's output (no `port output`) without moving the session.
     pub fn find_auto_output(&mut self, horizon: u32) {
-        if !self.outputs.is_empty() || self.corridor.is_some() {
+        // a circuit has its outputs as ports (a TNT duper has none: no marker)
+        if !self.outputs.is_empty() || self.corridor.is_some() || self.design.meta.contains_key("circuit") {
             return;
         }
         if let Some((w0, p)) = self.picture_period(horizon)
@@ -1403,6 +1510,26 @@ mod tests {
         let later = s.entities(0.0);
         let moved = (0..3).map(|k| (later[0].pos[k] - start[0].pos[k]).abs()).sum::<f32>();
         assert!(moved > 0.5, "the boat moves with the current: {:?} -> {:?}", start[0].pos, later[0].pos);
+    }
+
+    /// A falling block (redsim's gravity entities) is drawn: its block model where it is, from
+    /// where it was last tick.
+    #[test]
+    fn falling_blocks_are_drawn() {
+        let mut s = Session::new(BULB_CLOCK, &Options::default()).unwrap();
+        let sand = redsim::Block::parse("minecraft:sand").unwrap();
+        s.world.gravity.entities.push(redsim::gravity::FallingBlock { block: sand, x: 4.5, y: 3.0, z: 0.5, vy: -0.5, time: 3, removed: false, id: 0 });
+        let e = s.entities(0.5);
+        let f = e.iter().find(|e| e.kind.starts_with("falling:")).expect("the falling block");
+        assert!(f.kind.contains("sand"), "{}", f.kind);
+        assert!((f.pos[1] - 3.25).abs() < 1e-4, "half way from 3.5 to 3.0: {:?}", f.pos);
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = crate::mesh::Builder::new(&atlas);
+        b.entity(f);
+        assert!(!b.mesh.solid.is_empty(), "a falling block draws its block model");
+        // a full block, half a block back from its position (FallingBlockRenderer)
+        let lo = (0..3).map(|k| b.mesh.solid.iter().map(|v| v.pos[k]).fold(f32::MAX, f32::min)).collect::<Vec<_>>();
+        assert!((lo[0] - 4.0).abs() < 1e-4 && (lo[1] - 3.25).abs() < 1e-4 && lo[2].abs() < 1e-4, "{lo:?}");
     }
 
     #[test]

@@ -230,6 +230,8 @@ public final class Protocol {
         return switch (mode.getAsString()) {
             case "raw" -> Sandbox.RAW_FLAGS;
             case "update" -> Block.UPDATE_ALL;
+            // shape updates only, no block update to the neighbors (how crops grow): the BUD judge
+            case "shape" -> Block.UPDATE_CLIENTS;
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         };
     }

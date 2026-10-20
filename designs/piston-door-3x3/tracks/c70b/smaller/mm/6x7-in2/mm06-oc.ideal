@@ -1,0 +1,99 @@
+phase between
+# mech-synth ideal schedule (open/close on both edges)
+design designs/piston-door-3x3/tracks/c70b/smaller/mm/6x7-in2/mm06-oc.txt
+# open:  PSeast@(-2,-2,0) PSup@(-1,-2,0) PSeast@(-2,-2,0) PSup@(-1,-2,0) LSdown+@(1,4,0) PSeast@(-1,2,0) PSup@(-1,-1,0) PSup@(-1,-2,0) PSup@(-1,-1,0) PSeast@(-2,1,0) PSdown+@(1,4,0) PSeast@(-1,2,0) PSup@(-1,-2,0) PSeast@(-2,-2,0) PSeast@(-1,2,0) PSup@(-1,-1,0) PSeast@(-2,1,0) PSdown@(-1,4,0) PSeast@(-2,1,0) PSeast@(-1,2,0) PSeast@(-2,1,0) PSeast@(-1,2,0) PSup@(-1,-1,0) PNeast@(-2,3,0) PSup@(-1,-1,0) PSeast@(-2,1,0) PSup@(-1,-2,0) PSup@(-1,-2,0) PSup@(-1,-1,0) PSup@(-1,-1,0) PSeast@(-2,1,0) PSdown+@(1,4,0) PSup@(2,-2,0) PSdown@(2,4,0)
+# close: PSeast@(-2,1,0) PSup@(-1,-2,0) PSeast@(-2,-2,0) PSup@(-1,-1,0) PSeast@(-2,1,0) PSup@(1,-2,0) PSdown+@(1,4,0) PSeast@(-1,2,0) PSdown@(-1,4,0) PSeast@(-2,1,0) PSeast@(-1,2,0) LSdown+@(1,4,0) PSup@(2,-2,0) PSdown@(2,4,0)
+open 0 set -2 -3 0 minecraft:redstone_block
+open 2 clear -2 -3 0
+open 6 set 0 -3 0 minecraft:redstone_block
+open 8 clear 0 -3 0
+open 12 set -2 -3 0 minecraft:redstone_block
+open 14 clear -2 -3 0
+open 18 set -1 -3 0 minecraft:redstone_block
+open 20 clear -1 -3 0
+open 24 clear 1 4 1
+open 30 set -1 2 1 minecraft:redstone_block
+open 32 clear -1 2 1
+open 36 set 0 0 0 minecraft:redstone_block
+open 38 clear 0 0 0
+open 42 set -1 -3 0 minecraft:redstone_block
+open 44 clear -1 -3 0
+open 48 set -1 -1 1 minecraft:redstone_block
+open 50 clear -1 -1 1
+open 54 set -3 1 0 minecraft:redstone_block
+open 54 set 1 4 -1 minecraft:redstone_block
+open 56 clear -3 1 0
+open 56 clear 1 4 -1
+open 60 set -1 0 1 minecraft:redstone_block
+open 62 clear -1 0 1
+open 66 set -1 -3 0 minecraft:redstone_block
+open 68 clear -1 -3 0
+open 72 set -2 -3 0 minecraft:redstone_block
+open 72 set -1 1 1 minecraft:redstone_block
+open 74 clear -2 -3 0
+open 74 clear -1 1 1
+open 78 set -1 0 1 minecraft:redstone_block
+open 80 clear -1 0 1
+open 84 set -3 1 0 minecraft:redstone_block
+open 86 clear -3 1 0
+open 90 set -1 5 0 minecraft:redstone_block
+open 92 clear -1 5 0
+open 96 set -3 1 0 minecraft:redstone_block
+open 98 clear -3 1 0
+open 102 set 0 2 0 minecraft:redstone_block
+open 104 clear 0 2 0
+open 108 set -3 1 0 minecraft:redstone_block
+open 110 clear -3 1 0
+open 114 set -1 1 1 minecraft:redstone_block
+open 116 clear -1 1 1
+open 120 set -1 -1 1 minecraft:redstone_block
+open 122 clear -1 -1 1
+open 126 set -3 3 0 minecraft:redstone_block
+open 126 set -1 -1 1 minecraft:redstone_block
+open 128 clear -3 3 0
+open 128 clear -1 -1 1
+open 132 set -3 1 0 minecraft:redstone_block
+open 134 clear -3 1 0
+open 138 set 0 -3 0 minecraft:redstone_block
+open 140 clear 0 -3 0
+open 144 set 0 -3 0 minecraft:redstone_block
+open 144 set -1 -1 1 minecraft:redstone_block
+open 146 clear 0 -3 0
+open 146 clear -1 -1 1
+open 150 set -1 -1 1 minecraft:redstone_block
+open 152 clear -1 -1 1
+open 156 set -3 1 0 minecraft:redstone_block
+open 156 set 1 4 -1 minecraft:redstone_block
+open 156 set 2 -3 0 minecraft:redstone_block
+open 156 set 3 4 0 minecraft:redstone_block
+open 158 clear -3 1 0
+open 158 clear 1 4 -1
+open 158 clear 2 -3 0
+open 158 clear 3 4 0
+close 0 set -3 1 0 minecraft:redstone_block
+close 0 set 0 -3 0 minecraft:redstone_block
+close 2 clear -3 1 0
+close 2 clear 0 -3 0
+close 6 set -2 -3 0 minecraft:redstone_block
+close 6 set -1 -1 1 minecraft:redstone_block
+close 8 clear -2 -3 0
+close 8 clear -1 -1 1
+close 12 set -3 1 0 minecraft:redstone_block
+close 12 set 1 -3 0 minecraft:redstone_block
+close 12 set 1 4 -1 minecraft:redstone_block
+close 14 clear -3 1 0
+close 14 clear 1 -3 0
+close 14 clear 1 4 -1
+close 18 set -1 3 1 minecraft:redstone_block
+close 20 clear -1 3 1
+close 24 set -1 5 0 minecraft:redstone_block
+close 26 clear -1 5 0
+close 30 set -3 1 0 minecraft:redstone_block
+close 30 set -1 2 1 minecraft:redstone_block
+close 32 clear -3 1 0
+close 32 clear -1 2 1
+close 36 set 1 4 1 minecraft:redstone_block
+close 42 set 2 -3 0 minecraft:redstone_block
+close 42 set 3 4 0 minecraft:redstone_block
+close 44 clear 2 -3 0
+close 44 clear 3 4 0

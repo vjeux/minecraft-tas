@@ -124,6 +124,11 @@ impl SimReport {
 
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not model shulker boxes and chests yet (study 8: judged in the game only, `mctas circuit verify`)".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
@@ -144,10 +149,18 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     // the judge's consumers are not the circuit's
     ins.extend(c.consumer_cells());
+    // nor are the blocks the BUD judge places at the targets and around the design (its probe
+    // block there; the design's own blocks moving through those cells count)
+    let mut probes: Vec<Pos> = Vec::new();
+    let probe_id = c.targets.first().map(|t| t.a.split('[').next().unwrap_or("").to_string()).unwrap_or_default();
+    if c.kind == Some(Kind::Bud) {
+        ins.extend(c.targets.iter().map(|t| t.pos));
+        probes = c.probe_cells();
+    }
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
-        for (p, _) in f.iter().filter(|(p, _)| !ins.contains(p)) {
+        for (p, _) in f.iter().filter(|(p, s)| !ins.contains(p) && !(probes.contains(p) && t.names[*s as usize].split('[').next() == Some(probe_id.as_str()))) {
             for i in 0..3 {
                 lo[i] = lo[i].min(p[i]);
                 hi[i] = hi[i].max(p[i]);
@@ -283,6 +296,9 @@ pub fn spawn_pool(o: &Options) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        return crate::shulker::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
@@ -303,7 +319,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() };
+    Ok(verdict(VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() }))
+}
+
+/// The verdict of a report's builds: no passing build fails it; builds that disagree (other
+/// metrics, or failing) make it position- or rotation-dependent (allowed, flagged, as for clocks;
+/// the failing builds are listed in `note`), else `robust`.
+pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|b| b.outcome.pass)).count();
     if ok_count == 0 {
         let b = &rep.builds[0];
@@ -311,7 +333,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             Ok(b) => b.outcome.why.clone(),
             Err(e) => e.clone(),
         };
-        return Ok(rep);
+        return rep;
     }
     // as for clocks: builds that disagree (other metrics, or failing) make the circuit position-
     // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`)
@@ -344,5 +366,5 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
     }
     rep.pass = true;
-    Ok(rep)
+    rep
 }

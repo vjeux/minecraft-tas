@@ -19,6 +19,21 @@ pub struct Trace {
     pub cells: Vec<Vec<(Pos, u32)>>,
     /// The run ended early on purpose: a flying machine reached the far end of its corridor.
     pub ended: Option<String>,
+    /// Primed TNT spawned during the run (TNT dupers; the judge removes each one before it can
+    /// explode), in spawn order.
+    pub primed: Vec<Primed>,
+}
+
+/// One primed TNT: the frame it first appears in, and where it is and how it moves there (the
+/// real game: one tick after it spawned; redsim: its spawn point, no motion).
+#[derive(Clone, Debug, Default)]
+pub struct Primed {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub motion: Option<[f64; 3]>,
+    /// The real game: its position and motion at fuse 1, the tick before it would explode (the
+    /// judge removes it there); `None` when the run ended first, and on redsim.
+    pub end: Option<([f64; 3], [f64; 3])>,
 }
 
 impl Trace {

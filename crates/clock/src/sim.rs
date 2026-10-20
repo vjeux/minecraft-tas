@@ -278,6 +278,14 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
             Action::Clear { pos } => {
                 s.world.set_block(bp(pos), Block::Air, flags::ALL);
             }
+            Action::ShapeSet { pos, state } => {
+                let b = Block::parse(&state).map_err(|e| (Verdict::Unmodeled, e))?;
+                s.world.set_block(bp(pos), b, flags::CLIENTS);
+            }
+            Action::Update { pos } => {
+                let src = s.world.get(bp(pos)).kind();
+                s.world.update_neighbors_at(bp(pos), src);
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -371,6 +379,8 @@ pub struct Driven {
     /// The run stopped early: the tick and why (a drop, a write outside the box, a case redsim does
     /// not model); `cells` and `signals` hold the frames before it.
     pub stopped: Option<(u32, String)>,
+    /// TNT primed (track tnt): (the frame it first shows in, its cell).
+    pub primed: Vec<(u32, Pos)>,
 }
 
 /// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
@@ -379,22 +389,34 @@ pub struct Driven {
 /// tick 0..=ticks. Fails on a block redsim does not model; a problem during the run (a drop, a write
 /// outside the box) stops it ([`Driven::stopped`]).
 pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos) -> Result<Driven, (Verdict, String)> {
+    drive_with(c, extra, ticks, probes, from, to, false)
+}
+
+/// [`drive`]; `remove_primed`: the caller removes every primed TNT before it explodes (the TNT
+/// judge), so an explosion is no model note.
+pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool) -> Result<Driven, (Verdict, String)> {
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
-        if let Action::Place { state, .. } = a {
+        if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
             Block::parse(state).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
         }
     }
     blocks.sort_by_key(|(p, _)| *p);
     let mut s = start_box(c, &blocks, from, to)?;
+    s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None };
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() };
+    let mut primed_seen = 0usize;
     for t in 0..=ticks {
         if let Err((_, why)) = between_ticks(&mut s, t) {
             out.stopped = Some((t, why));
             break;
         }
+        for &(_, p) in &s.world.primed[primed_seen..] {
+            out.primed.push((t, p.arr()));
+        }
+        primed_seen = s.world.primed.len();
         let mut v: Vec<(Pos, String)> = s.world.blocks().into_iter().map(|(p, b)| (p.arr(), wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, p, &b).as_deref()))).collect();
         v.sort_by_key(|(p, _)| *p);
         out.cells.push(v);
@@ -526,6 +548,54 @@ fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, 
         }
     }
     Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).map(|(w, p)| (w as u32, p as u32)))
+}
+
+/// A quick screen for entity-kit candidates (`clock kit`): run `ticks` gt; false when the design
+/// comes to rest (nothing pending and every entity still for 3 ticks in a row), when no cell of the
+/// world box changes in the last two thirds of the run (no clock with a period that fits), or on an
+/// invalid or unmodeled run.
+pub fn entity_screen(c: &Clock, margin: i32, ticks: u32) -> bool {
+    let Ok(blocks) = parse_blocks(c) else { return false };
+    let Ok(mut s) = start(c, &blocks, margin) else { return false };
+    let wmin = s.world.min;
+    let size = s.world.size;
+    let cells: Vec<BlockPos> = (0..size[1])
+        .flat_map(|y| (0..size[2]).flat_map(move |z| (0..size[0]).map(move |x| BlockPos::new(wmin.x + x, wmin.y + y, wmin.z + z))))
+        .collect();
+    let digest = |w: &World| -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for q in &cells {
+            w.get(*q).hash(&mut h);
+        }
+        h.finish()
+    };
+    let mut prev = digest(&s.world);
+    let mut changed_late = false;
+    let mut still_run = 0;
+    for t in 0..ticks {
+        if between_ticks(&mut s, t).is_err() {
+            return false;
+        }
+        s.world.tick();
+        let d = digest(&s.world);
+        if d != prev {
+            if t >= ticks / 3 {
+                changed_late = true;
+            }
+            prev = d;
+        }
+        let still = s.world.idle()
+            && s.world.entities.list.iter().all(|e| {
+                let v = e.delta_movement;
+                v.x == 0.0 && v.y == 0.0 && v.z == 0.0 && e.pos.x == e.xo && e.pos.y == e.yo && e.pos.z == e.zo
+            });
+        still_run = if still { still_run + 1 } else { 0 };
+        if still_run >= 3 {
+            return false;
+        }
+    }
+    changed_late && s.world.errors.is_empty() && s.world.drops.is_empty()
 }
 
 /// Simulate a clock on redsim (exact): see the module doc.

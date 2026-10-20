@@ -527,21 +527,40 @@ fn checks() -> Vec<Check> {
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1"),
+        ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 1 gt, 8 blocks, 3x3x2"),
+        ("window-dff", "cal-window-dff dff latency 4 gt, edge falling, setup 0 gt, hold 2 gt, 10 blocks, 2x2x5"),
+        ("window-dff-enable", "cal-window-dff-enable dff-enable latency 4 gt, edge falling, 13 blocks, 4x2x5"),
+        ("window-shift1", "cal-window-shift1 shift 1 N 1, latency 4 gt, edge falling, 10 blocks, 2x2x5"),
+        ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
+        ("slime-bud", "cal-slime-bud bud detects place remove state update, latency 3 gt, pulse 1 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 5 cells, 3 blocks, 1x4x1"),
+        ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
+        ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
     s.push("designs/circuits/selftest/floating-not.txt".into());
+    s.push("designs/circuits/selftest/shortening-delay-line.txt".into());
+    s.push("designs/circuits/selftest/plus4-stretcher.txt".into());
     // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
     // output refused, a comparator AND kept with its metrics
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
     s.push("designs/circuits/selftest/comparator-and.txt".into());
     s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
+    // the sequential memory kinds: a claim each refused (a reset that drives nothing, a level
+    // latch as an edge-triggered register, an enable that drives nothing, one cell as two)
+    for f in ["bulb-tff-claimed-reset", "dlatch-claimed-dff", "dff-claimed-enable", "dff-claimed-shift2"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    // the BUD kind: a clock, a BUD that never re-arms and a false claim refused
+    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND, a floating dust and an update-less (redirection-only) NOR refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 20 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims and three false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates) refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -554,15 +573,24 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR and a stone output refused; the comparator AND kept"))
+            has(&o[0], "FAIL: cal-bulb-tff-claimed-reset tff-reset: A r 4: an r pulse must clear q")?;
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            has(&o[0], "FAIL: cal-dff-claimed-enable dff-enable: rising edge:")?;
+            has(&o[0], "FAIL: cal-dff-claimed-shift2 shift 2: rising edge:")?;
+            has(&o[0], "FAIL: cal-observer-pair-bud bud: the output is on at rest")?;
+            has(&o[0], "FAIL: cal-latching-bud bud: the output is on at rest")?;
+            has(&o[0], "FAIL: cal-observer-bud-claims-update bud: claims update but does not detect it")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims and 3 false BUDs refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 12 calibration circuits: robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 20 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
@@ -570,6 +598,7 @@ fn checks() -> Vec<Check> {
             s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
             s.push("designs/circuits/selftest/update-less-nor.txt".into());
             s.push("designs/circuits/selftest/comparator-and.txt".into());
+            s.push("designs/circuits/selftest/dlatch-claimed-dff.txt".into());
             s
         }],
         timeout: 600,
@@ -581,7 +610,38 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust")?;
-            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR refused, the comparator AND robust", circ2.len()))
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR and the latch claiming dff refused, the comparator AND robust", circ2.len()))
+        }),
+    });
+    // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
+    // chests, every item and box counted): track shulker's always-on loader and unloader with
+    // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
+    // boxes early refused
+    v.push(Check {
+        name: "circuit:verify-shulker".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on track shulker's always-on loader and unloader with unstackables: 3 boxes, robust, hopper pace (cycle 224 / 220 gt), every badge they claim (always-on, colours, restart, box-starved, drop-free); a loader that breaks its boxes at the first item refused; `circuit sim` says redsim does not model them yet",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 4 designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt designs/circuits/selftest/shulker-early-loader.txt"),
+            args("circuit sim designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            // the drop's random offset can move a median time by a gt: match around the times
+            let line = |name: &str| o[0].lines().find(|l| l.starts_with(&format!("CIRCUIT: {name} "))).unwrap_or("").to_string();
+            let l = line("shulker-auto-loader-1");
+            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
+                return Err(format!("auto loader: {l:?}: {}", tail(&o[0])));
+            }
+            let l = line("shulker-auto-unloader-1");
+            if !(l.contains("shulker-unloader 1 boxes/min ") && l.contains("items/s 2.4") && l.contains("cycle 22") && l.contains("badges always-on+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 35 redstone, 1 slime, 49 blocks, 5x6x8, robust")) {
+                return Err(format!("auto unloader: {l:?}: {}", tail(&o[0])));
+            }
+            has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
+            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not model shulker boxes")?;
+            Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
         }),
     });
     v

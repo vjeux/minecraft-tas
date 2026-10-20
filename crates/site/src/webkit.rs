@@ -16,6 +16,62 @@ use std::time::{Duration, Instant};
 const MINIBROWSER: &str = "/usr/libexec/webkit2gtk-4.0/MiniBrowser";
 const IPHONE_UA: &str = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
+/// The console recorder the local server puts at the top of every page (test harness only, never
+/// deployed): every console line, uncaught error and unhandled rejection goes to
+/// `window.__mcLog`, so the smoke can report the viewer's own messages (`GPU error`, a panic, an
+/// asset `unavailable`).
+const CONSOLE_HOOK: &str = "<script>(function(){var L=window.__mcLog=[];function s(a){try{return typeof a==='string'?a:(a&&a.stack)?String(a.stack):JSON.stringify(a)}catch(e){return String(a)}}['log','info','warn','error','debug'].forEach(function(k){var o=console[k];console[k]=function(){try{L.push(k+': '+Array.prototype.map.call(arguments,s).join(' '))}catch(e){}return o.apply(console,arguments)}});window.addEventListener('error',function(e){L.push('uncaught: '+(e.message||String(e))+(e.filename?' @ '+e.filename+':'+e.lineno:''))});window.addEventListener('unhandledrejection',function(e){L.push('unhandled rejection: '+s(e.reason))})})();</script>";
+
+/// The page's recorded console lines (`None`: no recorder, e.g. the deployed site).
+fn console_lines(s: &Session) -> Option<Vec<String>> {
+    let v = s.script("return window.__mcLog ? window.__mcLog.slice() : null;").ok()?;
+    v.as_array().map(|a| a.iter().map(|x| x.as_str().unwrap_or("").to_string()).collect())
+}
+
+/// The console lines worth a report (the viewer's `GPU error`, a panic, an `unavailable` asset,
+/// uncaught errors), and whether they fail the check (everything but `unavailable`).
+fn console_flags(lines: &[String]) -> (Vec<String>, bool) {
+    let mut flagged = Vec::new();
+    let mut fail = false;
+    for l in lines {
+        let low = l.to_lowercase();
+        let bad = low.contains("gpu error") || low.contains("panic") || low.starts_with("uncaught") || low.starts_with("unhandled rejection");
+        if bad || low.contains("unavailable") {
+            flagged.push(l.chars().take(220).collect::<String>());
+            fail |= bad;
+        }
+    }
+    (flagged, fail)
+}
+
+/// The console part of a check: a short summary, or an error when the console has a GPU error,
+/// a panic or an uncaught error.
+fn console_check(s: &Session) -> Result<String> {
+    let Some(lines) = console_lines(s) else { return Ok("console not recorded".to_string()) };
+    let (flagged, fail) = console_flags(&lines);
+    if fail {
+        bail!("console: {}", flagged.join(" || "));
+    }
+    Ok(if flagged.is_empty() { format!("console: {} lines, none flagged", lines.len()) } else { format!("console: {} lines; {}", lines.len(), flagged.join(" || ")) })
+}
+
+/// The game assets the viewer fetched (misode/mcmeta): this page's resource timings plus the
+/// session's Cache API contents.
+fn fetched_assets(s: &Session) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    if let Ok(v) = s.script("return performance.getEntriesByType('resource').map(function(e){return e.name}).filter(function(n){return n.indexOf('mcmeta') >= 0});") {
+        out.extend(v.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)));
+    }
+    let js = "var done = arguments[arguments.length - 1]; if (!window.caches) { done([]); return; } caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.open(k).then(function(c){ return c.keys(); }).then(function(rs){ return rs.map(function(r){ return r.url; }); }); })); }).then(function(x){ done([].concat.apply([], x)); }).catch(function(){ done([]); });";
+    if let Ok(v) = s.post("execute/async", serde_json::json!({"script": js, "args": []})) {
+        out.extend(v["value"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).filter(|u| u.contains("mcmeta")));
+    }
+    let mut short: Vec<String> = out.iter().map(|u| u.split("/mcmeta/").nth(1).map(|r| r.split_once('/').map(|(_, p)| p.to_string()).unwrap_or_else(|| r.to_string())).unwrap_or_else(|| u.clone())).collect();
+    short.sort();
+    short.dedup();
+    short
+}
+
 /// A child process killed when dropped.
 struct Proc(Child);
 
@@ -220,7 +276,9 @@ fn check_page(s: &Session, base: &str, page: &str, selector: &str) -> Result<Str
     }
     // let it draw a few frames (software GL is slow)
     std::thread::sleep(Duration::from_secs(4));
-    picture(s, selector)
+    let detail = picture(s, selector)?;
+    // the entity clocks draw their entities through a texture fetched lazily: give it time
+    Ok(format!("{detail}; {}", console_check(s)?))
 }
 
 /// Poll a script until it returns true (or time out).
@@ -269,7 +327,8 @@ fn check_picker_swap(s: &Session, base: &str, page: &str, other_page: &str, othe
     }
     std::thread::sleep(Duration::from_secs(4));
     let detail = picture(s, VIEW)?;
-    Ok(format!("same viewer, URL + title + design swapped, {detail}"))
+    let console = console_check(s)?;
+    Ok(format!("same viewer, URL + title + design swapped, {detail}; {console}"))
 }
 
 /// A family page's member row: the family view shows that member (same element, its design).
@@ -298,7 +357,8 @@ fn check_family_swap(s: &Session, base: &str, page: &str) -> Result<String> {
     }
     std::thread::sleep(Duration::from_secs(4));
     let detail = picture(s, "#member-view")?;
-    Ok(format!("same view, member {href} shown ({how}), {detail}"))
+    let console = console_check(s)?;
+    Ok(format!("same view, member {href} shown ({how}), {detail}; {console}"))
 }
 
 /// The view `selector` must draw a real picture: enough colors, not dark, not blank (a cleared or
@@ -333,10 +393,16 @@ fn wait_for(path: &Path, secs: u64) -> bool {
     true
 }
 
-/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
-/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
-/// failed checks.
-pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+/// What both the smoke and the film need: the site's data, its base URL (served locally with
+/// the console recorder, or the deployed site), and an X display of our own.
+struct Rig {
+    site: site_model::Site,
+    base: String,
+    display: String,
+    _xvfb: Xvfb,
+}
+
+fn rig(dir: &Path, remote: Option<&str>) -> Result<Rig> {
     if !Path::new(MINIBROWSER).is_file() {
         bail!("no {MINIBROWSER}: dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb");
     }
@@ -355,17 +421,66 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
             let listener = TcpListener::bind(("127.0.0.1", 0))?;
             let port = listener.local_addr()?.port();
             let root: PathBuf = dir.to_path_buf();
-            std::thread::spawn(move || crate::serve::serve_with(listener, root, Default::default()));
+            std::thread::spawn(move || crate::serve::serve_injecting(listener, root, Default::default(), CONSOLE_HOOK.to_string()));
             (site, format!("http://127.0.0.1:{port}/"))
         }
     };
     // a display of our own
     let n = free_display().context("no free X display in :90..:99")?;
     let display = format!(":{n}");
-    let _xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
+    let xvfb = Xvfb(Command::new("Xvfb").args([display.as_str(), "-screen", "0", "1400x1000x24", "-nolisten", "tcp"]).stdout(Stdio::null()).stderr(Stdio::null()).spawn().context("running Xvfb (dnf install xorg-x11-server-Xvfb)")?);
     if !wait_for(Path::new(&format!("/tmp/.X11-unix/X{n}")), 10) {
         bail!("Xvfb {display} did not start");
     }
+    Ok(Rig { site, base, display, _xvfb: xvfb })
+}
+
+/// Film pages in WebKit (`site smoke --engine webkit --page <path>`): `frames` screenshots of
+/// each page's first 3D view, `interval` ms apart, desktop and phone, saved as
+/// `<page>-<desktop|phone>-<k>.png` in $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots),
+/// with each frame's colors and brightness and the page's console.
+pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64) -> Result<()> {
+    let r = rig(dir, remote)?;
+    let out = std::env::var_os("MCTAS_WEBKIT_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/mctas-webkit-shots"));
+    std::fs::create_dir_all(&out)?;
+    for phone in [false, true] {
+        let tag = if phone { "phone" } else { "desktop" };
+        let s = Session::start(&r.display, phone)?;
+        for page in pages {
+            let sel = if page.starts_with("index.html") { ".thumb[data-mcview]" } else { "[data-mcview=\"full\"]" };
+            match check_page(&s, &r.base, page, sel) {
+                Ok(d) => println!("{tag} {page}: ready, {d}"),
+                Err(e) => println!("{tag} {page}: {e:#}"),
+            }
+            let stem = page.trim_end_matches(".html").replace(['/', '#', '?', '&', '='], "_");
+            for k in 1..=frames {
+                std::thread::sleep(Duration::from_millis(interval));
+                let shot = s.screenshot()?;
+                let png = out.join(format!("{stem}-{tag}-{k}.png"));
+                let v = http(s.port, "GET", &format!("/session/{}/screenshot", s.id), None)?;
+                if let Some(b64) = v["value"].as_str() {
+                    use base64::Engine as _;
+                    std::fs::write(&png, base64::engine::general_purpose::STANDARD.decode(b64)?)?;
+                }
+                let (colors, luma, black) = picture_stats(&shot, 0.0, 0.0, shot.0 as f64, shot.1 as f64);
+                println!("  frame {k}: {} ({colors} colors, mean luma {luma:.0}, {:.0}% black)", png.display(), black * 100.0);
+            }
+            if let Some(lines) = console_lines(&s) {
+                for l in lines.iter().take(30) {
+                    println!("  console: {}", l.chars().take(200).collect::<String>());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
+/// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
+/// failed checks.
+pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
+    let r = rig(dir, remote)?;
+    let (site, base, display) = (&r.site, r.base.clone(), r.display.clone());
     let pick = |kind: &str| site.builds.iter().find(|b| b.kind == kind && b.trace.is_none()).map(|b| b.page.clone());
     let mut pages: Vec<(String, String, &str)> = vec![("index".into(), "index.html#kind=clock".into(), ".thumb[data-mcview]")];
     for kind in ["door", "clock", "circuit"] {
@@ -375,6 +490,26 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
     }
     if let Some(c) = site.cards.first() {
         pages.push(("family".into(), c.page.clone(), "[data-mcview=\"full\"]"));
+    }
+    // entity clocks: the viewer fetches the entity and item atlases the first time it draws one
+    let mut entity = 0;
+    for name in ["clk-misc-boat-ring-3x3", "clk-misc-cart-loop3"] {
+        if let Some(b) = site.builds.iter().find(|b| b.name == name) {
+            pages.push((format!("entity clock {name}"), b.page.clone(), "[data-mcview=\"full\"]"));
+            entity += 1;
+        }
+    }
+    // the machines' studies: TNT and dead coral fans, shulker loaders (dispensers, hoppers, the
+    // judge's chests), BUD switches
+    for study in ["tnt", "shulker", "bud"] {
+        if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.study == study && c.host.is_none() && c.layout_of.is_none())) {
+            pages.push((format!("{study} machine {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
+        }
+    }
+    if entity == 0 {
+        if let Some(b) = site.builds.iter().find(|b| b.kind == "clock" && b.trace.is_some()) {
+            pages.push((format!("entity clock {}", b.name), b.page.clone(), "[data-mcview=\"full\"]"));
+        }
     }
     let mut fails = 0;
     // a tunable group with two versions (the in-place swap check)
@@ -398,6 +533,7 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
                 continue;
             }
         };
+        let mut assets: Vec<String> = Vec::new();
         for (what, page, selector) in &pages {
             match check_page(&s, &base, page, selector) {
                 Ok(d) => println!("PASS webkit {label}: {what} ({page}): {d}"),
@@ -406,7 +542,11 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
                     fails += 1;
                 }
             }
+            assets.extend(fetched_assets(&s));
         }
+        assets.sort();
+        assets.dedup();
+        println!("     webkit {label}: game assets fetched (misode/mcmeta): {}", if assets.is_empty() { "none".to_string() } else { assets.join(", ") });
         if let Some((page, other_page, other_design, other_name)) = &group_pair {
             match check_picker_swap(&s, &base, page, other_page, other_design, other_name) {
                 Ok(d) => println!("PASS webkit {label}: picker swap in place ({page} -> {other_page}): {d}"),

@@ -24,7 +24,7 @@ fn content_type(p: &Path) -> &'static str {
     }
 }
 
-fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>) -> Result<()> {
+fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>, inject: &str) -> Result<()> {
     let mut reader = BufReader::new(s.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -60,7 +60,15 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         file = file.join("index.html");
     }
     match std::fs::read(&file) {
-        Ok(body) => {
+        Ok(mut body) => {
+            if !inject.is_empty() && content_type(&file).starts_with("text/html") {
+                let text = String::from_utf8_lossy(&body).to_string();
+                body = match text.find("<head>") {
+                    Some(i) => format!("{}{inject}{}", &text[..i + 6], &text[i + 6..]),
+                    None => format!("{inject}{text}"),
+                }
+                .into_bytes();
+            }
             write!(s, "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", content_type(&file), body.len())?;
             s.write_all(&body)?;
         }
@@ -80,12 +88,20 @@ pub fn serve_on(listener: TcpListener, root: PathBuf) {
 }
 
 pub fn serve_with(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>) {
+    serve_injecting(listener, root, extra, String::new())
+}
+
+/// [`serve_with`], with `inject` inserted right after `<head>` in every HTML file served (the
+/// WebKit smoke's console recorder: it must run before the page's own scripts).
+pub fn serve_injecting(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>, inject: String) {
     let extra = std::sync::Arc::new(extra);
+    let inject = std::sync::Arc::new(inject);
     for s in listener.incoming().flatten() {
         let root = root.clone();
         let extra = extra.clone();
+        let inject = inject.clone();
         std::thread::spawn(move || {
-            let _ = respond(s, &root, &extra);
+            let _ = respond(s, &root, &extra, &inject);
         });
     }
 }
@@ -346,6 +362,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // the machines' studies: a variations table with the best design per variation
+    for folder in ["shulker", "tnt", "bud"] {
+        if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
+            let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
+            let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
+            let best = table.matches("<a href=").count();
+            check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
+        }
+    }
     // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
     // different sizes, not others of size 1"): every card there has another value
     if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {

@@ -9,9 +9,9 @@ is the short version for whoever picks the work up.
 
 | What | Where |
 |---|---|
-| Core (platform independent): design parser, redsim session, models, atlas, camera, mesh, renderer, live player | `crates/mcview/src/` (`session.rs`, `player.rs`, `scene.rs`, `models.rs`, `mesh.rs`, `atlas.rs` + `atlas/art.rs` hand-drawn tiles + `atlas/vanilla.rs` game textures, `circuit.rs`, `replay.rs`, `render.rs`, `tools.rs`) |
+| Core (platform independent): design parser, redsim session, models, atlas, camera, mesh, renderer, live player | `crates/mcview/src/` (`session.rs`, `player.rs`, `scene.rs`, `models.rs` the viewer's own models, `gamemodel.rs` the game's block geometry, `entitymodel.rs` the game's entity models, `mesh.rs`, `atlas.rs` + `atlas/art.rs` hand-drawn tiles + `atlas/vanilla.rs` game textures, `circuit.rs`, `replay.rs`, `render.rs`, `tools.rs`) |
 | Browser glue: DOM scan, thumbnails, live viewer UI, overlays | `crates/mcview-web/src/` (`lib.rs`, `live.rs`, `overlay.rs`, `gpu.rs`) |
-| Commands (`mctas web ...`): shot, check, bundle, demo, serve, compare, fit, layout, click, snap, strip, palette, reference | `crates/web-cli/src/lib.rs`, headless Chromium driver `cdp.rs` |
+| Commands (`mctas web ...`): shot, check, bundle, demo, serve, compare, fit, layout, click, snap, strip, palette, reference, game-texture, luma, swap, lose | `crates/web-cli/src/lib.rs`, headless Chromium driver `cdp.rs` |
 | The shipped bundle (committed; the site copies it) | `web/viewer/mcview.js`, `web/viewer/mcview_bg.wasm` |
 
 ## Build, test, ship
@@ -22,8 +22,9 @@ is the short version for whoever picks the work up.
   `mctas web check -q --wasm web/viewer/mcview_bg.wasm designs/clocks/archive/*.txt
   designs/clocks/calibration/*.txt designs/circuits/fly/archive/*.txt` (today: 4016 clocks + 85
   flying machines agree native and wasm, 0 parse-only, 0 failures) and over
-  `designs/circuits/*/archive/*.txt` (283 circuits agree frame by frame with circuit sim under
-  their judge's stimulus, the judge's consumer lamps included); after a UI change
+  `designs/circuits/*/archive/*.txt` (325 circuits agree frame by frame with circuit sim under
+  their judge's stimulus and events (BUD switches), the judge's consumer lamps included; the
+  shulker designs and redsim-unmodeled ones parse-only); after a UI change
   `mctas web demo ... -o /tmp/demo`, `mctas web serve /tmp/demo --port 8765`, then
   `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`,
   and `--hold` on circuits), `mctas web layout <url> --window 390,844 --scale 2` (needs
@@ -52,19 +53,24 @@ is the short version for whoever picks the work up.
 - Texture array layers must never be a multiple of 6: wgpu's WebGL2 backend then takes the
   array for a cube-map array and every block samples BLACK (f141e8417, 180 tiles; the atlas
   pads and asserts). `mctas web luma --url` catches that class; the native renderer does not.
-- Circuits: the contract with site (data-stimulus / data-phases / data-input-mode, inputs driven
-  like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay).
+- Circuits: the contract with site (data-stimulus / data-phases / data-input-mode / data-events,
+  inputs driven like `Circuit::actions`, one bar button per input, auto-demo with data-autoplay,
+  a BUD switch's target and footprint actions replayed from data-events). TNT dupers run live
+  with primed TNT drawn and moved by the viewer (`mcview::tnt`); shulker designs are shown as
+  built with the judge's chests and a box (redsim models neither).
 - No attribution text in the UI (vjeux): the badge only says what to do.
 - House rules: Rust only (no scripts, no Python), edit with the editor tools, never touch ~/bin
   or dotfiles, never message humans, commit as Christopher Chedeau <vjeuxx@gmail.com>.
 
 ## Open
 
-- `mctas web compare` on the 8-clock set: pixel diff 8.2, coarse 5.8 (target < 10 met; the
-  grass itself is texel-exact: bottom band diff ~3). What is
-  left: per-batch floor edges and black bands in some real pictures (not modelable), texture
-  noise, the leaves' brightness, the minecart / boat / armor stand models (block tiles; the
-  entity textures are in misode/mcmeta's `entities/atlas.png`, not used yet), model geometry from
-  the game's model JSON (piston head, repeater, comparator, hopper, dust).
-- Water surfaces are flat per cell (the game slopes them by the neighbours' levels).
+- `mctas web compare` on the 8-clock set: pixel diff 6.5, coarse 3.9 (8.2 before the game's
+  block models, 7.7 with them, 7.3 with the game's back-face culling of translucent faces, 6.5
+  with the game's fog; over 63 random clock pictures 8.3; the grass itself is texel-exact: bottom
+  band diff ~3). What is left: per-batch floor edges, neighbouring clocks and black bands in
+  some real pictures (the top band alone: 10-38; not modelable), texture noise. Entity clocks
+  compare worse (10.5 on the cart loops) only because the picture's moment differs (the cart is
+  elsewhere on its loop); the models match the pictures. `--floor-margin` measures the floor's
+  reach (56 stays the best mean).
+- Dropped non-block items are flat double-sided sprites (the game extrudes them 1 px thick).
 - The "use your own Minecraft .jar" picker is dropped (the mcmeta textures replace it).

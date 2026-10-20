@@ -18,7 +18,9 @@
   * down: 6 blocks 10 gt/block robust in every orientation (8 types with a redstone block in place
     of the rear observer); 17 observer-only 6-block types, east-west only (rotation-dependent).
   * two-way: fly-two-way-14b (the reversible 6-block engine 01ce95 between two 4-block return
-    stations, round trip 98 gt over 6 positions, robust; calibration cal-two-way-machine).
+    stations, round trip 98 gt over 6 positions, robust; calibration cal-two-way-machine) and
+    fly-two-way-14b-73cdd4 (engine 73cdd4, stations where a station observer and the front
+    observer watch each other at the stop; round trip 200 gt over 9 positions, robust).
   * payload: family fly-payload-e2cf52 (base fly-payload-n1): the 6-block engine carrying n =
     1..18 blocks, 6 + n blocks, 10 gt/block (9 per part: the 12-block push limit); members
     fly-payload-9-15b, fly-payload-18-24b. Family fly-train-e2cf52 (base fly-train-n1): the engine
@@ -40,9 +42,8 @@
 ## Dead ends (recorded, not archived)
 * Slower machines (grow: 8 blocks 11/12/16/17 gt/block, 9 blocks 18/19/24/25): dominated by the
   6-block 10 gt/block ones (tracks/fly/speed, speed9).
-* Vertical two-way: no 6-block engine with two sticky pistons flies both up and down in one
-  orientation (the reversible horizontal engines tilted fly down only; the up-flyers with two
-  sticky pistons break when kicked from the other end), every kick cell tried on redsim.
+* Vertical two-way: not built yet (see Next): no 6-block engine with two sticky pistons flies
+  both ways vertically (every orientation and kick cell); 7-block ones do.
 * Return stations with <= 3 blocks: none for any of the 7 reversible engines (k <= 2: a wall + 2
   blocks, within TWO cells of the stop, palette obsidian, stone, observers, repeaters, cross dust,
   redstone block, torches); 4 is the minimum (fly-two-way-14b).
@@ -55,9 +56,13 @@
   updates the pusher right after it extends (a sticky pusher retracting at once spits the front:
   1 gt instead of 2); a puller fired on landing with a pulse that ends by itself (an observer in
   the rear part watching the front leave).
-* Two-way with other engines: stations for 67f769, 73cdd4, 873917, 91737e, 964ac6 (k = 3, radius
-  1, obsidian/observer/dust) running at the end of this session (results in NOTES if it
-  finished); 02a7fb has none.
-* Vertical two-way: an up engine and a down engine sharing one structure, the stations choosing.
+* Two-way with other engines: 73cdd4 done (fly-two-way-14b-73cdd4); 91737e and 964ac6 have a
+  station ahead but none behind (k = 3, radius 1, obsidian/observer/dust); 02a7fb, 67f769, 873917
+  none ahead.
+* Vertical two-way: 7-block engines that fly up AND down exist (tracks/fly/vertical-rev, robust
+  both ways: grow --both-ways); the top station takes 2 blocks (an obsidian ceiling + an
+  observer), the bottom none with <= 3 (NOTES: why): build a 5+ block bottom station (a dust line
+  from an observer watching the front's final non-slime cell to the reversing piston or to the
+  cell the rear observer watches).
 * Payload: trailers that carry their own payload columns (9 per intermediate trailer); a train
   behind the 9 gt engine.

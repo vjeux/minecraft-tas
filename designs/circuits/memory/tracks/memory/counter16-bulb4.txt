@@ -1,6 +1,9 @@
 # Counter 16, four copper bulbs, 12 blocks (track memory): a chain of four bulb T flip-flops (bulb + comparator each), each comparator toggling the next bulb; the last comparator is on for eight pulse windows and off for eight (level style, period 16).
 name: counter16-bulb4
 circuit: counter 16
+group: bulb-chain
+group title: Copper bulb chain (counter 2^K)
+group note: K copper bulb T flip-flops in a line, each read by a comparator that toggles the next bulb: 3K blocks
 port input: -1 1 0
 port output: 8 1 0
 origin: 0 0 0
