@@ -1,7 +1,2 @@
 file	caption
 off-delay-ring-L24.txt	Two comparators in a ring: C1 (top middle) reads the stone I beside it and powers the stone A; C2 reads A and powers the stone T; three dust carry T's strength back into I, losing 2 per round of 4 gt. The input (a redstone block at the corner dust) holds the ring up; once it falls the ring decays 2 every 4 gt (13, 11, ... 1) and the lamp beside A stays lit until it reaches 0.
-mono-rise-repeater-L6.txt	study 1's pulse-rise-repeater-L6.txt (track pulse, a rising-edge detector) judged as a monostable: a second rising edge inside its pulse is ignored (the observer is already firing / the repeater already on)
-mono-rise-repeater-L8.txt	study 1's pulse-rise-repeater-L8.txt (track pulse, a rising-edge detector) judged as a monostable: a second rising edge inside its pulse is ignored (the observer is already firing / the repeater already on)
-mono-rise-odd2-L7.txt	study 1's pulse-rise-odd2-L7.txt (track pulse, a rising-edge detector) judged as a monostable: a second rising edge inside its pulse is ignored (the observer is already firing / the repeater already on)
-mono-rise-odd2-L9.txt	study 1's pulse-rise-odd2-L9.txt (track pulse, a rising-edge detector) judged as a monostable: a second rising edge inside its pulse is ignored (the observer is already firing / the repeater already on)
-mono-rise-bulb-L8.txt	study 1's pulse-rise-bulb-repeater-L8 (track pulse, a rising-edge detector) judged as a monostable: no piston (slime-free), every input length from 1 gt
