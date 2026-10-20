@@ -1,0 +1,19 @@
+# archived 2026-10-20T21:55Z from designs/circuits/gates/tracks/gates/gate-imply.txt by mctas circuit archive
+# CIRCUIT: gate-imply gate imply function imply, latency 2 gt, 3 blocks, 2x2x2, robust
+# IMPLY gate (A implies B), 3 blocks, glitch-free: the output lamp touches a wall torch hanging on input A (lit while A is off) and the repeater that input B arrives on. The repeater gives B the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp.
+name: gate-imply
+circuit: gate imply
+port input.a: 0 1 0
+port input.b: 2 1 1
+port output: 2 1 0
+origin: 1 0 0
+palette:
+  E minecraft:redstone_wall_torch[facing=east,lit=true]
+  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  S minecraft:stone
+layer 0:
+  ..
+  .S
+layer 1:
+  E.
+  .R

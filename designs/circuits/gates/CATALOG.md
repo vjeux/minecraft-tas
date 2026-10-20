@@ -12,31 +12,31 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-imply-r7-5b](archive/gate-imply-r7-5b.txt) | gate imply | function imply, latency 2 gt, glitches 2 | 4 | 3x2x1 | robust | IMPLY (NOT a OR b): a's input block carries a torch, lit when a is off; that torch and input b both power the output dust between them. The b input never sits on the torch, so the gate is steady at rest. 2 gt, 5 blocks. |
+| [gate-imply](archive/gate-imply.txt) | gate imply | function imply, latency 2 gt | 3 | 2x2x2 | robust | IMPLY gate (A implies B), 3 blocks, glitch-free: the output lamp touches a wall torch hanging on input A (lit while A is off) and the repeater that input B arrives on. The repeater gives B the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp. |
 
 ## imply-ba
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-imply-ba-r7-5b](archive/gate-imply-ba-r7-5b.txt) | gate imply-ba | function imply-ba, latency 2 gt, glitches 2 | 4 | 3x2x1 | robust | IMPLY (NOT a OR b): a's input block carries a torch, lit when a is off; that torch and input b both power the output dust between them. The b input never sits on the torch, so the gate is steady at rest. 2 gt, 5 blocks. |
+| [gate-imply-ba](archive/gate-imply-ba.txt) | gate imply-ba | function imply-ba, latency 2 gt | 3 | 2x2x2 | robust | IMPLY gate (B implies A), 3 blocks, glitch-free: the mirror of gate-imply. The output lamp touches a wall torch hanging on input B (lit while B is off) and the repeater that input A arrives on; the repeater gives A the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp. |
 
 ## nand
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nand-4b](archive/gate-nand-4b.txt) | gate nand | function nand, latency 2 gt | 4 | 3x2x1 | robust | NAND with real signal inputs: a torch stands on each input block, so each goes out when its input turns on; the dust between them, on its own support stone, is therefore lit unless BOTH inputs are on. 2 gt, 4 blocks. |
+| [gate-nand](archive/gate-nand.txt) | gate nand | function nand, latency 2 gt | 2 | 2x1x2 | robust | NAND gate, 2 blocks: a wall torch hanging on each input block, and the output lamp touching both torches. Each torch goes out when its own input is on, so the lamp stays lit unless BOTH inputs are on. |
 
 ## nimply
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nimply-r7-6b](archive/gate-nimply-r7-6b.txt) | gate nimply | function nimply, latency 4 gt | 6 | 3x2x1 | robust | NIMPLY under R7: input b arrives on the design's own repeater, which outputs into a dust that feeds the subtract comparator's side (a comparator side reads only dust, a redstone block or a diode). |
+| [gate-nimply](archive/gate-nimply.txt) | gate nimply | function nimply, latency 2 gt | 4 | 1x2x2 | robust | NIMPLY gate (A and not B), 4 blocks: a subtract comparator reads input A's block behind it and, at its side, a dust lying against input B's block; it passes A minus B, so the output lights only while A is on and B is off. |
 
 ## nimply-ba
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nimply-ba-r7-6b](archive/gate-nimply-ba-r7-6b.txt) | gate nimply-ba | function nimply-ba, latency 4 gt | 6 | 3x2x1 | robust | NIMPLY under R7: input b arrives on the design's own repeater, which outputs into a dust that feeds the subtract comparator's side (a comparator side reads only dust, a redstone block or a diode). |
+| [gate-nimply-ba](archive/gate-nimply-ba.txt) | gate nimply-ba | function nimply-ba, latency 2 gt | 4 | 1x2x2 | robust | NIMPLY gate (B and not A), 4 blocks: the mirror of gate-nimply. A subtract comparator reads input B's block behind it and, at its side, a dust lying against input A's block; the output lights only while B is on and A is off. |
 
 ## nor
 
@@ -49,8 +49,8 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
+| [gate-not](archive/gate-not.txt) | gate not | function not, latency 2 gt, tileable every 1 (0 0 1) | 1 | 1x1x1 | robust | NOT gate, 1 block: a wall torch hanging on the input block itself. The input powers that block, the torch goes out, and the torch is the output: lit exactly when the input is off. A row of them side by side inverts a whole bus. |
 | [gate-not-lever-2b](archive/gate-not-lever-2b.txt) | gate not | function not, latency 2 gt | 2 | 1x2x1 | robust | NOT gate with a lever input (track gates): the lever strongly powers the stone it hangs on; a torch on top of that stone inverts it. 2 gt. |
-| [gate-not-torch-3b](archive/gate-not-torch-3b.txt) | gate not | function not, latency 2 gt, tileable every 3 (0 0 3) | 3 | 2x2x1 | robust | NOT gate, 2 gt (track gates): the input powers a dust on a stone; the dust powers the stone under it, and a wall torch on the stone's side goes out. The output cell is under the torch. |
 
 ## or
 

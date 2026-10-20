@@ -7,12 +7,12 @@ Signal inputs (R7), judged robust in the game. The table further down is the pre
 | function | the one design | blocks | latency | gap to world class |
 |---|---|---|---|---|
 | OR | gate-or-2b | 2 | 0 gt, tileable every 2 | at the bar: one dust touching both input blocks, on its stone |
-| NOT | gate-not-torch-3b | 3 | 2 gt | OPEN: a wall torch hanging on the input block itself, read as the output, would be 1 block |
+| NOT | gate-not | 1 | 2 gt, tileable every 1 | was 3: a wall torch hanging on the input block itself is the output; floor reached |
 | NOR | gate-nor-r7-3b | 3 | 2 gt | at the bar: the OR dust powers its stone, a torch on it inverts |
-| NAND | gate-nand-4b | 4 | 2 gt | at the bar: a torch on each input block, the dust between them is the output |
+| NAND | gate-nand | 2 | 2 gt | was 4: a wall torch on each input block, the output lamp touching both torches (a lamp is lit by any neighbouring torch) |
 | AND | gate-and-5b-r7 | 5 | 4 gt | near: the NAND plus one wall torch |
-| NIMPLY | gate-nimply-r7-6b | 6 | 4 gt | OPEN: comparator + its stone + B's own repeater + its stone is 4 |
-| IMPLY | gate-imply-r7-5b | 4 | 2 gt, glitches 2 | OPEN: glitch-free at 4 |
+| NIMPLY | gate-nimply (+ mirror -ba) | 4 | 2 gt | was 6 blocks / 4 gt: subtract comparator on A, a dust lying against B's block at its side |
+| IMPLY | gate-imply (+ mirror -ba) | 3 | 2 gt, glitch-free | was 4 with 2 glitches: lamp touching a torch on A and the repeater B arrives on (both 2 gt, so no blink). A 1-block version (lamp touching B's block directly) works but glitches |
 | XOR | gate-xor | 21 | 2 gt | was 32. Core is 7 blocks (two comparators whose side feeds cross in HEIGHT: a dust on A's block, a dust under B's); the other 14 merge the two outputs, which always land 3+ apart (proved for every direct-feed layout, see below). A cheaper merge is the gap |
 | XNOR | gate-xnor | 23 | 4 gt | was 34: the XOR meeting on a stone with a wall torch on it |
 
