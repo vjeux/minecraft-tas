@@ -221,10 +221,12 @@ pub enum Simple {
     Mud,
     // ---- pistmodel ----
     CryingObsidian,
+    // ---- fluids (clockinfra): what turns water above into a bubble column ----
+    MagmaBlock,
 }
 
 /// (block, id, conductor, full collision cube (sturdy on every face), instrument, push reaction)
-const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
+const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 61] = [
     (Simple::Stone, "stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::SmoothStone, "smooth_stone", true, true, Instrument::Basedrum, PushReaction::PushPull),
     (Simple::Cobblestone, "cobblestone", true, true, Instrument::Basedrum, PushReaction::PushPull),
@@ -291,6 +293,8 @@ const SIMPLES: [(Simple, &str, bool, bool, Instrument, PushReaction); 60] = [
     (Simple::Mud, "mud", true, true, Instrument::Harp, PushReaction::PushPull),
     // ---- pistmodel ----
     (Simple::CryingObsidian, "crying_obsidian", true, true, Instrument::Basedrum, PushReaction::Immoveable),
+    // ---- fluids (clockinfra) ----
+    (Simple::MagmaBlock, "magma_block", true, true, Instrument::Basedrum, PushReaction::PushPull),
 ];
 
 impl Simple {
@@ -441,6 +445,13 @@ pub enum Block {
     /// its back, the frequency input, at `facing.opposite()`; a plain sensor keeps North).
     /// `phase`: 0 inactive, 1 active, 2 cooldown (`SculkSensorPhase`).
     Sculk { calibrated: bool, facing: Dir, phase: u8, power: u8 },
+    // ---- fluids (clockinfra, `fluid/`) ----
+    /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
+    /// falling (`getLegacyLevel`).
+    Water { level: u8 },
+    /// A bubble column (`BubbleColumnBlock`, a water source): `drag` = down (magma below), else up
+    /// (soul sand below).
+    BubbleColumn { drag: bool },
 }
 
 /// `SculkSensorPhase` names, by `Block::Sculk::phase`.
@@ -492,6 +503,8 @@ pub enum Kind {
     Falling(u8),
     /// Sculk sensor (true: calibrated).
     Sculk(bool),
+    Water,
+    BubbleColumn,
 }
 
 fn b(s: bool) -> &'static str {
@@ -539,6 +552,8 @@ impl Block {
             Block::MovingPiston { .. } => Kind::MovingPiston,
             Block::Falling { id } => Kind::Falling(id),
             Block::Sculk { calibrated, .. } => Kind::Sculk(calibrated),
+            Block::Water { .. } => Kind::Water,
+            Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
     }
 
@@ -793,6 +808,8 @@ impl Block {
                     power: int_of("power", 0, 0, 15)?,
                 }
             }
+            "water" => Block::Water { level: int_of("level", 0, 0, 15)? },
+            "bubble_column" => Block::BubbleColumn { drag: bool_of("drag", true)? },
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
     }
@@ -902,6 +919,8 @@ impl fmt::Display for Block {
                 facing.name(),
                 SCULK_PHASES[phase as usize]
             ),
+            Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
+            Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }
     }
 }
