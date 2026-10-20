@@ -41,10 +41,14 @@ pub struct SelffeedArgs {
     /// on), per edge, comma separated.
     #[arg(long, default_value = "0,-2,2,-4,4,6,8")]
     shifts: String,
+    /// Try an observer in every free cell and facing (observers the mechanism carries: slime
+    /// riders, blocks in pushed rows), not only where it powers the input's piston at rest.
+    #[arg(long)]
+    anywhere: bool,
 }
 
 pub fn cmd_selffeed(args: SelffeedArgs) -> Result<()> {
-    let SelffeedArgs { schedule, extra_offsets, cycles, threads, margin, out, list, keep, between_ticks, why, align, shifts } = args;
+    let SelffeedArgs { schedule, extra_offsets, cycles, threads, margin, out, list, keep, between_ticks, why, align, shifts, anywhere } = args;
     let shifts: Vec<i64> = shifts.split(',').map(|t| t.trim().parse::<i64>()).collect::<std::result::Result<_, _>>()?;
     crate::ideal::cli_phase(between_ticks);
     let mut kept = Vec::new();
@@ -53,7 +57,7 @@ pub fn cmd_selffeed(args: SelffeedArgs) -> Result<()> {
         anyhow::ensure!(v.len() == 3, "--keep x,y,z");
         kept.push([v[0], v[1], v[2]]);
     }
-    let o = crate::selffeed::Options { extra_offsets, cycles, threads, margin, out, list, keep: kept, why, align, shifts };
+    let o = crate::selffeed::Options { extra_offsets, cycles, threads, margin, out, list, keep: kept, why, align, shifts, anywhere };
     crate::selffeed::cli(&schedule, &o)
 }
 
