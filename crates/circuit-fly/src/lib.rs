@@ -170,6 +170,9 @@ enum Cmd {
         /// Take one block out of each design first (every variant), then add `--add` blocks.
         #[arg(long, default_value_t = 0)]
         remove: usize,
+        /// Keep the candidates that fly both ways (backward when kicked from the other end).
+        #[arg(long)]
+        both_ways: bool,
     },
     /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
     /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
@@ -404,9 +407,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep, faster, remove } => {
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep, faster, remove, both_ways } => {
             let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
-            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers, faster, remove };
+            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers, faster, remove, both_ways };
             let found = grow::grow(&ms, &o)?;
             std::fs::create_dir_all(&out_dir)?;
             let mut seen: std::collections::BTreeMap<(String, String, usize), usize> = std::collections::BTreeMap::new();

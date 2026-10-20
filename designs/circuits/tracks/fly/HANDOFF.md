@@ -43,8 +43,9 @@
 * Vertical two-way: no 6-block engine with two sticky pistons flies both up and down in one
   orientation (the reversible horizontal engines tilted fly down only; the up-flyers with two
   sticky pistons break when kicked from the other end), every kick cell tried on redsim.
-* Return stations with <= 3 blocks for 01ce95: none within one cell of the stop (k <= 2, the full
-  palette); 4 is the minimum there.
+* Return stations with <= 3 blocks: none for any of the 7 reversible engines (k <= 2: a wall + 2
+  blocks, within TWO cells of the stop, palette obsidian, stone, observers, repeaters, cross dust,
+  redstone block, torches); 4 is the minimum (fly-two-way-14b).
 
 ## Next
 * Faster than 9 gt/block: not found (census k = 6 with redstone blocks, grow/swap around every
@@ -54,9 +55,9 @@
   updates the pusher right after it extends (a sticky pusher retracting at once spits the front:
   1 gt instead of 2); a puller fired on landing with a pulse that ends by itself (an observer in
   the rear part watching the front leave).
-* Two-way with fewer blocks: stations for the other reversible engines (02a7fb, 67f769, 73cdd4,
-  873917, 91737e, 964ac6) — k <= 2 at radius 2 running at the end of this session (results in
-  NOTES if it finished), k = 3 at radius 1 found nothing for 02a7fb.
+* Two-way with other engines: stations for 67f769, 73cdd4, 873917, 91737e, 964ac6 (k = 3, radius
+  1, obsidian/observer/dust) running at the end of this session (results in NOTES if it
+  finished); 02a7fb has none.
 * Vertical two-way: an up engine and a down engine sharing one structure, the stations choosing.
 * Payload: trailers that carry their own payload columns (9 per intermediate trailer); a train
   behind the 9 gt engine.

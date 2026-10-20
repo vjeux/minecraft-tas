@@ -155,3 +155,8 @@ track's tracker as `crates/circuit/src/fly.rs`).
   Station blocks are design blocks marked `port station.<n>` (they count; the tracker leaves them
   out of the machine's shape): implemented in crates/circuit (lib.rs, fly.rs, check.rs: an in-place
   run that outlasts the moving runs wins = two-way) at clockinfra's request.
+- `two-way` on all 7 reversible engines (01ce95, 02a7fb, 67f769, 73cdd4, 873917, 91737e, 964ac6):
+  no station of a wall + 2 blocks within TWO cells of the stop (palette obsidian, stone,
+  observers, repeaters, cross dust, redstone block, torches), so 4 station blocks is the minimum;
+  k = 3 (radius 1, obsidian/observer/dust): 01ce95 only so far (02a7fb none; the others were
+  running at the end of the session).
