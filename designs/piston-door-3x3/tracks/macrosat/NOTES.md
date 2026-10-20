@@ -116,6 +116,26 @@ direct feed, behind its above cell for a QC feed plus a glass block placed and r
 rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A real proof needs much
 longer horizons (h 10 takes hours per placement) or an unbounded method.
 
+**The central 7x7 near-miss (2026-10-20).** The plain feed model found (-2..4, -2..4) SAT at h 6
+(20 000 s; sat/v8/). On its fixed layout `--physics` was SAT at h 8, but the ideal-rs replay of
+the export broke twice, and each break was a rule the physics filter lacked (now in `--physics` and
+`--strict`):
+- HOLD: a rising signal (an extend or pulse feed) also holds every extended piston it reaches,
+  directly or by QC; such a piston cannot retract in that step (a QC-held one does not even get
+  an update when the signal ends). The replay: (4,0) stayed out under the lever-pulsed conductor
+  (4,2). Falling signals no longer force retracted neighbours to fire.
+- REDSTONE-BLOCK STABILITY: a retracted piston next to a redstone block (any side but its front)
+  extends at once, so it extends in the next step and never rests so. The replay: (4,-2) pushed
+  its redstone block back next to (1,-2), which re-extended into the doorway.
+- QC ARMING (w86): a retracted piston QC-armed by a redstone block next to its above cell, or by
+  an extended piston right above it whose DIRECT holding source (a redstone block or a wiring cell)
+  touches its cell, fires in the next step, at every settled state (a lingering arm fires on any
+  later update). A QC-held piston arms nothing (a piston is no power source).
+With them that layout is UNSAT up to h 12; the wired 7x8 e78k still passes `--physics` and
+`--strict` (h 10). The redstone-block rule has no pushability exception (a powered piston whose
+push is blocked by obsidian or an extended piston stays retracted in the game), so `--physics`
+UNSATs stay filter results, as before.
+
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
 (retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /

@@ -1,0 +1,40 @@
+# archived 2026-10-20T18:57Z from designs/circuits/tracks/pulse/wr/pulse-fall-observer-qc-repeater-L2.txt by mctas circuit archive
+# CIRCUIT: pulse-fall-observer-qc-repeater-L2 falling-edge L 2 gt, delay 4 gt, min-pulse 2 gt (the shortest a real input makes), tileable every 1 (1 0 0), 6 blocks, 1x3x4, robust
+name: pulse-fall-observer-qc-repeater-L2
+circuit: falling-edge
+group: pulse-fall-observer-qc-repeater
+group title: falling-edge pulse for the shortest inputs: the 1-tick falling edge and a repeater
+group note: the repeater's delay sets the length (2 to 8 ticks)
+# A 2-tick falling-edge pulse for any input, even the shortest (2 ticks), 6 blocks: the 1-tick
+# falling edge (when the input turns off, a sticky piston pulls a redstone block up for 1 tick)
+# feeding a repeater that stretches that tick to 2 (the output is the repeater). Copies stand side
+# by side every block. Detail: the observer watching the lower piston fires into the input block,
+# so the upper piston pushes the redstone block straight back; feed the input block through a
+# repeater. The repeater's delay sets the length.
+tile: 1 0 0
+port output: 0 1 2
+port input: 0 2 0
+origin: 0 0 -1
+palette:
+  A minecraft:sticky_piston[extended=true,facing=north]
+  H minecraft:piston_head[facing=north,short=false,type=sticky]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:redstone_block
+  D minecraft:sticky_piston[extended=false,facing=down]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  G minecraft:stone
+layer 0:
+  H
+  A
+  C
+  G
+layer 1:
+  .
+  B
+  .
+  R
+layer 2:
+  .
+  .
+  D
+  .
