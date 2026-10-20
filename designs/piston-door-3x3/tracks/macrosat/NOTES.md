@@ -136,6 +136,13 @@ With them that layout is UNSAT up to h 12; the wired 7x8 e78k still passes `--ph
 push is blocked by obsidian or an extended piston stays retracted in the game), so `--physics`
 UNSATs stay filter results, as before.
 
+**c70b's mm01-7x7 (works in redsim, unwired) on its fixed layout (2026-10-20).** With the current
+feed rules (only real strong-power sources into a conductor) it has no fed schedule at h 20 even
+without the lever and without island start (UNSAT, 716 s; the old permissive feed model found one
+at h 20 in 502 s); with `--lever` (h 20, with and without island start) and with `--physics`
+(h 20 and h 28) it is UNSAT too. So the best known 7x7 mechanism cannot be fed within 20-28
+parallel steps in this model: its firings need feeds that no real source in the box gives.
+
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
 (retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /
