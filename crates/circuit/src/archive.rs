@@ -964,7 +964,13 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
                     notes.push(n.clone());
                 }
             }
-            let note = if notes.is_empty() { String::new() } else { format!("\n\n{}", notes.join(" ")) };
+            let note = if notes.is_empty() {
+                String::new()
+            } else if card.group.is_some() {
+                format!(" · {}", notes.join(" "))
+            } else {
+                format!("\n\n{}", notes.join(" "))
+            };
             md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged n |\n|---|---|---|---|---|\n", fs.len()));
             for &i in &card.members {
                 let (mr, mf, _) = &fams[i];
