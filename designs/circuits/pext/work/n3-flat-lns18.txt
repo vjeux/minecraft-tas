@@ -1,14 +1,16 @@
-# Pushes a block out three cells from a one-block-wide wall, 18 blocks (9x5x1): a line of three sticky
+# Pushes a block out three cells from a one-block-wide wall, 18 blocks: a line of three sticky
 # pistons with a slime block between each pair; each piston fires itself whenever it is moved (an
 # observer hangs under the slime behind it), and the observers above the line, run by a chain from the
 # lever, start each wave of pushes (out) or grabs (back).
-# How it works: the cascade train (out: B C A B C; back: C B C A B C, every wave started by an observer
-# two above the line that powers its piston through the cell above it) with the lever's chain sped up
-# by two pistons (each lever flip moves a piston head that the next observer sees). The sticky piston
-# standing on the middle piston's rest cell replaces one pulser and two chain observers.
-# Found by `mctas circuit pext lns pext-n3-flat-cascade19 --remove 3 --add 2 --plane-z 0` (19 -> 18
-# blocks, 9x6x1 -> 9x5x1); game: robust (16 builds), redsim agrees.
-name: n3-flat-lns18
+# How it works: going out, the middle piston pushes the front piston and the block, the front piston
+# pushes the block on, then the back piston starts a second wave (back, middle, front); coming back the
+# waves are front; middle, front; back, middle, front, each piston grabbing what the one in front left
+# behind. Every wave starts with an observer two above the line that powers its piston through the
+# empty cell above it; the lever's chain is sped up by two pistons whose heads the next observer sees,
+# and a sticky piston standing above the middle piston's rest cell replaces one starter and two chain
+# observers. Found by `mctas circuit pext lns` from the 19-block cascade (remove 3 blocks, grow 2
+# back); game: robust (16 builds), redsim agrees.
+name: pext-n3-flat-cascade18
 circuit: piston-extender 3
 travel: 1 0 0
 port input: 8 4 0 lever

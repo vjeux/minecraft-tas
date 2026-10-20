@@ -72,7 +72,7 @@ slime-free schedule results stay in NOTES.md.
 |---|---|---|
 | 1 | to drop (trivial) | |
 | 2 | 6 blocks 1-wide: NONE exists in the searched space (`pext topo --k 3`: the lever on the back piston, the second piston and the payload at all 11 placements of a 3x4 window, every 1-wide placement of 3 more blocks within 2 cells, 22 block states). 7 blocks 1-wide: only the rider and its mirror (frame under or over, slime or honey frame), all 9/9 gt (`--k 4`). Faster than 9/9 at 7: not found. | pext-n2-rider7-flat (7, 9/9 gt, 6x3x1); sf7-1 (7, 7/12 gt, slime-free, 2 wide) |
-| 3 | 18 blocks, 9x5x1, 29/35 gt (was 19, 9x6x1, 27/27): `pext lns` (remove 3, grow 2) on cascade19; remove 3/grow 2 from 18 and remove 4/grow 2 from 19 find nothing smaller. Bar (12) not met: needs a new architecture. | work/n3-flat-lns18 (robust, 16 builds) |
+| 3 | 18 blocks, 29/35 gt, same 9x6x1 box (was 19, 27/27): `pext lns` (remove 3, grow 2) on cascade19; remove 3/grow 2 from 18 (in plane and in 3D) and remove 4/grow 2 from 19 find nothing smaller. Bar (12) not met: needs a new architecture. | pext-n3-flat-cascade18 (robust; cascade19 stays as the faster variant) |
 | 4 | 26 (lns remove 3 / grow 2: nothing smaller) | pext-n4-flat-cascade26 |
 | >= 5 | open | |
 
@@ -85,3 +85,11 @@ slime-free schedule results stay in NOTES.md.
   own face, so a unit's observer powers only the piston behind its slime.
 - A rear push moves every unit in front, so every carried trigger fires at once: rounds (front first)
   are forced, and every round start costs a pulser plus spine.
+- One frame carrying both stage pistons (`frame3`: the lever's piston shoves a slime strip, the middle
+  and front pistons and the block ride on it and slide when pushed) runs the same 3-step train
+  (front, middle, front) on both edges, but the front piston slides, so nothing it carries can fire
+  it: `grow` adds no 3 blocks that make it work (12 blocks), 4 not searched to the end.
+- Idea not built: hold every piston extended with the lever (the extension ripples in ~8 gt instead
+  of 27) and release them front first with delays (each release is a round start); the holds need
+  quasi-connectivity sources two above the line that are levels (a pushed redstone block or an
+  inverted torch), about 21 blocks for N=3.
