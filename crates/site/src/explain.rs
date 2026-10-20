@@ -504,9 +504,6 @@ pub fn wave_svg(w: &Wave) -> String {
                 d.push_str(&format!("{}{:.1},{y:.1} L{:.1},{y:.1} ", if k == 0 { "M" } else { "L" }, x(*t as f64), x(end)));
             }
             s.push_str(&format!("<path class=\"wpos\" d=\"{}\"/>", d.trim_end()));
-            if !r.note.is_empty() {
-                s.push_str(&format!("<text class=\"note\" x=\"{:.1}\" y=\"{:.1}\">{}</text>", x(0.0) + 4.0, y0 - hmax + 4.0, esc(&r.note)));
-            }
             continue;
         }
         // the step outline as a filled polygon

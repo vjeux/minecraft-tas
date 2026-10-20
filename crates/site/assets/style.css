@@ -222,6 +222,7 @@ svg.wave .wpos { fill: none; stroke: #2d5b85; stroke-width: 2; }
 svg.wave .tgt { stroke: #2d5b85; stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; }
 svg.wave .tgtl { fill: #2d5b85; font-weight: 700; }
 svg.wave .note { fill: #2d5b85; }
+p.wave-note { margin: 6px 0 0; font-size: 14px; }
 table.metrics th { width: 120px; }
 table.metrics td.def { color: var(--muted); font-size: 13px; }
 h2 .count { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 6px; }
