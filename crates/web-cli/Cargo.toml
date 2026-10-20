@@ -13,3 +13,4 @@ mctas = { path = "../mctas" }
 clock = { path = "../clock" }
 mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
+zip.workspace = true

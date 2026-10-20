@@ -86,6 +86,24 @@ pub enum WebCmd {
         #[arg(long, short)]
         out: PathBuf,
     },
+    /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
+    /// software): opens `<url>?mcview-debug` for `--seconds`, reads every frame's bounding boxes of
+    /// each viewer, its bar, counter and badge, and fails unless they never moved over at least
+    /// `--min-ticks` ticks (give the viewers `data-autoplay`).
+    Layout {
+        url: String,
+        #[arg(long, default_value_t = 8)]
+        seconds: u64,
+        /// Window size in CSS px, `W,H` (390,844 for a phone).
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        #[arg(long, default_value_t = 100)]
+        min_ticks: u32,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// Texture contact sheet: PNGs scaled up (nearest) in a grid, in the given order (row by row),
     /// to pick textures by eye.
     Sheet {
@@ -96,6 +114,30 @@ pub enum WebCmd {
         scale: u32,
         #[arg(long, default_value_t = 8)]
         cols: u32,
+    },
+    /// The viewer's own textures as PNGs (`<out>/<tile>.png`), to compare with the game's.
+    Tiles {
+        #[arg(long, short)]
+        out: PathBuf,
+    },
+    /// Colors of textures: mean and a k-means palette with shares (`--tint rrggbb` multiplies,
+    /// for the game's grayscale grass and leaves).
+    Palette {
+        pngs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 4)]
+        k: usize,
+        #[arg(long)]
+        tint: Option<String>,
+    },
+    /// LOCAL REFERENCE ONLY (never commit or ship the output: Mojang's assets): the game's block
+    /// textures from the client jar of `--version` (downloaded once into the version's cache
+    /// directory) into `<out>/<name>.png`; every block texture, or only the given names.
+    Reference {
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value = "26.3")]
+        version: String,
+        names: Vec<String>,
     },
     /// A grid of frames over time, as the browser animates them: a door from its lever flip, a
     /// clock from its still moment, `--step` game ticks apart (0.5 shows moving blocks mid-way).
@@ -124,6 +166,39 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
         WebCmd::Compare { designs, img_dir, out } => cmd_compare(&designs, &img_dir, &out),
+        WebCmd::Tiles { out } => {
+            let atlas = mcview::atlas::Atlas::build();
+            std::fs::create_dir_all(&out)?;
+            let mut names: Vec<(&str, u16)> = atlas.names.iter().map(|(k, v)| (*k, *v)).collect();
+            names.sort();
+            for (name, layer) in &names {
+                let px = &atlas.mips[0][*layer as usize * 16 * 16 * 4..(*layer as usize + 1) * 16 * 16 * 4];
+                mcview::render::headless::write_png(&out.join(format!("{name}.png")), 16, 16, px).map_err(anyhow::Error::msg)?;
+            }
+            println!("{} tiles in {}", names.len(), out.display());
+            Ok(())
+        }
+        WebCmd::Palette { pngs, k, tint } => {
+            let tint = match tint {
+                Some(h) => {
+                    let v = u32::from_str_radix(h.trim_start_matches('#'), 16)?;
+                    Some([(v >> 16) as u8, (v >> 8) as u8, v as u8])
+                }
+                None => None,
+            };
+            for p in &pngs {
+                let (px, w, h) = mcview::tools::decode_png(&std::fs::read(p)?).map_err(anyhow::Error::msg)?;
+                // the first 16x16 frame (animated textures are vertical strips)
+                let n = (w.min(16) * h.min(16)) as usize * 4;
+                let (mean, pal) = mcview::tools::palette(&px[..n.min(px.len())], k, tint);
+                let hex = |c: [u8; 3]| format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
+                let parts: Vec<String> = pal.iter().map(|(c, f)| format!("{} {:.0}%", hex(*c), f * 100.0)).collect();
+                println!("{:<32} mean {}  {}", p.file_stem().unwrap_or_default().to_string_lossy(), hex(mean), parts.join("  "));
+            }
+            Ok(())
+        }
+        WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
+        WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {
             let (rgba, w, h) = mcview::tools::sheet(&pngs, scale, cols).map_err(anyhow::Error::msg)?;
             mcview::render::headless::write_png(&out, w, h, &rgba).map_err(anyhow::Error::msg)?;
@@ -214,6 +289,102 @@ fn cmd_bundle(out: &Path) -> Result<()> {
 
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+/// The client jar of `version`, downloaded (alone, no libraries or assets) when missing.
+fn client_jar(version: &str) -> Result<PathBuf> {
+    let jar = mctas::paths::version_dir(version).join("client.jar");
+    if jar.exists() {
+        return Ok(jar);
+    }
+    let v = mctas::setup::version_json(version)?;
+    let c = &v["downloads"]["client"];
+    let url = c["url"].as_str().context("no client download in the version json")?;
+    mctas::net::download(url, &jar, mctas::net::Checksum::Sha1(c["sha1"].as_str().unwrap_or_default()))?;
+    Ok(jar)
+}
+
+fn cmd_reference(out: &Path, version: &str, names: &[String]) -> Result<()> {
+    let jar = client_jar(version)?;
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(&jar)?).context("opening the client jar")?;
+    std::fs::create_dir_all(out)?;
+    let prefix = "assets/minecraft/textures/block/";
+    let mut n = 0;
+    for i in 0..zip.len() {
+        let mut f = zip.by_index(i)?;
+        let Some(rest) = f.name().strip_prefix(prefix).map(str::to_string) else { continue };
+        let Some(stem) = rest.strip_suffix(".png") else { continue };
+        if stem.contains('/') || (!names.is_empty() && !names.iter().any(|w| w == stem)) {
+            continue;
+        }
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut f, &mut bytes)?;
+        std::fs::write(out.join(&rest), bytes)?;
+        n += 1;
+    }
+    println!("{n} block textures of {version} in {} (local reference only: never commit them)", out.display());
+    Ok(())
+}
+
+fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32, browser: &Path) -> Result<()> {
+    let page = if url.contains('?') { format!("{url}&mcview-debug") } else { format!("{url}?mcview-debug") };
+    let mut child = std::process::Command::new(browser)
+        .args(["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-logging=stderr", "--v=0", "--remote-debugging-port=0"])
+        .arg(format!("--window-size={window}"))
+        .arg(format!("--force-device-scale-factor={scale}"))
+        .arg(&page)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .with_context(|| format!("starting {}", browser.display()))?;
+    let stderr = child.stderr.take().context("no stderr")?;
+    let reader = std::thread::spawn(move || {
+        let mut lines = Vec::new();
+        for l in std::io::BufRead::lines(std::io::BufReader::new(stderr)).map_while(Result::ok) {
+            if let Some(i) = l.find("mcview: layout ") {
+                let rest = &l[i + "mcview: layout ".len()..];
+                lines.push(rest.split('"').next().unwrap_or(rest).to_string());
+            }
+        }
+        lines
+    });
+    std::thread::sleep(std::time::Duration::from_secs(seconds));
+    let _ = child.kill();
+    let _ = child.wait();
+    let lines = reader.join().map_err(|_| anyhow::anyhow!("log reader panicked"))?;
+    // "view 1 tick 12 el x,y,w,h bar ... label ... status ..."
+    let mut views: std::collections::BTreeMap<String, (String, u32, u32, usize, usize)> = Default::default();
+    for l in &lines {
+        let w: Vec<&str> = l.split_whitespace().collect();
+        if w.len() < 4 || w[0] != "view" || w[2] != "tick" {
+            continue;
+        }
+        let tick: u32 = w[3].parse().unwrap_or(0);
+        let rects = w[4..].join(" ");
+        let e = views.entry(w[1].to_string()).or_insert((rects.clone(), tick, tick, 0, 0));
+        e.1 = e.1.min(tick);
+        e.2 = e.2.max(tick);
+        e.3 += 1;
+        if rects != e.0 {
+            e.4 += 1;
+            println!("view {} moved at tick {tick}: {rects} (first: {})", w[1], e.0);
+        }
+    }
+    if views.is_empty() {
+        bail!("no layout lines: no live viewer drew (is the page right, and served?)");
+    }
+    let mut bad = 0;
+    for (id, (rects, t0, t1, n, moved)) in &views {
+        println!("view {id}: {n} frames, ticks {t0}..{t1}, {moved} moved; {rects}");
+        if *moved > 0 || t1 - t0 < min_ticks {
+            bad += 1;
+        }
+    }
+    if bad > 0 {
+        bail!("{bad} viewers moved or ran fewer than {min_ticks} ticks");
+    }
+    println!("web layout: {} viewers, nothing moved over {min_ticks}+ ticks at {window}", views.len());
+    Ok(())
 }
 
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {

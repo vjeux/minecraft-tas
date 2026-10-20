@@ -27,6 +27,7 @@ pub struct Live {
     gpu: Option<Gpu>,
     player: Option<Player>,
     label: HtmlElement,
+    bar: HtmlElement,
     status: HtmlElement,
     play: HtmlButtonElement,
     flip: HtmlButtonElement,
@@ -153,6 +154,8 @@ pub fn start(app: &mut App, id: u32) {
             ("align-items", "center"),
             ("flex-wrap", "nowrap"),
             ("padding", "8px"),
+            ("height", "60px"),
+            ("overflow", "hidden"),
             ("background", "linear-gradient(transparent, rgba(0,0,0,0.55))"),
             ("color", "#fff"),
             ("font", "13px system-ui, sans-serif"),
@@ -167,12 +170,37 @@ pub fn start(app: &mut App, id: u32) {
     let speed = button(SPEEDS[0].0, "Speed (1× = 20 game ticks per second, real time)");
     let _ = speed.style().set_property("font-size", "15px");
     let flip = button(ICON_LEVER, "Flip the lever (f), or tap the lever");
-    let label = el("span");
-    style(&label, &[("flex", "1 1 auto"), ("min-width", "0"), ("text-align", "right"), ("white-space", "nowrap"), ("overflow", "hidden"), ("text-overflow", "ellipsis"), ("font-variant-numeric", "tabular-nums"), ("text-shadow", "0 1px 2px #000"), ("padding-right", "4px")]);
-    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref(), &label] {
+    // the tick counter: a badge at the top right, fixed width (tabular digits), so nothing moves
+    // while it runs and the bar's buttons fit a phone
+    let label = el("div");
+    style(
+        &label,
+        &[
+            ("position", "absolute"),
+            ("right", "8px"),
+            ("top", "8px"),
+            ("min-width", "17ch"),
+            ("height", "20px"),
+            ("line-height", "20px"),
+            ("padding", "0 8px"),
+            ("box-sizing", "content-box"),
+            ("border-radius", "8px"),
+            ("background", "rgba(0,0,0,0.45)"),
+            ("color", "#fff"),
+            ("font", "13px system-ui, sans-serif"),
+            ("font-variant-numeric", "tabular-nums"),
+            ("text-align", "right"),
+            ("white-space", "nowrap"),
+            ("pointer-events", "none"),
+            ("z-index", "2"),
+        ],
+    );
+    label.set_text_content(Some("0 gt · 0.00 s"));
+    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref()] {
         let _ = bar.append_child(c);
     }
     let _ = root.append_child(&bar);
+    let _ = root.append_child(&label);
     let _ = flip.style().set_property("display", "none");
     // what is shown: redsim, a recording, or the design as built
     let status = el("div");
@@ -182,8 +210,10 @@ pub fn start(app: &mut App, id: u32) {
             ("position", "absolute"),
             ("left", "8px"),
             ("top", "8px"),
-            ("max-width", "calc(100% - 16px)"),
-            ("padding", "3px 8px"),
+            ("max-width", "calc(100% - 200px)"),
+            ("height", "20px"),
+            ("line-height", "20px"),
+            ("padding", "0 8px"),
             ("border-radius", "8px"),
             ("background", "rgba(0,0,0,0.45)"),
             ("color", "#fff"),
@@ -200,6 +230,7 @@ pub fn start(app: &mut App, id: u32) {
         gpu: None,
         player: None,
         label,
+        bar: bar.clone(),
         status,
         play: play.clone(),
         flip: flip.clone(),
@@ -404,6 +435,14 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 Err(e) => log(&e),
             }
             l.label.set_text_content(Some(&p.label()));
+            if crate::debug() {
+                // for `mctas web layout`: nothing may move while the counter runs
+                let r = |e: &HtmlElement| {
+                    let b = e.get_bounding_client_rect();
+                    format!("{:.1},{:.1},{:.1},{:.1}", b.x(), b.y(), b.width(), b.height())
+                };
+                log(&format!("layout view {id} tick {} el {} bar {} label {} status {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status)));
+            }
         }
         p.playing
     };
