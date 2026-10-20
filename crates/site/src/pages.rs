@@ -985,6 +985,19 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
     if levels.iter().all(|l| *l == 0) {
         return Err(format!("its output stayed off for the first {total} ticks in the browser's simulation"));
     }
+    // the start-up the view shows: when the judge's warm-up (the game's, e.g. waiting for the
+    // daylight sensor's update) is much longer than the simulation's first pulse, the chart starts
+    // where the view does (critique: "starting up (2000 ticks)" while the view pulses after 5 s)
+    let mut warm = warm;
+    let mut total = total;
+    if let Some(first) = (0..levels.len()).find(|&t| levels[t] > 0 && (t == 0 || levels[t - 1] == 0)) {
+        let first = first as u32;
+        if warm > first + 2 * c.period {
+            warm = first;
+            total = (warm + periods * c.period).min(levels.len() as u32);
+            levels.truncate(total as usize);
+        }
+    }
     let mut phases: Vec<(u32, u32, String)> = Vec::new();
     if warm > 0 {
         phases.push((0, warm, "starting up".to_string()));
@@ -1201,7 +1214,7 @@ fn study_builds<'a>(site: &'a Site, folder: &str) -> Vec<&'a Build> {
         let key = |x: &Build| {
             let c = x.circuit.as_ref();
             // (gates: the most common function first, critique)
-            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            let value = c.and_then(site_model::html::sort_value).unwrap_or(i64::MAX);
             (c.map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default(), value, x.blocks, x.volume.unwrap_or(0), x.name.clone())
         };
         key(a).cmp(&key(b))
@@ -1275,7 +1288,7 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
                     if u_na { na } else { best_cell(u, prefix, "items/s", " items/s") }
                 ));
             };
-            row("smallest", "fewest blocks placed (the judge's chests not counted)", pick_min(loaders.clone(), &|b| (b.blocks as i64, -speed(b))), pick_min(unloaders.clone(), &|b| (b.blocks as i64, -speed(b))), false, false);
+            row("smallest", "fewest blocks placed (not counting the chests our test adds)", pick_min(loaders.clone(), &|b| (b.blocks as i64, -speed(b))), pick_min(unloaders.clone(), &|b| (b.blocks as i64, -speed(b))), false, false);
             row("fastest", "most items per second at the steady rate", pick_min(loaders.clone(), &|b| (-speed(b), b.blocks as i64)), pick_min(unloaders.clone(), &|b| (-speed(b), b.blocks as i64)), false, false);
             for badge in ["16-stack", "unstackable", "mixed", "filter", "tileable", "always-on", "restart", "box-starved", "colours", "flush", "top-up", "drop-free", "combo", "any-box"] {
                 let with = |v: &[&'a Build]| -> Option<&'a Build> { pick_min(v.iter().copied().filter(|b| has_badge(b, badge)).collect(), &|b| (b.blocks as i64, -speed(b))) };
