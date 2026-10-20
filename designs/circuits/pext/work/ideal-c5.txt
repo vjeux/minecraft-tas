@@ -1,0 +1,24 @@
+# N=5 CASCADE extender, IDEAL round starts (redstone blocks at z=1 beside the line), per-edge
+# times: on-edge R5 x9 t6, R4 x7 t16, R3 x5 t24, R2 x3 t36, R1 A t56; off-edge R5 x13 t6, R4 x10
+# t12, R3 x7 t20, R2 x4 t36, R1 A t56. Static pulses fire on both edges; each is harmless on the
+# other edge at its time (see NOTES).
+name: ideal-c5
+circuit: piston-extender 5
+travel: 1 0 0
+port input: 0 1 1 lever
+port payload: 10 1 0
+ideal: both 6 set 9 1 1 minecraft:redstone_block; both 8 clear 9 1 1; both 6 set 13 1 1 minecraft:redstone_block; both 8 clear 13 1 1; both 12 set 10 1 1 minecraft:redstone_block; both 14 clear 10 1 1; on 16 set 7 1 1 minecraft:redstone_block; on 18 clear 7 1 1; off 20 set 7 1 1 minecraft:redstone_block; off 22 clear 7 1 1; both 24 set 5 1 1 minecraft:redstone_block; both 26 clear 5 1 1; both 36 set 3 1 1 minecraft:redstone_block; off 36 set 4 1 1 minecraft:redstone_block; both 38 clear 3 1 1; off 38 clear 4 1 1; both 56 set 1 1 1 minecraft:redstone_block; both 58 clear 1 1 1
+palette:
+  L minecraft:lever[face=floor,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  P minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  G minecraft:gold_block
+layer 0:
+  ..O.O.O.O
+  K
+layer 1:
+  .ASPSPSPSPG
+  L
