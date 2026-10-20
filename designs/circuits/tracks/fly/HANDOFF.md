@@ -7,8 +7,10 @@
   * horizontal: 6 blocks 10 gt/block (47 structurally different types, all robust: two 3-block
     parts, observer + slime + piston each); 7 blocks **9 gt/block** robust
     (fly-horizontal-7b-9gt-e75c5f: a redstone block riding on the front part beside the cell the
-    rear piston lands in, so the pulled piston fires as it lands, 1 gt instead of an observer's 2);
-    fly-d1 (7 blocks 10 gt/block, the first derivation, the calibration's origin; a variant).
+    rear piston lands in, so the pulled piston fires as it lands, 1 gt instead of an observer's 2)
+    and fly-horizontal-7b-9gt-aa517c (east-west only: a sticky piston lifts the quasi-connecting
+    redstone block away and back); fly-d1 (7 blocks 10 gt/block, the first derivation, the
+    calibration's origin; a variant).
   * up: 6 blocks **9 gt/block** robust (5 types: fly-up-6b-9gt-*, a redstone block in place of
     the rear observer fires the pusher as it lands). They took out the up 6-block 10
     gt/block types and fly-up-7b-9gt-ff426b (fly-d1 tilted up: the front observer quasi-connects
@@ -27,13 +29,13 @@
   preferring an in-place run that outlasts the moving runs (two-way), flying-machine family cards
   ("speed = 10 gt/block"), the cal-two-way-machine calibration in the selftest.
 * Notes, mechanisms, numbers: designs/circuits/tracks/fly/NOTES.md. Track designs:
-  tracks/fly/{c6,c6all,vertical,two-way,payload,fast,speed,speed9}.
+  tracks/fly/{c6,c6all,vertical,two-way,payload,train,fast,fast-up,rb6,speed,speed9}.
 
 ## Tools (crates/circuit-fly, `mctas circuit fly ...`; NOTES.md has the details)
 `sim` / `verify` (redsim / real game tracker), `census` (exhaustive boxes, `--procs`), `types`,
 `prep` (`--skip-archived`, `--one-per-caption`), `orient` (`--all`), `grow` (`--add 1|2`,
-`--faster`), `gen payload`, `station` (return-station search, `--procs`), `two-way` (reversible
-engines, station pairs composed; `--reversible-only`).
+`--remove 1`, `--faster`), `gen payload|train`, `station` (return-station search, `--procs`),
+`two-way` (reversible engines, station pairs composed; `--reversible-only`), `unarchive`.
 
 ## Dead ends (recorded, not archived)
 * Slower machines (grow: 8 blocks 11/12/16/17 gt/block, 9 blocks 18/19/24/25): dominated by the
@@ -45,11 +47,16 @@ engines, station pairs composed; `--reversible-only`).
   palette); 4 is the minimum there.
 
 ## Next
-* Faster than 9 gt/block: both pistons firing on landing (the puller needs a pulse that ends by
-  itself: an observer in the rear part watching the front part leave, its output reaching the
-  puller's landed position), or a sticky pusher retracting early (the pushed part snaps into place:
-  1 gt instead of 2); the k = 6 census with redstone blocks (results in NOTES).
+* Faster than 9 gt/block: not found (census k = 6 with redstone blocks, grow/swap around every
+  9 gt machine). Why 9: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1, and the
+  landing-fired pusher only retracts after the front lands (its own push's neighbour updates come
+  before its state turns extended), so the pull cannot start earlier. Ideas: a second piston that
+  updates the pusher right after it extends (a sticky pusher retracting at once spits the front:
+  1 gt instead of 2); a puller fired on landing with a pulse that ends by itself (an observer in
+  the rear part watching the front leave).
 * Two-way with fewer blocks: stations for the other reversible engines (02a7fb, 67f769, 73cdd4,
-  873917, 91737e, 964ac6), k <= 3.
+  873917, 91737e, 964ac6) — k <= 2 at radius 2 running at the end of this session (results in
+  NOTES if it finished), k = 3 at radius 1 found nothing for 02a7fb.
+* Vertical two-way: an up engine and a down engine sharing one structure, the stations choosing.
 * Payload: trailers that carry their own payload columns (9 per intermediate trailer); a train
   behind the 9 gt engine.
