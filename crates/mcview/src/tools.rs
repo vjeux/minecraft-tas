@@ -328,7 +328,7 @@ pub fn strip(off: &mut Offscreen, atlas: &Atlas, text: &str, cols: u32, rows: u3
     // machine followed), the same interpolation
     let aspect = w as f32 / h as f32;
     let mut p = crate::player::Player::new(text, aspect)?;
-    p.show_inputs(atlas, aspect);
+    p.show_inputs(atlas, aspect, scene::live_window(h as f32));
     if p.session.mode.is_door() {
         p.flip();
     } else {

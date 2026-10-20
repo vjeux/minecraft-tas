@@ -15,6 +15,11 @@ pub enum InputHow {
     Lever,
     /// The design's button in this cell, used at every rising edge.
     Button,
+    /// A value 0..15 as a signal strength (`port input.a: x y z strength`, the judge's hex kinds):
+    /// the design's chest in this cell, whose contents the judge rewrites to the value's fill
+    /// ([`strength_items`]): placed again (its state unchanged), then its contents set. A tap
+    /// flips it between 0 and 15.
+    Strength { chest: Block },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,11 +45,12 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
             },
         };
         let words: Vec<&str> = args.split_whitespace().collect();
+        let state = |s: &str| crate::design::normalize_state(s).ok().and_then(|n| Block::parse(&n).ok());
         let how = match words.as_slice() {
             ["lever"] => InputHow::Lever,
             ["button"] => InputHow::Button,
+            ["strength"] => InputHow::Strength { chest: d.blocks.get(pos).and_then(|s| state(s)).unwrap_or(Block::Chest { facing: redsim::Dir::North, waterlogged: false }) },
             ws => {
-                let state = |s: &str| crate::design::normalize_state(s).ok().and_then(|n| Block::parse(&n).ok());
                 let on = ws.first().and_then(|s| state(s)).unwrap_or(Block::parse("minecraft:redstone_block").unwrap_or(Block::Air));
                 let off = ws.get(1).and_then(|s| state(s)).unwrap_or(Block::Air);
                 InputHow::Block { on, off }
@@ -269,15 +275,16 @@ pub fn port_groups(d: &Design) -> Vec<PortGroup> {
     }
     let mut groups: Vec<PortGroup> = Vec::new();
     for (base, label, colour) in [("output", "OUT", "#ffb04a"), ("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f")] {
-        let mut cells: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, base)).map(|(_, (p, _))| *p).collect();
-        cells.sort();
-        cells.dedup();
+        // each port's cell and letter (`items.a` -> A; a bare `items` port has none)
+        let mut ports: Vec<(Pos, Option<String>)> = d.ports.iter().filter(|(n, _)| is_named(n, base)).map(|(n, (p, _))| (*p, n.strip_prefix(base).and_then(|r| r.strip_prefix('.')).map(|k| k.to_uppercase()))).collect();
+        ports.sort();
+        ports.dedup_by(|a, b| a.0 == b.0);
         // clusters: cells within 2 (Chebyshev) of a cell of the cluster
-        let mut left = cells;
+        let mut left = ports;
         while let Some(first) = left.pop() {
             let mut cluster = vec![first];
             loop {
-                let near: Vec<usize> = (0..left.len()).filter(|&i| cluster.iter().any(|c| (0..3).all(|k| (c[k] - left[i][k]).abs() <= 2))).collect();
+                let near: Vec<usize> = (0..left.len()).filter(|&i| cluster.iter().any(|c| (0..3).all(|k| (c.0[k] - left[i].0[k]).abs() <= 2))).collect();
                 if near.is_empty() {
                     break;
                 }
@@ -286,7 +293,18 @@ pub fn port_groups(d: &Design) -> Vec<PortGroup> {
                 }
             }
             cluster.sort();
-            groups.push(PortGroup { label: label.to_string(), cells: cluster, colour });
+            // its letters: `OUT A`, `ITEMS A–C` (a run), `ITEMS A,C`
+            let mut letters: Vec<String> = cluster.iter().filter_map(|(_, k)| k.clone()).collect();
+            letters.sort();
+            let run = letters.len() > 2 && letters.iter().all(|l| l.len() == 1) && letters.windows(2).all(|w| w[1].as_bytes()[0] == w[0].as_bytes()[0] + 1);
+            let name = if letters.len() != cluster.len() || letters.is_empty() {
+                label.to_string()
+            } else if run {
+                format!("{label} {}–{}", letters[0], letters[letters.len() - 1])
+            } else {
+                format!("{label} {}", letters.join(","))
+            };
+            groups.push(PortGroup { label: name, cells: cluster.into_iter().map(|(p, _)| p).collect(), colour });
         }
     }
     groups.sort_by(|a, b| (a.label.as_str(), a.cells[0]).cmp(&(b.label.as_str(), b.cells[0])));
@@ -436,6 +454,44 @@ pub struct Schedule {
     /// The judge's actions at cells between ticks (`data-events`: a BUD switch's target and
     /// footprint probes): frame, cell, what.
     pub events: Vec<(u32, Pos, EventOp)>,
+    /// Strength inputs' values (`data-levels`, `circuit::stimulus::Schedule::levels`): frame,
+    /// input index, value 0..15.
+    pub levels: Vec<(u32, usize, u8)>,
+}
+
+/// The item a strength input's chest is filled with (`circuit::compute::STRENGTH_ITEM`).
+pub const STRENGTH_ITEM: &str = "minecraft:cobblestone";
+
+/// A strength input's chest contents for a value (`circuit::compute::strength_items`): the fewest
+/// items of [`STRENGTH_ITEM`] whose comparator signal is the value, as SNBT.
+pub fn strength_items(v: u8) -> String {
+    let v = v.min(15) as u64;
+    let n = if v == 0 { 0 } else { ((v - 1) * 1728).div_ceil(14).max(1) };
+    let mut items = Vec::new();
+    let mut left = n;
+    let mut slot = 0;
+    while left > 0 {
+        let k = left.min(64);
+        items.push(format!("{{Slot:{slot}b,id:\"{STRENGTH_ITEM}\",count:{k}}}"));
+        left -= k;
+        slot += 1;
+    }
+    format!("{{Items:[{}]}}", items.join(","))
+}
+
+/// Parse `data-levels`: `<frame> <input> <value>; ...` (an input by its name, as in
+/// `data-stimulus`).
+pub fn parse_levels(text: &str, names: &[String]) -> Result<Vec<(u32, usize, u8)>, String> {
+    let mut v = Vec::new();
+    for part in text.split(';').map(str::trim).filter(|p| !p.is_empty()) {
+        let w: Vec<&str> = part.split_whitespace().collect();
+        let [t, name, value] = w.as_slice() else { return Err(format!("level `{part}`: want <frame> <input> <value>")) };
+        let t: u32 = t.parse().map_err(|_| format!("level `{part}`: bad frame"))?;
+        let i = names.iter().position(|n| n == name).ok_or_else(|| format!("level `{part}`: no input `{name}`"))?;
+        let value: u8 = value.parse().ok().filter(|x| *x <= 15).ok_or_else(|| format!("level `{part}`: the value is 0..15"))?;
+        v.push((t, i, value));
+    }
+    Ok(v)
 }
 
 /// Frames the circuit stands at rest before the first input (`circuit::stimulus::SETTLE`).
@@ -445,7 +501,7 @@ pub const SETTLE: u32 = 40;
 /// with edges `10+ 14-` or `pulse L every T x K [from S]`; the input may be left out when there
 /// is one. `ticks` = the last edge + `tail`.
 pub fn parse_stimulus(text: &str, names: &[String], tail: u32) -> Result<Schedule, String> {
-    let mut s = Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new() };
+    let mut s = Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new(), levels: Vec::new() };
     for part in text.split(';').map(str::trim).filter(|p| !p.is_empty()) {
         let words: Vec<&str> = part.split_whitespace().collect();
         let (i, rest) = match names.iter().position(|n| n == words[0]) {
@@ -514,6 +570,24 @@ mod tests {
     /// A shulker loader gets the judge's chests on its items / boxes / output ports, a box under
     /// its dispenser, its port tags, and no consumer lamp; a BUD switch's target is tagged; the
     /// events parse like the site writes them.
+    /// A strength input (the hex kinds): the design's chest, filled like the judge
+    /// (`compute::strength_items`: 0 empty, 15 a full chest of 1728), its values parsed from
+    /// `data-levels`.
+    #[test]
+    fn strength_inputs() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/calibration/hex-gt.txt")).unwrap();
+        let d = Design::parse(&text).unwrap();
+        let v = inputs(&d);
+        assert_eq!(v.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        assert!(v.iter().all(|i| matches!(i.how, InputHow::Strength { chest: Block::Chest { .. } })), "{v:?}");
+        assert_eq!(strength_items(0), "{Items:[]}");
+        assert_eq!(strength_items(1), "{Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:1}]}");
+        assert_eq!(strength_items(15).matches("count:64").count(), 27);
+        let names = vec!["a".to_string(), "b".to_string()];
+        assert_eq!(parse_levels("40 a 5; 40 b 3; 80 a 0", &names).unwrap(), vec![(40, 0, 5), (40, 1, 3), (80, 0, 0)]);
+        assert!(parse_levels("40 c 5", &names).is_err() && parse_levels("40 a 16", &names).is_err());
+    }
+
     #[test]
     fn shulker_and_bud_ports() {
         let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/archive/shulker-ref-loader-1.txt")).unwrap();
@@ -531,7 +605,7 @@ mod tests {
         let rail2 = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/archive/shulker-speed-unloader-rail2.txt")).unwrap();
         let g = port_groups(&Design::parse(&rail2).unwrap());
         let labels: Vec<(&str, usize)> = g.iter().map(|g| (g.label.as_str(), g.cells.len())).collect();
-        assert_eq!(labels, vec![("BOXES", 1), ("ITEMS", 3), ("ITEMS", 3), ("OUT", 1), ("OUT", 1)]);
+        assert_eq!(labels, vec![("BOXES", 1), ("ITEMS A–C", 3), ("ITEMS D–F", 3), ("OUT A", 1), ("OUT B", 1)]);
         assert_eq!(phase_words("gate and", "10", &["a".into(), "b".into()]), "A on, B off");
         assert_eq!(phase_words("gate and", "00 (rest)", &["a".into(), "b".into()]), "all inputs off");
         assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "a 3 gt input pulse");

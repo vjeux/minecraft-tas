@@ -345,8 +345,10 @@ impl Player {
 
     /// Turn the camera (and its home) to a side every lever and button can be seen and clicked
     /// from, if the pictures' side hides one.
-    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32) {
-        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect, scene::LIVE_WINDOW);
+    /// The camera from the side every input can be seen from, its build in `window` (a live
+    /// viewer: [`scene::live_window`] of its height); the home view too.
+    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32, window: (f32, f32, f32)) {
+        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect, window);
         self.home = self.camera;
         self.dirty = true;
     }
@@ -391,13 +393,14 @@ impl Player {
         }
     }
 
-    /// The tick counter: `123 gt · 6.15 s`, plus the ticks since the last flip for a door.
+    /// The tick counter: `6.15 s · 123 ticks` (plain words: seconds first), plus the ticks since
+    /// the last flip for a door.
     pub fn label(&self) -> String {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
-        let mut out = format!("{t} gt · {}", seconds(t));
+        let mut out = format!("{} · {t} ticks", seconds(t));
         if s.last_input.is_some() && s.mode.is_door() {
-            out.push_str(&format!(" · flip +{} gt", s.since_input()));
+            out.push_str(&format!(" · flip +{}", s.since_input()));
         }
         out
     }
