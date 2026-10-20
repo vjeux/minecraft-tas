@@ -113,7 +113,9 @@ pub fn one_liner(c: &Circuit) -> String {
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
             let instant = m(c, "class") == "instant" || m(c, "latency") == "0 gt";
-            format!("{}{}.", gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
+            // two-input gates introduce their inputs (critique: "A and B are never introduced")
+            let two = !matches!(f, "not" | "buffer");
+            format!("{}{}{}.", if two { "It has two inputs, A and B. " } else { "" }, gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
         }
         "rs-latch" => "Press S and the output turns on and stays on; press R and it turns off and stays off.".to_string(),
         "d-latch" => "While E is on, the output copies D; when E turns off, the output keeps the last value.".to_string(),
@@ -136,8 +138,8 @@ pub fn one_liner(c: &Circuit) -> String {
         "piston-extender" => {
             let (e, r) = (ticks(m(c, "extend")), ticks(m(c, "retract")));
             format!(
-                "Turn the input on and a block is pushed {n} blocks out; turn it off and the block comes back exactly where it was{}.",
-                if e.is_empty() { String::new() } else { format!(" (out in {e}, back in {r})") }
+                "Turn the input on and a block is pushed {n} blocks out; turn it off and the block comes back exactly where it was.{}",
+                if e.is_empty() { String::new() } else { format!(" It goes out in {e} and comes back in {r}.") }
             )
         }
         "flying-machine" => {
@@ -163,11 +165,14 @@ pub fn one_liner(c: &Circuit) -> String {
                 "place" => "placed",
                 "remove" => "removed",
                 "state" => "changed",
-                "shape" => "grows (a shape-only change)",
+                "shape" => "grows (like a crop)",
                 "update" => "updated with nothing changing",
                 other => other,
             }).collect();
-            format!("Fires its output when a block next to it (the TARGET cell) is {}, even though nothing powers it.", if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") })
+            format!(
+                "Fires its output when the block next to it (the cell marked TARGET in the 3D view) is {}, without any redstone signal reaching it: a block update detector (BUD).",
+                if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") }
+            )
         }
         "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { m(c, "rate").to_string() }),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
@@ -250,7 +255,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 if lever { "Flip its start lever (the lime IN button under the view). " } else { "It starts by itself. " }
             );
         }
-        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; watch the lamp marked OUT.".to_string(),
+        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
         _ => {}
     }
     if !c.unmodeled.is_empty() {
@@ -267,16 +272,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         (_, 1) => format!("Hold {} under the view for a long press, tap it for a short one", names[0]),
         _ => format!("Use the {} buttons under the view to drive the inputs", list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "and")),
     };
-    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the lamp marked OUT lights while the output is on" };
+    // the viewer draws the output as a box tagged OUT that turns red while powered (webrender
+    // 1742c0308)
+    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the box marked OUT turns red while the output is on" };
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
-        "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
+        "burst" => format!("each tap turns OUT red exactly {} times", number(&c.kind)),
+        "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: press the speed button until it shows 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
-        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
-        "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
-        "off-delay" => "turn it on, then off: OUT stays lit a while after".to_string(),
-        "on-delay" => "a quick tap does nothing; hold it and OUT lights".to_string(),
-        "pulse-train" => "turn it on and OUT keeps flashing until you turn it off".to_string(),
+        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT red for a while; tapping again while it is red changes nothing".to_string(),
+        "monostable" => "a tap keeps OUT red for a while; tap again while it is red and it stays red longer".to_string(),
+        "off-delay" => "turn it on, then off: OUT stays red a while after".to_string(),
+        "on-delay" => "a quick tap does nothing; hold it and OUT turns red".to_string(),
+        "pulse-train" => "turn it on and OUT keeps flashing red until you turn it off".to_string(),
         "tff" | "tff-reset" => "each tap flips OUT on or off".to_string(),
         _ => String::new(),
     };
@@ -325,6 +333,16 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kind == "door" && b.group == "sculk" {
         return Some("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
+    // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
+    if let Some(c) = &b.circuit {
+        let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
+        if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+            return Some(format!(
+                "Uses a sculk sensor tuned so footsteps and other noises don't trigger it{}.",
+                if b.kinds.iter().any(|k| k == "chest") { ": the items in its chest set the one sound it listens to" } else { "" }
+            ));
+        }
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),
@@ -344,13 +362,19 @@ pub fn warning(b: &Build) -> Option<String> {
 pub fn door(b: &Build) -> (String, String, String) {
     let d = b.door.as_ref();
     let timing = d.and_then(|d| Some(format!(" It opens in {} and closes in {}.", ticks(&format!("{} gt", d.open?)), ticks(&format!("{} gt", d.close?))))).unwrap_or_default();
-    let what = format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}");
+    // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
+    // the lever's click")
+    let what = if b.group == "sculk" {
+        format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    } else {
+        format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    };
     let seamless = d.is_some_and(|d| !d.seamless.is_empty());
     let why = match b.group.as_str() {
-        "sculk" => "a hidden 3×3 entrance for a base; it listens with a sculk sensor, so keep noisy mobs and footsteps away from it.".to_string(),
+        "sculk" => "a hidden 3×3 entrance for a base.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
-        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", flush with the wall when closed" } else { "" }),
+        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
     };
     (what, first_cap(&why), "Flip the lever (tap it in the view, or the flip button under it) and watch the door open; flip it again to close it.".to_string())
 }
@@ -358,39 +382,61 @@ pub fn door(b: &Build) -> (String, String, String) {
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
 pub fn clock(b: &Build) -> (String, String, String) {
     let c = b.clock.as_ref();
-    let period = c.map(|c| ticks(&format!("{} gt", c.period))).unwrap_or_default();
-    let start = c.map(|c| if c.start.is_empty() || c.start.starts_with("self") { " It starts on its own once built." } else { " It needs one kick to start." }).unwrap_or("");
+    let period = c.map(|c| ticks(&format!("{} gt", c.every()))).unwrap_or_default();
+    // an output that pulses several times in one cycle of its parts says both
+    let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
+    let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
+    let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Pulses by itself every {period}, forever.{start}"),
+        format!("Its output pulses by itself every {period}{cycle}, forever.{start}"),
         "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
-        "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it.".to_string(),
+        if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
 
-/// The "What it does" box at the top of a build page: one sentence, why, how to try it, and how
-/// this design does it (its plain mechanism).
+/// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
+/// mechanism); what it does and why build it are in the heading, on the first screen.
 pub fn intro_box(b: &Build, has_viewer: bool) -> String {
-    let (what, why, try_line) = match (&b.circuit, b.kind.as_str()) {
-        (Some(c), _) => (one_liner(c), why_build(c), try_it(c, has_viewer)),
-        (None, "door") => door(b),
-        (None, "clock") => clock(b),
-        _ => (String::new(), String::new(), String::new()),
+    let try_line = match (&b.circuit, b.kind.as_str()) {
+        (Some(c), _) if b.group == "Sand elevator" && has_viewer => format!(
+            "Flip the lever marked IN (or tap IN under the view): the sand rises {} blocks; flip it back and it falls into place.",
+            number(&c.kind)
+        ),
+        // the item counters: what sets the count (critique: "nothing says HOW to load the items")
+        (Some(c), _) if !c.layout_key.is_empty() && base(&c.kind) == "counter" => format!(
+            "{} Its count is the number of items in its droppers: they pass the items one way per pulse, and the numbers over them show how many each holds. Load another number of items (stone here) to make it react on that count.",
+            try_it(c, has_viewer)
+        ),
+        (Some(c), _) => try_it(c, has_viewer),
+        (None, "door") => door(b).2,
+        (None, "clock") => clock(b).2,
+        _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
     let how = first_sentence(&how);
-    let mut s = String::from("<section class=\"what plain\"><h2>Why build it</h2>");
-    if !why.is_empty() {
-        s.push_str(&format!("<p>{}</p>", esc(&why)));
+    if try_line.is_empty() && how.is_empty() {
+        return String::new();
     }
-    let _ = what;
+    let mut s = String::from("<section class=\"what plain\"><h2>Try it</h2>");
     if !try_line.is_empty() {
-        s.push_str(&format!("<p><b>Try it:</b> {}</p>", esc(&try_line)));
+        s.push_str(&format!("<p>{}</p>", esc(&try_line)));
     }
     if !how.is_empty() {
         s.push_str(&format!("<p class=\"howdesign\"><b>How this design does it:</b> {how}</p>"));
     }
     s.push_str("</section>\n");
     s
+}
+
+/// Why you would build it, for any build (the heading's second line).
+pub fn why_any(b: &Build) -> String {
+    match (&b.circuit, b.kind.as_str()) {
+        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor that rises and falls back with one lever.".to_string(),
+        (Some(c), _) => why_build(c),
+        (None, "door") => door(b).1,
+        (None, "clock") => clock(b).1,
+        _ => String::new(),
+    }
 }
 
 /// The first sentence of an (escaped) text: up to the first ". " that is not an abbreviation.
@@ -424,7 +470,7 @@ mod tests {
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");
         let ext = circuit("piston-extender 3", &[("extend", "27 gt"), ("retract", "56 gt (from the press)")]);
-        assert!(one_liner(&ext).contains("pushed 3 blocks out") && one_liner(&ext).contains("back in 56 ticks"), "{}", one_liner(&ext));
+        assert!(one_liner(&ext).contains("pushed 3 blocks out") && one_liner(&ext).contains("comes back in 56 ticks"), "{}", one_liner(&ext));
         let gate = circuit("gate and", &[("function", "and"), ("latency", "0 gt")]);
         assert!(one_liner(&gate).contains("both inputs") && one_liner(&gate).contains("instant"));
     }

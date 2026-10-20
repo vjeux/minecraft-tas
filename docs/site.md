@@ -14,13 +14,13 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 
 | command | what it does |
 |---|---|
-| `mctas site publish` | THE command after merging into main: `build` (all defaults) + `smoke` (when a headless Chrome is found; a failure stops the deploy) + `deploy` |
+| `mctas site publish` | THE command after merging into main: `build` (all defaults) + `deploy`. No browser end-to-end gate (vjeux 2026-10-20 14:20Z: "Please remove the e2e tests"); the smoke below is an optional dev tool |
 | `mctas site build --out site/` | exports `site/data/site.json`, one page per build (`doors/<stem>.html`, `clocks/<stem>.html`, `circuits/<study>/<stem>.html`) and per extendable family (`families/<card>.html`), the boards page, the design files (`designs/...`) with a Litematica schematic next to each (`<stem>.litematic`, [litematic.md](litematic.md); one that cannot be written fails the build), generates every family member with the family's own `extend generator` and checks it in redsim, builds the UI into `pkg/`, copies webrender's 3D viewer (`web/viewer/` of the checkout by default; `--viewer <dir>`, `--viewer-ref <git ref>`, `--no-viewer`) into `viewer/`; `--pkg-ref origin/gh-pages` reuses the deployed UI instead of building it, only when its `pkg/SOURCE` fingerprint matches the checkout's `web/site` + `crates/site-model` (else the build fails: rebuild with the wasm32 target and wasm-bindgen-cli 0.2.129) |
 | `mctas site serve --dir site/ [--port 8000]` | local preview (static server on 127.0.0.1) |
 | `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site. `mctas site publish` refuses to deploy without it (`--no-smoke` overrides) |
 | `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, five shulker machines (a loader, an unloader, the combo, the fastest loader and the fastest unloader) and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
 | `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
-| `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
+| `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what the optional smoke uses) |
 | `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
@@ -76,7 +76,25 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   properties and the design's file name fold into one collapsed "Details" (vjeux 13:11Z: no design
   ids in any list or card; the name stays in the URL, the downloads and that details table).
   Captions that are agent or tool logs are dropped (`explain::caption_plain`); the first sentence
-  of a designer's caption shows as "How this design does it". Pages vjeux deleted (13:35Z): the
+  of a designer's caption shows as "How this design does it". Clock pages show "Its output over
+  time" (vjeux 13:46Z): the output over the start-up (shaded) and three periods, simulated from
+  the design at build time the way the 3D view runs it (`pages::clock_timeline`; a clock whose
+  design names no output shows its block that turns on most often, the census rule; a clock the
+  browser's simulator cannot run says "Not simulated: <why>"). One card per mechanism
+  (`generate::fold_twins`): doors with the same category, box, open/close times, seamless tier
+  and properties fold under the smallest (listed on its page as its versions), clocks with the
+  same period, blocks, parts and output carry the `twin` flag, and census clocks the `census`
+  flag unless one is the record of its period; both are hidden from the default lists like the
+  variants. A bigger design strictly faster than every smaller one of its kind and value gets
+  the `faster` flag ("faster than the smallest", `audit::mark_faster`). Circuits sort by
+  `Circuit::rank` first (the first design of every kind, then the second...), then their study's
+  place (`Circuit::order`; the gates with their own levers and the sand elevators are each
+  study's basics, last). Search (`site_model::Site::run`): every build carries the community's
+  words for its kind (`html::search_aliases`), builds whose kind the words name rank first, the
+  players' names for extender reaches map to a value search (`with_synonyms`), and an empty
+  search offers the nearest kinds (`html::nearest_searches`). Family pages lead with the kind
+  and a title in words, how much each size adds, and keep the formula in a closed details.
+  Pages vjeux deleted (13:35Z): the
   door boards, the families index, the list of everything and the about page
   (`generate::DELETED_PAGES`: never written, removed from an old output folder, and a smoke check
   fails if one exists or is linked). The catalog's folds (`catalog.tsv`):
@@ -104,7 +122,8 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`; circuits: `data-stimulus`, `data-events` (the judge's block changes at a BUD's target:
+`data-pitch`; circuits: `data-stimulus`, `data-levels` (a strength input's values over the judge's
+test, `<frame> <input> <value 0..15>; ...`, the hex kinds), `data-events` (the judge's block changes at a BUD's target:
 `<frame> place|clear|shape|update <x> <y> <z> [<state>]; ...`, design coordinates), `data-phases`,
 `data-input-mode`, `data-circuit`) is
 rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the

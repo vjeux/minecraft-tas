@@ -138,6 +138,8 @@ fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Ve
 struct Details {
     devices: Vec<String>,
     stimulus: String,
+    /// `data-levels`: a strength input's values (the hex kinds).
+    levels: String,
     phases: String,
     wave: Option<site_model::Wave>,
     table: Vec<String>,
@@ -209,15 +211,18 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
     site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
-fn details(c: &Design) -> Details {
+fn details(c: &Design, min_pulse: Option<u32>) -> Details {
     let devices: Vec<String> = c
         .inputs
         .iter()
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
+            circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
+            // R7: a plain input is driven by the judge's repeater outside the build
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect();
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
@@ -225,7 +230,7 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
+    let mut d = Details { devices, stimulus: String::new(), levels: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -237,9 +242,13 @@ fn details(c: &Design) -> Details {
     // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
     // demo badge and the timing diagram
     let kind_name = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
-    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label(&kind_name, l))).collect();
+    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label_min(&kind_name, l, min_pulse))).collect();
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
+    }
+    // a strength input's values (the hex kinds: the judge's chest fills), webrender's data-levels
+    if !r.schedule.levels.is_empty() {
+        d.levels = r.schedule.levels.iter().filter_map(|(t, i, v)| names.get(*i).map(|n| format!("{t} {n} {v}"))).collect::<Vec<_>>().join("; ");
     }
     d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
     // the judge's actions at the BUD's target and probe cells, in the design's coordinates
@@ -472,7 +481,19 @@ pub fn glob(pattern: &str, s: &str) -> bool {
 
 /// Why the site does not publish `study/file` (crates/site/hidden.tsv), if it does not.
 pub fn hidden(study: &str, file: &str) -> Option<String> {
-    let matches = |s: &str, p: &str| s == study && (glob(p, file) || glob(&format!("{p}.txt"), file));
+    hidden_design(study, file, "")
+}
+
+/// [`hidden`] with the design's class (its verdict's axis, e.g. `L = 10 gt,
+/// vibration-sensitive`): a rule `<study or *>/@<class>` hides every design of that class.
+pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
+    let matches = |s: &str, p: &str| {
+        (s == study || s == "*")
+            && match p.strip_prefix('@') {
+                Some(c) => !class.is_empty() && class.split(", ").any(|x| x.trim() == c),
+                None => glob(p, file) || glob(&format!("{p}.txt"), file),
+            }
+    };
     if hidden_exceptions().iter().any(|(s, p, _)| matches(s, p)) {
         return None;
     }
@@ -493,7 +514,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         };
         // the designs the site does not publish (crates/site/hidden.tsv)
         let before = rows.len();
-        let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden(study, &r.file).is_none()).collect();
+        let rows: Vec<circuit::archive::Row> = rows.into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).collect();
         if rows.len() < before {
             notes.push(format!("{study}: {} designs not published (crates/site/hidden.tsv)", before - rows.len()));
         }
@@ -524,7 +545,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
             let loaded = parse(&dir.join(&r.file));
             let t_sim = std::time::Instant::now();
-            let mut det = loaded.as_ref().map(|(c, _)| details(c));
+            // the shortest input the design handles (`min-pulse 20 gt`): the demo marks shorter ones
+            let min_pulse = r.metrics.split(", ").find_map(|m| m.strip_prefix("min-pulse ")).and_then(|v| v.split_whitespace().next()?.parse::<u32>().ok());
+            let mut det = loaded.as_ref().map(|(c, _)| details(c, min_pulse));
             let mut raw = None;
             if let Some(d) = det.as_mut() {
                 let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
@@ -574,11 +597,14 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 }
             }
             let id = id_of(r);
+            let basics = (study == "gates" && flags.iter().any(|f| f == "lever")) || (r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand"));
             let kinds = parsed.as_ref().map(|p| p.kinds.clone()).unwrap_or_else(|| r.kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect());
             out.push(Build {
                 id: id.clone(),
                 kind: "circuit".into(),
-                group: site_model::html::kind_words(&r.kind),
+                // a piston extender that lifts sand and lets it fall back is its own thing (critique:
+                // "SAND ONLY, UPWARD ONLY ... not a general extender")
+                group: if r.kind.starts_with("piston-extender") && r.kinds.split('+').any(|k| k == "sand" || k == "gravel" || k == "red_sand") { "Sand elevator".to_string() } else { site_model::html::kind_words(&r.kind) },
                 name: r.file.trim_end_matches(".txt").to_string(),
                 page: format!("{id}.html"),
                 design: format!("designs/circuits/{study}/{}", r.file),
@@ -590,6 +616,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 flags,
                 circuit: Some(Circuit {
                     study: study.to_string(),
+                    // its study's place, the basics last (the gates with their own levers: the
+                    // coordinator's decision (c); the sand elevators)
+                    order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
                     value: number(&r.axis),
@@ -604,6 +633,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     archived: r.archived.clone(),
                     devices: det.as_ref().map(|d| d.devices.clone()).unwrap_or_default(),
                     stimulus: det.as_ref().map(|d| d.stimulus.clone()).unwrap_or_default(),
+                    levels: det.as_ref().map(|d| d.levels.clone()).unwrap_or_default(),
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
@@ -613,6 +643,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
+                    // (only for designs that hold items: the same blocks with other contents)
+                    // (designs that hold items: the same blocks with other contents; shulker
+                    // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
+                    layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else if study == "shulker" { r.type_key.clone() } else { String::new() },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -649,6 +683,97 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
     });
+    // a bigger design that is faster than every smaller one of its value says so
+    let n = crate::audit::mark_faster(&mut builds);
+    notes.push(format!("circuits: {n} designs marked faster than the smallest of their value"));
+    let shown = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()));
+    // each shulker machine's card leads with the variation it is the best design for (critique:
+    // cards with the same numbers differed only by badges): per badge, the fastest design having
+    // it (then the smallest); the fastest of all leads with "fastest"
+    let mut leads: Vec<(usize, String)> = Vec::new();
+    for kind in ["shulker-loader", "shulker-unloader"] {
+        let rate = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "items/s")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()).unwrap_or(0.0);
+        let list: Vec<usize> = builds.iter().enumerate().filter(|(_, b)| shown(b) && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with(kind))).map(|(i, _)| i).collect();
+        let better = |a: usize, b: usize| (-rate(&builds[a]), builds[a].blocks, builds[a].name.clone()).partial_cmp(&(-rate(&builds[b]), builds[b].blocks, builds[b].name.clone())).unwrap_or(std::cmp::Ordering::Equal);
+        let badges_of = |i: usize| -> Vec<String> { builds[i].circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "badges")).map(|(_, v)| v.split('+').filter(|s| !s.is_empty()).map(String::from).collect()).unwrap_or_default() };
+        let mut best: BTreeMap<String, usize> = BTreeMap::new();
+        for &i in &list {
+            for badge in badges_of(i) {
+                match best.get(&badge) {
+                    Some(&j) if better(j, i) != std::cmp::Ordering::Greater => {}
+                    _ => {
+                        best.insert(badge, i);
+                    }
+                }
+            }
+        }
+        let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        for &i in &list {
+            let lead = if Some(i) == fastest { Some("fastest".to_string()) } else { badges_of(i).into_iter().find(|bd| best.get(bd) == Some(&i)) };
+            if let Some(l) = lead {
+                leads.push((i, l));
+            }
+        }
+    }
+    for (i, l) in leads {
+        if let Some(c) = builds[i].circuit.as_mut() {
+            c.lead = l;
+        }
+    }
+    // one build archived under two kinds (the same blocks and ports: `same_build`) shows once on
+    // the Circuits tab, with both names (critique: "one pulse when switched on" and "signal
+    // shortener" were the same 2 blocks, twice): the later one is a `kind-twin`, hidden unless its
+    // own kind is picked
+    let id_of = |b: &Build| b.circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, b.name)).unwrap_or_default();
+    let mut twins: Vec<(usize, usize)> = Vec::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(c) = &b.circuit else { continue };
+        if !shown(b) || c.same_build.is_empty() {
+            continue;
+        }
+        for (j, o) in builds.iter().enumerate() {
+            if j != i && shown(o) && c.same_build.contains(&id_of(o)) && o.group != b.group {
+                let key = |x: &Build| (x.circuit.as_ref().map(|c| c.order).unwrap_or(0), x.group.clone(), x.name.clone());
+                if key(o) < key(b) {
+                    twins.push((i, j));
+                }
+            }
+        }
+    }
+    for (later, first) in twins {
+        let words = builds[later].group.clone();
+        if !builds[later].flags.iter().any(|f| f == "kind-twin") {
+            builds[later].flags.push("kind-twin".into());
+        }
+        if let Some(c) = builds[first].circuit.as_mut() {
+            if !c.also.contains(&words) {
+                c.also.push(words);
+            }
+        }
+    }
+    // each design's place within its kind (the Circuits tab shows the first of every kind first)
+    let mut by_kind: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if shown(b) {
+            by_kind.entry(b.group.clone()).or_default().push(i);
+        }
+    }
+    for b in builds.iter_mut() {
+        if let Some(c) = b.circuit.as_mut() {
+            c.rank = 1_000_000;
+        }
+    }
+    for list in by_kind.values_mut() {
+        list.sort_by_key(|&i| {
+            let c = builds[i].circuit.as_ref();
+            (c.map(|c| c.order).unwrap_or(0), c.and_then(|c| c.value).unwrap_or(i64::MAX), builds[i].blocks, builds[i].name.clone())
+        });
+        for (k, &i) in list.iter().enumerate() {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.rank = k as u32;
+            }
+        }
+    }
     // the dominated-design audit, at every build (a study re-archived: new candidates show here)
     if !keep_hidden {
         let probe = site_model::Site { builds: builds.clone(), ..Default::default() };
@@ -685,13 +810,17 @@ fn read_catalog(root: &Path) -> BTreeMap<String, (String, String)> {
 /// versions for the same value (critique C27).
 fn fold_same_builds(root: &Path, builds: &mut [Build]) {
     // the structure: every cell with its block state, plus the port cells (the same blocks with
-    // other ports is another machine)
+    // other ports is another machine), plus what the blocks hold (the item counters are one set
+    // of blocks with other items in the dropper: other machines, not twins)
     let key_of = |b: &Build| -> Option<String> {
         b.circuit.as_ref()?;
-        let d = Design::load(&root.join(repo_path_rel(b))).ok()?;
+        let path = root.join(repo_path_rel(b));
+        let d = Design::load(&path).ok()?;
         let blocks: Vec<String> = d.clock.design.blocks.iter().map(|(p, s)| format!("{p:?}={s}")).collect();
         let ports: Vec<String> = d.inputs.iter().map(|i| format!("i{:?}", i.pos)).chain(d.outputs.iter().map(|o| format!("o{:?}", o.pos))).collect();
-        Some(format!("{}|{}", blocks.join(";"), ports.join(";")))
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let contents: String = text.lines().filter(|l| !l.trim_start().starts_with('#')).filter(|l| l.contains('{')).map(|l| l.split_once('{').map(|(_, r)| r).unwrap_or("")).collect::<Vec<_>>().join(";");
+        Some(format!("{}|{}|{contents}", blocks.join(";"), ports.join(";")))
     };
     let mut same: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (i, b) in builds.iter().enumerate() {
@@ -731,10 +860,19 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         notes.push("no designs/circuits/catalog.tsv: no tunable groups, the site's own variant fold".into());
         return;
     }
-    let by_name: BTreeMap<String, (u32, Vec<String>, String)> = builds.iter().filter_map(|b| b.circuit.as_ref().map(|c| (b.name.clone(), (b.blocks, b.kinds.clone(), format!("circuits/{}/{}", c.study, b.name))))).collect();
+    let device = |b: &Build| -> &'static str {
+        if b.flags.iter().any(|f| f == "lever") {
+            "lever"
+        } else if b.flags.iter().any(|f| f == "button") {
+            "button"
+        } else {
+            "signal"
+        }
+    };
+    let by_name: BTreeMap<String, (u32, Vec<String>, String, &'static str)> = builds.iter().filter_map(|b| b.circuit.as_ref().map(|c| (b.name.clone(), (b.blocks, b.kinds.clone(), format!("circuits/{}/{}", c.study, b.name), device(b))))).collect();
     for b in builds.iter_mut() {
         let Some((group, of)) = cat.get(&b.name) else { continue };
-        let (blocks, kinds) = (b.blocks, b.kinds.clone());
+        let (blocks, kinds, dev) = (b.blocks, b.kinds.clone(), device(b));
         let Some(c) = b.circuit.as_mut() else { continue };
         c.tunable = group.clone();
         // the catalog's fold replaces the site's own
@@ -745,15 +883,41 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
             continue;
         }
         match by_name.get(of) {
-            Some((hb, hk, id)) if *hb == blocks && *hk == kinds => {
+            // a design with its own lever never hides one driven by a signal, nor the other way
+            // round (critique V18: gate-or-2b, the instant OR, was folded under gate-or-lever-1b)
+            Some((_, _, _, hdev)) if *hdev != dev => {
+                notes.push(format!("{}: not folded under {of} (another input device: {dev} vs {hdev})", b.name));
+            }
+            Some((hb, hk, id, _)) if *hb == blocks && *hk == kinds => {
                 c.layout_of = Some(id.clone());
                 b.flags.push("layout".into());
             }
-            Some((_, _, id)) => {
+            Some((_, _, id, _)) => {
                 c.host = Some(id.clone());
                 b.flags.push("variant".into());
             }
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
+        }
+    }
+    // one build with other items preloaded (the item counters: counter17-items ... counter576-
+    // items, the critique's "NINE separate cards"): one tunable group, unless the catalog groups
+    // them already
+    let mut same: BTreeMap<(String, String, String), Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(c) = &b.circuit {
+            if c.tunable.is_empty() && !c.layout_key.is_empty() && c.host.is_none() && c.layout_of.is_none() {
+                same.entry((c.study.clone(), c.kind.split_whitespace().next().unwrap_or("").to_string(), c.layout_key.clone())).or_default().push(i);
+            }
+        }
+    }
+    for members in same.values().filter(|m| m.len() > 1) {
+        let id = format!("same-build:{}", builds[members[0]].name);
+        notes.push(format!("{}: {} designs are one build with other contents, one group", builds[members[0]].name, members.len()));
+        for &i in members {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.tunable = id.clone();
+                c.group_differs = "the items it holds (the count it reacts on)".into();
+            }
         }
     }
     // tunable groups: the smallest shown design stands for the group
@@ -775,10 +939,30 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
             .iter()
             .copied()
             .filter(|&i| {
+                // (a shulker machine timed with other items is the same build on purpose: every
+                // version stays)
+                if builds[i].circuit.as_ref().is_some_and(|c| c.study == "shulker") {
+                    return false;
+                }
                 let twins = builds[i].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default();
                 members.iter().any(|&j| j != i && twins.contains(&id_of(j)) && (value_of(j), builds[j].name.clone()) > (value_of(i), builds[i].name.clone()))
             })
             .collect();
+        // a dropped twin is not a card of its own either (critique: counter2-bulb2 showed as a
+        // counter-2 card): it hides under the twin that stays, its page says it is the same build
+        let keeper: Vec<(usize, String)> = dropped
+            .iter()
+            .filter_map(|&i| {
+                let twins = builds[i].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default();
+                members.iter().copied().filter(|&j| j != i && twins.contains(&id_of(j)) && !dropped.contains(&j)).max_by_key(|&j| value_of(j)).map(|j| (i, id_of(j)))
+            })
+            .collect();
+        for (i, keep) in keeper {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.host = Some(keep);
+            }
+            builds[i].flags.push("variant".into());
+        }
         for &i in &dropped {
             if let Some(c) = builds[i].circuit.as_mut() {
                 c.tunable.clear();
@@ -829,9 +1013,20 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.group_note = note.clone();
             }
         }
-        // what the members differ in, from their designs (vjeux: say WHAT differs)
+        // what the members differ in, from their designs (vjeux: say WHAT differs); the same
+        // blocks with other contents differ in what is loaded (critique: the item counter said
+        // "only in their layout")
         let feats: Vec<VariantFeatures> = members.iter().map(|&i| Design::load(&root.join(repo_path_rel(&builds[i]))).map(|d| variant_features(&d)).unwrap_or_default()).collect();
         let (differs, labels) = variant_differences(&feats);
+        let one_layout = members.iter().all(|&i| builds[i].circuit.as_ref().is_some_and(|c| !c.layout_key.is_empty() && Some(&c.layout_key) == builds[members[0]].circuit.as_ref().map(|x| &x.layout_key)));
+        let shulker = members.iter().all(|&i| builds[i].circuit.as_ref().is_some_and(|c| c.study == "shulker"));
+        let differs = if one_layout && shulker {
+            "the items it is timed with (how many stack in one slot)".to_string()
+        } else if one_layout {
+            "how many items are loaded in it (the count it reacts on)".to_string()
+        } else {
+            differs
+        };
         for (k, &i) in members.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
                 c.group_differs = differs.clone();
@@ -848,6 +1043,22 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
 /// A circuit build's design path relative to designs/circuits.
 fn repo_path_rel(b: &Build) -> String {
     repo_path(b).trim_start_matches(&format!("{ROOT}/")).to_string()
+}
+
+/// A verdict's type key without the blocks' contents (`dropper[facing=west]{Items:[...]}` ->
+/// `dropper[facing=west]`).
+fn strip_contents(key: &str) -> String {
+    let mut out = String::with_capacity(key.len());
+    let mut depth = 0u32;
+    for ch in key.chars() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => out.push(ch),
+            _ => {}
+        }
+    }
+    out
 }
 
 /// What can differ between the members of a tunable group, read from one member's design.
@@ -872,7 +1083,9 @@ fn variant_features(c: &Design) -> VariantFeatures {
         .map(|i| match &i.how {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
+            circuit::InputHow::Strength { .. } => "strength".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
+            circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
         .collect::<Vec<_>>()
         .join(", ");
@@ -1171,6 +1384,10 @@ mod tests {
         assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
         assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
+        // a class rule: every vibration-sensitive sculk design, in any study
+        assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());
+        assert!(hidden_design("pulse", "pulse-rise-sculk-filter-L10.txt", "L = 10 gt").is_none());
+        assert!(hidden("pulse", "pulse-rise-sculk-L30.txt").is_none(), "a class rule needs the class");
     }
 
     #[test]

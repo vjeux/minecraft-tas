@@ -2,6 +2,8 @@
 # CIRCUIT: pulse-dual-odd-L5 dual-edge L 5 gt, delay 6 gt, min-pulse 8 gt, 11 blocks, 2x2x5, robust
 name: pulse-dual-odd-L5
 circuit: dual-edge
+group: pulse-dual-odd
+group title: odd-length pulse on both edges: two observers 1 tick apart
 # Odd dual-edge pulses: one observer watches the input cell, the other a sticky piston the input
 # moves (a piston's block event runs in the tick after the input changes), so they fire 1 gt apart
 # on each edge; each feeds a delay-2 repeater (4 gt pulses) into one dust line, where the two

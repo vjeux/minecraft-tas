@@ -8,6 +8,8 @@ extend axis: 18 + 16n
 extend blocks: 19 + 4n
 extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
 extend n: 0..10
+extend group title: long pulse extender that sees 1-tick inputs: a copper bulb and a loop of repeaters
+extend group note: This chain sees 1-tick inputs; the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open, the same size for any length of the form 8n) needs inputs of 4 ticks or more, and this chain also gives the lengths it can't (18, 34, 50... ticks).
 extend base: 0
 extend generator: mctas circuit pulse family oneshot-bulb-ext --n {n} --out {out}
 origin: -1 0 0

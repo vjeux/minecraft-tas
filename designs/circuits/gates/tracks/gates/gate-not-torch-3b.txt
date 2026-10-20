@@ -2,6 +2,7 @@
 # it, and a wall torch on the stone's side goes out. The output cell is under the torch.
 name: gate-not-torch-3b
 circuit: gate not
+tile: 0 0 3
 port input: 0 1 1
 port output: 1 -1 0
 origin: 0 0 0

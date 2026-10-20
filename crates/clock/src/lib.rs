@@ -23,6 +23,7 @@ pub mod canon;
 pub mod catalog;
 pub mod census;
 pub mod extend;
+pub mod gaps;
 pub mod ident;
 pub mod kits;
 pub mod shot;

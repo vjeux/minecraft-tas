@@ -9,17 +9,15 @@ UI, Rust -> WebAssembly; its own cargo workspace).
 ## Rebuild and redeploy (from the repository root, on main)
 
 ```sh
-cargo build --release && ./target/release/mctas site chrome   # once per box: headless Chrome
+cargo build --release
 ./target/release/mctas site publish --wait
-./target/release/mctas site smoke --dir site --engine webkit  # before any new viewer bundle
 ```
 
-`publish` = `site build` + `site smoke` (REQUIRED: no headless Chrome = no deploy; `--no-smoke`
-overrides; its viewer probes caught the 2026-10-20 black-texture bundle) + `site deploy`
-(force-pushes gh-pages, retries a rejected push). ~75 s. The WebKit smoke (WebKitGTK through
-WebKitWebDriver in Xvfb, desktop + phone; `sudo dnf install -y webkit2gtk3 webkit2gtk3-devel
-xorg-x11-server-Xvfb mesa-libEGL`) also checks the in-place swaps. Check the live site afterwards:
-`mctas site smoke --url https://vjeux.github.io/minecraft-tas/` (and `--engine webkit --url ...`).
+`publish` = `site build` + `site deploy` (force-pushes gh-pages, retries a rejected push). ~75 s.
+No browser end-to-end gate any more (vjeux 2026-10-20 14:20Z: "I think we're overreacting to a
+single bug we had. Please remove the e2e tests"): `mctas site smoke` (headless Chrome; `--engine
+webkit` for WebKitGTK desktop + phone; `--page` films pages) stays an optional dev tool, run only
+when someone asks for it (`mctas site chrome` installs the headless Chrome it needs).
 Every page loads the bundles, the CSS and the data by content hash (`?v=`), so a hotfix reaches
 phones at once.
 
@@ -50,9 +48,14 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   smoke-checked); no page links in the footer.
 - "Works in any direction, anywhere" replaces "robust" (directional / locational when it fails).
 - hidden.tsv: the slime-free extenders, pext's world-record bar (only each N's holder; `!`
-  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, and the
-  coordinator's TEMPORARY hides (3 TNT launchers being re-judged on a floor, the 2-block sculk
-  pulse circuits until the vibration test).
+  exception lines keep the N = 2 slime-free holders), 6 copper-free ring counters, the
+  dominated pulse-limiter-psub-L7, the coordinator's TEMPORARY hides (3 TNT launchers being
+  re-judged on a floor), and the class rule `*/@vibration-sensitive` (clk-obs's vibration test:
+  only vibration-proof sculk designs are published).
+- One card per mechanism (doors by category, box, times, seamless tier and properties; clock
+  twins; census clocks unless the record of their period); the Circuits tab opens on the first
+  design of every kind; search knows the players' words; family pages in words; every clock has
+  its output timeline; "faster than the smallest" on bigger but faster designs.
 
 - Cards and build pages lead with the properties (kind in small capitals, the main property and
   blocks as the headline, secondary metrics, chips, the name small); circuit kinds are base kinds
