@@ -184,6 +184,85 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     }
 }
 
+/// A tiled run (`tile: dx dy dz [copies]`, [`crate::tiled`]): copy k's inputs get the kind's
+/// stimulus `TILE_SHIFT` x k gt later, so the copies' edges interleave and any crosstalk shows.
+pub const TILE_SHIFT: u32 = 7;
+
+/// `s` with every edge and phase `dt` gt later.
+fn shifted(s: &Schedule, dt: u32) -> Schedule {
+    let mut o = s.clone();
+    for e in &mut o.edges {
+        for (t, _) in e.iter_mut() {
+            *t += dt;
+        }
+    }
+    for (a, b, _) in &mut o.phases {
+        *a += dt;
+        *b += dt;
+    }
+    o.ticks += dt;
+    o
+}
+
+/// A port name of the tiled circuit back to its copy: `<name>.t<k>` is copy k of `<name>`, a bare
+/// `t<k>` copy k of the unnamed port (`default`: `in` for inputs, `out` for outputs), any other
+/// name copy 0.
+fn copy_of(name: &str, default: &str) -> (String, u32) {
+    let k = crate::shulker::group_of(name);
+    if k == 0 {
+        return (name.to_string(), 0);
+    }
+    match name.rsplit_once('.') {
+        Some((base, _)) => (base.to_string(), k),
+        None => (default.to_string(), k),
+    }
+}
+
+/// The schedule of `tc`, the tiled `c`: its input `<name>.t<k>` gets `c`'s input `<name>` edges
+/// `TILE_SHIFT` x k gt later (copy 0's phases kept; each copy is judged on its own, shifted).
+pub fn tiled_schedule(c: &Circuit, tc: &Circuit, s: &Schedule) -> Schedule {
+    let mut out = Schedule::new(tc.inputs.len());
+    let mut last = 0;
+    for (i, inp) in tc.inputs.iter().enumerate() {
+        let (base, k) = copy_of(&inp.name, "in");
+        if let Some(b) = c.inputs.iter().position(|x| x.name == base) {
+            out.edges[i] = shifted(s, TILE_SHIFT * k).edges[b].clone();
+            last = last.max(k);
+        }
+    }
+    out.phases = s.phases.clone();
+    out.events = s.events.clone();
+    out.ticks = s.ticks + TILE_SHIFT * last;
+    out
+}
+
+/// Judge a tiled run `t` of `tc` (schedule [`tiled_schedule`]): each copy k, its own inputs and
+/// outputs (`<name>.t<k>`), against `s` shifted `TILE_SHIFT` x k gt; every copy must pass and
+/// measure what the design measures alone (`alone`), else the copies disturb each other. Passes
+/// with `alone`'s metrics plus `tile` (the step and the number of copies).
+pub fn check_tiled(c: &Circuit, kind: &Kind, tc: &Circuit, s: &Schedule, t: &Trace, alone: &Outcome) -> Outcome {
+    let Some(tile) = c.tile else { return alone.clone() };
+    for k in 0..tile.copies {
+        let inputs: Option<Vec<Vec<bool>>> = c.inputs.iter().map(|i| tc.inputs.iter().position(|x| copy_of(&x.name, "in") == (i.name.clone(), k)).and_then(|j| t.inputs.get(j).cloned())).collect();
+        let levels: Option<Vec<Vec<u8>>> = c.outputs.iter().map(|o| tc.outputs.iter().position(|x| copy_of(&x.name, "out") == (o.name.clone(), k)).and_then(|j| t.levels.get(j).cloned())).collect();
+        let (Some(inputs), Some(levels)) = (inputs, levels) else { return fail(format!("tile: copy {k}'s ports are not in the tiled run"), Vec::new()) };
+        let tk = Trace { inputs, levels, names: t.names.clone(), cells: t.cells.clone(), ..Default::default() };
+        let out = check(c, kind, &shifted(s, TILE_SHIFT * k), &tk);
+        if !out.pass {
+            return fail(format!("tile {} {} {}: copy {k} of {}: {}", tile.step[0], tile.step[1], tile.step[2], tile.copies, out.why), out.table);
+        }
+        if out.metrics != alone.metrics {
+            let text = |m: &[(String, String)]| m.iter().map(|(a, b)| format!("{a} {b}")).collect::<Vec<_>>().join(", ");
+            return fail(format!("tile {} {} {}: copy {k} of {} measures {} (alone: {})", tile.step[0], tile.step[1], tile.step[2], tile.copies, text(&out.metrics), text(&alone.metrics)), out.table);
+        }
+    }
+    let mut o = alone.clone();
+    // the pitch, not the step: the same in every rotation of the build
+    let pitch: i32 = tile.step.iter().map(|x| x.abs()).sum();
+    o.metrics.push(("tile".into(), format!("{pitch} blocks x{}", tile.copies)));
+    o
+}
+
 fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
     Outcome { pass: false, why: why.into(), metrics: Vec::new(), table }
 }
