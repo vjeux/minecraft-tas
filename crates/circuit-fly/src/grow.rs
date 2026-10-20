@@ -22,6 +22,8 @@ pub struct GrowOptions {
     pub workers: usize,
     /// Keep only the candidates FASTER than their base.
     pub faster: bool,
+    /// Take this many blocks out first (0 or 1): every one-block-smaller variant is grown.
+    pub remove: usize,
 }
 
 /// A grown machine that flies differently from its base.
@@ -156,20 +158,39 @@ pub fn grow(designs: &[Machine], o: &GrowOptions) -> Result<Vec<Grown>> {
         let kp = match kick {
             Kick::Last(p) | Kick::Temp(p) => p,
         };
-        let taken: std::collections::HashSet<Pos> = cells.iter().map(|(p, _)| *p).collect();
-        let mut free = Vec::new();
-        let hi = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).max().unwrap());
-        for x in -1..=hi[0] + 1 {
-            for y in -1..=hi[1] + 1 {
-                for z in -1..=hi[2] + 1 {
-                    let q = [x, y, z];
-                    let near = cells.iter().any(|(p, _)| (0..3).map(|i| (p[i] - q[i]).abs()).sum::<i32>() == 1);
-                    if near && !taken.contains(&q) && q != kp {
-                        free.push(q);
+        let free_of = |cells: &[(Pos, Block)]| -> Vec<Pos> {
+            let taken: std::collections::HashSet<Pos> = cells.iter().map(|(p, _)| *p).collect();
+            let mut free = Vec::new();
+            let hi = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).max().unwrap());
+            let lo = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).min().unwrap());
+            for x in lo[0] - 1..=hi[0] + 1 {
+                for y in lo[1] - 1..=hi[1] + 1 {
+                    for z in lo[2] - 1..=hi[2] + 1 {
+                        let q = [x, y, z];
+                        let near = cells.iter().any(|(p, _)| (0..3).map(|i| (p[i] - q[i]).abs()).sum::<i32>() == 1);
+                        if near && !taken.contains(&q) && q != kp {
+                            free.push(q);
+                        }
                     }
                 }
             }
+            free
+        };
+        // `remove`: every variant with one of its blocks taken out (not the kick's own block),
+        // grown from there and compared with the whole machine's speed
+        if o.remove > 0 {
+            for i in 0..cells.len() {
+                if matches!(kick, Kick::Last(p) if p == cells[i].0) {
+                    continue;
+                }
+                let mut c2 = cells.clone();
+                c2.remove(i);
+                let free = free_of(&c2);
+                bases.push(Base { name: format!("{}-minus{i}", m.name()), cells: c2, kick, speed: (p, n), free });
+            }
+            continue;
         }
+        let free = free_of(&cells);
         bases.push(Base { name: m.name().to_string(), cells, kick, speed: (p, n), free });
     }
     // jobs: (base, first added cell, its state)
