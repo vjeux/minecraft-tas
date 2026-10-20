@@ -18,7 +18,8 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site build --out site/` | exports `site/data/site.json`, one page per build (`doors/<stem>.html`, `clocks/<stem>.html`, `circuits/<study>/<stem>.html`) and per extendable family (`families/<card>.html`), the boards page, the design files (`designs/...`) with a Litematica schematic next to each (`<stem>.litematic`, [litematic.md](litematic.md); one that cannot be written fails the build), generates every family member with the family's own `extend generator` and checks it in redsim, builds the UI into `pkg/`, copies webrender's 3D viewer (`web/viewer/` of the checkout by default; `--viewer <dir>`, `--viewer-ref <git ref>`, `--no-viewer`) into `viewer/`; `--pkg-ref origin/gh-pages` reuses the deployed UI instead of building it, only when its `pkg/SOURCE` fingerprint matches the checkout's `web/site` + `crates/site-model` (else the build fails: rebuild with the wasm32 target and wasm-bindgen-cli 0.2.129) |
 | `mctas site serve --dir site/ [--port 8000]` | local preview (static server on 127.0.0.1) |
 | `mctas site smoke --dir site/ [--url <deployed site>]` | headless Chrome (`--dump-dom`) loads the index, a time search, a facet link, a door page and a family page and checks the DOM the WebAssembly UI built against the engine's own answers; two probe pages screenshot a door and a clock thumbnail through the 3D viewer (WebGL2 in SwiftShader) and count colors (a render has thousands, the fallback one); `--url` checks the live site. `mctas site publish` refuses to deploy without it (`--no-smoke` overrides) |
-| `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit and a family page must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black). It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
+| `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, a shulker loader and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
+| `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness and the console |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what smoke and publish use) |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
 
@@ -54,8 +55,13 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
   selftest designs (`designs/circuits/calibration/`, `selftest/`) are not published (vjeux: "not
   useful to people"; smoke checks it). Every
   circuit is also run through `circuit::verify::sim` at build time: the judge's own stimulus
-  becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`) and the page's
-  timing diagram (inputs and outputs per gt) with the checker's report; the page's plain-language
+  becomes the viewer's demo (`data-stimulus`, `data-phases`, `data-input-mode`; a BUD switch's
+  block changes at its target cells as `data-events`) and the page's
+  timing diagram (inputs and outputs per gt, a TARGET row for the BUD judge's changes) with the
+  checker's report; a design redsim cannot run is said to be shown as built, with the reason. The
+  machines' studies (shulker loaders, TNT dupers, BUD switches) get a Variations table on their
+  study page: the best design for each variation of their VARIATIONS.md, from the metrics
+  (badges, items/s, rate, detected classes). The page's plain-language
   texts (what each kind does, how to try it, what each metric means, the studies' introductions,
   the glossary) live in `crates/site/src/explain.rs`. The catalog's folds (`catalog.tsv`):
   equivalent layouts (`variant_of` naming a design of the same kind, value, block count and block
@@ -82,7 +88,9 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 Any element with `data-mcview="thumb"` (still frame) or `data-mcview="full"` (live: orbit, play,
 step, toggle the input) and `data-src="<relative url of a design .txt>"` (optional `data-design`
 inline text, `data-kind`, `data-trace` = a real-game recording to replay, `data-tick`, `data-yaw`,
-`data-pitch`; circuits: `data-stimulus`, `data-phases`, `data-input-mode`, `data-circuit`) is
+`data-pitch`; circuits: `data-stimulus`, `data-events` (the judge's block changes at a BUD's target:
+`<frame> place|clear|shape|update <x> <y> <z> [<state>]; ...`, design coordinates), `data-phases`,
+`data-input-mode`, `data-circuit`) is
 rendered by the viewer bundle (`viewer/mcview.js` + `viewer/mcview_bg.wasm`, copied from the
 checkout's `web/viewer/`): lazily when visible, one shared WebGL context for the thumbnails,
 thumbnails cached by (src, size), new elements picked up by a MutationObserver. It adds
