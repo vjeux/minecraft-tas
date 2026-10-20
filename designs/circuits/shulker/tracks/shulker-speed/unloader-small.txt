@@ -11,6 +11,7 @@
 # dispenser through the drop cell's roof, watched by an observer, places the first box and
 # restarts after the supply ran out.
 name: shulker-small-unloader
+tile: 5 0 0
 circuit: shulker-unloader
 port items: 0 0 -1
 port boxes: 0 3 -1
