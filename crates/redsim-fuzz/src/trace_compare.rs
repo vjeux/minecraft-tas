@@ -231,6 +231,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
+    // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
+    // from level.random); the trace's TNT entities are compared as spawns (new ids per tick, by
+    // the cell they stand in) with redsim's primes of that tick, and left out of the entity check
+    let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut primed_seen = 0usize;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -277,7 +282,17 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             }
         }
         let mut ed = Vec::new();
-        entity_diffs(ents, &entities_of(&w), &mut ed);
+        let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
+        let mut game_spawns: Vec<[i32; 3]> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().map(|(_, p)| [p.x, p.y, p.z]).collect();
+        primed_seen = w.primed.len();
+        game_spawns.sort();
+        sim_spawns.sort();
+        if game_spawns != sim_spawns {
+            ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
+        }
+        let others: Vec<TraceEntity> = ents.iter().filter(|e| !is_tnt(e)).cloned().collect();
+        entity_diffs(&others, &entities_of(&w), &mut ed);
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {
