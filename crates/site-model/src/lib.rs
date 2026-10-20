@@ -231,6 +231,9 @@ pub struct Circuit {
     /// extra blocks: `carries 9 extra blocks`; of the train family: `pulls 2 trailers`).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub feature: String,
+    /// A group card's sizes when its members differ (`3 to 15 blocks`): its title says them.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub span_blocks: String,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,

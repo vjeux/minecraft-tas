@@ -939,7 +939,14 @@ pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Res
             let failure = if !rep.pass {
                 Some(rep.summary(&c))
             } else if let Some(Err(e)) = &fam_check {
-                Some(format!("{e:#}"))
+                let e = format!("{e:#}");
+                // a generator that could not run is the tool's fault, not the design's: keep it
+                if e.contains("tool error") {
+                    out.push(format!("ERROR (kept) {}: {e}", path.display()));
+                    None
+                } else {
+                    Some(e)
+                }
             } else {
                 None
             };
