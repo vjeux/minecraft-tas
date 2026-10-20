@@ -116,9 +116,17 @@ Every record also needs its card headline: why a builder picks it (smallest, min
 tileable, fastest).
 
 ## Proof obligations
-- The pulse census (`mctas circuit pulse census`, k <= 4, full palette, 1.96 G sims) covers
-  face-connected designs. It ran under the old input placement; since 2026-10-20 the census drives
-  its input like R7 (the judge's stone and repeater from a free side, no 1 gt input), and its bounds
-  stand only once re-run. Sculk designs act at a distance, so "no 3-block design" claims must also
-  cover sensors placed apart (listener radius) before they count as proofs.
+- The pulse census (`mctas circuit pulse census`) covers face-connected designs. Re-run under R7
+  (the judge's stone and repeater from a free side, no 1 gt input): k = 2 and k = 3 with the full
+  62-state palette (24.8 M sims), k = 4 with 38 states (obs, pistons, note block, lamp, bulb,
+  stone, slime, redstone block, trapdoor, torch, dust: 1.45 G sims). New at k = 2: the 2-block
+  falling edge; k = 3: the 4-block delay-2 falling edge (3 + the input block); no odd length at
+  any k. The k = 4 hits (a falling edge L 4 at delay 0, a falling edge L 1, a rising edge and a
+  limiter L 2 at min-pulse 2) all pass through judge holes, not archived: a block moves out of
+  (or into) the output cell, so the judge switches between reading that observer's own state and
+  the signal into the empty cell from a redstone block beside it, or pushes the judge's lamp away;
+  or an observer fires into the input block (it would light the builder's input wire). Reported to
+  the coordinator for the judge (the output cell's block must stay put, like the input's).
+  Sculk designs act at a distance, so "no 3-block design" claims must also cover sensors placed
+  apart (listener radius) before they count as proofs.
 - Each "impossible" in this table needs a census or a mechanics argument written here.
