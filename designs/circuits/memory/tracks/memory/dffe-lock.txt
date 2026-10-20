@@ -1,37 +1,29 @@
-# D flip-flop with enable: the dff-lock master-slave whose clock passes an AND with e first, so an edge only reaches the flip-flop while e is high. The AND is the archived torch one (a torch standing on each input block, the dust between them NAND, a wall torch under that dust AND); its output joins the clock dust that feeds both lock repeaters.
+# D flip-flop with enable, 12 blocks: the 9-block flip-flop (two repeaters with lock repeaters beside them; the master's lock reads the clock block, a wall torch on that block feeds the slave's) plus one more lock on the slave's other side, fed by a wall torch on the enable block. A repeater is locked if EITHER side is powered, so while e is off the slave stays locked through any clock edge and q holds; no AND gate is needed.
 name: dffe-lock
 circuit: dff-enable
-port input.clk: 4 1 5
-port input.e: 6 1 5
+port input.clk: 0 1 2
 port input.d: -1 1 0
+port input.e: 1 1 -3
 port output: 2 1 0
-origin: 0 0 0
+origin: 0 0 -3
 palette:
   A minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
   B minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
-  R minecraft:redstone_wall_torch[facing=north,lit=true]
-  W minecraft:redstone_wall_torch[facing=north,lit=true]
-  t minecraft:redstone_torch[lit=true]
+  E minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  N minecraft:redstone_wall_torch[facing=south,lit=true]
   S minecraft:stone
-  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
 layer 0:
+  ..
+  ..
+  .S
   SS
   SS
-  .
-  .
-  .
-  .
+  ..
 layer 1:
+  ..
+  .N
+  .E
   BB
   AA
-  SR
-  SSSSSS
-  .....W
-  ....SSS
-layer 2:
-  .
-  .
-  r
-  rrrrrr
-  .....S
-  ....trt
+  .R

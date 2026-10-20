@@ -1,30 +1,21 @@
-# archived 2026-10-20T20:27Z from designs/circuits/memory/tracks/memory/dff-lock.txt by mctas circuit archive
-# CIRCUIT: dff-lock dff latency 6 gt, edge rising, setup 1 gt, hold 1 gt, 18 blocks, 3x3x4, robust
-# D flip-flop, repeater-lock master-slave: the data runs through two repeaters A then B; each has a lock repeater beside it, and a repeater that is locked holds its output. The master lock reads the clock straight, so A follows d only while the clock is LOW; the slave lock reads the clock through a wall torch, so B passes only while the clock is HIGH. On the rising edge A freezes on d and B opens, so q takes d exactly at the edge.
+# archived 2026-10-20T22:41Z from designs/circuits/memory/tracks/memory/dff-lock.txt by mctas circuit archive
+# CIRCUIT: dff-lock dff latency 6 gt, edge rising, setup 1 gt, hold 1 gt, 9 blocks, 2x2x3, robust
+# D flip-flop, 9 blocks: the data runs through two repeaters, and each has a lock repeater beside it (a locked repeater holds its output). The master's lock reads the clock block itself, so the first repeater follows d only while the clock is LOW; a wall torch hanging on that same clock block feeds the slave's lock, so the second repeater passes only while the clock is HIGH. On the rising edge the master freezes on d and the slave opens: q takes d exactly at the edge. No clock wiring at all: the clock block is part of the circuit.
 name: dff-lock
 circuit: dff
-port input.clk: 3 2 3
+port input.clk: 0 1 2
 port input.d: -1 1 0
 port output: 2 1 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
   B minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
-  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
   S minecraft:stone
-  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
 layer 0:
   SS
   SS
-  .
-  .
 layer 1:
   BB
   AA
-  SR
-  SSS
-layer 2:
-  .
-  .
-  r
-  rrrS
+  .R

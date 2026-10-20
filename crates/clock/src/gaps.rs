@@ -234,9 +234,8 @@ pub fn reload_check(pool: &mctas::sim::Pool, o: &VerifyOptions, dir: &Path, file
 /// goes still: a mid-move piston lands a tick late after a save, vanilla's progressO) or another
 /// period; the worst one wins, with `in K of N builds` when only some builds do it.
 pub fn reload_class(rep: &crate::verify::VerifyReport) -> String {
-    let n = rep.runs.len();
     let at = rep.reload_at.unwrap_or(0);
-    let (mut stops, mut glitch) = (0usize, 0usize);
+    let (mut stops, mut glitch, mut normal_fail) = (0usize, 0usize, 0usize);
     let mut changes: std::collections::BTreeMap<u32, usize> = Default::default();
     let mut other: Vec<String> = Vec::new();
     for r in &rep.runs {
@@ -255,9 +254,21 @@ pub fn reload_class(rep: &crate::verify::VerifyReport) -> String {
                         *changes.entry(p).or_default() += 1;
                     }
                 }
-                None => other.push(e.clone()),
+                None => match e.find("goes still at tick ").and_then(|i| e[i + 19..].split(|ch: char| !ch.is_ascii_digit()).next()?.parse::<u32>().ok()) {
+                    // still before the reload: this build fails in normal running too (the
+                    // robustness column says so), not a reload property
+                    Some(t) if t < at => normal_fail += 1,
+                    // still after it (its last change can come right before the reload)
+                    Some(_) => stops += 1,
+                    None => other.push(e.clone()),
+                },
             },
         }
+    }
+    // the builds that run normally (the others are robustness's business)
+    let n = rep.runs.len() - normal_fail;
+    if n == 0 {
+        return "not checked: no build runs without a reload".into();
     }
     let some = |k: usize| if k == n { String::new() } else { format!(" in {k} of {n} builds") };
     if stops > 0 {

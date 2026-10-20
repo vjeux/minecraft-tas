@@ -71,3 +71,52 @@ Consequences, stated plainly rather than hidden:
 - `rs-latch` keeps rs-dropper (4b) and rs-crafter (6b); `d-latch` keeps both; every counter except the refused dropper rings survives.
 
 The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out of the build) are a different matter: they are not wrong, the judge simply cannot drive them. The item counter (39 blocks, any N) already replaces every large-N one, so the gap they leave is only at small composite N, where the bulb chain and the corner ring cover it.
+
+## Sizes after the rebuild (2026-10-20)
+
+| kind | design | blocks | note |
+|---|---|---|---|
+| dff | dff-lock | 9 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust, irreducible. Was 15: the clock block itself is the master lock's back and carries the slave's wall torch, so there is no clock wiring at all |
+| shift 2 | shift2-lock | 27 | was 30: stage 1 is the 9-block dff on the clock block; a dust on the clock block carries the clock round to stage 2's stone (18 blocks for stage 2 — the loop-back from stage 1's output to a second stage sharing the clock block and torch from their other faces would cost more than it saves) |
+| dff-enable | dffe-lock | 12 | was 18: the 9-block dff plus a second lock on the slave from e (wall torch + repeater + stone); latency 6 gt, robust, irreducible |
+
+The dff went 31 -> 18 by the in-game shrink, then 18 -> 15 by hand: the shrink removes blocks but never re-routes, and the clock line it left ran three cells further than it needed. The stage is two repeaters on the data line (B west, A south locking B from the side), a wall torch for the inverted phase, and one clock dust above; a second stage reuses the same dust.
+
+dff-enable went 31 -> 18 by NOT gating the clock at all. The first build ANDed e into the clock (31 blocks, latency 38 gt, position-dependent), and every cheaper AND failed on support: a torch cannot hold the dust above it, a stone the dust reads has no support either, and the NAND one layer lower arrives a tick late and misses the first edge. The fix is a repeater fact: a repeater is locked when EITHER side is powered (`getAlternateSignal` takes the max of both sides), so the enable needs no gate, only its own lock on the slave's free side — a wall torch on the e cell and one repeater, 3 blocks. With e off the slave stays locked through any clock edge and q holds; the master still tracks d, which is harmless because the slave only reads it on an edge with e on. The judge changes e only while the clock is low (seq.rs), the same setup assumption every enable flip-flop makes.
+
+## ONE design per kind (vjeux 21:47Z, 2026-10-20)
+
+- D latch: d-latch-repeater, 4 blocks (transparent while e is off). The 8-block enable-high latch is removed: the same 4 blocks with the 1-block NOT on the enable (a wall torch on the e block feeding the side repeater) is an enable-high latch in 5 blocks, judged robust (latency 6 gt), and the caption says so.
+- RS latch: rs-dropper, 4 blocks, 6 gt, tileable every 2. rs-crafter (6 blocks, 13 gt) removed.
+- D flip-flop 15, with enable 18, shift-2 30: one each. Open: shift-2 should beat 2 x dff by sharing the inverted clock (one torch for both slaves) once the two phases run on opposite sides of the data line.
+- T flip-flop with reset: tffr-dropring 8 blocks, the only one; open.
+- Counters: one per N by the fold (item counter from 17 up, clk-rt's ring counters and the bulb chains below).
+
+## Next target: the item counter (39 blocks today, any N from 17 to 576)
+
+Same mechanism, priced part by part from today's tricks, should land near 18:
+- A, B: two droppers facing each other, the pile in A (2).
+- Input: a dust lying on each dropper, the input block beside one of them (2). A HELD dropper (already powered) does not fire, so the input pulse fires only the free one.
+- Hold: comparator C reads the bulb W and points into a stone X beside A (W lit: A held); a wall torch hanging on X sits beside B (W off: B held) (C + support + X + torch = 4).
+- Empty detection: comparator a reads A and points into stone Ka, comparator b reads B into Kb; a wall torch on each is lit while its dropper is EMPTY (a, b, 2 supports, Ka, Kb, 2 torches = 8).
+- W: the copper bulb, touching BOTH torches (the 2-block NAND trick: a bulb is powered by any neighbouring torch, and a torch also powers a bulb directly above or below it) (1).
+The hard part is geometry, not logic: Ka and Kb sit on the far sides of A and B, and both torches must touch W. Torches above or below W count too, which is the freedom a layout should use. Worth a small layout search (a few roles, a 5x4x5 box) rather than hand placement.
+
+### Item counter layout notes (2026-10-20, in progress)
+
+Pieces that fit together (each checked against the source, none judged yet as a whole):
+- Detectors staggered so their torches share a bulb: comparator a at (0,1,-1) reads A; comparator b at (1,1,-2) reads B THROUGH a solid block at (1,1,-1). Their output blocks Ka (0,1,-2) and Kb (1,1,-3) are diagonal, so torches standing on them, (0,2,-2) and (1,2,-3), both touch a bulb W at (1,2,-2). A stone at a comparator's side is ignored (getControlInputSignal reads only redstone blocks, dust and diodes).
+- C at (1,2,-1) reads W and sits on the through-block (no support block). Its output faces the cell above B.
+- Input: the judge's stone directly above A (powers A, updates it); a dust lying on B, next to that stone, carries the input to B (dust reads a strongly powered neighbour without connecting to it).
+Traps found:
+- A solid block above B, powered by C, also quasi-powers A: A checks the cell above itself, and that block is a neighbour of it.
+- The inverted hold (a torch for NOT W) must not be fed by the input path: if the input dust also powers the torch's block, the torch blinks with every pulse and re-fires the held dropper when it relights (a dropper fires on every rising edge of its power).
+- Pile starts in the dropper that the hold leaves free while W is off.
+
+### Item counter: 39 -> 23 blocks (2026-10-20)
+
+`mctas circuit memory items --n N` now writes the 23-block layout (every N from 11 up judged robust in the game; it now also beats the ring counters at N = 11, 13, 15, 21, 22, 26, 27, 28, 30, 33 and 45). What made it small:
+- Detectors on two sides of the pair: comparator a reads the left dropper from the west, comparator b reads the right one from the north; b's torch hangs right above the bulb, a's reaches it through two dusts and the stone under the second dust.
+- The phase comparator C points into the stone UNDER the left dropper (that holds it), and a dust under the right dropper, lit by that stone, switches off the torch standing beside the right dropper (which held it). A dust does not power the block above it, so the right dropper only sees the torch.
+- Input: the judge's stone on the right dropper's lid, a dust on the left one's lid.
+The rule that cost an hour: a dropper must never be STRONGLY powered — a torch directly under it, or a comparator pointing into it. A strongly powered dropper powers the dropper beside it, which then stays triggered and never fires again. Both holds are therefore weak: a stone under one, a torch beside the other.

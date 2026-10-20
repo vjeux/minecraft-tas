@@ -170,7 +170,16 @@ pub fn member(name: &str, n: u32) -> anyhow::Result<(B, String)> {
         let mut d = vec![(r / 2) as u8];
         d.extend(std::iter::repeat_n(4u8, n as usize));
         let total = r + 8 * n;
-        return Ok((repeaters(&d, &nm), format!("Repeater line N = {total} gt (track delay, family {}: N = {} gt, n = {n}): a delay-{} repeater then {n} delay-4 repeater(s) in a row on stones, each reading the one before; N = 2 gt per redstone tick of delay", c.id, c.axis, r / 2)));
+        // plain first sentence (critique: the caption opened with family bookkeeping)
+        let what = if n == 0 {
+            format!("One repeater set to {}: the signal comes out {total} ticks later", r / 2)
+        } else {
+            format!("A line of {} repeaters, the first set to {} and the rest to 4: the signal comes out {total} ticks later", n + 1, r / 2)
+        };
+        // the one delay per length (coordinator): the row says when it stretches short pulses
+        let stretch = if n == 0 { r } else { 8 };
+        let what = if stretch > 2 { format!("{what}; a pulse shorter than {stretch} ticks comes out stretched to {stretch} (a line of repeaters set to 1 keeps it, at 2 blocks per 2 ticks)") } else { what };
+        return Ok((repeaters(&d, &nm), format!("{what}. Each repeater adds 2 ticks per notch of its setting, so any even delay is a line of them, 2 blocks (repeater + stone) per started 8 ticks (track delay, family {}: N = {} gt, n = {n})", c.id, c.axis)));
     }
     if let Some(b) = residue(name, "or", &[5, 7, 9, 11]) {
         let mut t = vec![((b - 3) / 2) as u8];

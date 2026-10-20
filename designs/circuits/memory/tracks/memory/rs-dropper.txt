@@ -1,4 +1,4 @@
-# Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). A stack of them tiles with NO gap (`tile: 0 2 0`): a column of latches costs 4 blocks per bit.
+# Dropper RS latch, 4 blocks (track memory): two droppers face each other and hold one stone between them. s (next to the dropper by S) fires that dropper and the stone goes to the other one; r fires the dropper by R and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads the dropper by R: q is its output (1). Latency 6 gt (dropper 4 + comparator 2). A stack of them tiles with NO gap (`tile: 0 2 0`): a column of latches costs 4 blocks per bit.
 name: rs-dropper
 circuit: rs-latch
 tile: 0 2 0

@@ -174,12 +174,12 @@ pub fn kind_summary(kind: &str) -> String {
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
         "dual-edge" => "a short output pulse every time the input changes, on or off".into(),
         "pulse-limiter" => "the output pulse is cut to a set length, however long the input stays on".into(),
-        "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
+        "pulse-extender" => "a short input pulse comes out at least a set length long".into(),
         "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
         "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output follows a fixed rule of its inputs: NOT, AND, OR, XOR...; the two-input gates call their inputs A and B".into(),
         "rs-latch" => "a pulse on the set input (S) turns the output on and it stays on; a pulse on the reset input (R) turns it off".into(),
-        "d-latch" => "while its enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value".into(),
+        "d-latch" => "the output copies the data input (D) while the enable input allows it, and keeps its last value otherwise".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
         "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
@@ -928,6 +928,21 @@ fn phase_label_any(kind: &str, label: &str) -> String {
     }
     let mut w = label.split_whitespace();
     let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    // a memory's inputs by name: `s pulse 4` -> `a 4-tick press on set (S)` (critique: the demo
+    // badge read "demo: r: a 4 gt pulse")
+    if let (Some("pulse"), Some(n), None) = (Some(v), w.clone().next(), w.clone().nth(1)) {
+        if n.parse::<u32>().is_ok() {
+            let input = match (base(kind), what) {
+                (_, "s") => "set (S)".to_string(),
+                (_, "r") => "reset (R)".to_string(),
+                (_, "e") => "enable (E)".to_string(),
+                (_, "d") => "data (D)".to_string(),
+                (_, "c" | "clk") => "clock (C)".to_string(),
+                (_, other) => other.to_uppercase(),
+            };
+            return format!("a {n}-tick press on {input}");
+        }
+    }
     if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
         return label.to_string();
     }
@@ -995,7 +1010,7 @@ pub const STUDIES: [(&str, &str, &str); 11] = [
     ),
     (
         "tff",
-        "Toggle switches (T flip-flops)",
+        "Toggle switches (T\u{2011}flip\u{2011}flops)",
         "Each input pulse flips the output (on, off, on...). We collect one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and rank them by blocks placed; we also measure how short a pulse and how fast a series of presses each one follows.",
     ),
     (
