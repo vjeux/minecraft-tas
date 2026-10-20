@@ -296,8 +296,14 @@ pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
 /// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
 /// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
 pub fn live_window(h: f32) -> (f32, f32, f32) {
+    live_window_with(h, 74.0)
+}
+
+/// [`live_window`] with `bottom` CSS px kept clear at the bottom (a phone's viewer: the bar and
+/// the Record button above it on the right).
+pub fn live_window_with(h: f32, bottom: f32) -> (f32, f32, f32) {
     let h = h.max(120.0);
-    let y0 = -1.0 + 2.0 * 74.0 / h;
+    let y0 = -1.0 + 2.0 * bottom / h;
     let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
     (0.8, y0, y1)
 }

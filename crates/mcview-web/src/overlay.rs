@@ -70,6 +70,8 @@ pub struct Overlays {
     /// A TNT duper standing above its judge's ground: its height in words and the line from the
     /// design's bottom down to the ground (top and bottom points).
     drop: Option<(HtmlElement, [f32; 3], [f32; 3])>,
+    /// The output strip's top (CSS px): under the time badge ([`Overlays::set_strip_top`]).
+    strip_top: f64,
 }
 
 fn div(css: &str) -> HtmlElement {
@@ -148,6 +150,19 @@ impl Overlays {
             history_caption: None,
             keep_clear: Vec::new(),
             drop: None,
+            strip_top: 34.0,
+        }
+    }
+
+    /// Put the output strip (and its caption) at `top` CSS px: under the time badge, however
+    /// tall it is (two lines on a phone).
+    pub fn set_strip_top(&mut self, top: f64) {
+        self.strip_top = top;
+        if let Some((c, _)) = &self.history {
+            let _ = c.style().set_property("top", &format!("{top}px"));
+        }
+        if let Some(t) = &self.history_caption {
+            let _ = t.style().set_property("top", &format!("{}px", top - 2.0));
         }
     }
 
@@ -374,7 +389,7 @@ impl Overlays {
         // the viewer's own controls over the view (the Record button) stay clear
         let base = self.layer.get_bounding_client_rect();
         for e in &self.keep_clear {
-            if e.offset_width() > 0 {
+            if e.offset_width() > 0 && e.style().get_property_value("visibility").ok().as_deref() != Some("hidden") {
                 let b = e.get_bounding_client_rect();
                 layout.obstacles.push(Rect { x0: b.left() - base.left() - 4.0, y0: b.top() - base.top() - 4.0, x1: b.right() - base.left() + 4.0, y1: b.bottom() - base.top() + 4.0 });
             }
@@ -383,7 +398,7 @@ impl Overlays {
         if let Some((c, _)) = &self.history {
             let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);
             let tw = self.history_caption.as_ref().map(|t| t.offset_width() as f64 + 4.0).unwrap_or(0.0);
-            layout.obstacles.push(Rect { x0: w - 8.0 - cw - tw, y0: 32.0, x1: w - 8.0, y1: 34.0 + ch.max(12.0) });
+            layout.obstacles.push(Rect { x0: w - 8.0 - cw - tw, y0: self.strip_top - 2.0, x1: w - 8.0, y1: self.strip_top + ch.max(12.0) });
         }
         // what the containers hold (nearest first)
         let game = game_of(atlas);
@@ -438,7 +453,11 @@ impl Overlays {
             let rect = match layout.place(&view, ax, ay, wt, ht, 5) {
                 Some((rect, _)) => rect,
                 None => {
-                    let rect = Rect { x0: ax - wt / 2.0, y0: ay - 2.0 - ht, x1: ax + wt / 2.0, y1: ay - 2.0 };
+                    // no free spot: at its point, inside the view (a long tag near the edge ran
+                    // off it: critique, "ITEMS A–C kept full 81 item…" on a phone)
+                    let x0 = (ax - wt / 2.0).min(w - 2.0 - wt).max(2.0);
+                    let y0 = (ay - 2.0 - ht).min(h - 2.0 - ht).max(2.0);
+                    let rect = Rect { x0, y0, x1: x0 + wt, y1: y0 + ht };
                     layout.texts.push(rect);
                     rect
                 }
