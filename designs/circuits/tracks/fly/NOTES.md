@@ -91,6 +91,13 @@ track's tracker as `crates/circuit/src/fly.rs`).
   pusher retracts only after the front lands (it misses the redstone block leaving: its state turns
   extended after its own push's neighbour updates), so the pull cannot start before t7.
 
+## Census with redstone blocks (k = 6, 14 boxes, 67 min)
+- 678 machines, 233 census types: UP 6 blocks 9 gt/block (5 types archived with the 2 from the
+  swap search, all robust), DOWN 6 blocks 10 gt/block in EVERY orientation (8 types, robust: the
+  redstone block replaces the rear observer; the observer-only 6-block down flyers are east-west
+  only; fly-down-7b-10gt-aca731 is now dominated and out of the archive), horizontal 6 blocks 17
+  gt/block (dominated); no horizontal 6-block 9 gt/block, nothing below 9 gt/block.
+
 ## Vertical two-way: none
 - Every orientation of the 7 reversible horizontal engines (`orient --all`, then `two-way
   --reversible-only` trying every kick cell): vertically only DOWN flies, both ways never; the up
