@@ -274,12 +274,44 @@ pub fn span_words(span: &str) -> String {
     if n.is_empty() { format!("versions {r}{unit}") } else { format!("{n} versions, {r}{unit}") }
 }
 
+/// The searches to offer when a text finds nothing (critique C12: "an empty search suggests the
+/// nearest kinds instead of 0 results"): the kinds whose words share a word (or its first 4
+/// letters) with the text, else the most asked ones; links into the index.
+pub fn nearest_searches(text: &str) -> String {
+    const SEARCHES: [(&str, &str); 14] = [
+        ("toggle switch", "kind=circuit&q=toggle"),
+        ("one-shot timer", "kind=circuit&q=one+shot"),
+        ("stay-on timer", "kind=circuit&q=stay+on"),
+        ("piston extender", "kind=circuit&q=piston+extender"),
+        ("logic gate", "kind=circuit&q=logic+gate"),
+        ("delay", "kind=circuit&q=delay"),
+        ("counter", "kind=circuit&q=counter"),
+        ("block change detector", "kind=circuit&q=bud"),
+        ("flying machine", "kind=circuit&q=flying+machine"),
+        ("TNT duper", "kind=circuit&q=tnt"),
+        ("shulker box loader", "kind=circuit&q=shulker"),
+        ("pulse shortener or stretcher", "kind=circuit&q=pulse"),
+        ("3×3 piston door", "kind=door"),
+        ("clock", "kind=clock"),
+    ];
+    let words: Vec<String> = text.to_lowercase().split_whitespace().map(String::from).collect();
+    let close = |label: &str| {
+        let l = label.to_lowercase();
+        words.iter().any(|w| l.split_whitespace().any(|x| x == w || (w.len() >= 4 && x.len() >= 4 && x[..4] == w[..4])))
+    };
+    let mut picked: Vec<&(&str, &str)> = SEARCHES.iter().filter(|(l, _)| close(l)).collect();
+    if picked.is_empty() {
+        picked = SEARCHES.iter().filter(|(l, _)| ["toggle switch", "one-shot timer", "piston extender", "3×3 piston door", "clock"].contains(l)).collect();
+    }
+    picked.iter().map(|(l, f)| format!("<a href=\"#{}\">{}</a>", esc(f), esc(l))).collect::<Vec<_>>().join(" · ")
+}
+
 /// The words a player may search a build by, beyond its name and caption: the community's names
 /// for its kind (critique C12: "toggle", "one shot", "hidden door" found nothing useful).
 pub fn search_aliases(b: &Build) -> &'static str {
     match b.kind.as_str() {
         "door" => "3x3 piston door hidden secret entrance",
-        "clock" => "clock timer pulser oscillator repeating",
+        "clock" => "clock pulser oscillator repeating",
         _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
             "rising-edge" => "rising edge detector pulse on press",
             "falling-edge" => "falling edge detector pulse on release",
@@ -571,7 +603,7 @@ pub fn props(b: &Build) -> Props {
                 if !c.span.is_empty() {
                     chips.push(format!("{} versions", c.span.split(", ").last().unwrap_or("").trim_end_matches(" values").trim_end_matches(" versions")));
                 }
-                for (f, words) in [("button", "has its own button"), ("lever", "has its own lever"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "variant"), ("layout", "another layout")] {
+                for (f, words) in [("faster", "faster than the smallest"), ("button", "has its own button"), ("lever", "has its own lever"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "variant"), ("layout", "another layout")] {
                     if b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -773,5 +805,8 @@ mod tests {
         assert_eq!(kind_words("full-adder 4"), "Full adder");
         assert_eq!(gate_label("nimply"), "A AND NOT B");
         assert_eq!(human_blocks("observer+redstone_lamp"), "observer, redstone lamp");
+        // an empty search offers the nearest kinds
+        assert!(nearest_searches("timers").contains("one-shot timer") && nearest_searches("timers").contains("stay-on timer"));
+        assert!(nearest_searches("xyzzy").contains("toggle switch"));
     }
 }

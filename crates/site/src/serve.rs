@@ -368,6 +368,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     // the Doors tab opens on solid doors (sculk doors can be set off by footsteps: coordinator
     // 13:54Z)
+    // the players' words find what they name, first (critique C12)
+    for (text, want) in [("toggle", "Toggle switch"), ("one shot", "One-shot timer"), ("hidden door", "door"), ("double piston extender", "Piston extender"), ("timer", "One-shot timer")] {
+        let q = site_model::Query::from_fragment(&format!("q={}", site_model::encode(text)));
+        let first = site.run(&q).ok().and_then(|(h, _)| h.first().copied()).and_then(|h| match h {
+            site_model::Hit::Build(i) => site.builds.get(i).map(|b| if b.kind == "door" { "door".to_string() } else { b.group.clone() }),
+            _ => Some("family member".to_string()),
+        });
+        check(&format!("search \"{text}\": a match first{}", if want.is_empty() { String::new() } else { format!(", {want}") }), first.as_deref().is_some_and(|g| want.is_empty() || g.starts_with(want)), format!("first: {first:?}"));
+    }
     let dq = site_model::Query::from_fragment("kind=door");
     if let Ok((dhits, _)) = site.run(&dq) {
         let first: Vec<&str> = dhits.iter().take(3).filter_map(|h| match h {

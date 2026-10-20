@@ -539,6 +539,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("instant", "instant (reacts in the same tick)", "circuit"),
     ("button", "its own button as the input", "circuit"),
     ("lever", "its own lever as the input", "circuit"),
+    ("faster", "faster than the smallest of its value", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
