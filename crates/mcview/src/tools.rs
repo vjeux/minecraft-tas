@@ -81,6 +81,8 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     }
     let mesh = scene::build(atlas, &s, 0.0, &look);
     let (solid, translucent) = scene::triangles(&mesh, &cam);
+    // the viewer's sky under the horizon (no ground there), the pictures' own for `web compare`
+    off.r.void_below = !o.picture;
     let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: o.width, height: o.height })?;
     let note = match &s.unsimulated {
         Some(why) => format!("{what} (not simulated: {why})"),
