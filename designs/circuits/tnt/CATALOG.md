@@ -19,4 +19,4 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tnt-lever-12b](archive/tnt-lever-12b.txt) | tnt-duper | rate 200 TNT/min, period 6 gt, runs input off, stop 0 gt, start 5 gt | 12 | 3x2x4 | robust | Lever on/off: the 12b duper with an input beside its sticky piston: while the input is on, the piston is held extended and nothing dupes; switched off, it runs at 200 TNT/min again (first TNT 5 gt later) |
+| [tnt-lever-12b](archive/tnt-lever-12b.txt) | tnt-duper | rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 1 gt, start 5 gt | 12 | 3x2x4 | robust | Lever on/off: the 12b duper with an input beside its sticky piston: while the input is on, the piston is held extended and nothing dupes; switched off, it runs at 200 TNT/min again (first TNT 5 gt later) |

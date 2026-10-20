@@ -62,32 +62,42 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
 }
 
 /// Each window of the switchable duper's stimulus (gt).
-pub const SWITCH: u32 = 300;
-/// A switchable duper must stop within this many gt after the switch.
+pub const SWITCH: u32 = 400;
+/// A switchable duper must stop within this many gt after the switch; its run is judged from
+/// then on (8+ periods in SWITCH - STOP gt: P <= 45 gt).
 pub const STOP: u32 = 40;
 
-/// `tnt-duper` with an input (lever on/off): dupes periodically while the input is in one state
-/// (both such windows: the same rate, TNT intact), spawns nothing in the other state from `STOP`
-/// gt after the switch on. Metrics: rate, period, per period, runs (input on / off), stop and
-/// start (the switch to the last / first spawn).
+/// `tnt-duper` with an input (lever on/off): dupes periodically while the input is in one state,
+/// spawns nothing in the other from `STOP` gt after the switch. A run window is judged from `STOP`
+/// gt after its switch (a start-up may differ): the smallest P such that the spawn count of every
+/// tick equals the count P ticks later, with 8+ periods and n >= 1 TNT per period (several TNT per
+/// period, same tick or offset, are fine), every TNT block standing again over the last period;
+/// both run windows must give the same (P, n). Metrics: rate, period, per period, runs (input on /
+/// off), stop and start (the switch to the last spawn of a stopped window / the first of a run).
 pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let _ = c;
+    switched(s, t)
+}
+
+fn switched(s: &Schedule, t: &Trace) -> Outcome {
     let n0 = tnt_in(t, 0);
     let mut table = Vec::new();
     let windows: Vec<(u32, u32, bool)> = s.phases.iter().map(|(a, b, l)| (*a, *b, l.starts_with("on"))).collect();
     if windows.len() != 4 || n0 == 0 {
         return Outcome { pass: false, why: "no TNT block, or not the switchable stimulus".into(), metrics: Vec::new(), table };
     }
+    let frames = t.cells.len() as u32;
     let spawns_in = |a: u32, b: u32| t.primed.iter().filter(|q| q.frame >= a && q.frame < b).map(|q| q.frame).collect::<Vec<u32>>();
     let mut run_state: Option<bool> = None;
-    let mut rates: Vec<(u32, usize)> = Vec::new();
+    let mut runs: Vec<(u32, usize)> = Vec::new();
     let (mut stop, mut start) = (0u32, 0u32);
-    for (k, &(a, b, on)) in windows.iter().enumerate() {
+    for &(a, b, on) in &windows {
+        let b = b.min(frames);
+        let lo = a + STOP;
         let sp = spawns_in(a, b);
-        let quiet = spawns_in(a + STOP, b).is_empty();
-        table.push(format!("{} window {}..{}: {} primed", if on { "on" } else { "off" }, a, b, sp.len()));
-        let _ = k;
-        if quiet {
+        let late = spawns_in(lo, b);
+        table.push(format!("{} window {}..{}: {} primed ({} from {lo})", if on { "on" } else { "off" }, a, b, sp.len(), late.len()));
+        if late.is_empty() {
             if let Some(last) = sp.last() {
                 stop = stop.max(last - a);
             }
@@ -98,30 +108,36 @@ pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             Some(r) if r != on => return Outcome { pass: false, why: format!("dupes with the input both on and off (window {}..{})", a, b), metrics: Vec::new(), table },
             _ => {}
         }
-        // the run window: periodic spawns from the first one on, TNT intact at its end
         if let Some(first) = sp.first() {
             start = start.max(first - a);
         }
-        let gaps: Vec<u32> = sp.windows(2).map(|w| w[1] - w[0]).collect();
-        let p = gaps.iter().copied().max().unwrap_or(0);
-        if sp.len() < 8 || gaps.iter().any(|&g| g != p) {
-            return Outcome { pass: false, why: format!("window {}..{}: {} primed, not periodic (gaps {:?})", a, b, sp.len(), &gaps[..gaps.len().min(8)]), metrics: Vec::new(), table };
+        let span = (b - lo) as usize;
+        let mut cnt = vec![0usize; span];
+        for f in &late {
+            cnt[(f - lo) as usize] += 1;
         }
-        rates.push((p, 1));
-        if tnt_in(t, (b as usize).min(t.cells.len() - 1)) < n0 && (b as usize - 1..(b as usize + 4).min(t.cells.len())).all(|f| tnt_in(t, f) < n0) {
-            return Outcome { pass: false, why: format!("TNT consumed in window {}..{}", a, b), metrics: Vec::new(), table };
+        let found = (1..=span / 8).find(|&p| cnt[..p].iter().sum::<usize>() > 0 && (0..span - p).all(|i| cnt[i] == cnt[i + p]));
+        let Some(p) = found else {
+            return Outcome { pass: false, why: format!("window {a}..{b}: {} primed from {lo}, not periodic with 8+ periods (P <= {} gt)", late.len(), span / 8), metrics: Vec::new(), table };
+        };
+        let n: usize = cnt[..p].iter().sum();
+        let most = (b as usize - p..b as usize).map(|f| tnt_in(t, f)).max().unwrap_or(0);
+        if most < n0 {
+            return Outcome { pass: false, why: format!("TNT consumed: {most} of {n0} TNT blocks stand in the last period of window {a}..{b}"), metrics: Vec::new(), table };
         }
+        runs.push((p as u32, n));
     }
     let Some(on) = run_state else {
         return Outcome { pass: false, why: "never dupes".into(), metrics: Vec::new(), table };
     };
-    if rates.len() != 2 || rates[0] != rates[1] {
-        return Outcome { pass: false, why: format!("the two run windows differ: {rates:?}"), metrics: Vec::new(), table };
+    if runs.len() != 2 || runs[0] != runs[1] {
+        return Outcome { pass: false, why: format!("the two run windows differ (period, TNT per period): {runs:?}"), metrics: Vec::new(), table };
     }
-    let p = rates[0].0;
+    let (p, n) = runs[0];
     let metrics = vec![
-        ("rate".to_string(), format!("{} TNT/min", fmt_rate(1200.0 / p as f64))),
+        ("rate".to_string(), format!("{} TNT/min", fmt_rate(n as f64 * 1200.0 / p as f64))),
         ("period".to_string(), format!("{p} gt")),
+        ("per period".to_string(), n.to_string()),
         ("runs".to_string(), if on { "input on".to_string() } else { "input off".to_string() }),
         ("stop".to_string(), format!("{stop} gt")),
         ("start".to_string(), format!("{start} gt")),
@@ -308,4 +324,70 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
 
 fn fmt_rate(r: f64) -> String {
     if (r - r.round()).abs() < 1e-9 { format!("{}", r.round() as i64) } else { format!("{r:.1}") }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A trace with one TNT block standing in every frame and primed TNT at `spawns`.
+    fn trace(frames: usize, spawns: &[u32]) -> Trace {
+        let mut t = Trace { names: vec!["minecraft:tnt[unstable=false]".into()], cells: vec![vec![([0, 0, 0], 0)]; frames], ..Default::default() };
+        t.primed = spawns.iter().map(|&f| crate::trace::Primed { frame: f, ..Default::default() }).collect();
+        t
+    }
+
+    fn sched() -> Schedule {
+        let mut s = Schedule::new(1);
+        let mut t = 20;
+        for k in 0..4 {
+            s.phase(t, t + SWITCH, if k % 2 == 1 { "on" } else { "off" });
+            t += SWITCH;
+        }
+        s.ticks = t;
+        s
+    }
+
+    /// Spawns in the off windows: `per` TNT every `p` gt (offset `gap` within a period), after a
+    /// start-up of `first` gt with one odd gap.
+    fn runs(p: u32, per: &[u32], first: u32) -> Vec<u32> {
+        let mut v = Vec::new();
+        for a in [20, 20 + 2 * SWITCH] {
+            v.push(a + first);
+            let mut t = a + first + p + 3;
+            while t < a + SWITCH {
+                for off in per {
+                    if t + off < a + SWITCH {
+                        v.push(t + off);
+                    }
+                }
+                t += p;
+            }
+        }
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn switched_accepts_bursts_offsets_and_startups() {
+        let n = (20 + 4 * SWITCH + 1) as usize;
+        // one per period
+        let o = switched(&sched(), &trace(n, &runs(6, &[0], 2)));
+        assert!(o.pass, "{}", o.why);
+        assert_eq!(o.metrics_text(), "rate 200 TNT/min, period 6 gt, per period 1, runs input off, stop 0 gt, start 2 gt");
+        // two in the same tick, and two offset within the period, after an odd first gap
+        for per in [&[0u32, 0][..], &[0, 2][..]] {
+            let o = switched(&sched(), &trace(n, &runs(10, per, 5)));
+            assert!(o.pass, "{per:?}: {}", o.why);
+            assert!(o.metrics_text().starts_with("rate 240 TNT/min, period 10 gt, per period 2"), "{}", o.metrics_text());
+        }
+        // a period too long for 8 periods in the judged span
+        let o = switched(&sched(), &trace(n, &runs(50, &[0], 5)));
+        assert!(!o.pass);
+        // dupes in both input states
+        let mut both = runs(6, &[0], 2);
+        both.extend((20 + SWITCH + 50..20 + 2 * SWITCH).step_by(6));
+        both.sort();
+        assert!(!switched(&sched(), &trace(n, &both)).pass);
+    }
 }
