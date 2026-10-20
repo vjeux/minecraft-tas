@@ -117,6 +117,15 @@ enum Cmd {
         #[arg(long, default_value = "crates/redsim/src/redstone/recipes_gen.rs")]
         out: PathBuf,
     },
+    /// Generate crates/redsim/src/loot_gen.rs: the block loot tables of every block redsim can
+    /// build, for a block broken with no tool and no explosion radius (dropResources, TNT).
+    LootGen {
+        /// The game's data (default ~/.cache/mctas/versions/26.3/src/data/minecraft).
+        #[arg(long)]
+        data: Option<PathBuf>,
+        #[arg(long, default_value = "crates/redsim/src/loot_gen.rs")]
+        out: PathBuf,
+    },
     /// Run archived clocks and circuits on redsim (`clock sim` / `circuit sim`) and compare each
     /// line with the real-game judge's line in its header; totals and problems by reason.
     ArchiveCheck {
@@ -328,6 +337,13 @@ fn main() -> Result<()> {
                 None => PathBuf::from(std::env::var("HOME")?).join(".cache/mctas/versions").join(&cli.version).join("src/data/minecraft"),
             };
             redsim_fuzz::recipes_gen::run(&data, &out)?;
+        }
+        Cmd::LootGen { data, out } => {
+            let data = match data {
+                Some(d) => d,
+                None => PathBuf::from(std::env::var("HOME")?).join(".cache/mctas/versions").join(&cli.version).join("src/data/minecraft"),
+            };
+            redsim_fuzz::loot_gen::run(&data, &out)?;
         }
         Cmd::ArchiveCheck { designs, problems } => {
             anyhow::ensure!(!designs.is_empty(), "archive-check <archived designs>... (designs/clocks/archive/*.txt, designs/circuits/*/archive/*.txt)");

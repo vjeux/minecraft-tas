@@ -62,10 +62,22 @@ pub fn dispense_box(w: &mut World, pos: BlockPos, slot: usize, st: Stack, facing
     container::set_item(w, me, slot, rest);
 }
 
+/// A shulker box block's contents as the payload of the item it drops (its loot table's
+/// `copy_components`: the block entity still there); `None` for any other block.
+pub fn box_payload(w: &mut World, p: BlockPos, s: &Block) -> Option<u16> {
+    if !matches!(s, Block::ShulkerBox { .. }) {
+        return None;
+    }
+    let slots = w.containers.map.get(&p).map(|c| c.slots.clone()).unwrap_or_default();
+    let contents: Vec<(usize, Stack)> = slots.iter().enumerate().filter_map(|(i, s)| s.map(|s| (i, s))).collect();
+    Some(container::new_payload(w, &contents))
+}
+
 /// `Block.dropResources` of a shulker box a piston destroys (its block entity still there): with
 /// a drop seed, the item entity the bridge spawns (`rng::Drop::seeded`, the world's n-th drop):
 /// the box item with its contents, pickup delay 10 (`setDefaultPickUpDelay`), appended to the
-/// entities. Without one, nothing (the caller records the drop).
+/// entities. Without one, nothing (the caller records the drop). (Superseded by
+/// `World::drop_resources`, which pops every block's loot this way.)
 pub fn drop_box(w: &mut World, p: BlockPos, s: &Block) -> bool {
     let (Some(seed), Some(item)) = (w.drop_seed, box_item_of(s)) else { return false };
     let slots = w.containers.map.get(&p).map(|c| c.slots.clone()).unwrap_or_default();
@@ -73,7 +85,7 @@ pub fn drop_box(w: &mut World, p: BlockPos, s: &Block) -> bool {
     let payload = container::new_payload(w, &contents);
     let d = crate::rng::Drop::seeded(seed, w.drop_count, p);
     w.drop_count += 1;
-    let state = crate::entity::item::ItemState { item, count: 1, pickup_delay: 10, age: 0, payload };
+    let state = crate::entity::item::ItemState { item, count: 1, pickup_delay: 10, age: 0, payload, health: 5 };
     let id = w.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
     if let Some(e) = w.entities.list.iter_mut().rev().find(|e| e.id == id) {
         e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
