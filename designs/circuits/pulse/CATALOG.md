@@ -4,7 +4,7 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### L = 13 + 16n gt
 
@@ -12,10 +12,10 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 Odd lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the smaller 7-block hopper item timer; this chain gives the odd lengths it can't (13, 29, 45... ticks).
 
-| family | L | blocks | n (L) | judged n |
+| family | L | blocks | n (L) | judged in the game |
 |---|---|---|---|---|
-| [odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..10 (13 .. 173) | 0, 1, 2, 5, 10 |
-| [odd-length rising-edge pulse: a piston-moved redstone block and a loop of repeaters](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..2 (13 .. 45) | 0, 1, 2 |
+| [odd-length pulse limiter: a piston-moved redstone block and a loop of repeaters](archive/pulse-limiter-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..10 (13 .. 173) | L = 13 gt, 29 gt, 45 gt, 61 gt, 77 gt, 93 gt, 109 gt, 125 gt, 141 gt, 157 gt, 173 gt |
+| [odd-length rising-edge pulse: a piston-moved redstone block and a loop of repeaters](archive/pulse-rise-psub-u4.txt) | 13 + 16n | 25 + 4n | 0..2 (13 .. 45) | L = 13 gt, 29 gt, 45 gt |
 
 ### L = 15 + 16n gt
 
@@ -25,7 +25,7 @@ Why a chain of repeaters: the pulse starts when the input turns off, so the inpu
 
 n = 0: L = 15 gt, 22 blocks · n = 1: L = 31 gt, 26 blocks
 
-Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. n = 0..2 (L = 15 gt .. L = 47 gt); judged in the game: n = 0, 1, 2.
+Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. n = 0..2 (L = 15 gt .. L = 47 gt); judged in the game: L = 15 gt, 31 gt, 47 gt.
 
 ### L = 16 + 16n gt
 
@@ -35,7 +35,7 @@ Lengths of the form 8n - 1 (7, 15, 23, 31... ticks) come from the 7-block hopper
 
 n = 0: L = 16 gt, 10 blocks · n = 1: L = 32 gt, 14 blocks
 
-Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each column. n = 0..10 (L = 16 gt .. L = 176 gt); judged in the game: n = 0, 1, 2, 5, 10.
+Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each column. n = 0..10 (L = 16 gt .. L = 176 gt); judged in the game: L = 16 gt, 32 gt, 48 gt, 64 gt, 80 gt, 96 gt, 112 gt, 128 gt, 144 gt, 160 gt, 176 gt.
 
 ### L = 18 + 16n gt
 
@@ -43,10 +43,10 @@ Extend: lengthen the U by one row: one more delay-4 repeater (on stone) in each 
 
 This chain sees 1-tick inputs; the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open, the same size for any length of the form 8n) needs inputs of 4 ticks or more, and this chain also gives the lengths it can't (18, 34, 50... ticks).
 
-| family | L | blocks | n (L) | judged n |
+| family | L | blocks | n (L) | judged in the game |
 |---|---|---|---|---|
-| [long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-rise.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [long pulse extender that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-ext.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long rising-edge pulse that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-rise.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | L = 18 gt, 34 gt, 50 gt, 66 gt, 82 gt, 98 gt, 114 gt, 130 gt, 146 gt, 162 gt, 178 gt |
+| [long pulse extender that sees 1-tick inputs: a copper bulb and a loop of repeaters](archive/pulse-oneshot-bulb-ext.txt) | 18 + 16n | 19 + 4n | 0..10 (18 .. 178) | L = 18 gt, 34 gt, 50 gt, 66 gt, 82 gt, 98 gt, 114 gt, 130 gt, 146 gt, 162 gt, 178 gt |
 
 ### L = 18 + 16n gt
 
@@ -54,11 +54,11 @@ This chain sees 1-tick inputs; the smaller 13-block hopper one-shot (a copper bu
 
 Lengths of the form 8n (8, 16, 24, 32... ticks) come from the smaller 13-block hopper one-shot (a copper bulb holding a hopper item timer open), the same size for any length; this chain gives the lengths it can't (18, 34, 50... ticks).
 
-| family | L | blocks | n (L) | judged n |
+| family | L | blocks | n (L) | judged in the game |
 |---|---|---|---|---|
-| [long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-fall.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [long pulse extender: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-ext.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
-| [long rising-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-rise.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | 0, 1, 2, 5, 10 |
+| [long falling-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-fall.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | L = 18 gt, 34 gt, 50 gt, 66 gt, 82 gt, 98 gt, 114 gt, 130 gt, 146 gt, 162 gt, 178 gt |
+| [long pulse extender: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-ext.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | L = 18 gt, 34 gt, 50 gt, 66 gt, 82 gt, 98 gt, 114 gt, 130 gt, 146 gt, 162 gt, 178 gt |
+| [long rising-edge pulse: a piston-moved observer, a copper bulb and a loop of repeaters](archive/pulse-oneshot-rise.txt) | 18 + 16n | 17 + 4n | 0..10 (18 .. 178) | L = 18 gt, 34 gt, 50 gt, 66 gt, 82 gt, 98 gt, 114 gt, 130 gt, 146 gt, 162 gt, 178 gt |
 
 ### L = 30 + 16n gt
 
@@ -68,7 +68,7 @@ Why a chain of repeaters: each change of the input must give the full pulse what
 
 n = 0: L = 30 gt, 32 blocks · n = 1: L = 46 gt, 36 blocks
 
-Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. n = 0..10 (L = 30 gt .. L = 190 gt); judged in the game: n = 0, 1, 2, 5, 10.
+Extend: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. n = 0..10 (L = 30 gt .. L = 190 gt); judged in the game: L = 30 gt, 46 gt, 62 gt, 78 gt, 94 gt, 110 gt, 126 gt, 142 gt, 158 gt, 174 gt, 190 gt.
 
 ## Tunable groups
 

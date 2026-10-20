@@ -42,12 +42,30 @@ vibration: proof                 # sculk designs only: claim vibration-proof (re
 ```
 
 * **Inputs** (`port input[.<name>]: x y z [args]`): the args say how the judge drives the cell.
-  None: the cell is AIR in the design; the judge writes `minecraft:redstone_block` there with
-  updates (on) and air with updates (off). `<on-state> [<off-state>]`: custom states written with
-  updates (the design holds the off-state, default air; custom states are not turned with the
-  design). `lever`: the design's lever there (off at rest), right-clicked at every edge. `button`:
-  the design's button there, right-clicked at every rising edge (its own pulse length). Inputs
-  change between ticks: on at frames t..t+L-1 is an L gt pulse. Latch inputs may be spelled
+  None (or `minecraft:redstone_block <off-state>`): the input is DRIVEN like a real build drives
+  it (R7, 2026-10-20: "must work in a normal survival world"). The judge's delay-1 repeater
+  stands in a neighbour cell of the input cell and points into it, with its support stone under
+  it and its switch (a redstone block the judge places and removes) one cell further out. The
+  cell itself holds the design's own receiving block (dust for a comparator's or repeater's side,
+  which reads only a signal source; a repeater; the off-state block), counted, or the judge's
+  smooth stone when the design leaves it air. The judge never places or removes a block next to
+  the design, and the design must never move the input cell's block. The repeater takes the
+  first side in the order north, south, west, east whose repeater, support and switch cells are
+  outside the build's box. Failing that, a static design may be fed through its own air cells
+  (switch outside; the card says "input fed through the build"), and the repeater touches no
+  design block but the input cell's. Otherwise the design is refused. The switch is placed 2 gt
+  before each edge, so the input cell's power changes exactly at the stimulus ticks; the change
+  comes DURING a tick, as from any redstone line, so a piston or TNT reacts in that same tick,
+  1 gt earlier than with the old placement between ticks. A repeater makes no pulse or gap
+  under 2 gt: the stimuli drop the tests that need one, and a minimum at that floor reads
+  `2 gt (the shortest a real input makes)` (a period: 4 gt). `mctas circuit r7` lists the
+  archived designs this changes (designs/circuits/R7-input-devices.txt);
+  `MCTAS_INPUT_DEVICE=block` brings back the old placement for comparisons. `<on-state>
+  [<off-state>]` with another on-state: custom states written with updates (the design holds the
+  off-state, default air; custom states are not turned with the design). `lever`: the design's
+  lever there (off at rest), right-clicked at every edge. `button`: the design's button there,
+  right-clicked at every rising edge (its own pulse length). Levers and buttons change between
+  ticks: on at frames t..t+L-1 is an L gt pulse. Latch inputs may be spelled
   `set`/`reset`/`data`/`enable`/`clock`/`toggle` (= s, r, d, e, clk, t).
 * **Outputs** (`port output[.<name>]: x y z`), read every gt: redstone dust gives its power; a
   repeater, torch or observer its own output (15 when on); a comparator its strength; any other
