@@ -1,0 +1,33 @@
+# m69h = m69g without the obsidian: carried s0 at (3,0) is fed by QC THROUGH the door block MR' sitting in (3,2)
+# (a repeater (4,2) facing east strongly powers MR'; a strongly powered block gives signal into the quasi cell
+# (3,1)), so its input no longer touches (3,0) and W' (3,-1) under it is not QC-coupled; (3,4) = the right
+# crossing observer (watches the top puller (2,4), outputs into (4,4)).
+name: w86-m69h
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  o minecraft:observer[facing=west,powered=false]
+  r minecraft:repeater[facing=east,delay=1,locked=false,powered=false]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+layer -1:
+  ...QQQU..
+layer 0:
+  .E.QQQ.TT
+layer 1:
+  EE.QQQ.T.
+layer 2:
+  ...QQQ.r.
+layer 3:
+  ..DHHHD..
+layer 4:
+  ...XXXo..
+layer 5:
+  ....L

@@ -671,6 +671,13 @@ impl Worker {
         Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
     }
 
+    /// [`Worker::game_event`] at each cell's CENTER when `center` (where `Level.gameEvent(.., BlockPos)`
+    /// posts a block's own events: a lever's `block_activate`), else at its bottom center.
+    pub fn game_event_at(&mut self, sandbox: u32, event: &str, positions: &[Pos], center: bool) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions, "at": if center { "center" } else { "feet" }}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
+    }
+
     /// Number of connected game clients.
     pub fn viewers(&mut self) -> Result<u32> {
         Ok(self.call(json!({"op": "viewers"}))?["count"].as_u64().unwrap_or(0) as u32)

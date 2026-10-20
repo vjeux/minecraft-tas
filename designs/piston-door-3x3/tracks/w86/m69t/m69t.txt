@@ -1,0 +1,30 @@
+# m69t: m69a turned 90 degrees ((x,y) -> (y, 2-x)) into a 9x6 box (x -3..5, y -2..3), for w86 (9x6 owner).
+# Statics (0..2,3) on top; bottom stack SU(0..2,-2) pulls the bottom row down; left: SE(-2,2) pulls TL west,
+# SE(-2,1) + SE(-3,1) = horizontal elevator bringing ML west 2, corner SU(-1,-1) slides BL up; right: SW(4,1)
+# pulls MR east, corner SU(3,-1) slides BR up, SW(4,2) + SW(5,2) = horizontal elevator bringing TM... (see m69a).
+name: c78l-m69t
+port door: 0 0 0
+port lever: -3 -3 0
+origin: -3 0 0
+palette:
+  Q minecraft:stone
+  U minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  T minecraft:sticky_piston[extended=false,facing=west]
+  S minecraft:smooth_stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+layer -3:
+  L
+layer -2:
+  S..UUU...
+layer -1:
+  ..U...U..
+layer 0:
+  ...QQQ...
+layer 1:
+  EE.QQQ.T.
+layer 2:
+  .E.QQQ.TT
+layer 3:
+  ...QQQD..

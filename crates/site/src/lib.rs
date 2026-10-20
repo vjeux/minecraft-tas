@@ -9,6 +9,7 @@
 //! - `mctas site deploy --dir site/` publishes the folder as the `gh-pages` branch (GitHub
 //!   Pages: https://vjeux.github.io/minecraft-tas/).
 
+pub mod audit;
 pub mod circuits;
 pub mod clocks;
 pub mod deploy;
@@ -16,6 +17,7 @@ pub mod doors;
 pub mod explain;
 pub mod generate;
 pub mod pages;
+pub mod plain;
 pub mod serve;
 pub mod web;
 pub mod webkit;
@@ -36,6 +38,17 @@ pub enum SiteCmd {
     Publish(BuildArgs),
     /// Download Chrome for Testing's headless shell into ~/.cache/mctas (for smoke and publish).
     Chrome,
+    /// The circuits a builder has no reason to pick: another design of the same kind and main
+    /// value is smaller and at least as fast, and the listed one only avoids a material (slime,
+    /// honey, torches...). Both lists: strictly slower, and the same speed.
+    Dominated {
+        /// The repository (designs/circuits).
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Also the designs crates/site/hidden.tsv already keeps off the site.
+        #[arg(long)]
+        all: bool,
+    },
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
         #[arg(long, default_value = "site")]
@@ -73,6 +86,20 @@ pub enum SiteCmd {
         frames: u32,
         #[arg(long, default_value_t = 700)]
         interval: u64,
+        /// With --page: press the buttons with these labels, in order, once the view is ready (a
+        /// viewer's input button: `INP` flips a shulker machine's start lever; `1×` then `2×` then
+        /// `5×` sets the speed to 20×); with --full, also `css:<selector>` (any element).
+        #[arg(long)]
+        click: Vec<String>,
+        /// With --page: read each page like a visitor instead of filming its 3D view: screenshots
+        /// from the top, one window-full at a time (at most --frames), once the page settled
+        /// (--interval ms after its first view is ready); prints its height and whatever makes it
+        /// wider than the window.
+        #[arg(long)]
+        full: bool,
+        /// With --page: only this window (`phone` or `desktop`).
+        #[arg(long)]
+        only: Option<String>,
     },
 }
 
@@ -100,7 +127,7 @@ pub struct BuildArgs {
     /// `origin/gh-pages`, the last deploy: for a box without the wasm32 target or wasm-bindgen).
     #[arg(long, conflicts_with = "pkg")]
     pub pkg_ref: Option<String>,
-    /// Skip the filtering UI (no WebAssembly build; the index then only links to all.html).
+    /// Skip the filtering UI (no WebAssembly build; the index then only links to the circuits).
     #[arg(long)]
     pub no_wasm: bool,
     /// GitHub release whose `<stem>.mp4` assets are the doors' videos (`gh`); empty: no links.
@@ -169,13 +196,22 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
+        SiteCmd::Dominated { repo, all } => {
+            let (builds, _notes) = circuits::export_with(&repo, all)?;
+            let site = site_model::Site { builds, ..Default::default() };
+            print!("{}", audit::report(&site));
+            Ok(())
+        }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
             if !page.is_empty() {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");
                 }
-                return webkit::film(&dir, url.as_deref(), &page, frames, interval);
+                if full {
+                    return webkit::look(&dir, url.as_deref(), &page, frames, interval, &click, only.as_deref());
+                }
+                return webkit::film(&dir, url.as_deref(), &page, frames, interval, &click);
             }
             let fails = match engine.as_str() {
                 "webkit" => webkit::smoke(&dir, url.as_deref())?,

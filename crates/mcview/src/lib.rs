@@ -17,6 +17,7 @@ pub mod design;
 pub mod entitymodel;
 pub mod gamemodel;
 pub mod json;
+pub mod labels;
 pub mod mesh;
 pub mod models;
 pub mod pick;
@@ -25,7 +26,6 @@ pub mod render;
 pub mod replay;
 pub mod scene;
 pub mod session;
-pub mod tnt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tools;
 

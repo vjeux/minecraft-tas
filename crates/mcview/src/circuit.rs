@@ -112,7 +112,8 @@ pub fn outputs(d: &Design) -> Vec<(String, Pos)> {
         .iter()
         .filter_map(|(n, (p, _))| match n.as_str() {
             "output" => Some(("OUT".to_string(), *p)),
-            n => n.strip_prefix("output.").map(|s| (s.to_uppercase(), *p)),
+            // `OUT A`: a bare letter would read like an input's tag
+            n => n.strip_prefix("output.").map(|s| (format!("OUT {}", s.to_uppercase()), *p)),
         })
         .collect();
     v.sort();
@@ -235,7 +236,7 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {
@@ -249,7 +250,138 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     v
 }
 
-/// What the judge does at a cell between ticks (`circuit::stimulus::TargetOp`, the BUD kind's
+/// One tag over a group of a circuit's ports: its label, its cells, its colour.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PortGroup {
+    pub label: String,
+    pub cells: Vec<Pos>,
+    pub colour: &'static str,
+}
+
+/// The tags of a circuit's ports (besides the inputs): one per port ([`port_tags`]), except in a
+/// shulker design, where the same kind's chests that stand together (within 2 cells of one
+/// another) share ONE tag without letters (`ITEMS A`..`ITEMS F` in two rows of three: two
+/// `ITEMS` tags; the two output chests far apart: two `OUT` tags).
+pub fn port_groups(d: &Design) -> Vec<PortGroup> {
+    let tags = port_tags(d);
+    if !is_shulker(d) {
+        return tags.into_iter().map(|(label, p, colour)| PortGroup { label, cells: vec![p], colour }).collect();
+    }
+    let mut groups: Vec<PortGroup> = Vec::new();
+    for (base, label, colour) in [("output", "OUT", "#ffb04a"), ("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f")] {
+        let mut cells: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, base)).map(|(_, (p, _))| *p).collect();
+        cells.sort();
+        cells.dedup();
+        // clusters: cells within 2 (Chebyshev) of a cell of the cluster
+        let mut left = cells;
+        while let Some(first) = left.pop() {
+            let mut cluster = vec![first];
+            loop {
+                let near: Vec<usize> = (0..left.len()).filter(|&i| cluster.iter().any(|c| (0..3).all(|k| (c[k] - left[i][k]).abs() <= 2))).collect();
+                if near.is_empty() {
+                    break;
+                }
+                for i in near.into_iter().rev() {
+                    cluster.push(left.remove(i));
+                }
+            }
+            cluster.sort();
+            groups.push(PortGroup { label: label.to_string(), cells: cluster, colour });
+        }
+    }
+    groups.sort_by(|a, b| (a.label.as_str(), a.cells[0]).cmp(&(b.label.as_str(), b.cells[0])));
+    groups
+}
+
+/// `1` -> `1st`.
+fn ordinal(n: u32) -> String {
+    let suffix = match (n % 10, n % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{n}{suffix}")
+}
+
+/// A demo phase label (the checker's: `10`, `pulse 3`, `cycle 2`, `place 1 t`...) in words for
+/// a visitor (`A on, B off`, `a 3 gt input pulse`, `2nd cycle`, `a block placed on TARGET`).
+/// `kind`: the design's circuit kind; `inputs`: its input names. Unknown labels stay as they are.
+pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
+    let kind = kind.split_whitespace().next().unwrap_or("");
+    let w: Vec<&str> = label.split_whitespace().collect();
+    let num = |i: usize| w.get(i).and_then(|s| s.parse::<u32>().ok());
+    let name = |i: usize| inputs.get(i).map(|n| n.to_uppercase()).unwrap_or_else(|| format!("input {}", i + 1));
+    let bits = |s: &str| !inputs.is_empty() && s.len() == inputs.len() && s.chars().all(|c| c == '0' || c == '1');
+    // a gate's input states
+    if w.len() == 1 && bits(w[0]) {
+        return w[0].chars().enumerate().map(|(i, c)| format!("{} {}", name(i), if c == '1' { "on" } else { "off" })).collect::<Vec<_>>().join(", ");
+    }
+    if w.len() == 2 && bits(w[0]) && w[1] == "(rest)" {
+        return "all inputs off".into();
+    }
+    match (w.as_slice(), num(1)) {
+        (["press", _], Some(n)) => return format!("{} button press", ordinal(n)),
+        (["pulse", _], Some(n)) if matches!(kind, "counter" | "tnt-duper-triggered") => return format!("{} input pulse", ordinal(n)),
+        (["pulse", _], Some(n)) => return format!("a {n} gt input pulse"),
+        (["gap", _], Some(g)) => return format!("two pulses {g} gt apart"),
+        (["pair", _], Some(g)) => return format!("two pulses {g} gt apart"),
+        (["cycle", _], Some(n)) => return format!("{} cycle: out and back", ordinal(n)),
+        (["train", _], Some(r)) => return format!("a pulse train ({r} gt)"),
+        (["clock", _], Some(p)) => return format!("a clock, every {p} gt"),
+        (["on", _], Some(_)) | (["on"], _) => return "input on".into(),
+        (["off", _], Some(_)) | (["off"], _) => return "input off".into(),
+        (["idle"], _) => return "waiting".into(),
+        (["flight"], _) => return "flying".into(),
+        (["run"], _) => return "running".into(),
+        _ => {}
+    }
+    // T flip-flops, RS latches: `A 1 pulse 4`, `B pulse 4`, `C period 8`, `S pulse 2`
+    match w.as_slice() {
+        [inp, k, "pulse", len] if k.parse::<u32>().is_ok() => return format!("{inp}: {} pulse ({len} gt)", ordinal(k.parse().unwrap_or(1))),
+        [inp, "pulse", len] => return format!("{inp}: a {len} gt pulse"),
+        [inp, "period", p] => return format!("{inp}: a clock, every {p} gt"),
+        _ => {}
+    }
+    // a BUD switch's judge actions
+    if kind == "bud" {
+        let what = match w.first().copied() {
+            Some("place") => Some("a block placed on TARGET"),
+            Some("remove") => Some("the block on TARGET removed"),
+            Some("state") => Some("TARGET's block changes state"),
+            Some("shape") => Some("a shape update at TARGET"),
+            Some("update") => Some("a block update at TARGET"),
+            Some("setup") => Some("setting up"),
+            Some("relatch") => Some("re-arming"),
+            Some("rearm") => Some("re-arm test"),
+            Some("probe") => match w.get(2).copied() {
+                Some("place") => Some("a block placed next to the build"),
+                Some("remove") => Some("a block removed next to the build"),
+                _ => Some("a block update next to the build"),
+            },
+            _ => None,
+        };
+        if let Some(s) = what {
+            return s.into();
+        }
+    }
+    // `d=1 e=0`, `M 2 d=1 clk=0`: the levels in words
+    if w.iter().any(|t| t.contains('=')) {
+        let parts: Vec<String> = w
+            .iter()
+            .filter_map(|t| {
+                let (k, v) = t.split_once('=')?;
+                let k = if k == "clk" { "clock".to_string() } else { k.to_uppercase() };
+                Some(format!("{k} {}", if v == "1" { "on" } else { "off" }))
+            })
+            .collect();
+        if !parts.is_empty() {
+            return parts.join(", ");
+        }
+    }
+    label.to_string()
+}
 /// target and footprint actions), from a page's `data-events`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EventOp {
@@ -395,6 +527,19 @@ mod tests {
         assert_eq!(boxes[0], [disp[0], disp[1] - 1, disp[2]]);
         let tags: Vec<String> = port_tags(&d).into_iter().map(|(l, _, _)| l).collect();
         assert_eq!(tags, vec!["OUT", "ITEMS", "BOXES"]);
+        // rail2: two rows of three ITEMS chests 6 apart, two OUT chests: 2 ITEMS + 2 OUT + BOXES
+        let rail2 = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/archive/shulker-speed-unloader-rail2.txt")).unwrap();
+        let g = port_groups(&Design::parse(&rail2).unwrap());
+        let labels: Vec<(&str, usize)> = g.iter().map(|g| (g.label.as_str(), g.cells.len())).collect();
+        assert_eq!(labels, vec![("BOXES", 1), ("ITEMS", 3), ("ITEMS", 3), ("OUT", 1), ("OUT", 1)]);
+        assert_eq!(phase_words("gate and", "10", &["a".into(), "b".into()]), "A on, B off");
+        assert_eq!(phase_words("gate and", "00 (rest)", &["a".into(), "b".into()]), "all inputs off");
+        assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "a 3 gt input pulse");
+        assert_eq!(phase_words("counter 2", "pulse 2", &["in".into()]), "2nd input pulse");
+        assert_eq!(phase_words("piston-extender 2", "cycle 2", &["in".into()]), "2nd cycle: out and back");
+        assert_eq!(phase_words("bud", "place 1 t", &[]), "a block placed on TARGET");
+        assert_eq!(phase_words("d-latch", "d=1 e=0", &["d".into(), "e".into()]), "D on, E off");
+        assert_eq!(phase_words("x", "something new", &[]), "something new");
         let bud = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/bud/archive/bud-slime-qc.txt")).unwrap();
         let tags: Vec<(String, Pos)> = port_tags(&Design::parse(&bud).unwrap()).into_iter().map(|(l, p, _)| (l, p)).collect();
         assert_eq!(tags, vec![("OUT".to_string(), [1, 3, 0]), ("TARGET".to_string(), [1, 0, 0])]);

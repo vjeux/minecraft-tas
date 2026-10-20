@@ -235,6 +235,11 @@ pub struct Circuit {
     /// part of a flying machine's place on its study's axis.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub direction: String,
+    /// Other archived designs that are the SAME build under another kind (the same blocks and
+    /// ports: the copper bulb T flip-flop is both `tff-bulb` and `counter2-bulb`), by build id.
+    /// Pages only.
+    #[serde(skip)]
+    pub same_build: Vec<String>,
     /// The tunable group it belongs to (one mechanism with other repeater delays, comparator modes
     /// or a longer line: the catalog's `group` column), and on the group's shown design (the
     /// smallest) the group's span (`L 6-40 gt, 16 values`); the other members are hidden by
@@ -293,9 +298,41 @@ pub struct Circuit {
     #[serde(skip)]
     pub events: String,
     /// Why the browser's simulator cannot run this design (`block "oak_fence" is not modeled`),
-    /// empty when it can: the 3D view then shows it as built. Pages only.
+    /// empty when it can: the 3D view then shows it as built (the viewer's own session decides,
+    /// `mcview::session::Session::unsimulated`). Pages only.
     #[serde(skip)]
     pub unmodeled: String,
+    /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
+    /// the boxes it sends out. Pages only.
+    #[serde(skip)]
+    pub view_run: Option<ViewRun>,
+    /// The design file has `extend` headers: the base design of an extendable family (one more
+    /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
+    #[serde(skip)]
+    pub extends: bool,
+    /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
+    /// only.
+    #[serde(skip)]
+    pub counter_on: Option<(u32, u32)>,
+}
+
+/// A machine run like its 3D view runs it ([`Circuit::view_run`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ViewRun {
+    /// Game ticks run (from the end of the judge's setup).
+    pub ticks: u32,
+    /// Boxes sent out to the OUT chests.
+    pub boxes: u32,
+    /// The tick the first box arrived.
+    pub first: Option<u32>,
+    /// Game ticks per box after the first.
+    pub cycle: Option<f64>,
+    /// The item the view's endless chests supply (`iron_shovel`...).
+    pub item: String,
+    /// Items that reached a filter's reject chests.
+    pub rejected: u32,
+    /// OUT chests (a machine with two lines delivers into two).
+    pub lines: u32,
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
@@ -481,16 +518,18 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock,circuit"),
-    ("self-starting", "self-starting", "clock"),
-    ("kicked", "needs a start kick", "clock"),
-    ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock,circuit"),
+    ("robust", "works in any direction, anywhere", "clock,circuit"),
+    ("self-starting", "starts by itself", "clock"),
+    ("kicked", "needs one kick to start", "clock"),
+    ("chiral", "mirror image is a different design", "clock"),
+    ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
-    ("tunable", "tunable group (one mechanism, several L / N values)", "circuit"),
+    ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
-    ("composite", "composite (beat)", "clock"),
-    ("instant", "instant (0 gt latency)", "circuit"),
+    ("composite", "several clocks in one", "clock"),
+    ("instant", "instant (reacts in the same tick)", "circuit"),
+    ("button", "its own button as the input", "circuit"),
+    ("lever", "its own lever as the input", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
@@ -535,25 +574,39 @@ pub fn parse_time_query(q: &str) -> Result<(u32, u32), String> {
 }
 
 /// What a circuit value search compares: the study's axis value (any study, or only the studies
-/// whose axis is L, the output pulse length, or N: a delay, a count, a reach) or the latency.
+/// whose axis is L, the output pulse length or a timer's hold, N: a delay, a count, a reach, T: an
+/// on-delay's threshold, P: a pulse train's period) or the latency.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValueField {
     Axis,
     L,
     N,
+    T,
+    P,
     Latency,
 }
 
 /// Parse a circuit value search: an optional field (`L` = an output pulse length, `N` = a delay
-/// line's delay, a counter's count or an extender's reach, `reach` / `speed` / `delay` = the
-/// study's axis value; `latency` / `lat` = the latency), an optional `=` or `:`, then a number,
-/// a time or a range as [`parse_time_query`] reads them (`L 12`, `N=3`, `12`, `10-20 gt`, `lat 0`).
+/// line's delay, a counter's count or an extender's reach, `T` = an on-delay's threshold, `P` = a
+/// pulse train's period, `reach` / `speed` / `delay` = the study's axis value; `latency` / `lat`
+/// = the latency), an optional `=` or `:`, then a number, a time or a range as
+/// [`parse_time_query`] reads them (`L 12`, `N=3`, `T 10`, `12`, `10-20 gt`, `lat 0`).
 pub fn parse_value_query(q: &str) -> Result<(ValueField, u32, u32), String> {
     let t = q.trim();
     let lower = t.to_lowercase();
     let mut field = ValueField::Axis;
     let mut rest = lower.as_str();
-    for (word, f) in [("latency", ValueField::Latency), ("lat", ValueField::Latency), ("reach", ValueField::N), ("speed", ValueField::Axis), ("delay", ValueField::N), ("l", ValueField::L), ("n", ValueField::N)] {
+    for (word, f) in [
+        ("latency", ValueField::Latency),
+        ("lat", ValueField::Latency),
+        ("reach", ValueField::N),
+        ("speed", ValueField::Axis),
+        ("delay", ValueField::N),
+        ("l", ValueField::L),
+        ("n", ValueField::N),
+        ("t", ValueField::T),
+        ("p", ValueField::P),
+    ] {
         if let Some(r) = rest.strip_prefix(word) {
             // the word must stand alone: `l 12`, `l=12`, `l12`, not `lever`
             if r.is_empty() || r.starts_with([' ', '=', ':']) || r.starts_with(|c: char| c.is_ascii_digit()) {
@@ -700,31 +753,32 @@ impl Range {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Sort {
-    /// Fewest blocks, then volume, then name.
+    /// The build's main number, then blocks (vjeux 12:09Z): doors by size, clocks by period,
+    /// circuits by kind, then their value (N, L, P...).
     #[default]
+    Main,
+    /// Fewest blocks, then volume, then name.
     Blocks,
     Volume,
     Period,
     Open,
     Close,
-    /// Most recently archived first.
-    Newest,
-    Name,
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 7] = [
+    /// The sorts the index offers (vjeux 13:35Z deleted "newest"; names are not shown any more,
+    /// so no sort by name): an old URL's `sort=newest` or `sort=name` falls back to the default.
+    pub const ALL: [(Sort, &'static str, &'static str); 6] = [
+        (Sort::Main, "main", "the main number (size, period, reach...), then blocks"),
         (Sort::Blocks, "blocks", "fewest blocks"),
         (Sort::Volume, "volume", "smallest volume"),
         (Sort::Period, "period", "shortest period / smallest value"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
-        (Sort::Newest, "newest", "newest first"),
-        (Sort::Name, "name", "name"),
     ];
 
     pub fn key(self) -> &'static str {
-        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("blocks")
+        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("main")
     }
 
     pub fn from_key(k: &str) -> Sort {
@@ -793,7 +847,6 @@ struct View<'a> {
     kind: &'a str,
     group: &'a str,
     name: &'a str,
-    archived: &'a str,
     blocks: i64,
     volume: Option<i64>,
     period: Option<i64>,
@@ -856,7 +909,6 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     name: &b.name,
-                    archived: &b.archived,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
                     period: b.clock.as_ref().map(|c| c.period as i64),
@@ -869,7 +921,7 @@ impl Site {
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
-                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").map(|(l, _)| l.trim()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
+                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
             }
             Hit::Member(i) => {
@@ -883,7 +935,6 @@ impl Site {
                     kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
                     name: &m.family,
-                    archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
                     period: (!circuit).then_some(m.period as i64),
@@ -896,7 +947,7 @@ impl Site {
                     variant: false,
                     member: false,
                     latency: None,
-                    axis_letter: m.axis.split_once(" = ").map(|(l, _)| l.trim()).unwrap_or(""),
+                    axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                 })
             }
         }
@@ -938,6 +989,8 @@ impl Site {
                     ValueField::Axis => v.main,
                     ValueField::L => v.main.filter(|_| v.axis_letter == "L"),
                     ValueField::N => v.main.filter(|_| v.axis_letter == "N"),
+                    ValueField::T => v.main.filter(|_| v.axis_letter == "T"),
+                    ValueField::P => v.main.filter(|_| v.axis_letter == "P"),
                     ValueField::Latency => v.latency,
                 };
                 match x {
@@ -1004,13 +1057,29 @@ impl Site {
         let big = i64::MAX;
         hits.sort_by(|(ha, a), (hb, b)| {
             let primary = match q.sort {
+                Sort::Main => {
+                    // doors: the solid ones first (the community's main ranking; sculk doors can
+                    // be set off by footsteps: critique, coordinator 13:54Z), then by size; clocks
+                    // by period; circuits by kind then value; then blocks
+                    let door_rank = |g: &str| match g {
+                        "solid" => "0",
+                        "sculk" => "2",
+                        _ => "1",
+                    };
+                    let key = |v: &View| -> (u8, String, i64) {
+                        match v.kind {
+                            "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
+                            "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            _ => (2, v.group.to_string(), v.main.unwrap_or(big)),
+                        }
+                    };
+                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
+                }
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
-                Sort::Newest => b.archived.cmp(a.archived),
-                Sort::Name => std::cmp::Ordering::Equal,
             };
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
         });
@@ -1046,7 +1115,7 @@ impl Query {
         if self.variants {
             push("variants", "1");
         }
-        if self.sort != Sort::Blocks {
+        if self.sort != Sort::Main {
             push("sort", self.sort.key());
         }
         parts.join("&")
@@ -1241,6 +1310,9 @@ mod tests {
         assert_eq!(parse_value_query("N=3").unwrap(), (ValueField::N, 3, 3));
         assert_eq!(parse_value_query("12").unwrap(), (ValueField::Axis, 12, 12));
         assert_eq!(parse_value_query("lat 0").unwrap(), (ValueField::Latency, 0, 0));
+        assert_eq!(parse_value_query("T 10").unwrap(), (ValueField::T, 10, 10));
+        assert_eq!(parse_value_query("p=8").unwrap(), (ValueField::P, 8, 8));
+        assert!(parse_value_query("pulse").is_err());
         // `N 12` asks for an N axis: the L = 12 member does not answer it
         assert!(names(&Query { kind: "circuit".into(), value: "N 12".into(), ..Default::default() }).is_empty());
         assert!(parse_value_query("lever").is_err());
@@ -1362,8 +1434,10 @@ mod tests {
                 Hit::Member(i) => format!("{}#n{}", s.members[*i].family, s.members[*i].n),
             }).collect()
         };
-        // default: builds, variants hidden, fewest blocks first
-        assert_eq!(ids(&Query::default()), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
+        // default: builds, variants hidden, by the main number (doors by size, clocks by period)
+        assert_eq!(ids(&Query::default()), vec!["doors/fc2-40b", "clocks/obs2", "clocks/obs-ring", "clocks/lamp48"]);
+        // fewest blocks first
+        assert_eq!(ids(&Query { sort: Sort::Blocks, ..Default::default() }), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
         let q = Query { kind: "door".into(), ..Default::default() };
         assert_eq!(ids(&q), vec!["doors/fc2-40b"]);
         let q = Query { kinds_out: ["redstone_lamp".to_string()].into(), kind: "clock".into(), ..Default::default() };

@@ -1,5 +1,5 @@
 name: tnt-survive-28b
-explode: on
+explode: off
 circuit: tnt-duper
 origin: 0 0 -3
 palette:

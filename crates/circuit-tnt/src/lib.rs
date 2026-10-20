@@ -94,6 +94,16 @@ enum Cmd {
         #[arg(long)]
         follow: Option<f64>,
     },
+    /// The all-randoms rule (circuit::robust): judge the design on redsim with its explosions at
+    /// every kick angle (a sweep of --samples values of the kick's nextDouble(), every change
+    /// bisected to 1e-12, every piece and boundary judged, rays at their largest roll).
+    Robust {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 4096)]
+        samples: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+    },
     /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
     /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
     /// the mean motion, the direction class.
@@ -174,6 +184,9 @@ enum Cmd {
         forbid: String,
         #[arg(long)]
         out: PathBuf,
+        /// Keep only dupers surviving their own explosions on redsim at this many kicks (0: off).
+        #[arg(long, default_value_t = 0)]
+        survive: usize,
     },
     /// Shrink dupers on redsim: drop blocks one at a time (never a TNT) while they still dupe at
     /// least as fast; writes each distinct result to DIR (name: tnt-p<P>-x<per>-<blocks>b-...).
@@ -268,6 +281,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
+        Cmd::Robust { designs, samples, workers } => {
+            for d in &designs {
+                let c = circuit::Circuit::load(d)?;
+                match circuit::robust::tnt_robust(&c, samples, workers) {
+                    Ok(r) => println!("ROBUST: {}: {r}", c.name()),
+                    Err(e) => println!("FAIL: {}: {e}", c.name()),
+                }
+            }
+        }
         Cmd::PreciseSim { designs, ticks, nth, follow } => {
             let kicks = precise::default_kicks();
             for d in &designs {
@@ -346,7 +368,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("  redsim: {} [{}]", r.line(), if same { format!("prime ticks and TNT counts identical over {n} gt") } else { "DIFFERS".into() });
             }
         }
-        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, min_per, max_found, forbid, out } => {
+        Cmd::Search { seed, bx, palette, k, kmin, require, samples, ticks, rng, workers, min_per, max_found, forbid, out, survive } => {
             let mut forbid_cells: Vec<clock::Pos> = Vec::new();
             for c in forbid.split(';').map(str::trim).filter(|c| !c.is_empty()) {
                 let v: Vec<i32> = c.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -372,6 +394,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 rng,
                 workers,
                 out: out.clone(),
+                survive,
             };
             let t = std::time::Instant::now();
             let n = search::search(&o)?;

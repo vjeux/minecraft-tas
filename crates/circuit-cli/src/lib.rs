@@ -95,6 +95,18 @@ pub enum CircuitCmd {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
     },
+    /// Set an archived design's caption (captions.tsv of its study's archive; no game): for the
+    /// plain-language pass (one sentence a non-redstoner follows first, the detail after it).
+    Caption {
+        /// The study directory name (designs/circuits/<study>).
+        study: String,
+        /// The archived file (`tnt-launch-14b.txt` or without `.txt`).
+        file: String,
+        #[arg(long)]
+        text: String,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+    },
     /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
     /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
     Gen {
@@ -151,6 +163,17 @@ pub enum CircuitCmd {
     },
     /// Track tnt's commands (crates/circuit-tnt).
     Tnt {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track pulsemult's commands (crates/circuit-pulsemult): study 11's searches.
+    Pulsemult {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track timer's commands (crates/circuit-timer): study 11's monostables, off-delays and
+    /// on-delays.
+    Timer {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -280,6 +303,30 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
+        CircuitCmd::Caption { study, file, text, root } => {
+            let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+            let dir = root.join(&study).join("archive");
+            anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
+            anyhow::ensure!(!text.contains('\t') && !text.contains('\n'), "a caption is one line without tabs");
+            let path = dir.join("captions.tsv");
+            let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
+            let mut out = String::new();
+            let mut done = false;
+            for (i, line) in old.lines().enumerate() {
+                if i > 0 && line.split('\t').next() == Some(file.as_str()) {
+                    out.push_str(&format!("{file}\t{text}\n"));
+                    done = true;
+                } else {
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+            if !done {
+                out.push_str(&format!("{file}\t{text}\n"));
+            }
+            std::fs::write(&path, out)?;
+            println!("{}: caption of {file} set", path.display());
+        }
         CircuitCmd::Catalog { root } => {
             for l in circuit::archive::catalog(&root)? {
                 println!("{l}");
@@ -310,6 +357,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
+        CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
+        CircuitCmd::Timer { args } => circuit_timer::run(args)?,
     }
     Ok(())
 }

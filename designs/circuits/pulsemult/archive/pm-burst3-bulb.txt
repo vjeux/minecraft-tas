@@ -1,0 +1,24 @@
+# archived 2026-10-20T10:58Z from designs/circuits/pulsemult/tracks/pulsemult/pm-burst3-bulb.txt by mctas circuit archive
+# CIRCUIT: pm-burst3-bulb burst 3 N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt, 12 blocks, 7x2x3, robust
+name: pm-burst3-bulb
+circuit: burst 3
+port input: 0 1 0
+port output: 7 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+layer 0:
+  .O..S
+  .
+  .
+layer 1:
+  WCBSRB
+  .....oA
+  .....WB

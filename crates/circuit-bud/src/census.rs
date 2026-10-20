@@ -48,6 +48,14 @@ pub struct CensusArgs {
     /// Only class sets with this detected-classes text (`place remove state update`).
     #[arg(long)]
     pub only: Option<String>,
+    /// A base design (its target at 0 0 0) whose blocks every design keeps: the census then adds K
+    /// blocks in the air cells of its box grown by 1 (every K-subset, no symmetry reduction).
+    #[arg(long)]
+    pub base: Option<PathBuf>,
+    /// Also find each passing design's densest tiling (`tile:` judged on redsim, 3 copies, pitch
+    /// 1..=N along x, y, z); class sets list their densest tileable designs first.
+    #[arg(long, default_value_t = 0)]
+    pub tile: u32,
 }
 
 const FACINGS: [&str; 6] = ["north", "south", "east", "west", "up", "down"];
@@ -176,6 +184,8 @@ struct Hit {
     pulse: String,
     text: String,
     key: String,
+    /// `--tile`: the densest tiling found (pitch, step).
+    tile: Option<(u32, Pos)>,
 }
 
 fn lat_num(s: &str) -> u32 {
@@ -183,7 +193,7 @@ fn lat_num(s: &str) -> u32 {
 }
 
 /// Screen one design at every candidate output cell.
-fn screen(d: mctas::design::Design, gap: u32) -> Vec<Hit> {
+fn screen(d: mctas::design::Design, gap: u32, tile_max: u32, only: Option<&str>) -> Vec<Hit> {
     let Ok(c) = Circuit::from_design(d.clone()) else { return Vec::new() };
     let s = circuit::bud::stimulus_with(&c, &Sizing { gap }, false);
     let actions = c.actions(&s);
@@ -226,9 +236,29 @@ fn screen(d: mctas::design::Design, gap: u32) -> Vec<Hit> {
         let states: Vec<&String> = d.blocks.values().collect();
         let dd = design(&cells, &states, Some(*p));
         let Ok(cc) = Circuit::from_design(dd.clone()) else { continue };
-        hits.push(Hit { classes: m("detects"), latency: m("latency"), pulse: m("pulse"), text: dd.to_text(), key: circuit::archive::type_key(&cc) });
+        // `--only`: tile-test only that class set (the others are many and known)
+        let tile = if tile_max > 0 && only.is_none_or(|o| o == m("detects")) { best_tile(&dd, &o, gap, tile_max) } else { None };
+        hits.push(Hit { classes: m("detects"), latency: m("latency"), pulse: m("pulse"), text: dd.to_text(), key: circuit::archive::type_key(&cc), tile });
     }
     hits
+}
+
+/// The densest tiling of a (design, output) the judge accepts on redsim (`bud::tile_check`, 3
+/// copies): the smallest pitch 1..=max along x, y or z, and its step.
+fn best_tile(d: &mctas::design::Design, base: &circuit::check::Outcome, gap: u32, max: u32) -> Option<(u32, Pos)> {
+    for pitch in 1..=max as i32 {
+        for step in [[pitch, 0, 0], [0, pitch, 0], [0, 0, pitch]] {
+            let mut dt = d.clone();
+            dt.meta.insert("tile".into(), format!("{} {} {}", step[0], step[1], step[2]));
+            let Ok(c) = Circuit::from_design(dt) else { continue };
+            if let Ok(out) = circuit::bud::tile_check(&c, base, gap, "", |tc, ts| Ok(circuit::run::sim_trace(tc, ts, 2)))
+                && out.pass
+            {
+                return Some((pitch as u32, step));
+            }
+        }
+    }
+    None
 }
 
 pub fn run(a: CensusArgs) -> Result<()> {
@@ -236,7 +266,54 @@ pub fn run(a: CensusArgs) -> Result<()> {
         bail!("--k must be at least 1");
     }
     let pal = palette(&a.palette);
-    let sets = cell_sets(a.k, a.reach);
+    let base: Vec<(Pos, String)> = match &a.base {
+        Some(p) => mctas::design::Design::load(p)?.blocks.into_iter().collect(),
+        None => Vec::new(),
+    };
+    let sets = if base.is_empty() {
+        cell_sets(a.k, a.reach)
+    } else {
+        // every K-subset of the air cells in the base's box grown by 1
+        let mut lo = [0i32; 3];
+        let mut hi = [0i32; 3];
+        for (p, _) in &base {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i] - 1);
+                hi[i] = hi[i].max(p[i] + 1);
+            }
+        }
+        let taken: BTreeSet<Pos> = base.iter().map(|(p, _)| *p).collect();
+        let mut cells: Vec<Pos> = Vec::new();
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    let p = [x, y, z];
+                    if p != [0, 0, 0] && !taken.contains(&p) {
+                        cells.push(p);
+                    }
+                }
+            }
+        }
+        let mut out: Vec<Vec<Pos>> = Vec::new();
+        let mut idx: Vec<usize> = (0..a.k).collect();
+        if a.k <= cells.len() {
+            loop {
+                out.push(idx.iter().map(|i| cells[*i]).collect());
+                let mut j = a.k;
+                while j > 0 && idx[j - 1] == cells.len() - a.k + j - 1 {
+                    j -= 1;
+                }
+                if j == 0 {
+                    break;
+                }
+                idx[j - 1] += 1;
+                for m in j..a.k {
+                    idx[m] = idx[m - 1] + 1;
+                }
+            }
+        }
+        out
+    };
     // per cell set (one per symmetry class: two sets never hold the same structure), every
     // assignment of palette states, deduplicated by structure within the set (a symmetric set
     // repeats some), screened at once: the threads take cell sets in turn
@@ -259,15 +336,18 @@ pub fn run(a: CensusArgs) -> Result<()> {
                     let mut found: Vec<Hit> = Vec::new();
                     loop {
                         let states: Vec<&String> = idx.iter().map(|i| &pal[*i]).collect();
-                        if states.iter().any(|s| active(s)) {
+                        if !base.is_empty() || states.iter().any(|s| active(s)) {
                             total.fetch_add(1, Ordering::Relaxed);
-                            let d = design(cells, &states, None);
+                            let mut d = design(cells, &states, None);
+                            for (p, s) in &base {
+                                d.blocks.insert(*p, s.clone());
+                            }
                             let mut dk = d.clone();
                             dk.blocks.insert([0, 0, 0], "circuit:target".into());
                             if seen.insert(clock::canon::design_type_key(&dk)) {
                                 distinct.fetch_add(1, Ordering::Relaxed);
                                 if !a.count {
-                                    found.extend(screen(d, a.gap));
+                                    found.extend(screen(d, a.gap, a.tile, a.only.as_deref()));
                                 }
                             }
                         }
@@ -311,6 +391,15 @@ pub fn run(a: CensusArgs) -> Result<()> {
         v.sort_by_key(|h| (lat_num(&h.latency), lat_num(&h.pulse), h.text.len()));
         let best = &v[0];
         println!("  detects {cl}: {} structures; fastest latency {} (pulse {})", v.len(), best.latency, best.pulse);
+        if a.tile > 0 {
+            // the densest tilings first, then the fastest
+            v.sort_by_key(|h| (h.tile.map(|t| t.0).unwrap_or(u32::MAX), lat_num(&h.latency), lat_num(&h.pulse), h.text.len()));
+            let n = v.iter().filter(|h| h.tile.is_some()).count();
+            match v[0].tile {
+                Some((p, st)) => println!("    tileable: {n} structures; densest pitch {p} (step {} {} {}), latency {}", st[0], st[1], st[2], v[0].latency),
+                None => println!("    tileable: none up to pitch {}", a.tile),
+            }
+        }
         if let Some(dir) = &a.out_dir {
             if a.only.as_ref().is_some_and(|o| o != cl) {
                 continue;
@@ -318,7 +407,10 @@ pub fn run(a: CensusArgs) -> Result<()> {
             std::fs::create_dir_all(dir)?;
             for (j, h) in v.iter().take(a.keep).enumerate() {
                 let name = format!("census-k{}-{}-{}", a.k, cl.replace(' ', "-"), j + 1);
-                let text = h.text.replacen("name: bud-census", &format!("name: {name}"), 1);
+                let mut text = h.text.replacen("name: bud-census", &format!("name: {name}"), 1);
+                if let Some((_, st)) = h.tile {
+                    text = text.replacen("circuit: bud", &format!("circuit: bud\ntile: {} {} {}", st[0], st[1], st[2]), 1);
+                }
                 std::fs::write(dir.join(format!("{name}.txt")), text)?;
             }
         }
@@ -378,6 +470,57 @@ pub fn trace(a: TraceArgs) -> Result<()> {
         let lvl = run.signals.get(f).and_then(|v| v.first()).copied().unwrap_or(0);
         println!("{f:5} out {lvl:2} [{phase}] {}", diff.join(" "));
         prev = now;
+    }
+    Ok(())
+}
+
+#[derive(clap::Args, Debug)]
+pub struct TileArgs {
+    pub designs: Vec<PathBuf>,
+    /// The largest pitch tried per axis.
+    #[arg(long, default_value_t = 4)]
+    pub max: u32,
+}
+
+/// Per design: the base judged on redsim (classes only), then the smallest pitch per axis at
+/// which 3 copies pass the judge's tile check (`bud::tile_check`).
+pub fn tile(a: TileArgs) -> Result<()> {
+    for p in &a.designs {
+        let mut d = mctas::design::Design::load(p)?;
+        d.meta.remove("tile");
+        let c = Circuit::from_design(d.clone())?;
+        let gap = 30;
+        let s = circuit::bud::stimulus_with(&c, &Sizing { gap }, false);
+        let base = match circuit::run::sim_trace(&c, &s, 2) {
+            Ok(t) => circuit::bud::check(&c, &s, &t),
+            Err(why) => {
+                println!("{}: {why}", c.name());
+                continue;
+            }
+        };
+        if !base.pass {
+            println!("{}: FAIL {}", c.name(), base.why);
+            continue;
+        }
+        let mut per: Vec<String> = Vec::new();
+        for (axis, unit) in [("x", [1, 0, 0]), ("y", [0, 1, 0]), ("z", [0, 0, 1])] {
+            let mut found = None;
+            for pitch in 1..=a.max as i32 {
+                let step = [unit[0] * pitch, unit[1] * pitch, unit[2] * pitch];
+                let mut dt = d.clone();
+                dt.meta.insert("tile".into(), format!("{} {} {}", step[0], step[1], step[2]));
+                let Ok(ct) = Circuit::from_design(dt) else { continue };
+                match circuit::bud::tile_check(&ct, &base, gap, "", |tc, ts| Ok(circuit::run::sim_trace(tc, ts, 2))) {
+                    Ok(o) if o.pass => {
+                        found = Some(pitch);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            per.push(format!("{axis} {}", found.map(|p| p.to_string()).unwrap_or_else(|| format!("> {}", a.max))));
+        }
+        println!("{}: {} blocks, densest pitch per axis: {}", c.name(), c.blocks(), per.join(", "));
     }
     Ok(())
 }

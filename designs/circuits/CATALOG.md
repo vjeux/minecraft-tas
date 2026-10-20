@@ -4,13 +4,14 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 
 | study | designs | shown | variants |
 |---|---|---|---|
-| [Pulse circuits](pulse/CATALOG.md) | 140 | 9 | 3 |
-| [T flip-flops](tff/CATALOG.md) | 12 | 11 | 1 |
+| [Pulse circuits](pulse/CATALOG.md) | 154 | 25 | 2 |
+| [T flip-flops](tff/CATALOG.md) | 12 | 12 | 0 |
 | [Delay lines](delay/CATALOG.md) | 12 | 2 | 0 |
 | [Logic gates](gates/CATALOG.md) | 21 | 18 | 3 |
-| [Memory](memory/CATALOG.md) | 60 | 8 | 1 |
-| [Piston extenders](pext/CATALOG.md) | 59 | 29 | 9 |
-| [Flying machines](fly/CATALOG.md) | 86 | 10 | 3 |
-| [Shulker loaders and unloaders](shulker/CATALOG.md) | 16 | 15 | 1 |
-| [TNT dupers](tnt/CATALOG.md) | 8 | 8 | 0 |
-| [BUD switches](bud/CATALOG.md) | 9 | 7 | 0 |
+| [Memory](memory/CATALOG.md) | 51 | 8 | 1 |
+| [Piston extenders](pext/CATALOG.md) | 59 | 18 | 20 |
+| [Flying machines](fly/CATALOG.md) | 13 | 4 | 3 |
+| [Shulker loaders and unloaders](shulker/CATALOG.md) | 18 | 15 | 3 |
+| [TNT dupers](tnt/CATALOG.md) | 5 | 5 | 0 |
+| [BUD switches](bud/CATALOG.md) | 14 | 12 | 0 |
+| [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 37 | 5 | 0 |

@@ -1,0 +1,26 @@
+# archived 2026-10-20T11:05Z from designs/circuits/tracks/bud/bud-remove-only.txt by mctas circuit archive
+# CIRCUIT: bud-remove-only bud detects remove, latency 5 gt, pulse 2 gt, re-arm 6 gt, footprint 1 cell, tileable every 1 (0 0 1), 4 blocks, 2x4x1, robust
+name: bud-remove-only
+circuit: bud
+tile: 0 0 1
+# A remove-only detector, the place-only detector's mirror: the redstone torch under the target
+# powers a solid block placed there, which powers the sticky piston beside it; the piston lifts
+# its observer out of the output cell. When the block is removed the piston pulls the observer
+# back into the output cell, where it fires (a 2 gt pulse, 5 gt after the removal); up top it fires
+# too, but out of the output cell, facing away from it. Facing down, it watches only its own
+# piston: no other cell around it triggers it. Turning the block in place, a shape-only change or
+# a pure update leaves the piston as it is: not detected. Copies side by side work (tile 1).
+origin: 0 -1 0
+port target: 0 0 0
+port output: 1 1 0
+palette:
+  T minecraft:redstone_wall_torch[facing=west,lit=true]
+  B minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=down,powered=false]
+layer 0:
+  TB
+layer 1:
+  .P
+layer 2:
+  .O

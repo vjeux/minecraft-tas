@@ -61,19 +61,61 @@ archived as one group).
   (designs/circuits/selftest/latching-bud.txt): the judge's placement updates every block, it
   fires there and never re-arms (output on at rest).
 
+## Built since (coordinator 09:15Z)
+
+* All five: bud-all-five (13 blocks). The observer is fed into the fast BUD's low dust, not into
+  the piston: after a placement that dust is already lit by the open step when the observer fires,
+  so the piston hears nothing new mid-push; after a shape-only change the dust lighting up is what
+  updates the piston.
+* Place only: bud-place-only (4 blocks: the torch presence level into the 2-block rising-edge
+  detector of the pulse study).
+* Manual reset: the judge's latched mode (`port input.reset`) and bud-latched-qc (2 blocks + the
+  reset block) / bud-latched-qc-fast (7 blocks, latency 1). Latched QC BUDs never jam: the piston
+  stays powered while it is out.
+
+* The jam fix: bud-qc-nojam (5 blocks, robust, no jams): two NON-sticky pistons pass a package (a
+  slime block, the arming redstone block on top, an observer under it) back and forth. A non-sticky
+  piston that retracts during its own push leaves exactly what a late retraction leaves (it never
+  pulls), so a second update cannot strand anything; its head vanishes at once when it retracts,
+  so the moved observer (firing 2 gt after it lands) updates the second piston, armed by the
+  pushed redstone block, just after the first piston's head has gone. Found by `bud census --base`
+  over the two pistons + 1 block (18 QC structures; 2 blocks: 3,217 jam-free intact ones out of
+  6,922, all latency 3, re-arm 8). What ruled out the other routes is kept below.
+
+* Remove only: bud-remove-only (4 blocks), place-only's mirror: the observer is pulled back into
+  the output cell on a removal; facing down it watches only its own piston (footprint 1). The k=3
+  census over 50 states has no place-only or remove-only design: 4 blocks is the minimum.
+
+## Tileable (coordinator 10:40Z)
+
+Judge: a `tile:` claim builds 3 copies along the step and runs every class at every copy's target;
+each copy must answer its own target exactly as the single design and stay silent for the
+others' (docs/circuits.md). `mctas circuit bud tile` finds a design's densest pitch per axis,
+`bud census --tile N` every candidate's. Every archived BUD carries its densest `tile:`.
+
+| class set | densest | smallest design at that pitch | why not denser / smaller |
+|---|---|---|---|
+| place remove state shape | every 1 | bud-observer-stone (2) | the 1-block observer tiles every 2: its lamp, strongly powered, lights the next (census k=1 --tile 3) |
+| place remove state update | every 2 | bud-slime-qc (3) | every 1 is impossible with armed pistons: a piston's move updates its neighbors, so the next copy's armed piston fires (census k=3 qc --tile 2: densest 2; k=4 over sticky pistons, slime, honey, redstone block, stone --tile 1: none of the 958 QC structures tiles every 1) |
+| place remove | every 1 (stacked) | bud-fence-stone (3) | 2-block presence designs (observer + fence, wall, pane or bars) tile every 2 (census k=2 --tile 2); the torch version needs 4 blocks to tile every 1 in a row |
+| place | every 1 | bud-place-only (4) | no 3-block place-only design |
+| remove | every 1 | bud-remove-only (4) | no 3-block remove-only design |
+| all five | every 4 | bud-all-five (13) | the only one |
+| latched (manual reset) | every 2 (stacked) | bud-latched-qc (2) | armed piston |
+
+The rest: bud-observer, the torch group, bud-fence-observer every 2; bud-qc-nojam every 3;
+bud-slime-qc-fast, bud-latched-qc-fast every 4.
+
+## Dead ends of the jam fix (kept)
+
+* The piston must still be powered at the block-event phase of t+3 (the retraction queued by the
+  second update runs there, before the moving blocks land); every QC-power cell is beside the
+  slime block (dragged) or in its column (pushed); no observer cell both watches a moved cell and
+  powers the piston; every gate made of moving blocks opens again on the way back, re-firing the
+  piston as it finishes retracting. `bud census --base` over the latched BUD + 2 blocks (267,258
+  structures) finds no automatic reset. The non-sticky loop (bud-qc-nojam) avoids all of this.
+
 ## Open
 
-* An all-five detector needs two sensors (an observer for shape-only changes, a QC sensor for pure
-  updates): an observer's back can never update a piston that is beside the target (the back cell
-  is 2 cells from the target), so their outputs must be merged by wiring. Feeding the observer into
-  the piston through dust fails either way (tried on the slime BUD): the observer's 2 gt pulse
-  updates the piston again 2 gt into its push (the jam: it spits the slime block), and delayed
-  past the push it fires the piston a second time after a placement. So the outputs must be OR'd
-  outside the piston: about 12-16 blocks of dust and supports (the slime BUD's output is 3 high,
-  the fast one's is beside the target), a union of two archived designs: not built.
-* Dropper / dispenser QC BUDs: `TRIGGERED` (a flags-2 change an observer sees, latency 2) stays set
-  until the dropper is updated while unpowered, and droppers cannot be moved (block entity): a
-  self-resetting one needs a moving power source that comes back without updating it; none in 3
-  blocks (census above).
-* A manual-reset kind (a `port input.reset`) is described in VARIATIONS.md but not judged yet: no
-  latched design worth it so far.
+* A faster jam-free BUD (bud-qc-nojam: latency 3, re-arm 8): the loop censuses found none faster.
+* An all-five BUD that tiles denser than every 4.

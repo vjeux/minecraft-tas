@@ -1,5 +1,6 @@
 name: bud-torch-dropper
 circuit: bud
+tile: 0 0 2
 group: torch-presence
 group title: Torch presence detector
 group note: a redstone torch under the target powers a solid block placed there; that block powers a follower beside it (a dropper or a lamp) that an observer watches; only the target cell senses (footprint 1)

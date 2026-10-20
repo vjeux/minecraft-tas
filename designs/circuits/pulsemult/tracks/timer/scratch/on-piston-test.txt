@@ -1,0 +1,21 @@
+name: on-delay-piston-gate-test
+circuit: on-delay
+# test: the input's dust points into the cell X beside the output; a delay-2 repeater (4 gt: no
+# pulse short enough to make the piston spit its block) and two dust power a sticky piston that
+# pushes a stone into X: the output is lit while the stone is in X and the input still on
+origin: 0 0 -2
+port input: 0 1 0
+port output: 3 1 0
+palette:
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  R minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=south]
+layer 0:
+  SS..
+  S...
+  .S..
+layer 1:
+  ddP.
+  R.S.
+  .d..

@@ -19,6 +19,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
+| 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -35,6 +36,8 @@ port input: 0 1 0                # one input; several: port input.<name>: (input
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
 port target: 0 1 2               # bud only: a cell (air) where the judge performs its block updates
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
+input-device: far                # sculk designs only: the input comes from beyond the sensors' reach (no lever events)
+vibration: proof                 # sculk designs only: claim vibration-proof (refused if ambient events change it)
 ```
 
 * **Inputs** (`port input[.<name>]: x y z [args]`): the args say how the judge drives the cell.
@@ -58,7 +61,11 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
   update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
   like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
-  circuit may be driven. The metrics still come from the level above, so they do not change. An
+  circuit may be driven. The metrics still come from the level above, so they do not change. The
+  judge's lamp only observes (clockinfra 2026-10-20): redsim runs the stimulus once more with every
+  such cell left as AIR, and the output must see the same signal in every frame, else the design
+  fails with `the judge's lamp is part of the circuit` (a lamp is a conductor: a comparator's
+  feedback loop closing through it would not run with another consumer). An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
@@ -68,6 +75,26 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
   stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
   input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  **Vibrations** (coordinator and clockinfra 2026-10-20, `crate::vibration`, shared events in
+  `clock::vibration`): a design that holds a sculk sensor (plain or calibrated) hears game events,
+  and the judge's own input (a redstone block written with `setBlock`) makes none. After its
+  plain run passes, two more runs of the same schedule:
+  * DEVICE, a hard rule: the game events a lever makes at every plain input cell
+    (`block_activate` when it turns on, `block_deactivate` when it turns off; a button makes the
+    same two) must leave the result unchanged, else `hears its input device`. A design whose input
+    comes by a line from beyond its sensors' reach says `input-device: far` and gets none (its
+    metric says `input from afar`).
+  * AMBIENT, a property: the device run plus seeded pseudo-random game events every 5..15 gt at
+    cells within the sensors' listener radius of the design's swept box (8 blocks, 16 with a
+    calibrated sensor), never inside it: footsteps, items hitting the ground, blocks placed or
+    broken, entities placed (frequencies 1, 2, 13, 12, 14). The metric `vibration-proof yes`
+    when the result is unchanged, else `no`; a `no` design is its own archive class (axis
+    `..., vibration-sensitive`). A design that says `vibration: proof` and is not is refused.
+  Every event is posted at its cell's center (redsim measures block centers), and the generator
+  is seeded by the build (the design as rotated and placed), so redsim and the game get the same
+  events for the same build. A calibrated sensor fed a constant back signal (a comparator reading
+  a chest) accepts that frequency only: `cal-sculk-filter-rise` (the note block's 10) is
+  vibration-proof.
   `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
@@ -208,7 +235,8 @@ kick) before the first input.
   the box is the design's own.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
-  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
+  (8 periods of up to 110 gt fit in its second half)
   the frames must repeat with a period P through the run's second half for at least 8 periods,
   every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
@@ -218,12 +246,31 @@ kick) before the first input.
   real game each TNT is followed to fuse 1 (removed there): when every TNT of the periodic region
   that reached fuse 1 is at the same point then, bit for bit (8 or more), the line ends with
   `(precise: N TNT at one point at fuse 1)` (the PRECISE variation; it keeps its own catalog card).
-  With the header `explode: on` (the SURVIVABLE variation) the game run lets every primed TNT
-  explode instead of removing it, and the same check (periodic frames, every TNT block standing
-  again, no item entity at the end) must still pass with at least one explosion; the line ends
-  with `(survives its own explosions: N exploded, design intact)`; redsim reports UNMODELED (no
-  explosions); the archive keeps it apart from the same blocks judged without explosions. The
-  catalog axis reads `<rate> precise` / `<rate> survivable` / `<rate> switchable`.
+  **Explosions are on by default** (vjeux 2026-10-20: "You didn't model tnt explosion. This will
+  blow up the machine"): the game run lets every primed TNT explode, and a TNT 16+ blocks from the
+  design's box (`run::OUT_OF_RANGE`: beyond the reach of its blast, blocks up to about 7, entities
+  up to 8) is removed and counted as out of range (the sandbox is loaded 18 blocks around for
+  them). The duper must survive: a self-running one's block frames repeat with its period from
+  before its first explosion through the end of the run (`blown up: its first explosion (frame F)
+  changes it` otherwise); a triggered one waits 100 gt after its last pulse and must be back in
+  its rest state; a switchable one's running windows end with the same frames as its first
+  period, its stopped windows the same; at least one TNT exploded or left out of range; no item
+  entity at the end (a destroyed block drops one). The line then carries `(survives its own
+  explosions: N exploded, M out of range, design intact)`. On redsim (clk-misc's exact explosion
+  port, `clock::sim::drive_tnt`) the same run has every primed TNT kicked by one `d`, every ray at
+  its largest roll (`Rolls::Max`: surviving it is surviving every roll), TNT removed out of range
+  the same way. **All randoms** (vjeux 2026-10-20: "pass every possible random number"):
+  `circuit verify` then runs `circuit::robust::tnt_robust`: the kick's `nextDouble()` swept over
+  [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
+  piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
+  claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
+  (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
+  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
+  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
+  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
+  check). `explode: off` is for analysis only (the measuring calibrations): the archive
+  refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
+  survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
   spread (...)` when every TNT of the periodic region reaches 0.4+ blocks/gt sideways (its largest
   horizontal motion, averaged); `stationary: every TNT at rest for N+ gt before fuse 1` (the same
@@ -370,6 +417,17 @@ kick) before the first input.
   latched` otherwise), and hold through a removal while it is on (`not a latch`: a toggle lets
   go). `reset` replaces `pulse`: how long after the reset starts the output goes off; `re-arm`:
   how soon after the reset ends the next event is seen. The axis says `latched (manual reset)`.
+  TILEABLE (`tile: dx dy dz [copies]`, the shulker study's header and copies: `shulker::tiled`):
+  the judge also builds the copies (3 by default) side by side along the step, each copy's ports
+  renamed `<port>.t<k>`, runs every class at every copy's target (the classes part of the
+  stimulus, the same gap) and checks each copy's output: its own copy's events give exactly what
+  the single design gives (detected classes, latency, pulse; latched designs: every copy's reset at
+  once), the other copies' events nothing (`not tileable: ... cross-talk`). The judge's lamp sits
+  in every copy's air output cell, so outputs that touch can cross-talk through the lamps (a lamp
+  strongly powered by an observer or a repeater lights the next one; one lit through a block does
+  not). Metric `tileable every N (dx dy dz)`, N the step's length: targets every N blocks.
+  `mctas circuit bud tile <design>...` finds each design's densest pitch per axis on redsim, and
+  `bud census --tile N` each candidate's.
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
   the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
@@ -378,9 +436,49 @@ kick) before the first input.
   later probes and the re-arm pairs are not measured. The box leaves out the target cells and the
   probe block in the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
-  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
+  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile, tileable.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
+* **Study 11 timers** ([crate::pulsemult](../crates/circuit/src/pulsemult.rs); what earlier studies
+  already judge and why each kind is new: [designs/circuits/pulsemult/VARIATIONS.md](../designs/circuits/pulsemult/VARIATIONS.md)):
+  one input, a judge-placed block or a lever (a button cannot give the judge's lengths), one output,
+  off at rest (dividers excepted: they hold a state). Every input is followed by the gap; the output
+  must be back off at the end of every gap.
+  * `burst N` (N >= 2): input pulses of 1, 2, 3, 4, 6, 10, 20, 40 gt: every input from the min-pulse
+    up (the 3 longest at least) gives exactly N output pulses, at the same delays and lengths as
+    the longest input's (a burst does not depend on the input's length: a dual-edge detector's
+    second pulse follows the falling edge and fails). Then pairs of 4 gt inputs 5..160 gt
+    apart: a second input inside the burst's span is `ignores` (N pulses in all), `adds` (2N),
+    `restarts` (between), `breaks` (other) or `mixed` over the delays; then trains of 6 inputs every
+    40..4 gt: `repeat` is the fastest period from which every slower train gives exactly 6N (the
+    xN frequency multiplier). With a min-pulse over 4 gt both read `n/a` (the pairs and trains are
+    4 gt inputs). Metrics: N (axis), pulse and period (output lengths and rising-edge
+    spacing, min-max within the burst: one value each when the burst is evenly spaced), latency,
+    span, min-pulse, retrigger, repeat.
+  * `divider N` (N >= 3; /2 is `tff`): square clocks of periods 40, 30, 20, 16, 12, 10, 8, 6, 5, 4,
+    3, 2 gt, each N warm-up periods + 4N, then the gap: the output must repeat with period exactly
+    N x P with 4 rises in the 4N periods. Metrics at 40 gt: duty, `square` (on half the time, to
+    1 gt) or `pulse (<on> gt)`, latency (input rise -> output rise); `min-period`: the fastest clock
+    from which every slower one divides. A counter of slow pulses is study 5's `counter N`.
+  * `monostable [retriggerable | non-retriggerable]`: isolated pulses of 1..160 gt give one pulse of
+    L at one delay from the min-pulse up (as `rising-edge`); then pairs of 4 gt inputs whose second
+    rising edge comes d = 5..160 gt after the first: while d < L a `non-retriggerable` one gives one
+    pulse of exactly L, a `retriggerable` one a pulse ending L after the second edge; any other
+    shape, or a class that changes with d, fails (L >= 6 and a min-pulse of 4 gt or less to be
+    tested). `re-arm`: the smallest d
+    from which every pair gives two full pulses. Axis `L = <L> <class>`.
+  * `off-delay`: isolated pulses of 1..80 gt: one output pulse at a fixed latency, the input's
+    length + L (L >= 1); 3-pulse trains of 4 gt inputs with gaps of 1..32 gt: gaps shorter than L
+    give one pulse ending L after the last fall, longer ones three pulses (a min-pulse of 4 gt or
+    less, to run them). A repeater ORed with the
+    input fails: it holds one pending tick, so it ends L after the second input of a close train.
+  * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
+    be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
+    input's fall for every input from T up. Metrics T (axis, `on T = ..`), shortening, latency;
+    an off-delay's axis reads `off L = ..`.
+  * `pulse-train` (a gated clock): the input held 20, 60, 200 gt: output pulses every P gt while it
+    is on, the first at the same latency each time, none starting more than P after the release.
+    Metrics P (axis), pulse, latency, stop (release -> the output's last fall).
 
 ## Archive and catalog
 
@@ -452,8 +550,9 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
-| `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest |
+| `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--base D] [--tile N] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest. `--base D`: keep D's blocks and add K blocks in the air cells of its box grown by 1. `--tile N`: each passing design's densest tiling (pitch 1..=N; with `--only`, that class set's only), listed first and written with its `tile:` header |
 | `mctas circuit bud trace <design> [--from F \| --phase <label>] [--frames 40] [--full]` | a BUD design's redsim run, frame by frame: the phase, the output level, the blocks that changed (`--full`: the footprint probes and re-arm pairs too) |
+| `mctas circuit bud tile <design>... [--max 4]` | each BUD design's densest tiling on redsim: the smallest pitch per axis (x, y, z) at which 3 copies pass the judge's tile check |
 
 Tracks: put your designs in `designs/circuits/<study>/tracks/<track>/`; the coordinator archives
 the verified ones.

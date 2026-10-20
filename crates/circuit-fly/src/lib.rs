@@ -209,6 +209,20 @@ enum Cmd {
         #[arg(long, default_value = "designs/circuits/fly/archive")]
         dir: PathBuf,
     },
+    /// World-record consolidation (vjeux "quality over quantity", the site critique): keep ONE
+    /// archived machine per (class, speed, blocks, glue) — robust before rotation-dependent, then
+    /// the smallest box, then the name — move the other layouts to --layouts (unarchived), and
+    /// rewrite the kept card's caption: its glue (slime / honey / slime + honey), how many other
+    /// layouts, and for a payload or train what it carries.
+    Consolidate {
+        #[arg(long, default_value = "designs/circuits/fly/archive")]
+        dir: PathBuf,
+        #[arg(long, default_value = "designs/circuits/tracks/fly/layouts")]
+        layouts: PathBuf,
+        /// Print the plan only.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Two-way machines: for each reversible machine (kicked from its back-facing sticky piston it
     /// flies backward), the station search ahead and behind, then every pair of the best stations
     /// (`--pairs` each) composed into one design (`port station.<n>`), kept when it shuttles.
@@ -476,6 +490,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 std::fs::write(out_dir.join(format!("{name}.txt")), station::design_text(&m, s, &name))?;
             }
         }
+        Cmd::Consolidate { dir, layouts, dry_run } => {
+            consolidate(&dir, &layouts, dry_run)?;
+        }
         Cmd::Unarchive { names, dir } => {
             let files: Vec<String> = names.iter().map(|n| if n.ends_with(".txt") { n.clone() } else { format!("{n}.txt") }).collect();
             for f in &files {
@@ -694,5 +711,113 @@ fn types(designs: &[PathBuf], workers: usize, copy_hosts: Option<&std::path::Pat
         println!("{}\t{}\t{} blocks\t{}\ttype {h:06x}\t{}\t{}\t{}", r.class, r.speed, r.blocks, kinds, r.name, host.map(|h| format!("variant of {h}")).unwrap_or_else(|| "HOST".into()), r.swaps.join("; "));
     }
     println!("{} designs, {} types, {} hosts", rows.len(), uniq.len(), hosts);
+    Ok(())
+}
+
+/// `circuit fly consolidate` (see `Cmd::Consolidate`).
+fn consolidate(dir: &std::path::Path, layouts: &std::path::Path, dry_run: bool) -> Result<()> {
+    let verdicts = std::fs::read_to_string(dir.join("verdicts.tsv"))?;
+    let mut lines = verdicts.lines();
+    let header: Vec<&str> = lines.next().unwrap_or("").split('\t').collect();
+    let col = |name: &str| header.iter().position(|h| *h == name);
+    let (cf, ca, cb, cv, cr) = (col("file").unwrap_or(1), col("axis").unwrap_or(3), col("blocks").unwrap_or(5), col("volume").unwrap_or(7), col("robustness").unwrap_or(9));
+    // (class, speed, blocks, glue) -> [(robust?, volume, file)]
+    let mut groups: std::collections::BTreeMap<(String, String, usize, String), Vec<(bool, usize, String)>> = std::collections::BTreeMap::new();
+    for l in lines {
+        let v: Vec<&str> = l.split('\t').collect();
+        let file = v.get(cf).copied().unwrap_or("").to_string();
+        let text = std::fs::read_to_string(dir.join(&file)).unwrap_or_default();
+        let (slime, honey) = (text.contains("slime_block"), text.contains("honey_block"));
+        let glue = match (slime, honey) {
+            (true, true) => "slime + honey",
+            (false, true) => "honey",
+            _ => "slime",
+        }
+        .to_string();
+        let stem = file.trim_start_matches("fly-");
+        let class = ["horizontal", "up", "down", "payload", "train", "two-way"].iter().find(|c| stem.starts_with(*c)).map(|c| c.to_string()).unwrap_or_else(|| "other".into());
+        // a payload or train member is its own record (n differs); an old derivation joins its class
+        let class = if class == "other" && stem.starts_with("d1") { "horizontal".to_string() } else { class };
+        let key_file = if class == "payload" || class == "train" { file.clone() } else { String::new() };
+        let blocks: usize = v.get(cb).and_then(|b| b.parse().ok()).unwrap_or(0);
+        let volume: usize = v.get(cv).and_then(|b| b.parse().ok()).unwrap_or(0);
+        let robust = v.get(cr).is_some_and(|r| *r == "robust");
+        let speed = format!("{}{}", v.get(ca).copied().unwrap_or(""), key_file);
+        groups.entry((class, speed, blocks, glue)).or_default().push((robust, volume, file));
+    }
+    let mut removed: Vec<String> = Vec::new();
+    let mut captions: Vec<(String, String)> = Vec::new();
+    // a whole group is below bar when the same class and glue has a group with fewer blocks and a
+    // speed at least as fast (fly-d1: 7 blocks at 10 gt/block beside the 6-block ones)
+    let gt = |s: &str| s.split_whitespace().next().and_then(|x| x.parse::<u32>().ok());
+    let keys: Vec<(String, String, usize, String)> = groups.keys().cloned().collect();
+    let dominated = |k: &(String, String, usize, String)| -> bool {
+        if k.0 == "payload" || k.0 == "train" || k.0 == "two-way" {
+            return false;
+        }
+        keys.iter().any(|h| h.0 == k.0 && h.3 == k.3 && h.2 < k.2 && matches!((gt(&h.1), gt(&k.1)), (Some(a), Some(b)) if a <= b))
+    };
+    let mut folded_below: Vec<String> = Vec::new();
+    for k in &keys {
+        if dominated(k) {
+            folded_below.extend(groups[k].iter().map(|x| x.2.clone()));
+        }
+    }
+    for ((class, speed, blocks, glue), mut v) in groups.clone() {
+        if dominated(&(class.clone(), speed.clone(), blocks, glue.clone())) {
+            println!("{class} {speed} {blocks}b {glue}: below bar (a smaller machine at least as fast), fold {}", v.len());
+            removed.extend(v.iter().map(|x| x.2.clone()));
+            continue;
+        }
+        v.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+        let keep = v[0].2.clone();
+        let others: Vec<String> = v[1..].iter().map(|x| x.2.clone()).collect();
+        let carries = match class.as_str() {
+            "payload" => format!(", carries {} block(s)", blocks.saturating_sub(6)),
+            "train" => format!(", pulls {} trailer(s)", blocks.saturating_sub(5) / 3),
+            _ => String::new(),
+        };
+        println!("{class} {speed} {blocks}b {glue}: keep {keep}, fold {}", others.len());
+        let note = if others.is_empty() { String::new() } else { format!("; also {} other layout(s) in tracks/fly/layouts", others.len()) };
+        captions.push((keep.clone(), format!("{glue}{carries}{note}")));
+        removed.extend(others);
+    }
+    let _ = folded_below;
+    if dry_run {
+        println!("{} kept, {} folded (dry run)", captions.len(), removed.len());
+        return Ok(());
+    }
+    std::fs::create_dir_all(layouts)?;
+    for f in &removed {
+        std::fs::copy(dir.join(f), layouts.join(f))?;
+    }
+    // verdict and caption rows of the folded ones go; the kept captions get the glue and the fold
+    for (tsv, colf) in [("verdicts.tsv", cf), ("captions.tsv", 0usize)] {
+        let path = dir.join(tsv);
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        let mut out = String::new();
+        for (i, line) in text.lines().enumerate() {
+            let f = line.split('\t').nth(colf).unwrap_or("");
+            if i > 0 && removed.iter().any(|x| x == f) {
+                continue;
+            }
+            if i > 0
+                && tsv == "captions.tsv"
+                && let Some((_, extra)) = captions.iter().find(|(k, _)| k == f)
+            {
+                let (file, cap) = line.split_once('\t').unwrap_or((line, ""));
+                let cap = cap.split("; also ").next().unwrap_or(cap);
+                out.push_str(&format!("{file}\t{cap} ({extra})\n"));
+                continue;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        std::fs::write(&path, out)?;
+    }
+    for f in &removed {
+        std::fs::remove_file(dir.join(f))?;
+    }
+    println!("{} kept, {} folded into {}", captions.len(), removed.len(), layouts.display());
     Ok(())
 }

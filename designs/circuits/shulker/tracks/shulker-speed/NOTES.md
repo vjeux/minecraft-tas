@@ -53,6 +53,96 @@ Hourglass result (loader-mixed-rs.txt, 79b): flush and mixed pass with the hourg
 - Parallel stations: 4 auto-loaders in a pinwheel around one hopper minecart (2x2 hoppers under it, each the feed hopper of one box) works on paper. Each box keeps a free opposite pair for the piston and drop, but each station's always-on logic (E, Q, Q2) crowds the centre.
 - Conduction gating is out: a closed shulker box IS a redstone conductor (default isRedstoneConductor = full collision shape, closed box = full block). But a dropper UNDER the box also fires through quasi-connectivity from anything pointing into the box cell, box or air. And a free-running clock fails the rest check.
 - The in-game shrink tool keeps badges, not speed. `circuit shulker shrink --min-rate R` (added) also keeps the plain 64-stack items/s >= R. It still does not run the drop stress, so walls it removes must be checked: the final verify reports fragile, and the drop-cell walls go back by hand.
+- Measured: dropper75 without its second observer (the one under the stone north of Y, watching the delay-2 copy of G) drops from 7.39 to 4.11 items/s. One observer on the 8 gt comparator clock fires Y only every 8 gt, so each dropper needs two observers in opposite phases, or one observer on a dust carrying (G OR its 4 gt-late copy). Two droppers therefore need either a shared solid block adjacent to both (south of Y = under the south dropper), with both observers outputting into it and no other power into either dropper (else the union of pulses can stay on and the dropper sees no edge), or a second gated clock for the second dropper.
+- Cleanest fresh layout found on paper: the dispenser on the SOUTH face (facing north), droppers on top (facing down, fired from above, where space is free) and bottom, C reading the north stone, piston west, drop east. A solid block under the south dispenser may be pulsed: the dispenser firing at an occupied cell fails harmlessly and keeps the box. The bottom dropper's feeders: west + north (Y's south cell is under the dispenser, so no hopper there).
+
+## Fast loader + hourglass flush (loader-d75-flush.txt, 115b, WIP 2026-10-20)
+
+dropper75 plus an east-side hourglass: Tc (500 stone) over Hd, which drains into a sink. Hd is locked by comparator CH on chest b and by a wall torch under it that is lit when D is empty (A's output stone). Comparator HG on Tc feeds a stone; the torch on that stone is lit when Tc is empty. From it, a dust staircase feeds repeater I, which points into the read stone, so c reads 15, a fake full that fires the piston.
+- Locking on chest b is safe: the judge tops every source chest back up every tick while the budget lasts, so all chests run dry together. In restart (unstackables) a=27 and b=13 are supplied at t=0 and the pause starts at t=1, so b runs dry ~100 gt before a. The hourglass then drains ~2900 gt < 4000.
+- Restart: PASS. Flush: FAIL, "box 3 arrived with 1 of 27". Plain dropper75 fails flush the same way: after box 2, all 13 leftover shovels sit in Y and its feed hoppers (Y full with 9), and N is empty. So box 3 never gets the first item from N. Its level stays 0, the 0<L<15 gate stays shut, and Y never fires.
+- Root cause, common to (a), (b) and (c): the dropper gate needs "box present", and the only reader we have is L>0. So the first item must come from a hopper, and leftovers stranded in a dropper chain are lost.
+- Ways out, not built yet:
+  (1) Force the gate open in an hourglass stage 1, then fake full in stage 2. That needs two expiry times: two hourglasses, or Tc level <= 1 via one dust decay. Force only between the stages, or the clock never rests.
+  (2) Box presence by conduction: a closed shulker box is a conductor, so a SIDE dropper next to X is powered through the box only when a box is there. Dust on K pointing into X powers it. But the bottom dropper also sees X's power by QC, and dust on K locks K while it is on.
+  (3) The A observer is no placement detector: comparator level changes 15->13 leave the block state alone, so it fires only on empty<->non-empty.
+- Mixed + restart: a threshold on N cannot separate the two cases. Shovel noise reaches level 12 (4 shovels during a full wait); a mixed jam can plateau at level 9-11 (5 slots of partial stacks of different kinds). It needs a persistence filter (on > ~64 gt). That is either 8 delay-4 repeaters or a hopper integrator. A dropper feeder has the same swap backlog unless the gate opens on box presence.
+
+- The fix for all three items, found on paper (not built yet). It gives the box its first item from a dropper at each placement:
+  - Placement detector: comparator A on D outputs into a DUST. A placement changes D's level (15 -> 13 ...), so the dust's power state changes and an observer on that dust fires. A comparator's own block state doesn't change, so an observer on A itself does not fire.
+  - One-shot: a dot (cross-shaped) dust on top of K, in the drop cell, points west into X. Pulse it for 2 gt by strongly powering the drop-cell wall stone (2,1,0). A repeater or observer pointing into the dust would connect it into a line that no longer points into X.
+  - The dust strongly powers the closed box (a conductor), so every dropper next to X fires once: the bottom one by QC, side ones by conduction. D also fires, harmlessly; K and N lock for 2 gt.
+  - Arrivals also change D's level, so the one-shot fires again then, into a present box; harmless.
+  - The one-shot must reach the droppers >= 2 gt after D's dispense.
+  - This removes the need for a hopper first item: the 10/s two-dropper loader becomes possible, and leftovers stranded in Y get into the flush box.
+
+## 10/s loader plan (a), after the one-shot (2026-10-20)
+
+- Supply: 3 chests with one hopper each give at most 7.5/s. The judge fills only the ports' chests, and one hopper fits under a chest. More needs a hopper minecart under a chest (pulls 20/s), placed at a cell edge (x=0.01) so two hoppers below it both pull: 5/s from that chest.
+- Faces: Y (bottom) can be fed only from S and W (N = O2 stone, E = K, D = O1). Its S feeder U (0,0,1) sits under (0,1,1), so a second dropper Y2 at (0,1,1) (replacing N) gets drained by U at 2.5/s. That is fine if Y2 gets 7.5/s in (S, Up and E hoppers): Y2 nets 5, and Y gets U 2.5 + W 2.5 = 5. Total 10.
+- Routing: c via a cart (rail on hopper h1 (0,1,2) facing N into Y2, plus h2 (-1,1,2) going down to (-1,0,2) -> (-1,0,1) -> (-1,0,0) -> Y). a via G (0,2,1) facing DOWN into Y2. b via (1,2,1) facing down -> (1,1,1) facing W into Y2.
+- Firing both droppers with one clock: pulse the box itself every 4 gt (while 0<L<15). A strongly powered closed box powers every dropper next to it, and Y also by QC. Sources: the drop-cell wall stone (2,1,0) and a block at (1,1,-1), both next to the dot dust on K. Each is strongly powered by an observer, in opposite phases of the gate clock. Do not point a diode or observer into the dot dust: it stops being a dot.
+
+- Geometry findings for (a), worked out on paper:
+  - Supply has to come from the south (chests at z=1..2). The bottom dropper Y1 can only be fed from W and S, and its S feeder sits under (0,1,1). The piston, drop cell and read stone block every hopper route to Y1's N face.
+  - A second dropper at (0,1,1) can't get two clock phases. The clock is at y=-2. The only blocks next to both droppers are (0,0,1) and X, and X needs a pulse at the drop cell, far from the clock. Bringing two clock phases up 3 levels costs ~15 blocks.
+  - Cleanest re-layout: the dispenser on the SOUTH face (facing north) and the second dropper ON TOP of X (facing down). The top dropper has 5 free faces, enough for 2 feeders plus 2 phase observers, right under the item chests.
+  - Its own clock then goes up top, and the bottom dropper keeps O1/O2.
+  - The dispenser's always-on firing (the stone-cell observer O, the A-level observer) and the one-shot have to be re-routed to the south.
+
+- DECISIVE for (a): the box cannot fire a second dropper. The one-shot works because the dot dust gives X a neighbour signal and the dropper BELOW X reads that by quasi-connectivity. A dropper BESIDE X is not QC-coupled to X, and a weakly powered block never powers an adjacent mechanism, so only the bottom dropper can be driven through the box. Every extra dropper needs its own two observers adjacent to it.
+- Feasible 10/s layout (not built yet; ~120 blocks):
+  - Y2 at (0,1,1) facing north (replacing the feed hopper N), fed 5/s by a hopper above (0,2,1) and one behind (0,1,2). No puller under Y2.
+  - Y2's two observers at (-1,1,1) facing west and (1,1,1) facing east, their backs into Y2, watching two dust columns that carry the gate clock's two phases (comparator C's output and its delay-2 copy) up from y=-2.
+  - Y1 keeps its own two observers and is fed 5/s by its west hopper line alone, supplied by a hopper minecart under item chest c: the cart sits at a cell edge so two hoppers below it each pull 2.5/s.
+  - Supply: chests a and b feed Y2 (2.5 + 2.5), chest c feeds Y1 through the cart (5). Box intake 5 + 5 = 10/s.
+  - The 81-stack base budget fills a, b and c in name order, so all three are supplied.
+
+- Build attempt 2026-10-20 (not finished): the two phase columns from y=-2 up to y=1 at z=1..2 kept failing the support check (a dust column needs a solid block under every dust, and the clock dust already occupies the cells below). The columns have to be built as solid stone pillars with the dust climbing their SIDES, one step out in z (z=3), away from the clock dust at z=1..2. The rest of the plan is unchanged.
+
+- Observer slots for Y2, worked out while building: on the flush-loader base, the only free cells next to Y2 at (0,1,1) are (1,1,1) and (0,0,1). So Y2's observers must be an east-facing one at (1,1,1) (output west into Y2) and a down-facing one at (0,0,1) (output up into Y2), which costs Y1 its south puller. Y1 then lives on its west line alone, so the cart has to go under the chest feeding THAT line (chest b), not under chest c. Both observers need a clock-phase block to watch: (2,1,1) and (0,-1,1), one step from the gate clock at y=-2.
+- A plain dropper75 with Y2 in place of the feed hopper N delivers 0 boxes: the gate (0<L<15) needs a first item, and without the one-shot only a hopper can give it. So the 10/s build must start from the flush loader (which has the one-shot), not from dropper75.
+
+## Mixed + restart: measured blocker (2026-10-20)
+
+Built loader-mixed-restart.txt (97b): the mixed loader with a real persistence filter. Comparator T1 = H - composter(7 or 8) is the threshold, 8 delay-4 repeaters + a stone + a wall torch give the 32 gt delayed copy, and subtract comparator T2 = AND(now, 32 gt ago) feeds the old edge detector. The filter itself works, but it fires at t=85 in restart and mixed: box 1 leaves with 8 of 27.
+Why, measured on the archived mixed loader (watch on V's rear dust): the signal is NOT a threshold crossing. It sits at 3 the whole run, climbs to 6 for t=235..322, and spikes to 14 for 2 gt at t=341, which is the spurious break. So the archived detector is a RISE detector (V subtracts the 4 gt-delayed copy), and a jam and a swap both produce rises.
+The deeper reason a threshold cannot work either: with a hopper feeder, the backlog is permanent. Before the first box is placed N fills to 5 slots, and after the placement it stays high for more than 32 gt (the chest refills it at the same 2.5/s it drains). So "N backed up for T gt" is true at startup, in a swap and in a jam alike.
+The obvious gate, "the box is nearly full", is not available in this layout: the box has exactly ONE readable face (north, through the stone at (0,1,-1)), and the full detector C already uses it. Comparators are horizontal, so the free cell under the box cannot read it, and reading through two stones finds no container.
+Conclusion: mixed + restart needs the feeder to be a DROPPER that drains faster than it is fed (5/s out, 2.5/s in), so the feeder is empty except in a jam, where a dropper facing a full box keeps its item. That needs the placement one-shot for the first item, so it has to be built on the FLUSH loader (127b), not on the mixed loader. The remaining obstacle there: all five non-box faces of Y1 are occupied (2 observers, 2 feed hoppers, the collection hopper K), so the jam comparator has no read path. The next step is a re-layout that frees one face of the feeding dropper for a comparator - for instance moving the collection hopper K one cell east and reading Y1 through the freed stone.
+
+## 10/s loader: the design is now unblocked (2026-10-20), ready to build
+
+Two source facts settle the parts that blocked it:
+- `ShulkerBoxDispenseBehavior` (net/minecraft/core/dispenser) extends `OptionalDispenseItemBehavior`: a failed placement only sets success=false and RETURNS the stack. So firing the dispenser while the box cell is occupied is harmless - no item entity, nothing lost. Pulsing a block next to D is therefore allowed.
+- An observer outputs into the block behind it; a dropper is a full solid block, so an observer firing INTO the dropper also makes that dropper a strongly powered conductor. The box cell next to it then has a neighbour signal, and the dropper UNDER the box fires by quasi-connectivity in the same tick.
+
+Full layout (box cell X at (0,1,0)):
+- D (0,2,0) facing down; boxes chest (0,4,0) through a hopper (0,3,0) facing down.
+- Y1 (0,0,0) dropper facing up. NO observers: it is fired by QC from Y2 (above), in both clock phases.
+- Y1 feeds: (-1,0,0) hopper east and (0,0,-1) hopper south = 5/s. (0,0,1) stays a stone so nothing pulls out of Y2.
+- Y2 (0,1,1) dropper facing north. Observers: (1,1,1) facing east (watches the phase-A dust at (2,1,1)) and (0,1,2) facing south (watches the phase-B dust at (0,1,3)).
+- Y2 feeds: (0,2,1) hopper down and (-1,1,1) hopper east = 5/s.
+- Read stone (0,1,-1), box comparator (0,1,-2) facing north; piston (-2,1,0) with its stone at (-1,1,0); drop cell (1,1,0) over the collection hopper K (1,0,0) facing east into the output at (2,0,0).
+- Gate: the dropper75 gate (0<L<15 squared into an 8 gt subtract-comparator clock) rebuilt at y=1 north of the box, since both phases are now needed at y=1 only. Phase B is phase A through a delay-2 repeater, so the two observers fire 4 gt apart and each dropper sees a rising edge every 4 gt = 5/s each.
+- Supply 10/s: exactly TWO item chests, each over a hopper minecart, each cart over two hoppers (a cart at a cell edge, x=0.01 or 0.99, straddles two cells, and both hoppers below pull from it: 5/s per chest). Chest A at (0,4,1) over a cart at (0,3,1) feeding (0,2,1) and (-1,2,1) -> (-1,1,1). Chest B at (-3,4,0) over a cart at (-3,3,0) straddling z, feeding two hopper lines at y=0 east into Y1's west and north faces.
+- Two chests, not three, so the drain is balanced: with three chests the judge puts 27 stacks in each, the cart chest empties first and the rate falls back to 7.5/s. With two the judge tops them up from the remaining budget and both run dry together.
+
+## dropper75, ground truth from its trace (2026-10-20)
+
+Read the real blocks out of designs/circuits/shulker/traces/shulker-speed-loader-dropper75.trace (line 2 is every cell with coordinates). ALWAYS read a design that way rather than parsing the layer grid: `to_text()` reassigns palette letters on every write, so letters do not match the caption.
+- Supply chains: chest a (0,3,1) -> (0,2,1) hopper west; chest b (1,3,1) -> (1,2,1) hopper west -> (0,2,1), so a and b MERGE; then (-1,2,1) down -> (-1,1,1) down -> (-1,0,1) north -> (-1,0,0) east -> Y1. Chest c (0,3,2) -> (0,2,2) down -> (0,1,2) north -> (0,1,1) north -> box, and (0,0,1) north pulls from (0,1,1) into Y1.
+- Measured: all three chests drain at the same rate (61 -> 39 items in 180 gt each, about 2.45/s), so the merge does not throttle them: a hopper moves one item in and one out per 8 gt, and (0,2,1) pulls from chest a while also receiving b's push. Total 7.4/s = 3 chests.
+- Free faces of the box (0,1,0): north (0,1,-1) read stone, south (0,1,1) feed hopper, west (-1,1,0) pushed stone, east (1,1,0) drop cell, up (0,2,0) dispenser, down (0,0,0) Y1. The box is full.
+
+## 10/s loader: where the build stopped (2026-10-20)
+
+Plan unchanged: Y2 dropper at (0,1,1) facing north (replacing the feed hopper), Y1 at (0,0,0) unchanged.
+- Fire both with ONE pair of observers: a powered conductor under Y2 at (0,0,1) is adjacent to both Y1 and Y2, so an observer at (0,-1,1) facing down (watching the clock repeater (0,-2,1)) fires both. (0,0,1) must become stone, and nothing may pull out of Y2.
+- Second phase: an observer at (1,0,1) facing east or (-1,0,1) facing west, also outputting into (0,0,1), watching a delay-2 copy of the clock led to that cell at y=0.
+- Y2's feeds (needs 5/s): (0,2,1) hopper down and (-1,1,1) hopper east. Y1's feeds (needs 5/s): (-1,0,0) east and (0,0,-1) south, so the floor stone at (0,0,-1) becomes a hopper (a comparator may sit on a hopper).
+- Supply must be TWO item chests, each over a hopper minecart at a cell edge with two hoppers below it (5/s per chest): three chests give 7.5/s and, worse, the judge fills three chests with the whole 81-stack budget so nothing is ever topped up. With two chests, 54 stacks go in and 27 stay in the cursor, so the judge refills them as they drain.
+- Where it stopped: the dust columns carrying the two clock phases from y=-2 up to the Y2 observers need their own stone pillars, and my first attempts put dust on cells that already hold the clock. Build the second phase at y=0 (one level up only), not at y=1.
 
 ## Combo (loader + unloader, `port input.mode` lever): plan
 

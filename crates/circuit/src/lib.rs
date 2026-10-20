@@ -18,6 +18,8 @@ pub mod archive;
 pub mod bud;
 pub mod check;
 pub mod fly;
+pub mod pulsemult;
+pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;
@@ -25,6 +27,7 @@ pub mod stimulus;
 pub mod tnt;
 pub mod trace;
 pub mod verify;
+pub mod vibration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clock::{Action, Clock};
@@ -113,6 +116,19 @@ pub enum Kind {
     /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
     /// without one, every TNT block surviving (`tnt.rs`).
     TntDuperTriggered,
+    /// Study 11 ([`pulsemult`]): one input pulse gives exactly N output pulses (a pulse multiplier).
+    Burst(u32),
+    /// Study 11: a running clock divided by N (N >= 3; 2 is a T flip-flop).
+    Divider(u32),
+    /// Study 11: one output pulse of L per rising edge, its behaviour under a second edge measured
+    /// (`retriggerable` / `non-retriggerable`: the claim, when given).
+    Monostable(Option<String>),
+    /// Study 11: the output follows the input and stays on L more.
+    OffDelay,
+    /// Study 11: no output for inputs of T or less, input - T for longer ones (a pulse filter).
+    OnDelay,
+    /// Study 11: pulses every P gt while the input is on (a gated clock).
+    PulseTrain,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -186,8 +202,30 @@ impl Kind {
             "bud" => Kind::Bud,
             "tnt-duper" => Kind::TntDuper,
             "tnt-duper-triggered" => Kind::TntDuperTriggered,
+            "burst" => {
+                let n = num(1)?;
+                if n < 2 {
+                    bail!("circuit: burst {n}: a burst gives at least 2 pulses (1 is a rising-edge detector)");
+                }
+                Kind::Burst(n)
+            }
+            "divider" => {
+                let n = num(1)?;
+                if n < 3 {
+                    bail!("circuit: divider {n}: N >= 3 (a /2 divider is a T flip-flop: circuit: tff)");
+                }
+                Kind::Divider(n)
+            }
+            "monostable" => match w.get(1).copied() {
+                None => Kind::Monostable(None),
+                Some(c @ ("retriggerable" | "non-retriggerable")) => Kind::Monostable(Some(c.to_string())),
+                Some(c) => bail!("circuit: monostable {c:?}: the claim is retriggerable or non-retriggerable"),
+            },
+            "off-delay" => Kind::OffDelay,
+            "on-delay" => Kind::OnDelay,
+            "pulse-train" => Kind::PulseTrain,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train)"
             ),
         })
     }
@@ -220,6 +258,13 @@ impl Kind {
             Kind::Bud => "bud".into(),
             Kind::TntDuper => "tnt-duper".into(),
             Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
+            Kind::Burst(n) => format!("burst {n}"),
+            Kind::Divider(n) => format!("divider {n}"),
+            Kind::Monostable(None) => "monostable".into(),
+            Kind::Monostable(Some(c)) => format!("monostable {c}"),
+            Kind::OffDelay => "off-delay".into(),
+            Kind::OnDelay => "on-delay".into(),
+            Kind::PulseTrain => "pulse-train".into(),
         }
     }
 
@@ -236,6 +281,7 @@ impl Kind {
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
+            Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
         }
     }
 
@@ -296,7 +342,8 @@ pub struct Circuit {
     /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
     /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
     pub stores: Vec<Store>,
-    /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
+    /// `tile: dx dy dz [copies]` (shulker and study-11 kinds): the design repeats every (dx, dy,
+    /// dz) blocks.
     pub tile: Option<Tile>,
     /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
@@ -305,12 +352,66 @@ pub struct Circuit {
     pub bud_claims: Vec<String>,
 }
 
-/// A shulker design's `tile:` header: the judge builds `copies` (default 3) side by side along
-/// `step`, each copy with its own judge chests, and judges each copy (badge `tileable`).
+/// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
+/// ([`tiled`]) and judges each copy on its own: a shulker loader with its own judge chests (badge
+/// `tileable`), a study-11 kind against its own input, the copies' stimuli shifted
+/// ([`pulsemult::TILE_SHIFTS`]: 7 gt apart, then in phase; metric `tile`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Tile {
     pub step: Pos,
     pub copies: u32,
+}
+
+/// A tiled design ([`Tile`]): `copies` copies along the step, copy k's ports renamed `<port>.t<k>`
+/// (copy 0 keeps its names), as one circuit the runner judges copy by copy. Copies that overlap,
+/// or a port landing on another copy, are refused.
+pub fn tiled(c: &Circuit) -> Result<Circuit> {
+    let t = c.tile.ok_or_else(|| anyhow!("{}: no `tile:` header", c.name()))?;
+    let base = c.clock.design.clone();
+    let mut d = base.clone();
+    d.meta.remove("tile");
+    d.meta.insert("tiled".into(), t.copies.to_string());
+    for k in 1..t.copies as i32 {
+        let off = [t.step[0] * k, t.step[1] * k, t.step[2] * k];
+        let sh = |p: &Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
+        for (p, s) in &base.blocks {
+            let q = sh(p);
+            if let Some(o) = d.blocks.get(&q) {
+                bail!("tile: copy {k} puts {} on {} at {q:?} (the copies overlap)", clock::short(s), clock::short(o));
+            }
+            d.blocks.insert(q, s.clone());
+        }
+        for (p, s) in &base.block_entities {
+            d.block_entities.insert(sh(p), s.clone());
+        }
+        for e in &base.entities {
+            let mut e2 = e.clone();
+            for i in 0..3 {
+                e2.pos[i] += off[i] as f64;
+            }
+            d.entities.push(e2);
+        }
+        for (name, p) in &base.ports {
+            let q = sh(p);
+            // a port on the design's own block (a BUD's reset input) sits on its copy's block
+            let own = base.blocks.contains_key(p);
+            if (d.blocks.contains_key(&q) && !own) || d.ports.values().any(|x| *x == q) {
+                bail!("tile: copy {k}'s port {name} at {q:?} lands on the other copies");
+            }
+            let renamed = format!("{name}.t{k}");
+            if let Some(args) = base.meta.get(&format!("port {name}")) {
+                d.meta.insert(format!("port {renamed}"), args.clone());
+            }
+            d.ports.insert(renamed, q);
+        }
+    }
+    // copy 0's ports must not land on the other copies' blocks either
+    for (name, p) in &base.ports {
+        if !base.blocks.contains_key(p) && d.blocks.contains_key(p) {
+            bail!("tile: port {name} at {p:?} is covered by another copy");
+        }
+    }
+    Circuit::from_design(d)
 }
 
 /// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
@@ -443,6 +544,8 @@ impl Circuit {
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
+                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
+                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -479,8 +582,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() {
-            bail!("tile: only shulker loaders and unloaders are tiled");
+        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
+            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
         }
         Ok(())
     }
@@ -565,8 +668,12 @@ impl Circuit {
 
     /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
     /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    /// TNT dupers explode by default (vjeux 2026-10-20: "this will blow up the machine"): the
+    /// game run lets every primed TNT explode and the design must survive; `explode: off` turns
+    /// that off for analysis only (such a design is not archived as a duper that works).
     pub fn explodes(&self) -> bool {
-        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
+        let tnt = matches!(self.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
+        tnt && self.clock.design.meta.get("explode").is_none_or(|v| v.trim() != "off")
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
@@ -698,17 +805,41 @@ impl Circuit {
                     Some(p) => *p,
                     None => continue,
                 },
+                stimulus::EventAt::Input(i) => match self.inputs.get(*i) {
+                    Some(inp) => inp.pos,
+                    None => continue,
+                },
+                stimulus::EventAt::Cell(p) => *p,
             };
             let a = match op {
                 stimulus::TargetOp::Place(st) => Action::Place { pos, state: st.clone(), nbt: None },
                 stimulus::TargetOp::Clear => Action::Clear { pos },
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
+                stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
             };
             v.push((*t, a));
         }
         v.sort_by_key(|(t, _)| *t);
         v
+    }
+
+    /// Whether the design holds a sculk sensor (plain or calibrated): it hears game events, so
+    /// the judge adds the vibration test ([`vibration`]).
+    pub fn has_sculk(&self) -> bool {
+        self.clock.design.blocks.values().any(|s| s.contains("sculk_sensor"))
+    }
+
+    /// The design declares that its input arrives by a line from beyond any sensor's reach
+    /// (`input-device: far`): the vibration test emits no input-device events.
+    pub fn input_far(&self) -> bool {
+        self.clock.design.meta.get("input-device").is_some_and(|v| v.trim() == "far")
+    }
+
+    /// The design claims it is vibration-proof (`vibration: proof`): the vibration test refuses it
+    /// when ambient game events change it ([`vibration`]).
+    pub fn claims_vibration_proof(&self) -> bool {
+        self.clock.design.meta.get("vibration").is_some_and(|v| v.trim() == "proof")
     }
 
     /// The air cells next to the design (face neighbors of its blocks) that are no port of it, in
