@@ -18,6 +18,7 @@ pub mod archive;
 pub mod bud;
 pub mod check;
 pub mod fly;
+pub mod pulsemult;
 pub mod run;
 pub mod seq;
 pub mod shulker;
@@ -113,6 +114,19 @@ pub enum Kind {
     /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
     /// without one, every TNT block surviving (`tnt.rs`).
     TntDuperTriggered,
+    /// Study 11 ([`pulsemult`]): one input pulse gives exactly N output pulses (a pulse multiplier).
+    Burst(u32),
+    /// Study 11: a running clock divided by N (N >= 3; 2 is a T flip-flop).
+    Divider(u32),
+    /// Study 11: one output pulse of L per rising edge, its behaviour under a second edge measured
+    /// (`retriggerable` / `non-retriggerable`: the claim, when given).
+    Monostable(Option<String>),
+    /// Study 11: the output follows the input and stays on L more.
+    OffDelay,
+    /// Study 11: no output for inputs of T or less, input - T for longer ones (a pulse filter).
+    OnDelay,
+    /// Study 11: pulses every P gt while the input is on (a gated clock).
+    PulseTrain,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -186,8 +200,30 @@ impl Kind {
             "bud" => Kind::Bud,
             "tnt-duper" => Kind::TntDuper,
             "tnt-duper-triggered" => Kind::TntDuperTriggered,
+            "burst" => {
+                let n = num(1)?;
+                if n < 2 {
+                    bail!("circuit: burst {n}: a burst gives at least 2 pulses (1 is a rising-edge detector)");
+                }
+                Kind::Burst(n)
+            }
+            "divider" => {
+                let n = num(1)?;
+                if n < 3 {
+                    bail!("circuit: divider {n}: N >= 3 (a /2 divider is a T flip-flop: circuit: tff)");
+                }
+                Kind::Divider(n)
+            }
+            "monostable" => match w.get(1).copied() {
+                None => Kind::Monostable(None),
+                Some(c @ ("retriggerable" | "non-retriggerable")) => Kind::Monostable(Some(c.to_string())),
+                Some(c) => bail!("circuit: monostable {c:?}: the claim is retriggerable or non-retriggerable"),
+            },
+            "off-delay" => Kind::OffDelay,
+            "on-delay" => Kind::OnDelay,
+            "pulse-train" => Kind::PulseTrain,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train)"
             ),
         })
     }
@@ -220,6 +256,13 @@ impl Kind {
             Kind::Bud => "bud".into(),
             Kind::TntDuper => "tnt-duper".into(),
             Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
+            Kind::Burst(n) => format!("burst {n}"),
+            Kind::Divider(n) => format!("divider {n}"),
+            Kind::Monostable(None) => "monostable".into(),
+            Kind::Monostable(Some(c)) => format!("monostable {c}"),
+            Kind::OffDelay => "off-delay".into(),
+            Kind::OnDelay => "on-delay".into(),
+            Kind::PulseTrain => "pulse-train".into(),
         }
     }
 
@@ -236,6 +279,7 @@ impl Kind {
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
+            Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
         }
     }
 

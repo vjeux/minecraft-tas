@@ -19,6 +19,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
+| 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -358,6 +359,40 @@ kick) before the first input.
   `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
+* **Study 11 timers** ([crate::pulsemult](../crates/circuit/src/pulsemult.rs); what earlier studies
+  already judge and why each kind is new: [designs/circuits/pulsemult/VARIATIONS.md](../designs/circuits/pulsemult/VARIATIONS.md)):
+  one input, a judge-placed block or a lever (a button cannot give the judge's lengths), one output,
+  off at rest (dividers excepted: they hold a state). Every input is followed by the gap; the output
+  must be back off at the end of every gap.
+  * `burst N` (N >= 2): input pulses of 1, 2, 3, 4, 6, 10, 20, 40 gt: every input from the min-pulse
+    up (the 3 longest at least) gives exactly N output pulses. Then pairs of 4 gt inputs 5..160 gt
+    apart: a second input inside the burst's span is `ignores` (N pulses in all), `adds` (2N),
+    `restarts` (between), `breaks` (other) or `mixed` over the delays; then trains of 6 inputs every
+    40..4 gt: `repeat` is the fastest period from which every slower train gives exactly 6N (the
+    xN frequency multiplier). Metrics: N (axis), pulse and period (output lengths and rising-edge
+    spacing, min-max over the handled inputs), latency, span, min-pulse, retrigger, repeat; the flag
+    `even` when every pulse and every spacing is the same.
+  * `divider N` (N >= 3; /2 is `tff`): square clocks of periods 40, 30, 20, 16, 12, 10, 8, 6, 5, 4,
+    3, 2 gt, each N warm-up periods + 4N, then the gap: the output must repeat with period exactly
+    N x P with 4 rises in the 4N periods. Metrics at 40 gt: duty, `square` (on half the time, to
+    1 gt) or `pulse (<on> gt)`, latency (input rise -> output rise); `min-period`: the fastest clock
+    from which every slower one divides. A counter of slow pulses is study 5's `counter N`.
+  * `monostable [retriggerable | non-retriggerable]`: isolated pulses of 1..40 gt give one pulse of
+    L at one delay from the min-pulse up (as `rising-edge`); then pairs of 4 gt inputs whose second
+    rising edge comes d = 5..160 gt after the first: while d < L a `non-retriggerable` one gives one
+    pulse of exactly L, a `retriggerable` one a pulse ending L after the second edge; any other
+    shape, or a class that changes with d, fails (L >= 6 to be tested). `re-arm`: the smallest d
+    from which every pair gives two full pulses. Axis `L = <L> <class>`.
+  * `off-delay`: isolated pulses of 1..80 gt: one output pulse at a fixed latency, the input's
+    length + L (L >= 1); 3-pulse trains of 4 gt inputs with gaps of 1..32 gt: gaps shorter than L
+    give one pulse ending L after the last fall, longer ones three pulses. A repeater ORed with the
+    input fails: it holds one pending tick, so it ends L after the second input of a close train.
+  * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
+    be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
+    input's fall for every input from T up. Metrics T (axis), shortening, latency.
+  * `pulse-train` (a gated clock): the input held 20, 60, 200 gt: output pulses every P gt while it
+    is on, the first at the same latency each time, none starting more than P after the release.
+    Metrics P (axis), pulse, latency, stop (release -> the output's last fall).
 
 ## Archive and catalog
 
