@@ -55,9 +55,21 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
     }
     let header = format!("http.extraHeader=Authorization: Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("vjeux:{token}")));
     let refspec = format!("+{commit}:refs/heads/{}", a.branch);
-    let o = Command::new("git").args(["-c", &header, "push", &a.remote, &refspec]).output()?;
-    if !o.status.success() {
-        bail!("push failed: {}", String::from_utf8_lossy(&o.stderr).trim());
+    // GitHub sometimes rejects a large push once ("remote rejected ... (failed)"): retry
+    let mut last = String::new();
+    let mut pushed = false;
+    for attempt in 1..=3 {
+        let o = Command::new("git").args(["-c", &header, "push", &a.remote, &refspec]).output()?;
+        if o.status.success() {
+            pushed = true;
+            break;
+        }
+        last = String::from_utf8_lossy(&o.stderr).trim().to_string();
+        eprintln!("push attempt {attempt} failed: {}", last.lines().last().unwrap_or(""));
+        std::thread::sleep(std::time::Duration::from_secs(5));
+    }
+    if !pushed {
+        bail!("push failed: {last}");
     }
     println!("pushed {} to {} {}", commit, a.remote, a.branch);
     if a.enable_pages {

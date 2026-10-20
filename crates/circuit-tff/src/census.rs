@@ -47,6 +47,14 @@ pub struct Census {
     pub margin: i32,
 }
 
+/// One candidate's run: per output cell its rest state, on/off change frames and samples.
+struct Traced {
+    cells: Vec<BlockPos>,
+    rest: Vec<bool>,
+    changes: Vec<Vec<u32>>,
+    samples: Vec<Vec<u8>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Found {
     pub blocks: Vec<(BlockPos, Block)>,
@@ -115,29 +123,53 @@ fn bounds(cells: impl Iterator<Item = BlockPos>, g: i32) -> (BlockPos, BlockPos)
 
 impl Census {
     /// The world box for any candidate (every free cell, fixed block and input, plus margin).
-    fn world_box(&self) -> (BlockPos, [i32; 3]) {
-        let (lo, hi) = bounds(self.free.iter().chain(self.inputs.iter()).copied().chain(self.fixed.iter().map(|(p, _)| *p)), self.margin);
+    fn world_box(&self, blocks: &[(BlockPos, Block)]) -> (BlockPos, [i32; 3]) {
+        let (lo, hi) = bounds(self.free.iter().chain(self.inputs.iter()).copied().chain(self.fixed.iter().map(|(p, _)| *p)).chain(blocks.iter().map(|(p, _)| *p)), self.margin);
         (lo, [hi.x - lo.x + 1, hi.y - lo.y + 1, hi.z - lo.z + 1])
     }
 
     /// Run one candidate: per output cell, its score, or None (not placeable, a clock, no
     /// reaction).
     pub fn simulate(&self, blocks: &[(BlockPos, Block)], be: &[(BlockPos, String)], spec: &dyn Spec) -> Option<Vec<(BlockPos, u32)>> {
-        let (min, size) = self.world_box();
+        let tr = self.trace_cells(blocks, be, spec).ok()?;
+        let mut out = Vec::new();
+        for (i, p) in tr.cells.iter().enumerate() {
+            if let Some(s) = spec.judge(tr.rest[i], &tr.changes[i], &tr.samples[i]) {
+                out.push((*p, s));
+            }
+        }
+        if out.is_empty() { None } else { Some(out) }
+    }
+
+    /// [`Census::simulate`] for one design, every output cell described (`circuit memory check`).
+    pub fn simulate_debug(&self, blocks: &[(BlockPos, Block)], be: &[(BlockPos, String)], spec: &dyn Spec) -> Result<Vec<String>, String> {
+        let tr = self.trace_cells(blocks, be, spec).map_err(|e| e.to_string())?;
+        Ok(tr
+            .cells
+            .iter()
+            .enumerate()
+            .map(|(i, p)| format!("{},{},{}: rest {}, changes {:?}, samples {:?}: {:?}", p.x, p.y, p.z, if tr.rest[i] { "on" } else { "off" }, tr.changes[i], tr.samples[i], spec.judge(tr.rest[i], &tr.changes[i], &tr.samples[i])))
+            .collect())
+    }
+
+    /// The run behind [`Census::simulate`]: per output cell its rest state, change frames and
+    /// samples, or why the candidate is dropped.
+    fn trace_cells(&self, blocks: &[(BlockPos, Block)], be: &[(BlockPos, String)], spec: &dyn Spec) -> Result<Traced, &'static str> {
+        let (min, size) = self.world_box(blocks);
         let mut w = World::new(min, size);
         w.place_raw(blocks);
         let lines = self.fixed_be.iter().chain(be.iter()).filter(|(p, _)| blocks.iter().any(|(q, _)| q == p));
         if redsim::redstone::container::apply_block_entities(&mut w, lines.map(|(p, s)| (*p, s.as_str()))).is_err() {
-            return None;
+            return Err("nbt not modeled");
         }
         w.place_updates(blocks);
         if !w.drops.is_empty() || !w.errors.is_empty() {
-            return None;
+            return Err("a drop or a model error at placement");
         }
         for (p, _) in blocks {
             let b = w.get(*p);
             if !can_survive(&w, &b, *p) {
-                return None;
+                return Err("an unsupported block");
             }
         }
         let cells: Vec<BlockPos> = match &self.outputs {
@@ -183,14 +215,14 @@ impl Census {
                 // redstone block stays put while on (nothing pushes it or moves into the cell)
                 let ok = if e.on { w.get(pos) == Block::Air } else { w.get(pos) == Block::RedstoneBlock };
                 if !ok {
-                    return None;
+                    return Err("the input cell was not air (or the input block moved)");
                 }
                 w.set_block(pos, if e.on { Block::RedstoneBlock } else { Block::Air }, flags::ALL);
                 dirty = true;
                 k += 1;
             }
             if !w.drops.is_empty() || !w.errors.is_empty() {
-                return None;
+                return Err("a drop or a model error");
             }
             let need_levels = t + 1 >= from || sample_at.get(si) == Some(&t);
             if need_levels && dirty {
@@ -201,7 +233,7 @@ impl Census {
             if t + 1 >= from {
                 if t + 1 == from && self.inputs.iter().any(|p| w.get(*p) != Block::Air) {
                     // something moved into an input cell during the settle
-                    return None;
+                    return Err("something moved into an input cell");
                 }
                 for i in 0..cells.len() {
                     let on = lv[i] > 0;
@@ -214,11 +246,11 @@ impl Census {
                 }
                 if t + 1 == from && (w.ticks.count() > 0 || w.piston.live_count() > 0) {
                     // still running at rest: a clock or a slow settle
-                    return None;
+                    return Err("still running at rest");
                 }
             }
             if t == react && changes.iter().all(|c| c.is_empty()) {
-                return None;
+                return Err("no reaction");
             }
             while si < sample_at.len() && sample_at[si] == t {
                 for i in 0..cells.len() {
@@ -229,13 +261,7 @@ impl Census {
             dirty = self_ticking || w.ticks.count() > 0 || w.piston.live_count() > 0 || !w.events.is_empty() || !need_levels;
             w.tick();
         }
-        let mut out = Vec::new();
-        for (i, p) in cells.iter().enumerate() {
-            if let Some(s) = spec.judge(rest[i], &changes[i], &samples[i]) {
-                out.push((*p, s));
-            }
-        }
-        if out.is_empty() { None } else { Some(out) }
+        Ok(Traced { cells, rest, changes, samples })
     }
 
     /// The best output of a candidate: an air cell first (it is not counted), then the lowest
@@ -277,16 +303,26 @@ impl Census {
             let judged = AtomicUsize::new(0);
             let start = std::time::Instant::now();
             let before = found.lock().unwrap().len();
+            // work items: (cell set, the first two cells' states) so the threads stay busy
+            let p = self.palette.len();
+            let pre = k.min(2);
+            let per: usize = p.pow(pre as u32);
+            let items = subs.len() * per;
             std::thread::scope(|sc| {
                 for _ in 0..self.jobs.max(1) {
                     sc.spawn(|| {
                         loop {
                             let i = next.fetch_add(1, Ordering::Relaxed);
-                            if i >= subs.len() {
+                            if i >= items {
                                 break;
                             }
-                            let cells: Vec<BlockPos> = subs[i].iter().map(|&j| self.free[j]).collect();
+                            let (si, mut code) = (i / per, i % per);
+                            let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
                             let mut assign: Vec<usize> = Vec::with_capacity(k);
+                            for _ in 0..pre {
+                                assign.push(code % p);
+                                code /= p;
+                            }
                             self.dfs(&cells, &mut assign, spec, &found, &judged);
                         }
                     });
@@ -316,10 +352,14 @@ impl Census {
             }
             judged.fetch_add(1, Ordering::Relaxed);
             let Some(outs) = self.simulate(&blocks, &be, spec) else { return };
-            // irreducible: no single free block can go
+            let (output, score) = self.best(&blocks, &outs);
+            // irreducible: no single free block can go with the same class of result (score /
+            // 1000: a counter's style, a latch's polarity)
             for i in 0..cells.len() {
                 let fewer: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| *p != cells[i]).copied().collect();
-                if self.simulate(&fewer, &be, spec).is_some() {
+                if let Some(o2) = self.simulate(&fewer, &be, spec)
+                    && o2.iter().any(|(_, s)| s / 1000 == score / 1000)
+                {
                     return;
                 }
             }
@@ -332,7 +372,6 @@ impl Census {
                 v.sort();
                 key.push_str(&format!("|{}", v.join(";")));
             }
-            let (output, score) = self.best(&blocks, &outs);
             let mut f = found.lock().unwrap();
             let better = match f.get(&key) {
                 None => true,

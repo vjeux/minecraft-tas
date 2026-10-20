@@ -1,0 +1,27 @@
+# archived 2026-10-19T23:56Z from designs/circuits/tracks/pulse/limiter-u/pulse-limiter-u-L22.txt by mctas circuit archive
+# CIRCUIT: pulse-limiter-u-L22 pulse-limiter L 22 gt, delay 2 gt, min-pulse 2 gt, 14 blocks, 2x2x4, robust
+name: pulse-limiter-u-L22
+# A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to 22 gt; it outputs rear - side, so every input pulse is cut to 22 gt (generator: mctas circuit pulse family limiter-for --l 22).
+circuit: pulse-limiter
+origin: 0 0 -1
+port input: 0 1 0
+port output: 2 1 0
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  W minecraft:redstone_wire
+  a minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  b minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  c minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+layer 0:
+  ...
+  .S.
+  SS.
+  SS.
+  SS.
+layer 1:
+  ...
+  .C.
+  ab.
+  ac.
+  WW.

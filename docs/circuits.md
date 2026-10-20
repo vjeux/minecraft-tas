@@ -62,10 +62,14 @@ the game turns every block state, the ports and `travel` turn with it), each in 
 placed exactly like `clock verify` places a clock (raw writes, a shape update of every wire, a
 `self` update of every block), runs the kind's stimulus and records every gt: each input's state
 read from its cell, each output's level, every non-air cell of the watched box (the circuit's box
-plus a 3-cell margin; swept along `travel` for machines). A build fails when anything reaches the
+plus a 3-cell margin; swept along `travel` for machines). A build fails when a design block cannot
+stand where it is (the placement removes a floating dust; a floating lever, torch or repeater
+fails `canSurvive`: a player could not build it), when anything reaches the
 outer layer of the watched box, when an entity appears (a drop, a popped block), or when the
-kind's checker says so. All builds passing with the same metrics: `robust`; passing with
-different metrics: `position-dependent` / `rotation-dependent` (allowed, flagged). One line:
+kind's checker says so. All builds passing with the same metrics: `robust`; builds that
+disagree, with other metrics or failing (as for clocks): `position-dependent` /
+`rotation-dependent` (allowed, flagged; the archive row notes how many builds fail and why, e.g. a
+flying machine that flies east-west only). No build passing: `FAIL`. One line:
 
 `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD>, robust` or `FAIL: <name> <kind>: <why>`.
 
@@ -78,7 +82,9 @@ kick) before the first input.
 
 ### What each kind is judged on
 
-* **Pulse circuits**: one input pulse of each length 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40 gt
+* **Pulse circuits**: one input pulse of each length 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40 gt,
+  then 60, 80, 120, 160, 240, 320, 480... gt up to twice the gap (the gap is the recovery time, so
+  a long limiter's or extender's L is exceeded by the longest input)
   (a button: 3 presses), each followed by the gap. The output must be off at rest and back off
   at the end of every gap. Per input pulse, the output pulses (delay from the input's edge,
   length):
@@ -93,7 +99,8 @@ kick) before the first input.
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses
   (half on, half off) at periods 30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2 gt (C). Every A pulse must
-  change the output exactly once (steady until the next). `latency`: input edge to output change;
+  change the output exactly once (steady until the next), and so must every longer pulse (a lever
+  held down). `latency`: input edge to output change;
   `edge`: rising when the change keeps its offset as the pulse lengthens, falling when it moves
   with the falling edge; `min-pulse`: the shortest pulse from which every longer one toggles;
   `min-period`: the fastest train period from which every slower one gives exactly 6 changes and a
@@ -142,8 +149,13 @@ kick) before the first input.
 axis value, metrics, blocks, box, family = the kinds of the blocks whose state changes,
 robustness, block kinds, type key) and its caption in `captions.tsv` (default: the design's first
 comment block). Refused: a failing design, or a structure already archived as the same kind (the
-TYPE: up to translation, the 4 rotations and the mirror image, input cells marked whatever drives
-them, output and payload cells marked: `same type as <file>`). A name taken by another structure
+TYPE: up to translation, the 4 rotations and the mirror image, input cells marked with their
+device (a lever, a stone or wooden button, the judge's redstone block: their timings differ; not
+their facing), output and payload cells marked, after the swaps that keep the run identical on redsim under
+the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
+stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
+study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
+without stone"); the catalog shows them as "also found as". A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches the kind, `counter N`, extenders `N = <N>`,
 flying machines their speed (or `two-way`).
@@ -157,7 +169,18 @@ a smaller one, plus others, is its variant, listed under it with the kinds it ad
 (study, kind, axis, name, path, metrics, blocks, box, family, robustness, variant_of, caption): the
 data the website renders.
 
-Extendable families (`extend` headers, cards with groups, as for clocks) come next.
+**Extendable families** use the clock `extend` headers ([clocks.md](clocks.md#extendable-clocks-extend-headers-vjeux-2026-10-19)) with
+`extend axis:` for the formula of the study's axis value in n (L, N, the reach; `extend period:`
+is read the same), e.g. track pulse's `extend family: limiter-u`, `extend axis: 4 + 4n`, `extend
+blocks: 10 + 4n`, `extend generator: mctas circuit pulse family limiter-u --n {n} --out {out}`,
+and the same `extend group` headers. `circuit archive` of a family base judges n = low, low+1,
+low+2, the middle and the high end in the game (built with the generator; each must pass with the
+formulas' axis value and block count) and records them in `extend.tsv`; the catalog shows one
+card per family (or group) at the top of the study page (the formula as the heading, the two
+smallest members' value and size, the rule, the n range and the judged n), its members leave the
+value tables, and `designs/circuits/families.tsv` lists the families for the website.
+`mctas circuit gen repeater-line --n N --out F` is the judge's own calibration family (n + 1
+delay-1 repeaters: N = 2 + 2n gt).
 
 ## Commands
 

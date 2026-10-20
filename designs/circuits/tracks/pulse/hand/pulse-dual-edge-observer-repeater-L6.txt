@@ -1,0 +1,17 @@
+name: pulse-dual-edge-observer-repeater-L6
+circuit: dual-edge
+# An observer watching the input fires a 2 gt pulse 2 gt after each edge; the delay-3 repeater it
+# feeds (on a stone block) stretches every pulse to 6 gt (6 gt more delay).
+origin: 0 0 0
+port input: 0 1 2
+port output: 0 1 -1
+palette:
+  S minecraft:stone
+  R minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
+  O minecraft:observer[facing=south,powered=false]
+layer 0:
+  S
+  .
+layer 1:
+  R
+  O

@@ -1,0 +1,46 @@
+# archived 2026-10-20T00:04Z from designs/circuits/pext/work/n3-rider-v1.txt by mctas circuit archive
+# CIRCUIT: pext-n3-rider-v1 piston-extender 3 N 3, extend 24 gt, retract 24 gt, 31 blocks, 8x5x3, robust
+# N=3 rider, fully wired (first working version, not minimized). A (lever on its back) pushes a
+# 5-slime row carrying B, C and the payload (latched at their extended spots). After each landing
+# the inner train C B C: C1 = two observers hanging under the frame (landing burst into S1/S2);
+# B = observer chain from the lever (P2 pulses x=2 at t12, P3 x=3 at t14); C2 = the chain climbs
+# (V1, a dust line, Z) to X5 (pulses x=5 at t18) and U (2 gt later, through a stone into x=3).
+name: pext-n3-rider-v1
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 0 lever
+port payload: 4 2 0
+palette:
+  L minecraft:lever[face=wall,facing=west]
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  B minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  O minecraft:observer[facing=down]
+  N minecraft:observer[facing=north]
+  W minecraft:observer[facing=west]
+  s minecraft:observer[facing=south]
+  E minecraft:observer[facing=east]
+  U minecraft:observer[facing=up]
+  K minecraft:stone
+  r minecraft:redstone_wire
+layer 0:
+  ...OO
+  .....
+  .....
+layer 1:
+  LASSSSS
+  N......
+  NWW....
+layer 2:
+  ..BBG
+  ..ss.
+  ..OW.
+layer 3:
+  ...KEU
+  .....K
+  ...OKK
+layer 4:
+  .....s
+  .....r
+  ...rrr

@@ -60,7 +60,9 @@ pub enum CircuitCmd {
     },
     /// Judge designs in the real game and keep the passing ones in their study's archive
     /// (designs/circuits/<study>/archive/: the design with its judge line, a verdict row, a
-    /// caption); a structure already archived as the same kind is refused.
+    /// caption); a structure already archived as the same kind is refused. `--dedupe` (no
+    /// designs, no game): keep one design per kind and type in every study, the others listed in
+    /// aliases.tsv.
     Archive {
         designs: Vec<PathBuf>,
         /// The caption (default: the design's first comment block).
@@ -72,12 +74,23 @@ pub enum CircuitCmd {
         positions: usize,
         #[arg(long, default_value_t = 8)]
         workers: usize,
+        #[arg(long)]
+        dedupe: bool,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
     Catalog {
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
+    },
+    /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
+    /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
+    Gen {
+        family: String,
+        #[arg(long)]
+        n: i64,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
@@ -190,13 +203,24 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
                     }
                 }
+                if !rep.note.is_empty() {
+                    println!("  {}", rep.note);
+                }
                 println!("{}", rep.summary(&c));
             }
             if failed > 0 {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe } => {
+            if dedupe {
+                for l in circuit::archive::dedupe(&root)? {
+                    println!("{l}");
+                }
+                if designs.is_empty() {
+                    return Ok(());
+                }
+            }
             let o = Options { positions, workers, version: version.to_string(), ..Default::default() };
             let pool = circuit::verify::spawn_pool(&o)?;
             for p in &designs {
@@ -211,6 +235,20 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{l}");
             }
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
+        }
+        CircuitCmd::Gen { family, n, out } => {
+            if family != "repeater-line" {
+                anyhow::bail!("unknown family {family:?} (repeater-line)");
+            }
+            let k = (n + 1).max(1) as usize;
+            let text = format!(
+                "name: cal-repeater-line-n{n}\ncircuit: delay\n# n + 1 delay-1 repeaters in a row on stone: a delay line of N = 2 + 2n gt.\nextend family: cal-repeater-line\nextend axis: 2 + 2n\nextend blocks: 2 + 2n\nextend rule: one more repeater (and its stone) at the end of the line\nextend n: 0..8\nextend base: {n}\nextend generator: mctas circuit gen repeater-line --n {{n}} --out {{out}}\nport input: 0 1 0\nport output: {} 1 0\npalette:\n  S minecraft:stone\n  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]\nlayer 0:\n  .{}\nlayer 1:\n  .{}\n",
+                k + 1,
+                "S".repeat(k),
+                "r".repeat(k)
+            );
+            std::fs::write(&out, text)?;
+            println!("{}", out.display());
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,

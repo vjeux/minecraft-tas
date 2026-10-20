@@ -5,7 +5,11 @@
 //! and steady-state tracking, shared by both runners), [`report`] (the verdict), [`sim`] (redsim
 //! runner).
 
+pub mod census;
+pub mod ident;
 pub mod machine;
+pub mod orient;
+pub mod prep;
 pub mod report;
 pub mod sim;
 pub mod track;
@@ -65,9 +69,73 @@ enum Cmd {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// Exhaustive census on redsim: every face-connected filling of the box with kmin..=k blocks
+    /// of the palette (one per rotation class), kicked once per observer; writes DIR/found.tsv and
+    /// one design per type to DIR/designs/.
+    Census {
+        /// Box AxBxC (x, y, z), or several: 4x2x1,2x2x2.
+        #[arg(long = "box")]
+        dims: String,
+        #[arg(long)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        kmin: usize,
+        /// Palette shorthands (clock census names) or block states.
+        #[arg(long, default_value = "slime,honey,stone,observer,piston,sticky")]
+        palette: String,
+        #[arg(long, default_value_t = 3)]
+        max_pistons: usize,
+        #[arg(long, default_value_t = 3)]
+        max_observers: usize,
+        #[arg(long, default_value_t = 160)]
+        horizon: u32,
+        #[arg(long, default_value_t = 6)]
+        margin: i32,
+        #[arg(long, default_value_t = 96)]
+        workers: usize,
+        /// Keep observers whose output feeds nothing.
+        #[arg(long)]
+        loose: bool,
+        #[arg(long)]
+        out: PathBuf,
+        /// Split the work into this many child processes (each `--workers` threads).
+        #[arg(long, default_value_t = 1)]
+        procs: usize,
+        /// (internal) this process's share: k/n.
+        #[arg(long)]
+        shard: Option<String>,
+    },
+    /// Type identity on redsim (normal form by verified block swaps, then rotation + mirror),
+    /// the dominance fold (a design with more blocks whose kinds include a smaller design's of the
+    /// same kind and speed is a variant): one line per design, hosts first. `--copy-hosts DIR`
+    /// copies one design per host type there.
+    Types {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long)]
+        copy_hosts: Option<PathBuf>,
+    },
+    /// Get census finds ready for the archive: a readable name (fly-<class>-<blocks>b-<speed>gt-
+    /// <type hash>) and a caption (what faces where) as the first comment block, written to DIR;
+    /// then `mctas circuit archive` keeps them.
+    Prep {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Every one of the 24 orientations of each design on redsim (tilted to fly up or down,
+    /// rolled about the travel axis): one line per orientation that flies; `--out-dir` writes the
+    /// first design of each new class (up, down, horizontal) found.
+    Orient {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
+    let argv: Vec<String> = args.clone();
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit fly".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
         Cmd::Sim { designs, horizon, distance, margin, trace, visits } => {
@@ -116,6 +184,135 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 std::process::exit(1);
             }
         }
+        Cmd::Census { dims, k, kmin, palette, max_pistons, max_observers, horizon, margin, workers, loose, out, procs, shard } => {
+            let mut boxes: Vec<[i32; 3]> = Vec::new();
+            for b in dims.split(',') {
+                let d: Vec<i32> = b.split('x').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--box AxBxC[,AxBxC...]: {e}"))?;
+                if d.len() != 3 {
+                    bail!("--box AxBxC[,AxBxC...]");
+                }
+                boxes.push([d[0], d[1], d[2]]);
+            }
+            let shard = match shard {
+                Some(s) => {
+                    let (a, b) = s.split_once('/').ok_or_else(|| anyhow::anyhow!("--shard k/n"))?;
+                    (a.parse::<usize>()?, b.parse::<usize>()?)
+                }
+                None => (0, 1),
+            };
+            let o = census::CensusOptions { dims: boxes[0], k, kmin, palette: clock::census::expand_palette(&palette)?, max_pistons, max_observers, horizon, margin, workers, out, loose, shard, procs };
+            census::run_census(&o, &boxes, &argv)?;
+        }
+        Cmd::Types { designs, workers, copy_hosts } => types(&designs, workers, copy_hosts.as_deref())?,
+        Cmd::Prep { designs, out_dir } => {
+            std::fs::create_dir_all(&out_dir)?;
+            for p in &designs {
+                let text = std::fs::read_to_string(p)?;
+                let m = machine::Machine::parse(&text)?;
+                let (name, out) = prep::prep(&m, &text);
+                std::fs::write(out_dir.join(format!("{name}.txt")), out)?;
+                println!("{} -> {name}", p.display());
+            }
+        }
+        Cmd::Orient { designs, out_dir } => {
+            for p in &designs {
+                let m = machine::Machine::load(p)?;
+                let base = class_of(&sim::simulate(&m, &sim::SimOptions { distance: 16, ..Default::default() }));
+                let mut written: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+                written.insert(base.clone());
+                for o in orient::orient(&m) {
+                    let class = class_of(&o.report);
+                    if !matches!(o.report.verdict, report::Verdict::Flies | report::Verdict::Shuttles) {
+                        continue;
+                    }
+                    println!("{} o{}: {} {}", m.name(), o.index, class, o.report.speed_text());
+                    if let Some(dir) = &out_dir
+                        && written.insert(class.clone())
+                    {
+                        std::fs::create_dir_all(dir)?;
+                        let mut mm = o.machine.clone();
+                        mm.clock.design.name = format!("{}-o{}", m.name(), o.index);
+                        mm.travel = o.report.direction();
+                        if let Some(t) = mm.travel {
+                            mm.clock.design.meta.insert("travel".into(), format!("{} {} {}", t[0], t[1], t[2]));
+                        }
+                        std::fs::write(dir.join(format!("{}.txt", mm.name())), mm.to_text())?;
+                    }
+                }
+            }
+        }
     }
+    Ok(())
+}
+
+/// One design's identity facts.
+struct TypeRow {
+    path: PathBuf,
+    name: String,
+    blocks: usize,
+    kinds: std::collections::BTreeSet<String>,
+    class: String,
+    speed: String,
+    key: String,
+    swaps: Vec<String>,
+}
+
+/// The kind class of a run: `one-way +x`-style direction classes fold to horizontal / up / down.
+pub(crate) fn class_of(r: &report::FlyReport) -> String {
+    match (r.verdict, r.direction()) {
+        (report::Verdict::Flies, Some([_, 1, _])) => "up".into(),
+        (report::Verdict::Flies, Some([_, -1, _])) => "down".into(),
+        (report::Verdict::Flies, Some(_)) => "horizontal".into(),
+        (report::Verdict::Shuttles, _) => "two-way".into(),
+        (v, _) => v.word().to_lowercase(),
+    }
+}
+
+fn types(designs: &[PathBuf], workers: usize, copy_hosts: Option<&std::path::Path>) -> Result<()> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let rows: std::sync::Mutex<Vec<TypeRow>> = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..workers.max(1) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= designs.len() {
+                        break;
+                    }
+                    let Ok(m) = machine::Machine::load(&designs[i]) else { continue };
+                    let r = sim::simulate(&m, &sim::SimOptions { distance: 16, ..Default::default() });
+                    let (n, swaps) = ident::normalized(&m);
+                    let key = clock::canon::type_key(n.design().blocks.iter());
+                    rows.lock().unwrap().push(TypeRow { path: designs[i].clone(), name: m.name().to_string(), blocks: m.blocks(), kinds: n.clock.kinds(), class: class_of(&r), speed: r.speed_text(), key, swaps });
+                }
+            });
+        }
+    });
+    let mut rows = rows.into_inner().unwrap();
+    rows.sort_by(|a, b| (a.class.clone(), a.speed.clone(), a.blocks, a.name.clone()).cmp(&(b.class.clone(), b.speed.clone(), b.blocks, b.name.clone())));
+    // one row per type (the first = fewest blocks), then the dominance fold
+    let mut seen = std::collections::HashSet::new();
+    let uniq: Vec<&TypeRow> = rows.iter().filter(|r| seen.insert((r.class.clone(), r.speed.clone(), r.key.clone()))).collect();
+    let host_of = |r: &TypeRow| uniq.iter().find(|h| h.class == r.class && h.speed == r.speed && h.blocks < r.blocks && h.kinds.is_subset(&r.kinds)).map(|h| h.name.clone());
+    let mut hosts = 0;
+    for r in &uniq {
+        let host = host_of(r);
+        if host.is_none() {
+            hosts += 1;
+            if let Some(dir) = copy_hosts {
+                std::fs::create_dir_all(dir)?;
+                std::fs::copy(&r.path, dir.join(r.path.file_name().unwrap()))?;
+            }
+        }
+        let kinds = r.kinds.iter().cloned().collect::<Vec<_>>().join("+");
+        let h = {
+            use std::hash::{Hash, Hasher};
+            let mut hh = std::collections::hash_map::DefaultHasher::new();
+            r.key.hash(&mut hh);
+            hh.finish() & 0xffffff
+        };
+        println!("{}\t{}\t{} blocks\t{}\ttype {h:06x}\t{}\t{}\t{}", r.class, r.speed, r.blocks, kinds, r.name, host.map(|h| format!("variant of {h}")).unwrap_or_else(|| "HOST".into()), r.swaps.join("; "));
+    }
+    println!("{} designs, {} types, {} hosts", rows.len(), uniq.len(), hosts);
     Ok(())
 }

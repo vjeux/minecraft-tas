@@ -1,0 +1,11 @@
+name: pulse-dual-edge-observer-L2
+circuit: dual-edge
+# An observer watching the input cell fires 2 gt after each change of the input (both edges);
+# inputs under 4 gt end while it is still busy with the first pulse.
+origin: 0 0 0
+port input: 0 0 0
+port output: 2 0 0
+palette:
+  O minecraft:observer[facing=west,powered=false]
+layer 0:
+  .O

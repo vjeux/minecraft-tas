@@ -1,0 +1,22 @@
+# archived 2026-10-19T23:58Z from designs/circuits/memory/tracks/memory/d-latch-high.txt by mctas circuit archive
+# CIRCUIT: d-latch-high d-latch latency 4 gt, enable high, 5 blocks, 1x2x3, robust
+# D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt.
+name: d-latch-high
+circuit: d-latch
+port input.d: -1 1 2
+port input.e: -1 1 1
+port output: 1 1 2
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  R minecraft:redstone_block
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  M minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer 0:
+  .
+  S
+  S
+layer 1:
+  R
+  C
+  M

@@ -525,15 +525,17 @@ fn checks() -> Vec<Check> {
         ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 3 gt, retract 3 gt, 2 blocks, 3x1x1"),
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
+        ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
+    s.push("designs/circuits/selftest/floating-not.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 10 calibration circuits (edge detectors, T flip-flop, delay, NOT, OR, D latch, divider, piston extender, flying machine): their known metrics; the OR gate claiming AND refused",
+        what: "`circuit sim` (redsim) on the 11 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine): their known metrics; the OR gate claiming AND and a floating dust refused",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -545,12 +547,13 @@ fn checks() -> Vec<Check> {
                 }
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim refused"))
+            has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim and a floating dust refused"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 10 calibration circuits: robust, the same metrics as redsim",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 11 calibration circuits: robust, the same metrics as redsim",
         quick: false,
         jvm: true,
         steps: vec![{
