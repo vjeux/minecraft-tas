@@ -288,7 +288,7 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
         dims: format!("{w}x{h}x{d}"),
         volume: (w * h * d) as i64,
         family: base.family.clone(),
-        robustness: rep.verdict.clone(),
+        robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
         kinds: c.kinds().into_iter().collect::<Vec<_>>().join("+"),
         type_key: tk,
         hash,
