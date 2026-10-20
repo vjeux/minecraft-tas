@@ -471,6 +471,14 @@ kick) before the first input.
   stack as the N-bit kind. Metric `slice`: blocks per bit and the latency law (`latency 2 + 4
   (N-1) gt` when it is linear). A chain that is on at rest (a torch) needs copy 0's chain input to
   idle on as well: `port input.clk: x y z minecraft:air minecraft:redstone_block` (on = air).
+  **Hex** (`adder N hex`, `subtractor N hex`, `incrementer N hex`, `comparator N hex`, N <= 4): each
+  value on ONE line as a signal strength. Value inputs `port input.a: x y z strength` (and b) sit on
+  a single chest of the design (an input device, not counted): the judge rewrites its contents to
+  the fewest cobblestones whose comparator strength is the value (`compute::strength_items`:
+  floor(14 f) + 1 for a fill f > 0 of 27 slots of 64; the chest's state is unchanged, the contents
+  change updates the comparators reading it), and the design reads it with its own comparator.
+  The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
+  comparisons stay on/off lines. The state walks treat a value as N bits.
 
 ## Archive and catalog
 

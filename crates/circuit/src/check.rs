@@ -72,8 +72,8 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
-    if let Kind::Compute(op, n) = kind {
-        return crate::compute::stimulus(c, *op, *n, z);
+    if let Kind::Compute(spec) = kind {
+        return crate::compute::stimulus(c, *spec, z);
     }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
@@ -233,7 +233,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::TntDuper => crate::tnt::check_duper(c, s, t),
         Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
-        Kind::Compute(op, n) => crate::compute::check(c, *op, *n, s, t),
+        Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
     }
 }
 

@@ -3,11 +3,14 @@
 //! judged on their EXHAUSTIVE truth table, and binary counters with a parallel binary output.
 //!
 //! Ports: bit k of a value `a` is `input.a<k>` (k = 0: the lowest bit), outputs likewise
-//! (`output.s<k>`); single ports by name (`cin`, `cout`, `eq`, `q`...). Unsigned arithmetic.
+//! (`output.s<k>`); single ports by name (`cin`, `cout`, `eq`, `q`...). Unsigned arithmetic. A
+//! `hex` kind (`adder 4 hex`) carries each value on ONE line as a signal strength instead: inputs
+//! `port input.a: x y z strength` (a chest the judge fills: [`strength_items`]), the value outputs
+//! (`s`, `d`) read as levels that must equal the value.
 //!
 //! The combinational stimulus visits every input state in Gray-code order, then every
-//! single-input transition in both directions (an Euler tour of the n-cube, n <= 10 inputs), then
-//! every state reached from its complement (every input changing at once: a parallel load),
+//! single-input transition in both directions (an Euler tour of the n-cube, n <= 10 input bits),
+//! then every state reached from its complement (every input changing at once: a parallel load),
 //! each state held for the gap. Every output must settle to the ideal value and hold it to the
 //! end of each hold. `latency`: the worst gt from an input change to the frame where every output
 //! holds its final value, with the transition that takes it; `glitches`: holds where an output
@@ -16,7 +19,7 @@
 use crate::check::{Outcome, Sizing};
 use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
-use crate::Circuit;
+use crate::{Circuit, InputHow};
 use anyhow::{Result, bail};
 use std::collections::BTreeSet;
 
@@ -35,42 +38,25 @@ pub enum Op {
     BinaryCounter,
 }
 
-/// The most inputs judged exhaustively (2^16 states); bigger ripple designs are bit slices.
+/// A compute kind: the function, N (bits), and the value encoding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Spec {
+    pub op: Op,
+    pub n: u32,
+    /// Values as signal strengths on one line each (`adder 4 hex`), not one line per bit.
+    pub hex: bool,
+}
+
+/// The most input BITS judged exhaustively (2^16 states); bigger ripple designs are bit slices.
 pub const MAX_INPUTS: usize = 16;
-/// The most inputs for which every single-input transition is visited (n 2^n holds).
+/// The most input bits for which every single-input transition is visited (n 2^n holds).
 pub const MAX_WALK_INPUTS: usize = 10;
 /// The comparator outputs.
 pub const RELATIONS: [&str; 6] = ["eq", "ne", "lt", "gt", "le", "ge"];
+/// The item a strength input's chest holds (a 64-stack).
+pub const STRENGTH_ITEM: &str = "minecraft:cobblestone";
 
 impl Op {
-    /// `adder 4`, `encoder 3 priority`, ...: the op and N, or None when the word is no compute kind.
-    pub fn parse(words: &[&str]) -> Option<Result<(Op, u32)>> {
-        let op = match *words.first()? {
-            "adder" => Op::Adder,
-            "subtractor" => Op::Subtractor,
-            "incrementer" => Op::Incrementer,
-            "comparator" => Op::Comparator,
-            "mux" => Op::Mux,
-            "demux" => Op::Demux,
-            "decoder" => Op::Decoder,
-            "encoder" if words.get(2) == Some(&"priority") => Op::PriorityEncoder,
-            "encoder" => Op::Encoder,
-            "binary-counter" => Op::BinaryCounter,
-            _ => return None,
-        };
-        Some((|| {
-            let n: u32 = words.get(1).ok_or_else(|| anyhow::anyhow!("circuit: {}: missing its N", words.join(" ")))?.parse().map_err(|_| anyhow::anyhow!("circuit: {}: bad N", words.join(" ")))?;
-            if n == 0 || n > 16 {
-                bail!("circuit: {}: N must be 1..16", words.join(" "));
-            }
-            // N = 1 where the kind is a study 4 gate or a wire
-            if n == 1 && matches!(op, Op::Comparator | Op::Decoder | Op::Encoder | Op::PriorityEncoder) {
-                bail!("circuit: {}: N = 1 is a study 4 gate (or a wire): use `gate <fn>`", words.join(" "));
-            }
-            Ok((op, n))
-        })())
-    }
-
     pub fn name(self) -> &'static str {
         match self {
             Op::Adder => "adder",
@@ -84,13 +70,67 @@ impl Op {
             Op::BinaryCounter => "binary-counter",
         }
     }
+}
+
+impl Spec {
+    /// `adder 4`, `adder 4 hex`, `encoder 3 priority`, ...: the spec, or None when the first word
+    /// is no compute kind.
+    pub fn parse(words: &[&str]) -> Option<Result<Spec>> {
+        let op = match *words.first()? {
+            "adder" => Op::Adder,
+            "subtractor" => Op::Subtractor,
+            "incrementer" => Op::Incrementer,
+            "comparator" => Op::Comparator,
+            "mux" => Op::Mux,
+            "demux" => Op::Demux,
+            "decoder" => Op::Decoder,
+            "encoder" if words.contains(&"priority") => Op::PriorityEncoder,
+            "encoder" => Op::Encoder,
+            "binary-counter" => Op::BinaryCounter,
+            _ => return None,
+        };
+        let line = words.join(" ");
+        Some((|| {
+            let n: u32 = words.get(1).ok_or_else(|| anyhow::anyhow!("circuit: {line}: missing its N"))?.parse().map_err(|_| anyhow::anyhow!("circuit: {line}: bad N"))?;
+            if n == 0 || n > 16 {
+                bail!("circuit: {line}: N must be 1..16");
+            }
+            let hex = words.contains(&"hex");
+            for w in &words[2..] {
+                if !matches!(*w, "hex" | "priority") || (*w == "priority" && op != Op::PriorityEncoder) {
+                    bail!("circuit: {line}: unknown modifier {w:?}");
+                }
+            }
+            if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator) {
+                bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers and comparators");
+            }
+            if hex && n > 4 {
+                bail!("circuit: {line}: a signal strength carries 4 bits at most (0..15)");
+            }
+            // N = 1 where the kind is a study 4 gate or a wire
+            if n == 1 && !hex && matches!(op, Op::Comparator | Op::Decoder | Op::Encoder | Op::PriorityEncoder) {
+                bail!("circuit: {line}: N = 1 is a study 4 gate (or a wire): use `gate <fn>`");
+            }
+            Ok(Spec { op, n, hex })
+        })())
+    }
 
     /// The kind as written on the `circuit:` line.
-    pub fn kind_name(self, n: u32) -> String {
-        match self {
-            Op::PriorityEncoder => format!("encoder {n} priority"),
-            _ => format!("{} {n}", self.name()),
-        }
+    pub fn kind_name(&self) -> String {
+        let base = match self.op {
+            Op::PriorityEncoder => format!("encoder {} priority", self.n),
+            op => format!("{} {}", op.name(), self.n),
+        };
+        if self.hex { format!("{base} hex") } else { base }
+    }
+
+    fn with_n(&self, n: u32) -> Spec {
+        Spec { n, ..*self }
+    }
+
+    /// Whether an output carries a value as a level (a hex kind's `s` / `d`).
+    fn level_output(&self, name: &str) -> bool {
+        self.hex && matches!(name, "s" | "d")
     }
 }
 
@@ -99,14 +139,17 @@ fn bits(prefix: &str, n: u32) -> Vec<String> {
 }
 
 /// (required inputs, optional inputs, required outputs, optional outputs).
-fn ports(op: Op, n: u32) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
+fn ports(spec: &Spec) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
+    let n = spec.n;
     let w = 1u32 << n.min(16);
     let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-    match op {
-        Op::Adder => ([bits("a", n), bits("b", n)].concat(), s(&["cin"]), bits("s", n), s(&["cout"])),
-        Op::Subtractor => ([bits("a", n), bits("b", n)].concat(), s(&["bin"]), bits("d", n), s(&["bout"])),
-        Op::Incrementer => (bits("a", n), s(&["cin"]), bits("s", n), s(&["cout"])),
-        Op::Comparator => ([bits("a", n), bits("b", n)].concat(), Vec::new(), Vec::new(), s(&RELATIONS)),
+    // a value: n bit lines, or one strength line (hex)
+    let val = |p: &str| if spec.hex { vec![p.to_string()] } else { bits(p, n) };
+    match spec.op {
+        Op::Adder => ([val("a"), val("b")].concat(), s(&["cin"]), val("s"), s(&["cout"])),
+        Op::Subtractor => ([val("a"), val("b")].concat(), s(&["bin"]), val("d"), s(&["bout"])),
+        Op::Incrementer => (val("a"), s(&["cin"]), val("s"), s(&["cout"])),
+        Op::Comparator => ([val("a"), val("b")].concat(), Vec::new(), Vec::new(), s(&RELATIONS)),
         Op::Mux => ([bits("s", n), bits("d", w)].concat(), Vec::new(), s(&["q"]), Vec::new()),
         Op::Demux => ([bits("s", n), s(&["d"])].concat(), Vec::new(), bits("q", w), Vec::new()),
         Op::Decoder => (bits("a", n), s(&["e"]), bits("q", w), Vec::new()),
@@ -116,19 +159,19 @@ fn ports(op: Op, n: u32) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>)
 }
 
 /// The ports a compute kind needs (names: `input.a0`, `output.cout`, ...).
-pub fn check_ports(c: &Circuit, op: Op, n: u32) -> Result<()> {
-    let (ri, oi, ro, mut oo) = ports(op, n);
+pub fn check_ports(c: &Circuit, spec: Spec) -> Result<()> {
+    let (ri, oi, ro, mut oo) = ports(&spec);
+    let kind = spec.kind_name();
     if let Some(step) = c.slice {
-        check_slice(c, op, n, step)?;
-        if op == Op::BinaryCounter {
+        check_slice(c, spec, step)?;
+        if spec.op == Op::BinaryCounter {
             oo.push("cout".into());
         }
-    } else if op == Op::BinaryCounter && n == 1 {
+    } else if spec.op == Op::BinaryCounter && spec.n == 1 {
         bail!("circuit: binary-counter 1: a 1-bit binary counter is a T flip-flop (study 2): circuit: tff (or a `slice:` design: one bit of a ripple counter)");
     }
     let ins: BTreeSet<&str> = c.inputs.iter().map(|i| i.name.as_str()).collect();
     let outs: BTreeSet<&str> = c.outputs.iter().map(|o| o.name.as_str()).collect();
-    let kind = op.kind_name(n);
     for r in &ri {
         if !ins.contains(r.as_str()) {
             bail!("{kind}: needs inputs {} (port input.<name>), {r} is missing", ri.join(", "));
@@ -152,8 +195,16 @@ pub fn check_ports(c: &Circuit, op: Op, n: u32) -> Result<()> {
     if outs.is_empty() {
         bail!("{kind}: needs at least one output ({})", oo.join(", "));
     }
-    if op != Op::BinaryCounter && ins.len() > MAX_INPUTS {
-        bail!("{kind}: {} inputs is more than the {MAX_INPUTS} judged exhaustively: build it from bit slices", ins.len());
+    // a hex kind's values are strength inputs, its carries plain lines
+    for i in &c.inputs {
+        let strength = matches!(i.how, InputHow::Strength { .. });
+        let value = spec.hex && matches!(i.name.as_str(), "a" | "b");
+        if strength != value {
+            bail!("{kind}: input {}: {}", i.name, if value { "a hex value is a strength input (port input.<name>: x y z strength, on a chest of the design)" } else { "strength inputs are a hex kind's values (a, b)" });
+        }
+    }
+    if spec.op != Op::BinaryCounter && layout(c, &spec).iter().map(|f| f.width as usize).sum::<usize>() > MAX_INPUTS {
+        bail!("{kind}: more than {MAX_INPUTS} input bits is more than the judge walks exhaustively: build it from bit slices");
     }
     if !c.targets.is_empty() {
         bail!("{kind}: target ports are for the bud kind");
@@ -161,82 +212,116 @@ pub fn check_ports(c: &Circuit, op: Op, n: u32) -> Result<()> {
     Ok(())
 }
 
-/// An input state: bit i = the circuit's i-th input (`Circuit::inputs` order).
+/// An input state: the bits of every input, in `Circuit::inputs` order ([`layout`]).
 type State = u32;
 
-fn bit(c: &Circuit, x: State, name: &str) -> bool {
-    c.inputs.iter().position(|i| i.name == name).is_some_and(|i| x >> i & 1 == 1)
+/// Where an input lives in a state: from bit `offset`, `width` bits (a strength input: n bits).
+#[derive(Clone, Copy, Debug)]
+struct Field {
+    offset: u32,
+    width: u32,
 }
 
-fn value(c: &Circuit, x: State, prefix: &str, n: u32) -> u64 {
-    (0..n).map(|k| (bit(c, x, &format!("{prefix}{k}")) as u64) << k).sum()
+fn layout(c: &Circuit, spec: &Spec) -> Vec<Field> {
+    let mut off = 0;
+    c.inputs
+        .iter()
+        .map(|i| {
+            let width = if matches!(i.how, InputHow::Strength { .. }) { spec.n } else { 1 };
+            let f = Field { offset: off, width };
+            off += width;
+            f
+        })
+        .collect()
 }
 
-/// The ideal outputs (in `Circuit::outputs` order) for an input state.
-pub fn ideal(c: &Circuit, op: Op, n: u32, x: State) -> Vec<bool> {
-    let a = value(c, x, "a", n);
-    let b = value(c, x, "b", n);
+fn field(lay: &[Field], x: State, i: usize) -> u64 {
+    let f = lay[i];
+    ((x >> f.offset) & ((1 << f.width) - 1)) as u64
+}
+
+fn bit(c: &Circuit, lay: &[Field], x: State, name: &str) -> bool {
+    c.inputs.iter().position(|i| i.name == name).is_some_and(|i| field(lay, x, i) != 0)
+}
+
+/// A value: the strength input `prefix` (hex) or the bit lines `<prefix>0..`.
+fn value(c: &Circuit, lay: &[Field], spec: &Spec, x: State, prefix: &str, n: u32) -> u64 {
+    if spec.hex && let Some(i) = c.inputs.iter().position(|i| i.name == prefix) {
+        return field(lay, x, i);
+    }
+    (0..n).map(|k| (bit(c, lay, x, &format!("{prefix}{k}")) as u64) << k).sum()
+}
+
+/// The ideal outputs (in `Circuit::outputs` order) for an input state: 0/1, or a level for a hex
+/// kind's value outputs.
+pub fn ideal(c: &Circuit, spec: &Spec, x: State) -> Vec<u8> {
+    let lay = layout(c, spec);
+    let n = spec.n;
+    let a = value(c, &lay, spec, x, "a", n);
+    let b = value(c, &lay, spec, x, "b", n);
     let w = 1u64 << n;
-    let out = |name: &str| -> bool {
+    let has = |name: &str| c.inputs.iter().any(|i| i.name == name);
+    let out = |name: &str| -> u64 {
         let k = |p: &str| name.strip_prefix(p).and_then(|r| r.parse::<u64>().ok());
-        match op {
+        let flag = |v: bool| v as u64;
+        match spec.op {
             Op::Adder | Op::Incrementer => {
-                let cin = bit(c, x, "cin") as u64;
-                let sum = if op == Op::Adder { a + b + cin } else if c.inputs.iter().any(|i| i.name == "cin") { a + cin } else { a + 1 };
+                let cin = bit(c, &lay, x, "cin") as u64;
+                let sum = if spec.op == Op::Adder { a + b + cin } else if has("cin") { a + cin } else { a + 1 };
                 match (name, k("s")) {
-                    ("cout", _) => sum >> n & 1 == 1,
-                    (_, Some(j)) => sum >> j & 1 == 1,
-                    _ => false,
+                    ("cout", _) => sum >> n & 1,
+                    ("s", _) => sum % w,
+                    (_, Some(j)) => sum >> j & 1,
+                    _ => 0,
                 }
             }
             Op::Subtractor => {
-                let diff = a as i64 - b as i64 - bit(c, x, "bin") as i64;
+                let diff = a as i64 - b as i64 - bit(c, &lay, x, "bin") as i64;
+                let m = diff.rem_euclid(w as i64) as u64;
                 match (name, k("d")) {
-                    ("bout", _) => diff < 0,
-                    (_, Some(j)) => (diff.rem_euclid(w as i64) as u64) >> j & 1 == 1,
-                    _ => false,
+                    ("bout", _) => flag(diff < 0),
+                    ("d", _) => m,
+                    (_, Some(j)) => m >> j & 1,
+                    _ => 0,
                 }
             }
-            Op::Comparator => match name {
+            Op::Comparator => flag(match name {
                 "eq" => a == b,
                 "ne" => a != b,
                 "lt" => a < b,
                 "gt" => a > b,
                 "le" => a <= b,
                 _ => a >= b,
-            },
-            Op::Mux => bit(c, x, &format!("d{}", value(c, x, "s", n))),
-            Op::Demux => k("q") == Some(value(c, x, "s", n)) && bit(c, x, "d"),
-            Op::Decoder => {
-                let en = !c.inputs.iter().any(|i| i.name == "e") || bit(c, x, "e");
-                k("q") == Some(a) && en
-            }
+            }),
+            Op::Mux => flag(bit(c, &lay, x, &format!("d{}", value(c, &lay, spec, x, "s", n)))),
+            Op::Demux => flag(k("q") == Some(value(c, &lay, spec, x, "s", n)) && bit(c, &lay, x, "d")),
+            Op::Decoder => flag(k("q") == Some(a) && (!has("e") || bit(c, &lay, x, "e"))),
             Op::Encoder | Op::PriorityEncoder => {
-                let d = value(c, x, "d", 1 << n);
+                let d = value(c, &lay, spec, x, "d", 1 << n);
                 let idx = if d == 0 { 0 } else { 63 - d.leading_zeros() as u64 };
                 match (name, k("q")) {
-                    ("valid", _) => d != 0,
-                    (_, Some(j)) => idx >> j & 1 == 1,
-                    _ => false,
+                    ("valid", _) => flag(d != 0),
+                    (_, Some(j)) => idx >> j & 1,
+                    _ => 0,
                 }
             }
-            Op::BinaryCounter => false,
+            Op::BinaryCounter => 0,
         }
     };
-    c.outputs.iter().map(|o| out(&o.name)).collect()
+    c.outputs.iter().map(|o| out(&o.name) as u8).collect()
 }
 
 /// Whether a state is part of the kind's domain (a plain encoder takes one-hot or zero inputs).
-fn allowed(op: Op, x: State) -> bool {
-    op != Op::Encoder || x.count_ones() <= 1
+fn allowed(spec: &Spec, x: State) -> bool {
+    spec.op != Op::Encoder || x.count_ones() <= 1
 }
 
 /// The visiting order: (section, state) after the rest state 0.
-fn sequence(c: &Circuit, op: Op, short: bool) -> Vec<(&'static str, State)> {
-    let m = c.inputs.len();
+fn sequence(c: &Circuit, spec: &Spec, short: bool) -> Vec<(&'static str, State)> {
+    let m: usize = layout(c, spec).iter().map(|f| f.width as usize).sum();
     let full: State = if m >= 32 { State::MAX } else { (1 << m) - 1 };
     let mut v: Vec<(&'static str, State)> = Vec::new();
-    if op == Op::Encoder {
+    if spec.op == Op::Encoder {
         // one-hot: each line on and off, then from line to line, then back to zero
         for i in 0..m {
             v.push(("gray", 1 << i));
@@ -256,7 +341,7 @@ fn sequence(c: &Circuit, op: Op, short: bool) -> Vec<(&'static str, State)> {
         return v;
     }
     if m <= MAX_WALK_INPUTS {
-        // Euler tour of the directed n-cube: every single-input change in both directions
+        // Euler tour of the directed n-cube: every single-bit change in both directions
         let mut next: Vec<usize> = vec![m; 1 << m];
         let mut stack: Vec<State> = vec![0];
         let mut path: Vec<State> = Vec::new();
@@ -282,26 +367,51 @@ fn sequence(c: &Circuit, op: Op, short: bool) -> Vec<(&'static str, State)> {
         v.push(("jump", !x & full));
         v.push(("jump", *x));
     }
-    v.retain(|p| allowed(op, p.1));
+    v.retain(|p| allowed(spec, p.1));
     v.dedup_by_key(|p| p.1);
     v
 }
 
+/// The SNBT of a strength input's chest for a value: the fewest items of [`STRENGTH_ITEM`] whose
+/// comparator strength is the value (`getRedstoneSignalFromContainer`: floor(14 f) + 1 for any
+/// fill f > 0, f = the mean slot fill of 27 slots of 64).
+pub fn strength_items(v: u8) -> String {
+    let v = v.min(15) as u64;
+    let n = if v == 0 { 0 } else { ((v - 1) * 1728).div_ceil(14).max(1) };
+    let mut items = Vec::new();
+    let mut left = n;
+    let mut slot = 0;
+    while left > 0 {
+        let k = left.min(64);
+        items.push(format!("{{Slot:{slot}b,id:\"{STRENGTH_ITEM}\",count:{k}}}"));
+        left -= k;
+        slot += 1;
+    }
+    format!("{{Items:[{}]}}", items.join(","))
+}
+
 /// The stimulus of a combinational kind (`gap` per state, at least 10 gt so that no torch toggles
 /// 8 times in 60 gt from the walk alone). A sizing probe (gap >= 500) gets a short sequence.
-pub fn stimulus(c: &Circuit, op: Op, n: u32, z: &Sizing) -> Schedule {
-    if op == Op::BinaryCounter {
-        return counter_stimulus(c, n, z);
+pub fn stimulus(c: &Circuit, spec: Spec, z: &Sizing) -> Schedule {
+    if spec.op == Op::BinaryCounter {
+        return counter_stimulus(c, spec.n, z);
     }
     let short = z.gap >= 500;
     let gap = z.gap.max(10);
+    let lay = layout(c, &spec);
     let mut s = Schedule::new(c.inputs.len());
     let mut t = c.clock.free_from() + SETTLE;
     let mut prev: State = 0;
-    for (section, x) in sequence(c, op, short) {
+    for (section, x) in sequence(c, &spec, short) {
         for i in 0..c.inputs.len() {
-            if (x ^ prev) >> i & 1 == 1 {
-                s.set(i, t, x >> i & 1 == 1);
+            let (v, pv) = (field(&lay, x, i), field(&lay, prev, i));
+            if v == pv {
+                continue;
+            }
+            if matches!(c.inputs[i].how, InputHow::Strength { .. }) {
+                s.levels.push((t, i, v as u8));
+            } else {
+                s.set(i, t, v != 0);
             }
         }
         s.phase(t, t + gap, format!("{section} {x}"));
@@ -312,13 +422,18 @@ pub fn stimulus(c: &Circuit, op: Op, n: u32, z: &Sizing) -> Schedule {
     s
 }
 
-/// `a=0111 b=0000 cin=0`: a state by its input groups (MSB first).
-fn describe(c: &Circuit, x: State) -> String {
+/// `a=0111 b=0000 cin=0` (a hex value in decimal: `a=7`): a state by its input groups.
+fn describe(c: &Circuit, spec: &Spec, x: State) -> String {
+    let lay = layout(c, spec);
     let mut groups: Vec<(String, Vec<(u32, bool)>)> = Vec::new();
+    let mut words: Vec<(String, String)> = Vec::new();
     for (i, inp) in c.inputs.iter().enumerate() {
-        let on = x >> i & 1 == 1;
-        let split = inp.name.find(|ch: char| ch.is_ascii_digit());
-        match split {
+        if matches!(inp.how, InputHow::Strength { .. }) {
+            words.push((inp.name.clone(), field(&lay, x, i).to_string()));
+            continue;
+        }
+        let on = field(&lay, x, i) != 0;
+        match inp.name.find(|ch: char| ch.is_ascii_digit()) {
             Some(p) if p > 0 => {
                 let (pre, k) = inp.name.split_at(p);
                 let k: u32 = k.parse().unwrap_or(0);
@@ -327,47 +442,48 @@ fn describe(c: &Circuit, x: State) -> String {
                     None => groups.push((pre.to_string(), vec![(k, on)])),
                 }
             }
-            _ => groups.push((inp.name.clone(), vec![(u32::MAX, on)])),
+            _ => words.push((inp.name.clone(), if on { "1".into() } else { "0".into() })),
         }
     }
-    groups
-        .into_iter()
-        .map(|(name, mut v)| {
-            v.sort_by(|a, b| b.0.cmp(&a.0));
-            format!("{name}={}", v.iter().map(|(_, on)| if *on { '1' } else { '0' }).collect::<String>())
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+    for (name, mut v) in groups {
+        v.sort_by(|a, b| b.0.cmp(&a.0));
+        words.push((name, v.iter().map(|(_, on)| if *on { '1' } else { '0' }).collect()));
+    }
+    words.sort_by(|a, b| a.0.cmp(&b.0));
+    words.into_iter().map(|(n, v)| format!("{n}={v}")).collect::<Vec<_>>().join(" ")
 }
 
 /// The transition from `p` to `x` in words.
-fn transition(c: &Circuit, p: State, x: State) -> String {
-    let changed: Vec<usize> = (0..c.inputs.len()).filter(|i| (p ^ x) >> i & 1 == 1).collect();
+fn transition(c: &Circuit, spec: &Spec, p: State, x: State) -> String {
+    let lay = layout(c, spec);
+    let changed: Vec<usize> = (0..c.inputs.len()).filter(|i| field(&lay, p, *i) != field(&lay, x, *i)).collect();
     match changed.as_slice() {
-        [i] => format!("{} {} from {}", c.inputs[*i].name, if x >> i & 1 == 1 { "rises" } else { "falls" }, describe(c, p)),
-        _ => format!("{} inputs change from {} to {}", changed.len(), describe(c, p), describe(c, x)),
+        [i] if lay[*i].width == 1 => format!("{} {} from {}", c.inputs[*i].name, if field(&lay, x, *i) != 0 { "rises" } else { "falls" }, describe(c, spec, p)),
+        [i] => format!("{} goes {} -> {} from {}", c.inputs[*i].name, field(&lay, p, *i), field(&lay, x, *i), describe(c, spec, p)),
+        _ => format!("{} inputs change from {} to {}", changed.len(), describe(c, spec, p), describe(c, spec, x)),
     }
 }
 
 /// Judge a combinational run.
-pub fn check(c: &Circuit, op: Op, n: u32, s: &Schedule, t: &Trace) -> Outcome {
-    if op == Op::BinaryCounter {
-        return counter_check(c, n, s, t);
+pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
+    if spec.op == Op::BinaryCounter {
+        return counter_check(c, spec.n, s, t);
     }
     let mut table = Vec::new();
     let outs = c.outputs.len();
     let frames = t.frames();
-    let vals = |f: usize| -> Vec<bool> { (0..outs).map(|k| t.on(k, f)).collect() };
-    let names = |v: &[bool], e: &[bool]| -> String {
-        (0..outs).filter(|k| v[*k] != e[*k]).map(|k| format!("{} is {}, want {}", c.outputs[k].name, v[k] as u8, e[k] as u8)).collect::<Vec<_>>().join("; ")
+    let level_out: Vec<bool> = c.outputs.iter().map(|o| spec.level_output(&o.name)).collect();
+    let vals = |f: usize| -> Vec<u8> { (0..outs).map(|k| if level_out[k] { t.levels[k].get(f).copied().unwrap_or(0) } else { t.on(k, f) as u8 }).collect() };
+    let names = |v: &[u8], e: &[u8]| -> String {
+        (0..outs).filter(|k| v[*k] != e[*k]).map(|k| format!("{} is {}, want {}", c.outputs[k].name, v[k], e[k])).collect::<Vec<_>>().join("; ")
     };
     // at rest: the outputs of state 0
-    let e0 = ideal(c, op, n, 0);
+    let e0 = ideal(c, &spec, 0);
     let first = s.phases.first().map(|p| p.0 as usize).unwrap_or(frames);
     for f in (c.clock.free_from() + SETTLE / 2) as usize..first.min(frames) {
         let v = vals(f);
         if v != e0 {
-            return Outcome::fail(format!("wrong at rest ({}): {}", describe(c, 0), names(&v, &e0)), table);
+            return Outcome::fail(format!("wrong at rest ({}): {}", describe(c, &spec, 0), names(&v, &e0)), table);
         }
     }
     let mut prev: State = 0;
@@ -379,15 +495,15 @@ pub fn check(c: &Circuit, op: Op, n: u32, s: &Schedule, t: &Trace) -> Outcome {
         let mut w = label.split_whitespace();
         let section = w.next().unwrap_or("").to_string();
         let x: State = w.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let e = ideal(c, op, n, x);
-        let ep = ideal(c, op, n, prev);
+        let e = ideal(c, &spec, x);
+        let ep = ideal(c, &spec, prev);
         if a >= b {
             break;
         }
         let end = vals(b - 1);
         if end != e {
-            table.push(format!("  {section}: {} -> {}: {}", describe(c, prev), describe(c, x), names(&end, &e)));
-            return Outcome::fail(format!("wrong output: {}: {}", transition(c, prev, x), names(&end, &e)), table);
+            table.push(format!("  {section}: {} -> {}: {}", describe(c, &spec, prev), describe(c, &spec, x), names(&end, &e)));
+            return Outcome::fail(format!("wrong output: {}: {}", transition(c, &spec, prev, x), names(&end, &e)), table);
         }
         // the first frame from which every output holds its final value
         let mut f0 = a;
@@ -399,15 +515,16 @@ pub fn check(c: &Circuit, op: Op, n: u32, s: &Schedule, t: &Trace) -> Outcome {
         }
         let lat = f0 - a;
         if lat > worst.0 || worst.1.is_empty() {
-            worst = (lat, transition(c, prev, x));
+            worst = (lat, transition(c, &spec, prev, x));
         }
         // a glitch: an output changing more than its ideal once (or zero times) before it settles
         let mut glitch = false;
         for k in 0..outs {
-            let mut last = if a > 0 { t.on(k, a - 1) } else { false };
+            let at = |f: usize| if level_out[k] { t.levels[k].get(f).copied().unwrap_or(0) } else { t.on(k, f) as u8 };
+            let mut last = if a > 0 { at(a - 1) } else { 0 };
             let mut changes = 0;
             for f in a..f0.max(a + 1).min(b) {
-                let v = t.on(k, f);
+                let v = at(f);
                 if v != last {
                     changes += 1;
                     last = v;
@@ -437,12 +554,9 @@ pub fn check(c: &Circuit, op: Op, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     if glitches > 0 {
         metrics.push(("glitches".to_string(), glitches.to_string()));
     }
-    let bits_per = match op {
-        Op::Mux | Op::Demux | Op::Decoder | Op::Encoder | Op::PriorityEncoder => 0,
-        _ => n,
-    };
-    if bits_per > 1 {
-        metrics.push(("per bit".to_string(), format!("{:.1} blocks", c.blocks() as f64 / bits_per as f64)));
+    let arithmetic = matches!(spec.op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator);
+    if arithmetic && spec.n > 1 {
+        metrics.push(("per bit".to_string(), format!("{:.1} blocks", c.blocks() as f64 / spec.n as f64)));
     }
     Outcome { pass: true, why: String::new(), metrics, table }
 }
@@ -457,7 +571,7 @@ fn counter_stimulus(c: &Circuit, n: u32, z: &Sizing) -> Schedule {
     let w = 1u32 << n;
     let mut t = c.clock.free_from() + SETTLE;
     let mut count = 0u32;
-    let mut pulses = |s: &mut Schedule, t: &mut u32, count: &mut u32, k: u32| {
+    let pulses = |s: &mut Schedule, t: &mut u32, count: &mut u32, k: u32| {
         for _ in 0..k {
             s.pulse(clk, *t, 4);
             *count = (*count + 1) % w;
@@ -561,13 +675,13 @@ fn chain(op: Op) -> Option<((&'static str, &'static str), &'static [&'static str
 /// A `slice:` design: one bit (N = 1) of a kind with a chain, its chain output a design block one
 /// step from its chain input (an air cell the judge drives in copy 0, the previous copy's chain
 /// output in the others).
-fn check_slice(c: &Circuit, op: Op, n: u32, step: crate::Pos) -> Result<()> {
-    let kind = op.kind_name(n);
-    let Some(((cin, cout), _, _)) = chain(op) else {
+fn check_slice(c: &Circuit, spec: Spec, step: crate::Pos) -> Result<()> {
+    let kind = spec.kind_name();
+    let Some(((cin, cout), _, _)) = chain(spec.op) else {
         bail!("{kind}: slice: only adders, subtractors, incrementers and binary counters chain bit to bit");
     };
-    if n != 1 {
-        bail!("{kind}: slice: a slice is ONE bit (circuit: {} 1)", op.name());
+    if spec.n != 1 || spec.hex {
+        bail!("{kind}: slice: a slice is ONE binary bit (circuit: {} 1)", spec.op.name());
     }
     let pi = c.inputs.iter().find(|i| i.name == cin).map(|i| i.pos);
     let po = c.outputs.iter().find(|o| o.name == cout).map(|o| o.pos);
@@ -586,7 +700,8 @@ fn check_slice(c: &Circuit, op: Op, n: u32, step: crate::Pos) -> Result<()> {
 /// The bit slice stacked into `copies` bits: copy k shifted by k steps, its per-bit ports renamed
 /// `<prefix><k>`; copy 0's chain input stays the kind's input, the last copy's chain output its
 /// output (a binary counter's is dropped).
-pub fn sliced(c: &Circuit, op: Op, copies: u32) -> Result<Circuit> {
+pub fn sliced(c: &Circuit, spec: Spec, copies: u32) -> Result<Circuit> {
+    let op = spec.op;
     let step = c.slice.ok_or_else(|| anyhow::anyhow!("{}: no `slice:` header", c.name()))?;
     let ((cin, cout), ins, outs) = chain(op).ok_or_else(|| anyhow::anyhow!("{}: not a chained kind", op.name()))?;
     let base = c.clock.design.clone();
@@ -596,7 +711,7 @@ pub fn sliced(c: &Circuit, op: Op, copies: u32) -> Result<Circuit> {
     let mut d = base.clone();
     d.meta.remove("slice");
     d.meta.retain(|k, _| !k.starts_with("port "));
-    d.meta.insert("circuit".into(), op.kind_name(copies));
+    d.meta.insert("circuit".into(), spec.with_n(copies).kind_name());
     d.ports.clear();
     for k in 0..copies as i32 {
         let off = [step[0] * k, step[1] * k, step[2] * k];
@@ -665,7 +780,7 @@ pub fn gap_of(s: &Schedule) -> u32 {
 /// slice judged alone) with the `slice` metric (the latency law over N = 1..4), or why not.
 pub fn slice_check(
     c: &Circuit,
-    op: Op,
+    spec: Spec,
     base: &Outcome,
     gap_for: impl Fn(&Circuit) -> u32,
     mut run: impl FnMut(&Circuit, &Schedule) -> Result<std::result::Result<Trace, String>>,
@@ -673,8 +788,8 @@ pub fn slice_check(
     let mut lats: Vec<(u32, u32)> = vec![(1, latency_of(base))];
     let mut table = base.table.clone();
     for n in SLICE_COPIES {
-        let sc = sliced(c, op, n)?;
-        let kind = crate::Kind::Compute(op, n);
+        let sc = sliced(c, spec, n)?;
+        let kind = crate::Kind::Compute(spec.with_n(n));
         let s = crate::check::stimulus(&sc, &kind, &Sizing { gap: gap_for(&sc) });
         let t = match run(&sc, &s)? {
             Ok(t) => t,

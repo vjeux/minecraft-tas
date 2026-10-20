@@ -150,10 +150,10 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     };
     // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
     let outcome = match (outcome, &kind, c.slice) {
-        (Some(out), Some(Kind::Compute(op, _)), Some(_)) if out.pass && o.stimulus.is_none() => {
+        (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
             let margin = o.margin;
             let gap0 = crate::compute::gap_of(&schedule);
-            Some(crate::compute::slice_check(c, *op, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+            Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
         }
         (out, _, _) => out,
     };
@@ -372,10 +372,10 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
         if out.pass
             && o.stimulus.is_none()
-            && let (Some(Kind::Compute(op, _)), Some(_)) = (&kind, rc.slice)
+            && let (Some(Kind::Compute(spec)), Some(_)) = (&kind, rc.slice)
         {
             let gap0 = crate::compute::gap_of(&schedule);
-            out = crate::compute::slice_check(&rc, *op, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
+            out = crate::compute::slice_check(&rc, *spec, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
