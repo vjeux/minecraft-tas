@@ -1,7 +1,8 @@
 //! A design run on redsim the way the circuit judge runs it (placed raw, wire shapes, self updates;
 //! the judge's lamp in every air output cell; inputs written with updates between ticks: a
-//! redstone block for 1, air for 0), through the judge's walk: per transition the outputs' final
-//! values, the latency and the glitches.
+//! redstone block for 1, air for 0; a hex value input's chest refilled with the value's items),
+//! through the judge's walk: per transition the outputs' final values, the latency and the
+//! glitches.
 
 use crate::func::Func;
 use anyhow::{Context, Result, anyhow, bail};
@@ -20,7 +21,11 @@ pub fn bp(p: Pos) -> BlockPos {
 pub struct Rig {
     pub blocks: Vec<(BlockPos, Block)>,
     pub inputs: Vec<Pos>,
+    /// Per input: the chest of a hex value input (its state), else None.
+    pub chests: Vec<Option<Block>>,
     pub outputs: Vec<Pos>,
+    /// Per output: an exact level (a hex value) rather than on/off.
+    pub levels: Vec<bool>,
     /// The judge puts a lamp in an output cell the design leaves air.
     pub lamps: Vec<bool>,
 }
@@ -34,13 +39,20 @@ impl Rig {
         for (p, s) in &d.blocks {
             blocks.push((bp(*p), Block::parse(s).map_err(|e| anyhow!("{s}: {e}"))?));
         }
-        for p in &inputs {
-            if d.blocks.contains_key(p) {
-                bail!("input cell {p:?} holds a block: an input cell is air (the judge writes a redstone block there)");
+        let mut chests = Vec::new();
+        for (i, p) in inputs.iter().enumerate() {
+            if f.is_hex(i) {
+                let s = d.blocks.get(p).with_context(|| format!("hex input {}: no chest at {p:?}", f.inputs[i]))?;
+                chests.push(Some(Block::parse(s).map_err(|e| anyhow!("{s}: {e}"))?));
+            } else {
+                if d.blocks.contains_key(p) {
+                    bail!("input cell {p:?} holds a block: an input cell is air (the judge writes a redstone block there)");
+                }
+                chests.push(None);
             }
         }
         let lamps = outputs.iter().map(|p| !d.blocks.contains_key(p)).collect();
-        Ok(Rig { blocks, inputs, outputs, lamps })
+        Ok(Rig { blocks, inputs, chests, outputs, levels: f.levels.clone(), lamps })
     }
 
     /// The box of the blocks and ports.
@@ -62,7 +74,7 @@ impl Rig {
         (lo, hi)
     }
 
-    /// A placed world at rest (inputs off), `None` when it never goes still or breaks.
+    /// A placed world at rest (inputs off), or why it never goes still or breaks.
     pub fn world(&self) -> std::result::Result<World, String> {
         let (lo, hi) = self.bounds();
         let m = 4;
@@ -97,18 +109,36 @@ impl Rig {
         Ok(w)
     }
 
-    fn set_inputs(&self, w: &mut World, prev: Option<usize>, c: usize) {
+    fn set_inputs(&self, w: &mut World, f: &Func, prev: Option<usize>, c: usize) -> std::result::Result<(), String> {
         for (i, p) in self.inputs.iter().enumerate() {
-            let on = (c >> i) & 1 == 1;
-            if prev.is_some_and(|q| (q >> i) & 1 == 1) == on && prev.is_some() {
+            let v = f.value(c, i);
+            if prev.is_some_and(|q| f.value(q, i) == v) {
                 continue;
             }
-            w.set_block(bp(*p), if on { Block::RedstoneBlock } else { Block::Air }, flags::ALL);
+            match &self.chests[i] {
+                Some(chest) => {
+                    w.set_block(bp(*p), *chest, flags::ALL);
+                    let nbt = circuit::compute::strength_items(v as u8);
+                    redsim::redstone::container::apply_block_entities(w, [(bp(*p), nbt.as_str())]).map_err(|e| format!("chest: {e}"))?;
+                }
+                None => {
+                    w.set_block(bp(*p), if v == 1 { Block::RedstoneBlock } else { Block::Air }, flags::ALL);
+                }
+            }
         }
+        Ok(())
     }
 
-    fn levels(&self, w: &World) -> Vec<u8> {
-        self.outputs.iter().map(|p| w.best_neighbor_signal(bp(*p)).clamp(0, 15) as u8).collect()
+    /// Each output's observed value: its level (hex) or on/off.
+    fn values(&self, w: &World) -> Vec<u8> {
+        self.outputs
+            .iter()
+            .enumerate()
+            .map(|(k, p)| {
+                let l = w.best_neighbor_signal(bp(*p)).clamp(0, 15) as u8;
+                if self.levels[k] { l } else { (l > 0) as u8 }
+            })
+            .collect()
     }
 
     fn lamps_lit(&self, w: &World) -> Vec<Option<bool>> {
@@ -141,6 +171,8 @@ pub struct Step {
 pub struct Run {
     pub pass: bool,
     pub why: String,
+    /// The state whose hold failed (a counterexample for the synthesizer), when one did.
+    pub bad: Option<usize>,
     pub steps: Vec<Step>,
     /// The worst latency, and the index of its step.
     pub latency: u32,
@@ -158,10 +190,10 @@ pub fn run(rig: &Rig, f: &Func, seq: &[usize], gap: u32) -> Run {
     };
     let mut out = Run { per_output: vec![0; f.outputs.len()], ..Default::default() };
     let mut prev_state: Option<usize> = None;
-    let mut cur: Vec<bool> = rig.levels(&w).iter().map(|l| *l > 0).collect();
-    // at rest (state 0, inputs off) the outputs must already read f(0)
+    let mut cur: Vec<u8> = rig.values(&w);
     if seq.first() == Some(&0) && cur != f.table[0] {
-        out.why = format!("at rest ({}) the outputs read {} instead of {}", f.label(0), bits(&cur), bits(&f.table[0]));
+        out.why = format!("at rest ({}) the outputs read {:?} instead of {:?}", f.label(0), cur, f.table[0]);
+        out.bad = Some(0);
         return out;
     }
     for (k, &s) in seq.iter().enumerate() {
@@ -169,8 +201,11 @@ pub fn run(rig: &Rig, f: &Func, seq: &[usize], gap: u32) -> Run {
             prev_state = Some(0);
             continue;
         }
-        rig.set_inputs(&mut w, prev_state, s);
-        let start: Vec<bool> = cur.clone();
+        if let Err(e) = rig.set_inputs(&mut w, f, prev_state, s) {
+            out.why = e;
+            return out;
+        }
+        let start = cur.clone();
         let mut last_change = vec![None::<u32>; f.outputs.len()];
         let mut changes = vec![0usize; f.outputs.len()];
         for t in 0..gap {
@@ -179,9 +214,10 @@ pub fn run(rig: &Rig, f: &Func, seq: &[usize], gap: u32) -> Run {
             }
             if !w.errors.is_empty() || !w.drops.is_empty() {
                 out.why = format!("{} -> {}: broke ({:?} {:?})", f.label(prev_state.unwrap_or(0)), f.label(s), w.errors.first(), w.drops.first());
+                out.bad = Some(s);
                 return out;
             }
-            let now: Vec<bool> = rig.levels(&w).iter().map(|l| *l > 0).collect();
+            let now = rig.values(&w);
             for o in 0..now.len() {
                 if now[o] != cur[o] {
                     last_change[o] = Some(t);
@@ -193,21 +229,23 @@ pub fn run(rig: &Rig, f: &Func, seq: &[usize], gap: u32) -> Run {
         let from = prev_state.unwrap_or(0);
         let label = || format!("{} -> {}", f.label(from), f.label(s));
         if cur != f.table[s] {
-            out.why = format!("{}: outputs {} instead of {}", label(), bits(&cur), bits(&f.table[s]));
+            out.why = format!("{}: outputs {:?} instead of {:?}", label(), cur, f.table[s]);
+            out.bad = Some(s);
             return out;
         }
         if let Some(t) = last_change.iter().flatten().max()
             && *t + (gap / 3).max(3) > gap
         {
             out.why = format!("{}: still changing at frame {t} of a {gap} gt hold", label());
+            out.bad = Some(s);
             return out;
         }
-        let lit = rig.lamps_lit(&w);
-        for (o, l) in lit.iter().enumerate() {
+        for (o, l) in rig.lamps_lit(&w).iter().enumerate() {
             if let Some(l) = l
-                && *l != f.table[s][o]
+                && *l != f.on(s, o)
             {
-                out.why = format!("{}: the lamp at output {} is {} (the output reads {}): it drives nothing", label(), f.outputs[o], if *l { "lit" } else { "off" }, f.table[s][o] as u8);
+                out.why = format!("{}: the lamp at output {} is {} (the output reads {}): it drives nothing", label(), f.outputs[o], if *l { "lit" } else { "off" }, f.table[s][o]);
+                out.bad = Some(s);
                 return out;
             }
         }
@@ -220,11 +258,9 @@ pub fn run(rig: &Rig, f: &Func, seq: &[usize], gap: u32) -> Run {
                 out.per_output[o] = out.per_output[o].max(last_change[o].unwrap_or(0));
             }
         }
-        if lat > out.latency || out.steps.is_empty() {
-            if lat > out.latency {
-                out.worst = out.steps.len();
-            }
-            out.latency = out.latency.max(lat);
+        if lat > out.latency {
+            out.worst = out.steps.len();
+            out.latency = lat;
         }
         out.glitches += g;
         out.steps.push(Step { from, to: s, latency: lat, glitches: g });
@@ -252,12 +288,14 @@ pub fn load(path: &std::path::Path, kind: Option<&str>) -> Result<(Design, Func,
     Ok((d, f, rig))
 }
 
-/// The block count the judge reports: every design block except piston heads.
+/// The block count the judge reports: every design block except piston heads and input devices
+/// (a hex input's chest).
 pub fn blocks(d: &Design) -> usize {
-    d.blocks.values().filter(|s| !s.contains("piston_head")).count()
+    let inputs: Vec<Pos> = d.ports.iter().filter(|(k, _)| k.starts_with("input.")).map(|(_, p)| *p).collect();
+    d.blocks.iter().filter(|(p, s)| !s.contains("piston_head") && !inputs.contains(p)).count()
 }
 
-/// The design's box (blocks and ports) as `WxHxD`, and its height in blocks.
+/// The design's box (its blocks) as `WxHxD`, and its height in blocks.
 pub fn dims(rig: &Rig) -> (String, i32) {
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];

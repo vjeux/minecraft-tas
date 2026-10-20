@@ -11,5 +11,6 @@ anyhow.workspace = true
 clap.workspace = true
 mctas = { path = "../mctas" }
 redsim = { path = "../redsim" }
+circuit = { path = "../circuit" }
 rustsat = "0.7"
 rustsat-cadical = "0.7"

@@ -259,6 +259,7 @@ name = "circuit-arith"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
  "mctas",
  "redsim",
