@@ -644,7 +644,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
-                    layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else { String::new() },
+                    // (designs that hold items: the same blocks with other contents; shulker
+                    // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
+                    layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else if study == "shulker" { r.type_key.clone() } else { String::new() },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),
@@ -716,6 +718,37 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     for (i, l) in leads {
         if let Some(c) = builds[i].circuit.as_mut() {
             c.lead = l;
+        }
+    }
+    // one build archived under two kinds (the same blocks and ports: `same_build`) shows once on
+    // the Circuits tab, with both names (critique: "one pulse when switched on" and "signal
+    // shortener" were the same 2 blocks, twice): the later one is a `kind-twin`, hidden unless its
+    // own kind is picked
+    let id_of = |b: &Build| b.circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, b.name)).unwrap_or_default();
+    let mut twins: Vec<(usize, usize)> = Vec::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(c) = &b.circuit else { continue };
+        if !shown(b) || c.same_build.is_empty() {
+            continue;
+        }
+        for (j, o) in builds.iter().enumerate() {
+            if j != i && shown(o) && c.same_build.contains(&id_of(o)) && o.group != b.group {
+                let key = |x: &Build| (x.circuit.as_ref().map(|c| c.order).unwrap_or(0), x.group.clone(), x.name.clone());
+                if key(o) < key(b) {
+                    twins.push((i, j));
+                }
+            }
+        }
+    }
+    for (later, first) in twins {
+        let words = builds[later].group.clone();
+        if !builds[later].flags.iter().any(|f| f == "kind-twin") {
+            builds[later].flags.push("kind-twin".into());
+        }
+        if let Some(c) = builds[first].circuit.as_mut() {
+            if !c.also.contains(&words) {
+                c.also.push(words);
+            }
         }
     }
     // each design's place within its kind (the Circuits tab shows the first of every kind first)
@@ -906,6 +939,11 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
             .iter()
             .copied()
             .filter(|&i| {
+                // (a shulker machine timed with other items is the same build on purpose: every
+                // version stays)
+                if builds[i].circuit.as_ref().is_some_and(|c| c.study == "shulker") {
+                    return false;
+                }
                 let twins = builds[i].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default();
                 members.iter().any(|&j| j != i && twins.contains(&id_of(j)) && (value_of(j), builds[j].name.clone()) > (value_of(i), builds[i].name.clone()))
             })
@@ -981,7 +1019,14 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         let feats: Vec<VariantFeatures> = members.iter().map(|&i| Design::load(&root.join(repo_path_rel(&builds[i]))).map(|d| variant_features(&d)).unwrap_or_default()).collect();
         let (differs, labels) = variant_differences(&feats);
         let one_layout = members.iter().all(|&i| builds[i].circuit.as_ref().is_some_and(|c| !c.layout_key.is_empty() && Some(&c.layout_key) == builds[members[0]].circuit.as_ref().map(|x| &x.layout_key)));
-        let differs = if one_layout { "how many items are loaded in it (the count it reacts on)".to_string() } else { differs };
+        let shulker = members.iter().all(|&i| builds[i].circuit.as_ref().is_some_and(|c| c.study == "shulker"));
+        let differs = if one_layout && shulker {
+            "the items it is timed with (how many stack in one slot)".to_string()
+        } else if one_layout {
+            "how many items are loaded in it (the count it reacts on)".to_string()
+        } else {
+            differs
+        };
         for (k, &i) in members.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
                 c.group_differs = differs.clone();
