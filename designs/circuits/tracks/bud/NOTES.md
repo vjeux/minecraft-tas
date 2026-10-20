@@ -96,7 +96,7 @@ others' (docs/circuits.md). `mctas circuit bud tile` finds a design's densest pi
 | class set | densest | smallest design at that pitch | why not denser / smaller |
 |---|---|---|---|
 | place remove state shape | every 1 | bud-observer-stone (2) | the 1-block observer tiles every 2: its lamp, strongly powered, lights the next (census k=1 --tile 3) |
-| place remove state update | every 2 | bud-slime-qc (3) | every 1 is impossible with armed pistons: a piston's move updates its neighbors, so the next copy's armed piston fires (census k=3 qc --tile 2: densest 2; k=4 sticky --tile 1: see below) |
+| place remove state update | every 2 | bud-slime-qc (3) | every 1 is impossible with armed pistons: a piston's move updates its neighbors, so the next copy's armed piston fires (census k=3 qc --tile 2: densest 2; k=4 over sticky pistons, slime, honey, redstone block, stone --tile 1: none of the 958 QC structures tiles every 1) |
 | place remove | every 1 (stacked) | bud-fence-stone (3) | 2-block presence designs (observer + fence, wall, pane or bars) tile every 2 (census k=2 --tile 2); the torch version needs 4 blocks to tile every 1 in a row |
 | place | every 1 | bud-place-only (4) | no 3-block place-only design |
 | remove | every 1 | bud-remove-only (4) | no 3-block remove-only design |

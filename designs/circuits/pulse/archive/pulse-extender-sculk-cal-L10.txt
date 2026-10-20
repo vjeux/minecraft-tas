@@ -1,0 +1,17 @@
+# archived 2026-10-20T13:04Z from designs/circuits/tracks/pulse/wr/pulse-extender-sculk-cal-L10.txt by mctas circuit archive
+# CIRCUIT: pulse-extender-sculk-cal-L10 pulse-extender L 10 gt, delay 1 gt, min-pulse 1 gt, 2 blocks, 2x1x2, robust
+name: pulse-extender-sculk-cal-L10
+circuit: pulse-extender
+# A rising-edge detector of 10 gt in 2 blocks: the input powers a note block, which plays only when
+# it becomes powered (game event note_block_play); a CALIBRATED sculk sensor hears it and stays
+# ACTIVE for CalibratedSculkSensorBlock.getActiveTicks() = 10 gt (its back reads nothing: every
+# frequency is heard). Diagonal to the note block so its own power never re-plays the note.
+origin: 0 0 0
+port input: 0 0 0
+port output: 3 0 1
+palette:
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  K minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .N.
+  ..K
