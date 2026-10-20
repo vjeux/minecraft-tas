@@ -1,4 +1,3 @@
-# CLOCK: cand period 41 gt, on 30/41, edges 1, warmup 13, family dispenser+observer+sculk_sensor, 5 blocks, 4x1x2, kick: redstone_block 1 gt at -2,0,1
 # Plain sensor, 3 observers curling back, empty dispenser diagonal to the sensor: the cooldown pulse (A+30) reaches the dispenser at A+36, it fires at A+40 right after the re-arm (travel 1).
 name: clk-sculk-p41-obs3-disp
 port output: 0 0 0
