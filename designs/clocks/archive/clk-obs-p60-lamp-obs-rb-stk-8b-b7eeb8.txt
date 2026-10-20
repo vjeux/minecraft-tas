@@ -1,0 +1,26 @@
+# archived 2026-10-20T01:50Z from designs/clocks/tracks/clk-obs/families9/p60-lamp-obs-rb-stk-8b-b7eeb8.txt by mctas clock archive
+# CLOCK: clk-obs-p60-lamp-obs-rb-stk-8b-b7eeb8 period 60 gt (3 s), on 30/60, edges 15, warmup 9, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
+name: clk-obs-p60-lamp-obs-rb-stk-8b-b7eeb8
+# clk-obs grow: P=60 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick self, swept volume 12.
+origin: 0 0 0
+port output: 0 1 2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:redstone_block
+  E minecraft:sticky_piston[extended=false,facing=north]
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:observer[facing=north,powered=false]
+layer -1:
+  A
+  .
+  B
+layer 0:
+  C
+  D
+  E
+layer 1:
+  F
+  G
+  F

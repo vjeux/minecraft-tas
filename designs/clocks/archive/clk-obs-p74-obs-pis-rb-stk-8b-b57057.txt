@@ -1,0 +1,29 @@
+# archived 2026-10-20T02:09Z from designs/clocks/tracks/clk-obs/families9/p74-obs-pis-rb-stk-8b-b57057.txt by mctas clock archive
+# CLOCK: clk-obs-p74-obs-pis-rb-stk-8b-b57057 period 74 gt (3.7 s), on 34/74, edges 17, warmup 0, family observer+piston+redstone_block+sticky_piston, 8 blocks, 1x4x4, robust
+name: clk-obs-p74-obs-pis-rb-stk-8b-b57057
+# clk-obs grow: P=74 (redsim), family observer+piston+redstone_block+sticky_piston, kick last 0 0 2, swept volume 16.
+origin: 0 0 -1
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_block
+  D minecraft:piston[extended=false,facing=south]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  B
+  C
+layer 1:
+  D
+  B
+  E
+  F
+layer 2:
+  .
+  .
+  E
+  .

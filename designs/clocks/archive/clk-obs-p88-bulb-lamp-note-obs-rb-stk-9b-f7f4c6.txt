@@ -1,0 +1,21 @@
+# archived 2026-10-20T02:21Z from designs/clocks/tracks/clk-obs/families9/p88-bulb-lamp-note-obs-rb-stk-9b-f7f4c6.txt by mctas clock archive
+# CLOCK: clk-obs-p88-bulb-lamp-note-obs-rb-stk-9b-f7f4c6 period 88 gt (4.4 s), on 28/88, edges 14, warmup 15, family copper_bulb+note_block+observer+redstone_block+redstone_lamp+sticky_piston, 9 blocks, 5x1x3, robust
+name: clk-obs-p88-bulb-lamp-note-obs-rb-stk-9b-f7f4c6
+# clk-obs grow: P=88 (redsim), family note_block+observer+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 15.
+origin: 0 0 0
+port output: 3 0 0
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:redstone_block
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+  G minecraft:observer[facing=west,powered=false]
+  H minecraft:sticky_piston[extended=false,facing=north]
+  I minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  ADGI
+  BE..
+  CFH.

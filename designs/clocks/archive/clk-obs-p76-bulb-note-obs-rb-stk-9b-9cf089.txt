@@ -1,0 +1,40 @@
+# archived 2026-10-20T02:10Z from designs/clocks/tracks/clk-obs/families9/p76-bulb-note-obs-rb-stk-9b-9cf089.txt by mctas clock archive
+# CLOCK: clk-obs-p76-bulb-note-obs-rb-stk-9b-9cf089 period 76 gt (3.8 s), on 36/76, edges 18, warmup 9, family copper_bulb+note_block+observer+redstone_block+sticky_piston, 9 blocks, 1x6x3, rotation-dependent
+name: clk-obs-p76-bulb-note-obs-rb-stk-9b-9cf089
+# clk-obs grow: P=76 (redsim), family note_block+observer+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 2 1, swept volume 18.
+origin: 0 0 -1
+port output: 0 -1 1
+port start: 0 2 1 last
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:redstone_block
+  D minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:note_block[instrument=harp,note=0,powered=false]
+  G minecraft:observer[facing=south,powered=false]
+  H minecraft:observer[facing=north,powered=false]
+layer -2:
+  .
+  .
+  A
+layer -1:
+  .
+  .
+  B
+layer 0:
+  .
+  C
+  D
+layer 1:
+  .
+  E
+  .
+layer 2:
+  F
+  G
+  B
+layer 3:
+  .
+  .
+  H
