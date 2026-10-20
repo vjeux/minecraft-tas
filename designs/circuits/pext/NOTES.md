@@ -98,5 +98,7 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   at a turn its back points ahead, never into the line or the cell above it; future targets keep
   their neighbours free). Generated: N=4 96, N=5 136, N=6 214, N=7 276 blocks; minimized: N=3 38,
   N=4 60. N=8 boxes the router in (one cell needs 5 pulsers there).
+  With each cell's preferred sides alternating with its parity (fewer crowded bands): N=6 192, N=7
+  254, N=8 356 (N=9 still boxes in); minimized N=5 105.
 * `pext trains --interleave` (the cascade's per-edge reuse for a fixed train) also works but needs
   more pulses (16 for N=4).
