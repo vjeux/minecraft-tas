@@ -1,5 +1,5 @@
 # archived 2026-10-19T23:58Z from designs/circuits/tracks/pulse/limiter-u/pulse-limiter-u-L36.txt by mctas circuit archive
-# CIRCUIT: pulse-limiter-u-L36 pulse-limiter L 36 gt, delay 2 gt, min-pulse 2 gt, 18 blocks, 2x2x5, robust
+# CIRCUIT: pulse-limiter-u-L36 pulse-limiter L 36 gt, delay 2 gt, min-pulse 3 gt, 18 blocks, 2x2x5, robust
 name: pulse-limiter-u-L36
 # A subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters (down one column, two dust across, up the other) whose delays add up to 36 gt; it outputs rear - side, so every input pulse is cut to 36 gt (generator: mctas circuit pulse family limiter-for --l 36).
 circuit: pulse-limiter

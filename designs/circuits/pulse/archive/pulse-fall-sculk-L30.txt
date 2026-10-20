@@ -1,5 +1,5 @@
 # archived 2026-10-20T13:32Z from designs/circuits/tracks/pulse/wr/pulse-fall-sculk-L30.txt by mctas circuit archive
-# CIRCUIT: pulse-fall-sculk-L30 falling-edge L 30 gt, delay 8 gt, min-pulse 1 gt, vibration-proof no, 4 blocks, 2x1x10, robust
+# CIRCUIT: pulse-fall-sculk-L30 falling-edge L 30 gt, delay 8 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no, 4 blocks, 2x1x10, robust
 name: pulse-fall-sculk-L30
 circuit: falling-edge
 # One 30-tick pulse (1.5 seconds) every time the input turns OFF, for quiet builds, in 4 blocks: a

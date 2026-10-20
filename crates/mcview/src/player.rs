@@ -39,10 +39,46 @@ pub struct Player {
     history_tick: Option<u32>,
     /// When each held input went down (tick), for momentary presses.
     pressed: Vec<Option<u32>>,
+    /// The door demo's stage (None: not running).
+    pub door_demo: Option<DoorDemo>,
 }
 
 /// Ticks of output history kept.
 pub const HISTORY: usize = 40;
+
+/// The door demo's stage ([`Player::start_door_demo`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DoorDemo {
+    /// Closed at the start, the lever flipped at this tick.
+    Wait(u32),
+    /// The lever flipped on: the door opens.
+    Opening,
+    /// Open, the lever flipped back at this tick.
+    Open(u32),
+    /// The lever flipped off: the door closes.
+    Closing,
+    /// Closed again, the lever flipped at this tick.
+    Closed(u32),
+}
+
+impl DoorDemo {
+    /// The badge's words for the stage.
+    pub fn words(self) -> &'static str {
+        match self {
+            DoorDemo::Wait(_) | DoorDemo::Closed(_) => "demo: the door, closed",
+            DoorDemo::Opening => "demo: lever on, the door opens",
+            DoorDemo::Open(_) => "demo: the door, open",
+            DoorDemo::Closing => "demo: lever off, the door closes",
+        }
+    }
+
+    /// Every badge text, for its size.
+    pub const ALL_WORDS: [&'static str; 4] = ["demo: the door, closed", "demo: lever on, the door opens", "demo: the door, open", "demo: lever off, the door closes"];
+}
+
+/// The door demo's holds (`door video`'s: 1.5 s closed, 1.2 s open).
+const DOOR_HOLD_CLOSED: u32 = 30;
+const DOOR_HOLD_OPEN: u32 = 24;
 
 impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
@@ -73,6 +109,7 @@ impl Player {
             history: vec![Default::default(); n_out],
             history_tick: None,
             pressed: vec![None; n_in],
+            door_demo: None,
         };
         p.follow_machine();
         p.record();
@@ -148,6 +185,7 @@ impl Player {
         while self.acc >= 1.0 && n < 5000 && end.is_none_or(|e| self.session.tick < e) {
             self.session.step();
             self.record();
+            self.door_demo_tick();
             self.acc -= 1.0;
             n += 1;
         }
@@ -188,6 +226,41 @@ impl Player {
     /// Any input from the person ends the auto-demo (the inputs are theirs from then on).
     pub fn stop_demo(&mut self) {
         self.session.demo = None;
+        self.door_demo = None;
+    }
+
+    /// Start the door demo (a door viewer with `data-autoplay`): its lever flipped like the
+    /// record videos (`door video`: a 1.5 s hold, the door opening until it settles, 1.2 s open,
+    /// closing until it settles, 1.5 s closed, again). Lever uses only: what runs is redsim's.
+    pub fn start_door_demo(&mut self) {
+        if self.session.mode.is_door() && self.session.simulated() {
+            self.door_demo = Some(DoorDemo::Wait(self.session.tick + DOOR_HOLD_CLOSED));
+        }
+    }
+
+    /// The door demo after a tick: flip the lever when its stage is over.
+    fn door_demo_tick(&mut self) {
+        let Some(d) = self.door_demo else { return };
+        let Mode::Door { lever, .. } = self.session.mode else { return };
+        let t = self.session.tick;
+        let settled = self.session.idle() && self.session.since_input() >= 2;
+        let next = match d {
+            DoorDemo::Wait(at) | DoorDemo::Closed(at) if t >= at => {
+                self.session.toggle(lever);
+                DoorDemo::Opening
+            }
+            DoorDemo::Opening if settled => DoorDemo::Open(t + DOOR_HOLD_OPEN),
+            DoorDemo::Open(at) if t >= at => {
+                self.session.toggle(lever);
+                DoorDemo::Closing
+            }
+            DoorDemo::Closing if settled => DoorDemo::Closed(t + DOOR_HOLD_CLOSED),
+            d => d,
+        };
+        if next != d {
+            self.invalidate();
+        }
+        self.door_demo = Some(next);
     }
 
     /// A tap on circuit input `i`: a short pulse (pulse inputs) or a flip (level inputs).
@@ -235,6 +308,7 @@ impl Player {
     pub fn step(&mut self) {
         self.session.step();
         self.record();
+        self.door_demo_tick();
         self.acc = 0.0;
         self.partial = 0.0;
         // paused: the camera stays (only a playing flying machine is followed)
@@ -247,6 +321,10 @@ impl Player {
         self.history = vec![Default::default(); self.session.outputs.len()];
         self.history_tick = None;
         self.pressed = vec![None; self.session.circuit_inputs.len()];
+        // the door demo starts over, closed
+        if self.door_demo.is_some() {
+            self.door_demo = Some(DoorDemo::Wait(self.session.tick + DOOR_HOLD_CLOSED));
+        }
         self.record();
         self.acc = 0.0;
         self.partial = 0.0;
@@ -399,7 +477,8 @@ impl Player {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
         let mut out = format!("{} · {t} ticks", seconds(t));
-        if s.last_input.is_some() && s.mode.is_door() {
+        // the person's flip of a door: the ticks since (the door demo's badge says its stage)
+        if s.last_input.is_some() && s.mode.is_door() && self.door_demo.is_none() {
             out.push_str(&format!(" · flip +{}", s.since_input()));
         }
         out
@@ -440,6 +519,33 @@ pub fn seconds(gt: u32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The door demo flips the lever like the record videos: the door opens (its opening
+    /// empties), stays open, closes again (its 9 blocks back), and starts over.
+    #[test]
+    fn the_door_demo_opens_and_closes() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/piston-door-3x3/archive/b38h-obs7-45b.txt")).unwrap();
+        let mut p = Player::new(&text, 1.5).unwrap();
+        p.start_door_demo();
+        p.playing = true;
+        let mut seen: Vec<usize> = Vec::new();
+        for _ in 0..12_000 {
+            p.update(0.05);
+            let n = p.session.door_blocks().unwrap();
+            if seen.last() != Some(&n) {
+                seen.push(n);
+            }
+            if seen.len() > 1 && seen.first() == Some(&9) && seen.contains(&0) && seen.last() == Some(&9) {
+                break;
+            }
+        }
+        assert_eq!(seen.first(), Some(&9), "closed at first: {seen:?}");
+        assert!(seen.contains(&0), "opens: {seen:?}");
+        assert_eq!(seen.last(), Some(&9), "closes again: {seen:?}");
+        assert!(p.door_demo.is_some(), "still running");
+        p.flip();
+        assert!(p.door_demo.is_none(), "the person's flip stops it");
+    }
 
     #[test]
     fn plays_a_clock_and_flips_a_door() {
