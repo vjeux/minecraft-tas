@@ -1,0 +1,27 @@
+name: cal-oneshot-retriggered
+circuit: monostable
+# study 1's pulse-oneshot-rise (a bulb one-shot): a second edge 8 gt into its 18 gt pulse cuts the
+# pulse short and starts another, so it is neither retriggerable nor non-retriggerable: refused
+origin: -1 0 0
+port input: -1 1 0
+port output: 3 1 1
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=north,powered=false]
+  V minecraft:observer[facing=west,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  W minecraft:redstone_wire
+  a minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  m minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+layer 0:
+  ......
+  ....SS
+  ...S.S
+  ...SSS
+layer 1:
+  .PO...
+  ...BCW
+  ...m.a
+  ...WWW
