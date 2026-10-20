@@ -481,6 +481,8 @@ pub enum Block {
     PlainRail { shape: RailShape },
     /// Detector rail (`DetectorRailBlock`: straight shapes), `react::rails`.
     DetectorRail { shape: RailShape, powered: bool },
+    /// Big dripleaf (the leaf; `react::dripleaf`): `tilt` 0 none, 1 unstable, 2 partial, 3 full.
+    BigDripleaf { facing: Dir, tilt: u8, waterlogged: bool },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -549,6 +551,7 @@ pub enum Kind {
     StoneSlab,
     PlainRail,
     DetectorRail,
+    BigDripleaf,
     Water,
     BubbleColumn,
 }
@@ -607,6 +610,7 @@ impl Block {
             Block::StoneSlab { .. } => Kind::StoneSlab,
             Block::PlainRail { .. } => Kind::PlainRail,
             Block::DetectorRail { .. } => Kind::DetectorRail,
+            Block::BigDripleaf { .. } => Kind::BigDripleaf,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
         }
@@ -779,6 +783,17 @@ impl Block {
                     powered: bool_of("powered", false)?,
                 }
             }
+            "big_dripleaf" => Block::BigDripleaf {
+                facing: hdir_of("facing", Dir::North)?,
+                tilt: match get("tilt") {
+                    None | Some("none") => 0,
+                    Some("unstable") => 1,
+                    Some("partial") => 2,
+                    Some("full") => 3,
+                    Some(v) => return Err(format!("bad tilt={v}")),
+                },
+                waterlogged: bool_of("waterlogged", false)?,
+            },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -1051,6 +1066,13 @@ impl fmt::Display for Block {
             Block::StoneSlab { kind } => write!(f, "minecraft:stone_slab[type={},waterlogged=false]", ["bottom", "top", "double"][kind as usize]),
             Block::PlainRail { shape } => write!(f, "minecraft:rail[shape={},waterlogged=false]", shape.name()),
             Block::DetectorRail { shape, powered } => write!(f, "minecraft:detector_rail[powered={},shape={},waterlogged=false]", b(powered), shape.name()),
+            Block::BigDripleaf { facing, tilt, waterlogged } => write!(
+                f,
+                "minecraft:big_dripleaf[facing={},tilt={},waterlogged={}]",
+                facing.name(),
+                ["none", "unstable", "partial", "full"][tilt as usize],
+                b(waterlogged)
+            ),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
         }
