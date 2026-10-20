@@ -1,0 +1,89 @@
+# archived 2026-10-20T08:13Z from designs/circuits/shulker/tracks/shulker-speed/combo.txt by mctas circuit archive
+# CIRCUIT: shulker-combo shulker-loader boxes/min 0.087, items/s 2.50, first box 13862 gt, cycle 13840 gt, hoppers awake 6, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+combo, bill 36 iron, 7 quartz, 72 redstone, 1 slime, 85 blocks, 8x7x8, robust
+# Shulker loader + unloader combo with a mode lever (track shulker-speed, clk-item). Lever off: a loader; lever on: an unloader, on the same chests. Core: clk-rt's always-on loader (dispenser D above the box cell X; observer Q on the pushed stone's cell re-fires D; comparator E + observer Q2 place the first box and restart after the supply ran out; sticky piston P's stone breaks the box and pushes the drop into the walled cell over the collection hopper K). Loader feed: chests a, b, c into one pool hopper over the feed hopper N. Unloader: hopper H under X empties it into chest d. The judge's 81-stack loader budget fills a, b, c in name order, so d stays empty in loader mode. One detector serves both modes. Comparator C reads X's level L into dust A, and K2 (compare, redstone block beside it) gives 15 only at L = 15. Z subtracts K2's signal (through repeater F, 8 gt) from A (through repeater R1, 2 gt), and repeater W squares it: S = (0 < L < 15). Because the full signal arrives 6 gt late, a box that is filled to 14 at once and topped up a gt later still makes S rise. V subtracts S (through repeater f) from S delayed (T2) and pulses for 4 gt when S falls: when a loading box gets full, or when an unloading box gets empty. P fires from V directly. The mode lever (on its floor) locks F through two repeaters, so a full box arriving in unloader mode never fires the piston. The lever's floor also powers a dust line under the build to the block holding the wall torch under H, so the torch (which locks H) goes off and H unloads only in unloader mode.
+name: shulker-combo
+circuit: shulker-loader
+port items.a: 0 3 1
+port items.b: 1 3 1
+port items.c: 0 3 2
+port items.d: 0 0 -1
+port boxes: 0 3 -1
+port output: 2 0 0
+port input.mode: -5 1 -4 lever
+origin: -5 0 -5
+palette:
+  S minecraft:stone
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  B minecraft:redstone_block
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  Z minecraft:comparator[facing=east,mode=subtract,powered=false]
+  V minecraft:comparator[facing=west,mode=subtract,powered=false]
+  E minecraft:comparator[facing=west,mode=compare,powered=false]
+  f minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  W minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  T minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=east]
+  Q minecraft:observer[facing=down,powered=false]
+  D minecraft:dispenser[facing=down,triggered=false]
+  n minecraft:hopper[enabled=true,facing=north]
+  K minecraft:hopper[enabled=true,facing=east]
+  u minecraft:hopper[enabled=true,facing=south]
+  v minecraft:hopper[enabled=true,facing=down]
+  w minecraft:hopper[enabled=true,facing=west]
+  x minecraft:redstone_wall_torch[facing=east,lit=true]
+  M minecraft:lever[face=floor,facing=north,powered=false]
+  F minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
+  l minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer -2:
+  ........
+  S.......
+  S.......
+  S.......
+  S.......
+  SSSS....
+layer -1:
+  ........
+  r.......
+  r.......
+  r.......
+  r.......
+  rrrrSx..
+layer 0:
+  ...SSS..
+  SSSS.S..
+  .SSSSS..
+  .SS..S..
+  SSS.....
+  SSS..nK.
+layer 1:
+  ...rrr..
+  MllF.CB.
+  .rWZRr..
+  .rr..C..
+  rrf..SS.
+  rTVPS..S
+  .....nS.
+layer 2:
+  ........
+  ........
+  ........
+  ........
+  .....u..
+  ....QDSE
+  .....vw.
+  .....n..
+layer 3:
+  ........
+  ........
+  ........
+  ........
+  ........
+  ....SrSQ
+layer 4:
+  ........
+  ........
+  ........
+  ........
+  ........
+  ......rS
