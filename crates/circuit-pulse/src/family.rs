@@ -68,6 +68,46 @@ pub const FAMILIES: &[Family] = &[
         how: "a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off (a bulb toggles only on rising edges of its power); the falling edge pulls the observer back where it faces nothing",
     },
     Family {
+        name: "oneshot-rise",
+        kind: "rising-edge",
+        l: "18 + 16n",
+        blocks: "17 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston pushes an observer whose back then faces a copper bulb; the observer fires on landing and lights the bulb; a comparator reads the bulb into a U of delay-4 repeaters that comes back into the bulb and turns it off one loop later (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing); on the falling edge the observer is pulled back and fires into nothing",
+    },
+    Family {
+        name: "oneshot-ext",
+        kind: "pulse-extender",
+        l: "18 + 16n",
+        blocks: "17 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "the rising-edge bulb one-shot (oneshot-rise) judged as an extender: every input pulse, short or long, gives one output pulse of L from its rising edge",
+    },
+    Family {
+        name: "oneshot-fall",
+        kind: "falling-edge",
+        l: "18 + 16n",
+        blocks: "17 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "a sticky piston pushes an observer away on the rising edge and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of delay-4 repeaters that comes back into the bulb and turns it off one loop later (a bulb toggles only on rising edges of its power)",
+    },
+    Family {
+        name: "dual-lock",
+        kind: "dual-edge",
+        l: "?",
+        blocks: "23 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "an observer watching the input fires on both edges through a repeater into a copper bulb; a comparator reads the bulb and feeds a lock (a repeater pointing into the trigger repeater's side: triggers are ignored while the bulb is lit) and a U of delay-4 repeaters back into the bulb, which turns it off one loop later",
+    },
+    Family {
+        name: "dual-lock1",
+        kind: "dual-edge",
+        l: "?",
+        blocks: "23 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-1 repeater (on stone) in each column",
+        how: "the dual-lock with delay-1 repeaters",
+    },
+    Family {
         name: "oneshot-u1",
         kind: "rising-edge",
         l: "?",
@@ -280,12 +320,45 @@ pub fn oneshot_for(l: u32, kind: &str) -> Option<String> {
     Some(text)
 }
 
+/// The locked dual-edge one-shot: an observer watching the input fires on both edges through a
+/// repeater T into a copper bulb; a comparator reads the bulb and feeds a lock (a repeater pointing
+/// into T's side, so triggers are ignored while the bulb is lit) and a U of k rows of repeaters
+/// (delay d) back into the bulb, which turns it off one loop later.
+pub fn dual_lock_text(name: &str, k: usize, d: u8) -> String {
+    // x from 1 to 4; z from -(k+1) to 3 (rows listed from the smallest z)
+    let zmin = -(k as i32 + 1);
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in zmin..=3 {
+        let (r0, r1) = match z {
+            3 => ("....", "...."),
+            2 => ("....", ".V.."),
+            1 => (".SSS", ".TLW"),
+            0 => (".SSS", ".BCW"),
+            z if z == zmin => (".SSS", ".WWW"),
+            _ => (".S.S", ".N.M"),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: dual-edge\norigin: 1 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
     match name {
         "oneshot-u" => Some(oneshot_u_text(&format!("pulse-oneshot-u-n{n}"), k, 4)),
         "oneshot-u1" => Some(oneshot_u_text(&format!("pulse-oneshot-u1-n{n}"), k, 1)),
+        "oneshot-rise" => Some(oneshot_text(&format!("pulse-oneshot-rise-n{n}"), "rising-edge", "rise", &vec![4; 2 * k])),
+        "oneshot-ext" => Some(oneshot_text(&format!("pulse-oneshot-ext-n{n}"), "pulse-extender", "rise", &vec![4; 2 * k])),
+        "oneshot-fall" => Some(oneshot_text(&format!("pulse-oneshot-fall-n{n}"), "falling-edge", "fall", &vec![4; 2 * k])),
+        "dual-lock" => Some(dual_lock_text(&format!("pulse-dual-lock-n{n}"), k, 4)),
+        "dual-lock1" => Some(dual_lock_text(&format!("pulse-dual-lock1-n{n}"), k, 1)),
         "limiter-u" => Some(limiter_u_text(&format!("pulse-limiter-u-n{n}"), &vec![1; 2 * k])),
         "limiter-u4" => Some(limiter_u_text(&format!("pulse-limiter-u4-n{n}"), &vec![4; 2 * k])),
         _ => None,
@@ -395,7 +468,7 @@ pub fn run(a: FamilyArgs) -> Result<()> {
     text.insert_str(at, &caption);
     if let Some(hi) = a.card_max_n {
         let header = format!(
-            "extend family: pulse-{name}\nextend period: {l}\nextend blocks: {b}\nextend rule: {rule}\nextend n: {lo}..{hi}\nextend base: {lo}\nextend generator: mctas circuit pulse family {name} --n {{n}} --out {{out}}\n",
+            "extend family: pulse-{name}\nextend axis: {l}\nextend blocks: {b}\nextend rule: {rule}\nextend n: {lo}..{hi}\nextend base: {lo}\nextend generator: mctas circuit pulse family {name} --n {{n}} --out {{out}}\n",
             name = f.name,
             l = f.l,
             b = f.blocks,
