@@ -140,6 +140,9 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+        /// Write all 24 orientations (flying or not), each with its travel turned.
+        #[arg(long)]
+        all: bool,
     },
     /// Add 1 or 2 blocks around each design (every empty cell next to it, every palette state),
     /// run each candidate in every quarter turn on redsim with the design's kick; print and write
@@ -164,6 +167,9 @@ enum Cmd {
         /// Keep only the candidates faster than their base.
         #[arg(long)]
         faster: bool,
+        /// Take one block out of each design first (every variant), then add `--add` blocks.
+        #[arg(long, default_value_t = 0)]
+        remove: usize,
     },
     /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
     /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
@@ -190,6 +196,14 @@ enum Cmd {
         dir2: String,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Take designs back out of an archive directory (default the fly study's): the design files
+    /// and their rows in verdicts.tsv and captions.tsv (a dominated machine).
+    Unarchive {
+        /// Archived file names (`fly-up-7b-9gt-ff426b.txt` or without `.txt`).
+        names: Vec<String>,
+        #[arg(long, default_value = "designs/circuits/fly/archive")]
+        dir: PathBuf,
     },
     /// Two-way machines: for each reversible machine (kicked from its back-facing sticky piston it
     /// flies backward), the station search ahead and behind, then every pair of the best stations
@@ -347,7 +361,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{} -> {name}", p.display());
             }
         }
-        Cmd::Orient { designs, out_dir } => {
+        Cmd::Orient { designs, out_dir, all } => {
             for p in &designs {
                 let m = machine::Machine::load(p)?;
                 let base = class_of(&sim::simulate(&m, &sim::SimOptions { distance: 16, ..Default::default() }));
@@ -355,6 +369,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 written.insert(base.clone());
                 for o in orient::orient(&m) {
                     let class = class_of(&o.report);
+                    if all && let Some(dir) = &out_dir {
+                        // every orientation, its travel turned with it (flying or not)
+                        std::fs::create_dir_all(dir)?;
+                        let mut mm = o.machine.clone();
+                        mm.clock.design.name = format!("{}-o{}", m.name(), o.index);
+                        std::fs::write(dir.join(format!("{}.txt", mm.name())), mm.to_text())?;
+                    }
                     if !matches!(o.report.verdict, report::Verdict::Flies | report::Verdict::Shuttles) {
                         continue;
                     }
@@ -366,7 +387,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         _ => "-",
                     };
                     println!("{} o{}: {} {} {way}", m.name(), o.index, class, o.report.speed_text());
-                    if let Some(dir) = &out_dir
+                    if !all
+                        && let Some(dir) = &out_dir
                         && written.insert(class.clone())
                     {
                         std::fs::create_dir_all(dir)?;
@@ -381,9 +403,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep, faster } => {
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir, keep, faster, remove } => {
             let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
-            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers, faster };
+            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers, faster, remove };
             let found = grow::grow(&ms, &o)?;
             std::fs::create_dir_all(&out_dir)?;
             let mut seen: std::collections::BTreeMap<(String, String, usize), usize> = std::collections::BTreeMap::new();
@@ -449,26 +471,69 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 std::fs::write(out_dir.join(format!("{name}.txt")), station::design_text(&m, s, &name))?;
             }
         }
+        Cmd::Unarchive { names, dir } => {
+            let files: Vec<String> = names.iter().map(|n| if n.ends_with(".txt") { n.clone() } else { format!("{n}.txt") }).collect();
+            for f in &files {
+                let p = dir.join(f);
+                if !p.exists() {
+                    bail!("{} is not archived", p.display());
+                }
+            }
+            // verdicts.tsv: the file is column 2; captions.tsv: column 1
+            for (tsv, col) in [("verdicts.tsv", 1usize), ("captions.tsv", 0usize)] {
+                let path = dir.join(tsv);
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                let mut kept = String::new();
+                let mut gone = 0;
+                for (i, line) in text.lines().enumerate() {
+                    let f = line.split('\t').nth(col).unwrap_or("");
+                    if i > 0 && files.iter().any(|x| x == f) {
+                        gone += 1;
+                        continue;
+                    }
+                    kept.push_str(line);
+                    kept.push('\n');
+                }
+                std::fs::write(&path, kept)?;
+                println!("{tsv}: {gone} rows removed");
+            }
+            for f in &files {
+                std::fs::remove_file(dir.join(f))?;
+                println!("removed {}", dir.join(f).display());
+            }
+        }
         Cmd::TwoWay { machines, approach, k, radius, palette, horizon, workers, procs, out_dir, pairs, reversible_only } => {
             std::fs::create_dir_all(&out_dir)?;
             let o = station::StationOptions { approach, k, radius, palette: clock::census::expand_palette(&palette)?, horizon, workers, back: 4, shard: (0, 1) };
             for path in &machines {
                 let m = machine::Machine::load(path)?;
-                let Some(rev) = station::reversed(&m) else {
+                let back = m.travel.map(|t| [-t[0], -t[1], -t[2]]);
+                // the first kick from the other end that flies it backward
+                let revs = station::reversed_all(&m);
+                if revs.is_empty() {
                     println!("{}: no back-facing sticky piston to kick: not reversible", m.name());
+                    continue;
+                }
+                let mut pick: Option<(machine::Machine, report::FlyReport)> = None;
+                let mut last = String::new();
+                for rev in revs {
+                    let rr = sim::simulate(&rev, &sim::SimOptions { distance: 8, ..Default::default() });
+                    if rr.direction() == back && rr.verdict == report::Verdict::Flies {
+                        pick = Some((rev, rr));
+                        break;
+                    }
+                    last = rr.verdict.word().to_string();
+                }
+                let Some((rev, rr)) = pick else {
+                    println!("{}: kicked from the other piston it does not fly backward ({last})", m.name());
                     continue;
                 };
                 let dir = out_dir.join(m.name());
                 std::fs::create_dir_all(&dir)?;
                 let rev_path = dir.join(format!("{}-rev.txt", m.name()));
                 std::fs::write(&rev_path, rev.to_text())?;
-                // does it fly backward at all?
-                let rr = sim::simulate(&rev, &sim::SimOptions { distance: 8, ..Default::default() });
-                let back = m.travel.map(|t| [-t[0], -t[1], -t[2]]);
-                if rr.direction() != back {
-                    println!("{}: kicked from the other piston it does not fly backward ({})", m.name(), rr.verdict.word());
-                    continue;
-                }
                 if reversible_only {
                     println!("{}: reversible ({} backward: {})", m.name(), rr.speed_text(), rev_path.display());
                     continue;

@@ -108,6 +108,22 @@ pub const FAMILIES: &[Family] = &[
         how: "the bulb-triggered one-shot (oneshot-bulb-rise) judged as an extender",
     },
     Family {
+        name: "dual-edge-reset",
+        kind: "dual-edge",
+        l: "30 + 16n",
+        blocks: "32 + 4n",
+        rule: "lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column",
+        how: "an observer watching the input fires on both edges through a repeater into a copper bulb (locked by a comparator reading the bulb while it is lit); the comparator also feeds a U of delay-4 repeaters into a second bulb, read by a comparator that an observer watches: its back faces the first bulb, so each loop sends one 2 gt reset pulse that turns the bulb off",
+    },
+    Family {
+        name: "dual-edge-reset1",
+        kind: "dual-edge",
+        l: "?",
+        blocks: "?",
+        rule: "lengthen the repeater U by one row: one more delay-1 repeater (on stone) in each column",
+        how: "dual-edge-reset with delay-1 repeaters",
+    },
+    Family {
         name: "dual-lock",
         kind: "dual-edge",
         l: "?",
@@ -417,6 +433,36 @@ pub fn oneshot_bulb_text(name: &str, kind: &str, delays: &[u8]) -> String {
     )
 }
 
+/// The locked dual-edge one-shot with an EDGE reset (min-pulse about L): as `dual_lock_text`, but
+/// the repeater U ends in a second copper bulb read by a comparator that an observer watches; the
+/// observer's back faces the main bulb, so the bulb gets a 2 gt reset pulse once per loop (the
+/// loop's rising edge toggles the second bulb, its falling edge does nothing) instead of staying
+/// powered by the loop: the falling edge's trigger is answered as soon as the lock lets it go.
+pub fn dual_lock2_text(name: &str, k: usize, d: u8) -> String {
+    // x from 0 to 4; z from -(k+2) to 3 (rows listed from the smallest z)
+    let zmin = -(k as i32 + 2);
+    let mut l0: Vec<String> = Vec::new();
+    let mut l1: Vec<String> = Vec::new();
+    for z in zmin..=3 {
+        let (r0, r1) = match z {
+            3 => (".....", "....."),
+            2 => (".....", "..V.."),
+            1 => ("..SSS", "..TLW"),
+            0 => ("S..SS", "KOBCW"),
+            -1 => ("....S", "A...M"),
+            z if z == zmin => ("SSSSS", "WWWWW"),
+            _ => ("S...S", "N...M"),
+        };
+        l0.push(format!("  {r0}"));
+        l1.push(format!("  {r1}"));
+    }
+    format!(
+        "name: {name}\ncircuit: dual-edge\norigin: 0 0 {zmin}\nport input: 2 1 3\nport output: 3 1 0\npalette:\n  S minecraft:stone\n  V minecraft:observer[facing=south,powered=false]\n  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\n  C minecraft:comparator[facing=west,mode=compare,powered=false]\n  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]\n  A minecraft:waxed_copper_bulb[lit=false,powered=false]\n  K minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=west,powered=false]\n  N minecraft:repeater[delay={d},facing=north,locked=false,powered=false]\n  M minecraft:repeater[delay={d},facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire\nlayer 0:\n{}\nlayer 1:\n{}\n",
+        l0.join("\n"),
+        l1.join("\n")
+    )
+}
+
 /// The design text of an instance: the U with n + 1 rows.
 pub fn instance_text(name: &str, n: u32) -> Option<String> {
     let k = n as usize + 1;
@@ -427,6 +473,8 @@ pub fn instance_text(name: &str, n: u32) -> Option<String> {
         "oneshot-ext" => Some(oneshot_text(&format!("pulse-oneshot-ext-n{n}"), "pulse-extender", "rise", &vec![4; 2 * k])),
         "oneshot-fall" => Some(oneshot_text(&format!("pulse-oneshot-fall-n{n}"), "falling-edge", "fall", &vec![4; 2 * k])),
         "dual-lock" => Some(dual_lock_text(&format!("pulse-dual-lock-n{n}"), k, 4)),
+        "dual-edge-reset" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset-n{n}"), k, 4)),
+        "dual-edge-reset1" => Some(dual_lock2_text(&format!("pulse-dual-edge-reset1-n{n}"), k, 1)),
         "oneshot-bulb-rise" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-rise-n{n}"), "rising-edge", &vec![4; 2 * k])),
         "oneshot-bulb-ext" => Some(oneshot_bulb_text(&format!("pulse-oneshot-bulb-ext-n{n}"), "pulse-extender", &vec![4; 2 * k])),
         "dual-lock1" => Some(dual_lock_text(&format!("pulse-dual-lock1-n{n}"), k, 1)),
@@ -469,6 +517,7 @@ pub fn group_of(family: &str, kind: &str) -> &'static str {
         ("oneshot-fall" | "oneshot-mode-fall", _) => "pulse-oneshot-fall",
         ("oneshot-mode-dual", _) => "pulse-oneshot-dual",
         ("dual-lock" | "dual-lock1", _) => "pulse-dual-lock",
+        ("dual-edge-reset" | "dual-edge-reset1", _) => "pulse-dual-edge-reset",
         ("oneshot-bulb-rise", _) => "pulse-oneshot-bulb-rise",
         ("oneshot-bulb-ext", _) => "pulse-oneshot-bulb-ext",
         _ => "pulse-other",

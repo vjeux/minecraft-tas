@@ -22,6 +22,8 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | dual-edge | 2 | 2 | an observer watching a lamp the input lights: the lamp goes out 4 gt late, so even a 1 gt input gives two pulses (min-pulse 1) |
 | dual-edge | 4, 6, 8 | 3 | observer + repeater |
 | dual-edge | 18, 34 | 23, 27 | locked bulb one-shot: a comparator reading the bulb locks the trigger repeater, so short inputs cannot latch it (min-pulse 40 / 80) |
+| dual-edge | 30 + 16n | 32 + 4n | card `pulse-dual-edge-reset` (n 0..10, L up to 190): the locked one-shot whose loop ends in a second bulb + comparator + observer, so the bulb gets one 2 gt reset pulse per loop instead of staying powered: min-pulse about L + 10 |
+| dual-edge | 4, 6, 8 | 4 | lamp + observer + repeater: the lamp's 4 gt fall separates the edges of short inputs (min-pulse 4 / 8 / 15) |
 | pulse-limiter | 2 | 2 | sticky piston + observer (another layout) |
 | pulse-limiter | 4..38 (every even L) | 10-18 | SUBTRACT U: a subtract comparator's rear sees the input at once, its side gets it back through a U of repeaters: rear - side is on until the side catches up (min-pulse 2) |
 | pulse-limiter | 16 + 16n | 10 + 4n | card `pulse-limiter-u4` (n 0..10) |
@@ -47,9 +49,15 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 
 ## Open
 
-* Odd L: every design so far has even L (observers, repeaters, comparators work in 2 gt units). A
-  redstone block that LANDS (block-entity phase) next to the output and is pushed away the next
-  tick by a piston it powers would give a 1 gt pulse (L = 1 + 2d with a repeater on the way).
+* Odd L: every design so far has even L. Why: observers, repeaters, comparators and torches change
+  in the scheduled-tick phase, at even offsets from the input's frame, so every pulse they shape
+  is even. An odd length needs an output read directly from a block that a piston moves, mixing a
+  piston event driven by the input itself (its block event runs in the tick after the input's
+  frame: tick 1; a pushed redstone block lands in tick 3's block-entity phase) with one driven by
+  a scheduled component (a repeater line of 2d gt moves the block away in tick 2d): L = 2d - 3.
+  The hard part is bringing the redstone block back each pulse without a second pulse (a sticky
+  piston pulls it back into place, a normal one leaves it behind): a loop of 3-4 pistons, not
+  built yet. The 4-block census found none.
 * Min-pulse 1 falling-edge detectors (the best has min-pulse 2): a bulb needs a rising edge, so
   the input must be inverted first, and torches and comparators miss 1 gt inputs.
 * The 4-block census (running) for smaller designs per (kind, L).

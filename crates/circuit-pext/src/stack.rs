@@ -37,15 +37,40 @@ pub struct StackOptions {
     pub hops: usize,
     /// Which interleavable train to use (0 = the one with the fewest pulses).
     pub pick: usize,
+    /// Use the canonical train T_N (rounds N..1 of P_k..P_N) instead of enumerating trains (the
+    /// enumeration explodes past N = 4).
+    pub canonical: bool,
+    /// Use the shortest single-cell schedule (`trains::cell_schedule`): any N, the fewest pulses.
+    pub cells: bool,
+    /// FLAT: everything in the line's plane (pulsers on top and below the cells, spine in-plane).
+    pub flat: bool,
+}
+
+/// The canonical pulse-toggle train T_n: rounds k = n-1..0 of pistons k..n-1.
+pub fn canonical_train(n: usize) -> Vec<usize> {
+    let mut t = Vec::new();
+    for k in (0..n).rev() {
+        t.extend(k..n);
+    }
+    t
 }
 
 pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
     let n = o.n;
     let ni = n as i32;
-    let all = trains::trains(n, o.max_train);
-    let mut found: Vec<(Vec<usize>, Vec<(i32, bool, bool)>)> = all.iter().filter_map(|(t, _)| trains::interleave(n, t).map(|p| (t.clone(), p))).collect();
-    found.sort_by_key(|(t, p)| (p.len(), t.len(), t.clone()));
-    let (train, plan) = found.get(o.pick).cloned().ok_or_else(|| anyhow!("no interleavable train for n = {n} up to {} pulses", o.max_train))?;
+    let (train, plan) = if o.cells {
+        let cells = trains::cell_schedule(n, 200).ok_or_else(|| anyhow!("no single-cell schedule for n = {n}"))?;
+        (Vec::new(), cells.into_iter().map(|c| (c, true, true)).collect::<Vec<_>>())
+    } else if o.canonical {
+        let t = canonical_train(n);
+        let p = trains::interleave(n, &t).ok_or_else(|| anyhow!("the canonical train for n = {n} has no interleaved delivery"))?;
+        (t, p)
+    } else {
+        let all = trains::trains(n, o.max_train);
+        let mut found: Vec<(Vec<usize>, Vec<(i32, bool, bool)>)> = all.iter().filter_map(|(t, _)| trains::interleave(n, t).map(|p| (t.clone(), p))).collect();
+        found.sort_by_key(|(t, p)| (p.len(), t.len(), t.clone()));
+        found.get(o.pick).cloned().ok_or_else(|| anyhow!("no interleavable train for n = {n} up to {} pulses", o.max_train))?
+    };
     let mut log = vec![format!(
         "train {}: {} pulses",
         train.iter().map(|&k| (b'A' + k as u8) as char).collect::<String>(),
@@ -63,8 +88,23 @@ pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
     // the line and the payload's path are off limits
     let mut blocked: BTreeSet<Pos> = (0..=target_x + 1).map(|x| [x, 1, 0]).collect();
     // pulser slots per cell, in order of use
+    let flat = o.flat;
     let slots = |x: i32| -> Vec<(Pos, &'static str, Pos)> {
-        let mut v = vec![([x, 1, 1], "south", [x, 1, 2]), ([x, 1, -1], "north", [x, 1, -2]), ([x, 2, 0], "up", [x, 3, 0]), ([x, 0, 0], "down", [x, -1, 0])];
+        let mut v = if flat {
+            // two above the piston (quasi-connectivity through the air cell above it: its watched
+            // node can be reached from any side) and below it
+            vec![([x, 3, 0], "up", [x, 4, 0]), ([x, 0, 0], "down", [x, -1, 0])]
+        } else {
+            vec![
+                ([x, 1, 1], "south", [x, 1, 2]),
+                ([x, 1, -1], "north", [x, 1, -2]),
+                ([x, 2, 0], "up", [x, 3, 0]),
+                ([x, 0, 0], "down", [x, -1, 0]),
+                // quasi-connectivity through the cell above the piston
+                ([x, 2, 1], "south", [x, 2, 2]),
+                ([x, 2, -1], "north", [x, 2, -2]),
+            ]
+        };
         if x == 1 {
             v.insert(0, ([0, 1, 0], "west", [-1, 1, 0]));
         }
@@ -94,8 +134,8 @@ pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
         blocked.insert([x, 2, 0]);
     }
     // the lever and the first spine node: start near the first target
-    let lo = [-4, -4, -5];
-    let hi = [target_x + 3, 6, 5];
+    let lo = [-4, -4, if flat { 0 } else { -5 }];
+    let hi = [target_x + 3, 6, if flat { 0 } else { 5 }];
     let inside = |p: Pos| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]);
     let first = targets[0];
     if std::env::var("PEXT_DEBUG").is_ok() {
@@ -104,18 +144,28 @@ pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
     }
     // lever two cells away from the first target, on a stone below it
     let mut start = None;
-    for (d, _) in DIRS {
+    for (d, dname) in DIRS {
+        // the lever two cells out along d, on a stone one further out (floor, ceiling or wall)
         let l = add(first, [d[0] * 2, d[1] * 2, d[2] * 2]);
         let mid = add(first, d);
-        let under = add(l, [0, -1, 0]);
-        if inside(l) && !blocked.contains(&l) && !blocked.contains(&mid) && !blocked.contains(&under) && !b.contains_key(&l) && !b.contains_key(&under) && !b.contains_key(&mid) && d[1] == 0 {
-            start = Some((l, mid, under));
+        let under = add(l, d);
+        let ok = |p: Pos| inside(p) && !blocked.contains(&p) && !b.contains_key(&p);
+        if ok(l) && ok(mid) && ok(under) {
+            let state = match dname {
+                "down" => "minecraft:lever[face=floor,facing=north]".to_string(),
+                "up" => "minecraft:lever[face=ceiling,facing=north]".to_string(),
+                _ => {
+                    let away = DIRS.iter().find(|(v, _)| *v == [-d[0], -d[1], -d[2]]).map(|(_, f)| *f).unwrap();
+                    format!("minecraft:lever[face=wall,facing={away}]")
+                }
+            };
+            start = Some((l, mid, under, state));
             break;
         }
     }
-    let (lever, mid, under) = start.ok_or_else(|| anyhow!("no room for the lever"))?;
+    let (lever, mid, under, lever_state) = start.ok_or_else(|| anyhow!("no room for the lever"))?;
     b.insert(under, "minecraft:stone".into());
-    b.insert(lever, "minecraft:lever[face=floor,facing=north]".into());
+    b.insert(lever, lever_state);
     blocked.insert(lever);
     blocked.insert(under);
     // spine: lever -> mid -> first target -> ... each node watches the previous one. An observer

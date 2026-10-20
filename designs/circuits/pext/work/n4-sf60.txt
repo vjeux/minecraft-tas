@@ -1,0 +1,64 @@
+# N=4 SLIME-FREE extender, minimized (mctas circuit pext minimize, no slime in the palette) from the
+# 96-block single-cell-schedule stack (mctas circuit pext stack --n 4 --cells): four sticky pistons
+# in a line, fixed pulsers beside them, one observer spine (the minimizer shortened it a lot).
+name: pext-n4-sf60
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 9 1 2 lever
+port payload: 5 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=east]
+  C minecraft:observer[facing=north]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=south]
+  F minecraft:observer[facing=up]
+  G minecraft:gold_block
+  H minecraft:observer[facing=west,powered=false]
+  I minecraft:observer[facing=west]
+  J minecraft:piston[extended=false,facing=up]
+  K minecraft:piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=south]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  Q minecraft:sticky_piston[facing=east]
+  R minecraft:stone
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=down]
+  p minecraft:piston[extended=false,facing=north]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .
+  ....FI
+  ......s
+  ......E
+  .....S
+  ....JAF...R
+  .
+layer 1:
+  .
+  .....oo
+  ....CCC
+  EIQQQQG
+  ...E.EEEE
+  p....E.F.KL
+  ...s.BBC
+layer 2:
+  ......DI
+  ....PAo
+  .
+  ......FH
+  ....D.OI
+  F...o.PCo
+  ....BO
+layer 3:
+  .......o
+  .......C
+  .......M
+  ......A
+  .
+  .NB.K..Bo
+  .

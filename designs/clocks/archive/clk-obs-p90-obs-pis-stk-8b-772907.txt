@@ -1,0 +1,31 @@
+# archived 2026-10-20T02:24Z from designs/clocks/tracks/clk-obs/families9/p90-obs-pis-stk-8b-772907.txt by mctas clock archive
+# CLOCK: clk-obs-p90-obs-pis-stk-8b-772907 period 90 gt (4.5 s), on 42/90, edges 21, warmup 3, family observer+piston+sticky_piston, 8 blocks, 1x5x3, robust
+name: clk-obs-p90-obs-pis-stk-8b-772907
+# clk-obs grow: P=90 (redsim), family observer+piston+sticky_piston, kick last 0 0 2, swept volume 15.
+origin: 0 0 0
+port output: 0 -2 0
+port start: 0 0 2 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:piston[extended=false,facing=down]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  A
+  .
+  .
+layer -1:
+  B
+  .
+  .
+layer 0:
+  C
+  D
+  E
+layer 1:
+  A
+  F
+  G

@@ -1,0 +1,17 @@
+# archived 2026-10-20T01:56Z from designs/circuits/gates/tracks/gates/gate-nimply-ba-cmp-2b.txt by mctas circuit archive
+# CIRCUIT: gate-nimply-ba-cmp-2b gate nimply-ba function nimply-ba, latency 2 gt, 2 blocks, 1x2x1, robust
+# NIMPLY gate b AND NOT a, 2 gt (track gates): one subtract comparator, input b at its back and
+# input a at its side: b - a. The output is the comparator itself.
+name: gate-nimply-ba-cmp-2b
+circuit: gate nimply-ba
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: 1 1 1
+origin: 1 0 1
+palette:
+  C minecraft:comparator[facing=north,mode=subtract,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  C

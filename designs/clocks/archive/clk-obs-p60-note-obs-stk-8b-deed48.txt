@@ -1,0 +1,19 @@
+# archived 2026-10-20T01:50Z from designs/clocks/tracks/clk-obs/families9/p60-note-obs-stk-8b-deed48.txt by mctas clock archive
+# CLOCK: clk-obs-p60-note-obs-stk-8b-deed48 period 60 gt (3 s), on 30/60, edges 15, warmup 4, family note_block+observer+sticky_piston, 8 blocks, 4x1x3, robust
+name: clk-obs-p60-note-obs-stk-8b-deed48
+# clk-obs grow: P=60 (redsim), family note_block+observer+sticky_piston, kick last 0 0 2, swept volume 12.
+origin: 0 0 0
+port output: 3 0 2
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=north,powered=false]
+  D minecraft:observer[facing=east,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:observer[facing=west,powered=false]
+layer 0:
+  AD..
+  BC..
+  CEFG

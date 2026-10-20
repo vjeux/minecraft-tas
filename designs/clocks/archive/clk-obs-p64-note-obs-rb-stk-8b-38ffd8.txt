@@ -1,0 +1,28 @@
+# archived 2026-10-20T01:56Z from designs/clocks/tracks/clk-obs/families9/p64-note-obs-rb-stk-8b-38ffd8.txt by mctas clock archive
+# CLOCK: clk-obs-p64-note-obs-rb-stk-8b-38ffd8 period 64 gt (3.2 s), on 32/64, edges 16, warmup 13, family note_block+observer+redstone_block+sticky_piston, 8 blocks, 1x3x5, robust
+name: clk-obs-p64-note-obs-rb-stk-8b-38ffd8
+# clk-obs grow: P=64 (redsim), family note_block+observer+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 15.
+origin: 0 0 -2
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:redstone_block
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:observer[facing=north,powered=false]
+  H minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  .
+  B
+  C
+  D
+layer 1:
+  .
+  E
+  F
+  G
+  H

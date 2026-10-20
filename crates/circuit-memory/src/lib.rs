@@ -40,6 +40,10 @@ enum Cmd {
         /// (counter N * THEN).
         #[arg(long)]
         then: Option<usize>,
+        /// With --bulbs: judge as a divider (the last comparator toggles once every N * 2^(K-1)
+        /// pulses) instead of a level counter N * 2^K.
+        #[arg(long)]
+        divider: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -86,7 +90,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Err(e) => bail!("{e}"),
     };
     match a.cmd {
-        Cmd::Ring { n, max_dust, keep, bulbs, then, out } => ring::run(&n, max_dust, keep, bulbs, then, &out)?,
+        Cmd::Ring { n, max_dust, keep, bulbs, then, divider, out } => ring::run(&n, max_dust, keep, bulbs, then, divider, &out)?,
         Cmd::Check { design, gap } => {
             let c = circuit_tff::model::Circuit::load(&design)?;
             let words: Vec<String> = std::iter::once(c.kind.clone()).chain(c.args.iter().cloned()).collect();
