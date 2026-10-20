@@ -148,6 +148,14 @@
    solid: core Q (its only free neighbour at its spit is its own escape corner; its QC cell is P). Fix ideas
    (clk-misc): TL leaves upward so (-2,2) stays free for P, BL leaves down so (-2,0) stays free for Q; then L0 and L2
    need fillers at open (both are lanes). c70b's search with --reserve=-2,2 is running.
+7. **t1 is dead under the strict rule reading** (coordinator 00:18Z: each extra sits in the same frame cell at both
+   rest states). L2 is P's escape lane and its only feed path (QC from (-2,2); the corner (-1,3) is P's final
+   spot, so a component there can't leave). L2 needs a door block at open, from (0,2) (needs a puller in (-2,2),
+   the feed cell) or down from (-1,3) (deadlock: P must pass L2 then (-1,3), the block (-1,3) then L2, and P can't go
+   beyond (-1,3)). Time-sharing (-2,2) fails (a lever-observer pops its lever when shuttled; a powered block there
+   also fires ML's puller below it). The mirror (Q above P, lane down) fails on block-event order (the feed into
+   L2 powers Q directly and Q's push lands first). Reading (b) (extras may rest outside the frame) doesn't open
+   L2's three entrances either.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
