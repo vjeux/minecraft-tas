@@ -1,6 +1,9 @@
 # NIMPLY gate (B and not A), 4 blocks: the mirror of gate-nimply. A subtract comparator reads input B's block behind it and, at its side, a dust lying against input A's block; the output lights only while B is on and A is off.
 name: gate-nimply-ba
 circuit: gate nimply-ba
+group: gate-nimply
+group title: NIMPLY (A and not B)
+group note: the mirror version subtracts the other input
 port input.b: 0 1 0
 port input.a: 1 1 2
 port output: 2 1 0
