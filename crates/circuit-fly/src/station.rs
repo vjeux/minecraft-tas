@@ -17,6 +17,38 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+/// The machine kicked from its other end: a 2 gt redstone block next to the sticky piston that
+/// faces against `travel` (the first free side cell touching no other piston), `travel` reversed.
+/// None when it has no such piston or no free cell for the kick.
+pub fn reversed(m: &Machine) -> Option<Machine> {
+    let t = m.travel?;
+    let back = [-t[0], -t[1], -t[2]];
+    let face = |d: Pos| match d {
+        [-1, 0, 0] => "west",
+        [1, 0, 0] => "east",
+        [0, -1, 0] => "down",
+        [0, 1, 0] => "up",
+        [0, 0, -1] => "north",
+        _ => "south",
+    };
+    let want = format!("facing={}", face(back));
+    let blocks = &m.design().blocks;
+    let pistons: Vec<Pos> = blocks.iter().filter(|(_, s)| s.contains("piston[") && !s.contains("piston_head")).map(|(p, _)| *p).collect();
+    let s = *blocks.iter().find(|(_, st)| st.starts_with("minecraft:sticky_piston[") && st.contains(&want) && !st.contains("extended=true"))?.0;
+    let sides: [Pos; 6] = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
+    let near = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
+    let cell = sides.iter().map(|d| add(s, *d)).find(|c| *c != add(s, back) && !blocks.contains_key(c) && !m.stops.iter().any(|(q, _)| q == c) && pistons.iter().all(|p| *p == s || !near(*p, *c)))?;
+    let mut d = m.design().clone();
+    d.name = format!("rev-{}", m.name());
+    d.ports.insert("start".into(), cell);
+    d.meta.insert("port start".into(), "minecraft:redstone_block 2".into());
+    d.meta.insert("travel".into(), format!("{} {} {}", back[0], back[1], back[2]));
+    let mut mm = m.clone();
+    mm.clock = clock::Clock::from_design(d).ok()?;
+    mm.travel = Some(back);
+    Some(mm)
+}
+
 #[derive(Clone, Debug)]
 pub struct StationOptions {
     pub approach: i32,
