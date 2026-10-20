@@ -82,23 +82,26 @@ fn deployed_source(remote: &str, branch: &str) -> Option<String> {
     (!hash.is_empty() && hash.chars().all(|c| c.is_ascii_hexdigit())).then_some(hash)
 }
 
+/// Guard 1: never deploy an older tree over a newer site: the checkout must contain the commit
+/// the live site was built from.
+fn guard_contains(a: &DeployArgs) -> Result<()> {
+    if let Some(src) = deployed_source(&a.remote, &a.branch) {
+        let known = git(&["cat-file", "-e", &format!("{src}^{{commit}}")], &[], None).is_ok();
+        let contained = known && git(&["merge-base", "--is-ancestor", &src, "HEAD"], &[], None).is_ok();
+        if !contained {
+            bail!(
+                "the live site was built from {src}, which this checkout does not contain{}: merge it first (git fetch && git merge {src}), rebuild, or --force",
+                if known { "" } else { " (unknown here: fetch the branch it came from)" }
+            );
+        }
+    }
+    Ok(())
+}
+
 pub fn deploy(a: &DeployArgs) -> Result<()> {
     let dir = a.dir.canonicalize().with_context(|| format!("{}", a.dir.display()))?;
     if !dir.join("index.html").exists() || !dir.join("data/site.json").exists() {
         bail!("{} is not a generated site (no index.html / data/site.json): run `mctas site build` first", dir.display());
-    }
-    // guard 1: never deploy an older tree over a newer site
-    if !a.force {
-        if let Some(src) = deployed_source(&a.remote, &a.branch) {
-            let known = git(&["cat-file", "-e", &format!("{src}^{{commit}}")], &[], None).is_ok();
-            let contained = known && git(&["merge-base", "--is-ancestor", &src, "HEAD"], &[], None).is_ok();
-            if !contained {
-                bail!(
-                    "the live site was built from {src}, which this checkout does not contain{}: merge it first (git fetch && git merge {src}), or --force",
-                    if known { "" } else { " (unknown here: fetch the branch it came from)" }
-                );
-            }
-        }
     }
     let git_dir = git(&["rev-parse", "--absolute-git-dir"], &[], None)?;
     let index = std::env::temp_dir().join(format!("mctas-site-index-{}", std::process::id()));
@@ -112,6 +115,9 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
     let commit = git(&["commit-tree", &tree, "-m", &msg], &[], None)?;
     println!("gh-pages commit {commit} (tree {tree})");
     if a.dry_run {
+        if !a.force {
+            guard_contains(a)?;
+        }
         println!("dry run: not pushed");
         return Ok(());
     }
@@ -132,6 +138,8 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
             println!("{} Pages builds in the last hour: waiting {minutes} min", recent.len());
             std::thread::sleep(std::time::Duration::from_secs(wait.min(600) as u64));
         }
+        // guard 1, checked right before the push (another deploy may have landed while waiting)
+        guard_contains(a)?;
     }
     let token = Command::new("gh").args(["auth", "token"]).output().ok().filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
     if token.is_empty() {
