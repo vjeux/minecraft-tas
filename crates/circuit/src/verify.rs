@@ -36,12 +36,17 @@ impl Default for Options {
 /// longer when an event of the kind's own stimulus (run spaced by 1000 gt) takes longer to settle
 /// (then that settling + 10 gt); `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
+    // a slow circuit (a long item timer: its items move one per 8 gt each way) needs a longer
+    // hold to come to rest: 1000 gt, then 4000, then 16000
+    [1000u32, 4000, 16000].into_iter().find_map(|hold| sizing_with(c, margin, hold))
+}
+
+fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
     }
     let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    let hold = 1000u32;
     let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
     // every input on and held: the time to rest
     let mut s = Schedule::new(n);
