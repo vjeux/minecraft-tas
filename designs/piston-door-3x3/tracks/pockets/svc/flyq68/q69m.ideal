@@ -1,0 +1,55 @@
+phase between
+design designs/piston-door-3x3/tracks/pockets/svc/flyq68/q69m.txt
+# open. top-right (the lever's area) first: Qr (2,3) spits TR MR BR down (BR into (2,-1)), reaches
+# and pulls TR back, Br lifts Qr to (2,4) (the top-left sees Br move), Qr pulls TR into (2,3).
+# one long pulse into Qr: it pushes TR MR BR down and pulls TR back on the way in
+open 0 set 2 3 1 minecraft:redstone_block
+open 6 clear 2 3 1
+open 16 clear 2 5 1
+open 22 set 2 4 1 minecraft:redstone_block
+open 26 clear 2 4 1
+# top-left: P_T drops TM into (1,3), Pl moves the slime (W out of (-1,-1): O fires, the wiggle)
+open 18 clear 1 4 1
+open 34 set 0 4 1 minecraft:redstone_block
+open 42 set -1 -2 1 minecraft:redstone_block
+open 48 set 1 4 1 minecraft:redstone_block
+open 52 clear 1 4 1
+open 62 clear 0 -3 1
+# (B1 is pull-type now: O's arrival pulse at (0,-2) QC-powers it through the empty (1,-2), and it
+# reaches up and pulls Qv down: no input)
+# D_O (0,-3) pulled O down to (0,-2) while B1's head was at (1,-2) (O's arrival pulse hits the head:
+# harmless); now O watches N: N's retraction fires it straight into Qv at (1,-2), which reaches and
+# pulls BM into (1,-1). K's spit then moves only BR and BM, and (-1,-1) stays free for W
+open 80 clear -1 -2 1
+open 94 set 3 -1 1 minecraft:redstone_block
+open 95 clear 3 -1 1
+open 100 set 2 -2 1 minecraft:redstone_block
+open 104 clear 2 -2 1
+# close (door blocks are all stone: no block retraces its path).
+# top-right: Qr/Br lower TR to (2,1); top-left: P_T spits C to (1,2), the slime returns FIRST (W home)
+close 0 set 2 4 1 minecraft:redstone_block
+close 1 clear 2 4 1
+close 6 set 2 5 1 minecraft:redstone_block
+# (TR stays at (2,2): A's last spit lifts only BM and MR)
+close 18 set 1 4 1 minecraft:redstone_block
+close 19 clear 1 4 1
+close 24 clear 0 4 1
+# bottom-left: B1 blinks (Qv and BR up, Qv back down: BR into (1,0), (1,-1) free), W pushes BM
+# into (1,-1), D_O pushes O home
+close 32 set 1 -3 1 minecraft:redstone_block
+close 40 clear 1 -3 1
+close 46 set -1 -1 1 minecraft:redstone_block
+close 50 clear -1 -1 1
+# bottom-right (sees B1's blink): A spits MR up, K pulls BM into (2,-1), A spits BM MR TR up
+close 44 set 2 -2 1 minecraft:redstone_block
+close 45 clear 2 -2 1
+close 56 set 3 -1 1 minecraft:redstone_block
+close 60 clear 3 -1 1
+close 66 set 2 -2 1 minecraft:redstone_block
+close 67 clear 2 -2 1
+# B1 lifts Qv home; P_T pushes TM and C down; LAST, D_O pushes O home: O's arrival pulse reaches
+# Qv, but the column BR C TM is jammed under P_T's extended head, so Qv cannot move
+close 72 set 1 -3 1 minecraft:redstone_block
+close 73 clear 1 -3 1
+close 78 set 1 4 1 minecraft:redstone_block
+close 86 set 0 -3 1 minecraft:redstone_block

@@ -2359,6 +2359,10 @@ pub struct PocketArgs {
     /// Only these pockets (indices as printed), default all.
     #[arg(long)]
     pub only_pockets: Option<String>,
+    /// ISLAND START: also print, per pocket that never starts, the changes next to it before its
+    /// first forced pulse and the inputs causing them (`*` its own, `?` not started yet).
+    #[arg(long)]
+    pub why_islands: bool,
     /// Keep the seed's real lever (its wiring is already real): no lever candidates.
     #[arg(long)]
     pub keep_lever: bool,
@@ -2545,7 +2549,9 @@ fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], statics: &[(i32,
     let fmt = |v: &[u32]| v.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" ");
     for i in 0..pockets.len() {
         let has = |k: &usize| groups.iter().any(|g| g.k == *k);
-        let forced: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k] == [i] && has(k)).collect();
+        // (--pin-assist inputs stay ideal: nobody's load)
+        let pinned = |k: &usize| (p.pin_mask >> *k) & 1 == 1;
+        let forced: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k] == [i] && has(k) && !pinned(k)).collect();
         let shared: Vec<usize> = (0..feeders.len()).filter(|k| feeders[*k].len() > 1 && feeders[*k].contains(&i) && has(k)).collect();
         if forced.is_empty() && shared.is_empty() {
             continue;
@@ -2565,8 +2571,10 @@ fn pocket_load_report(p: &Problem, pockets: &[Vec<(i32, i32)>], statics: &[(i32,
 }
 
 /// The plan replayed on `g` (its assisted inputs only): the given cells' states at rest after the
-/// flip (index 0) and after every tick, per phase. None when the build does not settle.
-fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos]) -> Option<[Vec<Vec<Block>>; 2]> {
+/// flip (index 0) and after every tick, per phase. `suppress` = (input, phase): that input's
+/// events are skipped in that phase only (its rest state and the other phase stay), so a change
+/// that disappears was caused by one of its events before it. None when the build does not settle.
+fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usize, usize)>) -> Option<[Vec<Vec<Block>>; 2]> {
     let list = g.blocks();
     let (wlo, whi) = cs::watch_box(&list, &p.spec);
     let mut w = World::new(BlockPos::new(wlo[0] - 3, wlo[1] - 3, wlo[2] - 3), [whi[0] - wlo[0] + 7, whi[1] - wlo[1] + 7, whi[2] - wlo[2] + 7]);
@@ -2583,9 +2591,24 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos]) -> Option<[Vec<Vec<Bl
     for (phase, o) in out.iter_mut().enumerate() {
         w.use_block(lever);
         o.push(snap(&w));
-        let mut v = Vec::new();
-        run_phase(p, g, &mut w, phase, None, |w| v.push(snap(w)));
-        o.extend(v);
+        // run_phase's loop, skipping the suppressed input's events in this phase
+        let evs = world_events(p, phase);
+        let (mut i, mut t) = (0usize, 0u32);
+        loop {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, k, pos, b) = evs[i];
+                if (g.assist >> k) & 1 == 1 && suppress != Some((k, phase)) {
+                    w.set_block_and_update(pos, b);
+                }
+                i += 1;
+            }
+            w.tick();
+            t += 1;
+            o.push(snap(&w));
+            if (i >= evs.len() && w.idle()) || t >= p.max_ticks {
+                break;
+            }
+        }
     }
     Some(out)
 }
@@ -2600,11 +2623,13 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos]) -> Option<[Vec<Vec<Bl
 /// inputs; the lever's pocket starts at the flip. Optimistic on purpose (no observer delay, a
 /// change no single input explains counts as available), so a NEVER is a wall: printed per lever
 /// pocket (u0/u2-7x7: the right pockets see only their own pistons).
-fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup]) {
+/// `show` = (input labels, the door offset to print door coordinates, --why-islands).
+fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool)) {
+    let (names, (dx, dy), why) = show;
     let feeders = pocket_feeders(p, pockets, statics);
-    // lever-time inputs (every pulse at the flip, both edges: a lever-held piston's level) are the
-    // lever's own: available from the flip, no pocket's load (the lever may hang outside the box)
-    let lever_time: Vec<bool> = (0..feeders.len()).map(|k| groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k)).collect();
+    // lever-time inputs (every pulse at the flip, both edges: a lever-held level) and --pin-assist
+    // inputs (kept ideal: "any source") are given: available from the flip, no pocket's load
+    let lever_time: Vec<bool> = (0..feeders.len()).map(|k| (p.pin_mask >> k) & 1 == 1 || (groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k))).collect();
     let forced: Vec<Vec<usize>> = (0..pockets.len()).map(|i| (0..feeders.len()).filter(|k| feeders[*k] == [i] && !lever_time[*k]).collect()).collect();
     // the latest tick each pocket's first forced pulse may come (its window's far end): a trigger
     // after it is too late on that edge
@@ -2640,17 +2665,18 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
         })
         .collect();
     let pos: Vec<BlockPos> = cells.iter().map(|(x, y)| BlockPos::new(*x, *y, seed.z)).collect();
-    let Some(base) = replay_cells(p, seed, &pos) else {
+    let Some(base) = replay_cells(p, seed, &pos, None) else {
         println!("  island start: the seed does not settle");
         return;
     };
     let inputs: Vec<usize> = (0..p.assist_pistons.len()).filter(|k| (seed.assist >> k) & 1 == 1).collect();
-    let without: Vec<Option<[Vec<Vec<Block>>; 2]>> = inputs
+    // per input and phase: the replay with that input's events in that phase suppressed (its
+    // rest state kept: a level held at rest stays), so only its earlier events can explain a change
+    let without: Vec<[Option<Vec<Vec<Block>>>; 2]> = inputs
         .iter()
         .map(|&k| {
-            let mut g = seed.clone();
-            g.assist &= !(1u64 << k);
-            replay_cells(p, &g, &pos)
+            let r = |ph: usize| replay_cells(p, seed, &pos, Some((k, ph))).map(|mut r| std::mem::take(&mut r[ph]));
+            [r(0), r(1)]
         })
         .collect();
     // the changes next to the pockets: (cell, phase, tick, inputs it depends on)
@@ -2663,7 +2689,7 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                 }
                 // an observer only needs SOME change of the cell at that tick
                 let moved = |r: &[Vec<Block>]| matches!((r.get(t), r.get(t - 1)), (Some(a), Some(b)) if a[ci] != b[ci]);
-                let deps: Vec<usize> = inputs.iter().zip(&without).filter(|(_, r)| r.as_ref().is_some_and(|r| !moved(&r[ph]))).map(|(k, _)| *k).collect();
+                let deps: Vec<usize> = inputs.iter().zip(&without).filter(|(_, r)| r[ph].as_ref().is_some_and(|r| !moved(r))).map(|(k, _)| *k).collect();
                 changes.push((ci, ph, t as u32, deps));
             }
         }
@@ -2708,41 +2734,37 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
     // changes no plan input explains
     let choices: Vec<Option<usize>> = if p.no_lever { (0..pockets.len()).map(Some).chain(std::iter::once(None)).collect() } else { vec![None] };
     for lever in choices {
-        let mut started: Vec<bool> = (0..pockets.len()).map(|q| lever.is_some_and(|l| roots[q] == roots[l])).collect();
-        loop {
-            let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|q| started[*q])).collect();
-            let mut grew = false;
-            for q in 0..pockets.len() {
-                if started[q] {
-                    continue;
-                }
-                let trigger = |ph: usize, tf: u32| {
-                    changes.iter().any(|(ci, cph, t, deps)| {
-                        // (a change no single plan input explains comes from the seed's own wiring or
-                        // lever; a pushed power source can act on its own tick, so no observer delay)
-                        *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k))
-                    })
-                };
-                // a pocket with no forced load starts on any trigger (it may still feed shared inputs)
-                let ok = if forced[q].is_empty() {
-                    (0..2).any(|ph| trigger(ph, u32::MAX))
-                } else {
-                    (0..2).all(|ph| first[q][ph].is_none_or(|tf| trigger(ph, tf)))
-                };
-                if ok {
-                    for (r, s) in started.iter_mut().enumerate() {
-                        if roots[r] == roots[q] {
-                            *s = true;
-                        }
+        // each edge on its own: a pocket must start on every edge where it has forced pulses
+        let mut started: [Vec<bool>; 2] = std::array::from_fn(|_| (0..pockets.len()).map(|q| lever.is_some_and(|l| roots[q] == roots[l])).collect());
+        for ph in 0..2 {
+            loop {
+                let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|q| started[ph][*q])).collect();
+                let mut grew = false;
+                for q in 0..pockets.len() {
+                    if started[ph][q] {
+                        continue;
                     }
-                    grew = true;
+                    // (a change no single plan input explains comes from the seed's own wiring or
+                    // lever; a pushed power source can act on its own tick, so no observer delay; a
+                    // pocket with no forced pulse on this edge starts on any trigger: it may still
+                    // feed shared inputs)
+                    let tf = first[q][ph].unwrap_or(u32::MAX);
+                    let ok = changes.iter().any(|(ci, cph, t, deps)| *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k)));
+                    if ok {
+                        for r in 0..pockets.len() {
+                            if roots[r] == roots[q] {
+                                started[ph][r] = true;
+                            }
+                        }
+                        grew = true;
+                    }
                 }
-            }
-            if !grew {
-                break;
+                if !grew {
+                    break;
+                }
             }
         }
-        let never: Vec<usize> = (0..pockets.len()).filter(|q| !started[*q] && !forced[*q].is_empty()).collect();
+        let never: Vec<(usize, usize)> = (0..pockets.len()).flat_map(|q| (0..2).map(move |ph| (q, ph))).filter(|&(q, ph)| first[q][ph].is_some() && !started[ph][q]).collect();
         let label = match lever {
             Some(l) => format!("lever in pocket {l}"),
             None if p.no_lever => "lever outside the pockets (its lever-time inputs only)".to_string(),
@@ -2751,11 +2773,32 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
         if never.is_empty() {
             all_start.push(label.clone());
         }
-        let fmt_first = |q: usize| format!("first forced tick open {} / close {}", first[q][0].map_or("-".into(), |t| t.to_string()), first[q][1].map_or("-".into(), |t| t.to_string()));
         println!(
             "  island start, {label}: {}",
-            if never.is_empty() { "every pocket with forced ticks starts".to_string() } else { format!("NEVER start: {}", never.iter().map(|q| format!("pocket {q} ({})", fmt_first(*q))).collect::<Vec<_>>().join(", ")) }
+            if never.is_empty() {
+                "every pocket starts on both edges".to_string()
+            } else {
+                format!("NEVER start: {}", never.iter().map(|&(q, ph)| format!("pocket {q} on {} (first forced pulse by t{})", if ph == 0 { "open" } else { "close" }, first[q][ph].unwrap_or(0))).collect::<Vec<_>>().join(", "))
+            }
         );
+        // why: per pocket and edge that fail, the first changes next to it (cell, tick, the inputs
+        // whose events cause it: `*` = the pocket's own, `?` = not started on that edge)
+        if why {
+            for &(q, ph) in &never {
+                let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|r| started[ph][*r])).collect();
+                let tf = first[q][ph].unwrap_or(u32::MAX);
+                let seen: Vec<String> = changes
+                    .iter()
+                    .filter(|(ci, cph, t, _)| *cph == ph && near[q].contains(ci) && *t <= tf)
+                    .take(6)
+                    .map(|(ci, _, t, deps)| {
+                        let d = deps.iter().map(|k| format!("{}{}", names[*k], if forced[q].contains(k) { "*" } else if avail.contains(k) { "" } else { "?" })).collect::<Vec<_>>().join(" ");
+                        format!("t{t} ({},{}) [{d}]", cells[*ci].0 - dx, cells[*ci].1 - dy)
+                    })
+                    .collect();
+                println!("    pocket {q} {}: changes next to it by t{tf}: {}", if ph == 0 { "open" } else { "close" }, if seen.is_empty() { "none".to_string() } else { seen.join(", ") });
+            }
+        }
     }
     if p.no_lever {
         println!("  island start: lever placements that start every pocket: {}", if all_start.is_empty() { "NONE (no static wiring can run this plan)".to_string() } else { all_start.join("; ") });
@@ -3251,7 +3294,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
     pocket_load_report(&prob, &pockets, &statics, &groups, &names);
-    island_start_report(&prob, &seed, &pockets, &statics, &groups);
+    island_start_report(&prob, &seed, &pockets, &statics, &groups, (&names, (dx, dy), pa.why_islands));
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {

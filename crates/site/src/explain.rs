@@ -351,7 +351,7 @@ pub fn badge_meaning(b: &str) -> &'static str {
         "colours" => "boxes keep their colour and their name",
         "flush" => "sends out a part-full box when the input stops for good",
         "top-up" => "fills half-used boxes too",
-        "drop-free" => "box items never lie on the ground (picked up within 8 gt)",
+        "drop-free" => "box items never lie on the ground",
         "combo" => "one station loads and unloads, switched by a lever",
         "any-box" => "empties every kind of box: full, half-full, mixed, already empty",
         "place" => "a block placed at the target",

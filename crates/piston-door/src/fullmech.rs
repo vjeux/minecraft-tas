@@ -324,9 +324,10 @@ impl Ctx {
                 }
             }
         }
+        let full = FRAME_FULL.load(Ordering::Relaxed);
         for (c, _) in &self.ring {
             if let Some(i) = c {
-                if !matches!(key.g[*i], Block::Air | STONE) {
+                if !matches!(key.g[*i], Block::Air | STONE) || (full && key.g[*i] != STONE) {
                     return false;
                 }
             }
@@ -1588,6 +1589,10 @@ pub struct AnnealOpts {
     pub slime: bool,
     pub pulses: Vec<u8>,
     pub pairs: bool,
+    /// Restarts begin from these pieces (`--anneal-seed`); the first `freeze` of them are never
+    /// mutated (`--anneal-freeze`).
+    pub start: Vec<FPc>,
+    pub freeze: usize,
 }
 
 struct Rng(u64);
@@ -1729,23 +1734,26 @@ fn mutate(r: &mut Rng, bx: Bx, pieces: &[FPc], o: &AnnealOpts) -> Vec<FPc> {
     let mut v = pieces.to_vec();
     let np = v.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count();
     let free = free_cells(bx, &v);
+    // frozen seed pieces (the first o.freeze) are never removed, moved or changed
+    let fz = o.freeze.min(v.len());
+    let movable = v.len() - fz;
     match r.below(6) {
         0 | 1 if np < o.max_pistons && !free.is_empty() => {
             let c = free[r.below(free.len())];
             v.push(random_piece(r, c, o.helpers, o.slime));
         }
-        2 if !v.is_empty() => {
-            let i = r.below(v.len());
+        2 if movable > 0 => {
+            let i = fz + r.below(movable);
             v.remove(i);
         }
-        3 if !v.is_empty() && !free.is_empty() => {
-            let i = r.below(v.len());
+        3 if movable > 0 && !free.is_empty() => {
+            let i = fz + r.below(movable);
             let c = free[r.below(free.len())];
             v[i].x = c.0;
             v[i].y = c.1;
         }
-        _ if !v.is_empty() => {
-            let i = r.below(v.len());
+        _ if movable > 0 => {
+            let i = fz + r.below(movable);
             if let FK::Piston { sticky, f, ext } = v[i].k {
                 v[i].k = match r.below(3) {
                     0 => FK::Piston { sticky: !sticky, f, ext },
@@ -1779,9 +1787,10 @@ pub fn anneal(o: &AnnealOpts) -> Vec<(Vec<FPc>, Found)> {
             s.spawn(move || {
                 let mut r = Rng(o.seed.wrapping_mul(1_000_003).wrapping_add(t as u64 * 7919 + 1));
                 while std::time::Instant::now() < deadline {
-                    // a restart: a few random pistons
-                    let mut cur: Vec<FPc> = Vec::new();
-                    for _ in 0..(4 + r.below(o.max_pistons.saturating_sub(3).max(1))) {
+                    // a restart: the seed (if any) plus a few random pieces
+                    let mut cur: Vec<FPc> = o.start.clone();
+                    let extra = if o.start.is_empty() { 4 + r.below(o.max_pistons.saturating_sub(3).max(1)) } else { r.below(4) };
+                    for _ in 0..extra {
                         let free = free_cells(o.bx, &cur);
                         if free.is_empty() {
                             break;
@@ -1857,7 +1866,21 @@ pub struct CliOpts {
     pub shrink: bool,
     /// Replay this `door ideal` plan in the solver's world (--check diagnostics).
     pub replay_ideal: Option<std::path::PathBuf>,
+    /// `--anneal-seed`: restarts begin from this design's pieces.
+    pub anneal_seed: Option<std::path::PathBuf>,
+    /// `--anneal-freeze N`: the seed's first N pieces are never mutated (all with a huge N).
+    pub anneal_freeze: usize,
+    /// `--complete CELLS`: exhaustive completion of the --anneal-seed: every placement of
+    /// `complete_k` pieces from `complete_palette` in these cells (door coordinates `x,y;x,y`),
+    /// each solved exactly (open FULL + close), in the --anneal box at its first offset.
+    pub complete: Option<String>,
+    pub complete_k: usize,
+    pub complete_palette: String,
 }
+
+/// `fullmech --frame-full`: open also needs a door block (stone) in each of the 12 frame cells
+/// (the boards' FULL FRAME rule), not just air or plain blocks.
+pub static FRAME_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// `fullmech --check --keep-stone`: keep the design's plain stones / obsidian as pieces (static
 /// frame stones of an ideal-input design: without them the solver may push door blocks into the
@@ -1878,12 +1901,157 @@ fn pieces_of_design(path: &std::path::Path) -> Result<Vec<FPc>> {
             Kind::Stone if keep => FK::Stone,
             Kind::Obsidian if keep => FK::Obsidian,
             Kind::Door | Kind::Stone | Kind::Obsidian => continue,
+            Kind::Slime => FK::Slime,
+            Kind::Honey => FK::Honey,
             Kind::Piston { sticky, f, ext } => FK::Piston { sticky: *sticky, f: *f, ext: *ext },
             k => anyhow::bail!("unsupported block {k:?}"),
         };
         pieces.push(FPc { x: p[0], y: p[1], k });
     }
     Ok(pieces)
+}
+
+/// The pieces of `--complete-palette` (comma list: pistons, slime, honey, stone, obsidian, rb,
+/// obs; `all` for every one) at cell `c`.
+fn palette_pieces(spec: &str, c: (i8, i8)) -> Vec<FPc> {
+    let all = spec.split(',').any(|s| s.trim() == "all");
+    let has = |k: &str| all || spec.split(',').any(|s| s.trim() == k);
+    let mut v = Vec::new();
+    let mut add = |k: FK| v.push(FPc { x: c.0, y: c.1, k });
+    if has("pistons") || has("sticky") {
+        for sticky in [true, false] {
+            if !sticky && !has("pistons") {
+                continue;
+            }
+            for f in 0..4u8 {
+                for ext in [false, true] {
+                    add(FK::Piston { sticky, f, ext });
+                }
+            }
+        }
+    }
+    if has("slime") {
+        add(FK::Slime);
+    }
+    if has("honey") {
+        add(FK::Honey);
+    }
+    if has("stone") {
+        add(FK::Stone);
+    }
+    if has("obsidian") {
+        add(FK::Obsidian);
+    }
+    if has("rb") {
+        add(FK::RedstoneBlock);
+    }
+    if has("obs") {
+        for f in 0..4u8 {
+            add(FK::Observer { f });
+        }
+    }
+    v
+}
+
+/// `fullmech --complete`: every placement of `k` palette pieces in `cells` added to the seed,
+/// solved exactly (open FULL [+ frame with --frame-full] and close back to rest).
+#[allow(clippy::too_many_arguments)]
+fn complete(bx: Bx, seed: &[FPc], cells: &str, k: usize, palette: &str, so: &Opts, cap: usize, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
+    let mut cs: Vec<(i8, i8)> = Vec::new();
+    for t in cells.split(';').filter(|t| !t.trim().is_empty()) {
+        let (a, b) = t.split_once(',').context("cell x,y")?;
+        cs.push((a.trim().parse()?, b.trim().parse()?));
+    }
+    let occupied: HashSet<(i8, i8)> = seed.iter().flat_map(|p| p.cells()).collect();
+    cs.retain(|c| !occupied.contains(c));
+    // every k-subset of the cells, then every palette choice per cell
+    let mut subsets: Vec<Vec<usize>> = Vec::new();
+    fn rec(n: usize, k: usize, start: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+        if cur.len() == k {
+            out.push(cur.clone());
+            return;
+        }
+        for i in start..n {
+            cur.push(i);
+            rec(n, k, i + 1, cur, out);
+            cur.pop();
+        }
+    }
+    for kk in 1..=k {
+        rec(cs.len(), kk, 0, &mut Vec::new(), &mut subsets);
+    }
+    let mut cands: Vec<Vec<FPc>> = Vec::new();
+    for sub in &subsets {
+        let opts: Vec<Vec<FPc>> = sub.iter().map(|&i| palette_pieces(palette, cs[i])).collect();
+        let mut idx = vec![0usize; opts.len()];
+        loop {
+            let mut v = seed.to_vec();
+            let mut ok = true;
+            let mut taken = occupied.clone();
+            for (j, &i) in idx.iter().enumerate() {
+                let p = opts[j][i];
+                for c in p.cells() {
+                    let inside = c.0 >= bx.x0 && c.0 < bx.x0 + bx.w && c.1 >= bx.y0 && c.1 < bx.y0 + bx.h;
+                    let door = (0..3).contains(&c.0) && (0..3).contains(&c.1);
+                    if !inside || door || !taken.insert(c) {
+                        ok = false;
+                    }
+                }
+                v.push(p);
+            }
+            if ok {
+                cands.push(v);
+            }
+            // next combination
+            let mut j = 0;
+            while j < idx.len() {
+                idx[j] += 1;
+                if idx[j] < opts[j].len() {
+                    break;
+                }
+                idx[j] = 0;
+                j += 1;
+            }
+            if j == idx.len() {
+                break;
+            }
+        }
+    }
+    eprintln!("[complete] {} cells, k <= {k}: {} candidates", cs.len(), cands.len());
+    let next = AtomicUsize::new(0);
+    let found: Mutex<Vec<(Vec<FPc>, Found)>> = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            let (next, found, cands) = (&next, &found, &cands);
+            s.spawn(move || loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= cands.len() {
+                    break;
+                }
+                if i % 20000 == 0 {
+                    eprintln!("[complete] {i} / {}", cands.len());
+                }
+                let (_, sol) = score(bx, &cands[i], so, cap);
+                if let Some(f) = sol {
+                    eprintln!("[complete] FOUND {}", cands[i].iter().map(|p| p.code()).collect::<Vec<_>>().join(" "));
+                    found.lock().unwrap().push((cands[i].clone(), f));
+                }
+            });
+        }
+    });
+    let mut found = found.into_inner().unwrap();
+    found.sort_by_key(|(v, f)| (v.iter().filter(|p| matches!(p.k, FK::Piston { .. })).count(), v.len(), f.open.len() + f.close.len()));
+    let mut report = format!("complete: {} of {} candidates open + close exactly\n", found.len(), cands.len());
+    for (v, f) in found.iter().take(30) {
+        if let Some((ctx, rest)) = build(bx, v, so) {
+            report.push_str(&format!("  {}\n{}  {}\n", v.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "), ctx.render(&rest), describe(&ctx, f)));
+        }
+    }
+    print!("{report}");
+    if let Some(out) = out {
+        std::fs::write(out, &report).with_context(|| format!("writing {}", out.display()))?;
+    }
+    Ok(())
 }
 
 fn describe(ctx: &Ctx, f: &Found) -> String {
@@ -1947,10 +2115,26 @@ pub fn cli(o: &CliOpts) -> Result<()> {
             }
         }
         let per = (o.seconds / offs.len().max(1) as u64).max(10);
+        if let Some(cells) = &o.complete {
+            let (dx, dy) = offs[0];
+            let bx = Bx { x0: -dx, y0: -dy, w, h };
+            let seed: Vec<FPc> = match &o.anneal_seed {
+                Some(p) => pieces_of_design(p)?,
+                None => Vec::new(),
+            };
+            return complete(bx, &seed, cells, o.complete_k, &o.complete_palette, &so, o.cap, o.threads, o.out.as_deref());
+        }
+        // --anneal-seed: every restart begins from the seed's pieces (its first --anneal-freeze
+        // pieces, in file order, never mutated)
+        let start: Vec<FPc> = match &o.anneal_seed {
+            Some(p) => pieces_of_design(p)?,
+            None => Vec::new(),
+        };
+        let freeze = o.anneal_freeze.min(start.len());
         let mut report = String::new();
         for (dx, dy) in offs {
             let bx = Bx { x0: -dx, y0: -dy, w, h };
-            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, slime: o.slime, pulses: o.pulses.clone(), pairs: o.pairs };
+            let ao = AnnealOpts { bx, seconds: per, threads: o.threads, seed: o.seed, cap: o.cap, max_pistons: o.pmax, helpers: o.helpers, slime: o.slime, pulses: o.pulses.clone(), pairs: o.pairs, start: start.clone(), freeze };
             let found = anneal(&ao);
             let line = format!("anneal {w}x{h} door offset ({dx},{dy}): {} mechanisms open+close exactly in {per}s", found.len());
             println!("{line}");
