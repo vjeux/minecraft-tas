@@ -8,7 +8,7 @@
 | 3 | flat-cascade19 (19, 27/27 gt), cascade22, rider24 | sf38 (38), sf43 | flat-cascade19-obutton (oak) |
 | 4 | flat-cascade26, cascade30/33 | sf60 (60, 49/47), sf-sweep96 | |
 | 5 | flat-cascade33, cascade38/46 | sf105 (105, 149/147), sf-sweep136 | |
-| 6 | flat-cascade39, cascade47 | sf-sweep192 | |
+| 6 | flat-cascade39, cascade47 | sf151 (151, 149/147), sf-sweep192 | |
 | 7 | flat-cascade48, cascade58 | sf-sweep254 | |
 | 8..12 | flat-cascade54/61/69/76/82, cascade66 | sf-sweep356 (N=8) | |
 | any | family cards pext-cascade-r2/r0/r1 (12N-7-2floor((N-1)/3)) and pext-cascade-flat-r2/r0/r1 (10N-5-floor((N-1)/3)); extend 14N-6, retract 16N-8 | | |
@@ -28,7 +28,8 @@
 ## Mechanisms and lessons: designs/circuits/pext/NOTES.md
 
 ## Next ideas
-* Slime-free N >= 8: a better spine router (more room per target, or two spines); minimize the
-  slime-free N=5..7 (slow: long phases).
+* Reassigned 2026-10-20 04:46Z to the smaller-door campaign (schedules + spine routing for doors).
+* Slime-free N >= 9: a better spine router (more room per target, or two spines); minimize the
+  slime-free N=7/8 (slow: long phases; `minimize` now checkpoints to --out after every step).
 * Smaller N=2: grow found nothing <= 5 blocks on the sand base (k <= 3, near 2).
 * Flat slime-free N >= 3 (the stack router in one plane: top/bottom/QC slots only).
