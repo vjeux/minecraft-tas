@@ -33,10 +33,12 @@ impl Browser {
         let mut cmd = std::process::Command::new(browser);
         cmd.args(["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--remote-debugging-pipe"])
             .arg(format!("--window-size={window}"))
-            .arg(format!("--force-device-scale-factor={scale}"))
-            .arg(url)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
+            .arg(format!("--force-device-scale-factor={scale}"));
+        // the page may fetch the game's textures from GitHub: through the box's proxy
+        if let Some(p) = std::env::var_os("https_proxy").or_else(|| std::env::var_os("HTTPS_PROXY")) {
+            cmd.arg(format!("--proxy-server={}", p.to_string_lossy())).arg("--proxy-bypass-list=127.0.0.1;localhost");
+        }
+        cmd.arg(url).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
         // SAFETY: only async-signal-safe dup2 calls between fork and exec.
         unsafe {
             cmd.pre_exec(move || {
@@ -179,6 +181,53 @@ fn states(b: &mut Browser) -> Result<Vec<Option<State>>> {
     Ok(v.as_array().map(|a| a.iter().map(|s| s.as_str().and_then(parse_state)).collect()).unwrap_or_default())
 }
 
+/// A screenshot of a page after `seconds` of real time (animation frames run: playing viewers
+/// move, demos advance), scrolled to `scroll_y` CSS px.
+pub fn cmd_snap(url: &str, window: &str, scale: f32, seconds: f64, scroll_y: f64, out: &Path, browser: &Path) -> Result<()> {
+    let mut b = Browser::start(browser, window, scale, url)?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    std::thread::sleep(Duration::from_millis(500));
+    if scroll_y > 0.0 {
+        b.eval(&format!("window.scrollTo(0, {scroll_y})"))?;
+    }
+    std::thread::sleep(Duration::from_secs_f64(seconds));
+    let r = b.call("Page.captureScreenshot", json!({ "format": "png" }))?;
+    let data = r["data"].as_str().context("no screenshot data")?;
+    std::fs::write(out, base64_decode(data)?)?;
+    println!("{} ({seconds} s of {url})", out.display());
+    Ok(())
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>> {
+    let val = |c: u8| -> Option<u32> {
+        Some(match c {
+            b'A'..=b'Z' => (c - b'A') as u32,
+            b'a'..=b'z' => (c - b'a' + 26) as u32,
+            b'0'..=b'9' => (c - b'0' + 52) as u32,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        })
+    };
+    let bytes: Vec<u8> = s.bytes().filter(|c| *c != b'=' && !c.is_ascii_whitespace()).collect();
+    let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
+    for chunk in bytes.chunks(4) {
+        let mut n = 0u32;
+        for (i, c) in chunk.iter().enumerate() {
+            n |= val(*c).context("bad base64")? << (18 - 6 * i);
+        }
+        out.push((n >> 16) as u8);
+        if chunk.len() > 2 {
+            out.push((n >> 8) as u8);
+        }
+        if chunk.len() > 3 {
+            out.push(n as u8);
+        }
+    }
+    Ok(out)
+}
+
 pub fn cmd_click(url: &str, window: &str, scale: f32, touch: bool, wait: u64, browser: &Path) -> Result<()> {
     let page = if url.contains('?') { format!("{url}&mcview-debug") } else { format!("{url}?mcview-debug") };
     let mut b = Browser::start(browser, window, scale, &page)?;
@@ -233,22 +282,24 @@ pub fn cmd_click(url: &str, window: &str, scale: f32, touch: bool, wait: u64, br
         // the input flips at once, the simulation starts, the build reacts
         let deadline = Instant::now() + Duration::from_secs(wait);
         let mut last = st.clone();
+        let (mut saw_flip, mut saw_react) = (false, false);
         let verdict = loop {
             if let Some(Some(now)) = states(&mut b)?.get(i).cloned() {
-                let flipped = now.inputs.iter().find_map(|(xy, on)| xy.map(|_| *on)) == Some(!on);
-                let reacted = match (st.door, now.door) {
+                // a pulse input is on for 2 gt only, and a reaction can be brief: seen once is enough
+                saw_flip |= now.inputs.iter().find_map(|(xy, on)| xy.map(|_| *on)) == Some(!on);
+                saw_react |= match (st.door, now.door) {
                     (Some(a), Some(c)) => a != c,
-                    _ => now.tick > st.tick + 2 && (now.active != st.active || now.active.is_none()),
+                    _ => now.tick > st.tick + 1 && (now.active != st.active || now.active.is_none()),
                 };
                 last = now.clone();
-                if flipped && now.playing && reacted {
+                if saw_flip && now.playing && saw_react {
                     break Ok(now);
                 }
             }
             if Instant::now() > deadline {
                 break Err(last.clone());
             }
-            std::thread::sleep(Duration::from_millis(200));
+            std::thread::sleep(Duration::from_millis(40));
         };
         let how = if touch { "tap" } else { "click" };
         match verdict {

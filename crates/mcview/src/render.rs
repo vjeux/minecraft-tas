@@ -120,6 +120,8 @@ pub struct Renderer {
     /// Multisampled color + depth targets for the current size.
     targets: Option<(u32, u32, wgpu::Texture, wgpu::Texture)>,
     vbuf: Option<(wgpu::Buffer, u64)>,
+    /// The tiles' texture array.
+    tiles: wgpu::Texture,
 }
 
 /// 4x4 inverse (general; the view-projection is always invertible here).
@@ -266,7 +268,21 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None }
+        Renderer { device, queue, format, samples, solid, blend, sky, uniforms, bind, targets: None, vbuf: None, tiles: tex }
+    }
+
+    /// Upload the atlas's pixels again (its layers changed: the game's textures arrived).
+    pub fn upload_atlas(&self, atlas: &Atlas) {
+        let tile = TILE as u32;
+        for (k, data) in atlas.mips.iter().enumerate() {
+            let s = (tile >> k).max(1);
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo { texture: &self.tiles, mip_level: k as u32, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                data,
+                wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * s), rows_per_image: Some(s) },
+                wgpu::Extent3d { width: s, height: s, depth_or_array_layers: atlas.layers as u32 },
+            );
+        }
     }
 
     fn ensure_targets(&mut self, w: u32, h: u32) {

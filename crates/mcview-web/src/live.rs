@@ -44,6 +44,13 @@ pub struct Live {
     last_tap: f64,
     last_ts: Option<f64>,
     redraw: bool,
+    overlays: crate::overlay::Overlays,
+    /// One bar button per circuit input, and the level it shows.
+    inputs: Vec<(HtmlButtonElement, bool)>,
+    containers: HtmlButtonElement,
+    /// The badge's text when no demo runs.
+    base_status: String,
+    shown_status: String,
 }
 
 /// Speeds the speed button cycles through: label, game ticks per second.
@@ -66,6 +73,7 @@ const ICON_PAUSE: &str = "M6 5h4v14H6zM14 5h4v14h-4z";
 const ICON_STEP: &str = "M5 5v14l9-7zM15 5h3v14h-3z";
 const ICON_RESET: &str = "M12 5V1.5L7 6l5 4.5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z";
 const ICON_LEVER: &str = "M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z";
+const ICON_BOXES: &str = "M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8zM5 5v4h4V5zM15 5v4h4V5zM5 15v4h4v-4zM15 15v4h4v-4z";
 
 fn icon(path: &str) -> String {
     format!("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\" style=\"display:block\"><path d=\"{path}\"/></svg>")
@@ -74,7 +82,7 @@ fn icon(path: &str) -> String {
 /// A touch-sized (44 px) button showing an icon (an SVG path) or a short text.
 fn button(content: &str, title: &str) -> HtmlButtonElement {
     let b: HtmlButtonElement = document().create_element("button").unwrap().dyn_into().unwrap();
-    if content.starts_with('M') {
+    if content.starts_with('M') && content.len() > 4 {
         b.set_inner_html(&icon(content));
     } else {
         b.set_text_content(Some(content));
@@ -174,6 +182,8 @@ pub fn start(app: &mut App, id: u32) {
     let speed = button(SPEEDS[0].0, "Speed (1× = 20 game ticks per second, real time)");
     let _ = speed.style().set_property("font-size", "15px");
     let flip = button(ICON_LEVER, "Flip the lever (f), or tap the lever");
+    let containers = button(ICON_BOXES, "Show what the containers hold");
+    let _ = containers.style().set_property("display", "none");
     // the tick counter: a badge at the top right, fixed width (tabular digits), so nothing moves
     // while it runs and the bar's buttons fit a phone
     let label = el("div");
@@ -200,7 +210,7 @@ pub fn start(app: &mut App, id: u32) {
         ],
     );
     label.set_text_content(Some("0 gt · 0.00 s"));
-    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref()] {
+    for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref(), containers.unchecked_ref()] {
         let _ = bar.append_child(c);
     }
     let _ = root.append_child(&bar);
@@ -247,6 +257,11 @@ pub fn start(app: &mut App, id: u32) {
         last_tap: -1e9,
         last_ts: None,
         redraw: true,
+        overlays: crate::overlay::Overlays::new(&root),
+        inputs: Vec::new(),
+        containers: containers.clone(),
+        base_status: String::new(),
+        shown_status: String::new(),
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -255,6 +270,7 @@ pub fn start(app: &mut App, id: u32) {
     on_click(&step, id, |l| l.step());
     on_click(&flip, id, |l| l.flip());
     on_click(&speed, id, |l| l.next_speed());
+    on_click(&containers, id, |l| l.toggle_containers());
     // gestures
     on(&canvas, "pointerdown", move |e: PointerEvent| {
         with_live(id, |l, _, v| {
@@ -392,23 +408,75 @@ pub fn load(app: &mut App, id: u32) {
                 None => {}
             }
             let l = v.live.as_mut().unwrap();
-            if p.session.simulated() && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
+            let circuit = !p.session.circuit_inputs.is_empty() && p.session.simulated();
+            if p.session.simulated() && !circuit && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
                 let _ = l.flip.style().set_property("display", "inline-flex");
             }
             if !p.session.playable() {
                 l.play.set_disabled(true);
                 let _ = l.play.style().set_property("opacity", "0.4");
             }
-            match (&trace_note, &p.session.unsimulated) {
-                (Some(n), _) => l.status.set_text_content(Some(n)),
-                (None, Some(why)) => l.status.set_text_content(Some(&format!("shown as built, not simulated: {why}"))),
-                (None, None) => l.status.set_text_content(Some(match p.session.mode {
-                    mcview::Mode::Door { .. } => "simulated by redsim · tap the lever",
-                    _ => "simulated by redsim",
-                })),
+            if circuit {
+                // the judge's way to drive each input, a button per input, the auto-demo
+                if let Some(m) = &v.input_mode {
+                    p.pulse_inputs = m.trim() == "pulse";
+                }
+                if let Some(ph) = &v.phases {
+                    p.phases = mcview::circuit::parse_phases(ph);
+                }
+                let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+                for (i, name) in names.iter().enumerate() {
+                    let label: String = name.to_uppercase().chars().take(3).collect();
+                    let how = if p.pulse_inputs { "hold for a pulse (a tap: 2 gt)" } else { "tap to turn on / off" };
+                    let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
+                    let _ = b.style().set_property("color", "#a6f05a");
+                    let _ = b.style().set_property("font-size", "14px");
+                    let _ = l.bar.append_child(&b);
+                    if p.pulse_inputs {
+                        on(&b, "pointerdown", move |e: PointerEvent| {
+                            e.prevent_default();
+                            with_live(id, |l, _, _| l.input_down(i));
+                            ensure_frame();
+                        });
+                        for kind in ["pointerup", "pointerleave", "pointercancel"] {
+                            on(&b, kind, move |_: PointerEvent| {
+                                with_live(id, |l, _, _| l.input_up(i));
+                                ensure_frame();
+                            });
+                        }
+                    } else {
+                        on(&b, "click", move |e: web_sys::Event| {
+                            e.stop_propagation();
+                            with_live(id, |l, _, _| l.input_tap(i));
+                            ensure_frame();
+                        });
+                    }
+                    l.inputs.push((b, false));
+                }
+                if let (Some(st), true) = (&v.stimulus, v.autoplay) {
+                    match mcview::circuit::parse_stimulus(st, &names, 40) {
+                        Ok(s) => p.session.attach_demo(s),
+                        Err(e) => log(&format!("data-stimulus: {e}")),
+                    }
+                }
             }
+            if !p.session.containers().is_empty() {
+                let _ = l.containers.style().set_property("display", "inline-flex");
+                let _ = l.containers.style().set_property("color", "#ffd27a");
+            }
+            l.overlays.setup(&p);
+            l.base_status = match (&trace_note, &p.session.unsimulated) {
+                (Some(n), _) => n.clone(),
+                (None, Some(why)) => format!("shown as built, not simulated: {why}"),
+                (None, None) if circuit => format!("simulated by redsim · {} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
+                (None, None) => match p.session.mode {
+                    mcview::Mode::Door { .. } => "simulated by redsim · tap the lever".to_string(),
+                    _ => "simulated by redsim".to_string(),
+                },
+            };
             l.player = Some(p);
             l.redraw = true;
+            l.sync_status();
             if v.autoplay {
                 l.toggle_play();
             }
@@ -470,8 +538,14 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 let active = p.session.design.blocks.keys().filter(|c| !p.session.inputs.contains(c) && p.session.is_on(**c)).count();
                 let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
+            l.overlays.update(p, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
         }
-        p.playing
+        let playing = p.playing;
+        if changed {
+            l.sync_status();
+            l.sync_inputs();
+        }
+        playing
     };
     if need_ready {
         app.ready(id);
@@ -524,6 +598,68 @@ impl Live {
         }
     }
 
+    /// A circuit input's bar button pressed (pulse inputs: on while held).
+    fn input_down(&mut self, i: usize) {
+        if let Some(p) = self.player.as_mut()
+            && p.input_down(i)
+        {
+            self.redraw = true;
+            self.play_after_input();
+        }
+    }
+
+    fn input_up(&mut self, i: usize) {
+        if let Some(p) = self.player.as_mut() {
+            p.input_up(i);
+            self.redraw = true;
+        }
+    }
+
+    /// A circuit input's bar button tapped (level inputs: flips).
+    fn input_tap(&mut self, i: usize) {
+        if let Some(p) = self.player.as_mut()
+            && p.tap_input(i)
+        {
+            self.redraw = true;
+            self.play_after_input();
+        }
+    }
+
+    fn toggle_containers(&mut self) {
+        self.overlays.containers_on = !self.overlays.containers_on;
+        let _ = self.containers.style().set_property("color", if self.overlays.containers_on { "#ffd27a" } else { "#fff" });
+        self.redraw = true;
+    }
+
+    /// The badge: the demo's phase while it runs, else what runs.
+    fn sync_status(&mut self) {
+        let text = match &self.player {
+            Some(p) if p.session.demo.is_some() => match p.phase() {
+                Some(ph) => format!("demo · {ph}"),
+                None => "demo · the judge's test".to_string(),
+            },
+            _ => self.base_status.clone(),
+        };
+        if text != self.shown_status {
+            self.status.set_text_content(Some(&text));
+            self.shown_status = text;
+        }
+    }
+
+    /// The input buttons show their input's level (pressed = on).
+    fn sync_inputs(&mut self) {
+        let Some(p) = &self.player else { return };
+        for (i, (b, shown)) in self.inputs.iter_mut().enumerate() {
+            let on = p.session.input_on.get(i).copied().unwrap_or(false);
+            if on != *shown {
+                *shown = on;
+                let s = b.style();
+                let _ = s.set_property("background", if on { "rgba(110,200,40,0.85)" } else { "rgba(20,22,28,0.72)" });
+                let _ = s.set_property("color", if on { "#10200a" } else { "#a6f05a" });
+            }
+        }
+    }
+
     fn next_speed(&mut self) {
         self.speed_i = (self.speed_i + 1) % SPEEDS.len();
         let (name, tps) = SPEEDS[self.speed_i];
@@ -551,6 +687,17 @@ impl Live {
     }
 
     pub fn resized(&mut self) {
+        self.redraw = true;
+    }
+
+    /// The tiles changed (the game's textures arrived): upload them, draw again.
+    pub fn atlas_changed(&mut self, atlas: &mcview::atlas::Atlas) {
+        if let Some(g) = &self.gpu {
+            g.r.upload_atlas(atlas);
+        }
+        if let Some(p) = self.player.as_mut() {
+            p.invalidate();
+        }
         self.redraw = true;
     }
 
