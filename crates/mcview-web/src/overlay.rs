@@ -453,7 +453,11 @@ impl Overlays {
             let rect = match layout.place(&view, ax, ay, wt, ht, 5) {
                 Some((rect, _)) => rect,
                 None => {
-                    let rect = Rect { x0: ax - wt / 2.0, y0: ay - 2.0 - ht, x1: ax + wt / 2.0, y1: ay - 2.0 };
+                    // no free spot: at its point, inside the view (a long tag near the edge ran
+                    // off it: critique, "ITEMS A–C kept full 81 item…" on a phone)
+                    let x0 = (ax - wt / 2.0).min(w - 2.0 - wt).max(2.0);
+                    let y0 = (ay - 2.0 - ht).min(h - 2.0 - ht).max(2.0);
+                    let rect = Rect { x0, y0, x1: x0 + wt, y1: y0 + ht };
                     layout.texts.push(rect);
                     rect
                 }
