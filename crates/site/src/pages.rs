@@ -347,7 +347,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         ));
     }
     body.push_str(&format!(
-        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design file</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{}</p>\n<p>Blocks used: {}</p></section>\n",
+        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design as text</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{} The text file is the same build as a plain-text design, for this project's own tools.</p>\n<p>Blocks used: {}</p></section>\n",
         esc(&crate::generate::litematic_path(&b.design)),
         esc(&b.design),
         if b.kind == "door" || b.circuit.is_some() || b.clock.is_some() { " Verified in the real game." } else { "" },
@@ -390,8 +390,23 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         if list.is_empty() {
             continue;
         }
-        let cards: Vec<String> = list.iter().map(|o| build_card(o, prefix)).collect();
-        body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
+        // like the index's tabs: no kind line every card repeats, the chips most share said once
+        // (critique: "Other sculk doors" cards each repeated the kicker and four badges)
+        let shared = site_model::html::common_chips(&list);
+        let all_same = list.iter().all(|o| site_model::html::props(o).kind == site_model::html::props(list[0]).kind);
+        let cards: Vec<String> = list.iter().map(|o| site_model::html::build_card_opts(o, prefix, !all_same, &shared)).collect();
+        let most = if shared.is_empty() {
+            String::new()
+        } else {
+            let parts: Vec<String> = shared.iter().map(|c| site_model::html::chip_plural(c)).collect();
+            let words = match parts.len() {
+                1 => parts[0].clone(),
+                n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+            };
+            let all = site_model::html::shared_chips(&list);
+            format!("<p class=\"hint\">{} {}.</p>", if shared.iter().all(|c| all.contains(c)) { "All" } else { "Most" }, esc(&words))
+        };
+        body.push_str(&format!("<section><h2>{}</h2>\n{most}{}</section>\n", esc(&title), grid(&cards)));
     }
     let p = site_model::html::props(b);
     let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
@@ -828,7 +843,9 @@ fn circuit_axis_walk<'a>(site: &'a Site, b: &Build, c: &site_model::Circuit) -> 
         "off-delay" => "Stay-on timers of other lengths (the smallest of each)".to_string(),
         "on-delay" => "Hold-to-activate circuits with other hold times (the smallest of each)".to_string(),
         "pulse-train" => "Rapid fire at other beats (the smallest of each)".to_string(),
-        _ => format!("Other {} (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.to_lowercase()).unwrap_or_else(|| c.study.clone())),
+        // (the study's title without its parenthesized name: critique, "Other block change
+        // detectors (bud switches) (the smallest of each kind)")
+        _ => format!("Other {} (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.split(" (").next().unwrap_or(s.0).to_lowercase()).unwrap_or_else(|| c.study.clone())),
     };
     (title, list)
 }
@@ -1492,16 +1509,16 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let n_fam = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.card_member && c.tunable.is_empty())).count();
         let mut hidden: Vec<String> = Vec::new();
         if n_mem > 0 {
-            hidden.push(format!("{n_mem} more member{} of the tunable groups (on each group's page)", if n_mem == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_mem} other version{} of the designs above (each design's page lists them)", if n_mem == 1 { "" } else { "s" }));
         }
         if n_fam > 0 {
-            hidden.push(format!("{n_fam} more base design{} of the extendable families (on each family's page)", if n_fam == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_fam} more size{} of the designs you can make longer (on their pages)", if n_fam == 1 { "" } else { "s" }));
         }
         if n_lay > 0 {
             hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
         }
         if n_var > 0 {
-            hidden.push(format!("{n_var} variant{} (extra block kinds)", if n_var == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_var} bigger variant{} using extra kinds of blocks", if n_var == 1 { "" } else { "s" }));
         }
         // the kind's title: what it does first, the community's name in parentheses (critique P1);
         // a study's basics: their own heading
@@ -1571,16 +1588,23 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();
         // the picture: a design of 3 blocks or more (a 1-block one is mostly the test lamp's
-        // outline), not one another tile already shows (counter2-bulb is tff-bulb)
-        let Some(first) = shown
-            .iter()
-            .find(|b| b.blocks >= 3 && !pictured.contains(&b.design))
-            .or_else(|| shown.iter().find(|b| !pictured.contains(&b.design)))
+        // outline), not one another tile already shows, by name or as the same build (critique:
+        // the Toggle and Memory tiles showed one picture, counter2-bulb is tff-bulb); memory
+        // shows a set/reset memory first
+        let key = |b: &Build| b.circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, b.name)).unwrap_or_default();
+        let used = |b: &Build| pictured.contains(&key(b)) || b.circuit.as_ref().is_some_and(|c| c.same_build.iter().any(|s| pictured.contains(s)));
+        let preferred = if *folder == "memory" { shown.iter().find(|b| !used(b) && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("rs-latch"))) } else { None };
+        // (a study's basics, the lever gates and the sand elevator, never picture it)
+        let basic = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.order % 100 == 50);
+        let Some(first) = preferred
+            .or_else(|| shown.iter().find(|b| b.blocks >= 3 && !used(b) && !basic(b)))
+            .or_else(|| shown.iter().find(|b| b.blocks >= 3 && !used(b)))
+            .or_else(|| shown.iter().find(|b| !used(b)))
             .or_else(|| shown.first())
         else {
             continue;
         };
-        pictured.push(first.design.clone());
+        pictured.push(key(first));
         cards.push(format!(
             "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"kind\">{} designs</div><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
             esc(title),

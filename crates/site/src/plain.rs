@@ -117,8 +117,8 @@ pub fn one_liner(c: &Circuit) -> String {
             let two = !matches!(f, "not" | "buffer");
             format!("{}{}{}.", if two { "It has two inputs, A and B. " } else { "" }, gate_words(f), if instant { ", in the very same tick (an instant gate)" } else { "" })
         }
-        "rs-latch" => "Press S and the output turns on and stays on; press R and it turns off and stays off.".to_string(),
-        "d-latch" => "While E is on, the output copies D; when E turns off, the output keeps the last value.".to_string(),
+        "rs-latch" => "Press the set button (S) and the output turns on and stays on; press the reset button (R) and it turns off and stays off.".to_string(),
+        "d-latch" => "Two inputs: while the enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value.".to_string(),
         "dff" => "At each clock pulse the output takes the value of D and keeps it until the next clock pulse.".to_string(),
         "dff-enable" => "At each clock pulse, if E is on, the output takes the value of D; otherwise it keeps its value.".to_string(),
         "shift" => format!("Each clock pulse moves every stored bit one step along: what goes in comes out {n} clock pulses later."),
@@ -153,8 +153,14 @@ pub fn one_liner(c: &Circuit) -> String {
             if two_way {
                 format!("Once started it flies one way, then comes back by itself{pace}.")
             } else {
-                let dir = if c.direction.is_empty() { String::new() } else { format!(" {}", c.direction) };
-                format!("Once started it flies{dir} by itself{pace}, until something stops it.")
+                // (direction words: "flies sideways", not "flies horizontal": critique)
+                let dir = match c.direction.as_str() {
+                    "" => String::new(),
+                    "horizontal" => " sideways".to_string(),
+                    d => format!(" {d}"),
+                };
+                let carries = if c.feature.is_empty() { String::new() } else { format!(" It {}.", c.feature) };
+                format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
             }
         }
         "shulker-loader" => format!("Takes items from a chest, puts them into empty shulker boxes and sends each full box out{}.", rate(m(c, "items/s"))),
@@ -229,8 +235,8 @@ pub fn why_build(c: &Circuit) -> String {
         "burst" => format!("fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press"),
         "divider" => "slow a fast clock down: run a farm, a sorter or a light show at a slower beat".into(),
         "monostable" if c.kind.contains("non-retriggerable") => "one shot per press however much the button is mashed: a door that opens for a fixed time".into(),
-        "monostable" => "keep a door open while people keep stepping on a pressure plate, or a light that stays on while there is activity".into(),
-        "off-delay" => "a light or a door that stays on a while after the last press of a pressure plate".into(),
+        "monostable" => "a light that stays on a few seconds after each press, restarting with every press: a hallway light on a pressure plate".into(),
+        "off-delay" => "a light that stays on 10 seconds after you step off a pressure plate".into(),
         "on-delay" => "ignore accidental taps and observer flicker: a door that only opens if you hold the button".into(),
         "pulse-train" => "rapid fire while a lever is on: dispensers, droppers, item spammers".into(),
         _ => String::new(),
@@ -245,7 +251,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
-        "flying-machine" => return "It starts by itself: press play under the view and watch it fly; reset to see it again.".to_string(),
+        "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
         "tnt-duper" => return "It runs by itself: watch the lit TNT drop out of the machine each cycle while the TNT block lands back in place.".to_string(),
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
         "shulker-loader" | "shulker-unloader" => {
@@ -424,7 +430,9 @@ pub fn door(b: &Build) -> (String, String, String) {
     };
     let seamless = d.is_some_and(|d| !d.seamless.is_empty());
     let why = match b.group.as_str() {
-        "sculk" => "a hidden 3×3 entrance for a base.".to_string(),
+        // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
+        // nearby can open it")
+        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner: footsteps nearby can set it off, so not on a busy path.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
@@ -530,7 +538,7 @@ mod tests {
     fn plain_sentences_carry_the_numbers() {
         let mono = circuit("monostable retriggerable", &[("L", "32 gt")]);
         assert_eq!(one_liner(&mono), "One press keeps the output on for 32 ticks (1.6 s); pressing again while it is on restarts the countdown.");
-        assert!(why_build(&mono).starts_with("Keep a door open while people keep stepping on a pressure plate"));
+        assert!(why_build(&mono).starts_with("A light that stays on a few seconds after each press"), "{}", why_build(&mono));
         assert_eq!(ticks("1 gt"), "1 tick (0.05 s)");
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");
