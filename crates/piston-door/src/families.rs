@@ -2198,6 +2198,8 @@ pub struct Wire {
     /// Receivers (a piston at one firing cell) whose largest feeding free-cell region has fewer
     /// than 3 cells (unfed ones included): pockets3's wirability bar.
     pub weak: usize,
+    /// Pocket load x10: the worst free region's actions (receivers only it can feed) per cell.
+    pub load: usize,
     pub why: String,
 }
 
@@ -2457,12 +2459,26 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     let mut sorted = sizes.clone();
     sorted.sort_unstable_by(|a, b| b.cmp(a));
     let weak = used.iter().filter(|&&k| feeds[k].iter().map(|&r| sizes[r]).max().unwrap_or(0) < 3).count();
+    // pocket load (pockets3's POCKET LOAD, macro version): per free region, the actions of the
+    // receivers only that region can feed (the larger edge; a level use counts 1), per cell;
+    // the worst region, x10
+    let load = {
+        let mut per = vec![0u32; nr];
+        for &k in &used {
+            if feeds[k].len() == 1 {
+                let r = *feeds[k].iter().next().unwrap();
+                let (c, lv) = recv[&keys[k]];
+                per[r] += c[0].max(c[1]) + u32::from(lv);
+            }
+        }
+        (0..nr).map(|r| per[r] as usize * 10 / sizes[r].max(1)).max().unwrap_or(0)
+    };
     if !why.is_empty() {
-        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, why: why.join("; ") };
+        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, load, why: why.join("; ") };
     }
     // one region feeding everything?
     if (0..nr).any(|r| used.iter().all(|&k| feeds[k].contains(&r))) {
-        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, why: "one region feeds every piston".into() };
+        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, load, why: "one region feeds every piston".into() };
     }
     // forced regions: the only region of some receiver
     let mut forced: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -2519,7 +2535,7 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
         }
     }
     let (class, w) = best.unwrap_or(('X', "no region".into()));
-    Wire { class, regions: sorted, forced: forced.len(), riders, weak, why: w }
+    Wire { class, regions: sorted, forced: forced.len(), riders, weak, load, why: w }
 }
 
 fn wireability(m: &Mech, rest: &St, sol: &Sol) -> (usize, usize) {

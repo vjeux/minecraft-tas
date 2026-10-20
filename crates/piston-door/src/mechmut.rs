@@ -51,6 +51,8 @@ pub struct Var {
     pub weak: usize,
     /// The most actions one piston takes on one edge.
     pub maxp: usize,
+    /// Pocket load x10 (families' wiring analysis): the worst free region's forced actions per cell.
+    pub load: usize,
     /// The firing cells of the unfed receivers (families' wiring analysis).
     pub unfed_at: String,
     pub so: Sched,
@@ -58,7 +60,7 @@ pub struct Var {
 }
 
 impl Var {
-    pub fn key(&self) -> (usize, bool, usize, bool, usize, usize, usize, usize, u8, usize, usize) {
+    pub fn key(&self) -> (usize, bool, usize, bool, usize, usize, usize, usize, usize, u8, usize, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
@@ -68,9 +70,9 @@ impl Var {
         if RANK_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
             // --rank-unfed: the fewest pistons with no free feed cell first (pockets3's bar), then
             // the fewest actions of one piston on one edge
-            return (self.missing, self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons);
+            return (self.missing, self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.load, self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons);
         }
-        (self.missing, self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events, 0)
+        (self.missing, self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.load, self.pistons, cr, self.events, 0)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -362,6 +364,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         real,
         inside,
         weak: w.weak,
+        load: w.load,
         maxp,
         unfed_at,
         so: to_sched(&m, &open_e),
@@ -488,7 +491,7 @@ pub struct Opts {
 /// first among equal growth).
 fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
 }
 
 /// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
@@ -651,14 +654,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp));
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,
