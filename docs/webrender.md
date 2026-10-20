@@ -66,7 +66,8 @@ each build's page.
   OUT lamp); no tag covers an input's cell. Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
-  that would flicker at 5 Hz, starts at 1/4x, the button showing it, until the person picks a
+  that would flicker at 5 Hz, starts at 1/4x, the button showing it and the left badge saying why
+  (`slowed to ¼×: it repeats every 4 gt (tap ¼× to speed up)`), until the person picks a
   speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
@@ -194,7 +195,9 @@ each build's page.
   phone's viewer, where the Record button sits above the bar beside the build: `live_window_with`), 46 px of the
   top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
   the badges on a phone), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
-  only: no extender travel or entity look-ahead); a build smaller than 3 blocks across and 2
+  only: no extender travel or entity look-ahead, no TNT duper's ground under it, and only what
+  it draws: a thumbnail has no outlines, so its empty input and port cells are not framed: the
+  inputs and ports count where the look outlines them); a build smaller than 3 blocks across and 2
   high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
   little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
   along its length at the pictures' elevation (`scene::view_dir`: a 3/4 view, the camera closer)
