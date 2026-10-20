@@ -301,9 +301,29 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let ok = ["<h2>What it does</h2>", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "about.html#glossary"].iter().all(|s| page.contains(s));
         check("circuit page explains itself: what it does, how to try it, the judge's test, metric meanings", ok, b.page.clone());
+        // the redstone first (vjeux): the live view comes before the explanation
+        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>What it does</h2>")).is_some_and(|(v, w)| v < w);
+        check("circuit page: the live 3D view before the explanation", first, b.page.clone());
     }
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
+    let mut attributed: Vec<String> = Vec::new();
+    let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    for p in &sample {
+        let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
+        let mut visible = String::new();
+        let mut rest = html.as_str();
+        while let Some(i) = rest.find("<pre") {
+            visible.push_str(&rest[..i]);
+            rest = rest[i..].find("</pre>").map(|j| &rest[i + j..]).unwrap_or("");
+        }
+        visible.push_str(rest);
+        if visible.replace("st-redsim", "").to_lowercase().contains("redsim") {
+            attributed.push(p.clone());
+        }
+    }
+    check("no simulator attribution on the pages", attributed.is_empty(), format!("{} of {} pages{}", attributed.len(), sample.len(), attributed.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| !c.span.is_empty())) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();
@@ -344,6 +364,21 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let (vhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("circuit value search L 12: count", result_count(&dom) == Some(vhits.len()) && !vhits.is_empty(), format!("{:?} results, engine says {}", result_count(&dom), vhits.len()));
+    // ... and the extendable circuit families to the generated member (the first card's n_lo + 1)
+    let probe = site.cards.iter().filter(|c| c.kind == "circuit").find_map(|c| {
+        let f = c.families.first()?;
+        let m = site.members.iter().find(|m| m.card == c.id && m.family == f.id && m.n == f.n_lo + 1 && m.build.is_none())?;
+        let letter = m.axis.split_once(" = ").map(|(l, _)| l.to_string())?;
+        Some((format!("{letter} {}", m.period), m.family.clone(), m.n))
+    });
+    if let Some((value, family, n)) = probe {
+        let frag = format!("kind=circuit&value={}", site_model::encode(&value));
+        let q = site_model::Query::from_fragment(&frag);
+        let (fhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
+        let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
+        let shown = dom.contains(&format!("{family} <span class=\"n\">n = {n}</span>"));
+        check(&format!("circuit value search {value}: the generated family member"), result_count(&dom) == Some(fhits.len()) && shown, format!("{family} n = {n}: {:?} results, engine says {}", result_count(&dom), fhits.len()));
+    }
     // a facet filter from the URL
     let frag = "kind=door&is=flat,slime-free&sort=volume";
     let q = site_model::Query::from_fragment(frag);

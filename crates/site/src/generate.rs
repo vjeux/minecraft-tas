@@ -248,10 +248,48 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
+    // the extendable circuit families: every member generated and screened in redsim
+    let fo = circuits::FamilyOptions { members_dir: (!a.no_members).then(|| out.join("designs/circuits/members")), threads: a.threads };
+    let (ccards, cmembers, fnotes) = circuits::families(&repo, &circuit_builds, &ce.cards, &fo);
+    eprintln!(
+        "circuit families: {} cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
+        ccards.len(),
+        cmembers.len(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
+        t0.elapsed().as_secs_f64()
+    );
+    for n in &fnotes {
+        eprintln!("  note: {n}");
+    }
+    // one card per family in the grids: the card's first base design stands for it
+    let mut circuit_builds = circuit_builds;
+    for card in &ccards {
+        for (fi, f) in card.families.iter().enumerate() {
+            if let Some(b) = circuit_builds.iter_mut().find(|b| b.id == f.build) {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.card = card.id.clone();
+                    c.card_member = fi > 0;
+                }
+                if fi == 0 && !b.flags.iter().any(|x| x == "extendable") {
+                    b.flags.push("extendable".into());
+                }
+            }
+        }
+    }
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
-    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards: ce.cards, members: ce.members };
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
+    let mut cards = ce.cards;
+    cards.extend(ccards);
+    let mut members = ce.members;
+    members.extend(cmembers);
+    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();
     for b in &mut slim.builds {

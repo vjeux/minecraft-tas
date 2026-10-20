@@ -162,7 +162,8 @@ pub fn member_href(m: &Member, site: &Site) -> String {
     }
 }
 
-/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks`.
+/// A result card for an extendable family's member: `family, n = 10 → 48 gt, 24 blocks` (a
+/// circuit family's member: its axis value, `N = 26 gt`).
 pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
     let group = site
         .cards
@@ -173,14 +174,16 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         .map(|b| b.group.replace('+', " + "))
         .unwrap_or_default();
     let status = format!("<span class=\"badge st-{}\">{}</span>", esc(&m.status), esc(status_label(&m.status)));
+    let circuit = !m.axis.is_empty();
+    let (kind, big, value) = if circuit { ("circuit", m.axis.clone(), m.axis.clone()) } else { ("clock", format!("{} gt", m.period), gt_time(m.period)) };
     format!(
-        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} blocks · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
+        "<a class=\"card member\" href=\"{}\">{}<div class=\"meta\"><div class=\"title\">{} <span class=\"n\">n = {}</span></div><div class=\"sub\">{} · {} · {}</div><div class=\"badges\"><span class=\"badge\">extendable</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
-        thumb(prefix, &m.design, None, m.picture.as_deref(), "clock", &format!("{} gt", m.period), &format!("{} n={}", m.family, m.n)),
+        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, &format!("{} n={}", m.family, m.n)),
         esc(&m.family),
         m.n,
-        esc(&gt_time(m.period)),
-        m.blocks,
+        esc(&value),
+        esc(&blocks_word(m.blocks)),
         esc(&group)
     )
 }

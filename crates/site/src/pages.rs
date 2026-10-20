@@ -71,7 +71,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     s.push_str(body);
     s.push_str("\n</main>\n");
     s.push_str(&format!(
-        "<footer><nav class=\"foot\"><a href=\"{prefix}about.html\">About</a> · <a href=\"{prefix}boards.html\">Door boards</a> · <a href=\"{prefix}families/index.html\">Extendable clock families</a> · <a href=\"{prefix}circuits/index.html\">Circuit studies</a> · <a href=\"{prefix}all.html\">Everything</a></nav>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on {} by <code>mctas site build</code>. Every build was verified in the real game (Minecraft 26.3, headless, tick by tick).</footer>\n",
+        "<footer><nav class=\"foot\"><a href=\"{prefix}about.html\">About</a> · <a href=\"{prefix}boards.html\">Door boards</a> · <a href=\"{prefix}families/index.html\">Extendable families</a> · <a href=\"{prefix}circuits/index.html\">Circuit studies</a> · <a href=\"{prefix}all.html\">Everything</a></nav>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on {} by <code>mctas site build</code>. Every build was verified in the real game (Minecraft 26.3, headless, tick by tick).</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(&site.generated)
@@ -125,7 +125,7 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool, prefix: &str) -> 
     let mut s = format!("<section><h2>How to try it</h2>{}</section>\n", crate::explain::how_to_try(c, has_viewer));
     if let Some(w) = &c.wave {
         s.push_str(&format!(
-            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated with redsim, the project's exact simulator (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15). Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{}</section>\n",
+            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15). Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{}</section>\n",
             if c.inputs.len() == 1 { "" } else { "s" },
             crate::explain::wave_svg(w),
             if c.table.is_empty() {
@@ -220,12 +220,12 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     if !badges.is_empty() {
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
     }
-    if let Some(c) = &b.circuit {
-        body.push_str(&circuit_intro(b, c));
-        body.push_str(&group_picker(site, b, prefix));
-    }
+    // the redstone first (vjeux: "Put the redstone before the explanation"): the live view and
+    // its controls, a tunable group's picker under it, then what it does and the rest
     body.push_str(&viewer(prefix, b));
     if let Some(c) = &b.circuit {
+        body.push_str(&group_picker(site, b, prefix));
+        body.push_str(&circuit_intro(b, c));
         body.push_str(&circuit_sections(c, scripts.viewer, prefix));
     }
     if let Some(v) = b.door.as_ref().and_then(|d| d.video.as_ref()) {
@@ -430,6 +430,11 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         if let Some(h) = &c.layout_of {
             s.push_str(&row("Another layout of", &format!("{} (the same kind, value, block count and block kinds)", link_build(site, h, prefix))));
         }
+        if !c.card.is_empty() {
+            if let Some(cd) = site.cards.iter().find(|x| x.id == c.card) {
+                s.push_str(&row("Extendable family", &format!("<a href=\"{prefix}{}\">{}</a> ({}: one design for every n, all generated)", esc(&cd.page), esc(&cd.title), esc(&cd.heading))));
+            }
+        }
         if !c.archived.is_empty() {
             s.push_str(&row("Archived", &esc(&c.archived)));
         }
@@ -469,7 +474,7 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
         let mine = b.circuit.as_ref().map(|c| c.tunable.clone()).unwrap_or_default();
         let mut near: Vec<&Build> = others()
             .filter(|o| o.group == b.group)
-            .filter(|o| o.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && (c.tunable.is_empty() || !c.span.is_empty()) && (mine.is_empty() || c.tunable != mine)))
+            .filter(|o| o.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()) && (mine.is_empty() || c.tunable != mine)))
             .collect();
         near.sort_by_key(|o| (o.blocks, o.name.clone()));
         near.truncate(12);
@@ -556,8 +561,18 @@ fn layouts(site: &Site, b: &Build, prefix: &str) -> String {
 /// and every member n with its period, blocks and status.
 pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts) -> String {
     let prefix = "../";
+    let circuit = card.kind == "circuit";
     let mut body = String::new();
-    body.push_str(&format!("<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"index.html\">Extendable families</a></p>\n"));
+    if circuit {
+        let (study_title, _) = crate::explain::study(&card.study).unwrap_or(("Circuits", ""));
+        body.push_str(&format!(
+            "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › <a href=\"{prefix}circuits/{}/index.html\">{}</a> › Extendable family</p>\n",
+            esc(&card.study),
+            esc(study_title)
+        ));
+    } else {
+        body.push_str(&format!("<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"index.html\">Extendable families</a></p>\n"));
+    }
     body.push_str(&format!("<h1 class=\"formula\">{}</h1>\n", esc(&card.heading)));
     let base = card.families.first().and_then(|f| site.builds.iter().find(|b| b.id == f.build));
     let mut lede = format!("<strong>{}</strong>", esc(&card.title));
@@ -565,12 +580,21 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         lede.push_str(&format!(" · P = {}", esc(&card.seconds)));
     }
     if let Some(b) = base {
-        lede.push_str(&format!(" · {}", esc(&b.group.replace('+', " + "))));
+        if circuit {
+            lede.push_str(&format!(" · {}", esc(&crate::explain::kind_title(&b.group))));
+        } else {
+            lede.push_str(&format!(" · {}", esc(&b.group.replace('+', " + "))));
+        }
     }
     if !card.note.is_empty() {
         lede.push_str(&format!(" · {}", esc(&card.note)));
     }
     body.push_str(&format!("<p class=\"lede\">{lede}</p>\n"));
+    if circuit {
+        if let Some(c) = base.and_then(|b| b.circuit.as_ref()) {
+            body.push_str(&format!("<section class=\"what\"><h2>What it does</h2><p>{}.</p><p>This family grows by a repeated step: one design for every n, its value given by the formula above, every one built by the family's own generator.</p></section>\n", esc(&first_upper(&crate::explain::kind_summary(&c.kind)))));
+        }
+    }
     if let Some(f) = card.families.first() {
         body.push_str(&format!("<p>Extend: {}.</p>\n", esc(&f.rule)));
         let two: Vec<&&Member> = members.iter().filter(|m| m.family == f.id).take(2).collect();
@@ -582,14 +606,16 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     if !card.works_with.is_empty() {
         body.push_str(&format!("<p>Works with any one of these {} blocks in place of the {}: {}.</p>\n", card.works_with.len(), esc(&card.works_with[0]), esc(&card.works_with.join(", "))));
     }
+    let value_head = if circuit { "value" } else { "period" };
     if card.families.len() > 1 {
-        body.push_str("<section><h2>Families of this card</h2><table class=\"list\"><thead><tr><th>family</th><th>P</th><th>blocks</th><th>n (verified range)</th><th>judged in the game: n</th></tr></thead><tbody>\n");
+        body.push_str(&format!("<section><h2>Families of this card</h2><table class=\"list\"><thead><tr><th>family</th><th>{}</th><th>blocks</th><th>n (verified range)</th><th>judged in the game: n</th></tr></thead><tbody>\n", if circuit { "value" } else { "P" }));
         for f in &card.families {
             let extra = if f.extra.is_empty() { String::new() } else { format!(" (+{})", esc(&f.extra.join(", +"))) };
             body.push_str(&format!(
-                "<tr><td>{}{extra}</td><td>{} gt</td><td>{}</td><td>{}..{}</td><td>{}</td></tr>\n",
+                "<tr><td>{}{extra}</td><td>{}{}</td><td>{}</td><td>{}..{}</td><td>{}</td></tr>\n",
                 link_build(site, &f.build, prefix),
                 esc(&f.period_text),
+                if circuit { "" } else { " gt" },
                 esc(&f.blocks_text),
                 f.n_lo,
                 f.n_hi,
@@ -598,8 +624,10 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         }
         body.push_str("</tbody></table></section>\n");
     }
-    body.push_str("<section><h2>Every member</h2><p>Each member's design was generated with the family's own generator when this site was built. <span class=\"badge st-judged\">judged in the game</span> = verified by the clock judge in the real game; <span class=\"badge st-redsim\">simulated</span> = its generated design runs at exactly the formula's period in redsim (the exact simulator), not judged in the game; <span class=\"badge st-formula\">formula</span> = not individually checked.</p>\n");
-    body.push_str("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>period</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n");
+    let judge = if circuit { "the circuit judge" } else { "the clock judge" };
+    let screen = if circuit { "gives exactly the formula's value in simulation" } else { "runs at exactly the formula's period in simulation" };
+    body.push_str(&format!("<section><h2>Every member</h2><p>Each member's design was generated with the family's own generator when this site was built. <span class=\"badge st-judged\">judged in the game</span> = verified by {judge} in the real game; <span class=\"badge st-redsim\">simulated</span> = its generated design {screen}, not judged in the game; <span class=\"badge st-formula\">formula</span> = not individually checked.</p>\n"));
+    body.push_str(&format!("<table class=\"list\"><thead><tr><th>family</th><th>n</th><th>{value_head}</th><th>blocks</th><th>box</th><th>status</th><th>download</th></tr></thead><tbody>\n"));
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
@@ -612,7 +640,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
             esc(&site_model::html::member_anchor(m, site)),
             m.n,
-            esc(&gt_time(m.period)),
+            esc(&if m.axis.is_empty() { gt_time(m.period) } else { m.axis.clone() }),
             m.blocks,
             esc(m.dims.as_deref().unwrap_or("")),
             esc(&m.status),
@@ -620,37 +648,44 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         ));
     }
     body.push_str("</tbody></table></section>\n");
-    let desc = format!("Extendable redstone clock family {}: {}", card.title, card.heading);
-    shell_full(&card.title, &desc, prefix, &body, scripts, site, None, Some("clock"))
+    let desc = if circuit { format!("Extendable redstone circuit family {}: {}", card.title, card.heading) } else { format!("Extendable redstone clock family {}: {}", card.title, card.heading) };
+    shell_full(&card.title, &desc, prefix, &body, scripts, site, None, Some(if circuit { "circuit" } else { "clock" }))
 }
 
 /// families/index.html: every card, by its smallest period.
 pub fn families_index(site: &Site, members: &BTreeMap<String, Vec<&Member>>, scripts: Scripts) -> String {
     let prefix = "../";
+    let clocks: Vec<&Card> = site.cards.iter().filter(|c| c.kind.is_empty()).collect();
+    let circuits: Vec<&Card> = site.cards.iter().filter(|c| c.kind == "circuit").collect();
     let mut body = format!(
-        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › Extendable families</p>\n<h1>Extendable clock families</h1>\n<p class=\"lede\">{} families grow by a repeated step: one design for every n, its period given by a formula. Search a period in the <a href=\"{prefix}index.html#kind=clock&amp;time=\">clock time search</a> to see the exact member that hits it.</p>\n",
-        site.cards.len()
+        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › Extendable families</p>\n<h1>Extendable families</h1>\n<p class=\"lede\">Families grow by a repeated step: one design for every n, its number (a clock's period, a circuit's L or N) given by a formula. Every member was generated with the family's own generator when this site was built. Search a period in the <a href=\"{prefix}index.html#kind=clock\">Clocks</a> tab, or a value (L 50, N 26) in the <a href=\"{prefix}index.html#kind=circuit\">Circuits</a> tab, to see the exact member that hits it.</p>\n"
     );
-    body.push_str("<table class=\"list\"><thead><tr><th>card</th><th>period</th><th>families</th><th>members</th><th>periods reached</th></tr></thead><tbody>\n");
-    for c in &site.cards {
-        let ms = members.get(&c.id).map(|v| v.as_slice()).unwrap_or(&[]);
-        let (lo, hi) = (ms.iter().map(|m| m.period).min(), ms.iter().map(|m| m.period).max());
-        let reach = match (lo, hi) {
-            (Some(l), Some(h)) => format!("{} .. {}", gt_time(l), gt_time(h)),
-            _ => "-".into(),
-        };
-        body.push_str(&format!(
-            "<tr><td><a href=\"{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-            esc(c.page.trim_start_matches("families/")),
-            esc(&c.title),
-            esc(&c.heading),
-            c.families.len(),
-            ms.len(),
-            esc(&reach)
-        ));
+    for (title, list, what) in [("Clocks", &clocks, "periods reached"), ("Circuits", &circuits, "values reached")] {
+        if list.is_empty() {
+            continue;
+        }
+        body.push_str(&format!("<section><h2>{title} <span class=\"count\">{} cards</span></h2><table class=\"list\"><thead><tr><th>card</th><th>formula</th><th>families</th><th>members</th><th>{what}</th></tr></thead><tbody>\n", list.len()));
+        for c in list.iter() {
+            let ms = members.get(&c.id).map(|v| v.as_slice()).unwrap_or(&[]);
+            let (lo, hi) = (ms.iter().min_by_key(|m| m.period), ms.iter().max_by_key(|m| m.period));
+            let show = |m: &Member| if m.axis.is_empty() { gt_time(m.period) } else { m.axis.clone() };
+            let reach = match (lo, hi) {
+                (Some(l), Some(h)) => format!("{} .. {}", show(l), show(h)),
+                _ => "-".into(),
+            };
+            body.push_str(&format!(
+                "<tr><td><a href=\"{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                esc(c.page.trim_start_matches("families/")),
+                esc(&c.title),
+                esc(&c.heading),
+                c.families.len(),
+                ms.len(),
+                esc(&reach)
+            ));
+        }
+        body.push_str("</tbody></table></section>\n");
     }
-    body.push_str("</tbody></table>\n");
-    shell_full("Extendable clock families", "Every extendable redstone clock family with its period formula", prefix, &body, scripts, site, None, Some("clock"))
+    shell_full("Extendable families", "Every extendable redstone clock and circuit family with its formula", prefix, &body, scripts, site, None, None)
 }
 
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
@@ -807,12 +842,12 @@ fn site_tier(t: &str) -> u8 {
 pub fn about_page(site: &Site, scripts: Scripts) -> String {
     let body = format!(
         "<h1>About {SITE_NAME}</h1>\n\
-         <p>{SITE_NAME} lists every build of <a href=\"{REPO_URL}\">vjeux/minecraft-tas</a>: a headless Minecraft 26.3 server that runs the game's own code one tick at a time, many worlds at once, and the exact Rust redstone simulator redsim built against it. Night after night, agents searched for the smallest 3x3 piston doors, then for every kind of redstone clock, then for the classic contraptions (pulse circuits, T flip-flops, delay lines, logic gates, memory, piston extenders, flying machines).</p>\n\
-         <p>Nothing here is a screenshot of someone's world: each build is a design file (blocks, layer by layer) that the project's judge verified in the real game, at several positions and rotations. The 3D views are rendered live in your browser from those files, and simulated with redsim compiled to WebAssembly.</p>\n\
+         <p>{SITE_NAME} lists every build of <a href=\"{REPO_URL}\">vjeux/minecraft-tas</a>: a headless Minecraft 26.3 server that runs the game's own code one tick at a time, many worlds at once. Night after night, agents searched for the smallest 3x3 piston doors, then for every kind of redstone clock, then for the classic contraptions (pulse circuits, T flip-flops, delay lines, logic gates, memory, piston extenders, flying machines).</p>\n\
+         <p>Nothing here is a screenshot of someone's world: each build is a design file (blocks, layer by layer) that the project's judge verified in the real game, at several positions and rotations. The 3D views are rendered and simulated live in your browser from those files.</p>\n\
          <p>Only the project's own designs are published here: doors derived from the piston door community's builds (which the project reproduced to calibrate its judge) are left out, to credit their authors rather than republish their work.</p>\n\
          <h2>Where the numbers come from</h2>\n<ul>\n\
          <li><strong>Doors</strong>: <code>mctas door verify --extra-offsets 28</code> (3 open/close cycles at 32 positions); size is the piston door community's volume (the bounding box of the build over a whole cycle, the lever excluded); seamless tiers, hallway and record eligibility follow the community regulation (<a href=\"{REPO_URL}/blob/main/docs/rules.md\">docs/rules.md</a>).</li>\n\
-         <li><strong>Clocks</strong>: <code>mctas clock verify</code> (4 positions x 4 rotations in the real game); the period is the exact repeat of the whole state; the family is the set of block kinds that change state (<a href=\"{REPO_URL}/blob/main/docs/clocks.md\">docs/clocks.md</a>). A variant is a clock of a period that only adds block kinds to a smaller one. Extendable families give a formula for every n; their members are generated by the family's own generator, and each is marked as judged in the game, simulated in redsim, or given by the formula only.</li>\n\
+         <li><strong>Clocks</strong>: <code>mctas clock verify</code> (4 positions x 4 rotations in the real game); the period is the exact repeat of the whole state; the family is the set of block kinds that change state (<a href=\"{REPO_URL}/blob/main/docs/clocks.md\">docs/clocks.md</a>). A variant is a clock of a period that only adds block kinds to a smaller one. Extendable families give a formula for every n; their members are generated by the family's own generator, and each is marked as judged in the game, simulated, or given by the formula only.</li>\n\
          <li><strong>Circuits</strong>: <code>mctas circuit verify</code> (4 positions x 4 rotations in the real game) against each kind's spec: pulse circuits by their output pulse length, delay lines by their shift, gates by their truth table, T flip-flops, latches and counters, piston extenders by their reach, flying machines by their speed (<a href=\"{REPO_URL}/blob/main/docs/circuits.md\">docs/circuits.md</a>).</li>\n\
          </ul>\n\
          <h2>Data</h2><p>Everything on this site is in <a href=\"data/site.json\">data/site.json</a> ({} builds, {} family members), regenerated by <code>mctas site build</code> from the repository.</p>\n\
@@ -845,7 +880,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         Some((t, i)) => (t.to_string(), i.to_string()),
         None if folder == "calibration" => (
             "Calibration circuits".to_string(),
-            "The judge's own reference circuits, built and checked in the real game when the circuit judge was written (one per kind); their numbers come from redsim at site build time.".to_string(),
+            "The judge's own reference circuits, built and checked in the real game when the circuit judge was written (one per kind); their numbers come from a simulation at site build time.".to_string(),
         ),
         None => (format!("Circuits: {folder}"), String::new()),
     };
@@ -857,6 +892,23 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         esc(&intro),
         site_model::encode(folder)
     );
+    // the study's extendable families: one line per card, its formula
+    let cards: Vec<&Card> = site.cards.iter().filter(|c| c.kind == "circuit" && c.study == folder).collect();
+    if !cards.is_empty() {
+        body.push_str("<section><h2>Extendable families</h2><p>Each grows by a repeated step: one design for every n, its value given by the formula; every member is generated when the site is built (search a value, e.g. L 50 or N 26, in the Circuits tab to get the exact member).</p><table class=\"list\"><thead><tr><th>family</th><th>formula</th><th>blocks</th><th>n</th></tr></thead><tbody>\n");
+        for c in cards {
+            let f = c.families.first();
+            body.push_str(&format!(
+                "<tr><td><a href=\"{prefix}{}\">{}</a></td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+                esc(&c.page),
+                esc(&c.title),
+                esc(&c.heading),
+                esc(&f.map(|f| f.blocks_text.clone()).unwrap_or_default()),
+                esc(&f.map(|f| format!("{}..{}", f.n_lo, f.n_hi)).unwrap_or_default())
+            ));
+        }
+        body.push_str("</tbody></table></section>\n");
+    }
     // one section per kind family (counter 2..24 together, every gate together)
     let mut kinds: Vec<String> = Vec::new();
     for b in &list {
@@ -867,14 +919,18 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     }
     for k in &kinds {
         let of: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().next() == Some(k.as_str()))).collect();
-        let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && (c.tunable.is_empty() || !c.span.is_empty());
+        let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty());
         let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown)).collect();
         let n_var = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_some())).count();
         let n_lay = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_some())).count();
         let n_mem = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty())).count();
+        let n_fam = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.card_member && c.tunable.is_empty())).count();
         let mut hidden: Vec<String> = Vec::new();
         if n_mem > 0 {
             hidden.push(format!("{n_mem} more member{} of the tunable groups (on each group's page)", if n_mem == 1 { "" } else { "s" }));
+        }
+        if n_fam > 0 {
+            hidden.push(format!("{n_fam} more base design{} of the extendable families (on each family's page)", if n_fam == 1 { "" } else { "s" }));
         }
         if n_lay > 0 {
             hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
@@ -937,7 +993,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         let mut cards: Vec<String> = Vec::new();
         for b in &list {
             let Some(c) = &b.circuit else { continue };
-            if c.host.is_some() || c.layout_of.is_some() || (!c.tunable.is_empty() && c.span.is_empty()) || seen.contains(&c.kind) {
+            if c.host.is_some() || c.layout_of.is_some() || c.card_member || (!c.tunable.is_empty() && c.span.is_empty()) || seen.contains(&c.kind) {
                 continue;
             }
             seen.push(c.kind.clone());
