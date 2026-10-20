@@ -59,7 +59,11 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   whenever the output is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the
   update that tells it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick,
   like two inputs placed in the same tick, is a glitch, not a failure), from the first frame the
-  circuit may be driven. The metrics still come from the level above, so they do not change. An
+  circuit may be driven. The metrics still come from the level above, so they do not change. The
+  judge's lamp only observes (clockinfra 2026-10-20): redsim runs the stimulus once more with every
+  such cell left as AIR, and the output must see the same signal in every frame, else the design
+  fails with `the judge's lamp is part of the circuit` (a lamp is a conductor: a comparator's
+  feedback loop closing through it would not run with another consumer). An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
@@ -403,7 +407,7 @@ kick) before the first input.
     N x P with 4 rises in the 4N periods. Metrics at 40 gt: duty, `square` (on half the time, to
     1 gt) or `pulse (<on> gt)`, latency (input rise -> output rise); `min-period`: the fastest clock
     from which every slower one divides. A counter of slow pulses is study 5's `counter N`.
-  * `monostable [retriggerable | non-retriggerable]`: isolated pulses of 1..40 gt give one pulse of
+  * `monostable [retriggerable | non-retriggerable]`: isolated pulses of 1..160 gt give one pulse of
     L at one delay from the min-pulse up (as `rising-edge`); then pairs of 4 gt inputs whose second
     rising edge comes d = 5..160 gt after the first: while d < L a `non-retriggerable` one gives one
     pulse of exactly L, a `retriggerable` one a pulse ending L after the second edge; any other
@@ -417,7 +421,8 @@ kick) before the first input.
     input fails: it holds one pending tick, so it ends L after the second input of a close train.
   * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
     be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
-    input's fall for every input from T up. Metrics T (axis), shortening, latency.
+    input's fall for every input from T up. Metrics T (axis, `on T = ..`), shortening, latency;
+    an off-delay's axis reads `off L = ..`.
   * `pulse-train` (a gated clock): the input held 20, 60, 200 gt: output pulses every P gt while it
     is on, the first at the same latency each time, none starting more than P after the release.
     Metrics P (axis), pulse, latency, stop (release -> the output's last fall).

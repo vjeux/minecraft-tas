@@ -52,6 +52,27 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Judge designs on redsim under another kind (`{n}` / `{2n}`: the design's own kind number,
+    /// or twice it), e.g. study 5's counters as dividers or study 1's rising-edge detectors as
+    /// monostables; prints the judge line or why it fails.
+    As {
+        #[arg(long)]
+        kind: String,
+        designs: Vec<PathBuf>,
+    },
+    /// Square (50% duty) /N dividers for any N, odd included: study 5's dropper ring of N with one
+    /// copper bulb (its comparator toggles once every N pulses) fed on BOTH input edges: the
+    /// input cell becomes a stone strongly powered by an observer watching the new input cell, so
+    /// the bulb toggles every N edges = every N/2 input periods.
+    SquareDivider {
+        #[arg(long, value_delimiter = ',')]
+        n: Vec<usize>,
+        /// Most dust cells next to the ring's input (study 5's `--max-dust`).
+        #[arg(long, default_value_t = 2)]
+        max_dust: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Local search from passing designs: add, remove, move or change blocks (box: the design's
     /// box grown by --grow), keep a change when the judge still passes with the same axis value
     /// (N, L and class, T or P) and no more blocks; writes the smallest found per start.
@@ -67,6 +88,10 @@ enum Cmd {
         rng: u64,
         #[arg(long, default_value_t = 16)]
         workers: usize,
+        /// Metrics to reach first (then fewer blocks): `retrigger ignores`, `repeat <= 8`... (each
+        /// matches when the metric's value starts with the text, or is at most the number).
+        #[arg(long)]
+        want: Vec<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -95,10 +120,21 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let n = search::search(&o)?;
             println!("{n} distinct passes: {}", o.out.join("found.tsv").display());
         }
-        Cmd::Improve { designs, palette, grow, iterations, rng, workers, out } => {
+        Cmd::As { kind, designs } => {
+            for p in &designs {
+                println!("{}", search::judge_as(p, &kind)?);
+            }
+        }
+        Cmd::SquareDivider { n, max_dust, out } => {
+            std::fs::create_dir_all(&out)?;
+            for &k in &n {
+                println!("{}", search::square_divider(k, max_dust, &out)?);
+            }
+        }
+        Cmd::Improve { designs, palette, grow, iterations, rng, workers, want, out } => {
             let pal: Vec<String> = palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             for d in &designs {
-                let r = search::improve(d, &pal, grow, iterations, rng, workers, &out)?;
+                let r = search::improve(d, &pal, grow, iterations, rng, workers, &want, &out)?;
                 println!("{r}");
             }
         }

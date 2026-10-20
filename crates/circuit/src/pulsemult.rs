@@ -34,7 +34,9 @@ use crate::trace::{Trace, runs};
 use crate::{Circuit, InputHow, Kind};
 
 pub const BURST_LENS: [u32; 8] = [1, 2, 3, 4, 6, 10, 20, 40];
-pub const ISO_LENS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+/// A monostable's isolated inputs: up to 160 gt, so a dual-edge one-shot whose falling-edge pulse
+/// hides inside its own L for short inputs still shows it (clk-rt: study 1's pulse-dual-lock-L34).
+pub const ISO_LENS: [u32; 14] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40, 80, 160];
 pub const FILTER_LENS: [u32; 16] = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 60, 80];
 pub const OFF_LENS: [u32; 14] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40, 60, 80];
 pub const PAIR_DELAYS: [u32; 15] = [5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80, 120, 160];

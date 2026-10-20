@@ -237,9 +237,85 @@ fn slug(kind: &Kind, metrics: &[(String, String)]) -> String {
     }
 }
 
+/// `circuit pulsemult square-divider`: study 5's ring of N + one bulb, fed on both input edges
+/// (see `Cmd::SquareDivider`); the first observer placement whose cells are free wins.
+pub fn square_divider(n: usize, max_dust: usize, out: &Path) -> Result<String> {
+    let rings = circuit_memory::ring::search(n, max_dust, 1, 1);
+    let Some(mut r) = rings.into_iter().next() else { bail!("no ring of {n} with at most {max_dust} dust") };
+    r.divider = true;
+    let name = format!("pm-div{n}-square");
+    let mut d = r.build(&name);
+    let input = d.ports.get("input").copied().unwrap_or([0, 0, 0]);
+    let near = |d: &Design, p: Pos, but: Pos| DIRS.iter().any(|s| {
+        let q = [p[0] + s[0], p[1] + s[1], p[2] + s[2]];
+        q != but && d.blocks.contains_key(&q)
+    });
+    let mut placed = false;
+    for s in DIRS {
+        let obs = [input[0] + s[0], input[1] + s[1], input[2] + s[2]];
+        let cell = [input[0] + 2 * s[0], input[1] + 2 * s[1], input[2] + 2 * s[2]];
+        if d.blocks.contains_key(&obs) || d.blocks.contains_key(&cell) || near(&d, cell, obs) || d.ports.values().any(|p| *p == obs || *p == cell) {
+            continue;
+        }
+        let face = match s {
+            [1, 0, 0] => "east",
+            [-1, 0, 0] => "west",
+            [0, 1, 0] => "up",
+            [0, -1, 0] => "down",
+            [0, 0, 1] => "south",
+            _ => "north",
+        };
+        d.blocks.insert(input, "minecraft:stone".into());
+        d.blocks.insert(obs, format!("minecraft:observer[facing={face},powered=false]"));
+        d.ports.insert("input".into(), cell);
+        placed = true;
+        break;
+    }
+    if !placed {
+        bail!("ring of {n}: no free cell for the observer");
+    }
+    d.meta.insert("circuit".into(), format!("divider {n}"));
+    d.meta.insert("group".into(), "pm-square-divider".into());
+    d.meta.insert("group title".into(), "Square /N divider (dropper ring + bulb, fed on both edges)".into());
+    d.meta.insert(
+        "group note".into(),
+        "study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`)".into(),
+    );
+    let c = Circuit::from_design(d.clone())?;
+    let line = match judge(&c) {
+        Some((summary, _)) => summary,
+        None => bail!("ring of {n}: the square divider does not pass on redsim"),
+    };
+    let p = out.join(format!("{name}.txt"));
+    d.save(&p)?;
+    Ok(format!("{} blocks: {line} -> {}", d.blocks.len(), p.display()))
+}
+
+const DIRS: [Pos; 6] = [[0, -1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0]];
+
 /// Seed cells that must stay empty: the ports (the judge's input block, its lamps).
 fn port_cells(d: &Design) -> Vec<Pos> {
     d.ports.values().copied().collect()
+}
+
+/// `circuit pulsemult as`: one design judged on redsim under `kind` (see `Cmd::As`).
+pub fn judge_as(path: &Path, kind: &str) -> Result<String> {
+    let mut d = Design::load(path)?;
+    let own = d.meta.get("circuit").cloned().unwrap_or_default();
+    let n: u32 = own.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(0);
+    let k = kind.replace("{2n}", &(2 * n).to_string()).replace("{n}", &n.to_string());
+    d.meta.insert("circuit".into(), k.clone());
+    let c = Circuit::from_design(d)?;
+    let rep = circuit::verify::sim(&c, &circuit::verify::Options::default())?;
+    let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    Ok(match rep.outcome {
+        Some(o) if o.pass => {
+            let m: Vec<String> = o.metrics.iter().map(|(a, b)| format!("{a} {b}")).collect();
+            format!("PASS {name} ({own}) as {k}: {}", m.join(", "))
+        }
+        Some(o) => format!("FAIL {name} ({own}) as {k}: {}", o.why),
+        None => format!("FAIL {name} ({own}) as {k}: {}", rep.trace.err().unwrap_or_default()),
+    })
 }
 
 pub fn search(o: &SearchOptions) -> Result<usize> {
@@ -333,7 +409,7 @@ pub fn search(o: &SearchOptions) -> Result<usize> {
 }
 
 /// Local search from one passing design (see `Cmd::Improve`).
-pub fn improve(path: &Path, palette: &[String], grow: i32, iterations: usize, rng: u64, workers: usize, out: &Path) -> Result<String> {
+pub fn improve(path: &Path, palette: &[String], grow: i32, iterations: usize, rng: u64, workers: usize, want: &[String], out: &Path) -> Result<String> {
     let d0 = Design::load(path)?;
     let c0 = Circuit::from_design(d0.clone())?;
     let Some(kind) = c0.kind.clone() else { bail!("{}: no `circuit:` kind", path.display()) };
@@ -355,14 +431,14 @@ pub fn improve(path: &Path, palette: &[String], grow: i32, iterations: usize, rn
             }
         }
     }
-    let best: Mutex<BTreeMap<Pos, String>> = Mutex::new(d0.blocks.clone());
+    let best: Mutex<(usize, BTreeMap<Pos, String>)> = Mutex::new((misses(want, &m0), d0.blocks.clone()));
     let next = AtomicUsize::new(0);
     std::thread::scope(|sc| {
         for wi in 0..workers.max(1) {
             let (d0, pal, cells, best, next, kind, key0) = (&d0, &pal, &cells, &best, &next, &kind, &key0);
             sc.spawn(move || {
                 let mut r = Rng(rng.wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(wi as u64 * 104729 + 7) | 1);
-                let mut cur = best.lock().unwrap().clone();
+                let (mut cur_miss, mut cur) = best.lock().unwrap().clone();
                 while next.fetch_add(1, Ordering::Relaxed) < iterations {
                     let mut b = cur.clone();
                     let keys: Vec<Pos> = b.keys().copied().collect();
@@ -394,21 +470,24 @@ pub fn improve(path: &Path, palette: &[String], grow: i32, iterations: usize, rn
                     if axis_key(kind, &m) != *key0 {
                         continue;
                     }
-                    // a sideways move is kept (it can open a later removal); fewer blocks is shared
-                    if b.len() <= cur.len() {
+                    // the wanted metrics first, then fewer blocks; a sideways move is kept (it can
+                    // open a later removal), a better one is shared
+                    let miss = misses(want, &m);
+                    if (miss, b.len()) <= (cur_miss, cur.len()) {
                         cur = b.clone();
+                        cur_miss = miss;
                     }
                     let mut g = best.lock().unwrap();
-                    if b.len() < g.len() {
-                        *g = b;
-                    } else if g.len() < cur.len() {
-                        cur = g.clone();
+                    if (miss, b.len()) < (g.0, g.1.len()) {
+                        *g = (miss, b);
+                    } else if (g.0, g.1.len()) < (cur_miss, cur.len()) {
+                        (cur_miss, cur) = g.clone();
                     }
                 }
             });
         }
     });
-    let b = best.into_inner().unwrap();
+    let (miss, b) = best.into_inner().unwrap();
     let mut d = d0.clone();
     let n0 = d0.blocks.len();
     d.blocks = b;
@@ -418,5 +497,24 @@ pub fn improve(path: &Path, palette: &[String], grow: i32, iterations: usize, rn
     d.name = format!("pm-{}-{}b", slug(&kind, &metrics), d.blocks.len());
     let p = out.join(format!("{}.txt", d.name));
     d.save(&p)?;
-    Ok(format!("{}: {n0} -> {} blocks: {summary} -> {}", path.display(), d.blocks.len(), p.display()))
+    let unmet = if miss > 0 { format!(" ({miss} wanted metric(s) not reached)") } else { String::new() };
+    Ok(format!("{}: {n0} -> {} blocks: {summary}{unmet} -> {}", path.display(), d.blocks.len(), p.display()))
+}
+
+/// How many `metric value` wants a design misses (a want matches when the metric's value starts
+/// with the wanted text, or for `<metric> <= N`, when its number is at most N).
+fn misses(want: &[String], m: &[(String, String)]) -> usize {
+    want.iter()
+        .filter(|w| {
+            let (name, val) = w.split_once(' ').unwrap_or((w.as_str(), ""));
+            let got = m.iter().find(|(a, _)| a == name).map(|(_, b)| b.as_str()).unwrap_or("");
+            match val.strip_prefix("<= ") {
+                Some(n) => {
+                    let lim: f64 = n.trim_end_matches(" gt").parse().unwrap_or(f64::MAX);
+                    got.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()).is_none_or(|x| x > lim)
+                }
+                None => !got.starts_with(val),
+            }
+        })
+        .count()
 }

@@ -364,6 +364,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "circuit-memory",
  "clap",
  "clock",
  "mctas",

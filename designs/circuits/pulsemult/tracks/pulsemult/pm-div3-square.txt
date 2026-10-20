@@ -1,0 +1,29 @@
+name: pm-div3-square
+circuit: divider 3
+group: pm-square-divider
+group note: study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`)
+group title: Square /N divider (dropper ring + bulb, fed on both edges)
+port input: 0 -2 0
+port output: -5 0 0
+nbt: -1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -4 0 -1
+palette:
+  A minecraft:dropper[facing=west,triggered=false]
+  B minecraft:hopper[enabled=true,facing=south]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=north,triggered=false]
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  d minecraft:dropper[facing=up,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  S.S.O
+layer 0:
+  ...hd
+  CWCDS
+layer 1:
+  ....B
+  ...HA

@@ -43,3 +43,18 @@ smallest (blocks, then box), fastest (latency, then span), flat (2 high), tileab
 as study 9's `tile`), a tunable family (N or L set by a repeater delay, a comparator mode or a
 line length: one card, study 1's tunable groups), slime-free. The best design of each variation is
 archived; a design bigger and no better on the variation's metric stays out.
+
+## Results
+
+Owners: burst, divider, pulse-train: fly (explore/pulsemult); monostable, off-delay, on-delay:
+clk-rt (explore/timer). Every line below is judged in the real game (16 builds) unless it says
+redsim.
+
+| kind / variation | status | design / measure |
+|---|---|---|
+| divider N, pulse output | COVERED by study 5: every archived `counter N` passes `divider N` on clocks (`mctas circuit pulsemult as --kind 'divider {n}' <counters>`, redsim, N = 3..48): ring counters give a pulse (duty 3..33%) and follow clocks down to 10 gt (12 gt for rings of 19+); bulb chains (N = 2^k) are square and follow 2 gt clocks; a ring + bulb counter that toggles every N (`-div`) is a square /2N, 10 gt | linked, not re-archived |
+| divider, odd N with a 50% duty | DONE: archive/pm-div3-square (13 blocks), pm-div5-square (16), pm-div7-square (23); any N with `mctas circuit pulsemult square-divider --n N` (redsim: 9, 11, 13 pass, 30 / 34 / 41 blocks). A ring + bulb counter toggles every N pulses; fed on BOTH input edges (an observer powering the input cell's stone) it toggles every N/2 input periods | min-period 20 gt: the ring's droppers take one action per edge, edges 10 gt apart |
+| divider, fastest for N not a power of 2 | open: rings stop at 10 gt clocks | redsim search running |
+| pulse-train (gated clock) | DONE: archive/pm-train-comparator-d1..d4 (12 blocks, one tunable group, P = 8, 12, 16, 20 gt: P = 4 + 4 x the repeater's delay): the input is a subtract comparator's rear, its output returns to its side through dust and a repeater; first pulse 2 gt after the input, stops within 2 gt of the release | the torch loop (cal-torch-pulse-train, 15 blocks, P 12) is bigger |
+| burst N, the N axis | DONE for N = 2, 3, 4: archive/pm-burst2-bulb (7 blocks: bulb, comparator, observer, delay-3 repeater, observer), pm-burst3-bulb (12), pm-burst4-taps (19); all min-pulse 1 (any input length), 2 gt pulses about 6 gt apart, repeat 12 / 16 / 20 gt | larger N: taps into the output cell run out of sides; the scalable route is the gated clock above with an exact gate of 8N - 2 gt from a non-retriggerable monostable (a bulb one-shot gate latches on a second press: refused) |
+| burst, re-trigger class | measured on every burst: all three archived are `mixed` (a second press within ~8 gt is swallowed, a later one adds a second burst); a consistent `ignores` or `adds` burst is open (local search with `--want 'retrigger ignores'` found none from the 7-block burst) | |

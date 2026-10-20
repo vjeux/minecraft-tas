@@ -48,6 +48,10 @@ pub struct CensusArgs {
     /// Only class sets with this detected-classes text (`place remove state update`).
     #[arg(long)]
     pub only: Option<String>,
+    /// A base design (its target at 0 0 0) whose blocks every design keeps: the census then adds K
+    /// blocks in the air cells of its box grown by 1 (every K-subset, no symmetry reduction).
+    #[arg(long)]
+    pub base: Option<PathBuf>,
 }
 
 const FACINGS: [&str; 6] = ["north", "south", "east", "west", "up", "down"];
@@ -236,7 +240,54 @@ pub fn run(a: CensusArgs) -> Result<()> {
         bail!("--k must be at least 1");
     }
     let pal = palette(&a.palette);
-    let sets = cell_sets(a.k, a.reach);
+    let base: Vec<(Pos, String)> = match &a.base {
+        Some(p) => mctas::design::Design::load(p)?.blocks.into_iter().collect(),
+        None => Vec::new(),
+    };
+    let sets = if base.is_empty() {
+        cell_sets(a.k, a.reach)
+    } else {
+        // every K-subset of the air cells in the base's box grown by 1
+        let mut lo = [0i32; 3];
+        let mut hi = [0i32; 3];
+        for (p, _) in &base {
+            for i in 0..3 {
+                lo[i] = lo[i].min(p[i] - 1);
+                hi[i] = hi[i].max(p[i] + 1);
+            }
+        }
+        let taken: BTreeSet<Pos> = base.iter().map(|(p, _)| *p).collect();
+        let mut cells: Vec<Pos> = Vec::new();
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    let p = [x, y, z];
+                    if p != [0, 0, 0] && !taken.contains(&p) {
+                        cells.push(p);
+                    }
+                }
+            }
+        }
+        let mut out: Vec<Vec<Pos>> = Vec::new();
+        let mut idx: Vec<usize> = (0..a.k).collect();
+        if a.k <= cells.len() {
+            loop {
+                out.push(idx.iter().map(|i| cells[*i]).collect());
+                let mut j = a.k;
+                while j > 0 && idx[j - 1] == cells.len() - a.k + j - 1 {
+                    j -= 1;
+                }
+                if j == 0 {
+                    break;
+                }
+                idx[j - 1] += 1;
+                for m in j..a.k {
+                    idx[m] = idx[m - 1] + 1;
+                }
+            }
+        }
+        out
+    };
     // per cell set (one per symmetry class: two sets never hold the same structure), every
     // assignment of palette states, deduplicated by structure within the set (a symmetric set
     // repeats some), screened at once: the threads take cell sets in turn
@@ -259,9 +310,12 @@ pub fn run(a: CensusArgs) -> Result<()> {
                     let mut found: Vec<Hit> = Vec::new();
                     loop {
                         let states: Vec<&String> = idx.iter().map(|i| &pal[*i]).collect();
-                        if states.iter().any(|s| active(s)) {
+                        if !base.is_empty() || states.iter().any(|s| active(s)) {
                             total.fetch_add(1, Ordering::Relaxed);
-                            let d = design(cells, &states, None);
+                            let mut d = design(cells, &states, None);
+                            for (p, s) in &base {
+                                d.blocks.insert(*p, s.clone());
+                            }
                             let mut dk = d.clone();
                             dk.blocks.insert([0, 0, 0], "circuit:target".into());
                             if seen.insert(clock::canon::design_type_key(&dk)) {
