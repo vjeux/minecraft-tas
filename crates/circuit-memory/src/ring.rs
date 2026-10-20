@@ -47,11 +47,28 @@ fn dir_name(d: P) -> &'static str {
 /// Which cells the input fires, given dust cells next to it.
 struct Layout {
     dust: Vec<P>,
-    /// Stones a dust points into: powered, they fire their own neighbours (relays).
+    /// Stones a dust or a repeater points into: powered, they fire their own neighbours (relays).
     relays: Vec<P>,
+    /// Repeaters next to the input pointing away from it (strong relays): (cell, direction of its
+    /// back, toward the input).
+    repeaters: Vec<(P, P)>,
+    /// Dust beyond a strong relay (a cross: it powers the outer relay stone).
+    cross: Vec<P>,
     fired: BTreeSet<P>,
-    /// Cells that must be solid (dust floors).
+    /// Cells that must be solid (dust and repeater floors).
     floors: Vec<P>,
+}
+
+impl Layout {
+    /// Cells taken by the layout (input, dust, relays, repeaters).
+    fn taken(&self) -> BTreeSet<P> {
+        self.dust.iter().chain(self.relays.iter()).chain(self.cross.iter()).chain(self.repeaters.iter().map(|(p, _)| p)).copied().chain(std::iter::once(X)).collect()
+    }
+
+    /// The layout's non-stone blocks (dust, cross dust, repeaters).
+    fn parts(&self) -> BTreeSet<P> {
+        self.dust.iter().chain(self.cross.iter()).chain(self.repeaters.iter().map(|(p, _)| p)).copied().collect()
+    }
 }
 
 /// Every choice per neighbour of the input below or beside it: nothing (a dropper may go there),
@@ -59,15 +76,20 @@ struct Layout {
 /// only: the stone's neighbours fire).
 fn layouts(max_dust: usize) -> Vec<Layout> {
     let spots: Vec<P> = DIRS.iter().copied().filter(|d| *d != UP).collect();
-    let opts = |p: P| if p == [0, -1, 0] { 2 } else { 3 };
+    // per side cell: none, dust, dust + relay stone, repeater + strong relay + cross dust + outer
+    // relay (two levels); under the input: none, cross dust
+    let opts = |p: P| if p == [0, -1, 0] { 2 } else { 4 };
     let mut out = Vec::new();
     let mut idx = vec![0usize; spots.len()];
     loop {
-        let dust: Vec<P> = (0..spots.len()).filter(|&i| idx[i] > 0).map(|i| spots[i]).collect();
-        if dust.len() <= max_dust {
-            let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !dust.contains(d)).collect();
+        let used_spots: Vec<P> = (0..spots.len()).filter(|&i| idx[i] > 0).map(|i| spots[i]).collect();
+        if used_spots.len() <= max_dust {
+            let mut fired: BTreeSet<P> = DIRS.iter().copied().filter(|d| !used_spots.contains(d)).collect();
             let mut floors = Vec::new();
             let mut relays = Vec::new();
+            let mut dust = Vec::new();
+            let mut repeaters = Vec::new();
+            let mut cross = Vec::new();
             for i in 0..spots.len() {
                 let h = spots[i];
                 if idx[i] == 0 {
@@ -75,32 +97,48 @@ fn layouts(max_dust: usize) -> Vec<Layout> {
                 }
                 let below = add(h, [0, -1, 0]);
                 floors.push(below);
-                fired.insert(below);
                 if h == [0, -1, 0] {
-                    // under the input: a cross, powering its four sides
+                    // under the input: a cross, powering its four sides and its floor
+                    dust.push(h);
+                    fired.insert(below);
                     for d in HORIZ {
                         fired.insert(add(h, d));
                     }
-                } else if idx[i] == 2 {
-                    // next to the input, pointing into a relay stone
-                    let s = add(h, sub(h, X));
+                } else if idx[i] == 3 {
+                    // a repeater strongly powers the stone S beyond it; a cross dust past S
+                    // powers an outer relay stone T
+                    let s = add(h, h);
+                    let c = add(s, h);
+                    let t = add(c, h);
+                    repeaters.push((h, sub(X, h)));
                     relays.push(s);
+                    relays.push(t);
+                    cross.push(c);
+                    floors.push(add(c, [0, -1, 0]));
                     for d in DIRS {
-                        let q = add(s, d);
-                        if q != h {
-                            fired.insert(q);
-                        }
+                        fired.insert(add(s, d));
+                        fired.insert(add(t, d));
                     }
                 } else {
-                    // next to the input: a line pointing away from it
-                    fired.insert(add(h, sub(h, X)));
+                    dust.push(h);
+                    fired.insert(below);
+                    if idx[i] == 2 {
+                        // next to the input, pointing into a relay stone
+                        let s = add(h, sub(h, X));
+                        relays.push(s);
+                        for d in DIRS {
+                            fired.insert(add(s, d));
+                        }
+                    } else {
+                        // next to the input: a line pointing away from it
+                        fired.insert(add(h, sub(h, X)));
+                    }
                 }
             }
-            fired.remove(&X);
-            for d in dust.iter().chain(relays.iter()) {
-                fired.remove(d);
-            }
-            out.push(Layout { dust, relays, fired, floors });
+            let lay0 = Layout { dust, relays, repeaters, cross, fired: BTreeSet::new(), floors };
+            let taken = lay0.taken();
+            let fired: BTreeSet<P> = fired.into_iter().filter(|p| !taken.contains(p)).collect();
+            out.push(Layout { fired, ..lay0 });
         }
         let mut i = 0;
         loop {
@@ -124,6 +162,9 @@ pub struct Ring {
     pub droppers: Vec<P>,
     pub hoppers: Vec<P>,
     pub dust: Vec<P>,
+    /// Cross dust beyond strong relays, and the repeaters feeding them (cell, back direction).
+    pub cross: Vec<P>,
+    pub repeaters: Vec<(P, P)>,
     pub stone: Vec<P>,
     pub comparator: P,
     pub read: P,
@@ -136,7 +177,7 @@ pub struct Ring {
 
 impl Ring {
     pub fn blocks(&self) -> usize {
-        self.droppers.len() + self.hoppers.len() + self.dust.len() + self.stone.len() + 1 + 2 * self.bulbs
+        self.droppers.len() + self.hoppers.len() + self.dust.len() + self.cross.len() + self.repeaters.len() + self.stone.len() + 1 + 2 * self.bulbs
     }
 
     /// The counter's N.
@@ -170,6 +211,12 @@ impl Ring {
             };
             d.blocks.insert(*p, format!("minecraft:redstone_wire[{shape}]"));
         }
+        for p in &self.cross {
+            d.blocks.insert(*p, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+        }
+        for (p, back) in &self.repeaters {
+            d.blocks.insert(*p, format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", dir_name(*back)));
+        }
         for p in &self.stone {
             d.blocks.insert(*p, "minecraft:stone".into());
         }
@@ -190,7 +237,13 @@ impl Ring {
             if self.bulbs > 0 { format!(" + {} copper bulb{}", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             self.blocks(),
             if self.bulbs > 0 { format!(" --bulbs {}{}", self.bulbs, if self.divider { " --divider" } else { "" }) } else { String::new() },
-            if self.dust.is_empty() { String::new() } else { format!(", {} through {} dust", n - direct, self.dust.len()) },
+            if n == direct {
+                String::new()
+            } else if self.repeaters.is_empty() {
+                format!(", {} through {} dust", n - direct, self.dust.len())
+            } else {
+                format!(", {} through {} dust and {} repeater relay{} (a repeater strongly powers a stone, a cross dust past it powers an outer stone, both fire their neighbours)", n - direct, self.dust.len(), self.repeaters.len(), if self.repeaters.len() > 1 { "s" } else { "" })
+            },
             if self.bulbs > 0 { format!(", and toggles a chain of {} bulb T flip-flop{} (bulb + comparator), each halving the rate", self.bulbs, if self.bulbs > 1 { "s" } else { "" }) } else { String::new() },
             if self.divider { format!("the last comparator changes state once every {total} pulses: toggles style") } else { "level style".to_string() },
         );
@@ -201,44 +254,35 @@ impl Ring {
 /// The smallest rings for counter `n`: every cycle over the fired cells with valid hoppers, its
 /// best comparator; sorted by blocks, at most `keep`.
 pub fn search(n: usize, max_dust: usize, keep: usize, bulbs: usize) -> Vec<Ring> {
-    let mut found: Vec<Ring> = Vec::new();
-    let mut seen: BTreeSet<Vec<P>> = BTreeSet::new();
-    for lay in layouts(max_dust) {
-        let f: Vec<P> = lay.fired.iter().copied().collect();
-        if f.len() < n {
-            continue;
-        }
-        let blocked: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
-        // dropper graph: pairs two apart with a free common neighbour (the hopper cells)
-        let links = |a: P, b: P| -> Vec<P> {
-            if dist(a, b) != 2 {
-                return Vec::new();
-            }
-            DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c)).collect()
-        };
-        let mut path: Vec<P> = Vec::new();
-        let mut hops: Vec<P> = Vec::new();
-        for s in 0..f.len() {
-            path.clear();
-            hops.clear();
-            path.push(f[s]);
-            cycles(&f, s, n, &links, &mut path, &mut hops, &mut |ds: &[P], hs: &[P]| {
-                for rev in [false, true] {
-                    let (mut ds2, mut hs2) = (ds.to_vec(), hs.to_vec());
-                    if rev {
-                        // reverse flow: d0 <- h(n-1) <- d(n-1) ...
-                        ds2 = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
-                        hs2 = hs.iter().rev().copied().collect();
-                    }
-                    if let Some(r) = finish(&lay, &ds2, &hs2, bulbs) {
-                        let mut key: Vec<P> = r.droppers.iter().chain(r.hoppers.iter()).chain(r.dust.iter()).copied().collect();
-                        key.sort();
-                        if seen.insert(key) {
-                            found.push(r);
+    let lays = layouts(max_dust);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map(|x| x.get()).unwrap_or(8).min(lays.len().max(1));
+    // layouts spread over threads; each keeps its own finds
+    let parts: Vec<Vec<Ring>> = std::thread::scope(|sc| {
+        let hs: Vec<_> = (0..threads)
+            .map(|_| {
+                sc.spawn(|| {
+                    let mut found: Vec<Ring> = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if i >= lays.len() {
+                            break;
                         }
+                        search_layout(&lays[i], n, bulbs, &mut found);
                     }
-                }
-            });
+                    found
+                })
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    let mut seen: BTreeSet<Vec<P>> = BTreeSet::new();
+    let mut found: Vec<Ring> = Vec::new();
+    for r in parts.into_iter().flatten() {
+        let mut key: Vec<P> = r.droppers.iter().chain(r.hoppers.iter()).chain(r.dust.iter()).copied().collect();
+        key.sort();
+        if seen.insert(key) {
+            found.push(r);
         }
     }
     found.sort_by_key(|r| r.blocks());
@@ -246,9 +290,64 @@ pub fn search(n: usize, max_dust: usize, keep: usize, bulbs: usize) -> Vec<Ring>
     found
 }
 
+/// Every ring of `n` droppers in one layout, its best comparator.
+fn search_layout(lay: &Layout, n: usize, bulbs: usize, found: &mut Vec<Ring>) {
+    let f: Vec<P> = lay.fired.iter().copied().collect();
+    if f.len() < n {
+        return;
+    }
+    let blocked: BTreeSet<P> = lay.taken();
+    // dropper graph: pairs two apart with a free common neighbour (the hopper cells)
+    let links = |a: P, b: P| -> Vec<P> {
+        if dist(a, b) != 2 {
+            return Vec::new();
+        }
+        DIRS.iter().map(|d| add(a, *d)).filter(|c| dist(*c, b) == 1 && !blocked.contains(c)).collect()
+    };
+    let mut path: Vec<P> = Vec::new();
+    let mut hops: Vec<P> = Vec::new();
+    for s in 0..f.len() {
+        path.clear();
+        hops.clear();
+        path.push(f[s]);
+        cycles(&f, s, n, &links, &mut path, &mut hops, &mut |ds: &[P], hs: &[P]| {
+            for rev in [false, true] {
+                let (mut ds2, mut hs2) = (ds.to_vec(), hs.to_vec());
+                if rev {
+                    // reverse flow: d0 <- h(n-1) <- d(n-1) ...
+                    ds2 = std::iter::once(ds[0]).chain(ds[1..].iter().rev().copied()).collect();
+                    hs2 = hs.iter().rev().copied().collect();
+                }
+                if let Some(r) = finish(lay, &ds2, &hs2, bulbs) {
+                    // keep only the better of equal layouts later; here every valid ring
+                    if found.len() < 64 || found.iter().any(|o| r.blocks() < o.blocks()) {
+                        found.push(r);
+                        if found.len() > 256 {
+                            found.sort_by_key(|x| x.blocks());
+                            found.truncate(64);
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
 /// Simple cycles of `n` droppers starting at `f[s]` through droppers of larger index, with
 /// distinct hopper cells.
 fn cycles(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mut Vec<P>, hops: &mut Vec<P>, emit: &mut dyn FnMut(&[P], &[P])) {
+    let mut budget: u64 = 20_000_000;
+    cycles_in(f, s, n, links, path, hops, emit, &mut budget);
+}
+
+/// [`cycles`] with a step budget (a huge fired set would otherwise take forever) and the
+/// distance cut: a dropper step moves 2 cells, so the way back to the start must fit.
+#[allow(clippy::too_many_arguments)]
+fn cycles_in(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mut Vec<P>, hops: &mut Vec<P>, emit: &mut dyn FnMut(&[P], &[P]), budget: &mut u64) {
+    if *budget == 0 {
+        return;
+    }
+    *budget -= 1;
     let last = *path.last().unwrap();
     if path.len() == n {
         for h in links(last, f[s]) {
@@ -260,9 +359,10 @@ fn cycles(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mu
         }
         return;
     }
+    let left = (n - path.len()) as i32;
     for j in s + 1..f.len() {
         let b = f[j];
-        if path.contains(&b) || hops.contains(&b) {
+        if dist(last, b) != 2 || path.contains(&b) || hops.contains(&b) || dist(b, f[s]) > 2 * left {
             continue;
         }
         for h in links(last, b) {
@@ -271,7 +371,7 @@ fn cycles(f: &[P], s: usize, n: usize, links: &dyn Fn(P, P) -> Vec<P>, path: &mu
             }
             path.push(b);
             hops.push(h);
-            cycles(f, s, n, links, path, hops, emit);
+            cycles_in(f, s, n, links, path, hops, emit, budget);
             hops.pop();
             path.pop();
         }
@@ -393,7 +493,7 @@ impl Chain {
 
     fn used(&self, lay: &Layout) -> BTreeSet<P> {
         let mut u = self.containers();
-        u.extend(lay.dust.iter().copied());
+        u.extend(lay.parts());
         u.extend(self.r1.stone.iter().copied());
         u.insert(X);
         u.extend(self.comparators());
@@ -406,7 +506,7 @@ impl Chain {
 
     /// What may power a cell next to it: the input, dust, relays, the stage stones.
     fn emitters(&self, lay: &Layout) -> BTreeSet<P> {
-        lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).chain(self.stages.iter().map(|s| s.center)).collect()
+        lay.taken().into_iter().chain(self.stages.iter().map(|s| s.center)).collect()
     }
 
     pub fn design(&self, name: &str) -> String {
@@ -462,8 +562,8 @@ fn placements(lay: &Layout, ds: &[P], hs: &[P]) -> Vec<Ring> {
         s.dedup();
         s
     };
-    let used: BTreeSet<P> = ds.iter().chain(hs.iter()).chain(lay.dust.iter()).chain(base_stone.iter()).copied().chain(std::iter::once(X)).collect();
-    let emitters: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
+    let used: BTreeSet<P> = ds.iter().chain(hs.iter()).chain(lay.parts().iter()).chain(base_stone.iter()).copied().chain(std::iter::once(X)).collect();
+    let emitters: BTreeSet<P> = lay.taken();
     let mut out = Vec::new();
     for &d in ds {
         for u in HORIZ {
@@ -494,7 +594,7 @@ fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
     let cont = ch.containers();
     let drops = ch.droppers();
     // nothing earlier touches S but the comparator feeding it (it would fire or lock), no dust
-    if DIRS.iter().map(|d| add(s, *d)).any(|q| q != cp && (cont.contains(&q) || lay.dust.contains(&q))) {
+    if DIRS.iter().map(|d| add(s, *d)).any(|q| q != cp && (cont.contains(&q) || lay.parts().contains(&q))) {
         return None;
     }
     // nor sits under a cell next to S (S's signal there would quasi-power it)
@@ -506,7 +606,8 @@ fn next_stage(lay: &Layout, ch: &Chain, n: usize) -> Option<Chain> {
     let near = |p: P| DIRS.iter().any(|d| prev.contains(&add(p, *d)));
     let free = |p: P| !used.contains(&p) && p != s && !near(p);
     // droppers also stay out from under such cells (quasi-power)
-    let f: Vec<P> = DIRS.iter().map(|d| add(s, *d)).filter(|p| *p != cp && free(*p) && !near(add(*p, UP)) && !lay.dust.contains(&add(*p, UP))).collect();
+    let parts = lay.parts();
+    let f: Vec<P> = DIRS.iter().map(|d| add(s, *d)).filter(|p| *p != cp && free(*p) && !near(add(*p, UP)) && !parts.contains(&add(*p, UP))).collect();
     if f.len() < n {
         return None;
     }
@@ -579,7 +680,7 @@ pub fn chain_search(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize) ->
         if f.len() < n1 {
             continue;
         }
-        let blocked: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
+        let blocked: BTreeSet<P> = lay.taken();
         let links = |a: P, b: P| -> Vec<P> {
             if dist(a, b) != 2 {
                 return Vec::new();
@@ -624,7 +725,7 @@ pub fn chain_search(ns: &[usize], max_dust: usize, keep: usize, bulbs: usize) ->
 fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
     let n = ds.len();
     let containers: BTreeSet<P> = ds.iter().chain(hs.iter()).copied().collect();
-    if hs.iter().any(|h| ds.contains(h) || lay.dust.contains(h) || lay.relays.contains(h) || *h == X) {
+    if hs.iter().any(|h| ds.contains(h) || lay.taken().contains(h)) {
         return None;
     }
     for i in 0..n {
@@ -639,9 +740,9 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
     let mut stone: Vec<P> = lay.floors.iter().copied().filter(|p| !containers.contains(p)).chain(lay.relays.iter().copied()).collect();
     stone.sort();
     stone.dedup();
-    let used: BTreeSet<P> = containers.iter().chain(lay.dust.iter()).chain(stone.iter()).copied().chain(std::iter::once(X)).collect();
+    let used: BTreeSet<P> = containers.iter().chain(lay.parts().iter()).chain(stone.iter()).copied().chain(std::iter::once(X)).collect();
     // what may power a cell next to it: the input, dust, relay stones
-    let emitters: BTreeSet<P> = lay.dust.iter().chain(lay.relays.iter()).copied().chain(std::iter::once(X)).collect();
+    let emitters: BTreeSet<P> = lay.taken();
     let mut best: Option<Ring> = None;
     for &d in ds {
         'dir: for u in HORIZ {
@@ -679,7 +780,7 @@ fn finish(lay: &Layout, ds: &[P], hs: &[P], bulbs: usize) -> Option<Ring> {
                 }
             }
             // the stone starts in the dropper the comparator reads
-            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), stone: st, comparator: add(d, u), read: d, bulbs, divider: false };
+            let r = Ring { droppers: ds.to_vec(), hoppers: hs.to_vec(), dust: lay.dust.clone(), cross: lay.cross.clone(), repeaters: lay.repeaters.clone(), stone: st, comparator: add(d, u), read: d, bulbs, divider: false };
             if best.as_ref().is_none_or(|b| r.blocks() < b.blocks()) {
                 best = Some(r);
             }
