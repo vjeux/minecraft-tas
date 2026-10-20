@@ -536,6 +536,8 @@ fn checks() -> Vec<Check> {
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
     s.push("designs/circuits/selftest/floating-not.txt".into());
+    s.push("designs/circuits/selftest/shortening-delay-line.txt".into());
+    s.push("designs/circuits/selftest/plus4-stretcher.txt".into());
     // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
     // output refused, a comparator AND kept with its metrics
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
@@ -550,7 +552,7 @@ fn checks() -> Vec<Check> {
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 16 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register): their known metrics; the OR gate claiming AND, a floating dust, an update-less (redirection-only) NOR, a stone output and four false memory claims refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 16 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output and four false memory claims refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -563,6 +565,8 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
@@ -570,7 +574,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
             has(&o[0], "FAIL: cal-dff-claimed-enable dff-enable: rising edge:")?;
             has(&o[0], "FAIL: cal-dff-claimed-shift2 shift 2: rising edge:")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR, a stone output and 4 false memory claims refused; the comparator AND kept"))
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output and 4 false memory claims refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
