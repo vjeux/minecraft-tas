@@ -97,6 +97,35 @@
    right region only sees through the crossing cells (3,4)/(4,3); a signal there that times them also disturbs
    the lever-held (1,4). Verdict for idea (1): NO (solid and with pocket sensors).
 
+## 7x7 (49), 2026-10-20 (devvm59213): what the box forces
+1. **Every 7x7 needs a piston IN a middle frame cell (C1/L1/R1/F1) during the cycle, with >= 2 escape moves.**
+   The center must end in a middle frame cell M (the only frame cells 2 steps away) through the edge cell E.
+   Its step center->E is a pull (the puller's head is at E: the piston sits in M) or a push from the far side
+   (a pusher arriving at the center from E' is inside the door; a line push from M' is a piston in M'; a line
+   push from the outer ring through a dummy in M' shifts the far edge block E' INTO the center, which then needs
+   2 more steps). A carried puller can't reach M from outside (its carrier would sit outside the box), and one
+   carried along the frame rests in a corner frame cell whose exits are the ring corner (the carrier) or outward
+   (a puller outside the box). The piston in M must leave M (M holds a plain block when open): to a neighbouring
+   frame cell (still frame) or outward (puller outside the box), so >= 2 moves (w1/mm01: Q's spit + R's pull,
+   Q itself escaping by L). c70b's K=1 proof on w1 agrees (P needs its escape moves plus its own push/pull).
+2. **The 7x8 records' lever-held top trio cannot be used in a 7x7.** With TL TM TR in the ceiling C must take F1
+   (or L1/R1), so (1) puts a piston P in F1 that must PULL C (a push sends C to (1,2) with C1 taken); BM must leave
+   (1,0) first: down through F1 (then P can only be carried into F1 from F0/F2 by a corner carrier, and BM's slide
+   F1->F2/F0 blocks P's only escape side) or sideways (needs a ring-resting row-0 pusher in L0/R0: a push from the
+   outer ring through a dummy shifts BL/BR into (1,0)). That makes 3 ring-resting pistons (row pusher, P, P's
+   floor helper Q: the corner-pusher + dummy trick pushes P out but can't pull it back on close) for the 2 bottom
+   corners. c70b's completion search (`mechmut --repair --add`, trio + level side pullers kept; and trio + P +
+   escapes, 5-7 rounds, beam 12-24) never got below 2-3 filled door cells.
+3. **The w1/mm01 class (C up by P's column push from F1) has P unfeedable, solid or sculk.** satwire (7x7 box,
+   solid, full frame): w1 and mm01-oc both UNSAT in 1 s, core open P (1,-1). At P's firing time all its neighbours
+   are taken by the class itself: (1,0) = BM (P pushes the column), (1,-2) = BM's down-puller (BM reaches F1 only
+   from there), F0 = Q (spits P out, pulls it back on close), F2 = P's escape lane (a feed component there is
+   pushed into (3,-1) ahead of P and blocks its corner). QC through (1,0) needs BL/BR strongly powered from
+   L0/F0/R0/F2 plus an update to P: none available. Same by rotation for C1/L1/R1.
+   Ways out under study: (a) a redstone block shuttled into (1,-2) along the bottom row (a clean level for P from
+   below) and BM's down-puller carried into (1,-2) afterwards (one carrier push of the line [puller, block] swaps
+   them); (b) F1's final block not BM (BM sideways: one more ring-resting piston, corner conflicts so far).
+
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
   through a puller inside the opening (a carried piston at y = 1 facing down for the floor).
