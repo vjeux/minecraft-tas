@@ -32,28 +32,27 @@ pext/pext-n8-cascade66	dominated at N = 8 (pext's WR bar)
 pext/pext-cascade-r2-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r0-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
-pulse/pulse-limiter-psub-L7	dominated (the coordinator 15:35Z): 17 blocks vs pulse-limiter-hopper-timer-L7's 7, delay 5 vs 4 gt, min-pulse 10 vs 2 gt; its only advantage is a material (no hoppers)
-# 2026-10-20 12:46Z, the coordinator from `mctas site dominated`: bigger than a copper-bulb counter of the same N, no better, only copper-free
-memory/counter2-ring	5 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
-memory/counter4-ring	4 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
-memory/counter4-ring9	3 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
-memory/counter12-ring3-ring4	4 blocks bigger than counter12-ring3-bulb2, same counter, only avoids copper bulbs
-memory/counter16-ring4-ring4	8 blocks bigger than counter16-bulb4, same counter, only avoids copper bulbs
-memory/counter20-ring5-ring4	5 blocks bigger than counter20-ring5-bulb2, same counter, only avoids copper bulbs
-# 2026-10-20 13:19Z, the coordinator: TEMPORARY, until their owners re-judge them
-tnt/tnt-launch-14b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
-tnt/tnt-drop-16b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
-tnt/tnt-lever-launch-15b	temporary: on real ground it blows itself up (the judge's sandbox was void); being re-judged on a floor
+# 2026-10-20 17:23Z, the coordinator from the build's dominated audit: bigger than the 13-block hopper one-shot of the same kind and L, the same speed, only avoids torches
+pulse/pulse-oneshot-rising-edge-L8	dominated: 17 blocks vs pulse-rise-hopper-oneshot-L8's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-rising-edge-L16	dominated: 17 blocks vs pulse-rise-hopper-oneshot-L16's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-rising-edge-L24	dominated: 21 blocks vs pulse-rise-hopper-oneshot-L24's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-rising-edge-L32	dominated: 21 blocks vs pulse-rise-hopper-oneshot-L32's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-rising-edge-L40	dominated: 25 blocks vs pulse-rise-hopper-oneshot-L40's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-fall-falling-edge-L8	dominated: 17 blocks vs pulse-fall-hopper-oneshot-L8's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-fall-falling-edge-L16	dominated: 17 blocks vs pulse-fall-hopper-oneshot-L16's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-fall-falling-edge-L24	dominated: 21 blocks vs pulse-fall-hopper-oneshot-L24's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-fall-falling-edge-L32	dominated: 21 blocks vs pulse-fall-hopper-oneshot-L32's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-fall-falling-edge-L40	dominated: 25 blocks vs pulse-fall-hopper-oneshot-L40's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-pulse-extender-L16	dominated: 17 blocks vs pulse-extender-hopper-oneshot-L16's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-pulse-extender-L24	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L24's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-pulse-extender-L32	dominated: 21 blocks vs pulse-extender-hopper-oneshot-L32's 13, the same speed, only avoids torches
+pulse/pulse-oneshot-pulse-extender-L40	dominated: 25 blocks vs pulse-extender-hopper-oneshot-L40's 13, the same speed, only avoids torches
 # 2026-10-20 15:45Z, the coordinator: TEMPORARY, until clk-rt's in-game R7 re-judge lands: the circuits R7's preview
 # (designs/circuits/R7-input-devices.txt) lists as passing only by the old block placement (PLACEMENT-ONLY) or refused
 # (REFUSED) with a real input device; publishing them would claim they work. (The gates' lines left at 16:47Z: clk-rt and
 # clk-item replaced every failing gate in the archive, and a stale pattern would hide their new designs.)
 pulse/pulse-dual-lock-L*	temporary (R7): passes only by the judge's old block placement, not with a real input
 pulse/pulse-dual-edge-reset	temporary (R7): passes only by the judge's old block placement, not with a real input
-pulse/pulse-fall-note-qc-L1	temporary (R7): passes only by the judge's old block placement, not with a real input
-pulse/pulse-*-psub-*	temporary (R7): passes only by the judge's old block placement, or refused, with a real input
-pulse/pulse-rise-odd2-L*	temporary (R7): refused with a real input
-pulse/pulse-limiter-odd2-L*	temporary (R7): refused with a real input
 tff/tff-masterslave	temporary (R7): passes only by the judge's old block placement, not with a real input
 tff/tff-window	temporary (R7): passes only by the judge's old block placement, not with a real input
 memory/rs-loop	temporary (R7): passes only by the judge's old block placement, not with a real input

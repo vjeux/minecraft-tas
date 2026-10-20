@@ -603,9 +603,9 @@ pub fn real_time(gt: u32) -> String {
     if m > 0.0 { format!("{} h {} min", hours, m) } else { format!("{} h", hours) }
 }
 
-/// `20 gt (1 s)`.
+/// `20 ticks (1 s)`: visitor text says ticks, not gt (critique: the search's count line).
 pub fn gt_time(gt: u32) -> String {
-    format!("{gt} gt ({})", real_time(gt))
+    format!("{gt} {} ({})", if gt == 1 { "tick" } else { "ticks" }, real_time(gt))
 }
 
 /// Parse a clock time search: a period in game ticks (`48`, `48 gt`, `48 ticks`), a time
@@ -1329,7 +1329,7 @@ mod tests {
         assert_eq!(real_time(2304), "1 min 55.2 s");
         assert_eq!(real_time(1200), "1 min");
         assert_eq!(real_time(72000 + 6000), "1 h 5 min");
-        assert_eq!(gt_time(8), "8 gt (0.4 s)");
+        assert_eq!(gt_time(8), "8 ticks (0.4 s)");
     }
 
     #[test]
