@@ -9,7 +9,11 @@ middle and the high end in the game (16 builds each, all robust) and recorded th
 | family | P (gt) | blocks | n range | unit (extension rule) | start | judged n |
 |---|---|---|---|---|---|---|
 | `clk-sculk-replin` | 4 + 9n | 3 + 2n | 3..14 | one more delay-4 repeater on a stone in the line: +8 gt delay, +1 gt travel | self | 3, 4, 5, 8, 14 (P 31..130) |
+| `clk-sculk-replin-trapdoor` | 4 + 9n | 3 + 2n | 3..14 | the same, an oak trapdoor as the emitter | self | 3, 4, 5, 8, 14 |
+| `clk-sculk-replin-dispenser` | 8 + 9n | 3 + 2n | 2..14 | the same, an empty dispenser as the emitter (+4 gt) | self | 2, 3, 4, 8, 14 (P 26..134) |
 | `clk-sculk-hairpin` | 3 + 16n | 7 + 4n | 2..12 (unbounded) | one more delay-4 repeater on a stone in each arm | self | 2, 3, 4, 7, 12 (P 35..195) |
+| `clk-sculk-hairpin-trapdoor` | 3 + 16n | 7 + 4n | 2..12 (unbounded) | the same, an oak trapdoor as the emitter | self | 2, 3, 4, 7, 12 |
+| `clk-sculk-hairpin-dispenser` | 7 + 16n | 7 + 4n | 1..12 (unbounded) | the same, an empty dispenser as the emitter (+4 gt) | self | 1, 2, 3, 6, 12 (P 23..199) |
 | `clk-sculk-hairpin-plain` | 3 + 16n | 7 + 4n | 3..12 (unbounded) | the same, plain sensor | self | 3, 4, 5, 7, 12 (P 51..195) |
 | `clk-sculk-racetrack` | 28 + 32n | 4 + 4n | 1..8 (unbounded) | one more calibrated sensor + amethyst on each straight side, 17 apart | kick (note block) | 1, 2, 3, 4, 8 (P 60..284) |
 | `clk-sculk-racetrack-plain` | 12 + 16n | 4 + 4n | 3..10 (unbounded) | one more plain sensor + amethyst on each straight side, 9 apart | kick (note block) | 3, 4, 5, 6, 10 (P 60..172) |
