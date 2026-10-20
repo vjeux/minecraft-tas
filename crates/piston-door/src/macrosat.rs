@@ -539,10 +539,11 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
                 for r in (0..4).filter_map(|e| g.step(q, e)).filter(|&r| r != c) {
                     // what can strongly power a block in this vertical plane (clk-misc, w86): a
                     // horizontal repeater / comparator / observer pointing into it, its input or
-                    // watched cell inside the box; a torch in the cell below it; dust on top of it
+                    // watched cell inside the box, or dust pointing into it fed from above or below
+                    // (clk-misc); a torch in the cell below it; dust on top of it
                     let (qx, qy) = g.xy(q);
                     let (rx, ry) = g.xy(r);
-                    let ok = if ry == qy { g.idx(2 * rx - qx, ry).is_some() } else { true };
+                    let ok = if ry == qy { g.idx(2 * rx - qx, ry).is_some() || g.idx(rx, ry + 1).is_some() || g.idx(rx, ry - 1).is_some() } else { true };
                     if !ok {
                         continue;
                     }
