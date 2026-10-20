@@ -1,5 +1,5 @@
 # archived 2026-10-20T05:21Z from designs/circuits/shulker/tracks/shulker/ref-loader-1.txt by mctas circuit archive
-# CIRCUIT: shulker-ref-loader-1 shulker-loader 1 boxes/min 5.357, items/s 2.41, first box 239 gt, cycle 224 gt, 29 blocks, 6x4x5, robust
+# CIRCUIT: shulker-ref-loader-1 shulker-loader 1 boxes/min 5.556, items/s 2.50, first box 239 gt, cycle 224 gt, hoppers awake 3, badges colours+restart+top-up+drop-free, bill 16 iron, 3 quartz, 27 redstone, 1 slime, 29 blocks, 6x4x5, robust
 # Reference shulker loader (track shulker, hand-built). The dispenser sits ABOVE the box cell X (so
 # the drop, which pops at a random offset and rises, can never leave X upward); a hopper feeds X
 # from the side. A comparator reads X through a stone, in compare mode with a redstone block on its

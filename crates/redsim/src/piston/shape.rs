@@ -62,7 +62,7 @@ pub fn head(facing: Dir, short: bool) -> Vec<B16> {
 }
 
 /// A moved block's own collision shape (the empty collision context).
-fn block_shape(b: Block) -> Vec<B16> {
+pub fn block_shape(b: Block) -> Vec<B16> {
     match b {
         Block::Piston { extended: false, .. } => vec![B16::full()],
         Block::Piston { facing, extended: true, .. } => base_extended(facing),
@@ -75,12 +75,22 @@ fn block_shape(b: Block) -> Vec<B16> {
 
 /// `PistonMovingBlockEntity.getCollisionShape` (no entity being moved: no no-clip direction).
 pub fn moving(w: &World, p: BlockPos) -> Vec<B16> {
+    moving_noclip(w, p, None)
+}
+
+/// `PistonMovingBlockEntity.getCollisionShape` while an entity is moved by a piston in direction
+/// `noclip` (`NOCLIP`, set by `moveEntityByPiston`): a block still moving that way keeps only
+/// the extended base box of a retracting base (entity pushing, clk-misc).
+pub fn moving_noclip(w: &World, p: BlockPos, noclip: Option<Dir>) -> Vec<B16> {
     let Some(be) = w.piston.be(p) else { return vec![] };
     let mut out = Vec::new();
     if !be.extending && be.source {
         if let Block::Piston { facing, .. } = be.moved {
             out.extend(base_extended(facing));
         }
+    }
+    if be.progress < 2 && noclip == Some(be.push_direction()) {
+        return out;
     }
     let prog16 = be.progress as i32 * 8;
     let moved = if be.source {

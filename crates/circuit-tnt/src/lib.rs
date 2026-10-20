@@ -2,8 +2,10 @@
 //! mechanism in designs/circuits/tnt/VARIATIONS.md). `mctas circuit tnt <command> ...`
 //! dispatches here.
 
+pub mod align;
 pub mod game;
 pub mod improve;
+pub mod precise;
 pub mod precision;
 pub mod search;
 pub mod sim;
@@ -38,6 +40,48 @@ enum Cmd {
         /// The tiling step `dx,dy,dz` (default: the box width along x).
         #[arg(long)]
         offset: Option<String>,
+    },
+    /// Local search on redsim for a PRECISE duper: adds / removes / replaces aligner blocks in a
+    /// box (never the design's own cells), keeping changes that do not shrink the largest group of
+    /// identical fuse-1 positions over the kicks.
+    Align {
+        design: PathBuf,
+        /// `x0,y0,z0,x1,y1,z1` (inclusive).
+        #[arg(long = "box")]
+        bx: String,
+        #[arg(long, default_value = "stone,obsidian,slime,minecraft:water[level=0]")]
+        palette: String,
+        #[arg(long, default_value_t = 20000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 220)]
+        ticks: u32,
+        #[arg(long, default_value_t = 3)]
+        nth: usize,
+        /// Kicks per evaluation (the default kick list, evenly sampled).
+        #[arg(long, default_value_t = 16)]
+        kicks: usize,
+        #[arg(long)]
+        out: PathBuf,
+        /// A design whose cells are never touched (default: every cell of the start design).
+        #[arg(long)]
+        fixed: Option<PathBuf>,
+    },
+    /// PRECISE on redsim: one run per fixed kick (the game's random one replaced), every TNT an
+    /// entity; groups the fuse-1 positions of the Nth TNT of each run.
+    PreciseSim {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 220)]
+        ticks: u32,
+        /// Which TNT of each run (0 = the first; later ones are in the steady state).
+        #[arg(long, default_value_t = 3)]
+        nth: usize,
+        /// Print the first TNT's state every tick for this kick (and nothing else).
+        #[arg(long)]
+        follow: Option<f64>,
     },
     /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
     /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
@@ -174,6 +218,45 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
                 let r = sim::run(&c, ticks, margin, trace, false);
                 println!("{}: {}", d.display(), r.line());
+            }
+        }
+        Cmd::Align { design, bx, palette, iterations, workers, rng, ticks, nth, kicks, out, fixed } => {
+            let v: Vec<i32> = bx.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 6, "--box x0,y0,z0,x1,y1,z1");
+            let o = align::AlignOptions {
+                design,
+                fixed,
+                lo: [v[0], v[1], v[2]],
+                hi: [v[3], v[4], v[5]],
+                palette: palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                iterations,
+                workers,
+                rng,
+                ticks,
+                nth,
+                kicks,
+                out,
+            };
+            if let Some(p) = align::align(&o)? {
+                println!("{}", p.display());
+            }
+        }
+        Cmd::PreciseSim { designs, ticks, nth, follow } => {
+            let kicks = precise::default_kicks();
+            for d in &designs {
+                let c = clock::Clock::load(d)?;
+                if let Some(u) = follow {
+                    let r = precise::ends_traced(&c, u, ticks, true);
+                    println!("{}: kick {u}: {:?}", d.display(), r.map(|v| v.first().copied()));
+                    continue;
+                }
+                let (g, bad) = precise::groups(&c, &kicks, ticks, nth);
+                let n: usize = g.iter().map(|x| x.1).sum();
+                let verdict = if g.len() == 1 && bad.is_empty() { "PRECISE" } else { "not precise" };
+                println!("{}: {verdict} on redsim: {} distinct fuse-1 positions over {n} kicks{}", d.display(), g.len(), if bad.is_empty() { String::new() } else { format!(", {} runs failed ({})", bad.len(), bad[0]) });
+                for (p, k) in g.iter().take(6) {
+                    println!("  {k} kicks: ({:.6}, {:.6}, {:.6})", p[0], p[1], p[2]);
+                }
             }
         }
         Cmd::Precision { designs, n, max_ticks, margin, list } => {
