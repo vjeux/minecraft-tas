@@ -1137,7 +1137,7 @@ fn type_char(t: usize) -> String {
         STONE => "#".into(),
         OBS => "O".into(),
         RBLOCK => "R".into(),
-        WIRE => "w".into(),
+        WIRE => "%".into(),
         5..=20 => {
             let i = t - 5;
             let sticky = i >= 8;
@@ -1188,6 +1188,11 @@ fn report(m: &Model, o: &Opts) -> String {
     for l in state_lines(m, 0) {
         let _ = writeln!(out, "{l}");
     }
+    // wiring cells (static all cycle; `%` in the grids, `w` before 2026-10-20 = also a normal
+    // west piston: c70b's reader)
+    let val = |s: usize, c: usize| (0..NT).find(|&t| m.sat.value(m.ty[s][c][t])).unwrap_or(AIR);
+    let wires: Vec<(i32, i32)> = (0..g.n()).filter(|&c| val(0, c) == WIRE).map(|c| g.xy(c)).collect();
+    let _ = writeln!(out, "wiring: {}", wires.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" "));
     for &(e, l) in &m.lv {
         if m.sat.value(l) {
             let _ = writeln!(out, "lever on the block at {:?} (its front/back face, or its outer face at the box edge)", g.xy(e));

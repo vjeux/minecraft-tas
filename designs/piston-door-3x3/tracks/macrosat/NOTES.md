@@ -78,9 +78,37 @@ them for this board), pistons facing out of the plane.
 | 7x7 (all 6 placements: x0 -2 / -3 (the mirror of -1), y0 -3 / -2 / -1), no feed, h 8 | SAT in all 6 (23-54 min) |
 | 7x7, literal feed (any free cell / QC path; before the redstone-block and start rules) | SAT within 6 steps in (-2,-2), (-2,-3), (-3,-2), (-2,-1); UNSAT (-3,-3) and (-3,-1) at h 6 |
 | 7x7, + `--private` | SAT (-2,-2) h 6 (355 s): carries a piston into the square at (0,0), fed through the stone frame cell below it (a wiring cell at (0,-2) powers it); UNSAT (-3,-3) h 6 / h 8, (-3,-1) h 6. Exported as cands/m7-a: WORKS with ideal inputs in redsim (32 positions) and the real game (4 positions), open 56 / close 54, but its layout fails island start (UNSAT at h 6 / 8): u0-like |
-| 7x7, + island start (with and without `--private`) | UNSAT so far: (-3..3, -3..3) and (-3..3, -1..5) at h 6 and h 8 (both); (-2..4, -3..3) and (-3..3, -2..4) at h 6 (private); the rest solving |
-| 48 (6x8: x -1..4 (the mirror of -2..3) x y -4..-1 offsets; 8x6: x -4 / -3 (mirrors of -1 / -2) x y -2 / -1), feed + island start | **SAT 8x6 (-3..4, -1..4) at h 6 (1138 s): cands/m86-a, WORKS with ideal inputs in redsim (32 positions) and the real game (4 positions), open 56 / close 54, 7 reserved wiring cells, lever on (2,4)'s top: handed to pockets3 + clk-misc for wiring**; UNSAT 6x8 (-1..4, -1..6) and (-1..4, -4..3), 8x6 (-4..3, -1..4) and (-4..3, -2..3) at h 6 / h 8 |
+| 7x7, + island start (with and without `--private`) | UNSAT: (-3..3, -3..3) and (-3..3, -1..5) at h 6 and h 8 (both); (-2..4, -3..3) at h 6 (both); (-3..3, -2..4) and (-2..4, -1..5) at h 6 (private) |
+| 48 (6x8: x -1..4 (the mirror of -2..3) x y -4..-1 offsets; 8x6: x -4 / -3 (mirrors of -1 / -2) x y -2 / -1), feed + island start | SAT 8x6 (-3..4, -1..4) at h 6 (1138 s): cands/m86-a, WORKS with ideal inputs in redsim (32 positions) and the real game (4 positions), open 56 / close 54 — but NOT wirable (w86, pockets3, clk-misc): its lever on (2,4) holds SD(2,4) all edge (the plan pulses it), the L1 piston's "conductor powered from (-1,4)" has no component that can do it in this plane, one obsidian feeds 4 pistons at once, one cell must make 8 distinct ticks, and its ideal input behind (-3,0) QC-fires the piston below out of the box (9x6 as exported). Retracted; its lessons became the rules below. UNSAT 6x8 (-1..4, -1..6) and (-1..4, -4..3), 8x6 (-4..3, -1..4) and (-4..3, -2..3) at h 6 / h 8 |
 | w86 s1 (6x8) layout, feed + island start, h 10 | UNSAT (138 s); SAT before the start rule: island start sees w86's argument |
+
+## Wirability rules after m86-a (8e2cced03)
+
+Hard (every run): the lever is a LEVEL (a polarity variable: on in the open edge or in the close
+edge; a lever feed extends a piston while on and retracts it only at an edge's first step, when it
+turns off; a piston the lever powers cannot retract or pulse in its on edge); a region starts from
+the lever only when the lever's block is a conductor; a conductor is strongly powered only by what
+this vertical plane allows (a horizontal repeater / comparator / observer whose input or watched
+cell is in the box, a torch below it, dust on top of it).
+
+`--strict` (w86 / pockets3 / clk-misc, filters, not proof rules): `--private`; CO-FIRING (a powered
+conductor powers every piston next to it and QC-powers those whose above cell touches it; a wiring
+cell's signal into a cell powers the piston there and QC-powers the one below: every retracted one
+must act in the same step); the lever's pistons toggle only at an edge's first step and never move;
+`--budget 2` (a wiring cell feeds firings in at most 2 steps per edge); `--static-cond` (conductor
+feeds only through blocks that never move); `--frame3` (exactly 3 frame cells hold stone at rest).
+The wired 7x8 record e78k passes `--strict` (h 10).
+
+`--export` now places each ideal input where the chosen feed is: behind the piston (z = 1) for a
+direct feed, behind its above cell for a QC feed plus a glass block placed and removed at z = -1
+(the block update QC needs), a powered lever on a conductor's back face for a conductor feed.
+
+| run | result |
+|---|---|
+| lever-level rule (no --strict), 7x7 | UNSAT (-2..4, -3..3) h 6, (-3..3, -2..4) h 6 |
+| lever-level rule, 6x8 (-1..4, -2..5) | SAT h 6 (968 s), but its layout is UNSAT under `--strict` (h 8) and its replay breaks |
+| `--strict`, 48 | UNSAT 6x8 (-1..4, -1..6), (-1..4, -4..3), 8x6 (-4..3, -1..4), (-4..3, -2..3) at h 6 and h 8; the rest solving |
+| `--strict`, 7x7 | running |
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
