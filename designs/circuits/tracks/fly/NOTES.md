@@ -41,7 +41,15 @@ track's tracker as `crates/circuit/src/fly.rs`).
   slime, or a sticky pusher (spits with the 2 gt pulse).
 - 4 vertical (down) 6-block types fly 10 gt/block only when the structure lies east-west
   (rotations 0 and 2); turned north-south they oscillate in place (period 7 gt): Java's update
-  order. The shared judge refuses them (a failing build); kept in tracks/fly/c6/.
+  order. Archived as rotation-dependent (the judge passes them flagged since af4104864).
 - fly-d1 (7 blocks, my first derivation, rear X + 2 slimes + observer, front observer + slime +
   sticky Y): archived; a variant of the 6-block hosts.
+- VERTICAL by tilting (`orient`: the 24 orientations of every archived machine on redsim, then
+  the real game): UP 6 blocks 10 gt/block robust (2 types: fly-up-6b-10gt-2901e6, -ca150a); UP 7
+  blocks **9 gt/block** robust (fly-up-7b-9gt-ff426b = fly-d1 tilted up: the rear lands at t10 in
+  the block-entity phase while its pusher is already powered, so it fires at t11 by onPlace
+  (landing-fire) instead of waiting for its observer: an odd cycle); DOWN 7 blocks 10 gt/block
+  robust (fly-down-7b-10gt-aca731 = fly-d1 tilted down); 7 more 6-block down types, all
+  rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
+  east-west-only machines in every 6-block case found.
 - No other speed than 10 gt/block yet (k <= 7 in 4x2x1; bigger boxes running).
