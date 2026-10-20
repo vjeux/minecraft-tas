@@ -44,7 +44,28 @@ The five roles are:
   stand where the piston is.
 - A drop squeezed out sideways can leave through x into the neighbour's slice.
 
-**Result: a 1-wide loader at hopper pace with a box read is impossible.**
+**That result was wrong (vjeux 20:34Z: "it's definitely 100% possible").** RECORD
+`shulker-loader-1wide`: 39 blocks, 1x7x10, `tile: 1 0 0`, robust, 2.49 items/s, badges always-on,
+16-stack, unstackable, colours, restart, top-up, box-starved, drop-free, tileable(1). Two of the
+arguments above were wrong:
+- A drop pushed onto a comparator IS collected by a hopper under that comparator, since a
+  comparator is not a full block and the hopper picks up items in the cell above it. So the read
+  and the drop exit share the south face, and the four faces are enough: feed hopper above,
+  dispenser below, piston north, comparator Q south with the collector hopper under it.
+- Dust shared with the copies still gives an exact 15: each copy's box comparator feeds the shared
+  line at its own cell, and a neighbour's 15 arrives there at 14 at most. A stone under that dust
+  is at 15 only when this copy's box is full. A comparator reading that stone, with an empty
+  dropper behind it, gives 15 or 0 (the read-through test below). Q2 repeats Q's level one cell
+  further, so the stone is not next to the collector hopper and never locks it.
+- The rest is pulses:
+  - That comparator toggles a copper bulb. A comparator reads the bulb, so an observer sees one
+    change per full box; an observer watching the bulb itself would also fire on its `powered`
+    change and break the next box.
+  - An observer line over the top powers the cell above the piston (quasi-connectivity).
+  - Two observer lines along the bottom light a lamp under the dispenser, and the observer
+    there fires it: one line on every change of the full test, one on every change of a
+    comparator on the boxes hopper.
+- Missing: flush and mixed.
 
 **Reading the feed instead (coordinator 2026-10-20) runs into the same wall.** In a pitch-1 slice
 every signal is binary: the only analog-sensitive elements are dust (which the copies share) and

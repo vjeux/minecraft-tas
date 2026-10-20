@@ -11,7 +11,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Memory](memory/CATALOG.md) | 30 | 4 | 1 |
 | [Piston extenders](pext/CATALOG.md) | 59 | 17 | 21 |
 | [Flying machines](fly/CATALOG.md) | 13 | 4 | 3 |
-| [Shulker loaders and unloaders](shulker/CATALOG.md) | 20 | 18 | 2 |
+| [Shulker loaders and unloaders](shulker/CATALOG.md) | 21 | 19 | 2 |
 | [TNT dupers](tnt/CATALOG.md) | 7 | 6 | 1 |
 | [BUD switches](bud/CATALOG.md) | 12 | 10 | 0 |
 | [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 38 | 6 | 0 |
