@@ -440,9 +440,16 @@ pub fn tick_all(w: &mut World) {
     w.entities.list.retain(|e| !e.removed);
 }
 
-/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards).
+/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards); none outside
+/// the entity-ticking chunks (`World::entity_ticks_at`).
 pub fn tick_one(w: &mut World, i: usize) {
     if w.entities.list[i].removed {
+        return;
+    }
+    let p = w.entities.list[i].pos;
+    if !w.entity_ticks_at(p.x, p.z) {
+        let id = w.entities.list[i].id;
+        w.note_frozen(id);
         return;
     }
     common_tick(w, i);

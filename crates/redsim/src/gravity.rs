@@ -282,11 +282,16 @@ pub fn tick_entities(w: &mut World) {
     w.gravity.entities.retain(|e| !e.removed);
 }
 
-/// One falling block's `FallingBlockEntity.tick` (the caller drops the removed ones afterwards).
+/// One falling block's `FallingBlockEntity.tick` (the caller drops the removed ones afterwards);
+/// none outside the entity-ticking chunks (`World::entity_ticks_at`).
 pub fn tick_one(w: &mut World, i: usize) {
     {
         let mut e = w.gravity.entities[i];
         if e.removed {
+            return;
+        }
+        if !w.entity_ticks_at(e.x, e.z) {
+            w.note_frozen(e.id);
             return;
         }
         if e.block.is_air() {

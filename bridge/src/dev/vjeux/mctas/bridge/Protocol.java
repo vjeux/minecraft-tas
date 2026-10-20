@@ -148,6 +148,7 @@ public final class Protocol {
             case "create" -> create(r);
             case "drop" -> drop(r);
             case "clear" -> clear(r);
+            case "reload" -> reload(r);
             case "set" -> set(r);
             case "fill" -> fill(r);
             case "get" -> get(r);
@@ -217,6 +218,12 @@ public final class Protocol {
 
     private JsonObject clear(JsonObject r) {
         sandbox(r).clear();
+        return new JsonObject();
+    }
+
+    /** Save, unload and load again every chunk of a sandbox ({@link Sandbox#reload}). */
+    private JsonObject reload(JsonObject r) {
+        sandbox(r).reload(this.server);
         return new JsonObject();
     }
 

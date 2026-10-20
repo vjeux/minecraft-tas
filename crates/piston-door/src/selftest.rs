@@ -423,22 +423,22 @@ fn checks() -> Vec<Check> {
     // non-clock rejected
     const CAL: &str = "designs/clocks/calibration";
     let cal: Vec<(&str, &str)> = vec![
-        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)")
-        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 0, family observer, 2 blocks, 2x1x1"),
+        // (periods print with their real time since 2026-10-19, vjeux: "20 gt (1 s)"; outputs are
+        // exterior air cells read by the power the judge's lamp there receives since 2026-10-20:
+        // bulb-observer and burnout-torch have no such cell that pulses evenly and left the list)
+        ("observer-pair", "cal-observer-pair period 6 gt (0.3 s), on 2/6, edges 1, warmup 2, family observer, 2 blocks, 2x1x1"),
         ("comparator-subtract", "cal-comparator-subtract period 4 gt (0.2 s), on 2/4, edges 1, warmup 2, family comparator+redstone_wire, 9 blocks, 3x2x2"),
         ("torch-repeater", "cal-torch-repeater period 20 gt (1 s), on 10/20, edges 1, warmup 0, family redstone_torch+redstone_wire+repeater, 14 blocks, 3x2x3"),
-        ("bulb-observer", "cal-bulb-observer period 28 gt (1.4 s), on 14/28, edges 1, warmup 0, family copper_bulb+observer+redstone_wire+repeater, 13 blocks, 3x2x3"),
         ("observer-piston", "cal-observer-piston period 8 gt (0.4 s), on 4/8, edges 2, warmup 3, family observer+redstone_wire+sticky_piston, 8 blocks, 3x4x1"),
         ("sculk-piston", "cal-sculk-piston period 49 gt (2.45 s), on 30/49, edges 1, warmup 5, family repeater+sculk_sensor+sticky_piston, 6 blocks, 5x2x2"),
-        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 3, family comparator+hopper, 4 blocks, 3x2x1"),
-        ("burnout-torch", "cal-burnout-torch period 220 gt (11 s), on 32/220, edges 8, warmup 0, family redstone_torch+redstone_wire+repeater, 10 blocks, 3x2x2"),
+        ("hopper-pair", "cal-hopper-pair period 14 gt (0.7 s), on 7/14, edges 1, warmup 7, family comparator+hopper, 4 blocks, 3x2x1"),
     ];
     let mut s = args("clock sim -q");
     s.extend(cal.iter().map(|(f, _)| format!("{CAL}/{f}.txt")));
     let n = cal.len();
     v.push(Check {
         name: "clock:sim-calibration".into(),
-        what: "`clock sim` (exact redsim period) on the 8 calibration clocks: their known period, warmup, output waveform, family, blocks and box",
+        what: "`clock sim` (exact redsim period) on 6 calibration clocks (exterior air outputs): their known period, warmup, output waveform, family, blocks and box",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -453,6 +453,15 @@ fn checks() -> Vec<Check> {
         }),
     });
     const NOKICK: &str = "designs/clocks/selftest/observer-pair-no-kick.txt";
+    v.push(Check {
+        name: "clock:item-despawn".into(),
+        what: "`clock sim` says NO-REPEAT for a leaf clock fed by an item a player could drop: the item despawns at age 6000 and the judge runs item designs 12000 gt (a clock must run forever)",
+        quick: true,
+        jvm: false,
+        steps: vec![args("clock sim -q designs/clocks/selftest/item-despawn.txt")],
+        timeout: 120,
+        pred: Box::new(|o| has(&o[0], "NO-REPEAT: ").map(|_| "NO-REPEAT (the item despawns)".into())),
+    });
     v.push(Check {
         name: "clock:sim-negative".into(),
         what: "`clock sim` says STOPS for the observer pair placed silently (no start kick: nothing ever fires)",
@@ -490,6 +499,27 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
+    v.push(Check {
+        name: "clock:verify-reload".into(),
+        what: "`clock verify --reload` (the chunks saved, unloaded and loaded again mid-run): the torch-repeater clock survives it; the observer pair does not in every rotation (it comes back at P4)",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("clock verify {CAL}/torch-repeater.txt --positions 1 --workers 4 --reload --no-sim")),
+            args(&format!("?clock verify {CAL}/observer-pair.txt --positions 2 --horizon 1000 --workers 8 --reload --no-sim")),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("CLOCK: cal-torch-repeater")).ok_or(format!("torch-repeater: {}", tail(&o[0])))?;
+            if !l.ends_with("robust") {
+                return Err(format!("torch-repeater not robust across a reload: {l}"));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK: cal-observer-pair") && l.ends_with("robust")) {
+                return Err(format!("the observer pair passed the reload in every rotation: {}", tail(&o[1])));
+            }
+            Ok("torch-repeater survives a reload, the observer pair does not".into())
+        }),
     });
     v.push(Check {
         name: "clock:verify-entities".into(),
@@ -536,6 +566,10 @@ fn checks() -> Vec<Check> {
         ("latched-bud", "cal-latched-bud bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1"),
         ("observer-stone-bud", "cal-observer-stone-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 2 blocks, 2x1x1"),
         ("sculk-filter-rise", "cal-sculk-filter-rise rising-edge L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes, 5 blocks, 2x2x4"),
+        ("dust-encoder2", "cal-dust-encoder2 encoder 2 latency 0 gt, class instant, 16 blocks, 4x2x3"),
+        ("bulb-counter2", "cal-bulb-counter2 binary-counter 2 latency 6 gt, edge rising, per bit 4.0 blocks, 8 blocks, 5x2x2"),
+        ("bulb-counter-slice", "cal-bulb-counter-slice binary-counter 1 latency 2 gt, edge falling, per bit 5.0 blocks, slice 5 blocks per bit, latency 2 + 4 (N-1) gt, 5 blocks, 3x2x2"),
+        ("hex-gt", "cal-hex-gt comparator 4 hex latency 4 gt (b goes 0 -> 8 from a=8 b=0), per bit 1.0 blocks, 4 blocks, 1x2x2"),
         ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
         ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
         ("bulb-burst2", "cal-bulb-burst2 burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1"),
@@ -570,6 +604,8 @@ fn checks() -> Vec<Check> {
     for f in ["sculk-hears-lever", "sculk-claims-proof"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
+    // study 12: a plain encoder claiming to be a priority encoder refused (two inputs at once)
+    s.push("designs/circuits/selftest/dust-encoder2-claims-priority.txt".into());
     // study 11: a monostable whose second edge cuts its pulse, an OR off-delay that does not
     // restart, a false retriggerable claim refused; a tiled off-delay kept (`tile 5 blocks x3`)
     // and its crosstalking 4-block tiling refused
@@ -580,7 +616,7 @@ fn checks() -> Vec<Check> {
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 29 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) and two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) refused; a comparator AND kept; study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
+        what: "`circuit sim` (redsim) on the 33 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge, study 12's dust 4-to-2 encoder, 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side), three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim), two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) and a plain encoder claiming priority refused; a comparator AND kept; study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -609,17 +645,18 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-observer-bud-tile1 bud: not tileable (every 1 (0 0 1)): copy 0: cross-talk")?;
             has(&o[0], "FAIL: cal-sculk-hears-lever rising-edge: hears its input device")?;
             has(&o[0], "FAIL: cal-sculk-claims-proof falling-edge: not vibration-proof (it says `vibration: proof`)")?;
+            has(&o[0], "FAIL: cal-dust-encoder2-claims-priority encoder 2 priority: wrong output: d2 rises from d=0010: q0 is 1, want 0")?;
             has(&o[0], "FAIL: cal-oneshot-retriggered monostable: re-trigger behaviour changes with the delay")?;
             has(&o[0], "FAIL: cal-repeater-or-off-delay off-delay: min-pulse 8 gt")?;
             has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs and 3 false study-11 timers and 2 sculk designs failing the vibration test refused; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused"))
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test and a false priority encoder refused; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 29 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 33 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
         quick: false,
         jvm: true,
         steps: vec![{

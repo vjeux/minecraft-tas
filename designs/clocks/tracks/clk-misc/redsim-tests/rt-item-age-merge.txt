@@ -1,0 +1,13 @@
+name: rt-item-age-merge
+# redsim test scene (not a clock): item ages. Two stone items resting side by side (ages 3000 and
+# 100) merge into one (ItemEntity.merge: the older age gives way, min(3000, 100)), which despawns at
+# age 6000, ~5900 gt in; a lone item of age 5990 despawns at tick ~10; an item with infinite
+# lifetime (age -32768) never ages and stays.
+entity: minecraft:item 0.5 1.0 0.5 {Item:{id:"minecraft:stone",count:1},Age:3000s}
+entity: minecraft:item 0.75 1.0 0.5 {Item:{id:"minecraft:stone",count:2},Age:100s}
+entity: minecraft:item 3.5 1.0 0.5 {Item:{id:"minecraft:dirt",count:1},Age:5990s}
+entity: minecraft:item 5.5 1.0 0.5 {Item:{id:"minecraft:glass",count:1},Age:-32768s}
+palette:
+  S minecraft:stone
+layer 0:
+  SSSSSS
