@@ -75,3 +75,6 @@ Board files (Space 2034923423883327): `minecraft-tas/board/partials/c78z.md`, `p
    --dmax 8 --skip 8 --hold auto --free-order --retime --palette block,dust,rep,obs,torch,note,bulb,cmp,
    lamp,trapdoor,dropper,glass,leaves,upiston,wool --first` (seconds to minutes per plan).
 3. 9x6 / 8x6 by symmetry are untested here.
+
+## 6. Box
+- devvm52954 (the dedicated box) lease ends 2026-10-20 01:48Z: everything is pushed (explore/s79); a successor needs a fresh box that reaches GitHub, a clone of explore/s79 and `cargo build --release`. Pending: c70b mechmut variants from m69T (explore/c70b smaller/mm/m69T-6x9.tsv) to be satwired (command lines in sec 5).
