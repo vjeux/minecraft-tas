@@ -104,15 +104,15 @@ pub enum Kind {
     ShulkerLoader(u32),
     /// Empties full shulker boxes: the items to one place, the empty boxes to another ([`shulker`]).
     ShulkerUnloader(u32),
+    /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
+    /// at its `port target:` cells (place, remove, state, shape, update).
+    Bud,
     /// A self-running TNT duper (study 9): spawns primed TNT every period while every TNT block
     /// of the design survives (`tnt.rs`).
     TntDuper,
     /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
     /// without one, every TNT block surviving (`tnt.rs`).
     TntDuperTriggered,
-    /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
-    /// at its `port target:` cells (place, remove, state, shape, update).
-    Bud,
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -183,9 +183,9 @@ impl Kind {
                 }
                 if w[0] == "shulker-loader" { Kind::ShulkerLoader(stack) } else { Kind::ShulkerUnloader(stack) }
             }
+            "bud" => Kind::Bud,
             "tnt-duper" => Kind::TntDuper,
             "tnt-duper-triggered" => Kind::TntDuperTriggered,
-            "bud" => Kind::Bud,
             k => bail!(
                 "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
             ),
@@ -217,9 +217,9 @@ impl Kind {
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
             Kind::ShulkerUnloader(s) => format!("shulker-unloader {s}"),
+            Kind::Bud => "bud".into(),
             Kind::TntDuper => "tnt-duper".into(),
             Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
-            Kind::Bud => "bud".into(),
         }
     }
 
@@ -234,8 +234,8 @@ impl Kind {
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
-            Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Bud => "bud",
+            Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
         }
     }
 

@@ -119,8 +119,15 @@ fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Result<
             Action::Clear { pos } => {
                 w.set_block(bp(pos), Block::Air, flags::ALL);
             }
-            // the BUD judge's inputs: no TNT design uses them
-            other => return Err(format!("{other:?}: not an input of the TNT runner")),
+            // the BUD judge's actions (study 10), applied like clock::sim does
+            Action::ShapeSet { pos, state } => {
+                let b = Block::parse(&state).map_err(|e| format!("shape-set block not modeled: {e}"))?;
+                w.set_block(bp(pos), b, flags::CLIENTS);
+            }
+            Action::Update { pos } => {
+                let src = w.get(bp(pos)).kind();
+                w.update_neighbors_at(bp(pos), src);
+            }
         }
     }
     Ok(())
