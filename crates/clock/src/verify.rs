@@ -374,6 +374,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let Some((w0, p)) = wave::detect_period(&fr.ids, end, o.min_periods) else {
         return Ok(Err(format!("not periodic for {} periods within {} gt", o.min_periods, o.horizon)));
     };
+    // designs with entities: the period must hold over at least the second half of the horizon
+    // (`sim::entity_clock_period`: a drifting entity can show a short pattern near the end)
+    if !c.design.entities.is_empty() && w0 > fr.ids.len() / 2 {
+        return Ok(Err(format!("not periodic over the second half of {} gt (period {p} only from {w0}: an entity that never repeats)", o.horizon)));
+    }
     // the cells: every cell non-air at some tick of one period, and the output cell; their states
     // over that period (index t - w0)
     let mut idxs: std::collections::BTreeSet<u32> = (w0..w0 + p).flat_map(|t| fr.sparse[t].iter().map(|(i, _)| *i)).collect();
@@ -474,6 +479,8 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     let mut o = o.clone();
     if r.verdict == Verdict::Clock {
         let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
+        // designs with entities must also repeat over the second half of the horizon
+        let need = if c.design.entities.is_empty() { need } else { need.max(2 * r.warmup.max(r.state_warmup) + 100) };
         o.horizon = o.horizon.max(need.min(20_000));
     }
     let o = &o;
