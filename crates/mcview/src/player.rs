@@ -41,6 +41,8 @@ pub struct Player {
     pressed: Vec<Option<u32>>,
     /// The door demo's stage (None: not running).
     pub door_demo: Option<DoorDemo>,
+    /// The tick the auto-demo is shown from ([`Player::skip_demo_wait`]; 0: from placement).
+    pub demo_from: u32,
 }
 
 /// Ticks of output history kept.
@@ -133,10 +135,30 @@ impl Player {
             history_tick: None,
             pressed: vec![None; n_in],
             door_demo: None,
+            demo_from: 0,
         };
         p.follow_machine();
         p.record();
         Ok(p)
+    }
+
+    /// The auto-demo starts 1 s before its first change when that is more than 3 s away (a BUD
+    /// switch's judge waits 12 s before its first event: critique, "demo: waiting" at 4.6 s): the
+    /// session runs there at once (every tick simulated; the counter shows the real tick), and a
+    /// reset comes back there.
+    pub fn skip_demo_wait(&mut self) {
+        let Some(d) = &self.session.demo else { return };
+        // a driven input's switch goes 2 gt before its edge (`Session::inputs_due`)
+        let first = d.edges.iter().flatten().map(|(t, _)| t.saturating_sub(2)).chain(d.events.iter().map(|(t, _, _)| *t)).chain(d.levels.iter().map(|(t, _, _)| *t)).min();
+        let Some(first) = first else { return };
+        if first > 60 && self.session.tick + 20 < first {
+            self.demo_from = first - 20;
+            self.session.run(self.demo_from - self.session.tick);
+            self.history = vec![Default::default(); self.session.outputs.len()];
+            self.history_tick = None;
+            self.record();
+            self.invalidate();
+        }
     }
 
     /// A travelling design (a flying machine): move the camera with its centre (moving blocks at
@@ -247,7 +269,8 @@ impl Player {
         let s = &self.session;
         let secs = |x: f32| (x * self.tps).round() as u32;
         let t = if let Some(d) = &s.demo {
-            d.ticks
+            // what is left of it (it may start after its long wait: `skip_demo_wait`)
+            d.ticks.saturating_sub(s.tick)
         } else if let Some(c) = door_cycle {
             c
         } else if let Some(e) = s.end_tick {
@@ -367,6 +390,10 @@ impl Player {
 
     pub fn reset(&mut self) {
         self.session.reset();
+        // the auto-demo comes back where it is shown from (its long wait skipped)
+        if self.session.demo.is_some() && self.demo_from > self.session.tick {
+            self.session.run(self.demo_from - self.session.tick);
+        }
         self.history = vec![Default::default(); self.session.outputs.len()];
         self.history_tick = None;
         self.pressed = vec![None; self.session.circuit_inputs.len()];
@@ -597,6 +624,30 @@ mod tests {
         assert!(p.door_demo.is_some(), "still running");
         p.flip();
         assert!(p.door_demo.is_none(), "the person's flip stops it");
+    }
+
+    /// Critique: a BUD switch's demo said "waiting" for 12 s (its judge's first event at 240 gt):
+    /// the demo is shown from 1 s before its first change, and a reset comes back there; a demo
+    /// whose first change comes soon starts at placement.
+    #[test]
+    fn a_long_demo_wait_is_skipped() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/bud/archive/bud-observer.txt")).unwrap();
+        let schedule = |events: &str, ticks: u32, n: usize| crate::circuit::Schedule { edges: vec![Vec::new(); n], ticks, events: crate::circuit::parse_events(events).unwrap(), levels: Vec::new() };
+        let mut p = Player::new(&text, 1.5).unwrap();
+        let t0 = p.session.tick;
+        assert!(t0 < 200, "{t0}");
+        let n = p.session.circuit_inputs.len();
+        p.session.attach_demo(schedule("240 place 0 1 0 minecraft:oak_log[axis=y]; 340 clear 0 1 0", 380, n));
+        p.skip_demo_wait();
+        assert_eq!((p.demo_from, p.session.tick), (220, 220));
+        assert_eq!(p.recording_ticks(None, 1000), 160, "what is left of the demo");
+        p.step();
+        p.reset();
+        assert_eq!(p.session.tick, 220, "a reset comes back where the demo is shown from");
+        let mut q = Player::new(&text, 1.5).unwrap();
+        q.session.attach_demo(schedule("50 place 0 1 0 minecraft:oak_log[axis=y]", 120, n));
+        q.skip_demo_wait();
+        assert_eq!((q.demo_from, q.session.tick), (0, t0));
     }
 
     /// The Record button's length (from tick 0): a door's demo cycle (closed, opening, open,

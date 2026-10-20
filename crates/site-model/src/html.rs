@@ -772,6 +772,17 @@ pub fn props(b: &Build) -> Props {
                     chips.push(words.into());
                 }
             }
+            // what a chunk reload does, where it matters (clockinfra's reload; the coordinator)
+            if let Some(c) = c {
+                let what = c.reload.split(" in ").next().unwrap_or("").trim();
+                if what == "stops" {
+                    chips.push("stops if its chunk unloads".into());
+                } else if what.starts_with("changes period") {
+                    chips.push("period changes on chunk reload".into());
+                } else if what.starts_with("fails") {
+                    chips.push("breaks on chunk reload".into());
+                }
+            }
             Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips }
         }
         _ => match &b.circuit {

@@ -102,7 +102,7 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | pulse-extender | L 4..8 | 2 blocks (bound) | one repeater (min-pulse 2, tiles every 1 reading the repeater) | **record**; L 2 has nothing to extend since R7 |
 | pulse-extender | L 10 | 5 blocks proof / 2 blocks sensitive, min-pulse 2 | `pulse-extender-sculk-filter-L10` / `-cal-L10`, `-L30` | **record** (game) |
 | pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
-| pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge | target |
+| pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge. The base census (`pulse census --base`, 12 M designs each): the piston + observer rising core (observer facing any side) with up to 4 more dusts or stones gives no extender | target |
 
 Folded at the R7 re-judge (in `designs/circuits/pulse/tracks/rejudged/`, the reason in each file's
 first line): the 1-block observer dual-edge and observer+repeater L4/6/8 (the observer watched the
