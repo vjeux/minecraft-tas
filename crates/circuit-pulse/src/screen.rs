@@ -133,6 +133,47 @@ fn pulses_of(levels: &[i32]) -> Vec<Pulse> {
 }
 
 /// Run the stimulus. None when the design does not settle, keeps state, or touches the margin.
+/// Print one input pulse of `wd` gt tick by tick: every block that changes (redsim) and the output
+/// level (for captions: how a design works).
+pub fn trace(c: &Circuit, wd: u32, ticks: u32) -> Option<()> {
+    let margin = 3;
+    let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();
+    all.push(c.input);
+    let lo = BlockPos::new(all.iter().map(|p| p.x).min()?, all.iter().map(|p| p.y).min()?, all.iter().map(|p| p.z).min()?);
+    let hi = BlockPos::new(all.iter().map(|p| p.x).max()?, all.iter().map(|p| p.y).max()?, all.iter().map(|p| p.z).max()?);
+    let min = lo.offset(-margin, -margin, -margin);
+    let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
+    let mut w = World::new(min, size);
+    w.place_like_judge(&c.blocks);
+    w.run_until_idle(400);
+    let out = c.output;
+    let show = |w: &World| out.map(|o| level_at(w, o)).unwrap_or(-1);
+    let mut prev: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+    println!("rest: output {}; blocks: {}", show(&w), prev.iter().map(|(p, b)| format!("{p:?}={b}")).collect::<Vec<_>>().join(" "));
+    w.set_block(c.input, Block::RedstoneBlock, flags::ALL);
+    for t in 0..ticks {
+        if t == wd {
+            w.set_block(c.input, Block::Air, flags::ALL);
+        }
+        w.tick();
+        let now: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+        let mut changes: Vec<String> = Vec::new();
+        for (p, b) in &now {
+            if prev.get(p) != Some(b) {
+                changes.push(format!("{p:?} {} -> {b}", prev.get(p).cloned().unwrap_or_else(|| "air".into())));
+            }
+        }
+        for p in prev.keys() {
+            if !now.contains_key(p) {
+                changes.push(format!("{p:?} {} -> air", prev[p]));
+            }
+        }
+        println!("t{:>3} in={} out={:>2} {}", t + 1, u8::from(t < wd), show(&w), changes.join("; "));
+        prev = now;
+    }
+    Some(())
+}
+
 pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
     let margin = 3;
     let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();

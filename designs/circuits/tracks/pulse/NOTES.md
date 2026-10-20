@@ -16,6 +16,10 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
 | rising-edge | 6..40 (every even L) | 17-25 | BULB ONE-SHOT: the pushed observer lights a copper bulb; a comparator reads the bulb into a U of repeaters back into the bulb, which turns it off a loop later (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing) |
 | rising-edge | 18 + 16n | 17 + 4n | card `pulse-oneshot-rise` (n 0..10) |
 | falling-edge | 2 | 3 | observer between two sticky pistons (census; another layout: min-pulse 2, rotation-dependent) |
+| falling-edge | 1 | 4 | QC RE-EXTENSION (4-block census): a sticky piston pulls a note block back beside the output just as an observer fires into it; the note block lands powered, conducts to the output and quasi-powers the sticky piston, which pushes it away the next tick: 1 gt (the first odd L) |
+| dual-edge | 3 | 4 | two observers 1 gt apart (one watches the input, one a piston the input moves: a piston's block event runs a tick later): their 2 gt pulses overlap into 3 gt |
+| dual-edge | 1 / 2, 2 / 1, 4 / 2 (rising / falling) | 4 | asymmetric pulses from observer + piston layouts (census) |
+| rising-edge, pulse-limiter | 2 | 4 | two sticky pistons + redstone block + observer: the input pushes the block away, the second piston pulls the observer in, it fires on landing and re-fires the first piston, which brings the block home: min-pulse 1 |
 | falling-edge | 4, 6, 8 | 4 | the sideways observer faces the repeater when back at rest (min-pulse 6) |
 | falling-edge | 6..40, 18 + 16n | 17-25, card | bulb one-shot fed from the rest position (`pulse-oneshot-fall`) |
 | dual-edge | 2 | 1 | an observer watching the input (min-pulse 4) |
@@ -57,7 +61,14 @@ Branch `explore/clk-obs` (shared with clk-obs), crate `crates/circuit-pulse`
   a scheduled component (a repeater line of 2d gt moves the block away in tick 2d): L = 2d - 3.
   The hard part is bringing the redstone block back each pulse without a second pulse (a sticky
   piston pulls it back into place, a normal one leaves it behind): a loop of 3-4 pistons, not
-  built yet. The 4-block census found none.
+  built yet. The 4-block census found the other way: a block a piston pulls back lands powered
+  in the block-entity phase and quasi-powers that piston, which pushes it away the next tick
+  (1 gt), and two observers offset by a piston's next-tick event overlap into 3 gt. Longer odd L
+  (a 5-block census, or these tricks chained) is open.
+* Judge leniency reported to clockinfra (19:43): a shortening delay line (out = in - 2) passes as
+  "pulse-limiter L 38" when its longest input is 40, and a +4 gt stretcher passes as "pulse-extender
+  L 5" (L read below the min-pulse): `k4/pulse-pulse-limiter-L38-4b-00.txt`,
+  `k4/pulse-pulse-extender-L14-4b-00.txt`, not archived.
 * Min-pulse 1 falling-edge detectors (the best has min-pulse 2): a bulb needs a rising edge, so
   the input must be inverted first, and torches and comparators miss 1 gt inputs.
 * The 4-block census (running) for smaller designs per (kind, L).
