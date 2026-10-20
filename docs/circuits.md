@@ -343,16 +343,18 @@ kick) before the first input.
   length (some but not all: `unreliable`; changing: `unsteady`), not detected when none does; at
   least one class must be detected, every claimed class too; idle gives nothing (`false trigger`)
   and the output is off at the end of every gap (`latches`). Then pairs of events 30, 20, 15, 10,
-  8, 6, 4, 2 gt apart (per family: update, state, shape, place/remove) give the `re-arm` time (the
-  shortest gap down to which both events give their own pulse); a pair that leaves the output on
-  JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
+  8, 6, 4, 2 gt apart (per family: update, state, shape; place, remove, place for the presence
+  family, so a place-only or remove-only design is measured too) give the `re-arm` time (the
+  shortest gap down to which every detected event gives its own pulse); a pair that leaves the
+  output on JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is
+  measured).
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
   the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
-  leave the design as it was (every cell as at rest once its block is gone): one that does not
-  (the design carried the probe block away, or broke) makes it `fragile`, and the later probes and
-  the re-arm pairs are not measured. The box leaves out the target cells and the probe block in
-  the probe cells.
+  leave the design as it found it (every cell as just before the probe once its block is gone):
+  one that does not (the design carried the probe block away, or broke) makes it `fragile`, and the
+  later probes and the re-arm pairs are not measured. The box leaves out the target cells and the
+  probe block in the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
   `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`

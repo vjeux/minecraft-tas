@@ -162,6 +162,16 @@ pub fn stimulus_with(c: &Circuit, z: &Sizing, full: bool) -> Schedule {
                 }
                 s.events.push((t, EventAt::Target(i), e1));
                 s.events.push((t + g, EventAt::Target(i), e2));
+                if fam == "place" {
+                    // place, remove, place: a design that sees only one of them (place-only,
+                    // remove-only) is measured too (the next placement after a removal)
+                    s.events.push((t + 2 * g, EventAt::Target(i), TargetOp::Place(a.clone())));
+                    s.phase(t, t + 2 * g + gap, format!("rearm {fam} {g} {n}"));
+                    t += 2 * g + gap;
+                    ev(&mut s, t, gap, i, TargetOp::Clear, format!("rsetup {fam} {n}"));
+                    t += gap;
+                    continue;
+                }
                 s.phase(t, t + g + gap, format!("rearm {fam} {g} {n}"));
                 t += g + gap;
                 if setup {
@@ -183,21 +193,28 @@ fn class_of(label: &str) -> Option<&'static str> {
 
 /// Judge a BUD run.
 pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
-    // the footprint probes must leave the design as it was (every cell as at rest once the probe
-    // block is gone): a design that carries a probe block away or is broken by it cannot be
-    // measured after that (the later probes, the re-arm pairs)
-    let rest = s.phases.first().map(|p| p.0 as usize).unwrap_or(0).saturating_sub(1);
+    // the footprint probes must leave the design as they found it (every cell as just before the
+    // probe once its block is gone): a design that carries a probe block away or is broken by it
+    // cannot be measured after that (the later probes, the re-arm pairs)
     let mut broke: Option<usize> = None;
-    if let Some(rest_frame) = t.cells.get(rest) {
-        for (_, b, label) in &s.phases {
-            let w: Vec<&str> = label.split_whitespace().collect();
-            if w.first() == Some(&"probe") && w.get(2) == Some(&"update") {
+    let mut before: Option<usize> = None;
+    for (a, b, label) in &s.phases {
+        let w: Vec<&str> = label.split_whitespace().collect();
+        if w.first() != Some(&"probe") {
+            continue;
+        }
+        match w.get(2).copied() {
+            Some("place") => before = Some((*a as usize).saturating_sub(1)),
+            Some("update") => {
                 let end = (*b as usize).saturating_sub(1);
-                if t.cells.get(end).is_some_and(|f| f != rest_frame) {
+                if let (Some(f0), Some(f1)) = (before.and_then(|f| t.cells.get(f)), t.cells.get(end))
+                    && f0 != f1
+                {
                     broke = w.get(1).and_then(|k| k.parse().ok());
                     break;
                 }
             }
+            _ => {}
         }
     }
     judge_with(&t.out_seq(0), s, (c.clock.free_from() + SETTLE / 2) as usize, c.targets.len(), &c.bud_claims, broke)
@@ -300,8 +317,16 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
     // that leaves the output on JAMS the design: nothing after it is measured)
     let fam_ok = |f: &str| -> bool {
         match f {
-            "place" => detected.contains(&"place") && detected.contains(&"remove"),
+            "place" => detected.contains(&"place") || detected.contains(&"remove"),
             x => detected.contains(&x),
+        }
+    };
+    // pulses a re-arm sequence gives when every event in it is seen: place, remove, place for the
+    // place family, two events for the others
+    let want = |f: &str| -> usize {
+        match f {
+            "place" => 2 * usize::from(detected.contains(&"place")) + usize::from(detected.contains(&"remove")),
+            _ => 2,
         }
     };
     let mut re: Vec<(String, String)> = Vec::new();
@@ -330,7 +355,7 @@ fn judge_with(out: &[bool], s: &Schedule, from: usize, targets: usize, claims: &
             }
         };
         if !state[k].2 {
-            if *n == 2 {
+            if *n == want(fam) {
                 state[k].1 = Some(*g);
             } else {
                 state[k].2 = true;
