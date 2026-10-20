@@ -37,7 +37,7 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 08:05Z, explore/site 0abbb4c80; box devvm59220, devvm59165 is gone)
+## State (2026-10-20 10:50Z, explore/site after main c188d60ab; box devvm59220, devvm59165 is gone)
 
 - 5629 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
   match; `door fill` variants folded under the best filling of their mechanism), clocks (the
@@ -48,6 +48,9 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
 - Extendable families: clock and circuit cards, members generated at build time by
   each family's generator (judged in the game / simulated at exactly the formula's value / formula
   only).
+- Shulker loaders and unloaders run live in the 3D view (clk-rt cb9ac3d79); the site runs each
+  one at build time with the viewer's own session to give its box timings (circuits.rs
+  `view_run`); dropper75 and the two rail unloaders are shown as built (the viewer decides).
 - A Litematica schematic next to every design and member (`designs/<kind>/<stem>.litematic`;
   `mctas litematic`, [docs/litematic.md](../../docs/litematic.md)): "Download .litematic" on every
   build page and family member row.
