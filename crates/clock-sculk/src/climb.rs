@@ -25,7 +25,8 @@ pub struct ClimbArgs {
     /// Independent walkers (threads).
     #[arg(long, default_value_t = 48)]
     walkers: usize,
-    /// Mutation palette: observer,sticky,piston,note,trapdoor,stone,repeater,dispenser.
+    /// Mutation palette: observer,sticky,piston,note,trapdoor,stone,repeater,dispenser,sculk,
+    /// csculk,amethyst,wool.
     #[arg(long, default_value = "observer,sticky,piston,note,trapdoor,stone")]
     palette: String,
     /// Chance (percent) of accepting a shorter period.
@@ -56,11 +57,17 @@ fn palette(spec: &str) -> Vec<String> {
                     v.push(format!("minecraft:repeater[delay={delay},facing={f},locked=false,powered=false]"));
                 }
             }
+            if w == "csculk" {
+                v.push(format!("minecraft:calibrated_sculk_sensor[facing={f},power=0,sculk_sensor_phase=inactive,waterlogged=false]"));
+            }
         }
         match w {
             "note" => v.push("minecraft:note_block[instrument=harp,note=0,powered=false]".into()),
             "trapdoor" => v.push("minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]".into()),
             "stone" => v.push("minecraft:stone".into()),
+            "sculk" => v.push("minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]".into()),
+            "amethyst" => v.push("minecraft:amethyst_block".into()),
+            "wool" => v.push("minecraft:white_wool".into()),
             _ => {}
         }
     }
@@ -99,6 +106,8 @@ pub fn climb(a: &ClimbArgs) -> Result<()> {
             s.spawn(move || {
                 let mut rng = Rng((a.seed * 1_000_003 + w as u64 + 1) * 0x9E37_79B9_7F4A_7C15);
                 let mut cur = seeds[w % seeds.len()].clone();
+                // A mutant is no census find: drop the seed's `census:` line.
+                cur.design.meta.remove("census");
                 let r0 = clock::sim::simulate(&cur, opts);
                 let mut cur_p = if r0.verdict == clock::sim::Verdict::Clock { r0.period } else { 0 };
                 let kick_cell: Option<Pos> = cur.kick.as_ref().map(|k| k.pos());
@@ -131,6 +140,11 @@ pub fn climb(a: &ClimbArgs) -> Result<()> {
                     }
                     let r = clock::sim::simulate(&next, opts);
                     if r.verdict != clock::sim::Verdict::Clock {
+                        continue;
+                    }
+                    // A composite (no cell with the full period: independent parts) is no clock
+                    // of that period (ruling 16:10Z): never kept, never walked to.
+                    if crate::outputs::has_full_period_cell(&next) != Some(true) {
                         continue;
                     }
                     let key = crate::build::structure_key(&next.design.blocks);

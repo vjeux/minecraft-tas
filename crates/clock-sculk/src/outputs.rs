@@ -19,6 +19,80 @@ pub struct OutputsArgs {
     fix: bool,
 }
 
+#[derive(clap::Args)]
+pub struct ReduceArgs {
+    files: Vec<PathBuf>,
+    /// Write the reduced designs here (same file names; unreducible ones are copied).
+    #[arg(long)]
+    out_dir: PathBuf,
+}
+
+/// Greedy reduction: remove any block (not the kick's) whose removal keeps a clock of the same
+/// period with a cell of that full period (not composite); repeat until none can go.
+pub fn reduce_clock(c: &clock::Clock) -> Option<clock::Clock> {
+    let o = clock::sim::SimOptions { horizon: 20_000, margin: 4 };
+    let r = clock::sim::simulate(c, &o);
+    if r.verdict != clock::sim::Verdict::Clock {
+        return None;
+    }
+    let p = r.period;
+    let kick = c.kick.as_ref().map(|k| k.pos());
+    let mut cur = c.clone();
+    'outer: loop {
+        let cells: Vec<Pos> = cur.design.blocks.keys().copied().collect();
+        for q in cells {
+            if Some(q) == kick {
+                continue;
+            }
+            let mut d = cur.design.clone();
+            d.blocks.remove(&q);
+            if d.ports.get("output") == Some(&q) {
+                d.ports.remove("output");
+            }
+            let Ok(c2) = clock::Clock::from_design(d) else { continue };
+            let r2 = clock::sim::simulate(&c2, &o);
+            if r2.verdict == clock::sim::Verdict::Clock && r2.period == p && has_full_period_cell(&c2) == Some(true) {
+                cur = c2;
+                continue 'outer;
+            }
+        }
+        break;
+    }
+    Some(cur)
+}
+
+pub fn reduce(a: &ReduceArgs) -> Result<()> {
+    std::fs::create_dir_all(&a.out_dir)?;
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(64);
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(f) = a.files.get(i) else { break };
+                let Ok(c) = clock::Clock::load(f) else { continue };
+                let Some(red) = reduce_clock(&c) else { continue };
+                let (b0, b1) = (c.design.blocks.len(), red.design.blocks.len());
+                let text = std::fs::read_to_string(f).unwrap_or_default();
+                let comments: Vec<&str> = text.lines().filter(|l| l.starts_with('#')).collect();
+                let mut out = comments.join("\n");
+                if !out.is_empty() {
+                    out.push('\n');
+                }
+                if b1 < b0 {
+                    out.push_str(&format!("# reduced from {b0} to {b1} blocks by `mctas clock sculk reduce` (same period, not composite)\n"));
+                }
+                out.push_str(&red.design.to_text());
+                let Some(name) = f.file_name() else { continue };
+                if std::fs::write(a.out_dir.join(name), out).is_ok() && b1 < b0 {
+                    println!("{}: {b0} -> {b1} blocks", f.display());
+                }
+            });
+        }
+    });
+    Ok(())
+}
+
 /// Per-tick states of every cell from `clock::sim::trace` (t = 0..=ticks).
 fn states(c: &clock::Clock, ticks: u32) -> Vec<HashMap<Pos, String>> {
     let lines = clock::sim::trace(c, &clock::sim::SimOptions::default(), ticks);
