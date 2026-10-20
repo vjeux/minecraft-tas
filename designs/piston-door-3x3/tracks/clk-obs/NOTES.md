@@ -44,3 +44,21 @@ after the slime); close P_T FIRST spit only <= 66, before the slime returns (it 
 slime can't return before the bottom's close actions (0 of 3751 timings). So a top that sees only
 the slime (observer at (-2,4) facing down on (-2,3)) can't do the close: it needs the lever or a
 precursor the bottom shows it before the slime returns.
+
+## fly's r69 / r69a / r69t top (2026-10-20 21:20-21:40Z)
+* r69 (M elevator above P_T): P_T at (1,4) and M at (1,5) can't be fed apart. P_T's only feed is
+  QC through (1,5), i.e. a signal INTO (1,5); M sits at (1,5) and its own power check sees the
+  same signals, and M is updated first (the emitter updates its output cell before that cell's
+  neighbours), so M spits P_T down. r69 + M pulses at t0/t30: BROKEN. P_T at (1,3) (open t18) has
+  no feed at all. fly dropped M (r69a), then found one train for both edges (r69t).
+* r69t top windows (plans/r69t-top-windows.ideal, every bottom pulse shifted by x = the bottom's
+  start after it sees the slime): P_T first pulse >= 5 gt before Pl; Pl 5..16 (x = 12); P_T
+  second >= x + 3 (after Qv@(1,-1)'s spit), tested to 60; P_TR any time 0..60; the bottom may
+  start as late as x = 30.
+* r69t top with the lever in the top: 0 of 4.5M (plans/r69t-top-L45.ideal and the other lever
+  spots: (0,5) (1,5) (2,5) (3,5) (3,4) x 13 states x 6 lever spots x 2 polarities; harness
+  checked with the ideal top inputs and a far lever). Why: P_T (2 pulses) and Pl (1 between)
+  both draw from the (1,5) hub (Pl is fed through (1,5) into (0,5); P_T by any signal into
+  (1,5)), in-plane repeaters can't be locked, and nothing in the top can time a pulse after the
+  bottom's Qv spit (its only eye on the bottom, a slime rider at (-1,5) seen from (0,5), fires
+  ~3 gt too early).
