@@ -118,21 +118,47 @@ pub enum Outcome {
     Unmodeled(String),
 }
 
-/// The design's entities as redsim entities (once redsim has them: the `entities` feature of
-/// the fluids + entities port); an error names what is missing.
-fn summon(_w: &mut World, c: &Clock) -> Result<(), String> {
-    if c.design.entities.is_empty() {
-        return Ok(());
+/// The design's entities as redsim entities (`Sandbox.summon`: created at their position, at
+/// rest, in the design's order, once the blocks stand); an error names what is missing.
+fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
+    use redsim::entity::{EntityKind, Vec3};
+    for e in &c.design.entities {
+        let kind = match e.kind.trim_start_matches("minecraft:") {
+            "oak_boat" => EntityKind::Boat(redsim::entity::boat::BoatState::default()),
+            "oak_chest_boat" => EntityKind::Boat(redsim::entity::boat::BoatState { chest: true, ..Default::default() }),
+            "minecart" => EntityKind::Minecart(Default::default()),
+            "armor_stand" => EntityKind::ArmorStand(Default::default()),
+            k => return Err(format!("entity {k} is not modeled by redsim")),
+        };
+        if e.nbt.is_some() {
+            return Err(format!("entity {} with data ({}): entity containers are not modeled yet", e.kind, e.nbt.as_deref().unwrap_or("")));
+        }
+        w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
     }
-    Err(format!(
-        "entities ({}): redsim has no entities yet (milestones M2-M4)",
-        c.design.entities.iter().map(|e| e.kind.trim_start_matches("minecraft:")).collect::<Vec<_>>().join(", ")
-    ))
+    Ok(())
 }
 
-/// The live entities of redsim's world, in tick order (empty until redsim has entities).
-fn entities_of(_w: &World) -> Vec<TraceEntity> {
-    Vec::new()
+/// The live entities of redsim's world, in tick order.
+fn entities_of(w: &World) -> Vec<TraceEntity> {
+    use redsim::entity::EntityKind;
+    w.entities
+        .list
+        .iter()
+        .filter(|e| !e.removed)
+        .map(|e| TraceEntity {
+            id: e.id as u64,
+            kind: match &e.kind {
+                EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
+                EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
+                EntityKind::Item(_) => "minecraft:item".to_string(),
+                EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+            },
+            pos: [e.pos.x, e.pos.y, e.pos.z],
+            motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
+            yaw: e.y_rot,
+            pitch: e.x_rot,
+        })
+        .collect()
 }
 
 fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String>) {

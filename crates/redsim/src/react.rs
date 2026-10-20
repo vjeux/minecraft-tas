@@ -46,10 +46,25 @@ pub enum Filter {
     Living,
 }
 
-/// How many entities' boxes meet `b` (strictly, `AABB.intersects`). The entity core's
-/// `World::get_entities`; nothing until it lands.
-pub fn entities_in(_w: &World, _b: Bounds, _f: Filter) -> usize {
-    0
+/// How many entities' boxes meet `b` (strictly, `AABB.intersects`): `World::get_entities`.
+pub fn entities_in(w: &World, b: Bounds, f: Filter) -> usize {
+    let bb = crate::entity::Aabb::new(b[0], b[1], b[2], b[3], b[4], b[5]);
+    w.get_entities(bb, |e| match f {
+        Filter::Any => true,
+        Filter::Living => matches!(e.kind, crate::entity::EntityKind::ArmorStand(_)),
+    })
+    .len()
+}
+
+/// `BlockBehaviour.entityInside` for the blocks an entity's sweep meets (called by the entity
+/// core's `checkInsideBlocks`; `precise`: the entity's box at its target meets the cell).
+pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bool) {
+    let _ = (i, precise);
+    match s {
+        Block::Plate { .. } => plate::entity_inside(w, s, p),
+        Block::Tripwire { .. } => tripwire::entity_inside(w, s, p),
+        _ => {}
+    }
 }
 
 /// `getEntityInsideCollisionShape` where it is not the full cell: the box an entity's box must
