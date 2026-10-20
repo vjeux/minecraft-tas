@@ -106,6 +106,9 @@ pub struct World {
     pub piston: crate::piston::State,
     /// Falling-block entities (agent pistmodel's side).
     pub gravity: crate::gravity::State,
+    /// Boats, minecarts and item entities, in insertion order (`entity/`; empty for designs
+    /// without entities, so nothing changes for them).
+    pub entities: crate::entity::Entities,
     /// Blocks destroyed with drops (an item entity in the game): (where, what).
     pub drops: Vec<(BlockPos, Block)>,
     /// Game events (vibrations), in order: (name, where). Sculk sensors hear them (`sculk.rs`).
@@ -139,6 +142,7 @@ impl World {
             wire_signal: Cell::new(true),
             piston: Default::default(),
             gravity: Default::default(),
+            entities: Default::default(),
             drops: Vec::new(),
             game_events: Vec::new(),
             sculk: Default::default(),
@@ -554,6 +558,7 @@ impl World {
         }
         self.handling_tick = false;
         crate::gravity::tick_entities(self);
+        crate::entity::tick_all(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);
