@@ -361,6 +361,16 @@ impl Session {
                 }
             }
         }
+        // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in the declared
+        // output cell when the design leaves it empty, placed after the design's blocks (what
+        // `clock::sim::parse_blocks` does; circuits are built through it too); not a block of the
+        // design. A shulker design's output holds the judge's chest instead.
+        let judge_lamp = design.ports.get("output").map(|(p, _)| *p).filter(|p| !design.blocks.contains_key(p) && !shulker);
+        if let Some(op) = judge_lamp
+            && let Ok(b) = Block::parse(JUDGE_LAMP)
+        {
+            blocks.push((bp(op), b));
+        }
         // shown as built (below): a shulker design's chests (the judge places them) keep it
         // readable; nothing the judge does not place is added
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
@@ -1655,6 +1665,9 @@ pub fn entity_hash(mut h: u64, w: &World) -> u64 {
     eat(b"#");
     h
 }
+
+/// The block the clock judge puts in a clock's empty output cell (`clock::sim::JUDGE_LAMP`).
+pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
 
 /// A design with a TNT block: it runs with redsim's TNT entities and explosions
 /// (`explosion::explode_on`).

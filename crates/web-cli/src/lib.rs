@@ -1367,6 +1367,10 @@ fn clock_pair(text: &str, horizon: u32, probe: Option<&mut mcview::tools::WasmPr
             Some(Some(w)) => Err(format!("clock sim {} but the wasm viewer finds {w:?}", r.verdict.word())),
             _ => Ok(None),
         },
+        // the clock judge's output rule (vjeux 2026-10-20: the output must be an empty cell where
+        // the signal arrives) is a verdict on where it is read, not on the simulation: the
+        // viewer runs the build as redsim does
+        (clock::sim::Verdict::Invalid, Ok(p)) if r.why.contains("the output cell") => Ok(Some(format!("W{} P{} (state W{} P{}); clock sim INVALID by the output rule: {}", p.warmup, p.period, p.state_warmup, p.state_period, r.why))),
         (v, Ok(p)) => Err(format!("clock sim {} but the viewer finds W{} P{}", v.word(), p.state_warmup, p.state_period)),
         (v, Err(e)) => Err(format!("clock sim {} (W{} P{}) but the viewer: {e}", v.word(), r.state_warmup, r.state_period)),
     }
