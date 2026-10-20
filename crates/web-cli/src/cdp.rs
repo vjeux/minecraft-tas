@@ -383,6 +383,10 @@ pub fn cmd_hold(url: &str, window: &str, scale: f32, touch: bool, browser: &Path
     };
     let (mut tested, mut failed) = (0, 0);
     for (i, st) in initial.iter().enumerate() {
+        // circuits only: a door's lever flips on a tap, it has no hold
+        if st.door.is_some() {
+            continue;
+        }
         let Some(((fx, fy), _)) = st.inputs.iter().find_map(|(xy, on)| xy.map(|p| (p, *on))) else { continue };
         let rect = b.eval(&format!(
             "(() => {{ const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[{i}]; v.scrollIntoView({{block: 'center'}}); const r = v.querySelector('canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }})()"
@@ -440,6 +444,117 @@ pub fn cmd_hold(url: &str, window: &str, scale: f32, touch: bool, browser: &Path
     if failed > 0 {
         bail!("{failed} viewers failed the hold");
     }
+    Ok(())
+}
+
+/// The site's in-place swap (`data-src` changed on a live viewer, `data-keep-camera` set): the
+/// person orbits, the design is swapped, and the new design must show (not black, the viewer
+/// marked `mcview-live-src`) under the very same camera.
+pub fn cmd_swap(url: &str, to: &str, window: &str, browser: &Path) -> Result<()> {
+    let page = if url.contains('?') { format!("{url}&mcview-debug") } else { format!("{url}?mcview-debug") };
+    let mut b = Browser::start(browser, window, 1.0, &page)?;
+    b.attach_page()?;
+    b.call("Runtime.enable", json!({}))?;
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let st0 = loop {
+        if let Some(Some(s)) = states(&mut b)?.first().cloned() {
+            break s;
+        }
+        if Instant::now() > deadline {
+            bail!("no live viewer reported");
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    };
+    let rect = b.eval("(() => { const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[0]; v.scrollIntoView({block: 'center'}); const r = v.querySelector('canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()")?;
+    let r: Vec<f64> = rect.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+    if r.len() != 4 {
+        bail!("no canvas");
+    }
+    // the person orbits away from the default camera (a drag on the sky corner, not an input)
+    let (x, y) = (r[0] + r[2] * 0.1, r[1] + r[3] * 0.1);
+    b.call("Input.dispatchMouseEvent", json!({ "type": "mousePressed", "x": x, "y": y, "button": "left", "clickCount": 1 }))?;
+    for k in 1..=6 {
+        b.call("Input.dispatchMouseEvent", json!({ "type": "mouseMoved", "x": x + 15.0 * k as f64, "y": y + 4.0 * k as f64, "button": "left" }))?;
+    }
+    b.call("Input.dispatchMouseEvent", json!({ "type": "mouseReleased", "x": x + 90.0, "y": y + 24.0, "button": "left", "clickCount": 1 }))?;
+    std::thread::sleep(Duration::from_millis(400));
+    let st1 = states(&mut b)?.first().cloned().flatten().context("state after the orbit")?;
+    if st1.cam == st0.cam {
+        bail!("the drag did not orbit the camera ({:?})", st1.cam);
+    }
+    let marked = b.eval("document.querySelectorAll('.mcview-live-src').length")?.as_u64().unwrap_or(0);
+    b.eval(&format!(
+        "(() => {{ const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[0]; v.setAttribute('data-keep-camera', '1'); v.setAttribute('data-src', {}); return 1; }})()",
+        serde_json::to_string(to)?
+    ))?;
+    std::thread::sleep(Duration::from_millis(2500));
+    let st2 = states(&mut b)?.first().cloned().flatten().context("state after the swap")?;
+    let same_cam = st2.cam.len() == 6 && st2.cam.iter().zip(&st1.cam).all(|(a, b)| (a - b).abs() < 1e-3);
+    // the viewer's pixels: the new design drawn, not black
+    let shot = b.call("Page.captureScreenshot", json!({ "format": "png", "clip": { "x": r[0] + 2.0, "y": r[1] + 2.0, "width": r[2] - 4.0, "height": r[3] - 4.0, "scale": 0.5 } }))?;
+    let (rgba, _, _) = mcview::tools::decode_png(&base64_decode(shot["data"].as_str().unwrap_or(""))?).map_err(anyhow::Error::msg)?;
+    let (luma, dark) = luma_stats(&rgba);
+    let changed = st2.inputs.len() != st1.inputs.len() || st2.tick < st1.tick.max(1) || st2.active != st1.active;
+    println!(
+        "swap to {to}: marked mcview-live-src {}, camera {} ({:?} -> {:?}), design changed {changed}, luma {luma:.0} ({:.0}% near black)",
+        marked > 0,
+        if same_cam { "kept" } else { "MOVED" },
+        st1.cam,
+        st2.cam,
+        dark * 100.0
+    );
+    if marked == 0 || !same_cam || !changed || luma < 40.0 || dark > 0.5 {
+        bail!("the in-place swap failed");
+    }
+    println!("web swap: PASS");
+    Ok(())
+}
+
+/// A live viewer's WebGL context lost and restored (WEBGL_lose_context, what iOS does to the
+/// oldest contexts): it must draw again (not black) once the canvas is restored.
+pub fn cmd_lose(url: &str, window: &str, browser: &Path) -> Result<()> {
+    let mut b = Browser::start(browser, window, 1.0, url)?;
+    b.attach_page()?;
+    b.call("Runtime.enable", json!({}))?;
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        if b.eval("document.querySelectorAll('[data-mcview].mcview-ready').length")?.as_u64().unwrap_or(0) > 0 {
+            break;
+        }
+        if Instant::now() > deadline {
+            bail!("no viewer drew");
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    std::thread::sleep(Duration::from_millis(800));
+    let rect = b.eval("(() => { const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[0]; v.scrollIntoView({block: 'center'}); const r = v.getBoundingClientRect(); return [r.left + window.scrollX, r.top + window.scrollY, r.width, r.height]; })()")?;
+    let r: Vec<f64> = rect.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+    if r.len() != 4 {
+        bail!("no live viewer");
+    }
+    let mut measure = |b: &mut Browser| -> Result<f64> {
+        b.drain(Duration::from_millis(300));
+        let shot = b.call("Page.captureScreenshot", json!({ "format": "png", "clip": { "x": r[0] + 2.0, "y": r[1] + 2.0, "width": r[2] - 4.0, "height": r[3] - 4.0, "scale": 0.5 } }))?;
+        let (rgba, _, _) = mcview::tools::decode_png(&base64_decode(shot["data"].as_str().unwrap_or(""))?).map_err(anyhow::Error::msg)?;
+        Ok(luma_stats(&rgba).0)
+    };
+    let before = measure(&mut b)?;
+    b.eval("(() => { const c = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[0].querySelector('canvas'); window.__lose = c.getContext('webgl2').getExtension('WEBGL_lose_context'); window.__lose.loseContext(); return 1; })()")?;
+    std::thread::sleep(Duration::from_millis(500));
+    b.eval("window.__lose.restoreContext(), 1")?;
+    std::thread::sleep(Duration::from_millis(1500));
+    // a nudge (a wheel) so a paused viewer draws a frame
+    let sy = b.eval("window.scrollY")?.as_f64().unwrap_or(0.0);
+    b.call("Input.dispatchMouseEvent", json!({ "type": "mouseWheel", "x": r[0] + r[2] / 2.0, "y": r[1] + r[3] / 2.0 - sy, "deltaX": 0, "deltaY": 1 }))?;
+    let after = measure(&mut b)?;
+    for l in b.console.iter().filter(|l| l.contains("lost") || l.contains("error") || l.contains("panic")) {
+        println!("console {l}");
+    }
+    println!("web lose: luma {before:.0} before the context loss, {after:.0} after it came back");
+    if before < 40.0 || after < 40.0 {
+        bail!("the viewer did not draw again after its context came back");
+    }
+    println!("web lose: PASS");
     Ok(())
 }
 

@@ -162,6 +162,27 @@ pub enum WebCmd {
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
+    /// A page's first live viewer loses its WebGL context and gets it back
+    /// (WEBGL_lose_context): it must draw again.
+    Lose {
+        url: String,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
+    /// The site's in-place design swap on a page's first live viewer: orbit, set
+    /// `data-keep-camera` then `data-src` to `--to`: the new design must show under the same
+    /// camera, the viewer marked `mcview-live-src`.
+    Swap {
+        url: String,
+        #[arg(long)]
+        to: String,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// Mostly-black check: natively, every design given rendered offscreen (its still, small);
     /// with `--url`, every viewer of a page in headless Chromium through the real bundle (the
     /// WebGL path). Fails on any frame with a mean luma under `--min` or mostly near-black.
@@ -348,6 +369,8 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Lose { url, window, browser } => crate::cdp::cmd_lose(&url, &window, &browser),
+        WebCmd::Swap { url, to, window, browser } => crate::cdp::cmd_swap(&url, &to, &window, &browser),
         WebCmd::Luma { designs, url, min, window, browser } => match url {
             Some(u) => crate::cdp::cmd_luma(&u, &window, min, &browser),
             None => cmd_luma_native(&designs, min),

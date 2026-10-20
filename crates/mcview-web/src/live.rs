@@ -48,6 +48,9 @@ pub struct Live {
     press: Option<(usize, f64, i32)>,
     /// The input held on by a long press.
     holding: Option<usize>,
+    /// The design being swapped in place (`data-src` changed): the previous camera (kept when
+    /// `keep`) and whether it was playing.
+    prev: Option<(mcview::camera::Camera, bool, bool)>,
     redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
@@ -280,6 +283,7 @@ pub fn start(app: &mut App, id: u32) {
         last_ts: None,
         press: None,
         holding: None,
+        prev: None,
         redraw: true,
         overlays: crate::overlay::Overlays::new(&root),
         inputs: Vec::new(),
@@ -355,6 +359,30 @@ pub fn start(app: &mut App, id: u32) {
     });
     // the context, then the design
     let atlas = app.atlas.clone();
+    // a lost WebGL context (iOS drops the oldest when a page holds too many; a GPU reset) comes
+    // back: the viewer makes a new one on the restored canvas and draws again
+    on(&canvas, "webglcontextlost", move |e: web_sys::Event| {
+        e.prevent_default();
+        with_live(id, |l, _, _| l.gpu = None);
+        log("a viewer's WebGL context was lost; waiting for it to come back");
+    });
+    on(&canvas, "webglcontextrestored", move |_: web_sys::Event| {
+        let got = with_app(|a| a.views.get(&id).map(|v| (v.canvas.clone(), a.atlas.clone()))).flatten();
+        if let Some((canvas, atlas)) = got {
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Ok(g) = Gpu::new(canvas, &atlas).await {
+                    with_live(id, |l, _, _| {
+                        l.gpu = Some(g);
+                        if let Some(p) = l.player.as_mut() {
+                            p.invalidate();
+                        }
+                        l.redraw = true;
+                    });
+                    ensure_frame();
+                }
+            });
+        }
+    });
     wasm_bindgen_futures::spawn_local(async move {
         match Gpu::new(canvas, &atlas).await {
             Ok(g) => {
@@ -546,9 +574,24 @@ pub fn load(app: &mut App, id: u32) {
             l.player = Some(p);
             l.redraw = true;
             l.sync_status();
-            if v.autoplay {
+            // swapped in place: the person's camera (unless the new build is out of it), play
+            // state and speed stay
+            let mut playing = v.autoplay;
+            if let Some((cam, was_playing, keep)) = l.prev.take() {
+                let p = l.player.as_mut().unwrap();
+                if keep && camera_sees(&cam, &p.session, &p.look, aspect) {
+                    p.camera = cam;
+                }
+                playing |= was_playing;
+            }
+            if let Some(p) = l.player.as_mut() {
+                p.tps = SPEEDS[l.speed_i].1;
+            }
+            l.play.set_inner_html(&icon(ICON_PLAY));
+            if playing {
                 l.toggle_play();
             }
+            let _ = v.el.class_list().add_1("mcview-live-src");
         }
         Err(e) => {
             let el = v.el.clone();
@@ -558,6 +601,19 @@ pub fn load(app: &mut App, id: u32) {
     if let Some(v) = app.views.get_mut(&id) {
         v.done = true;
     }
+}
+
+/// Does a camera still show a session's build (its frame box's centre inside the view)?
+fn camera_sees(cam: &mcview::camera::Camera, s: &mcview::session::Session, look: &mcview::scene::Look, aspect: f32) -> bool {
+    let (lo, hi) = mcview::scene::frame_bounds(s, look);
+    let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
+    let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+    let z = dot(f);
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    z > 0.1 && (dot(r) / (z * t * aspect)).abs() < 1.2 && (dot(u) / (z * t)).abs() < 1.2
 }
 
 /// Advance and draw one frame; true while it needs more frames (playing, dragging).
@@ -771,6 +827,29 @@ impl Live {
         if let Some(p) = self.player.as_mut() {
             p.invalidate();
         }
+        self.redraw = true;
+    }
+
+    pub fn has_player(&self) -> bool {
+        self.player.is_some()
+    }
+
+    /// Before another design loads in place: drop the player (remembering its camera and play
+    /// state), its input buttons and per-design controls; the canvas keeps its last frame.
+    pub fn begin_reload(&mut self, keep_camera: bool) {
+        if let Some(p) = self.player.take() {
+            self.prev = Some((p.camera, p.playing, keep_camera));
+        }
+        for (b, _) in self.inputs.drain(..) {
+            b.remove();
+        }
+        let _ = self.flip.style().set_property("display", "none");
+        let _ = self.containers.style().set_property("display", "none");
+        self.play.set_disabled(false);
+        let _ = self.play.style().set_property("opacity", "1");
+        let _ = self.status.remove_attribute("title");
+        self.press = None;
+        self.holding = None;
         self.redraw = true;
     }
 

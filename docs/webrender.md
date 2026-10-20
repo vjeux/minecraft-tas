@@ -28,6 +28,14 @@ each build's page.
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
+* Swapping a design in place (the site's variant picker): change attributes on the existing
+  element, `data-src` LAST; the viewer re-reads every `data-*` attribute at that moment and
+  loads the new design without flashing its fallback: a live viewer keeps the person's camera
+  when `data-keep-camera` is set (unless the new build would be out of view), its play state and
+  speed, and rebuilds its input buttons, tags and overlays; a thumbnail is drawn again. Live
+  viewers that support it carry the class `mcview-live-src` once ready (`mctas web swap` checks
+  it). A lost WebGL context (iOS drops the oldest when a page holds many; a GPU reset) is made
+  again when the browser restores the canvas (`mctas web lose`).
 * Thumbnails: drawn when the element comes near the viewport (IntersectionObserver, 300 px
   margin), through ONE shared WebGL2 context, copied into the element's canvas, cached by
   (source, size, tick, camera) so a re-added card paints at once. A click dispatches a bubbling
