@@ -47,8 +47,18 @@ fn parse_range(s: &str) -> Result<(u32, u32)> {
     }
 }
 
+/// The block the observer fires: a note block (note_block_play, 10), an oak trapdoor (block_open,
+/// 10, on the pulse's rising edge) or an empty dispenser (its failed dispense 4 gt later, 10).
+fn emitter_state(e: &str) -> &'static str {
+    match e {
+        "trapdoor" => "minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]",
+        "dispenser" => "minecraft:dispenser[facing=up,triggered=false]",
+        _ => "minecraft:note_block[instrument=harp,note=0,powered=false]",
+    }
+}
+
 /// `replin` with n repeaters.
-pub fn replin(n: u32) -> Build {
+pub fn replin(n: u32, emitter: &str) -> Build {
     let mut b = Build::default();
     let s: Pos = [0, 1, 0];
     // The sensor faces east... its back (west) is empty; it powers the first repeater east of it.
@@ -61,7 +71,7 @@ pub fn replin(n: u32) -> Build {
     let o = [n as i32 + 1, 1, 0];
     b.put(o, "minecraft:observer[facing=west,powered=false]");
     let e = [n as i32 + 2, 1, 0];
-    b.put(e, "minecraft:note_block[instrument=harp,note=0,powered=false]");
+    b.put(e, emitter_state(emitter));
     b.keep_air(add(e, [0, 1, 0]));
     b
 }
@@ -69,7 +79,7 @@ pub fn replin(n: u32) -> Build {
 /// `hairpin` with n repeaters per arm: a line of n delay-4 repeaters away from the sensor, a dust
 /// U-turn, n repeaters back, an observer beside the sensor watching the last one and a note block
 /// diagonal to the sensor (travel 1). P = 16n + 3 (n >= 2), blocks = 4n + 7, unbounded n.
-pub fn hairpin(n: u32, sensor: Sensor) -> Build {
+pub fn hairpin(n: u32, sensor: Sensor, emitter: &str) -> Build {
     let n = n as i32;
     let mut b = Build::default();
     let s: Pos = [0, 1, 0];
@@ -90,7 +100,7 @@ pub fn hairpin(n: u32, sensor: Sensor) -> Build {
     // Observer south of the sensor watching the back arm's last repeater; note block west of it.
     b.put([0, 1, 1], "minecraft:observer[facing=east,powered=false]");
     let e = [-1, 1, 1];
-    b.put(e, "minecraft:note_block[instrument=harp,note=0,powered=false]");
+    b.put(e, emitter_state(emitter));
     b.keep_air(add(e, [0, 1, 0]));
     b
 }
@@ -152,7 +162,11 @@ struct Spec {
 fn spec(name: &str) -> Result<Spec> {
     Ok(match name {
         "replin" => Spec { pa: 4, pb: 9, ba: 3, bb: 2, lo: 3, hi: 14, rule: "one more delay-4 repeater on a stone at the end of the line (the observer and note block move one block out): +8 gt of delay and +1 gt of travel", caption: "A calibrated sculk sensor, a straight line of n delay-4 repeaters read from it, an observer watching the last one and a note block behind it: the line's turn-on plays the note 8n+2 gt after the sensor fires and the vibration travels n+2 gt back (n <= 14 keeps the note within 16). Self-starting: the repeaters are placed powered." },
+        "replin-trapdoor" => Spec { pa: 4, pb: 9, ba: 3, bb: 2, lo: 3, hi: 14, rule: "one more delay-4 repeater on a stone at the end of the line (the observer and trapdoor move one block out): +8 gt of delay and +1 gt of travel", caption: "The repeater line with an oak trapdoor as the emitter: a calibrated sculk sensor, n delay-4 repeaters, an observer watching the last one and a trapdoor behind it, opened on the observer's pulse 8n+2 gt after the sensor fires and heard n+2 gt later. Self-starting." },
+        "replin-dispenser" => Spec { pa: 8, pb: 9, ba: 3, bb: 2, lo: 2, hi: 14, rule: "one more delay-4 repeater on a stone at the end of the line (the observer and dispenser move one block out): +8 gt of delay and +1 gt of travel", caption: "The repeater line with an empty dispenser as the emitter: a calibrated sculk sensor, n delay-4 repeaters, an observer watching the last one and a dispenser behind it, whose failed dispense comes 4 gt after the observer's pulse (8n+6 gt after the sensor fires) and is heard n+2 gt later. Self-starting." },
         "hairpin" => Spec { pa: 3, pb: 16, ba: 7, bb: 4, lo: 2, hi: 12, rule: "one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)", caption: "A calibrated sculk sensor, n delay-4 repeaters out, a two-dust U-turn, n repeaters back, an observer beside the sensor watching the last one and a note block diagonal to the sensor: the note plays 16n+2 gt after the sensor fires and is heard 1 gt later, for any n. Self-starting." },
+        "hairpin-trapdoor" => Spec { pa: 3, pb: 16, ba: 7, bb: 4, lo: 2, hi: 12, rule: "one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)", caption: "The hairpin with an oak trapdoor as the emitter, diagonal to the calibrated sensor: n delay-4 repeaters out, a two-dust U-turn, n back, an observer opening the trapdoor 16n+2 gt after the sensor fires, heard 1 gt later. Self-starting." },
+        "hairpin-dispenser" => Spec { pa: 7, pb: 16, ba: 7, bb: 4, lo: 1, hi: 12, rule: "one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)", caption: "The hairpin with an empty dispenser as the emitter, diagonal to the calibrated sensor: n delay-4 repeaters out, a two-dust U-turn, n back, an observer firing the dispenser, whose failed dispense comes 16n+6 gt after the sensor fires, heard 1 gt later. Self-starting." },
         "hairpin-plain" => Spec { pa: 3, pb: 16, ba: 7, bb: 4, lo: 3, hi: 12, rule: "one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)", caption: "The hairpin with a plain sculk sensor (re-armed 40 gt after firing, so n >= 3): n delay-4 repeaters out, a two-dust U-turn, n back, an observer and a note block next to the sensor. Self-starting." },
         "racetrack" => Spec { pa: 28, pb: 32, ba: 4, bb: 4, lo: 1, hi: 8, rule: "one more calibrated sensor + amethyst block on each straight side, 17 blocks apart (the far turn sensor moves 17 out)", caption: "A pure vibration racetrack: calibrated sculk sensors on two straight lines 18 apart (17 between sensors: hop 16) joined by a turn sensor at each end (hops 15); each sensor's resonator (amethyst; the first a note block, right-clicked as the kick) rings when it fires and only the next sensor is within 16." },
         "racetrack-plain" => Spec { pa: 12, pb: 16, ba: 4, bb: 4, lo: 3, hi: 10, rule: "one more plain sensor + amethyst block on each straight side, 9 blocks apart (the far turn sensor moves 9 out)", caption: "The racetrack with plain sculk sensors (radius 8, deaf 40 gt): lines 10 apart, 9 between sensors (hop 8), turn sensors 6 out (hops 7); m >= 3 so the next sensor has re-armed." },
@@ -162,9 +176,13 @@ fn spec(name: &str) -> Result<Spec> {
 
 fn build(name: &str, n: u32) -> Build {
     match name {
-        "replin" => replin(n),
-        "hairpin" => hairpin(n, Sensor::Cal),
-        "hairpin-plain" => hairpin(n, Sensor::Plain),
+        "replin" => replin(n, "note"),
+        "replin-trapdoor" => replin(n, "trapdoor"),
+        "replin-dispenser" => replin(n, "dispenser"),
+        "hairpin" => hairpin(n, Sensor::Cal, "note"),
+        "hairpin-trapdoor" => hairpin(n, Sensor::Cal, "trapdoor"),
+        "hairpin-dispenser" => hairpin(n, Sensor::Cal, "dispenser"),
+        "hairpin-plain" => hairpin(n, Sensor::Plain, "note"),
         "racetrack" => racetrack(n, false),
         _ => racetrack(n, true),
     }
@@ -185,7 +203,7 @@ pub struct DupesArgs {
 
 pub fn dupes(a: &DupesArgs) -> Result<()> {
     let mut keys: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    for name in ["replin", "hairpin", "hairpin-plain", "racetrack", "racetrack-plain"] {
+    for name in ["replin", "replin-trapdoor", "replin-dispenser", "hairpin", "hairpin-trapdoor", "hairpin-dispenser", "hairpin-plain", "racetrack", "racetrack-plain"] {
         let sp = spec(name)?;
         for n in sp.lo..=sp.hi {
             if let Some(c) = build(name, n).clock("x") {

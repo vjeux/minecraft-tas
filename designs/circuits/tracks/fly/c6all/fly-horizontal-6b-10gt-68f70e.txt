@@ -1,0 +1,21 @@
+# flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; 2 slime
+
+# census: 6 blocks, 10 gt per 1 cell(s), first move t2, flies turned 4/4 (redsim)
+name: fly-horizontal-6b-10gt-68f70e
+circuit: flying-machine
+distance: 24
+travel: 1 0 0
+port start: 0 -1 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  O
+layer 1:
+  Sso
+layer 2:
+  PS

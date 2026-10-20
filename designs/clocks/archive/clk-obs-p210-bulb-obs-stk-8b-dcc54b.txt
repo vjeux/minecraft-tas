@@ -1,0 +1,28 @@
+# archived 2026-10-20T00:01Z from designs/clocks/tracks/clk-obs/families9/p210-bulb-obs-stk-8b-dcc54b.txt by mctas clock archive
+# CLOCK: clk-obs-p210-bulb-obs-stk-8b-dcc54b period 210 gt (10.5 s), on 92/210, edges 46, warmup 0, family copper_bulb+observer+sticky_piston, 8 blocks, 1x4x4, robust
+name: clk-obs-p210-bulb-obs-stk-8b-dcc54b
+# clk-obs grow: P=210 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 16.
+origin: 0 0 -1
+port output: 0 0 1
+port start: 0 0 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .
+  A
+  B
+  A
+layer 1:
+  C
+  B
+  D
+  E
+layer 2:
+  .
+  .
+  D
+  .

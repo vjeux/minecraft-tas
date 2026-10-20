@@ -13,6 +13,9 @@ pub struct CaptionArgs {
     /// is used when a file's own header is already gone.
     #[arg(long, num_args = 1..)]
     how_from: Vec<PathBuf>,
+    /// Also set each design's caption row in this archive's captions.tsv (by `name:`).
+    #[arg(long)]
+    archive: Option<PathBuf>,
 }
 
 fn sensor_word(s: &str) -> &'static str {
@@ -75,7 +78,7 @@ pub fn words(how: &str) -> String {
             t.replace_range(0..1, "R");
             format!("{t}: each sensor's resonator (amethyst, the first a note block) rings when it fires and the next sensor hears it floor(distance) gt later; the sensor two hops ahead is still dead")
         }
-        Some("climb") => format!("A sculk sensor + observer + sticky piston hybrid found by a long-period hunt ({how})"),
+        Some("climb") => format!("Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design ({how})"),
         _ => how.to_string(),
     };
     if let Some(e) = extra {
@@ -96,8 +99,19 @@ pub fn caption(a: &CaptionArgs) -> Result<()> {
                 t.lines().find_map(|l| l.strip_prefix("# built by `mctas clock sculk`: ").map(str::to_string))
             })
         });
+        let design_name = text.lines().find_map(|l| l.strip_prefix("name: ")).map(|s| s.trim().to_string());
         // Drop every leading comment line (old captions, the CLOCK line, the generator line).
         let body: Vec<&str> = text.lines().skip_while(|l| l.starts_with('#')).collect();
+        // A hand-written caption (no generator line, not the generic census one) is kept.
+        let first = text.lines().next().unwrap_or("");
+        if how.is_none() && first.starts_with("# ") && !first.starts_with("# CLOCK") && !first.starts_with("# Found by `mctas clock census`") {
+            // Its first comment block, one line, is the caption to sync.
+            let block: Vec<&str> = text.lines().take_while(|l| l.starts_with('#')).map(|l| l.trim_start_matches('#').trim()).collect();
+            if let (Some(dir), Some(n)) = (&a.archive, &design_name) {
+                sync(dir, n, &block.join(" "))?;
+            }
+            continue;
+        }
         let cap = match &how {
             Some(h) => Some(words(h)),
             None => text.lines().find_map(|l| l.strip_prefix("census: ")).map(|c| {
@@ -111,6 +125,9 @@ pub fn caption(a: &CaptionArgs) -> Result<()> {
         // goes after the name line.
         let mut final_text = format!("# {cap}\n");
         for l in &body {
+            if l.starts_with("# how: ") {
+                continue; // re-inserted once, after the name line
+            }
             final_text.push_str(l);
             final_text.push('\n');
             if l.starts_with("name:") {
@@ -120,7 +137,34 @@ pub fn caption(a: &CaptionArgs) -> Result<()> {
             }
         }
         std::fs::write(f, final_text)?;
+        if let (Some(dir), Some(n)) = (&a.archive, &design_name) {
+            sync(dir, n, &cap)?;
+        }
         println!("{}: {cap}", f.display());
+    }
+    Ok(())
+}
+
+/// Set the caption of the archived `<name>.txt` in `<dir>/captions.tsv` (when it has a row).
+fn sync(dir: &std::path::Path, name: &str, cap: &str) -> Result<()> {
+    let cp = dir.join("captions.tsv");
+    let text = std::fs::read_to_string(&cp)?;
+    let key = format!("{name}.txt\t");
+    let mut changed = false;
+    let lines: Vec<String> = text
+        .lines()
+        .map(|l| {
+            if l.starts_with(&key) && l[key.len()..] != *cap {
+                changed = true;
+                format!("{key}{cap}")
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    if changed {
+        std::fs::write(&cp, lines.join("\n") + "\n")?;
+        println!("captions.tsv: {name}.txt recaptioned");
     }
     Ok(())
 }

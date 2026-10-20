@@ -233,7 +233,9 @@ impl World {
             }
             self.remove_block_entity(pos, old);
         }
-        if (block_changed || matches!(state, Block::Rail { .. })) && (fl & flags::NEIGHBORS != 0 || moved) {
+        // LevelChunk.setBlockState: `blockChanged || newBlock instanceof BaseRailBlock` (every
+        // rail kind: powered, activator, plain, detector)
+        if (block_changed || crate::rails::is_rail(&state)) && (fl & flags::NEIGHBORS != 0 || moved) {
             bh::affect_neighbors_after_removal(self, old, pos, moved);
         }
         if self.get(pos).kind() != new_kind {

@@ -1,0 +1,24 @@
+# N=3 CASCADE extender, IDEAL round-start pulses: units [slime + sticky piston + observer under the
+# slime] in a line (A, unit B, unit C, payload). A unit that is moved fires its own piston 2 gt
+# after it lands, so the pulse-toggle train C B C A B C needs only the round starts from outside:
+# C at t4 (cells 5 and 7 at once), B at t10 (cell 3, then cell 4 at t12), A at t22.
+name: ideal-c3
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 0 1 1 lever
+port payload: 6 1 0
+ideal: both 4 set 5 1 1 minecraft:redstone_block; both 4 set 7 1 1 minecraft:redstone_block; both 6 clear 5 1 1; both 6 clear 7 1 1; both 10 set 3 1 1 minecraft:redstone_block; both 12 clear 3 1 1; both 12 set 4 1 1 minecraft:redstone_block; both 14 clear 4 1 1; both 22 set 1 1 1 minecraft:redstone_block; both 24 clear 1 1 1
+palette:
+  L minecraft:lever[face=floor,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  P minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  G minecraft:gold_block
+layer 0:
+  ..O.O..
+  K......
+layer 1:
+  .ASPSPG
+  L......

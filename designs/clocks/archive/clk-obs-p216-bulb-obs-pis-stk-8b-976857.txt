@@ -1,0 +1,29 @@
+# archived 2026-10-20T00:02Z from designs/clocks/tracks/clk-obs/families9/p216-bulb-obs-pis-stk-8b-976857.txt by mctas clock archive
+# CLOCK: clk-obs-p216-bulb-obs-pis-stk-8b-976857 period 216 gt (10.8 s), on 108/216, edges 54, warmup 6, family copper_bulb+observer+piston+sticky_piston, 8 blocks, 1x4x4, robust
+name: clk-obs-p216-bulb-obs-pis-stk-8b-976857
+# clk-obs grow: P=216 (redsim), family observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 16.
+origin: 0 0 -1
+port output: 0 2 -1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  .
+  A
+  B
+  C
+layer 1:
+  .
+  D
+  D
+  E
+layer 2:
+  B
+  .
+  F
+  .

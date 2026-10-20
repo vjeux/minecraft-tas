@@ -6,12 +6,15 @@
 //! runner).
 
 pub mod census;
+pub mod family;
+pub mod grow;
 pub mod ident;
 pub mod machine;
 pub mod orient;
 pub mod prep;
 pub mod report;
 pub mod sim;
+pub mod station;
 pub mod track;
 pub mod verify;
 
@@ -123,6 +126,9 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long)]
         out_dir: PathBuf,
+        /// Skip designs whose prepared name (its type) is already in this archive directory.
+        #[arg(long)]
+        skip_archived: Option<PathBuf>,
     },
     /// Every one of the 24 orientations of each design on redsim (tilted to fly up or down,
     /// rolled about the travel axis): one line per orientation that flies; `--out-dir` writes the
@@ -131,6 +137,73 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+    },
+    /// Add 1 or 2 blocks around each design (every empty cell next to it, every palette state),
+    /// run each candidate in every quarter turn on redsim with the design's kick; print and write
+    /// the ones that fly at ANOTHER speed than their base.
+    Grow {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 1)]
+        add: usize,
+        #[arg(long, default_value = "slime,honey,stone,observer,piston,sticky")]
+        palette: String,
+        #[arg(long, default_value_t = 160)]
+        horizon: u32,
+        #[arg(long, default_value_t = 6)]
+        margin: i32,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
+    /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
+    /// `--block`, growing from the cell next to `from`).
+    Gen {
+        family: String,
+        #[arg(long)]
+        base: PathBuf,
+        #[arg(long)]
+        from: String,
+        #[arg(long, default_value = "up")]
+        dir: String,
+        #[arg(long)]
+        n: usize,
+        #[arg(long, default_value = "minecraft:slime_block")]
+        block: String,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Return-station search on redsim: the machine flies `approach` cells toward an obsidian
+    /// wall (every wall cell in front of its leading face) with up to k more station blocks
+    /// around its stopping place; keeps the stations that send it back `back` cells intact.
+    Station {
+        machine: PathBuf,
+        #[arg(long, default_value_t = 4)]
+        approach: i32,
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        #[arg(long, default_value_t = 1)]
+        radius: i32,
+        #[arg(long, default_value = "obsidian,stone,observer,repeater,minecraft:redstone_wire[east=side,north=side,south=side,west=side],rblock,torch")]
+        palette: String,
+        #[arg(long, default_value_t = 300)]
+        horizon: u32,
+        #[arg(long, default_value_t = 4)]
+        back: i32,
+        #[arg(long, default_value_t = 48)]
+        workers: usize,
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Designs to write (the best first).
+        #[arg(long, default_value_t = 20)]
+        keep: usize,
+        /// Child processes (each `--workers` threads).
+        #[arg(long, default_value_t = 1)]
+        procs: usize,
+        /// (internal) this process's share: k/n.
+        #[arg(long)]
+        shard: Option<String>,
     },
 }
 
@@ -204,12 +277,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
             census::run_census(&o, &boxes, &argv)?;
         }
         Cmd::Types { designs, workers, copy_hosts } => types(&designs, workers, copy_hosts.as_deref())?,
-        Cmd::Prep { designs, out_dir } => {
+        Cmd::Prep { designs, out_dir, skip_archived } => {
             std::fs::create_dir_all(&out_dir)?;
+            let archived: Vec<String> = match &skip_archived {
+                Some(d) => std::fs::read_dir(d)?.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().trim_end_matches(".txt").to_string()).collect(),
+                None => Vec::new(),
+            };
             for p in &designs {
                 let text = std::fs::read_to_string(p)?;
                 let m = machine::Machine::parse(&text)?;
                 let (name, out) = prep::prep(&m, &text);
+                if archived.iter().any(|a| a == &name || a.starts_with(&format!("{name}-"))) {
+                    println!("{} -> {name} (archived already)", p.display());
+                    continue;
+                }
                 std::fs::write(out_dir.join(format!("{name}.txt")), out)?;
                 println!("{} -> {name}", p.display());
             }
@@ -225,7 +306,14 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     if !matches!(o.report.verdict, report::Verdict::Flies | report::Verdict::Shuttles) {
                         continue;
                     }
-                    println!("{} o{}: {} {}", m.name(), o.index, class, o.report.speed_text());
+                    let expect = m.travel.map(|t| orient::apply(&orient::rotations()[o.index], t));
+                    let way = match (expect, o.report.direction()) {
+                        (Some(e), Some(d)) if e == d => "forward",
+                        (Some(e), Some(d)) if e == [-d[0], -d[1], -d[2]] => "BACKWARD",
+                        (_, Some(_)) => "sideways",
+                        _ => "-",
+                    };
+                    println!("{} o{}: {} {} {way}", m.name(), o.index, class, o.report.speed_text());
                     if let Some(dir) = &out_dir
                         && written.insert(class.clone())
                     {
@@ -239,6 +327,94 @@ pub fn run(args: Vec<String>) -> Result<()> {
                         std::fs::write(dir.join(format!("{}.txt", mm.name())), mm.to_text())?;
                     }
                 }
+            }
+        }
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir } => {
+            let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
+            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers };
+            let found = grow::grow(&ms, &o)?;
+            std::fs::create_dir_all(&out_dir)?;
+            let mut seen: std::collections::BTreeMap<(String, String, usize), usize> = std::collections::BTreeMap::new();
+            for g in &found {
+                let key = (g.speed(), g.class().to_string(), g.cells.len());
+                let k = seen.entry(key.clone()).or_insert(0);
+                if *k < 3 {
+                    let name = format!("grow-{}b-{}gt-{}-{}", g.cells.len(), g.speed().replace('/', "_"), g.class(), *k);
+                    std::fs::write(out_dir.join(format!("{name}.txt")), grow::design_text(g, &name))?;
+                }
+                *k += 1;
+            }
+            for ((speed, class, blocks), n) in &seen {
+                println!("{blocks} blocks, {speed} gt/block, {class}: {n} candidates");
+            }
+        }
+        Cmd::Gen { family, base, from, dir, n, block, out } => {
+            let v: Vec<i32> = from.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            if v.len() != 3 {
+                bail!("--from x,y,z");
+            }
+            let m = match family.as_str() {
+                "payload" => family::payload(&base, [v[0], v[1], v[2]], &dir, n, &mctas::blockstate::BlockState::parse(&block)?.to_string())?,
+                f => bail!("unknown family {f:?} (payload)"),
+            };
+            std::fs::write(&out, m.to_text())?;
+        }
+        Cmd::Station { machine, approach, k, radius, palette, horizon, back, workers, out_dir, keep, procs, shard } => {
+            let m = machine::Machine::load(&machine)?;
+            let shard = match shard {
+                Some(s) => {
+                    let (a, b) = s.split_once('/').ok_or_else(|| anyhow::anyhow!("--shard k/n"))?;
+                    (a.parse::<usize>()?, b.parse::<usize>()?)
+                }
+                None => (0, 1),
+            };
+            let o = station::StationOptions { approach, k, radius, palette: clock::census::expand_palette(&palette)?, horizon, workers, back, shard };
+            std::fs::create_dir_all(&out_dir)?;
+            let mut found: Vec<station::Station> = Vec::new();
+            if procs > 1 && shard.1 <= 1 {
+                let exe = std::env::current_exe()?;
+                let mut children = Vec::new();
+                for i in 0..procs {
+                    let dir = out_dir.join(format!("shard-{i}"));
+                    let mut args: Vec<String> = Vec::new();
+                    let mut skip = false;
+                    for a in &argv {
+                        if skip {
+                            skip = false;
+                            continue;
+                        }
+                        if a == "--procs" || a == "--out-dir" || a == "--shard" {
+                            skip = true;
+                            continue;
+                        }
+                        args.push(a.clone());
+                    }
+                    args.extend(["--shard".to_string(), format!("{i}/{procs}"), "--out-dir".to_string(), dir.display().to_string()]);
+                    children.push((std::process::Command::new(&exe).args(["circuit", "fly"]).args(&args).stdout(std::process::Stdio::null()).spawn()?, dir));
+                }
+                for (mut c, dir) in children {
+                    if !c.wait()?.success() {
+                        bail!("station shard {} failed", dir.display());
+                    }
+                    for l in std::fs::read_to_string(dir.join("raw.tsv"))?.lines() {
+                        found.push(station::parse_station(l)?);
+                    }
+                }
+                found.sort_by_key(|s| (s.blocks.len(), s.back_at));
+            } else {
+                found = station::search(&m, &o)?;
+                if shard.1 > 1 {
+                    let raw: String = found.iter().map(|s| station::station_line(s) + "\n").collect();
+                    std::fs::write(out_dir.join("raw.tsv"), raw)?;
+                    return Ok(());
+                }
+            }
+            println!("{} stations found", found.len());
+            for (i, s) in found.iter().take(keep).enumerate() {
+                let name = format!("{}-st{}-{i}", m.name(), s.blocks.len());
+                let blocks: Vec<String> = s.blocks.iter().map(|(p, b)| format!("{},{},{} {}", p[0], p[1], p[2], clock::short(&b.to_string()))).collect();
+                println!("{name}: wall t{}, back t{}: {}", s.at_wall, s.back_at, blocks.join("; "));
+                std::fs::write(out_dir.join(format!("{name}.txt")), station::design_text(&m, s, &name))?;
             }
         }
     }

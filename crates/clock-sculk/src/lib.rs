@@ -84,6 +84,8 @@ enum Cmd {
     Outputs(outputs::OutputsArgs),
     /// Rewrite generated designs' headers into a one-line caption (what `clock archive` keeps).
     Caption(caption::CaptionArgs),
+    /// Greedy block removal keeping the period and a full-period cell (minimal designs).
+    Reduce(outputs::ReduceArgs),
     /// The extendable families (replin, racetrack): one design per n.
     Family(family::FamilyArgs),
     /// Archived designs that are instances of the extendable families (`--remove` deletes them).
@@ -140,6 +142,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Climb(a) => climb::climb(&a),
         Cmd::Outputs(a) => outputs::outputs(&a),
         Cmd::Caption(a) => caption::caption(&a),
+        Cmd::Reduce(a) => outputs::reduce(&a),
         Cmd::Family(a) => family::family(&a),
         Cmd::FamilyDupes(a) => family::dupes(&a),
         Cmd::Table { files, best, md } => table(&files, best, md),

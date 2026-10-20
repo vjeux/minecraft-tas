@@ -233,6 +233,20 @@ fn probe_page(root: &str, design: &str, kind: &str) -> String {
 }
 
 /// The number in `<span id="f-count"><strong>N</strong>`.
+/// GET a path from the local server: the body (status 200 only).
+fn http_get_local(port: u16, path: &str) -> Result<Vec<u8>> {
+    let mut s = TcpStream::connect(("127.0.0.1", port))?;
+    write!(s, "GET /{} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", path.trim_start_matches('/'))?;
+    let mut all = Vec::new();
+    std::io::Read::read_to_end(&mut s, &mut all)?;
+    let head_end = all.windows(4).position(|w| w == b"\r\n\r\n").context("no HTTP header")?;
+    let head = String::from_utf8_lossy(&all[..head_end]).to_string();
+    if !head.starts_with("HTTP/1.1 200") {
+        bail!("GET /{path}: {}", head.lines().next().unwrap_or(""));
+    }
+    Ok(all[head_end + 4..].to_vec())
+}
+
 fn result_count(dom: &str) -> Option<usize> {
     let i = dom.find("id=\"f-count\"")?;
     let rest = &dom[i..];
@@ -304,6 +318,19 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     if let Some(b) = site.builds.iter().find(|b| b.kind == "door") {
         let dom = dump_dom(&chrome, &format!("{base}{}", b.page), budget_ms)?;
         check("door page: live viewer slot + properties", dom.contains("data-mcview=\"full\"") && dom.contains("Open / close"), b.page.clone());
+        // its .litematic: linked, served, a schematic of exactly the design file next to it
+        let lpath = crate::generate::litematic_path(&b.design);
+        let linked = dom.contains(&format!("href=\"../{lpath}\""));
+        let verdict = http_get_local(port, &lpath).and_then(|bytes| {
+            let s = litematic::read(&bytes)?;
+            let d = mctas::design::Design::parse(&std::fs::read_to_string(dir.join(&b.design))?)?;
+            litematic::compare(&d, &s)?;
+            Ok(format!("{} bytes, {} blocks, Version {} for data version {}", bytes.len(), s.total_blocks.unwrap_or(0), s.version, s.data_version))
+        });
+        check("door page: .litematic linked, served and equal to the design", linked && verdict.is_ok(), match verdict {
+            Ok(v) => format!("{lpath}: {v}"),
+            Err(e) => format!("{lpath}: linked {linked}, {e:#}"),
+        });
     }
     if let Some(c) = site.cards.first() {
         let dom = dump_dom(&chrome, &format!("{base}{}", c.page), budget_ms)?;

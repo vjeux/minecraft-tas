@@ -11,13 +11,15 @@ Notebook: NOTES.md (floor proof, timing rule, mechanisms, output rule). Board: S
   c21-obs3-disp), P >= 41 plain-only (5 blocks: p41-obs3-disp). Every P >= 21 is reachable
   (a hairpin whose repeater delays sum to D: P = 2D + 3, or 2D + 4 with the note one further).
 * Archived by me (`mctas clock archive`, merged into main by the coordinator):
-  - `best/`: the smallest clock per period, 94 periods P 21..468 (7f87eafb; README table).
+  - `best/`: the smallest clock per period, 157 periods P 21..468 (README table; every one is
+    archived itself or as a design of the same type).
   - five EXTENDABLE cards (0cb06af9; `extend/README.md`): replin P=4+9n, hairpin P=3+16n
     (+ plain), racetrack P=28+32n, racetrack-plain P=12+16n; instances in archive/extend.tsv.
-  - non-extendable smallest per (period, family): 34 so far (86013897, the commit before
-    aef98d42); the rest of the 619-design selection was archiving when this was written
-    (`select --minimal --no-composite` over obs, hyb, hyb3, hyb3b, obsd, two, census: no
-    repeater-line or ring generators, those are the cards' territory).
+  - the smallest per (period, family) of every non-extendable search: 577 (86013897..d99b80ae),
+    57 rings (6da970f1), the census 3x1x2 k=6 cells (237, the commit after 6da970f1), and the
+    3 frequency-filter clocks (P50).
+  - `select --minimal --no-composite --known designs/clocks/archive/*.txt` over a search's
+    output gives what is still missing; then `outputs --fix`, `caption`, `clock archive`.
 * `composite/`: designs whose state repeats only as an lcm of independent parts (excluded, ruling
   16:10Z). `sim-only/`: circle rings (verifiable now; several archived from best/).
 
@@ -44,10 +46,8 @@ ring --tuples 3:4:16 (--kick note --wool 2 / --kick behind --wool 3); obs --max-
 --emitters dispenser,note,trapdoor,sticky --extra sculk,csculk; the census boxes above.
 
 ## Next steps
-1. Finish archiving the non-extendable selection (rerun `clock archive` on it: ALREADY ones are
-   skipped); ping the coordinator with the commit.
-2. Long non-composite periods beyond 468 with few blocks (two-sensor P>=360 found so far were all
-   composite): census k=6 in 3x1x2, `climb` from the census seeds.
-3. Mechanisms still missing: a frequency filter that matters (a back signal of 9 vs the
-   emitter's 10: a plain sensor 3.2..3.7 from the emitter behind a calibrated one), a wool
-   shutter moved by a piston.
+1. Long non-composite periods beyond 468 with few blocks: the census 3x1x2 k=6 tops out at P348
+   (6 blocks; its P420/462 are composite), two-sensor searches at P336; `climb` from these seeds.
+2. Mechanisms still missing: a wool shutter clock (NOTES: the piston must be out of range or
+   itself behind wool, and the emitter coupled to C).
+3. More extendable families: frequency-filter chains, dividers with tunable dead times.

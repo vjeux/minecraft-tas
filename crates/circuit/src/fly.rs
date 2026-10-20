@@ -32,6 +32,10 @@ pub struct Recorder {
     ref_corner: Pos,
     /// A temporary kick block: (cell, first frame present, first frame gone).
     kick: Option<(Pos, u32, u32)>,
+    /// Return-station cells (`port station.<n>`): the structural id of the station block there.
+    /// A station cell holding its own block (any dynamic state) is left out of the machine's
+    /// shape, never out of the canonical frame (the whole state, stations included, must repeat).
+    stations: HashMap<Pos, u32>,
 }
 
 fn sub(a: Pos, b: Pos) -> Pos {
@@ -49,12 +53,18 @@ fn corner_of<'a>(cells: impl Iterator<Item = &'a Pos>) -> Pos {
 }
 
 impl Recorder {
-    pub fn new(design: &BTreeMap<Pos, String>, kick: Option<(Pos, u32, u32)>) -> Recorder {
-        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick };
+    /// `stations`: the return-station cells (their blocks are design blocks, left out of the
+    /// machine's shape).
+    pub fn new(design: &BTreeMap<Pos, String>, kick: Option<(Pos, u32, u32)>, stations: &[Pos]) -> Recorder {
+        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick, stations: HashMap::new() };
         let mut cells: Vec<(Pos, u32)> = Vec::new();
         for (p, s) in design {
             let id = r.state_id(s);
             if let Some(st) = r.info[id as usize].structural {
+                if stations.contains(p) {
+                    r.stations.insert(*p, st);
+                    continue;
+                }
                 cells.push((*p, st));
             }
         }
@@ -114,7 +124,12 @@ impl Recorder {
         let shift = if moving {
             None
         } else {
-            let mut st: Vec<(Pos, u32)> = mach.iter().filter_map(|(p, id)| self.info[*id as usize].structural.map(|s| (*p, s))).collect();
+            // the machine's shape: station cells holding their own block left out
+            let mut st: Vec<(Pos, u32)> = mach
+                .iter()
+                .filter_map(|(p, id)| self.info[*id as usize].structural.map(|s| (*p, s)))
+                .filter(|(p, s)| self.stations.get(p) != Some(s))
+                .collect();
             if st.len() != self.reference.len() || st.is_empty() {
                 None
             } else {
@@ -150,10 +165,12 @@ impl Steady {
 }
 
 /// The steady state from frame `from` on: over every period p, the maximal runs where frame(t + p)
-/// == frame(t) shifted by one constant d, at least 2p long; the smallest p of a MOVING run
-/// (earliest first), else the smallest p of an in-place run whose frames change (a shuttle or a
-/// clock). A lone repeat proves nothing (visible frames repeat on consecutive ticks while blocks
-/// move): the relation must hold for whole periods.
+/// == frame(t) shifted by one constant d, at least 2p long; MOVING runs (d != 0: the smallest p,
+/// earliest first) and IN-PLACE runs whose frames change (d = 0: a shuttle or a clock). An in-place
+/// run that lasts at least as long as the best moving run wins: a two-way machine flies steadily
+/// between its stations for a few periods only, then the whole round trip repeats in place. A lone
+/// repeat proves nothing (visible frames repeat on consecutive ticks while blocks move): the
+/// relation must hold for whole periods.
 pub fn steady(r: &Recorder, from: usize) -> Option<Steady> {
     let n = r.canon.len();
     if n < from + 3 {
@@ -187,9 +204,13 @@ pub fn steady(r: &Recorder, from: usize) -> Option<Steady> {
                 best_still = Some(cand);
             }
         }
-        if best_moving.is_some() {
+        if best_moving.is_some() && best_still.is_some() {
             break;
         }
     }
-    best_moving.or(best_still)
+    match (best_moving, best_still) {
+        (Some(m), Some(s)) if s.periods * s.period >= m.periods * m.period => Some(s),
+        (Some(m), _) => Some(m),
+        (None, s) => s,
+    }
 }

@@ -1,0 +1,10 @@
+# rail shapes (clockinfra, redsim M4 gate)
+box 7 2 -13 9 5 -11
+place update
+block 8 3 -12 minecraft:stone
+block 8 4 -12 minecraft:rail[shape=east_west,waterlogged=false]
+set 7 5 -12 minecraft:detector_rail[powered=false,shape=ascending_north,waterlogged=false]
+frame 0
+cell 8 3 -12 minecraft:stone
+cell 8 4 -12 minecraft:rail[shape=east_west,waterlogged=false]
+frame 1

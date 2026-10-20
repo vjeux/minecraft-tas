@@ -1,0 +1,26 @@
+# archived 2026-10-20T00:12Z from designs/clocks/tracks/clk-obs/families9/p23-lamp-note-obs-pis-stk-8b-bbc182.txt by mctas clock archive
+# CLOCK: clk-obs-p23-lamp-note-obs-pis-stk-8b-bbc182 period 23 gt (1.15 s), on 10/23, edges 5, warmup 33, family note_block+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p23-lamp-note-obs-pis-stk-8b-bbc182
+# clk-obs grow: P=23 (redsim), family note_block+observer+piston+redstone_lamp+sticky_piston, kick last 0 0 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 2 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=up]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  .
+layer 2:
+  E
+  E
+  F

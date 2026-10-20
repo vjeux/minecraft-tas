@@ -44,6 +44,30 @@ pub struct Design {
     pub block_entities: BTreeMap<Pos, String>,
     /// Header comment lines (`# CLOCK: ...` carries the judge's period and warmup).
     pub comments: Vec<String>,
+    /// `stop: x y z <state>` lines (circuits: environment blocks placed before the build, like a
+    /// flying machine's stop wall), in file order.
+    pub stops: Vec<(Pos, String)>,
+}
+
+/// `+x`, `-y`, `east`, `up`, or `dx dy dz` (a unit vector along one axis), like
+/// `circuit_fly::machine::parse_travel`.
+pub fn parse_travel(s: &str) -> Option<Pos> {
+    let v = match s.trim() {
+        "+x" | "x" | "east" => [1, 0, 0],
+        "-x" | "west" => [-1, 0, 0],
+        "+y" | "y" | "up" => [0, 1, 0],
+        "-y" | "down" => [0, -1, 0],
+        "+z" | "z" | "south" => [0, 0, 1],
+        "-z" | "north" => [0, 0, -1],
+        t => {
+            let w: Vec<i32> = t.split(|c: char| c.is_whitespace() || c == ',').filter(|w| !w.is_empty()).map(|w| w.parse::<i32>()).collect::<Result<_, _>>().ok()?;
+            if w.len() != 3 {
+                return None;
+            }
+            [w[0], w[1], w[2]]
+        }
+    };
+    (v.iter().map(|c| c.abs()).sum::<i32>() == 1).then_some(v)
 }
 
 fn parse_pos(s: &str) -> Result<Pos, String> {
@@ -161,6 +185,14 @@ impl Design {
                     match k {
                         "name" => d.name = v.to_string(),
                         "origin" => origin = parse_pos(v).map_err(|e| err(&e))?,
+                        "stop" => {
+                            let words: Vec<&str> = v.split_whitespace().collect();
+                            if words.len() != 4 {
+                                return Err(err("expected 'stop: x y z <state>'"));
+                            }
+                            let p = parse_pos(&words[..3].join(" ")).map_err(|e| err(&e))?;
+                            d.stops.push((p, normalize_state(words[3]).map_err(|e| err(&e))?));
+                        }
                         _ => {
                             d.meta.insert(k.to_string(), v.to_string());
                         }

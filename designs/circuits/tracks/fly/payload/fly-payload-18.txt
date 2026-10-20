@@ -1,0 +1,54 @@
+name: fly-payload-18-24b
+circuit: flying-machine
+distance: 24
+travel: 1 0 0
+port payload: 1 -9 0
+port start: -1 0 0 minecraft:stone 1
+origin: 0 0 0
+palette:
+  G minecraft:gold_block
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  o minecraft:observer[facing=west,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=west]
+layer -9:
+  .G
+layer -8:
+  .S
+layer -7:
+  .S
+layer -6:
+  .S
+layer -5:
+  .S
+layer -4:
+  .S
+layer -3:
+  .S
+layer -2:
+  .S
+layer -1:
+  .S
+layer 0:
+  oSs
+layer 1:
+  .PSO
+layer 2:
+  ..S
+layer 3:
+  ..S
+layer 4:
+  ..S
+layer 5:
+  ..S
+layer 6:
+  ..S
+layer 7:
+  ..S
+layer 8:
+  ..S
+layer 9:
+  ..S
+layer 10:
+  ..G

@@ -348,6 +348,12 @@ fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPo
         return Err((Verdict::Fails, "on: the payload's state appears more than once".into()));
     }
     let extend = on.at.iter().rposition(|a| !*a).map(|i| i as u32 + 2).unwrap_or(1);
+    // the judge's rule: once extended (payload at the target, nothing moving), it must stay
+    if let Some(first) = on.at.iter().position(|a| *a)
+        && let Some(left) = on.at[first..].iter().position(|a| !*a)
+    {
+        return Err((Verdict::Fails, format!("on: extended at +{} but the payload leaves the target at +{} while the input is still on", first + 1, first + left + 1)));
+    }
     use_input(w, prep, "off")?;
     let off = run_phase(w, prep, params, "off", trace)?;
     let now = w.blocks();
