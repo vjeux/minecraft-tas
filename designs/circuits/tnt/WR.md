@@ -27,17 +27,34 @@ some of the pile back within reach. One TNT at a time (a period longer than the 
 landing far away (a drop under the machine) is safe. A 60-minute explosion-screened random search
 (the 15b launcher with a foot, plus 2 to 6 blocks of slime, obsidian, observers, pistons and
 redstone blocks, every duper screened standing on both grounds at 6 kicks) found no fast duper safe
-on the ground.
+on the ground. The one that is (clk-misc 2026-10-20, below) holds the engine with a catalog clock:
+a 14-tick period throws each TNT before the previous ones land, and they land 9 to 30 blocks away
+(7.4 to 27 on unbreakable ground), always past the 6.9-block reach; at a 10-tick period some land
+5.3 blocks away and about 1 game build in 30 fails.
 
-## Records and targets
+## The TNT duper (vjeux 21:47Z: ONE world-best implementation per kind)
 
-| variation | record now | target (why) | status |
-|---|---|---|---|
-| self-running, safe on the ground | 30 blocks, 13.2/min (tnt-slow-launch-30b: the launcher on a 91-tick clock, one TNT at a time, each lands 14 to 18 blocks away) | smaller: the clock is 7 blocks + a 6-block hold extension; a clock whose release is one push by itself saves the extension | record (archiving) |
-| FAST (200/min) self-running | tnt-launch-15b, 15 blocks, safe drop 8 | **safe drop 0** at 200/min: the pile must form where its blasts cannot throw a TNT back within 7 blocks. Tried: (a) a water channel exit (the precise aligner) at full rate: knocked TNT leave the channel; (b) a roofed channel: they leave by its open end; (c) a magma bubble-column shaft 4 and 8 deep under the stop wall: the first 8-14 TNT explode harmlessly in it, then blasts at the bottom throw the next ones up and out of the top (explodes at y 6, 3.5 blocks from the machine). Next: a bent shaft (no line of sight from the bottom to the entry), or a steeper launch (a vertical slime push) landing 30+ blocks away | open |
-| TRIGGERED, safe on the ground | 16 blocks (tnt-triggered-launch-16b: active-low input, obsidian foot) | 15: without the foot the slime frame drags the grass; a design whose moving slimes never rest on the ground could save it | record |
-| lever (switchable) | tnt-lever-launch-15b, safe drop 6 | safe drop 0: same as the fast one | open |
-| PRECISE | tnt-airburst, 58 blocks, safe on the ground (clk-misc 2026-10-20: the TNT is thrown 4 blocks into a fence post over a one-cell water channel, aligned against a second fence post, launched straight up; it replaced fly's 75-block one, which flung each TNT 9 blocks first; tnt-precise-slow-43b removed 2026-10-20: its TNT explode in its water, useless) | smaller: the timing line (17 blocks of hairpin and observers) is most of the extra; a closer trigger than the engine push would save it | open |
-| dropped | tnt-drop-16b, safe drop 31 (works over a deep pit only) | lower drop | open |
-| tileable | 4 copies, pitch 4 (explosions off) | judged on the ground | open |
-| slime-free | none | a honey frame cannot fling; the TNT must drop clear | open |
+**tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
+water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game
+builds (5 game runs of 16 builds, all robust). Two catalog parts: the 16-block engine
+(tnt-triggered-launch-16b's, without its input block) and the 6-block clock
+clk-obs-p14-lamp-obs-rb-stk-6b-b-0e0eb7, whose redstone block holds the engine's piston and steps
+away for 4 ticks of every 14 (the engine dupes only on such a release: a pulse on its piston primes
+nothing). Found by `mctas circuit tnt hold-scan` over every archived clock. Not precise: an aligner
+holds one TNT at a time (its slime launches everything on it) and an apex burst needs the launch
+at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 blocks, 13.2/min, is
+a step below).
+
+The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground).
+
+## Steps toward it (taken out of the archive 2026-10-20; their files stay where they were built)
+
+| step | what it was | why it is not the one |
+|---|---|---|
+| tnt-launch-15b (designs/circuits/tracks/tnt/tnt-launch-15b.txt) | the bare engine running free: 200/min, 15 blocks | safe drop 5-8: on the ground its pile is within blast reach |
+| tnt-slow-launch-30b | the engine on fly's crafter-loop clock + a 4-tick repeater hold: 13.2/min, 30 blocks | a bespoke hold; the catalog clock does it in 6 blocks at 6.5 times the rate |
+| tnt-airburst (designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt) | precise mid-air burst, 58 blocks, 13.2/min | precise caps the rate near 20/min (above) |
+| tnt-switch-launch-16b | the free engine with a lever: 200/min, safe drop 4 | same pile problem as the free engine |
+| tnt-drop-16b | drops each TNT straight down: safe drop 25-31 | needs a pit |
+| tileable | 4 copies, pitch 4 (explosions off) | judged on the ground: open |
+| slime-free | none | a honey frame cannot fling; the TNT must drop clear: open |

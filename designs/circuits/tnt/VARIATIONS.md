@@ -1,5 +1,10 @@
 # TNT dupers (study 9): the variations builds need, and how the judge measures each
 
+**The one TNT duper (vjeux 2026-10-20 21:47Z):** tnt-clocked-22b, 85.7 TNT/min, 22 blocks, safe on
+the ground, from two catalog parts (the 16-block engine held by a 6-block catalog clock); the other
+archived designs became steps toward it (WR.md "The TNT duper" and "Steps toward it"). The sections
+below are the study's history and measurements.
+
 Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use; no outside lookup.
 
 ## The mechanism (26.3 source)
