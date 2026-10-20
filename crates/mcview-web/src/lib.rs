@@ -914,9 +914,13 @@ impl App {
                     s.go_to_still(20_000);
                 }
             }
-            let look = scene::default_look(&s);
+            let mut look = scene::default_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
+            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect, scene::THUMB_WINDOW);
+            // a thumbnail is a picture, nothing to press: no outlines over a small build (the
+            // live viewer has them, with its tags)
+            look.outlines.clear();
+            look.port_outlines.clear();
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();

@@ -59,9 +59,16 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
         look.outlines.clear();
         look.port_outlines.clear();
     }
-    look.floor_margin = o.floor_margin;
-    // a door: the side its lever is seen from (clocks keep the real-game pictures' camera)
-    let mut cam = if s.mode.is_door() { scene::camera_showing_inputs(atlas, &s, &look, aspect) } else { scene::default_camera(&s, &look, aspect) };
+    // as the real-game pictures show it (`web compare`): their camera and their grass reach;
+    // else the viewer's (a door: the side its lever is seen from)
+    look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
+    let mut cam = if o.picture {
+        scene::picture_camera(&s, &look, aspect)
+    } else if s.mode.is_door() {
+        scene::camera_showing_inputs(atlas, &s, &look, aspect, scene::THUMB_WINDOW)
+    } else {
+        scene::view_camera(&s, &look, aspect, crate::camera::CAM_DIR, scene::THUMB_WINDOW)
+    };
     if o.yaw.is_some() || o.pitch.is_some() {
         if let Some(y) = o.yaw {
             cam.yaw = y.to_radians();
@@ -219,8 +226,9 @@ pub fn fit(off: &mut Offscreen, atlas: &Atlas, cases: &[(String, Vec<u8>)], w: u
         if !s.mode.is_door() {
             s.go_to_still(20_000);
         }
-        let look = scene::default_look(&s);
-        let cam = scene::default_camera(&s, &look, aspect);
+        let mut look = scene::default_look(&s);
+        look.floor_margin = Some(scene::PICTURE_GROUND_REACH);
+        let cam = scene::picture_camera(&s, &look, aspect);
         prepared.push(Case { mesh: scene::build(atlas, &s, 0.0, &look), cam, real });
     }
     let mut out = Vec::new();

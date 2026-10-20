@@ -346,7 +346,7 @@ impl Player {
     /// Turn the camera (and its home) to a side every lever and button can be seen and clicked
     /// from, if the pictures' side hides one.
     pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32) {
-        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect);
+        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect, scene::LIVE_WINDOW);
         self.home = self.camera;
         self.dirty = true;
     }

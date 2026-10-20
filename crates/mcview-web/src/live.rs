@@ -207,7 +207,7 @@ pub fn start(app: &mut App, id: u32) {
     let speed = button(SPEEDS[0].0, "Speed (1× = 20 game ticks per second, real time)");
     let _ = speed.style().set_property("font-size", "15px");
     let flip = button(ICON_LEVER, "Flip the lever (f), or tap the lever");
-    let containers = button(ICON_BOXES, "Show what the containers hold");
+    let containers = button(ICON_BOXES, "Show what every container holds (or tap one)");
     let _ = containers.style().set_property("display", "none");
     // the tick counter: a badge at the top right, fixed width (tabular digits), so nothing moves
     // while it runs and the bar's buttons fit a phone
@@ -548,8 +548,8 @@ pub fn load(app: &mut App, id: u32) {
                     p.session.attach_demo(d);
                     // the badge shows each phase in turn: as wide as its widest label from the
                     // start, so it never resizes while the demo plays
-                    let mut labels = vec!["demo · the judge's test".to_string()];
-                    labels.extend(p.phases.iter().map(|(_, _, l)| format!("demo · {l}")));
+                    let mut labels = vec![demo_text(&p, None)];
+                    labels.extend(p.phases.iter().map(|(_, _, ph)| demo_text(&p, Some(ph))));
                     let mut widest = 0i32;
                     for t in &labels {
                         l.status.set_text_content(Some(t));
@@ -617,8 +617,15 @@ pub fn load(app: &mut App, id: u32) {
             let mut playing = v.autoplay;
             if let Some((cam, was_playing, keep)) = l.prev.take() {
                 let p = l.player.as_mut().unwrap();
-                if keep && camera_sees(&cam, &p.session, &p.look, aspect) {
-                    p.camera = cam;
+                if keep {
+                    // the person's camera stays (its direction always); when the new build does
+                    // not fit it, the distance and target are fitted again (never cut)
+                    let mut c = cam;
+                    if !camera_fits(&c, &p.session, &p.look, aspect) {
+                        let (wx, y0, y1) = mcview::scene::LIVE_WINDOW;
+                        c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
+                    }
+                    p.camera = c;
                 }
                 playing |= was_playing;
             }
@@ -642,16 +649,28 @@ pub fn load(app: &mut App, id: u32) {
 }
 
 /// Does a camera still show a session's build (its frame box's centre inside the view)?
-fn camera_sees(cam: &mcview::camera::Camera, s: &mcview::session::Session, look: &mcview::scene::Look, aspect: f32) -> bool {
-    let (lo, hi) = mcview::scene::frame_bounds(s, look);
-    let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+/// Does the camera show the session's whole build (every point of [`mcview::scene::view_points`]
+/// inside the view)?
+fn camera_fits(cam: &mcview::camera::Camera, s: &mcview::session::Session, look: &mcview::scene::Look, aspect: f32) -> bool {
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
-    let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
-    let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
-    let z = dot(f);
     let t = (cam.vfov.to_radians() / 2.0).tan();
-    z > 0.1 && (dot(r) / (z * t * aspect)).abs() < 1.2 && (dot(u) / (z * t)).abs() < 1.2
+    mcview::scene::view_points(s, look).iter().all(|c| {
+        let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f);
+        z > 0.1 && (dot(r) / (z * t * aspect)).abs() <= 0.97 && (dot(u) / (z * t)).abs() <= 0.97
+    })
+}
+
+/// The demo badge's text for a phase label: `demo: A on, B off`.
+fn demo_text(p: &Player, phase: Option<&str>) -> String {
+    let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+    let kind = p.session.design.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
+    match phase {
+        Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
+        None => "demo: the judge's test".to_string(),
+    }
 }
 
 /// Advance and draw one frame; true while it needs more frames (playing, dragging).
@@ -791,18 +810,15 @@ impl Live {
     }
 
     fn toggle_containers(&mut self) {
-        self.overlays.containers_on = !self.overlays.containers_on;
-        let _ = self.containers.style().set_property("color", if self.overlays.containers_on { "#ffd27a" } else { "#fff" });
+        self.overlays.show_all = !self.overlays.show_all;
+        let _ = self.containers.style().set_property("color", if self.overlays.show_all { "#ffd27a" } else { "#fff" });
         self.redraw = true;
     }
 
-    /// The badge: the demo's phase while it runs, else what runs.
+    /// The badge: the demo's phase (in words) while it runs, else what runs.
     fn sync_status(&mut self) {
         let text = match &self.player {
-            Some(p) if p.session.demo.is_some() => match p.phase() {
-                Some(ph) => format!("demo · {ph}"),
-                None => "demo · the judge's test".to_string(),
-            },
+            Some(p) if p.session.demo.is_some() => demo_text(p, p.phase()),
             _ => self.base_status.clone(),
         };
         if text != self.shown_status {
@@ -1033,6 +1049,14 @@ impl Live {
         let x = ((e.client_x() as f64 - r.left()) / r.width().max(1.0) * 2.0 - 1.0) as f32;
         let y = (1.0 - (e.client_y() as f64 - r.top()) / r.height().max(1.0) * 2.0) as f32;
         let aspect = (r.width() / r.height().max(1.0)) as f32;
+        // a container tapped (not an input): its label shows or hides
+        if let Some(p) = self.player.as_ref()
+            && p.input_at(atlas, x, y, aspect).is_none()
+            && self.overlays.toggle_pin_at(e.client_x() as f64 - r.left(), e.client_y() as f64 - r.top(), p.pick(atlas, x, y, aspect))
+        {
+            self.redraw = true;
+            return;
+        }
         if let Some(p) = self.player.as_mut()
             && p.click(atlas, x, y, aspect).is_some()
         {

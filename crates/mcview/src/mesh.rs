@@ -431,7 +431,7 @@ impl<'a> Builder<'a> {
             self.add_model(&m, base, Some(cell), None);
             return;
         }
-        let t = 0.6;
+        let t = 0.4;
         let (a, b) = (-0.3, 16.3);
         let mut parts = Vec::new();
         for (from, to) in [
