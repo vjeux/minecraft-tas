@@ -4,6 +4,12 @@
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
 
+**[counter18-ring3-ring3-bulb1](archive/counter18-ring3-ring3-bulb1.txt)** (counter 18, counter 18; 20 blocks: comparator, copper_bulb, dropper, hopper, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [counter18-ring9-bulb1](archive/counter18-ring9-bulb1.txt) | 28 | redstone_wire |
+
 **[counter2-bulb](archive/counter2-bulb.txt)** (counter 2, counter 2; 3 blocks: comparator, copper_bulb, stone):
 
 | variant | blocks | adds |
