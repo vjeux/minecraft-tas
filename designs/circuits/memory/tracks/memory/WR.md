@@ -101,3 +101,14 @@ Same mechanism, priced part by part from today's tricks, should land near 18:
 - Empty detection: comparator a reads A and points into stone Ka, comparator b reads B into Kb; a wall torch on each is lit while its dropper is EMPTY (a, b, 2 supports, Ka, Kb, 2 torches = 8).
 - W: the copper bulb, touching BOTH torches (the 2-block NAND trick: a bulb is powered by any neighbouring torch, and a torch also powers a bulb directly above or below it) (1).
 The hard part is geometry, not logic: Ka and Kb sit on the far sides of A and B, and both torches must touch W. Torches above or below W count too, which is the freedom a layout should use. Worth a small layout search (a few roles, a 5x4x5 box) rather than hand placement.
+
+### Item counter layout notes (2026-10-20, in progress)
+
+Pieces that fit together (each checked against the source, none judged yet as a whole):
+- Detectors staggered so their torches share a bulb: comparator a at (0,1,-1) reads A; comparator b at (1,1,-2) reads B THROUGH a solid block at (1,1,-1). Their output blocks Ka (0,1,-2) and Kb (1,1,-3) are diagonal, so torches standing on them, (0,2,-2) and (1,2,-3), both touch a bulb W at (1,2,-2). A stone at a comparator's side is ignored (getControlInputSignal reads only redstone blocks, dust and diodes).
+- C at (1,2,-1) reads W and sits on the through-block (no support block). Its output faces the cell above B.
+- Input: the judge's stone directly above A (powers A, updates it); a dust lying on B, next to that stone, carries the input to B (dust reads a strongly powered neighbour without connecting to it).
+Traps found:
+- A solid block above B, powered by C, also quasi-powers A: A checks the cell above itself, and that block is a neighbour of it.
+- The inverted hold (a torch for NOT W) must not be fed by the input path: if the input dust also powers the torch's block, the torch blinks with every pulse and re-fires the held dropper when it relights (a dropper fires on every rising edge of its power).
+- Pile starts in the dropper that the hold leaves free while W is off.
