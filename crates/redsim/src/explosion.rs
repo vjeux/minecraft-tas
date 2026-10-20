@@ -148,19 +148,44 @@ fn resistance(w: &World, p: BlockPos, b: &Block) -> Option<f32> {
 }
 
 /// A Java `HashSet<BlockPos>` (`HashMap`'s table: 16 buckets, doubled past 3/4 full, a bucket of 9
-/// first doubling a small table; insertion order within a bucket, kept by every split): only
-/// what the explosion needs, its iteration order.
+/// first doubling a small table; insertion order within a bucket, kept by every split; a bucket of
+/// 9 in a table of 64 or more becomes a red-black TREE whose linked list is the iteration order:
+/// `TreeNode.treeify` / `putTreeVal` (a new node right after its tree parent) / `balanceInsertion`
+/// / `moveRootToFront` / `split` / `untreeify`, ported from `java.util.HashMap`): only what the
+/// explosion needs, its iteration order.
 struct JavaHashSet {
-    bins: Vec<Vec<(u32, BlockPos)>>,
+    bins: Vec<Bin>,
+    /// The tree nodes of every tree bin.
+    nodes: Vec<TNode>,
     size: usize,
     threshold: usize,
-    /// A bucket of 9 in a table of 64 or more becomes a tree (another iteration order).
-    treeified: bool,
+    /// Two keys with the same hash in one tree (Java breaks the tie by identity hash codes: not
+    /// reproducible). Cannot happen within 31 blocks.
+    tie: bool,
+}
+
+#[derive(Clone)]
+enum Bin {
+    List(Vec<(i32, BlockPos)>),
+    /// The first node of the bin's list (the tree's root after every `moveRootToFront`).
+    Tree(usize),
+}
+
+#[derive(Clone, Copy)]
+struct TNode {
+    h: i32,
+    p: BlockPos,
+    parent: Option<usize>,
+    left: Option<usize>,
+    right: Option<usize>,
+    red: bool,
+    next: Option<usize>,
+    prev: Option<usize>,
 }
 
 impl JavaHashSet {
     fn new() -> JavaHashSet {
-        JavaHashSet { bins: Vec::new(), size: 0, threshold: 0, treeified: false }
+        JavaHashSet { bins: Vec::new(), nodes: Vec::new(), size: 0, threshold: 0, tie: false }
     }
 
     /// `HashMap.hash(BlockPos)`: `Vec3i.hashCode` = `(y + z * 31) * 31 + x`, spread `h ^ (h >>> 16)`.
@@ -169,17 +194,301 @@ impl JavaHashSet {
         h ^ (h >> 16)
     }
 
+    /// A bin's keys in iteration order.
+    fn bin_items(&self, b: &Bin) -> Vec<(i32, BlockPos)> {
+        match b {
+            Bin::List(v) => v.clone(),
+            Bin::Tree(head) => {
+                let mut v = Vec::new();
+                let mut e = Some(*head);
+                while let Some(i) = e {
+                    v.push((self.nodes[i].h, self.nodes[i].p));
+                    e = self.nodes[i].next;
+                }
+                v
+            }
+        }
+    }
+
     fn resize(&mut self) {
         let old = self.bins.len();
         let (cap, thr) = if old == 0 { (16, 12) } else { (old * 2, self.threshold * 2) };
-        let mut bins: Vec<Vec<(u32, BlockPos)>> = vec![Vec::new(); cap];
-        for bin in std::mem::take(&mut self.bins) {
-            for (h, p) in bin {
-                bins[h as usize & (cap - 1)].push((h, p));
+        let mut bins: Vec<Bin> = vec![Bin::List(Vec::new()); cap];
+        let old_bins = std::mem::take(&mut self.bins);
+        for (j, bin) in old_bins.into_iter().enumerate() {
+            match bin {
+                Bin::List(v) => {
+                    for (h, p) in v {
+                        if let Bin::List(t) = &mut bins[h as u32 as usize & (cap - 1)] {
+                            t.push((h, p));
+                        }
+                    }
+                }
+                Bin::Tree(head) => {
+                    // TreeNode.split: lo / hi lists in list order; a side of 6 or fewer untreeified,
+                    // a side that got everything keeps its tree, else re-treeified
+                    let items = self.bin_items(&Bin::Tree(head));
+                    let lo: Vec<(i32, BlockPos)> = items.iter().copied().filter(|(h, _)| *h as u32 as usize & old == 0).collect();
+                    let hi: Vec<(i32, BlockPos)> = items.iter().copied().filter(|(h, _)| *h as u32 as usize & old != 0).collect();
+                    for (side, idx, other_empty) in [(&lo, j, hi.is_empty()), (&hi, j + old, lo.is_empty())] {
+                        if side.is_empty() {
+                            continue;
+                        }
+                        bins[idx] = if side.len() <= 6 {
+                            Bin::List(side.clone())
+                        } else if other_empty {
+                            Bin::Tree(head)
+                        } else {
+                            Bin::Tree(self.treeify(side))
+                        };
+                    }
+                }
             }
         }
         self.bins = bins;
         self.threshold = thr;
+    }
+
+    fn new_node(&mut self, h: i32, p: BlockPos) -> usize {
+        self.nodes.push(TNode { h, p, parent: None, left: None, right: None, red: false, next: None, prev: None });
+        self.nodes.len() - 1
+    }
+
+    /// `TreeNode.treeify` of a list (fresh nodes linked in list order): returns the bin's new first
+    /// node (the root, moved to the front).
+    fn treeify(&mut self, items: &[(i32, BlockPos)]) -> usize {
+        let ids: Vec<usize> = items.iter().map(|&(h, p)| self.new_node(h, p)).collect();
+        for k in 0..ids.len() {
+            self.nodes[ids[k]].prev = if k > 0 { Some(ids[k - 1]) } else { None };
+            self.nodes[ids[k]].next = ids.get(k + 1).copied();
+        }
+        let mut root: Option<usize> = None;
+        for &x in &ids {
+            match root {
+                None => {
+                    self.nodes[x].parent = None;
+                    self.nodes[x].red = false;
+                    root = Some(x);
+                }
+                Some(r) => {
+                    let h = self.nodes[x].h;
+                    let mut p = r;
+                    loop {
+                        let ph = self.nodes[p].h;
+                        let dir = if ph > h {
+                            -1
+                        } else if ph < h {
+                            1
+                        } else {
+                            self.tie = true;
+                            -1
+                        };
+                        let next = if dir <= 0 { self.nodes[p].left } else { self.nodes[p].right };
+                        match next {
+                            Some(c) => p = c,
+                            None => {
+                                self.nodes[x].parent = Some(p);
+                                if dir <= 0 {
+                                    self.nodes[p].left = Some(x);
+                                } else {
+                                    self.nodes[p].right = Some(x);
+                                }
+                                root = Some(self.balance_insertion(r, x));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let root = root.expect("a tree bin has nodes");
+        self.move_root_to_front(ids[0], root)
+    }
+
+    /// `moveRootToFront`: the root first in the bin's list (`first` is the current first node);
+    /// returns the new first node.
+    fn move_root_to_front(&mut self, first: usize, root: usize) -> usize {
+        if root == first {
+            return first;
+        }
+        let (rp, rn) = (self.nodes[root].prev, self.nodes[root].next);
+        if let Some(n) = rn {
+            self.nodes[n].prev = rp;
+        }
+        if let Some(p) = rp {
+            self.nodes[p].next = rn;
+        }
+        self.nodes[first].prev = Some(root);
+        self.nodes[root].next = Some(first);
+        self.nodes[root].prev = None;
+        root
+    }
+
+    fn rotate_left(&mut self, mut root: usize, p: usize) -> usize {
+        if let Some(r) = self.nodes[p].right {
+            let rl = self.nodes[r].left;
+            self.nodes[p].right = rl;
+            if let Some(rl) = rl {
+                self.nodes[rl].parent = Some(p);
+            }
+            let pp = self.nodes[p].parent;
+            self.nodes[r].parent = pp;
+            match pp {
+                None => {
+                    root = r;
+                    self.nodes[r].red = false;
+                }
+                Some(pp) => {
+                    if self.nodes[pp].left == Some(p) {
+                        self.nodes[pp].left = Some(r);
+                    } else {
+                        self.nodes[pp].right = Some(r);
+                    }
+                }
+            }
+            self.nodes[r].left = Some(p);
+            self.nodes[p].parent = Some(r);
+        }
+        root
+    }
+
+    fn rotate_right(&mut self, mut root: usize, p: usize) -> usize {
+        if let Some(l) = self.nodes[p].left {
+            let lr = self.nodes[l].right;
+            self.nodes[p].left = lr;
+            if let Some(lr) = lr {
+                self.nodes[lr].parent = Some(p);
+            }
+            let pp = self.nodes[p].parent;
+            self.nodes[l].parent = pp;
+            match pp {
+                None => {
+                    root = l;
+                    self.nodes[l].red = false;
+                }
+                Some(pp) => {
+                    if self.nodes[pp].right == Some(p) {
+                        self.nodes[pp].right = Some(l);
+                    } else {
+                        self.nodes[pp].left = Some(l);
+                    }
+                }
+            }
+            self.nodes[l].right = Some(p);
+            self.nodes[p].parent = Some(l);
+        }
+        root
+    }
+
+    /// `balanceInsertion`: returns the root.
+    fn balance_insertion(&mut self, mut root: usize, mut x: usize) -> usize {
+        self.nodes[x].red = true;
+        loop {
+            let Some(mut xp) = self.nodes[x].parent else {
+                self.nodes[x].red = false;
+                return x;
+            };
+            if !self.nodes[xp].red {
+                return root;
+            }
+            let Some(mut xpp) = self.nodes[xp].parent else { return root };
+            let xppl = self.nodes[xpp].left;
+            if Some(xp) == xppl {
+                let xppr = self.nodes[xpp].right;
+                if let Some(u) = xppr.filter(|&u| self.nodes[u].red) {
+                    self.nodes[u].red = false;
+                    self.nodes[xp].red = false;
+                    self.nodes[xpp].red = true;
+                    x = xpp;
+                } else {
+                    let mut xpp_opt = Some(xpp);
+                    let mut xp_opt = Some(xp);
+                    if self.nodes[xp].right == Some(x) {
+                        x = xp;
+                        root = self.rotate_left(root, x);
+                        xp_opt = self.nodes[x].parent;
+                        xpp_opt = xp_opt.and_then(|q| self.nodes[q].parent);
+                    }
+                    if let Some(q) = xp_opt {
+                        xp = q;
+                        self.nodes[xp].red = false;
+                        if let Some(g) = xpp_opt {
+                            xpp = g;
+                            self.nodes[xpp].red = true;
+                            root = self.rotate_right(root, xpp);
+                        }
+                    }
+                }
+            } else {
+                if let Some(u) = xppl.filter(|&u| self.nodes[u].red) {
+                    self.nodes[u].red = false;
+                    self.nodes[xp].red = false;
+                    self.nodes[xpp].red = true;
+                    x = xpp;
+                } else {
+                    let mut xpp_opt = Some(xpp);
+                    let mut xp_opt = Some(xp);
+                    if self.nodes[xp].left == Some(x) {
+                        x = xp;
+                        root = self.rotate_right(root, x);
+                        xp_opt = self.nodes[x].parent;
+                        xpp_opt = xp_opt.and_then(|q| self.nodes[q].parent);
+                    }
+                    if let Some(q) = xp_opt {
+                        xp = q;
+                        self.nodes[xp].red = false;
+                        if let Some(g) = xpp_opt {
+                            xpp = g;
+                            self.nodes[xpp].red = true;
+                            root = self.rotate_left(root, xpp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// `putTreeVal` into the tree bin whose first node (root) is `head`: false when the key is
+    /// already there; returns the bin's new first node.
+    fn put_tree(&mut self, head: usize, h: i32, p: BlockPos) -> (bool, usize) {
+        let root = head;
+        let mut q = root;
+        loop {
+            let ph = self.nodes[q].h;
+            let dir = if ph > h {
+                -1
+            } else if ph < h {
+                1
+            } else if self.nodes[q].p == p {
+                return (false, head);
+            } else {
+                self.tie = true;
+                -1
+            };
+            let xp = q;
+            let next = if dir <= 0 { self.nodes[xp].left } else { self.nodes[xp].right };
+            match next {
+                Some(c) => q = c,
+                None => {
+                    let xpn = self.nodes[xp].next;
+                    let x = self.new_node(h, p);
+                    self.nodes[x].next = xpn;
+                    if dir <= 0 {
+                        self.nodes[xp].left = Some(x);
+                    } else {
+                        self.nodes[xp].right = Some(x);
+                    }
+                    self.nodes[xp].next = Some(x);
+                    self.nodes[x].parent = Some(xp);
+                    self.nodes[x].prev = Some(xp);
+                    if let Some(n) = xpn {
+                        self.nodes[n].prev = Some(x);
+                    }
+                    let r = self.balance_insertion(root, x);
+                    return (true, self.move_root_to_front(head, r));
+                }
+            }
+        }
     }
 
     /// `HashMap.putVal` (an existing key changes nothing).
@@ -187,20 +496,35 @@ impl JavaHashSet {
         if self.bins.is_empty() {
             self.resize();
         }
-        let h = Self::hash(p);
+        let hu = Self::hash(p);
+        let h = hu as i32;
         let n = self.bins.len();
-        let bin = &mut self.bins[h as usize & (n - 1)];
-        if bin.iter().any(|(_, q)| *q == p) {
-            return;
-        }
-        let had = bin.len();
-        bin.push((h, p));
-        // the new node appended after `had` nodes: binCount = had - 1 >= TREEIFY_THRESHOLD - 1
-        if had >= 8 {
-            if n < 64 {
+        let idx = hu as usize & (n - 1);
+        if let Bin::Tree(head) = self.bins[idx] {
+            let (added, nh) = self.put_tree(head, h, p);
+            self.bins[idx] = Bin::Tree(nh);
+            if !added {
+                return;
+            }
+        } else {
+            let mut grow = 0;
+            if let Bin::List(bin) = &mut self.bins[idx] {
+                if bin.iter().any(|(_, q)| *q == p) {
+                    return;
+                }
+                let had = bin.len();
+                bin.push((h, p));
+                // the new node appended after `had` nodes: binCount = had - 1 >= TREEIFY_THRESHOLD - 1
+                if had >= 8 {
+                    grow = if n < 64 { 1 } else { 2 };
+                }
+            }
+            if grow == 1 {
                 self.resize();
-            } else {
-                self.treeified = true;
+            } else if grow == 2 {
+                let items = self.bin_items(&self.bins[idx].clone());
+                let head = self.treeify(&items);
+                self.bins[idx] = Bin::Tree(head);
             }
         }
         self.size += 1;
@@ -211,7 +535,7 @@ impl JavaHashSet {
 
     /// `new ObjectArrayList<>(set)`: the iteration order.
     fn into_vec(self) -> Vec<BlockPos> {
-        self.bins.into_iter().flatten().map(|(_, p)| p).collect()
+        self.bins.iter().flat_map(|b| self.bin_items(b)).map(|(_, p)| p).collect()
     }
 }
 
@@ -264,8 +588,8 @@ fn exploded_positions(w: &mut World, center: Vec3, radius: f32, rolls: Rolls) ->
             }
         }
     }
-    if set.treeified {
-        w.errors.push("explosion: a bucket of the exploded set's HashSet became a tree (its iteration order is not modeled)".into());
+    if set.tie {
+        w.errors.push("explosion: two cells of the exploded set share a hash in one tree bin (Java breaks the tie by identity hash codes)".into());
     }
     set.into_vec()
 }
