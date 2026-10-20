@@ -6,7 +6,7 @@ enforces are in [rules.md](rules.md); how the simulator, the bridge and the vide
 [internals.md](internals.md). The clock study's commands (`mctas clock sim | verify | ...`), its
 judge and its design format are in [clocks.md](clocks.md). The website of every build
 (`mctas site build | publish | serve | smoke | deploy`) is in [site.md](site.md); Litematica
-schematics of any design (`mctas litematic export | read | check`) in [litematic.md](litematic.md).
+schematics of any design (`mctas litematic export | read | check | verify-ingame`) in [litematic.md](litematic.md).
 
 ## The workflow behind the records
 
@@ -28,6 +28,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `mctas setup` | once per machine: installs Java 25, the 26.3 server jar and libraries, and compiles the bridge (everything lives in `$MCTAS_HOME`, default `~/.cache/mctas`) |
 | `mctas src decompile` | once: readable game source in `$MCTAS_HOME` (Vineflower) |
 | `mctas src grep\|find\|show\|path` | to read the ground truth for a mechanic: `src grep 'class PistonBaseBlock'`, `src show PistonBaseBlock --grep getNeighborSignal -C 12` |
+| `mctas src --client decompile\|grep\|find\|show` | the CLIENT jar's source (models, renderers: `src --client show BoatModel`), decompiled once from the client jar already downloaded (`versions/<v>/client.jar`) |
 | `mctas sim repl` / `sim place` | talk to a simulator in JSON lines ([internals.md](internals.md#bridge-protocol)) / place a design and show what is pending |
 | `mctas bench` | measure throughput and memory with many workers and sandboxes |
 
@@ -60,7 +61,7 @@ Run them all with `mctas door drive --quiet designs/gadgets/*.drive`.
 | `door mech-synth <base> [--add k] [--pulses-only] [--verify N --out-dir DIR]` | mechanism synthesis in a macro piston model (a port of `PistonStructureResolver`): pistons, slime and blocks around the door, cheapest open and close paths, one symmetric event sequence for both lever edges; writes ideal-input designs and `door ideal` schedules and replays the best. Catalogs: `tracks/mech-synth/NOTES.md` |
 | `door mech-wire <schedule>...` | wire a mechanism from its ideal-input schedule: route every piston cell's wave from a lever at each lever spot, rank by total blocks, judge the best (an upper bound: ~12 blocks worse than hand wiring) |
 | `door topology <families CATALOG.tsv> [--only 7x8,8x7] [--verbose]`, `door mech-synth <base> --just-base --topology x0,y0:x1,y1` | can a mechanism be wired inside a volume box with FULL seamless at all? (topology.rs, track box56): the free cells split into wiring components; a piston links two components when one feeds it and the other watches it, carrying one pulse per change of the watched cell (pulse mergers); reports WIRABLE / NOT per mechanism under strict and permissive parity (accepts e89, h44, flat-b-v7; rejects all 99 7x8/8x7 catalog entries under strict parity) |
-| `door connect <families CATALOG.tsv> --boxes 7x9,7x8 [--only ids] [--cap N] [--verbose]` | connectivity + ORDER check (connect.rs, track wire64b), parity ignored: every placement of each entry in each box; regions of free cells (merged through unswept ring stones); a piston is fed from a region next to it or its quasi cell, directly, through a ring stone or through a door block parked there (conduction); a region wakes when it can watch a change; every event order (pulses, levels on pistons extended at rest) is searched with only the lever's region awake at each flip. NOT wirable = no order works (exhaustive), UNDECIDED = the state cap was hit. Accepts e89 and flat43-full in their 8x9 boxes, rejects both in 7x9 |
+| `door connect <families CATALOG.tsv> --boxes 7x9,7x8 [--only ids] [--cap N] [--verbose]` | connectivity + ORDER check (connect.rs, track wire64b), parity ignored: every placement of each entry in each box; regions of free cells (merged through unswept ring stones); a piston is fed from a region next to it or its quasi cell, directly, through a ring stone or through a door block parked there (conduction); a region wakes when it can watch a change; every event order (pulses, levels on pistons extended at rest) is searched with only the lever's region awake at each flip. A SEALED free cell (a region on its own with nothing beside or below it that stays put) holds an observer only: it feeds the cell opposite the change it watched, and reads no powered block. The lever is tried in every region and also OUTSIDE the box (the volume excludes it): on the back face of a piston that never moves (it holds that piston and, by quasi-connectivity, the pistons whose above cell touches the lever: e88's top trio) and on the outer face of a static block (track d67). NOT wirable = no order works (exhaustive), UNDECIDED = the state cap was hit. Accepts e89 and flat43-full in their 8x9 boxes, rejects both in 7x9; accepts the 7x8 e78s-56b-43 and the t7b family in their own boxes |
 
 ## Searching for fewer blocks or ticks
 

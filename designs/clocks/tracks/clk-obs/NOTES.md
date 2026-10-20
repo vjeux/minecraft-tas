@@ -74,9 +74,11 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   with P <= 3 among every <= 5-block polycube (the full palette, and piston/sticky/redstone
   block/slime/stone), every 6-block polycube with exactly 4 pistons + 2 redstone blocks
   (1.94 G sims, 42 min), and every 6-subset (connected or not) of a 3x2x2 box (982 M sims) or a
-  2x3x2 box (496 M sims) with 4 pistons + 2 redstone blocks. Running: every 6-block polycube of
-  piston/sticky/redstone block/slime/stone with >= 2 pistons and a powered piston as placed
-  (`--need-powered-piston`: lossless without observers, nothing else can start a move).
+  2x3x2 box (496 M sims) with 4 pistons + 2 redstone blocks, and EVERY 6-block polycube of
+  piston/sticky/redstone block/slime/stone with a redstone block and a powered piston as placed
+  (`--need-powered-piston`: lossless without observers, nothing else can start a move): 21.9 G
+  sims, 191 K minimal clocks, periods 6, 9, 12, 18, 24 only (P18 and P24 new for observer-free
+  clocks, archived). So no block-update clock of period 3 has 6 blocks or fewer in these palettes.
 * Pure observer clocks: each observer watches one cell, so the watch graph is functional (one
   cycle per component) and lattice cycles have even length n. One pulse runs 2 gt per observer:
   P = 2n for n >= 4. The pair (n = 2) has two stable modes chosen by the order of the two

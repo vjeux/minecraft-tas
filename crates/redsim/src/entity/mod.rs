@@ -12,10 +12,15 @@
 //! model error (a run using them is not trustworthy) until M2 fills them. Falling blocks still
 //! live in `gravity.rs` (they move into this list as a kind in M2, bit-identical).
 
+pub mod armor_stand;
 pub mod boat;
+pub mod collide;
+pub mod fluid_push;
 pub mod item;
+pub mod kinds;
 pub mod minecart;
 pub mod mth;
+pub mod primed_tnt;
 pub mod vec3;
 
 use crate::block::Block;
@@ -39,6 +44,9 @@ pub enum EntityKind {
     Boat(boat::BoatState),
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
+    ArmorStand(armor_stand::ArmorStandState),
+    /// Track tnt: a primed TNT (`primed_tnt.rs`), only with `World::tnt_kick`.
+    PrimedTnt(primed_tnt::PrimedTntState),
 }
 
 impl EntityKind {
@@ -48,6 +56,19 @@ impl EntityKind {
             EntityKind::Boat(_) => (boat::WIDTH, boat::HEIGHT),
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
+            EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+            EntityKind::PrimedTnt(_) => (primed_tnt::WIDTH, primed_tnt::HEIGHT),
+        }
+    }
+
+    /// `EntityDimensions.eyeHeight` (`eyeHeight(..)` in `EntityTypes`, else height * 0.85F).
+    pub fn eye_height(&self) -> f32 {
+        match self {
+            EntityKind::Boat(_) => 0.5625,
+            EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
+            EntityKind::Item(_) => 0.2125,
+            EntityKind::ArmorStand(_) => 1.7775,
+            EntityKind::PrimedTnt(_) => primed_tnt::EYE_HEIGHT,
         }
     }
 }
@@ -89,6 +110,27 @@ pub struct Entity {
     pub first_tick: bool,
     pub fall_distance: f64,
     pub tick_count: i32,
+    // ---- movement (collide.rs, clk-misc) ----
+    /// `movementThisTick` (recorded by `move`, replayed by `applyEffectsFromBlocks`).
+    pub movement_this_tick: Vec<collide::Movement>,
+    /// `finalMovementsThisTick`.
+    pub final_movements: Vec<collide::Movement>,
+    /// `mainSupportingBlockPos`.
+    pub main_support: Option<BlockPos>,
+    /// `onGroundNoBlocks`.
+    pub on_ground_no_blocks: bool,
+    /// `stuckSpeedMultiplier` (cobwebs and the like: never set by a modeled block).
+    pub stuck_speed: Vec3,
+    pub no_physics: bool,
+    /// `lastKnownPosition` / `lastKnownSpeed` (`computeSpeed`).
+    pub last_known_position: Option<Vec3>,
+    pub last_known_speed: Vec3,
+    pub invulnerable_time: i32,
+    /// The game's network id (`getId()`), which some logic reads (`ItemEntity.tick`'s
+    /// `(tickCount + getId()) % 4`): the insertion id unless a trace gives the game's.
+    pub network_id: i32,
+    /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
+    pub fluid: fluid_push::FluidInteraction,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -130,6 +172,17 @@ impl Entity {
             first_tick: true,
             fall_distance: 0.0,
             tick_count: 0,
+            movement_this_tick: Vec::new(),
+            final_movements: Vec::new(),
+            main_support: None,
+            on_ground_no_blocks: false,
+            stuck_speed: Vec3::ZERO,
+            no_physics: false,
+            last_known_position: None,
+            last_known_speed: Vec3::ZERO,
+            invulnerable_time: 0,
+            network_id: id as i32,
+            fluid: Default::default(),
         }
     }
 
@@ -153,6 +206,197 @@ pub struct Entities {
     pub next_id: u32,
 }
 
+/// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
+fn snbt_keys(nbt: &str) -> Vec<String> {
+    let s = nbt.trim();
+    let inner = s.strip_prefix('{').and_then(|x| x.strip_suffix('}')).unwrap_or(s);
+    let mut keys = Vec::new();
+    let (mut depth, mut quote, mut at_key) = (0i32, false, true);
+    let mut cur = String::new();
+    for ch in inner.chars() {
+        if quote {
+            if ch == '"' {
+                quote = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => quote = true,
+            '[' | '{' => depth += 1,
+            ']' | '}' => depth -= 1,
+            ',' if depth == 0 => {
+                at_key = true;
+                cur.clear();
+                continue;
+            }
+            ':' if depth == 0 && at_key => {
+                keys.push(cur.trim().to_string());
+                at_key = false;
+                continue;
+            }
+            _ => {}
+        }
+        if at_key && depth == 0 {
+            cur.push(ch);
+        }
+    }
+    keys
+}
+
+/// `summon <type> x y z [nbt]` as the judge summons a design's entities (`entity:` lines): the
+/// kind from the type id (payload defaults; the kinds' owners refine them from the NBT), the
+/// position, and `Rotation:[yaw, pitch]` from the NBT when given. Returns the entity's id. NBT
+/// redsim does not model (container contents...) is refused.
+pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
+    let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
+    if id == "falling_block" {
+        return spawn_falling_block(w, pos, nbt);
+    }
+    // (clk-misc) container entities: their contents (Items) and size
+    let container_size = match id {
+        "hopper_minecart" => Some(5),
+        _ if id.ends_with("_chest_boat") || id == "bamboo_chest_raft" => Some(27),
+        _ => None,
+    };
+    if let Some(n) = nbt {
+        let allowed: &[&str] = if id == "item" {
+            &["Motion", "Rotation", "Item", "PickupDelay", "Age"]
+        } else if container_size.is_some() {
+            &["Motion", "Rotation", "Items"]
+        } else {
+            &["Motion", "Rotation"]
+        };
+        if let Some(k) = snbt_keys(n).into_iter().find(|k| !allowed.contains(&k.as_str())) {
+            return Err(format!("entity {type_id} with {k} in its data ({n}) is not modeled by redsim"));
+        }
+    }
+    let kind = match id {
+        "oak_boat" | "spruce_boat" | "birch_boat" | "jungle_boat" | "acacia_boat" | "dark_oak_boat" | "mangrove_boat" | "cherry_boat" | "pale_oak_boat" | "bamboo_raft" => EntityKind::Boat(boat::BoatState::default()),
+        "oak_chest_boat" | "spruce_chest_boat" | "birch_chest_boat" | "jungle_chest_boat" | "acacia_chest_boat" | "dark_oak_chest_boat" | "mangrove_chest_boat" | "cherry_chest_boat" | "pale_oak_chest_boat" | "bamboo_chest_raft" => {
+            EntityKind::Boat(boat::BoatState { chest: true, ..Default::default() })
+        }
+        "minecart" => EntityKind::Minecart(minecart::MinecartState::default()),
+        "hopper_minecart" => EntityKind::Minecart(minecart::MinecartState { hopper: true, enabled: true, ..Default::default() }),
+        "armor_stand" => EntityKind::ArmorStand(armor_stand::ArmorStandState::default()),
+        "item" => EntityKind::Item(item::ItemState::from_nbt(nbt)),
+        _ => return Err(format!("entity {type_id} is not modeled by redsim")),
+    };
+    let items = match (container_size, nbt) {
+        (Some(_), Some(n)) => crate::redstone::container::entity_items(n).map_err(|e| format!("entity {type_id}: {e}"))?,
+        _ => Vec::new(),
+    };
+    let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
+    if let Some(n) = nbt
+        && let Some(i) = n.find("Rotation:[")
+    {
+        let rest = &n[i + "Rotation:[".len()..];
+        let inner = rest.split(']').next().unwrap_or("");
+        let v: Vec<f32> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['f', 'F', 'd', 'D']).parse().ok()).collect();
+        if let Some(y) = v.first() {
+            yaw = *y;
+        }
+        if let Some(p) = v.get(1) {
+            pitch = *p;
+        }
+    }
+    let id = w.entities.add(kind, Vec3::new(pos[0], pos[1], pos[2]), yaw);
+    if let Some(e) = w.entities.list.last_mut() {
+        e.x_rot = pitch;
+        e.x_rot_o = pitch;
+        // Motion:[x, y, z] (doubles)
+        if let Some(n) = nbt
+            && let Some(i) = n.find("Motion:[")
+        {
+            let inner = n[i + "Motion:[".len()..].split(']').next().unwrap_or("");
+            let v: Vec<f64> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['d', 'D', 'f', 'F']).parse().ok()).collect();
+            if v.len() == 3 {
+                e.delta_movement = Vec3::new(v[0], v[1], v[2]);
+            }
+        }
+    }
+    if let Some(size) = container_size {
+        let mut c = crate::redstone::container::ContainerBe::entity(size);
+        for (slot, st) in items {
+            if slot < size {
+                c.slots[slot] = Some(st);
+            }
+        }
+        w.containers.entities.insert(id, c);
+    }
+    Ok(id)
+}
+
+/// `summon falling_block x y z {BlockState:"<block>" or {id:"<block>", properties:{...}}, Time:n,
+/// Motion:[0d, y, 0d]}` (26.3's `BlockState.CODEC`: a block name or `{id, properties}`; the old
+/// `{Name, Properties}` fails to decode in the game, which then falls back to sand, so it is
+/// refused): a [`crate::gravity::FallingBlock`] at that exact position, taking the next entity id.
+/// Other keys (DropItem, HurtEntities...) and horizontal motion are refused.
+fn spawn_falling_block(w: &mut World, pos: [f64; 3], nbt: Option<&str>) -> Result<u32, String> {
+    let n = nbt.ok_or("entity falling_block needs its BlockState")?;
+    if let Some(k) = snbt_keys(n).into_iter().find(|k| !["BlockState", "Time", "Motion"].contains(&k.as_str())) {
+        return Err(format!("entity falling_block with {k} in its data ({n}) is not modeled by redsim"));
+    }
+    let bs = n.find("BlockState:").map(|i| n[i + "BlockState:".len()..].trim_start()).ok_or("falling_block: no BlockState")?;
+    let quoted = |s: &str| -> Option<String> {
+        let s = s.trim_start();
+        let s = s.strip_prefix('"').or_else(|| s.strip_prefix('\''))?;
+        Some(s[..s.find(['"', '\''])?].to_string())
+    };
+    let text = if bs.starts_with('{') {
+        // the compound: up to its matching brace
+        let mut depth = 0;
+        let mut end = bs.len();
+        for (k, ch) in bs.char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = k + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let bs = &bs[..end];
+        if bs.contains("Name:") {
+            return Err(format!("falling_block: BlockState {bs} is the old format; 26.3 reads \"<block>\" or {{id:\"<block>\",properties:{{...}}}} (the old one decodes to sand)"));
+        }
+        let name = bs.find("id:").and_then(|i| quoted(&bs[i + 3..])).ok_or("falling_block: BlockState without id")?;
+        let mut props = Vec::new();
+        if let Some(i) = bs.find("properties:{") {
+            let inner = bs[i + "properties:{".len()..].split('}').next().unwrap_or("");
+            for kv in inner.split(',').filter(|s| !s.trim().is_empty()) {
+                let (k, v) = kv.split_once(':').ok_or("falling_block: bad properties")?;
+                props.push(format!("{}={}", k.trim().trim_matches(['"', '\'']), quoted(v).unwrap_or_else(|| v.trim().to_string())));
+            }
+        }
+        if props.is_empty() { name } else { format!("{name}[{}]", props.join(",")) }
+    } else {
+        quoted(bs).ok_or("falling_block: BlockState is neither a block name nor {id, properties}")?
+    };
+    let block = crate::block::Block::parse(&text).map_err(|e| format!("falling_block: {text}: {e}"))?;
+    let time = n
+        .find("Time:")
+        .map(|i| n[i + 5..].chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect::<String>())
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(0);
+    let mut vy = 0.0;
+    if let Some(i) = n.find("Motion:[") {
+        let inner = n[i + "Motion:[".len()..].split(']').next().unwrap_or("");
+        let v: Vec<f64> = inner.split(',').filter_map(|s| s.trim().trim_end_matches(['d', 'D', 'f', 'F']).parse().ok()).collect();
+        if v.len() != 3 || v[0] != 0.0 || v[2] != 0.0 {
+            return Err(format!("falling_block: horizontal motion is not modeled ({inner})"));
+        }
+        vy = v[1];
+    }
+    let id = w.entities.next_id;
+    w.entities.next_id += 1;
+    w.gravity.entities.push(crate::gravity::FallingBlock { block, x: pos[0], y: pos[1], z: pos[2], vy, time, removed: false, id });
+    Ok(id)
+}
+
 impl Entities {
     /// `addFreshEntity`: appended (ticked after every older entity). Returns its id.
     pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
@@ -167,43 +411,123 @@ impl Entities {
     }
 }
 
-/// The entity phase: every live entity's `tick`, in insertion order; removed ones leave the list.
+/// The entity phase: every live entity's `commonTick` then `tick` (`ServerLevel.tickNonPassenger`),
+/// in insertion order; removed ones leave the list.
 pub fn tick_all(w: &mut World) {
     if w.entities.list.is_empty() {
         return;
     }
     let n = w.entities.list.len();
     for i in 0..n {
-        if w.entities.list[i].removed {
-            continue;
-        }
-        match w.entities.list[i].kind {
-            EntityKind::Boat(_) => boat::tick(w, i),
-            EntityKind::Minecart(_) => minecart::tick(w, i),
-            EntityKind::Item(_) => item::tick(w, i),
-        }
+        tick_one(w, i);
     }
     w.entities.list.retain(|e| !e.removed);
 }
 
-/// `Entity.move(type, delta)` of entity `i` (index in the list). STUB until M2.
-pub fn move_(w: &mut World, i: usize, _mover: MoverType, delta: Vec3) {
-    w.errors.push("entity move is not modeled yet (redsim M2)".into());
-    let p = w.entities.list[i].pos.add_v(delta);
-    w.entities.list[i].set_pos(p);
+/// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards).
+pub fn tick_one(w: &mut World, i: usize) {
+    if w.entities.list[i].removed {
+        return;
+    }
+    common_tick(w, i);
+    match w.entities.list[i].kind {
+        EntityKind::Boat(_) => boat::tick(w, i),
+        EntityKind::Minecart(_) => minecart::tick(w, i),
+        EntityKind::Item(_) => item::tick(w, i),
+        EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
+    }
 }
 
-/// `Entity.checkInsideBlocks` + `applyEffectsFromBlocks` of entity `i`: every block whose shape
-/// the entity's box touches gets its `entityInside` (clk-misc's plates, tripwire, detector rails,
-/// dripleaf, bubble columns). STUB until M2.
-pub fn check_inside_blocks(w: &mut World, _i: usize) {
-    w.errors.push("entity checkInsideBlocks is not modeled yet (redsim M2)".into());
+/// The entity phase (`ServerLevel.tick` over `entityTickList`): every entity in the order it
+/// joined, falling blocks ([`crate::gravity`]) and the rest together (they share one id counter, so
+/// id order is spawn order); an entity spawned during the phase ticks from the next tick on.
+pub fn tick_phase(w: &mut World) {
+    if w.entities.list.is_empty() {
+        crate::gravity::tick_entities(w);
+        return;
+    }
+    if w.gravity.entities.is_empty() {
+        tick_all(w);
+        return;
+    }
+    let (ng, ne) = (w.gravity.entities.len(), w.entities.list.len());
+    let (mut i, mut j) = (0, 0);
+    while i < ng || j < ne {
+        if j >= ne || (i < ng && w.gravity.entities[i].id < w.entities.list[j].id) {
+            crate::gravity::tick_one(w, i);
+            i += 1;
+        } else {
+            tick_one(w, j);
+            j += 1;
+        }
+    }
+    w.gravity.entities.retain(|e| !e.removed);
+    w.entities.list.retain(|e| !e.removed);
 }
 
-/// `Entity.updateFluidHeightAndDoFluidPushing(tag, flowScale)`. STUB until M2 (false).
-pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, _i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
-    w.errors.push("entity fluid pushing is not modeled yet (redsim M2)".into());
-    false
+/// `Entity.commonTick`: `invulnerableTime`, `setOldPosAndRot`, `tickCount`.
+pub fn common_tick(w: &mut World, i: usize) {
+    let e = &mut w.entities.list[i];
+    if e.invulnerable_time > 0 {
+        e.invulnerable_time -= 1;
+    }
+    e.xo = e.pos.x;
+    e.x_old = e.pos.x;
+    e.yo = e.pos.y;
+    e.y_old = e.pos.y;
+    e.zo = e.pos.z;
+    e.z_old = e.pos.z;
+    e.y_rot_o = e.y_rot;
+    e.x_rot_o = e.x_rot;
+    e.tick_count += 1;
+}
+
+/// `Entity.computeSpeed`: `lastKnownSpeed` from the position since the last call.
+pub fn compute_speed(w: &mut World, i: usize) {
+    let e = &mut w.entities.list[i];
+    let last = *e.last_known_position.get_or_insert(e.pos);
+    e.last_known_speed = e.pos.subtract_v(last);
+    e.last_known_position = Some(e.pos);
+}
+
+/// `Entity.baseTick` (no passengers, portals, fire or lava in the modeled worlds):
+/// `computeSpeed`, `wasEyeInWater`, `updateFluidInteraction`, `checkBelowWorld`, `firstTick`.
+pub fn base_tick(w: &mut World, i: usize) {
+    compute_speed(w, i);
+    {
+        let e = &mut w.entities.list[i];
+        // the previous tick's trackers
+        e.was_eye_in_water = e.fluid.eye_in_water();
+    }
+    fluid_push::update_fluid_interaction(w, i);
+    let e = &mut w.entities.list[i];
+    // `checkBelowWorld`: below the world's bottom by 64
+    if e.pos.y < (crate::gravity::MIN_Y - 64) as f64 {
+        e.removed = true;
+    }
+    e.first_tick = false;
+}
+
+/// `Entity.move(type, delta)` of entity `i` (index in the list): `collide::move_`.
+pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
+    collide::move_(w, i, mover, delta);
+}
+
+/// `Entity.applyEffectsFromBlocks()` of entity `i`: `collide::apply_effects_from_blocks`.
+pub fn apply_effects_from_blocks(w: &mut World, i: usize) {
+    collide::apply_effects_from_blocks(w, i);
+}
+
+/// `CollisionGetter.noCollision(entity, box)`.
+pub fn no_collision(w: &World, i: usize, bb: Aabb) -> bool {
+    collide::no_collision(w, i, bb)
+}
+
+/// `Entity.updateFluidInteraction` (the old name `updateFluidHeightAndDoFluidPushing`): see
+/// [`fluid_push::update_fluid_interaction`]; the fluid and scale are the game's (water, 0.014).
+pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
+    fluid_push::update_fluid_interaction(w, i)
 }
 
 impl World {

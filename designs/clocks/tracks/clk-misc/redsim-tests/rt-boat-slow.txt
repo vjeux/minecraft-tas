@@ -1,0 +1,8 @@
+name: rt-boat-slow
+# redsim test scene (not a clock): a boat nudged along +x on stone (0.5 b/t).
+entity: minecraft:oak_boat 1.0 1.0 1.0 {Motion:[0.5d,0.0d,0.0d]}
+palette:
+  S minecraft:stone
+layer 0:
+  SSSSS
+  SSSSS

@@ -45,6 +45,8 @@ pub struct Census {
     pub outputs: Option<Vec<BlockPos>>,
     pub jobs: usize,
     pub margin: i32,
+    /// Put stone under every placed block that stands on one (dust, diodes, torches), counted.
+    pub auto_floor: bool,
 }
 
 /// One candidate's run: per output cell its rest state, on/off change frames and samples.
@@ -121,7 +123,27 @@ fn bounds(cells: impl Iterator<Item = BlockPos>, g: i32) -> (BlockPos, BlockPos)
     (BlockPos::new(lo.x - g, lo.y - g, lo.z - g), BlockPos::new(hi.x + g, hi.y + g, hi.z + g))
 }
 
+/// Does a block stand on the block below it (dust, diodes, standing torches)?
+fn needs_floor(b: &Block) -> bool {
+    matches!(b, Block::Wire { .. } | Block::Repeater { .. } | Block::Comparator { .. } | Block::Torch { .. })
+}
+
 impl Census {
+    /// The fixed blocks, the placed ones and, with `auto_floor`, stone under every placed block
+    /// that stands on one (when that cell is empty).
+    fn with_floors(&self, placed: &[(BlockPos, Block)]) -> Vec<(BlockPos, Block)> {
+        let mut blocks: Vec<(BlockPos, Block)> = self.fixed.clone();
+        blocks.extend(placed.iter().copied());
+        if self.auto_floor {
+            for (p, b) in placed {
+                let below = BlockPos::new(p.x, p.y - 1, p.z);
+                if needs_floor(b) && !blocks.iter().any(|(q, _)| *q == below) {
+                    blocks.push((below, Block::Simple(redsim::block::Simple::Stone)));
+                }
+            }
+        }
+        blocks
+    }
     /// The world box for any candidate (every free cell, fixed block and input, plus margin).
     fn world_box(&self, blocks: &[(BlockPos, Block)]) -> (BlockPos, [i32; 3]) {
         let (lo, hi) = bounds(self.free.iter().chain(self.inputs.iter()).copied().chain(self.fixed.iter().map(|(p, _)| *p)).chain(blocks.iter().map(|(p, _)| *p)), self.margin);
@@ -134,6 +156,9 @@ impl Census {
         let tr = self.trace_cells(blocks, be, spec).ok()?;
         let mut out = Vec::new();
         for (i, p) in tr.cells.iter().enumerate() {
+            if !Self::readable(blocks, *p) {
+                continue;
+            }
             if let Some(s) = spec.judge(tr.rest[i], &tr.changes[i], &tr.samples[i]) {
                 out.push((*p, s));
             }
@@ -271,6 +296,15 @@ impl Census {
         *outs.iter().min_by_key(|(p, s)| (occupied.contains(p), *s, *p)).unwrap()
     }
 
+    /// Can the judge read this cell as an output: air (it puts a lamp there) or a block that
+    /// drives a signal itself (dust, a diode, a torch, an observer)?
+    fn readable(blocks: &[(BlockPos, Block)], p: BlockPos) -> bool {
+        match blocks.iter().find(|(q, _)| *q == p) {
+            None => true,
+            Some((_, b)) => matches!(b, Block::Wire { .. } | Block::Repeater { .. } | Block::Comparator { .. } | Block::Torch { .. } | Block::WallTorch { .. } | Block::Observer { .. }),
+        }
+    }
+
     /// The type key: the blocks with the input cells marked, smallest over rotations and mirrors.
     pub fn key(&self, blocks: &[(BlockPos, Block)], be: &[(BlockPos, String)]) -> String {
         let mut m: BTreeMap<[i32; 3], String> = BTreeMap::new();
@@ -308,25 +342,46 @@ impl Census {
             let pre = k.min(2);
             let per: usize = p.pow(pre as u32);
             let items = subs.len() * per;
+            let done = std::sync::atomic::AtomicBool::new(false);
             std::thread::scope(|sc| {
-                for _ in 0..self.jobs.max(1) {
+                if progress {
+                    // a progress line every 2 minutes on long runs
                     sc.spawn(|| {
-                        loop {
-                            let i = next.fetch_add(1, Ordering::Relaxed);
-                            if i >= items {
-                                break;
+                        let mut last = std::time::Instant::now();
+                        while !done.load(Ordering::Relaxed) {
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                            if last.elapsed().as_secs() >= 120 {
+                                last = std::time::Instant::now();
+                                let n = next.load(Ordering::Relaxed).min(items);
+                                eprintln!("  k={k}: {n}/{items} work items started, {} judged, {} types, {:.0} s", judged.load(Ordering::Relaxed), found.lock().unwrap().len() - before, start.elapsed().as_secs_f64());
                             }
-                            let (si, mut code) = (i / per, i % per);
-                            let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
-                            let mut assign: Vec<usize> = Vec::with_capacity(k);
-                            for _ in 0..pre {
-                                assign.push(code % p);
-                                code /= p;
-                            }
-                            self.dfs(&cells, &mut assign, spec, &found, &judged);
                         }
                     });
                 }
+                let workers: Vec<_> = (0..self.jobs.max(1))
+                    .map(|_| {
+                        sc.spawn(|| {
+                            loop {
+                                let i = next.fetch_add(1, Ordering::Relaxed);
+                                if i >= items {
+                                    break;
+                                }
+                                let (si, mut code) = (i / per, i % per);
+                                let cells: Vec<BlockPos> = subs[si].iter().map(|&j| self.free[j]).collect();
+                                let mut assign: Vec<usize> = Vec::with_capacity(k);
+                                for _ in 0..pre {
+                                    assign.push(code % p);
+                                    code /= p;
+                                }
+                                self.dfs(&cells, &mut assign, spec, &found, &judged);
+                            }
+                        })
+                    })
+                    .collect();
+                for w in workers {
+                    let _ = w.join();
+                }
+                done.store(true, Ordering::Relaxed);
             });
             if progress {
                 eprintln!(
@@ -343,8 +398,8 @@ impl Census {
 
     fn dfs(&self, cells: &[BlockPos], assign: &mut Vec<usize>, spec: &dyn Spec, found: &Mutex<BTreeMap<String, Found>>, judged: &AtomicUsize) {
         if assign.len() == cells.len() {
-            let mut blocks: Vec<(BlockPos, Block)> = self.fixed.clone();
-            blocks.extend(cells.iter().copied().zip(assign.iter().map(|&i| self.palette[i])));
+            let placed: Vec<(BlockPos, Block)> = cells.iter().copied().zip(assign.iter().map(|&i| self.palette[i])).collect();
+            let blocks = self.with_floors(&placed);
             let be: Vec<(BlockPos, String)> = cells.iter().zip(assign.iter()).filter_map(|(p, &i)| self.palette_be.get(i).cloned().flatten().map(|s| (*p, s))).collect();
             // every input must reach something that reacts to it
             if !self.inputs.iter().all(|ip| blocks.iter().any(|(q, b)| face_neighbors(*ip).contains(q) && responsive(b, *q, *ip))) {
@@ -353,10 +408,11 @@ impl Census {
             judged.fetch_add(1, Ordering::Relaxed);
             let Some(outs) = self.simulate(&blocks, &be, spec) else { return };
             let (output, score) = self.best(&blocks, &outs);
-            // irreducible: no single free block can go with the same class of result (score /
-            // 1000: a counter's style, a latch's polarity)
+            // irreducible: no single free block (with its auto floor) can go with the same class
+            // of result (score / 1000: a counter's style, a latch's polarity)
             for i in 0..cells.len() {
-                let fewer: Vec<(BlockPos, Block)> = blocks.iter().filter(|(p, _)| *p != cells[i]).copied().collect();
+                let rest: Vec<(BlockPos, Block)> = placed.iter().filter(|(p, _)| *p != cells[i]).copied().collect();
+                let fewer = self.with_floors(&rest);
                 if let Some(o2) = self.simulate(&fewer, &be, spec)
                     && o2.iter().any(|(_, s)| s / 1000 == score / 1000)
                 {

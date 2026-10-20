@@ -1,0 +1,22 @@
+# archived 2026-10-20T00:47Z from designs/clocks/tracks/clk-obs/families9/p33-lamp-note-obs-rb-stk-8b-b0195d.txt by mctas clock archive
+# CLOCK: clk-obs-p33-lamp-note-obs-rb-stk-8b-b0195d period 33 gt (1.65 s), on 12/33, edges 6, warmup 3, family note_block+observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 2x3x4, robust
+name: clk-obs-p33-lamp-note-obs-rb-stk-8b-b0195d
+# clk-obs grow: P=33 (redsim), family note_block+observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 24.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=north]
+  C minecraft:redstone_lamp[lit=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:redstone_block
+layer -1:
+  AE
+  B.
+  ..
+layer 0:
+  C.
+  DF
+  EB

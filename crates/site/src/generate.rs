@@ -181,11 +181,38 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     if !a.release.is_empty() && release_assets.is_empty() {
         eprintln!("warning: no assets in release {} (gh): no video links", a.release);
     }
-    let (door_builds, uncached) = doors::export(&repo, &doors::DoorOptions { release_assets, release_tag: a.release.clone() })?;
+    let (door_builds, uncached, not_ours) = doors::export(&repo, &doors::DoorOptions { release_assets, release_tag: a.release.clone() })?;
     if !uncached.is_empty() {
         eprintln!("{} archived doors have no cached verdict from main's judge yet (left out): {}", uncached.len(), uncached.join(", "));
     }
-    copy_files(&repo.join(doors::ARCHIVE), &out.join("designs/doors"), Some("txt"))?;
+    if !not_ours.is_empty() {
+        let by_prov = repo.join(doors::ARCHIVE).join(doors::PROVENANCE).exists();
+        let conflicts: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("CONFLICT")).map(|(s, _)| s).collect();
+        let unlisted: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("not listed")).map(|(s, _)| s).collect();
+        eprintln!(
+            "{} archived doors left out as community work ({}; only our own designs are published)",
+            not_ours.len(),
+            if by_prov { "by provenance.tsv + the seed rule" } else { "no provenance.tsv yet: by the seed rule (community*, c79*, closed-b-fill*, satwire-c79*, satwire-63b*, c88*, fills of community designs)" }
+        );
+        if !conflicts.is_empty() {
+            eprintln!(
+                "  WARNING: {} doors marked ours in provenance.tsv match the seed rule and stay out (e.g. {}): fix provenance.tsv or the seed rule (site/src/doors.rs COMMUNITY_PREFIXES)",
+                conflicts.len(),
+                conflicts.iter().take(3).map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
+        if !unlisted.is_empty() {
+            eprintln!("  WARNING: {} archived doors are not in provenance.tsv and stay out until listed: {}", unlisted.len(), unlisted.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+        }
+    }
+    // only the published doors' design files (never the community ones)
+    for b in &door_builds {
+        let to = out.join(&b.design);
+        if let Some(p) = to.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::copy(repo.join(doors::ARCHIVE).join(format!("{}.txt", b.name)), &to).with_context(|| format!("copying {}", b.name))?;
+    }
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
     // the clocks
     let members_dir = (!a.no_members).then(|| out.join("designs/clocks/members"));
@@ -221,10 +248,48 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
+    // the extendable circuit families: every member generated and screened in redsim
+    let fo = circuits::FamilyOptions { members_dir: (!a.no_members).then(|| out.join("designs/circuits/members")), threads: a.threads };
+    let (ccards, cmembers, fnotes) = circuits::families(&repo, &circuit_builds, &ce.cards, &fo);
+    eprintln!(
+        "circuit families: {} cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
+        ccards.len(),
+        cmembers.len(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
+        cmembers.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
+        t0.elapsed().as_secs_f64()
+    );
+    for n in &fnotes {
+        eprintln!("  note: {n}");
+    }
+    // one card per family in the grids: the card's first base design stands for it
+    let mut circuit_builds = circuit_builds;
+    for card in &ccards {
+        for (fi, f) in card.families.iter().enumerate() {
+            if let Some(b) = circuit_builds.iter_mut().find(|b| b.id == f.build) {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.card = card.id.clone();
+                    c.card_member = fi > 0;
+                }
+                if fi == 0 && !b.flags.iter().any(|x| x == "extendable") {
+                    b.flags.push("extendable".into());
+                }
+            }
+        }
+    }
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
-    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards: ce.cards, members: ce.members };
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
+    let mut cards = ce.cards;
+    cards.extend(ccards);
+    let mut members = ce.members;
+    members.extend(cmembers);
+    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();
     for b in &mut slim.builds {
@@ -261,10 +326,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         match (&a.pkg, &a.pkg_ref) {
             (Some(dir), _) => {
                 copy_files(dir, &out.join("pkg"), None)?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &dir.display().to_string())?;
                 true
             }
             (None, Some(r)) => {
                 let n = files_from_ref(&repo, r, "pkg/", &out.join("pkg"))?;
+                web::check_copied_ui(&repo, &out.join("pkg"), &format!("{r}:pkg"))?;
                 eprintln!("UI: {n} files from {r}:pkg (not rebuilt)");
                 true
             }
@@ -274,13 +341,22 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             }
         }
     };
-    let scripts = Scripts { viewer, app: false };
+    let scripts = Scripts { viewer, app: false, ui: app };
     // pages
     write(&out.join("style.css"), STYLE)?;
     write(&out.join("favicon.svg"), FAVICON)?;
+    // cache-busting: the pages load every bundle, the CSS and the data by a content hash
+    pages::set_versions(pages::Versions {
+        css: pages::bytes_hash(STYLE.as_bytes()),
+        viewer_js: pages::file_hash(&out.join("viewer/mcview.js")),
+        viewer_wasm: pages::file_hash(&out.join("viewer/mcview_bg.wasm")),
+        ui_js: pages::file_hash(&out.join(format!("pkg/{}.js", web::UI_NAME))),
+        ui_wasm: pages::file_hash(&out.join(format!("pkg/{}_bg.wasm", web::UI_NAME))),
+        data: pages::file_hash(&out.join("data/site.json")),
+    });
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
-    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
+    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
     write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
     write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
     write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
@@ -294,16 +370,16 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
         write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
     }
-    // the obvious per-kind URLs resolve (/doors/, /clocks/, /circuits/)
-    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock"), ("circuits", "Circuits", "circuit")] {
+    // the obvious per-kind URLs resolve (/doors/, /clocks/); /circuits/ is the studies' overview
+    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock")] {
         write(&out.join(folder).join("index.html"), &pages::redirect_page(&site, "../", title, &format!("kind={kind}")))?;
     }
-    let mut subs: Vec<(String, String)> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| (sub.to_string(), b.group.clone()))).collect();
+    write(&out.join("circuits/index.html"), &pages::circuits_index(&site, scripts))?;
+    let mut subs: Vec<String> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| sub.to_string())).collect();
     subs.sort();
-    subs.dedup_by(|a, b| a.0 == b.0);
-    for (sub, _) in &subs {
-        let frag = if sub == "calibration" { "kind=circuit&is=calibration".to_string() } else { format!("kind=circuit&q={sub}") };
-        write(&out.join("circuits").join(sub).join("index.html"), &pages::redirect_page(&site, "../../", &format!("Circuits: {sub}"), &frag))?;
+    subs.dedup();
+    for sub in &subs {
+        write(&out.join("circuits").join(sub).join("index.html"), &pages::study_page(&site, sub, scripts))?;
     }
     let mut by_card: BTreeMap<String, Vec<&Member>> = BTreeMap::new();
     for m in &site.members {

@@ -21,12 +21,21 @@ each build's page.
   (`live`).
 * `data-src` = URL of a design `.txt` (the repo format, relative to the page) or `data-design` = the
   text itself. Optional: `data-tick` (the still frame's tick), `data-yaw`, `data-pitch` (degrees),
-  `data-trace` (a full viewer plays this real-game recording, `designs/clocks/traces/<stem>.trace`,
-  for the designs redsim does not model: boats, minecarts, fluids), `data-autoplay` (a full viewer
-  starts playing).
+  `data-trace` (a real-game recording, `designs/clocks/traces/<stem>.trace`, played by a full
+  viewer only when redsim cannot run the design itself: UNMODELED at placement or during its
+  4000 gt check; boats, minecarts, item entities, armor stands and fluids run live in redsim),
+  `data-autoplay` (a full viewer starts playing).
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
+* Swapping a design in place (the site's variant picker): change attributes on the existing
+  element, `data-src` LAST; the viewer re-reads every `data-*` attribute at that moment and
+  loads the new design without flashing its fallback: a live viewer keeps the person's camera
+  when `data-keep-camera` is set (unless the new build would be out of view), its play state and
+  speed, and rebuilds its input buttons, tags and overlays; a thumbnail is drawn again. Live
+  viewers that support it carry the class `mcview-live-src` once ready (`mctas web swap` checks
+  it). A lost WebGL context (iOS drops the oldest when a page holds many; a GPU reset) is made
+  again when the browser restores the canvas (`mctas web lose`).
 * Thumbnails: drawn when the element comes near the viewport (IntersectionObserver, 300 px
   margin), through ONE shared WebGL2 context, copied into the element's canvas, cached by
   (source, size, tick, camera) so a re-added card paints at once. A click dispatches a bubbling
@@ -41,11 +50,35 @@ each build's page.
   in the clock judge's order.
 * Full viewer (touch first): one finger or the mouse drags to orbit, two fingers pinch to zoom and
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
-  resets the view, a tap on a lever or button uses it; the camera stays above the ground. Bar of
+  resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
+  simulation starts, so the build responds); the camera stays above the ground and starts on the
+  side every lever and button can be seen from (a door's lever is often behind the build from the
+  pictures' side). Bar of
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x), flip the lever (f, doors); badges at the top: what runs
   (redsim, a recording, or shown as built) on the left, the tick counter in gt and seconds on the
   right (fixed width, tabular digits: nothing moves while it runs, `mctas web layout` checks it).
+* Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
+  stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
+  input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;
+  ...`), `data-input-mode` = `pulse` | `toggle` (default from the kind: edges, limiters,
+  extenders, T flip-flops, delays, RS latches and counters pulse; gates, D latches and piston
+  extenders toggle). Inputs are driven like `Circuit::actions` (the cell written with updates,
+  default redstone_block / air; `lever` used at every edge; `button` used at rising edges). One
+  44 px bar button per input, labeled with its name uppercased (IN, A, B, S, R, D, E): pulse =
+  on while held (a tap = a 2 gt pulse), toggle = a tap flips it (shown pressed while on); a tap on
+  the input's cell, its device or its tag does the same, and a press held there past 250 ms
+  holds the input on until released (like holding its button). A press that begins on an input
+  never orbits or pans the camera; nothing moves the camera by itself except a flying machine
+  while it plays (piston extenders included: their payload comes back). Nothing in a viewer
+  selects text or opens a callout on a long press (user-select / touch-callout off, no context
+  menu). Lime tags name the inputs over their cells, orange tags the
+  outputs (OUT, or the port name); a strip under the counter shows each output's last 40 gt.
+  `data-autoplay` + `data-stimulus` = the auto-demo: the judge's stimulus replayed from tick 0
+  (the left badge shows `demo · <phase>`), looped until the person's first input (any button,
+  tap, play/pause/step/reset); then the inputs are theirs.
+* Containers: the contents of every dropper, dispenser and hopper (what redsim models) float
+  above each one, item icons with counts, live every tick; a bar button (grid icon) hides them.
 
 ## How it works
 
@@ -61,16 +94,76 @@ each build's page.
 * `mcview::replay` plays a real-game recording (JSON Lines from `mctas clock misc trace-export`:
   changed cells and every entity per tick), once through the warmup, then one period looped, with
   entities interpolated between ticks.
+* Entities (redsim's entity list: boats and chest boats, minecarts and hopper minecarts, item
+  entities, armor stands; redsim's falling blocks) are summoned like the judge (after the blocks),
+  simulated live and drawn interpolated between ticks; their clocks' period follows the real-game
+  judge's rule for entities (block frames over 4000 gt, 3 periods:
+  `clock::sim::entity_clock_period`), which `web check` compares too. Water heights follow the
+  game (source 8/9, flowing (8 - level)/9, falling and bubble columns full, water under water
+  full), with no faces between fluid cells.
+* `mcview::entitymodel`: entities drawn like the game's client (read with `mctas src --client`):
+  `BoatModel` (both paddles where `animatePaddle` holds an idle boat; the chest boat's chest),
+  `MinecartModel` with its display block (a hopper minecart's hopper, 0.75 scale, display offset
+  1), `ArmorStandModel` in the default pose (`ArmorStand.DEFAULT_*_POSE`, arms hidden, base plate
+  square to the world), each through its renderer's transform (`AbstractBoatRenderer`,
+  `AbstractMinecartRenderer.oldRender`: a cart on a rail follows the rail's line and slope,
+  `ArmorStandRenderer`), the boxes as `ModelPart.Cube` builds them (UV layout, mirror), lit like
+  `light.glsl` (two lights, 0.6 + 0.4 ambient); dropped items bob and spin like
+  `ItemEntityRenderer` (a block item: its block model at the `ground` scale 0.25; any other: its
+  item sprite, double-sided); falling blocks: the block model half a block back
+  (`FallingBlockRenderer`). The textures are misode/mcmeta's entity atlas (boats and chest boats
+  of every wood, the minecart, the armor stand) and its whole item atlas, packed below the block
+  atlas in the game texture when a page first draws an entity (`entities.png`,
+  `entities.min.json`, `items.png`, `items.min.json` in a `data-mcview-textures` directory);
+  until then (or without them) the viewer's stand-in boxes are drawn.
+* A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
+  corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
+  cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
+  first; the floor goes under the whole path; the camera follows a flying machine while it plays; it loops where
+  `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
+  every archived flying machine against `circuit fly sim`: same end tick and same frames, native
+  and wasm.
+* A circuit runs as its judge builds it: the judge's consumer lamp (`circuit::CONSUMER`) in
+  every air output cell (`consumer_cells`: not for extenders and flying machines, nor where a
+  piston may push a block in); the lamp shows the output (no orange marker there).
+  `mctas web check` runs every archived circuit under its judge's stimulus against
+  `circuit::run::sim_trace`: every cell's full state (comparator strength, container contents)
+  at every frame agrees.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
-  sculk, hoppers, doors, trapdoors, rails, ...) and 16x16 textures drawn procedurally (no game asset
-  is shipped: the site is public). Unknown blocks get a tinted cube.
+  sculk, hoppers, doors, trapdoors, rails, ...). The tiles are the game's own textures, fetched
+  at run time by the browser from misode/mcmeta's block atlas of the judge's version
+  (`raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png` + `data.min.json`, the
+  mirror block viewers use; kept in the Cache API; `atlas::vanilla` maps each tile to its
+  texture, tinting the gray grass, leaves and water): nothing Mojang-owned is in the repository
+  or the site. Thumbnails wait up to 4 s for them; without them (offline, blocked, or
+  `data-mcview-textures="none"` on the page's root element, which can also point to another
+  directory holding `atlas.png` + `data.min.json` + `block_definition.min.json` +
+  `model.min.json`) the hand-drawn tiles of `atlas::art` (colors
+  measured from the game, shapes after its layout) and procedural ones are used. Native tools
+  (`shot`, `compare`, `strip`) download the same atlas once into `~/.cache/mctas` (`--procedural`:
+  the hand-drawn tiles).
+* `mcview::gamemodel`: the game's own block GEOMETRY, from misode/mcmeta's summary of every
+  block definition and model of 26.3 (fetched with the atlas, cached): variants by properties,
+  multipart conditions (`OR`/`AND`, `a|b`), weighted variants picked from the block's position
+  like the game (`Mth.getSeed` + Java `Random.nextInt`), model parents, `#texture` variables
+  (26.3's `{sprite}` objects too), elements with their rotations (and rescale), faces with uv,
+  rotation, cullface and tint (redstone power, plains grass and foliage), quarter turns and
+  uvlock. Their faces sample the game's block atlas uploaded as one 2D texture beside the tile
+  array (vertex layer 65535). Blocks without game geometry (block-entity renderers: chests,
+  signs, banners, skulls...) and water keep the viewer's own models (`MCVIEW_NO_GAME_MODELS=1`
+  natively: the viewer's models everywhere).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
   the same kind: water, glass), the game's directional shading and corner ambient occlusion,
   moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
   `PistonHeadRenderer`, translucent faces sorted back to front, a floor of grass blocks.
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
-  mipmapped texture array (no bleeding between tiles), sky gradient and distance fog.
+  mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
+  faces culled in both passes like the game's chunk render types (a glass block shows its three
+  near faces only), and the game's fog (`fog.glsl` + `FogRenderer.setupFog`): the overworld's
+  environment fog (spherical distance, linear from 0 to 1024 blocks) and the render distance's
+  (cylindrical distance `max(|xz|, |y|)`, from 6 chunks minus a tenth to 6 chunks; a zoomed-out
+  camera pushes the render distance back so the build is never cut), toward the sky colour.
 
 ## Commands
 
@@ -78,14 +171,20 @@ each build's page.
 |---|---|
 | `mctas web shot <designs> -o <png or dir>` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir>` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera, with a pixel difference |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
+| `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js>]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value) |
+| `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
+| `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
+| `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |
+| `mctas web entities <design> [--trace designs/clocks/traces/exact/<stem>.trace] [--from T --to T]` | the viewer's simulated entities (redsim: end-of-tick positions and yaw) tick by tick next to a real-game trace's, with the largest distance: all 55 exact traces 0.0000 over their whole length (a minecart on a rail is DRAWN at the rail's line, like `AbstractMinecartRenderer.oldRender`; that drawn pose is not what is compared) |
 
 A page can be checked without a desktop: `headless_shell --use-angle=swiftshader
 --enable-unsafe-swiftshader --virtual-time-budget=60000 --screenshot=x.png <url>` (EPEL package

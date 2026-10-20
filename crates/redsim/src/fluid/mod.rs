@@ -116,7 +116,44 @@ pub fn fluid_state_of(b: &Block) -> FluidState {
         Block::Water { level } if level < 8 => FluidState::flowing(8 - level, false),
         Block::Water { .. } => FluidState::flowing(8, true),
         Block::BubbleColumn { .. } => FluidState::source(false),
+        _ if waterlogged(b) == Some(true) => FluidState::source(false),
         _ => FluidState::EMPTY,
+    }
+}
+
+/// The `WATERLOGGED` property of a block whose variant carries one (`SimpleWaterloggedBlock`s
+/// modeled with their water: add each such variant here and in [`set_waterlogged`]). redsim's
+/// older waterloggable blocks (slabs, trapdoors, rails, scaffolding, leaves, sculk sensors) carry
+/// none: they are always dry, and water reaching them is a model note.
+pub fn waterlogged(b: &Block) -> Option<bool> {
+    match *b {
+        // ---- entity-reacting blocks (clk-misc): their waterlogged variants ----
+        Block::BigDripleaf { waterlogged, .. } => Some(waterlogged),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { waterlogged, .. } | Block::CoralWallFan { waterlogged, .. } => Some(waterlogged),
+        _ => None,
+    }
+}
+
+/// `state.setValue(WATERLOGGED, v)` (None: the variant has no such property).
+pub fn set_waterlogged(b: Block, v: bool) -> Option<Block> {
+    let _ = v;
+    match b {
+        // ---- entity-reacting blocks (clk-misc) ----
+        Block::BigDripleaf { facing, tilt, .. } => Some(Block::BigDripleaf { facing, tilt, waterlogged: v }),
+        // ---- TNT dupers (track tnt) ----
+        Block::CoralFan { kind, .. } => Some(Block::CoralFan { kind, waterlogged: v }),
+        Block::CoralWallFan { kind, facing, .. } => Some(Block::CoralWallFan { kind, facing, waterlogged: v }),
+        _ => None,
+    }
+}
+
+/// The water tick a waterlogged block schedules from its `updateShape`
+/// (`if (state.getValue(WATERLOGGED)) ticks.scheduleTick(pos, Fluids.WATER, 5)`): call it first
+/// in the updateShape of every variant [`waterlogged`] knows.
+pub fn waterlogged_update_shape(w: &mut World, s: &Block, p: BlockPos) {
+    if waterlogged(s) == Some(true) {
+        w.schedule_fluid_tick(p, Fluid::Water, TICK_DELAY);
     }
 }
 
@@ -127,9 +164,13 @@ pub fn fluid_state(w: &World, p: BlockPos) -> FluidState {
 
 // ---------------------------------------------------------------------- what holds water
 
-/// `instanceof LiquidBlockContainer` (redsim's waterloggable blocks: `SimpleWaterloggedBlock`).
+/// `instanceof LiquidBlockContainer`: the variants with a waterlogged property, and redsim's older
+/// waterloggable blocks (always dry: see [`waterlogged`]).
 fn is_container(b: &Block) -> bool {
-    matches!(b, Block::Slab { .. } | Block::Trapdoor { .. } | Block::Rail { .. } | Block::Scaffolding { .. } | Block::Leaves { .. } | Block::Sculk { .. })
+    waterlogged(b).is_some()
+        || matches!(b, Block::Slab { .. } | Block::Trapdoor { .. } | Block::Rail { .. } | Block::Scaffolding { .. } | Block::Leaves { .. } | Block::Sculk { .. })
+        // ---- entity-reacting blocks (clk-misc): waterloggable, modeled dry ----
+        || matches!(b, Block::PlainRail { .. } | Block::DetectorRail { .. } | Block::StoneSlab { .. } | Block::Lantern { .. })
 }
 
 /// `state.is(BlockTags.WASHED_AWAY_BY_FLUIDS)` among redsim's blocks.
@@ -149,6 +190,13 @@ fn washed_away(b: &Block) -> bool {
             | Block::WallSkull { .. }
             | Block::Rail { .. }
             | Block::Scaffolding { .. }
+            // ---- entity-reacting blocks (clk-misc) ----
+            | Block::PlainRail { .. }
+            | Block::DetectorRail { .. }
+            | Block::Tripwire { .. }
+            | Block::TripwireHook { .. }
+            | Block::BigDripleaf { .. }
+            | Block::PowderSnow
     )
 }
 
@@ -379,10 +427,20 @@ fn get_spread(w: &World, p: BlockPos, s: &Block) -> Vec<(Dir, FluidState)> {
     [Dir::North, Dir::South, Dir::West, Dir::East].into_iter().filter_map(|d| result[d as usize].map(|f| (d, f))).collect()
 }
 
-/// `FlowingFluid.spreadTo` (`WaterFluid.beforeDestroyingBlock` drops what it washes away).
+/// `FlowingFluid.spreadTo` (`WaterFluid.beforeDestroyingBlock` drops what it washes away; a
+/// waterloggable block takes a source: `SimpleWaterloggedBlock.placeLiquid`).
 fn spread_to(w: &mut World, p: BlockPos, s: Block, _d: Dir, target: FluidState) {
     if is_container(&s) {
-        w.errors.push(format!("water would waterlog {s} at {p}: waterlogging is not modeled"));
+        match waterlogged(&s) {
+            Some(false) if target.fluid == Fluid::Water => {
+                if let Some(wet) = set_waterlogged(s, true) {
+                    w.set_block_and_update(p, wet);
+                    w.schedule_fluid_tick(p, target.fluid, TICK_DELAY);
+                }
+            }
+            Some(_) => {}
+            None => w.errors.push(format!("water would waterlog {s} at {p}: waterlogging is not modeled for this block")),
+        }
         return;
     }
     if !s.is_air() && bh::drops_item(&s) {

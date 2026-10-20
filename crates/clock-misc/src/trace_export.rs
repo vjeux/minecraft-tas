@@ -34,9 +34,14 @@ pub struct ExportArgs {
     #[arg(long, default_value_t = 3)]
     pub margin: i32,
     /// Full precision (for redsim's trace-compare gate): positions, motion and rotations as the
-    /// game's own doubles / floats (no rounding), plus each entity's "motion".
+    /// game's own doubles / floats (no rounding), plus each entity's "motion" and "net_id" (the
+    /// game's network id, which ItemEntity's ticks read).
     #[arg(long)]
     pub exact: bool,
+    /// Record this many ticks of any design (not only archived ones: a test scene for redsim);
+    /// the header's period and warmup are then 0 and "design" is the path given.
+    #[arg(long)]
+    pub ticks: Option<u32>,
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -57,11 +62,16 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<u32>) -> Result<(PathBuf, u32)> {
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
-    let (period, warmup) = verdict(&file)?;
-    let ticks = warmup + 2 * period;
+    let (period, warmup, ticks, design) = match fixed_ticks {
+        Some(n) => (0, 0, n, path.display().to_string()),
+        None => {
+            let (period, warmup) = verdict(&file)?;
+            (period, warmup, warmup + 2 * period, format!("designs/clocks/archive/{file}"))
+        }
+    };
     let c = Clock::load(path).with_context(|| format!("load {}", path.display()))?;
     let (lo, hi) = c.bounds();
     let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
@@ -74,7 +84,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     let mut header = json!({
         "trace": 1,
         "name": c.design.name,
-        "design": format!("designs/clocks/archive/{file}"),
+        "design": design,
         "period": period,
         "warmup": warmup,
         "ticks": ticks,
@@ -116,6 +126,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
             ents.push(if exact {
                 json!({
                     "id": id,
+                    "net_id": e.net_id,
                     "type": e.kind,
                     "pos": e.pos,
                     "motion": e.motion,
@@ -147,7 +158,7 @@ pub fn run(a: ExportArgs) -> Result<()> {
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact)?;
+        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks)?;
         let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
         println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
     }

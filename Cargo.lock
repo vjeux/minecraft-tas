@@ -255,18 +255,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-bud"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "circuit-bud",
  "circuit-delay",
  "circuit-fly",
  "circuit-gates",
  "circuit-memory",
  "circuit-pext",
  "circuit-pulse",
+ "circuit-shulker",
  "circuit-tff",
+ "circuit-tnt",
  "clap",
  "clock",
  "mctas",
@@ -343,7 +357,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-shulker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-tff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-tnt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1487,9 +1524,12 @@ name = "redsim-fuzz"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
+ "clock",
  "mctas",
  "redsim",
+ "serde_json",
 ]
 
 [[package]]
@@ -2021,11 +2061,15 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
+ "circuit-fly",
  "clap",
  "clock",
+ "libc",
  "mctas",
  "mcview",
  "redsim",
+ "serde_json",
  "zip",
 ]
 

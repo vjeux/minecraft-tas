@@ -294,6 +294,10 @@ pub struct Problem {
     /// Pockets mode: the seed's lever is removed; a candidate without a lever still screens (the
     /// plan drives every input by ticks after the "flip").
     pub no_lever: bool,
+    /// The lever port's cell lies in the box / focus (kept out of `free`: the lever hangs there).
+    /// Pockets without --keep-lever removes the seed's lever and gives the cell back as an
+    /// ordinary wiring cell (a port named only so the plan parses must not cost a pocket a cell).
+    pub lever_cell_free: bool,
     /// Max drive points per input (its plan edges over the screened cycles): a released input
     /// earns them all (the screen checks the door works without it).
     pub drive_max: Vec<i32>,
@@ -1663,10 +1667,11 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         None => None,
     };
     let lever_pos = lever_cell.map(|(x, y)| [x, y, spec0.door[2]]).unwrap_or(spec0.lever);
+    let lever_xy = (lever_pos[0], lever_pos[1]);
     let mut free = Vec::new();
     for x in flo[0]..=fhi[0] {
         for y in flo[1]..=fhi[1] {
-            if in_box_raw(lo, hi, x, y) && !door_cells.contains(&(x, y)) && (x, y) != (lever_pos[0], lever_pos[1]) {
+            if in_box_raw(lo, hi, x, y) && !door_cells.contains(&(x, y)) {
                 free.push((x, y));
             }
         }
@@ -1678,8 +1683,11 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
             anyhow::ensure!(v.len() == 2, "--focus-cells x,y;x,y");
             want.push((v[0] + dx, v[1] + dy));
         }
-        free = want.into_iter().filter(|(x, y)| in_box_raw(lo, hi, *x, *y) && !door_cells.contains(&(*x, *y)) && (*x, *y) != (lever_pos[0], lever_pos[1])).collect();
+        free = want.into_iter().filter(|(x, y)| in_box_raw(lo, hi, *x, *y) && !door_cells.contains(&(*x, *y))).collect();
     }
+    // the lever's own cell is no wiring cell (pockets without --keep-lever gives it back)
+    let lever_cell_free = free.contains(&lever_xy);
+    free.retain(|c| *c != lever_xy);
     let door_block = doors[0].2.blocks.iter().find(|(q, _)| q == &spec0.door).map(|(_, b)| *b).unwrap_or(Block::Simple(Simple::Stone));
     let mut spec = spec0;
     spec.lever = lever_pos;
@@ -1713,6 +1721,7 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         drive_slack: a.drive_slack,
         drive_max: Vec::new(),
         no_lever: false,
+        lever_cell_free,
         exact_rest: a.exact_rest,
     };
     let mut prob = prob;
@@ -2407,11 +2416,15 @@ struct PGroup {
 /// the block at (x, y).
 type LeverAt = (i32, i32, i32, bool);
 
+/// A set of plan groups (bit = index in the run's `groups`): u128, so plans with up to 128
+/// pulse groups screen (c70b's 6x7 mech-synth plans have 69; inputs stay u64 masks).
+type GMask = u128;
+
 #[derive(Clone, Debug)]
 struct Filling {
     blocks: Vec<((i32, i32), Block)>,
     lever: Option<LeverAt>,
-    driven: u64,
+    driven: GMask,
 }
 
 impl Filling {
@@ -2488,8 +2501,8 @@ fn measure_windows(p: &Problem, seed: &Grid, groups: &mut [PGroup], win: i32, th
 /// input must fall in the window of one of that input's groups (one real pulse per group, width
 /// within tolerance); a real edge no group explains rejects the filling (None). Returns the
 /// covered groups (bit = index in `groups`).
-fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<u64> {
-    let mut covered = 0u64;
+fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<GMask> {
+    let mut covered: GMask = 0;
     for k in 0..p.assist_pistons.len() {
         if (need >> k) & 1 == 0 {
             continue;
@@ -2557,7 +2570,7 @@ fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2
                 }
                 match hit {
                     Some((gi, n)) => {
-                        covered |= 1u64 << gi;
+                        covered |= (1 as GMask) << gi;
                         e += n;
                     }
                     None => return None,
@@ -2696,6 +2709,10 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     if !pa.keep_lever {
         prob.no_lever = true;
         seed.remove_lever();
+        let lc = (prob.spec.lever[0], prob.spec.lever[1]);
+        if prob.lever_cell_free && seed.get(lc.0, lc.1).is_air() && !prob.free.contains(&lc) {
+            prob.free.push(lc);
+        }
     }
     if let Some(rc) = &pa.region_cells {
         for t in rc.split(';').map(str::trim).filter(|t| !t.is_empty()) {
@@ -2722,7 +2739,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     let mut groups = plan_groups(&prob);
     groups.retain(|g| (seed.assist >> g.k) & 1 == 1);
     measure_windows(&prob, &seed, &mut groups, pa.win, a.threads);
-    anyhow::ensure!(groups.len() <= 64, "at most 64 plan groups ({})", groups.len());
+    anyhow::ensure!(groups.len() <= GMask::BITS as usize, "at most {} plan groups ({})", GMask::BITS, groups.len());
     let glabels: Vec<String> = groups.iter().map(|g| format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)).collect();
     if let Some(dbg) = &pa.debug_fill {
         let (_, r) = cs::load_door(dbg)?;
@@ -2788,11 +2805,11 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 if rel_ok {
                     for (gi, gr) in groups.iter().enumerate() {
                         if (fed >> gr.k) & 1 == 1 {
-                            c |= 1u64 << gi;
+                            c |= (1 as GMask) << gi;
                         }
                     }
                 }
-                println!("  released: matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
+                println!("  released: matched groups: {}", (0..groups.len()).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
             }
             None => println!("  released: rejected: a real edge no group explains"),
         }
@@ -3147,7 +3164,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         let next = AtomicUsize::new(0);
         let screened = AtomicU64::new(0);
         let ok_door = AtomicU64::new(0);
-        let found: Mutex<std::collections::HashMap<u64, Vec<Filling>>> = Mutex::new(std::collections::HashMap::new());
+        let found: Mutex<std::collections::HashMap<GMask, Vec<Filling>>> = Mutex::new(std::collections::HashMap::new());
         let active = AtomicUsize::new(a.threads);
         std::thread::scope(|s| {
             // progress every --report seconds (long pockets)
@@ -3170,7 +3187,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             });
             for _ in 0..a.threads {
                 s.spawn(|| {
-                    let mut local: std::collections::HashMap<u64, Vec<Filling>> = std::collections::HashMap::new();
+                    let mut local: std::collections::HashMap<GMask, Vec<Filling>> = std::collections::HashMap::new();
                     loop {
                         let ii = next.fetch_add(1, Ordering::Relaxed);
                         if ii >= items.len() {
@@ -3234,7 +3251,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                             let traces = if skip { traces } else { own(&traces) };
                             // the inputs this filling feeds at all (any real power in what ran)
                             let fed: u64 = traces.iter().flatten().fold(0, |acc, r| acc | r) & seed.assist;
-                            let mut driven: Option<u64> = None;
+                            let mut driven: Option<GMask> = None;
                             if sc.pts >= max {
                                 ok_door.fetch_add(1, Ordering::Relaxed);
                                 if taint & seed.assist == 0 {
@@ -3265,7 +3282,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                                     let mut d2 = d2;
                                     for (gi, gr) in groups.iter().enumerate() {
                                         if (fed >> gr.k) & 1 == 1 {
-                                            d2 |= 1u64 << gi;
+                                            d2 |= (1 as GMask) << gi;
                                         }
                                     }
                                     if driven.is_none_or(|d| (d2 | d) != d) {
@@ -3314,7 +3331,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             }
         });
         let found = found.into_inner().unwrap();
-        let mut sets: Vec<(&u64, &Vec<Filling>)> = found.iter().collect();
+        let mut sets: Vec<(&GMask, &Vec<Filling>)> = found.iter().collect();
         sets.sort_by_key(|(k, _)| std::cmp::Reverse(k.count_ones()));
         println!(
             "pocket {pi}: {} screened, {} keep the door working, {:.1} s; driven input sets: {}",
@@ -3324,7 +3341,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             if sets.is_empty() {
                 "none".to_string()
             } else {
-                sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..64).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
+                sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..groups.len()).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
             }
         );
         // the cheapest filling of each driven set, as a design (inspection: --debug-fill)
@@ -3338,7 +3355,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 place_lever_at(&mut g, lx, ly, dz, pw);
             }
             let mut d = door_of(&g, prob.spec).to_design(&format!("pocket{pi}-set{si}"));
-            d.meta.insert("covers".into(), (0..64).filter(|i| (**cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+            d.meta.insert("covers".into(), (0..groups.len()).filter(|i| (**cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
             let _ = d.save(&a.out_dir.join(format!("pocket{pi}-set{si}.txt")));
         }
         let mut all: Vec<Filling> = found.into_values().flatten().collect();
@@ -3346,26 +3363,26 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         accepted.push(all);
     }
     // ---- combinations
-    let need: u64 = if groups.len() >= 64 { u64::MAX } else { (1u64 << groups.len()) - 1 };
-    let coverable: u64 = accepted.iter().flatten().fold(0, |acc, f| acc | f.driven);
+    let need: GMask = if groups.len() >= GMask::BITS as usize { GMask::MAX } else { ((1 as GMask) << groups.len()) - 1 };
+    let coverable: GMask = accepted.iter().flatten().fold(0, |acc, f| acc | f.driven);
     // groups the remaining real wiring of the seed already drives (a door whose region was
     // erased: its other wiring keeps feeding some of the plan's pulses)
-    let base_cov: u64 = {
+    let base_cov: GMask = {
         let mut evs = Vec::new();
         let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
         let _ = screen_core(&prob, &seed, &mut evs, &mut traces, true);
         match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).unwrap_or(0)
     };
     if base_cov != 0 {
-        println!("groups the seed's own wiring already drives: {}", (0..64).filter(|i| (base_cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+        println!("groups the seed's own wiring already drives: {}", (0..groups.len()).filter(|i| (base_cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
     }
     let coverable = coverable | base_cov;
-    let uncovered: Vec<String> = (0..64).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect();
+    let uncovered: Vec<String> = (0..groups.len()).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect();
     if coverable & need != need {
         println!("plan groups no filling drives: {}", uncovered.join(" "));
     }
     // the inputs whose every group is covered by a group set
-    let released_by = |cov: u64| -> u64 {
+    let released_by = |cov: GMask| -> u64 {
         let mut r = 0u64;
         for k in 0..prob.assist_pistons.len() {
             if (seed.assist >> k) & 1 == 0 {
@@ -3390,7 +3407,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     let jopts = cs::JudgeOpts::with_extra(a.judge_extra);
     let mut finds = 0usize;
     let mut verified: HashSet<Vec<usize>> = HashSet::new();
-    let mut stack: Vec<(Vec<usize>, u64, u64)> = vec![(Vec::new(), base_cov, 0)];
+    let mut stack: Vec<(Vec<usize>, GMask, GMask)> = vec![(Vec::new(), base_cov, 0)];
     while let Some((chosen, cov, skipped)) = stack.pop() {
         if combos_tried >= pa.max_combos || finds >= a.max_finds {
             break;
@@ -3499,7 +3516,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         // one lever: fillings may share it when they hang it the same way (an in-plane lever's
         // cell is then shared; a front-face lever occupies no plane cell)
         let chosen_lever: Option<LeverAt> = chosen.iter().find_map(|&c| cands[c].lever);
-        let mut kids: Vec<(Vec<usize>, u64, u64)> = Vec::new();
+        let mut kids: Vec<(Vec<usize>, GMask, GMask)> = Vec::new();
         for (c, f) in cands.iter().enumerate() {
             if (f.driven >> i) & 1 == 0 {
                 continue;
@@ -3518,7 +3535,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             kids.push((ch, cov | f.driven, skipped));
         }
         // leaving input i assisted is the last resort (explored after every filling for it)
-        stack.push((chosen.clone(), cov, skipped | (1u64 << i)));
+        stack.push((chosen.clone(), cov, skipped | ((1 as GMask) << i)));
         for k in kids.into_iter().rev() {
             stack.push(k);
         }

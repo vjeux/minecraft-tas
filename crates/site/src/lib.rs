@@ -13,10 +13,12 @@ pub mod circuits;
 pub mod clocks;
 pub mod deploy;
 pub mod doors;
+pub mod explain;
 pub mod generate;
 pub mod pages;
 pub mod serve;
 pub mod web;
+pub mod webkit;
 
 use anyhow::{Result, bail};
 use clap::{Args, Subcommand};
@@ -29,9 +31,11 @@ pub enum SiteCmd {
     Build(BuildArgs),
     /// Publish a generated folder as the gh-pages branch (GitHub Pages), one orphan commit.
     Deploy(DeployArgs),
-    /// Build, smoke-test (when a headless Chrome is there) and deploy, in one command: what to
-    /// run after merging into main.
+    /// Build, smoke-test (a headless Chrome is required: `mctas site chrome`) and deploy, in one
+    /// command: what to run after merging into main.
     Publish(BuildArgs),
+    /// Download Chrome for Testing's headless shell into ~/.cache/mctas (for smoke and publish).
+    Chrome,
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
         #[arg(long, default_value = "site")]
@@ -55,6 +59,20 @@ pub enum SiteCmd {
         /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
         #[arg(long)]
         url: Option<String>,
+        /// `chrome` (headless Chrome: every check) or `webkit` (WebKitGTK through WebKitWebDriver
+        /// in Xvfb, desktop + phone: the 3D views of the main page, a door, a clock, a circuit
+        /// and a family page must draw a real picture).
+        #[arg(long, default_value = "chrome")]
+        engine: String,
+        /// `--engine webkit` only: instead of the checks, film these pages (paths in the site,
+        /// repeatable): `--frames` screenshots of each page's first 3D view, `--interval` ms apart,
+        /// desktop and phone, into $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots).
+        #[arg(long)]
+        page: Vec<String>,
+        #[arg(long, default_value_t = 6)]
+        frames: u32,
+        #[arg(long, default_value_t = 700)]
+        interval: u64,
     },
 }
 
@@ -100,6 +118,10 @@ pub struct BuildArgs {
     /// `publish` only: wait for GitHub's Pages build budget instead of failing.
     #[arg(long)]
     pub wait: bool,
+    /// `publish` only: deploy without the smoke test (it needs a headless Chrome: `mctas site
+    /// chrome` downloads one); never for a new viewer bundle.
+    #[arg(long)]
+    pub no_smoke: bool,
 }
 
 #[derive(Args)]
@@ -132,17 +154,34 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Publish(a) => {
             generate::build(&a)?;
-            match serve::smoke(&a.out, None, 20_000, None) {
-                Ok(0) => println!("smoke: all checks passed"),
-                Ok(n) => bail!("{n} smoke check(s) failed: not deployed"),
-                Err(e) if format!("{e}").contains("no headless Chrome") => println!("smoke: skipped ({e})"),
-                Err(e) => return Err(e),
+            // the smoke gates every deploy: a black or broken viewer bundle never goes out
+            // (the viewer probes count the colors of a rendered door and clock)
+            if a.no_smoke {
+                println!("smoke: skipped (--no-smoke)");
+            } else {
+                match serve::smoke(&a.out, None, 20_000, None) {
+                    Ok(0) => println!("smoke: all checks passed"),
+                    Ok(n) => bail!("{n} smoke check(s) failed: not deployed"),
+                    Err(e) if format!("{e}").contains("no headless Chrome") => bail!("{e}: not deployed (or pass --no-smoke to deploy unchecked)"),
+                    Err(e) => return Err(e),
+                }
             }
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
         }
+        SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url } => {
-            let fails = serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?;
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval } => {
+            if !page.is_empty() {
+                if engine != "webkit" {
+                    bail!("--page films pages in WebKit: add --engine webkit");
+                }
+                return webkit::film(&dir, url.as_deref(), &page, frames, interval);
+            }
+            let fails = match engine.as_str() {
+                "webkit" => webkit::smoke(&dir, url.as_deref())?,
+                "chrome" => serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?,
+                other => bail!("--engine {other}: chrome or webkit"),
+            };
             if fails > 0 {
                 bail!("{fails} smoke check(s) failed");
             }

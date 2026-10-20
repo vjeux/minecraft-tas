@@ -42,19 +42,32 @@ pub struct Var {
     pub never: usize,
     /// `--validate`: the schedule WORKS in redsim (None = not checked).
     pub real: Option<bool>,
+    /// Piston actions fired from inside the 3x3 (carried pistons; only door blocks / QC feed them).
+    pub inside: usize,
+    /// Receivers (piston at a firing cell) whose largest feeding free region has < 3 cells.
+    pub weak: usize,
+    /// The most actions one piston takes on one edge.
+    pub maxp: usize,
+    /// The firing cells of the unfed receivers (families' wiring analysis).
+    pub unfed_at: String,
     pub so: Sched,
     pub sc: Sched,
 }
 
 impl Var {
-    pub fn key(&self) -> (bool, bool, usize, usize, usize, u8, usize) {
+    pub fn key(&self) -> (bool, usize, bool, usize, usize, usize, usize, u8, usize) {
         let cr = match self.class {
             'A' => 0,
             'B' => 1,
             'C' => 2,
             _ => 3,
         };
-        (self.real == Some(false), self.connect != "WIRABLE", self.never, self.unfed, self.pistons, cr, self.events)
+        if RANK_UNFED.load(std::sync::atomic::Ordering::Relaxed) {
+            // --rank-unfed: the fewest pistons with no free feed cell first (pockets3's bar), then
+            // the fewest actions of one piston on one edge
+            return (self.real == Some(false), self.unfed, self.connect != "WIRABLE", self.maxp, self.inside, self.never, self.weak, cr, self.events);
+        }
+        (self.real == Some(false), self.inside, self.connect != "WIRABLE", self.never, self.weak, self.unfed, self.pistons, cr, self.events)
     }
     pub fn line(&self) -> String {
         format!("{} {} {} {} {}", self.bx.w, self.bx.h, self.bx.x0, self.bx.y0, self.pieces.iter().map(|p| p.code()).collect::<Vec<_>>().join(" "))
@@ -67,6 +80,10 @@ pub type Change = Option<(Pc, Option<Pc>)>;
 /// `--validate`: keep a variant only when its macro schedule, as a `door ideal` plan (between-
 /// ticks inputs; hallway test inputs allowed), WORKS in redsim at the 4 base positions.
 pub static VALIDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--outside-only`: reject variants with a piston firing from inside the 3x3.
+pub static OUTSIDE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--rank-unfed`: rank by unfed pistons right after the redsim verdict (instead of inside firings).
+pub static RANK_UNFED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> bool {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -124,6 +141,83 @@ fn replay(m: &Mech, rest: &St, open: &[fam::E], close: &[fam::E]) -> Option<(Vec
     (m.is_open(&o) && m.holes_ok(&refs, &o) && c == *rest).then_some((states, o))
 }
 
+/// `--lever-held`: piston ids the lever drives (their level only, toggled first on both edges).
+pub static LEVER_HELD: std::sync::OnceLock<Vec<Pc>> = std::sync::OnceLock::new();
+
+/// The lever-held phase rule: open = the lever flips (every held piston's level toggles at once)
+/// then a search over the other pistons' events to an open state; close = the lever flips back
+/// then a search back to rest. Shortest open first; up to 64 open states tried for a close.
+fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<fam::E>, Vec<fam::E>)> {
+    use std::collections::{HashMap, VecDeque};
+    let flips: Vec<fam::E> = held.iter().map(|&id| fam::E { id: id as u8, act: Act::L }).collect();
+    let flip = |s: &St| -> Option<St> {
+        let mut c = s.clone();
+        for e in &flips {
+            match m.apply(&c, *e) {
+                Out::Ok(n) => c = n,
+                _ => return None,
+            }
+        }
+        Some(c)
+    };
+    let evs: Vec<fam::E> = m.events(true).into_iter().filter(|e| !held.contains(&(e.id as usize))).collect();
+    // BFS from `start`; returns the path to the first states meeting `goal` (up to `want`)
+    let bfs = |start: &St, goal: &dyn Fn(&St) -> bool, want: usize| -> Vec<(St, Vec<fam::E>)> {
+        let mut states: Vec<St> = vec![start.clone()];
+        let mut parent: Vec<(u32, Option<fam::E>)> = vec![(0, None)];
+        let mut index: HashMap<St, u32> = HashMap::new();
+        index.insert(start.clone(), 0);
+        let mut q = VecDeque::from([0u32]);
+        let mut found = Vec::new();
+        let path = |mut i: u32, parent: &[(u32, Option<fam::E>)]| -> Vec<fam::E> {
+            let mut v = Vec::new();
+            while let (p, Some(e)) = parent[i as usize] {
+                v.push(e);
+                i = p;
+            }
+            v.reverse();
+            v
+        };
+        if goal(start) {
+            found.push((start.clone(), Vec::new()));
+            if found.len() >= want {
+                return found;
+            }
+        }
+        while let Some(si) = q.pop_front() {
+            let st = states[si as usize].clone();
+            for &e in &evs {
+                let Out::Ok(n) = m.apply(&st, e) else { continue };
+                if index.contains_key(&n) || states.len() >= cap {
+                    continue;
+                }
+                let i = states.len() as u32;
+                index.insert(n.clone(), i);
+                states.push(n.clone());
+                parent.push((si, Some(e)));
+                q.push_back(i);
+                if goal(&n) {
+                    found.push((n, path(i, &parent)));
+                    if found.len() >= want {
+                        return found;
+                    }
+                }
+            }
+        }
+        found
+    };
+    let s1 = flip(rest)?;
+    for (o, p1) in bfs(&s1, &|s: &St| m.is_open(s), 64) {
+        let Some(o2) = flip(&o) else { continue };
+        if let Some((_, p2)) = bfs(&o2, &|s: &St| s == rest, 1).into_iter().next() {
+            let open: Vec<fam::E> = flips.iter().copied().chain(p1).collect();
+            let close: Vec<fam::E> = flips.iter().copied().chain(p2).collect();
+            return Some((open, close));
+        }
+    }
+    None
+}
+
 /// Solve `pieces` in `bx`: the parent's schedule first (`hint`), then the exact solver (`cap`, 0 =
 /// none); Some when it opens, closes and holds a FULL frame.
 pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Change)>, reserve: &[(i8, i8)]) -> Option<Var> {
@@ -136,8 +230,21 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         }
     }
     if found.is_none() && cap > 0 {
-        if let Ok(Some(sol)) = fam::solve(&m, &rest, cap, true) {
-            found = Some((sol.open, sol.close, false));
+        match LEVER_HELD.get().filter(|h| !h.is_empty()) {
+            Some(held) => {
+                // the lever drives these pistons: their levels flip first on both edges
+                let ids: Vec<usize> = held.iter().filter_map(|h| m.pid.iter().position(|&pi| m.pieces[pi] == *h)).collect();
+                if ids.len() == held.len()
+                    && let Some((o, c)) = solve_lever(&m, &rest, cap, &ids)
+                {
+                    found = Some((o, c, false));
+                }
+            }
+            None => {
+                if let Ok(Some(sol)) = fam::solve(&m, &rest, cap, true) {
+                    found = Some((sol.open, sol.close, false));
+                }
+            }
         }
     }
     let (open_e, close_e, replayed) = found?;
@@ -147,6 +254,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         return None; // the cycle sweeps a reserved cell
     }
     let mut door_ring = 0;
+    let mut fill: Vec<(i8, i8)> = Vec::new();
     for (x, y) in fam::ring() {
         let c = at(&open, x, y);
         if c == fam::DOOR {
@@ -155,8 +263,50 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
             // a static (or moved) plain block holds the frame cell
         } else if states.iter().any(|s| at(s, x, y) != fam::AIR) {
             return None; // neither a door block, a stone nor a static-stone cell when open
+        } else {
+            fill.push((x, y));
         }
     }
+    if !fill.is_empty() {
+        // FULL frame: a static stone in every frame cell the cycle never touches and leaves air
+        // when open (it changes nothing in the macro cycle); judged again with them
+        let mut with: Vec<Pc> = pieces.to_vec();
+        with.extend(fill.iter().map(|&(x, y)| Pc { x, y, k: K::Stone }));
+        with.sort();
+        let (so, sc) = (to_sched(&m, &open_e), to_sched(&m, &close_e));
+        return eval(bx, &with, 0, Some((&so, &sc, None)), reserve);
+    }
+    // piston actions fired from inside the 3x3 (a carried piston): only door blocks or
+    // quasi-connectivity could feed them
+    let mut inside = 0;
+    {
+        let mut c = rest.clone();
+        for e in open_e.iter().chain(close_e.iter()) {
+            let (x, y) = bx.xy(c.pp[e.id as usize] as usize);
+            if fam::in_t(x, y) {
+                inside += 1;
+            }
+            if let Out::Ok(n) = m.apply(&c, *e) {
+                c = n;
+            }
+        }
+    }
+    if OUTSIDE_ONLY.load(std::sync::atomic::Ordering::Relaxed) && inside > 0 {
+        return None;
+    }
+    // the most actions one piston takes on one edge (pockets3: each distinct pulse needs its own
+    // watchable event next to the piston's feed pocket; 1-2 per edge is wirable)
+    let maxp = [&open_e, &close_e]
+        .iter()
+        .map(|edge| {
+            let mut n = [0usize; 16];
+            for e in edge.iter() {
+                n[e.id as usize] += 1;
+            }
+            n.into_iter().max().unwrap_or(0)
+        })
+        .max()
+        .unwrap_or(0);
     let sol = fam::Sol { open: open_e.clone(), close: close_e.clone(), sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
     // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
     let real = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
@@ -189,6 +339,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         fam::F.iter().any(|&d| Some(d) != head && !bx.has(x + d.0, y + d.1))
     });
     let unfed = unfed_list.len() - usize::from(lever_ok);
+    let unfed_at = unfed_list.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" ") + if lever_ok { " [one may be the lever's]" } else { "" };
     // `door connect` (connect.rs): free-cell regions after the run's footprint, each piston fed
     // from a region next to it (or its quasi cell, a plain ring stone, a door block), a region
     // wakes only when it can watch a change, every event order from the lever's region: the
@@ -226,6 +377,10 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         connect,
         never,
         real,
+        inside,
+        weak: w.weak,
+        maxp,
+        unfed_at,
         so: to_sched(&m, &open_e),
         sc: to_sched(&m, &close_e),
     })
@@ -324,7 +479,7 @@ pub fn search(seeds: &[(Bx, Vec<Pc>)], o: &Opts) -> Vec<Var> {
                     // its neighbours may solve (e.g. a turned mechanism whose stacked pistons now
                     // couple by QC): search from it anyway
                     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, so: Vec::new(), sc: Vec::new() });
+                    beam.push(Var { bx: *bx, pieces: p.clone(), unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: 0, door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, unfed_at: String::new(), so: Vec::new(), sc: Vec::new() });
                 }
             }
         }
@@ -403,14 +558,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close));
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,

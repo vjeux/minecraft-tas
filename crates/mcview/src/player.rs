@@ -25,15 +25,100 @@ pub struct Player {
     mesh_key: (u32, u32),
     /// Something changed since the last frame.
     pub dirty: bool,
+    /// Seconds spent at a flying machine's end before it starts again.
+    hold: f32,
+    /// A travelling design's last centre: the camera follows it.
+    follow: Option<[f32; 3]>,
+    /// Circuit inputs are pulses (a tap = a short pulse) rather than levels (a tap flips).
+    pub pulse_inputs: bool,
+    /// The checker's phases (`data-phases`): (from, to, label).
+    pub phases: Vec<(u32, u32, String)>,
+    /// The last [`HISTORY`] ticks of each output (on/off), oldest first.
+    pub history: Vec<std::collections::VecDeque<bool>>,
+    /// The tick the history last recorded.
+    history_tick: Option<u32>,
+    /// When each held input went down (tick), for momentary presses.
+    pressed: Vec<Option<u32>>,
 }
+
+/// Ticks of output history kept.
+pub const HISTORY: usize = 40;
 
 impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
         let mut session = Session::new(text, &Options::default())?;
         session.find_auto_output(20_000);
-        let look = scene::default_look(&session);
+        let mut look = scene::default_look(&session);
+        look.lit_marker = true;
         let camera = scene::default_camera(&session, &look, aspect);
-        Ok(Player { session, look, home: camera, camera, playing: false, tps: 20.0, acc: 0.0, partial: 0.0, mesh: None, mesh_key: (u32::MAX, 0), dirty: true })
+        let pulse_inputs = crate::circuit::pulse_kind(&session.design);
+        let n_in = session.circuit_inputs.len();
+        let n_out = session.outputs.len();
+        let mut p = Player {
+            session,
+            look,
+            home: camera,
+            camera,
+            playing: false,
+            tps: 20.0,
+            acc: 0.0,
+            partial: 0.0,
+            mesh: None,
+            mesh_key: (u32::MAX, 0),
+            dirty: true,
+            hold: 0.0,
+            follow: None,
+            pulse_inputs,
+            phases: Vec::new(),
+            history: vec![Default::default(); n_out],
+            history_tick: None,
+            pressed: vec![None; n_in],
+        };
+        p.follow_machine();
+        p.record();
+        Ok(p)
+    }
+
+    /// A travelling design (a flying machine): move the camera with its centre (moving blocks at
+    /// their drawn offset, `stop:` blocks left out).
+    /// A flying machine's centre: while it plays the camera follows it (it leaves the frame
+    /// otherwise); nothing else ever moves the camera by itself. `move_camera` false only updates
+    /// the reference (paused stepping), so the next follow does not jump.
+    fn follow_machine_with(&mut self, move_camera: bool) {
+        if self.session.corridor.is_none() || !self.is_flying_machine() {
+            return;
+        }
+        let blocks = self.session.render_blocks(self.partial);
+        let stops: Vec<Pos> = self.session.design.stops.iter().map(|(p, _)| *p).collect();
+        let (mut c, mut n) = ([0f32; 3], 0usize);
+        for b in blocks.iter().filter(|b| !(b.offset == [0.0; 3] && stops.contains(&b.cell))) {
+            for i in 0..3 {
+                c[i] += b.cell[i] as f32 + b.offset[i] + 0.5;
+            }
+            n += 1;
+        }
+        if n == 0 {
+            return;
+        }
+        let c = c.map(|v| v / n as f32);
+        if let Some(prev) = self.follow
+            && move_camera
+        {
+            for i in 0..3 {
+                self.camera.target[i] += c[i] - prev[i];
+            }
+        }
+        self.follow = Some(c);
+    }
+
+    fn follow_machine(&mut self) {
+        self.follow_machine_with(true);
+    }
+
+    /// A flying machine (`circuit: flying-machine`, or a `travel:` design without a kind): the
+    /// only design the camera follows. A piston extender's payload comes back: the camera stays.
+    fn is_flying_machine(&self) -> bool {
+        self.session.design.meta.get("circuit").is_none_or(|k| k.trim_start().starts_with("flying-machine"))
     }
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
@@ -41,10 +126,28 @@ impl Player {
         if !self.playing || !self.session.playable() {
             return std::mem::take(&mut self.dirty);
         }
+        // a flying machine at its judge's end (the corridor's end), or the auto-demo at the end
+        // of the judge's stimulus: a pause, then again
+        let end = match (&self.session.demo, self.session.end_tick) {
+            (Some(d), _) => Some(d.ticks),
+            (None, e) => e,
+        };
+        if let Some(e) = end
+            && self.session.tick >= e
+        {
+            self.hold += dt.min(0.25);
+            if self.hold < 1.0 {
+                return std::mem::take(&mut self.dirty);
+            }
+            self.hold = 0.0;
+            self.reset();
+            return true;
+        }
         self.acc += dt.min(0.25) * self.tps;
         let mut n = 0;
-        while self.acc >= 1.0 && n < 5000 {
+        while self.acc >= 1.0 && n < 5000 && end.is_none_or(|e| self.session.tick < e) {
             self.session.step();
+            self.record();
             self.acc -= 1.0;
             n += 1;
         }
@@ -53,23 +156,102 @@ impl Player {
         }
         // interpolate moving blocks only at watchable speeds
         self.partial = if self.tps <= 40.0 { self.acc.clamp(0.0, 0.999) } else { 0.0 };
+        self.follow_machine();
         self.dirty = false;
         true
+    }
+
+    /// Append the outputs' levels to the history (once per tick).
+    fn record(&mut self) {
+        if self.history_tick == Some(self.session.tick) {
+            return;
+        }
+        self.history_tick = Some(self.session.tick);
+        let outs = self.session.outputs.clone();
+        if self.history.len() != outs.len() {
+            self.history = vec![Default::default(); outs.len()];
+        }
+        for (h, o) in self.history.iter_mut().zip(&outs) {
+            h.push_back(self.session.is_on(*o));
+            while h.len() > HISTORY {
+                h.pop_front();
+            }
+        }
+    }
+
+    /// The checker's phase label at this tick (the auto-demo's badge).
+    pub fn phase(&self) -> Option<&str> {
+        let t = self.session.tick;
+        self.phases.iter().find(|(a, b, _)| *a <= t && t < *b).map(|(_, _, l)| l.as_str())
+    }
+
+    /// Any input from the person ends the auto-demo (the inputs are theirs from then on).
+    pub fn stop_demo(&mut self) {
+        self.session.demo = None;
+    }
+
+    /// A tap on circuit input `i`: a short pulse (pulse inputs) or a flip (level inputs).
+    pub fn tap_input(&mut self, i: usize) -> bool {
+        self.stop_demo();
+        let ok = if self.pulse_inputs { self.session.pulse_input(i, 2) } else { self.session.set_input(i, !self.session.input_on[i]) };
+        if ok {
+            self.invalidate();
+        }
+        ok
+    }
+
+    /// A press on input `i`'s button (momentary for pulse inputs: on while held, at least 2 gt;
+    /// a flip for level inputs).
+    pub fn input_down(&mut self, i: usize) -> bool {
+        if !self.pulse_inputs {
+            return self.tap_input(i);
+        }
+        self.stop_demo();
+        if i < self.pressed.len() && self.session.set_input(i, true) {
+            self.pressed[i] = Some(self.session.tick);
+            self.invalidate();
+            return true;
+        }
+        false
+    }
+
+    /// The release of input `i`'s button.
+    pub fn input_up(&mut self, i: usize) {
+        if !self.pulse_inputs || i >= self.pressed.len() {
+            return;
+        }
+        if let Some(at) = self.pressed[i].take() {
+            if self.session.tick >= at + 2 {
+                self.session.set_input(i, false);
+            } else {
+                // a tap: it stays on for 2 gt
+                self.session.release_input_at(i, at + 2);
+            }
+            self.invalidate();
+        }
     }
 
     /// One tick (paused stepping).
     pub fn step(&mut self) {
         self.session.step();
+        self.record();
         self.acc = 0.0;
         self.partial = 0.0;
-        self.dirty = true;
+        // paused: the camera stays (only a playing flying machine is followed)
+        self.follow_machine_with(false);
+        self.invalidate();
     }
 
     pub fn reset(&mut self) {
         self.session.reset();
+        self.history = vec![Default::default(); self.session.outputs.len()];
+        self.history_tick = None;
+        self.pressed = vec![None; self.session.circuit_inputs.len()];
+        self.record();
         self.acc = 0.0;
         self.partial = 0.0;
-        self.dirty = true;
+        self.follow_machine();
+        self.invalidate();
     }
 
     /// The block under a point of the view (x, y in -1..1, y up).
@@ -79,25 +261,110 @@ impl Player {
         crate::pick::pick(atlas, &blocks, o, d, self.camera.dist * 4.0 + 50.0)
     }
 
-    /// A click: flips the lever / presses the button under the pointer. Returns the cell.
+    /// A click: flips the lever / presses the button under the pointer, paused or playing (the
+    /// frame is rebuilt at once: the cached mesh is keyed by tick, which a click does not move).
+    /// Returns the cell.
+    /// The circuit input under a point of the view (x, y in -1..1): its cell (often empty: the
+    /// judge writes a block there) or the device in it, when nothing nearer covers it.
+    pub fn input_at(&self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<usize> {
+        let (o, d) = self.camera.ray(x, y, aspect);
+        let picked = self.pick(atlas, x, y, aspect);
+        let hit_dist = |c: Pos| -> Option<f32> { ray_box(o, d, [c[0] as f32, c[1] as f32, c[2] as f32], [c[0] as f32 + 1.0, c[1] as f32 + 1.0, c[2] as f32 + 1.0]) };
+        let picked_dist = picked.and_then(hit_dist).unwrap_or(f32::MAX);
+        self.session
+            .circuit_inputs
+            .iter()
+            .enumerate()
+            .filter_map(|(i, ci)| hit_dist(ci.pos).map(|t| (i, ci.pos, t)))
+            .filter(|(_, p, t)| Some(*p) == picked || *t <= picked_dist + 1e-3)
+            .min_by(|a, b| a.2.total_cmp(&b.2))
+            .map(|(i, _, _)| i)
+    }
+
+    /// Press-and-hold on circuit input `i` in the view: on while held (`on`), off when released
+    /// (a pulse input stays on at least 2 gt, like its button).
+    pub fn hold_input(&mut self, i: usize, on: bool) -> bool {
+        if i >= self.session.circuit_inputs.len() {
+            return false;
+        }
+        self.stop_demo();
+        if on {
+            if !self.session.set_input(i, true) {
+                return false;
+            }
+            if let Some(p) = self.pressed.get_mut(i) {
+                *p = Some(self.session.tick);
+            }
+        } else {
+            let at = self.pressed.get_mut(i).and_then(|p| p.take()).unwrap_or(0);
+            if self.pulse_inputs && self.session.tick < at + 2 {
+                self.session.release_input_at(i, at + 2);
+            } else {
+                self.session.set_input(i, false);
+            }
+        }
+        self.invalidate();
+        true
+    }
+
     pub fn click(&mut self, atlas: &Atlas, x: f32, y: f32, aspect: f32) -> Option<Pos> {
+        if let Some(i) = self.input_at(atlas, x, y, aspect) {
+            let p = self.session.circuit_inputs[i].pos;
+            return self.tap_input(i).then_some(p);
+        }
         let c = self.pick(atlas, x, y, aspect)?;
+        self.stop_demo();
         if self.session.toggle(c) {
-            self.dirty = true;
+            self.invalidate();
             Some(c)
         } else {
             None
         }
     }
 
+    /// Where on the view (x, y in -1..1, y up) a click picks `cell` (tests click there); a
+    /// circuit input's cell (a click there drives it, even when empty) at its projected centre.
+    pub fn screen_point(&self, atlas: &Atlas, cell: Pos, aspect: f32) -> Option<(f32, f32)> {
+        if self.session.circuit_inputs.iter().any(|c| c.pos == cell) {
+            let (f, r, u) = self.camera.basis();
+            let eye = self.camera.eye();
+            let t = (self.camera.vfov.to_radians() / 2.0).tan();
+            let v = [cell[0] as f32 + 0.5 - eye[0], cell[1] as f32 + 0.5 - eye[1], cell[2] as f32 + 0.5 - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f);
+            if z > 0.05 {
+                let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+                if x.abs() < 0.98 && y.abs() < 0.98 {
+                    return Some((x, y));
+                }
+            }
+            return None;
+        }
+        scene::click_point(atlas, &self.session, &self.camera, cell, aspect)
+    }
+
+    /// Turn the camera (and its home) to a side every lever and button can be seen and clicked
+    /// from, if the pictures' side hides one.
+    pub fn show_inputs(&mut self, atlas: &Atlas, aspect: f32) {
+        self.camera = scene::camera_showing_inputs(atlas, &self.session, &self.look, aspect);
+        self.home = self.camera;
+        self.dirty = true;
+    }
+
     /// Flip a door's lever (or the first input).
     pub fn flip(&mut self) -> bool {
+        self.stop_demo();
+        if !self.session.circuit_inputs.is_empty() {
+            return self.tap_input(0);
+        }
         let target = match self.session.mode {
             Mode::Door { lever, .. } => Some(lever),
             _ => self.session.inputs.first().copied(),
         };
         let ok = target.is_some_and(|p| self.session.toggle(p));
-        self.dirty |= ok;
+        if ok {
+            self.invalidate();
+        }
         ok
     }
 
@@ -129,11 +396,31 @@ impl Player {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
         let mut out = format!("{t} gt · {}", seconds(t));
-        if s.last_input.is_some() {
+        if s.last_input.is_some() && s.mode.is_door() {
             out.push_str(&format!(" · flip +{} gt", s.since_input()));
         }
         out
     }
+}
+
+/// Where a ray (origin, direction) enters a box, if it does (slab test).
+fn ray_box(o: [f32; 3], d: [f32; 3], lo: [f32; 3], hi: [f32; 3]) -> Option<f32> {
+    let (mut t0, mut t1) = (0.0f32, f32::MAX);
+    for i in 0..3 {
+        if d[i].abs() < 1e-9 {
+            if o[i] < lo[i] || o[i] > hi[i] {
+                return None;
+            }
+            continue;
+        }
+        let (a, b) = ((lo[i] - o[i]) / d[i], (hi[i] - o[i]) / d[i]);
+        t0 = t0.max(a.min(b));
+        t1 = t1.min(a.max(b));
+        if t0 > t1 {
+            return None;
+        }
+    }
+    Some(t0)
 }
 
 /// `6.15 s`, `1 min 2.50 s` (always two decimals: the counter keeps its width).
@@ -163,5 +450,21 @@ mod tests {
         assert_eq!(seconds(123), "6.15 s");
         assert_eq!(seconds(20), "1.00 s");
         assert_eq!(seconds(1250), "1 min 02.50 s");
+    }
+
+    #[test]
+    fn a_paused_click_shows_at_once() {
+        // the lever flips while paused: the next frame shows it (no stale mesh of the same tick)
+        let gadget = "name: g\norigin: 0 0 0\npalette:\n  S minecraft:stone\n  L minecraft:lever[face=floor,facing=east,powered=false]\n  B minecraft:waxed_copper_bulb[lit=false,powered=false]\nlayer 0:\n  SB\nlayer 1:\n  L\n";
+        let atlas = Atlas::build();
+        let mut p = Player::new(gadget, 1.5).unwrap();
+        assert_eq!(p.session.inputs, vec![[0, 1, 0]]);
+        let before = p.triangles(&atlas).0;
+        let (x, y) = p.screen_point(&atlas, [0, 1, 0], 1.5).expect("the lever is visible");
+        assert_eq!(p.click(&atlas, x, y, 1.5), Some([0, 1, 0]));
+        assert!(p.update(0.0), "a paused click asks for a frame");
+        let after = p.triangles(&atlas).0;
+        assert!(before.len() != after.len() || before.iter().zip(&after).any(|(a, b)| a.pos != b.pos), "the frame changed");
+        assert!(p.session.is_on([0, 1, 0]));
     }
 }

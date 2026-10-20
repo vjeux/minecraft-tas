@@ -118,9 +118,23 @@ pub struct World {
     pub game_events: Vec<(&'static str, BlockPos)>,
     /// Sculk sensor block entities and their tickers (agent sculk's side).
     pub sculk: crate::sculk::State,
+    /// Daylight detectors exist (`daylight.rs`): block changes are logged in `light_changes`
+    /// (tick, where) for the light engine's timing, and the state key holds the time mod 20.
+    pub watch_light: bool,
+    pub light_changes: Vec<(i64, BlockPos)>,
     /// Problems the model met (a write outside the box, an unmodeled case): a run with any is
     /// not trustworthy.
     pub errors: Vec<String>,
+    /// TNT primed (`TntBlock.prime`: a `PrimedTnt` in the game, not simulated: its motion draws
+    /// from `level.random` and the judge removes primed TNT before it explodes): (game time, the
+    /// TNT's cell; the entity spawns at its bottom center).
+    pub primed: Vec<(i64, BlockPos)>,
+    /// The caller removes every primed TNT before it explodes (the TNT judge): no explosion
+    /// error (`tick`).
+    pub remove_primed: bool,
+    /// Primed TNT become entities (`entity::primed_tnt`) with this value in place of the game's
+    /// random `nextDouble()` for their kick; `None`: primes are records only (the judge's screen).
+    pub tnt_kick: Option<f64>,
 }
 
 impl World {
@@ -150,7 +164,12 @@ impl World {
             drops: Vec::new(),
             game_events: Vec::new(),
             sculk: Default::default(),
+            watch_light: false,
+            light_changes: Vec::new(),
             errors: Vec::new(),
+            primed: Vec::new(),
+            remove_primed: false,
+            tnt_kick: None,
         }
     }
 
@@ -178,7 +197,15 @@ impl World {
     /// Write a state with no side effect at all (the chunk section write).
     pub fn put(&mut self, p: BlockPos, s: Block) {
         match self.index(p) {
-            Some(i) => self.cells[i] = s,
+            Some(i) => {
+                if self.watch_light && self.cells[i] != s && crate::daylight::light_differs(&self.cells[i], &s) {
+                    // (daylight detectors) the light engine's timing: recent changes only
+                    let now = self.time;
+                    self.light_changes.retain(|&(t, _)| t >= now - 1);
+                    self.light_changes.push((now, p));
+                }
+                self.cells[i] = s
+            }
             None => {
                 if !s.is_air() {
                     self.errors.push(format!("write outside the box at {p}: {s}"));
@@ -233,7 +260,9 @@ impl World {
             }
             self.remove_block_entity(pos, old);
         }
-        if (block_changed || matches!(state, Block::Rail { .. })) && (fl & flags::NEIGHBORS != 0 || moved) {
+        // LevelChunk.setBlockState: `blockChanged || newBlock instanceof BaseRailBlock` (every
+        // rail kind: powered, activator, plain, detector)
+        if (block_changed || crate::rails::is_rail(&state)) && (fl & flags::NEIGHBORS != 0 || moved) {
             bh::affect_neighbors_after_removal(self, old, pos, moved);
         }
         if self.get(pos).kind() != new_kind {
@@ -271,7 +300,8 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox => crate::redstone::container::remove(self, pos),
+            Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
         }
@@ -282,7 +312,12 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
+            Kind::DaylightDetector => crate::daylight::create(self, pos),
+            Kind::Jukebox => {
+                crate::redstone::container::create(self, pos, &state);
+                crate::redstone::container::jukebox_update_ticker(self, pos, &state);
+            }
             Kind::Sculk(_) => crate::sculk::create(self, pos),
             _ => {}
         }
@@ -295,7 +330,9 @@ impl World {
 
     /// `Level.removeBlock` (no fluids: air).
     pub fn remove_block(&mut self, pos: BlockPos, moved: bool) -> bool {
-        self.set_block(pos, Block::Air, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
+        // Level.removeBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state(self, pos).create_legacy_block();
+        self.set_block(pos, keep, flags::ALL | if moved { flags::MOVE_BY_PISTON } else { 0 })
     }
 
     /// `Level.destroyBlock`: the drop (an item entity) is recorded in `drops`.
@@ -307,7 +344,9 @@ impl World {
         if drop && bh::drops_item(&s) {
             self.drops.push((pos, s));
         }
-        let destroyed = self.set_block_limit(pos, Block::Air, flags::ALL, limit);
+        // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)
+        let keep = crate::fluid::fluid_state_of(&s).create_legacy_block();
+        let destroyed = self.set_block_limit(pos, keep, flags::ALL, limit);
         if destroyed {
             self.game_event_state("block_destroy", pos, s);
         }
@@ -553,6 +592,16 @@ impl World {
     pub fn tick(&mut self) {
         self.handling_tick = true;
         self.time += 1;
+        // a primed TNT explodes after its 80 gt fuse (it ticks from the tick it spawns in): not
+        // modeled, unless the caller removes primed TNT before that (the TNT judge does); TNT
+        // entities (`tnt_kick`) count their own fuse
+        if !self.remove_primed && self.tnt_kick.is_none() {
+            if let Some(&(t, p)) = self.primed.iter().find(|(t, _)| self.time >= *t + 79) {
+                if !self.errors.iter().any(|e| e.starts_with("explosion")) {
+                    self.errors.push(format!("explosion not modeled: the TNT primed at gt {t} ({p}) explodes"));
+                }
+            }
+        }
         let due = self.ticks.collect(self.time);
         for t in due {
             self.ticks.start_running(&t);
@@ -578,8 +627,7 @@ impl World {
             }
         }
         self.handling_tick = false;
-        crate::gravity::tick_entities(self);
-        crate::entity::tick_all(self);
+        crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
         crate::redstone::container::tick_hoppers(self);

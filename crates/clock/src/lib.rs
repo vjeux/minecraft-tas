@@ -24,6 +24,7 @@ pub mod catalog;
 pub mod census;
 pub mod extend;
 pub mod ident;
+pub mod kits;
 pub mod shot;
 pub mod sim;
 pub mod verify;
@@ -102,6 +103,12 @@ pub enum Action {
     Use { pos: Pos },
     /// Remove the block there with updates (no drop).
     Clear { pos: Pos },
+    /// Change the block there with SHAPE updates only (flags 2: no block update to the
+    /// neighbors), the way crops grow or a dispenser marks itself triggered (the BUD judge).
+    ShapeSet { pos: Pos, state: String },
+    /// A pure BLOCK update around the cell (`Level.updateNeighborsAt`), nothing changes (the BUD
+    /// judge).
+    Update { pos: Pos },
 }
 
 /// How the blocks are placed.

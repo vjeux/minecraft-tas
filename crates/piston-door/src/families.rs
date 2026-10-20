@@ -2033,6 +2033,9 @@ pub struct Wire {
     pub forced: usize,
     /// Pistons fed from more than one position (riders).
     pub riders: usize,
+    /// Receivers (a piston at one firing cell) whose largest feeding free-cell region has fewer
+    /// than 3 cells (unfed ones included): pockets3's wirability bar.
+    pub weak: usize,
     pub why: String,
 }
 
@@ -2199,12 +2202,13 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     }
     let mut sorted = sizes.clone();
     sorted.sort_unstable_by(|a, b| b.cmp(a));
+    let weak = used.iter().filter(|&&k| feeds[k].iter().map(|&r| sizes[r]).max().unwrap_or(0) < 3).count();
     if !why.is_empty() {
-        return Wire { class: 'X', regions: sorted, forced: 0, riders, why: why.join("; ") };
+        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, why: why.join("; ") };
     }
     // one region feeding everything?
     if (0..nr).any(|r| used.iter().all(|&k| feeds[k].contains(&r))) {
-        return Wire { class: 'A', regions: sorted, forced: 1, riders, why: "one region feeds every piston".into() };
+        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, why: "one region feeds every piston".into() };
     }
     // forced regions: the only region of some receiver
     let mut forced: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -2261,7 +2265,7 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
         }
     }
     let (class, w) = best.unwrap_or(('X', "no region".into()));
-    Wire { class, regions: sorted, forced: forced.len(), riders, why: w }
+    Wire { class, regions: sorted, forced: forced.len(), riders, weak, why: w }
 }
 
 fn wireability(m: &Mech, rest: &St, sol: &Sol) -> (usize, usize) {

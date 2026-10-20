@@ -1,0 +1,15 @@
+[package]
+name = "circuit-tnt"
+description = "Contraption study 9, track tnt (mctas circuit tnt ...): TNT dupers (a TNT block primed while its piston-moved copy survives): the redsim runner, searches, the real-game run; see docs/circuits.md and designs/circuits/tnt/VARIATIONS.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

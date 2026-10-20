@@ -1,0 +1,38 @@
+name: pockets-partial-12as
+assisted: 5,0;5,1;5,2;1,5;1,-2;0,4;1,4;0,-2;3,-1;0,-1;1,3;-1,3
+port door: 0 0 0
+port lever: 4 5 0
+origin: -1 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=west]
+  E minecraft:stone
+  G minecraft:glass
+  L minecraft:lever[face=floor,facing=west,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston_head[facing=west,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  .BOO
+layer -2:
+  ..BAS
+layer -1:
+  .B..C
+layer 0:
+  EEEEPDR
+layer 1:
+  EEEEPDR
+layer 2:
+  EEEEPDR
+layer 3:
+  s.S.C
+layer 4:
+  .S..oG
+layer 5:
+  ..S.rL

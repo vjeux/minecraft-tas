@@ -186,17 +186,22 @@ fn census_one(sp: &Space, hold: u32, threads: usize) -> Result<std::collections:
                     continue;
                 }
             }
+            // the official judge's redsim screen (its own walk and hold, the lamp in the output
+            // cell) must pass
+            let Some(fun) = judge_name(&r.function) else { continue };
+            let claim = format!("gate {fun}");
+            let d = circuit_delay::judge::design("candidate", &claim, blocks, &names, outs[oi]);
+            let Some((true, metrics, _)) = circuit_delay::judge::judge_sim(d) else { continue };
+            // minimal: without any one of its blocks the judge refuses the claim (a smaller design
+            // the query alone accepts may drive nothing, so the judge decides)
             let minimal = (0..blocks.len()).all(|i| {
                 let less: Vec<(Pos, Block)> = blocks.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, b)| *b).collect();
-                !judge(&less, Some(oi)).iter().any(|(_, r2)| r2.function == r.function)
+                let d = circuit_delay::judge::design("candidate", &claim, &less, &names, outs[oi]);
+                !matches!(circuit_delay::judge::judge_sim(d), Some((true, _, _)))
             });
             if !minimal {
                 continue;
             }
-            // the official judge's redsim screen (its own walk and hold) must pass too
-            let Some(fun) = judge_name(&r.function) else { continue };
-            let d = circuit_delay::judge::design("candidate", &format!("gate {fun}"), blocks, &names, outs[oi]);
-            let Some((true, metrics, _)) = circuit_delay::judge::judge_sim(d) else { continue };
             {
                 let mut s = seen.lock().unwrap();
                 if s.get(&k1).is_none_or(|x| s1 < *x) {

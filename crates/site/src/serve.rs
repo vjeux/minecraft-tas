@@ -24,7 +24,7 @@ fn content_type(p: &Path) -> &'static str {
     }
 }
 
-fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>) -> Result<()> {
+fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<String, String>, inject: &str) -> Result<()> {
     let mut reader = BufReader::new(s.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -60,7 +60,15 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         file = file.join("index.html");
     }
     match std::fs::read(&file) {
-        Ok(body) => {
+        Ok(mut body) => {
+            if !inject.is_empty() && content_type(&file).starts_with("text/html") {
+                let text = String::from_utf8_lossy(&body).to_string();
+                body = match text.find("<head>") {
+                    Some(i) => format!("{}{inject}{}", &text[..i + 6], &text[i + 6..]),
+                    None => format!("{inject}{text}"),
+                }
+                .into_bytes();
+            }
             write!(s, "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", content_type(&file), body.len())?;
             s.write_all(&body)?;
         }
@@ -80,12 +88,20 @@ pub fn serve_on(listener: TcpListener, root: PathBuf) {
 }
 
 pub fn serve_with(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>) {
+    serve_injecting(listener, root, extra, String::new())
+}
+
+/// [`serve_with`], with `inject` inserted right after `<head>` in every HTML file served (the
+/// WebKit smoke's console recorder: it must run before the page's own scripts).
+pub fn serve_injecting(listener: TcpListener, root: PathBuf, extra: std::collections::HashMap<String, String>, inject: String) {
     let extra = std::sync::Arc::new(extra);
+    let inject = std::sync::Arc::new(inject);
     for s in listener.incoming().flatten() {
         let root = root.clone();
         let extra = extra.clone();
+        let inject = inject.clone();
         std::thread::spawn(move || {
-            let _ = respond(s, &root, &extra);
+            let _ = respond(s, &root, &extra, &inject);
         });
     }
 }
@@ -106,12 +122,51 @@ fn chrome(given: Option<&Path>) -> Result<PathBuf> {
     if let Some(p) = std::env::var_os("CHROME") {
         return Ok(PathBuf::from(p));
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = PathBuf::from(home).join("tools/chrome-headless-shell-linux64/chrome-headless-shell");
-    if p.is_file() {
-        return Ok(p);
+    for p in [chrome_cache_dir().join("chrome-headless-shell-linux64/chrome-headless-shell"), PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("tools/chrome-headless-shell-linux64/chrome-headless-shell")] {
+        if p.is_file() {
+            return Ok(p);
+        }
     }
-    bail!("no headless Chrome: pass --chrome, set CHROME, or unpack Chrome for Testing's chrome-headless-shell-linux64.zip into ~/tools")
+    bail!("no headless Chrome: run `mctas site chrome` (downloads Chrome for Testing's chrome-headless-shell into ~/.cache/mctas), pass --chrome, or set CHROME")
+}
+
+/// Where `mctas site chrome` puts the headless Chrome.
+fn chrome_cache_dir() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/mctas")
+}
+
+/// Download Chrome for Testing's chrome-headless-shell (linux64, the stable channel) into
+/// ~/.cache/mctas, for `site smoke` and `site publish`. Returns the binary.
+pub fn install_chrome() -> Result<PathBuf> {
+    let dir = chrome_cache_dir();
+    std::fs::create_dir_all(&dir)?;
+    let json = Command::new("curl").args(["-fsSL", "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"]).output().context("running curl")?;
+    if !json.status.success() {
+        bail!("downloading the Chrome for Testing index failed: {}", String::from_utf8_lossy(&json.stderr).trim());
+    }
+    let v: serde_json::Value = serde_json::from_slice(&json.stdout).context("the Chrome for Testing index")?;
+    let url = v["channels"]["Stable"]["downloads"]["chrome-headless-shell"]
+        .as_array()
+        .and_then(|a| a.iter().find(|d| d["platform"] == "linux64"))
+        .and_then(|d| d["url"].as_str())
+        .context("no linux64 chrome-headless-shell in the Chrome for Testing index")?
+        .to_string();
+    let zip = dir.join("chrome-headless-shell-linux64.zip");
+    println!("downloading {url}");
+    let st = Command::new("curl").args(["-fsSL", "-o"]).arg(&zip).arg(&url).status().context("running curl")?;
+    if !st.success() {
+        bail!("downloading {url} failed");
+    }
+    let _ = std::fs::remove_dir_all(dir.join("chrome-headless-shell-linux64"));
+    let st = Command::new("unzip").args(["-q", "-o"]).arg(&zip).arg("-d").arg(&dir).status().context("running unzip")?;
+    if !st.success() {
+        bail!("unzipping {} failed", zip.display());
+    }
+    let _ = std::fs::remove_file(&zip);
+    let bin = dir.join("chrome-headless-shell-linux64/chrome-headless-shell");
+    let o = Command::new(&bin).arg("--version").output().with_context(|| format!("running {}", bin.display()))?;
+    println!("{}: {}", bin.display(), String::from_utf8_lossy(&o.stdout).trim());
+    Ok(bin)
 }
 
 /// The DOM of `url` after its scripts ran (`--dump-dom` with a virtual time budget).
@@ -286,6 +341,82 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             fails += 1;
         }
     };
+    // static checks (the files of the build): nothing community-derived is published (vjeux
+    // 01:15Z), and the circuit pages explain themselves (vjeux 01:05Z)
+    let community: Vec<&str> = site
+        .builds
+        .iter()
+        .filter(|b| b.kind == "door")
+        .filter(|b| crate::doors::community_seed(&b.name, &std::fs::read_to_string(dir.join(&b.design)).unwrap_or_default()).is_some())
+        .map(|b| b.name.as_str())
+        .collect();
+    let stray = std::fs::read_dir(dir.join("designs/doors")).map(|rd| rd.flatten().filter(|e| crate::doors::community_seed(&e.file_name().to_string_lossy(), "").is_some()).count()).unwrap_or(0);
+    check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let ok = ["<h2>What it does</h2>", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "about.html#glossary"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: what it does, how to try it, the judge's test, metric meanings", ok, b.page.clone());
+        // the redstone first (vjeux): the live view comes before the explanation
+        let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>What it does</h2>")).is_some_and(|(v, w)| v < w);
+        check("circuit page: the live 3D view before the explanation", first, b.page.clone());
+    }
+    let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
+    check("study page: intro + designs", study.contains("<h1>Memory</h1>") && study.contains("class=\"card"), "circuits/memory/index.html".into());
+    // the machines' studies: a variations table with the best design per variation
+    for folder in ["shulker", "tnt", "bud"] {
+        if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
+            let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
+            let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
+            let best = table.matches("<a href=").count();
+            check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
+        }
+    }
+    // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
+    // different sizes, not others of size 1"): every card there has another value
+    if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let mine = b.circuit.as_ref().and_then(|c| c.value);
+        let section = page.split("<h2>Piston extenders of other reaches").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+        let values: Vec<Option<i64>> = section
+            .split("href=\"")
+            .skip(1)
+            .filter_map(|s| s.split('"').next())
+            .filter_map(|h| site.builds.iter().find(|o| h.ends_with(&o.page)))
+            .map(|o| o.circuit.as_ref().and_then(|c| c.value))
+            .collect();
+        let distinct: std::collections::BTreeSet<Option<i64>> = values.iter().copied().collect();
+        check(
+            "circuit page: the related list walks the axis (other reaches, one each)",
+            values.len() >= 2 && !values.contains(&mine) && distinct.len() == values.len(),
+            format!("{}: N = {:?}", b.page, values.iter().map(|v| v.unwrap_or(-1)).collect::<Vec<_>>()),
+        );
+    }
+    // the judge's calibration / selftest designs are not published (vjeux 02:40Z)
+    let calib = site.builds.iter().filter(|b| b.page.starts_with("circuits/calibration/") || b.page.starts_with("circuits/selftest/")).count();
+    let calib_dir = dir.join("circuits/calibration").exists() || dir.join("circuits/selftest").exists() || dir.join("designs/circuits/calibration").exists();
+    check("no calibration or selftest circuit published", calib == 0 && !calib_dir, format!("{calib} builds, folders: {calib_dir}"));
+    // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
+    let mut attributed: Vec<String> = Vec::new();
+    let sample: Vec<String> = ["index.html", "about.html", "families/index.html"].iter().map(|s| s.to_string()).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    for p in &sample {
+        let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
+        let mut visible = String::new();
+        let mut rest = html.as_str();
+        while let Some(i) = rest.find("<pre") {
+            visible.push_str(&rest[..i]);
+            rest = rest[i..].find("</pre>").map(|j| &rest[i + j..]).unwrap_or("");
+        }
+        visible.push_str(rest);
+        if visible.replace("st-redsim", "").to_lowercase().contains("redsim") {
+            attributed.push(p.clone());
+        }
+    }
+    check("no simulator attribution on the pages", attributed.is_empty(), format!("{} of {} pages{}", attributed.len(), sample.len(), attributed.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+    if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| !c.span.is_empty())) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let picks = page.matches("class=\"pick").count();
+        check("tunable group: the member picker, the current member marked", picks >= 2 && page.contains("aria-current=\"page\""), format!("{}: {picks} members", b.page));
+    }
     // the index: the UI ran, counted and drew the first page of cards
     let dom = dump_dom(&chrome, &format!("{base}index.html"), budget_ms)?;
     let want = site.run(&site_model::Query::default()).map(|(h, _)| h.len()).unwrap_or(0);
@@ -294,7 +425,14 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
     check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
-    check("index: the filter panel was drawn", dom.contains("id=\"f-time\"") && dom.contains("data-act=\"block\""), "time search + block-kind chips".into());
+    // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
+    let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
+    check(
+        "index: the header is the title, Doors / Clocks / Circuits and the search box",
+        header.matches("<a ").count() == 4 && header.contains("id=\"tab-door\"") && header.contains("id=\"tab-clock\"") && header.contains("id=\"tab-circuit\"") && header.contains("id=\"hq\"") && header.contains("class=\"count\""),
+        format!("{} links, search box: {}", header.matches("<a ").count(), header.contains("id=\"hq\"")),
+    );
+    check("index: the filter panel was drawn", dom.contains("data-act=\"block\"") && !dom.contains("id=\"f-time\""), "block-kind chips, no second search box".into());
     // the clock time search expands extendable families to their members
     let frag = "kind=clock&time=48%20gt";
     let q = site_model::Query::from_fragment(frag);
@@ -303,7 +441,32 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
     check("time search 48 gt: family members shown with their n", members == 0 || dom.contains("<span class=\"n\">n = "), format!("{} member cards", dom.matches("class=\"card member\"").count()));
-    check("time search 48 gt: the hint names the period", dom.contains("= 48 gt (2.4 s)"), "hint".into());
+    check("time search 48 gt: the count names the period", dom.contains("with a period of 48 gt (2.4 s)"), "summary".into());
+    // the header's search form from another page (index.html?kind=clock&q=48): the Clocks tab's
+    // search box takes a period
+    let dom = dump_dom(&chrome, &format!("{base}index.html?kind=clock&q=48"), budget_ms)?;
+    check("header search from another page (?kind=clock&q=48): the time search", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {}", result_count(&dom), hits.len()));
+    // the circuit value search expands the tunable groups to the member that hits it
+    let frag = "kind=circuit&value=L%2012";
+    let q = site_model::Query::from_fragment(frag);
+    let (vhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
+    let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
+    check("circuit value search L 12: count", result_count(&dom) == Some(vhits.len()) && !vhits.is_empty(), format!("{:?} results, engine says {}", result_count(&dom), vhits.len()));
+    // ... and the extendable circuit families to the generated member (the first card's n_lo + 1)
+    let probe = site.cards.iter().filter(|c| c.kind == "circuit").find_map(|c| {
+        let f = c.families.first()?;
+        let m = site.members.iter().find(|m| m.card == c.id && m.family == f.id && m.n == f.n_lo + 1 && m.build.is_none())?;
+        let letter = m.axis.split_once(" = ").map(|(l, _)| l.to_string())?;
+        Some((format!("{letter} {}", m.period), m.family.clone(), m.n))
+    });
+    if let Some((value, family, n)) = probe {
+        let frag = format!("kind=circuit&value={}", site_model::encode(&value));
+        let q = site_model::Query::from_fragment(&frag);
+        let (fhits, _) = site.run(&q).map_err(anyhow::Error::msg)?;
+        let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
+        let shown = dom.contains(&format!("{family} <span class=\"n\">n = {n}</span>"));
+        check(&format!("circuit value search {value}: the generated family member"), result_count(&dom) == Some(fhits.len()) && shown, format!("{family} n = {n}: {:?} results, engine says {}", result_count(&dom), fhits.len()));
+    }
     // a facet filter from the URL
     let frag = "kind=door&is=flat,slime-free&sort=volume";
     let q = site_model::Query::from_fragment(frag);

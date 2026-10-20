@@ -1,0 +1,29 @@
+# redsim-fuzz archive-check --problems designs/clocks/archive/*.txt designs/circuits/*/archive/*.txt
+# 2026-10-20, after clock misc declare-output (135 port-less clocks got their judge's output cell) and the re-archive of
+# census-p12-copper_bulb-redstone_block-sticky_piston-4b with today's judge line: every archived clock and circuit run on redsim,
+# its line vs the judge's header line. Left: census-p12-copper_bulb-observer-3b, whose archived line predates the judge's current
+# auto-output rule but which clock archive refuses again (same type and period as clk-obs-divider, the divider family's base,
+# which prints today's line); 5 clk-item hopper/dropper rings whose warmup the judge counts differently (states tick-identical).
+
+DIFF census-p12-copper_bulb-observer-3b (on+edges)
+  judge:  CLOCK: census-p12-copper_bulb-observer-3b period 12 gt, on 4/12, edges 2, warmup 0, family copper_bulb+observer, 3 blocks, 3x1x1, robust
+  redsim: CLOCK: census-p12-copper_bulb-observer-3b period 12 gt (0.6 s), on 6/12, edges 1, warmup 0, family copper_bulb+observer, 3 blocks, 3x1x1, kick: last 0,0,0
+DIFF dropring-p20 (warmup)
+  judge:  CLOCK: dropring-p20 period 20 gt, on 7/20, edges 1, warmup 0, family comparator+dropper+hopper, 10 blocks, 3x2x3, robust
+  redsim: CLOCK: dropring-p20 period 20 gt (1 s), on 7/20, edges 1, warmup 34, family comparator+dropper+hopper, 10 blocks, 3x2x3, self-start
+DIFF dropring-p54 (warmup)
+  judge:  CLOCK: dropring-p54 period 54 gt, on 14/54, edges 2, warmup 0, family comparator+dropper+hopper, 10 blocks, 3x2x3, robust
+  redsim: CLOCK: dropring-p54 period 54 gt (2.7 s), on 14/54, edges 2, warmup 24, family comparator+dropper+hopper, 10 blocks, 3x2x3, self-start
+DIFF dropring-p81 (warmup)
+  judge:  CLOCK: dropring-p81 period 81 gt, on 21/81, edges 3, warmup 0, family comparator+dropper+hopper, 10 blocks, 3x2x3, robust
+  redsim: CLOCK: dropring-p81 period 81 gt (4.05 s), on 21/81, edges 3, warmup 21, family comparator+dropper+hopper, 10 blocks, 3x2x3, self-start
+DIFF ringlock-p15 (warmup)
+  judge:  CLOCK: ringlock-p15 period 15 gt, on 7/15, edges 1, warmup 92, family comparator+hopper, 10 blocks, 3x2x3, rotation-dependent
+  redsim: CLOCK: ringlock-p15 period 15 gt (0.75 s), on 7/15, edges 1, warmup 122, family comparator+hopper, 10 blocks, 3x2x3, self-start
+DIFF ringlock-p654 (warmup)
+  judge:  CLOCK: ringlock-p654 period 654 gt, on 234/654, edges 30, warmup 4, family comparator+hopper, 10 blocks, 3x2x3, robust
+  redsim: CLOCK: ringlock-p654 period 654 gt (32.7 s), on 234/654, edges 30, warmup 22, family comparator+hopper, 10 blocks, 3x2x3, self-start
+
+3485 of 3491 designs: redsim prints the judge's line (6 differ, 0 not run to a line)
+     1  DIFF on+edges: census-p12-copper_bulb-observer-3b
+     5  DIFF warmup: dropring-p20 dropring-p54 dropring-p81 ringlock-p15 ringlock-p654

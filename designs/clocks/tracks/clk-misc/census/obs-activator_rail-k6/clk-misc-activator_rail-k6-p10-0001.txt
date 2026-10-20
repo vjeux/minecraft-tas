@@ -1,0 +1,19 @@
+name: clk-misc-activator_rail-k6-p10-0001
+# clk-obs census (k=6, palette obs,stone,minecraft:activator_rail[shape=east_west]): P=10 (redsim), family activator_rail+observer, kick last 0 0 0, swept volume 6.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:activator_rail[powered=false,shape=east_west,waterlogged=false]
+layer 0:
+  A
+  A
+  B
+layer 1:
+  C
+  D
+  E

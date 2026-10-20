@@ -19,6 +19,18 @@ pub struct Trace {
     pub cells: Vec<Vec<(Pos, u32)>>,
     /// The run ended early on purpose: a flying machine reached the far end of its corridor.
     pub ended: Option<String>,
+    /// Primed TNT spawned during the run (TNT dupers; the judge removes each one before it can
+    /// explode), in spawn order.
+    pub primed: Vec<Primed>,
+}
+
+/// One primed TNT: the frame it first appears in, and where it is and how it moves there (the
+/// real game: one tick after it spawned; redsim: its spawn point, no motion).
+#[derive(Clone, Debug, Default)]
+pub struct Primed {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub motion: Option<[f64; 3]>,
 }
 
 impl Trace {
@@ -100,6 +112,11 @@ impl Trace {
         }
         out
     }
+}
+
+/// Whether a recorded state is a lit redstone lamp (the judge's consumer, [`crate::CONSUMER`]).
+pub fn lamp_lit(state: Option<&str>) -> bool {
+    state.is_some_and(|s| s.starts_with("minecraft:redstone_lamp") && s.contains("lit=true"))
 }
 
 /// The level of an output cell holding `state` (`None`: air) with `best` the best signal its

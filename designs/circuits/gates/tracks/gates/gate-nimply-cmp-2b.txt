@@ -1,0 +1,15 @@
+# NIMPLY gate a AND NOT b, 2 gt (track gates): one subtract comparator, input a at its back and
+# input b at its side: a - b. The output cell is in front of it.
+name: gate-nimply-cmp-2b
+circuit: gate nimply
+port input.a: 0 1 1
+port input.b: 1 1 0
+port output: 0 1 -1
+origin: 0 0 0
+palette:
+  C minecraft:comparator[facing=south,mode=subtract,powered=false]
+  S minecraft:stone
+layer 0:
+  S
+layer 1:
+  C

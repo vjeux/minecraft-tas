@@ -1,0 +1,19 @@
+# archived 2026-10-20T02:47Z from designs/circuits/tracks/pulse/k4/pulse-dual-three-observers-L4-2.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-three-observers-L4-2 dual-edge L 4 gt rising / 2 gt falling, delay 4 gt, min-pulse 5 gt, 4 blocks, 1x2x3, robust
+name: pulse-dual-three-observers-L4-2
+# 4 gt after the rising edge, 2 gt after the falling edge (4-block census): a top observer watches the input cell and fires the sticky piston under it; a side observer watches the top one and fires into the output; on the rising edge the piston also pushes a third observer under the output, which fires 2 gt after it lands, so the pulses chain into 4 gt; on the falling edge only the side observer's 2 gt pulse reaches the output.
+circuit: dual-edge
+origin: 0 0 0
+port output: 0 1 2
+port input: 0 2 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+layer 0:
+  A
+  B
+layer 1:
+  C
+  D

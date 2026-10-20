@@ -1,0 +1,4 @@
+box -5 1 8 -3 4 10
+block -4 2 9 minecraft:stone
+block -4 3 9 minecraft:detector_rail[powered=false,shape=north_south,waterlogged=false]
+set -4 3 9 minecraft:detector_rail[powered=false,shape=ascending_south,waterlogged=false]

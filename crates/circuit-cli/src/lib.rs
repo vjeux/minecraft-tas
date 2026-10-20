@@ -76,6 +76,18 @@ pub enum CircuitCmd {
         workers: usize,
         #[arg(long)]
         dedupe: bool,
+        /// Judge every archived design again with the current judge (in the game, family bases
+        /// with their sampled members): passing ones get their new metrics, failing ones leave
+        /// the archive and go back to their track (`update-less/` or `rejudged/`).
+        #[arg(long)]
+        rejudge: bool,
+        /// With --rejudge: only these studies (default: all).
+        #[arg(long)]
+        study: Vec<String>,
+        /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
+        /// dominates): the file, its verdict row and its caption.
+        #[arg(long)]
+        remove: Vec<String>,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
@@ -94,6 +106,11 @@ pub enum CircuitCmd {
     },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track bud's commands (crates/circuit-bud): BUD switches, study 10.
+    Bud {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -124,6 +141,16 @@ pub enum CircuitCmd {
     },
     /// Track fly's commands (crates/circuit-fly).
     Fly {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track shulker's commands (crates/circuit-shulker).
+    Shulker {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Track tnt's commands (crates/circuit-tnt).
+    Tnt {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -188,9 +215,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             for p in &designs {
                 let c = Circuit::load(p)?;
                 let rep = circuit::verify::verify_in_pool(&pool, &c, &o)?;
-                if table && let Some(b) = rep.base() {
-                    for l in &b.outcome.table {
+                if table {
+                    // the base build's table, else (nothing passes) the first build's: why it fails
+                    let b = rep.base().or_else(|| rep.builds.first().and_then(|b| b.result.as_ref().ok()));
+                    for l in b.map(|b| b.outcome.table.as_slice()).unwrap_or(&[]) {
                         println!("  {l}");
+                    }
+                    // and the first failing build's, when some pass
+                    if rep.base().is_some()
+                        && let Some(f) = rep.builds.iter().find(|b| b.result.as_ref().is_ok_and(|b| !b.outcome.pass))
+                        && let Ok(fo) = &f.result
+                    {
+                        println!("  == failing build: rotation {} at {:?}", f.turns, f.offset);
+                        for l in &fo.outcome.table {
+                            println!("  {l}");
+                        }
                     }
                 }
                 if !rep.pass {
@@ -212,17 +251,28 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, remove } => {
+            for spec in &remove {
+                println!("{}", circuit::archive::unarchive(&root, spec)?);
+            }
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe {
+                return Ok(());
+            }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
                 }
-                if designs.is_empty() {
+                if designs.is_empty() && !rejudge {
                     return Ok(());
                 }
             }
             let o = Options { positions, workers, version: version.to_string(), ..Default::default() };
             let pool = circuit::verify::spawn_pool(&o)?;
+            if rejudge {
+                for l in circuit::archive::rejudge(&pool, &root, &o, &study)? {
+                    println!("{l}");
+                }
+            }
             for p in &designs {
                 match circuit::archive::archive(&pool, p, &o, &root, caption.as_deref()) {
                     Ok(a) => println!("{} {}: {}", if a.new { "ARCHIVED" } else { "SKIPPED" }, a.file.display(), a.summary),
@@ -251,12 +301,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}", out.display());
         }
         CircuitCmd::Pulse { args } => circuit_pulse::run(args)?,
+        CircuitCmd::Bud { args } => circuit_bud::run(args)?,
         CircuitCmd::Tff { args } => circuit_tff::run(args)?,
         CircuitCmd::Memory { args } => circuit_memory::run(args)?,
         CircuitCmd::Delay { args } => circuit_delay::run(args)?,
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
+        CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
+        CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
     }
     Ok(())
 }

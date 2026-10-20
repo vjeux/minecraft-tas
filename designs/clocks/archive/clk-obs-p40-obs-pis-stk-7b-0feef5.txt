@@ -1,0 +1,25 @@
+# archived 2026-10-20T01:02Z from designs/clocks/tracks/clk-obs/families9/p40-obs-pis-stk-7b-0feef5.txt by mctas clock archive
+# CLOCK: clk-obs-p40-obs-pis-stk-7b-0feef5 period 40 gt (2 s), on 16/40, edges 8, warmup 6, family observer+piston+sticky_piston, 7 blocks, 1x2x6, robust
+name: clk-obs-p40-obs-pis-stk-7b-0feef5
+# clk-obs grow: P=40 (redsim), family observer+piston+sticky_piston, kick last 0 1 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:observer[facing=down,powered=false]
+  C minecraft:piston[extended=false,facing=south]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+layer 0:
+  A
+  B
+  .
+  A
+  C
+layer 1:
+  .
+  D
+  A
+  E
+  .

@@ -1,0 +1,26 @@
+# archived 2026-10-20T00:34Z from designs/clocks/tracks/clk-obs/families9/p27-obs-pis-rb-stk-7b-623f23.txt by mctas clock archive
+# CLOCK: clk-obs-p27-obs-pis-rb-stk-7b-623f23 period 27 gt (1.35 s), on 12/27, edges 6, warmup 4, family observer+piston+redstone_block+sticky_piston, 7 blocks, 1x3x3, robust
+name: clk-obs-p27-obs-pis-rb-stk-7b-623f23
+# clk-obs grow: P=27 (redsim), family observer+piston+redstone_block+sticky_piston, kick last 0 1 2, swept volume 9.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 2 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:redstone_block
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  C
+  B
+  D
+layer 2:
+  .
+  E
+  F

@@ -20,6 +20,7 @@
 //! corner; tile entities carry relative x y z, entities a relative `Pos`.
 
 pub mod cli;
+pub mod ingame;
 pub mod nbt;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -253,6 +254,23 @@ pub fn to_nbt(d: &Design, m: &Meta) -> Result<Tag> {
         }
         t.put("Pos", Tag::List((0..3).map(|a| Tag::Double(e.pos[a] - lo[a] as f64)).collect()));
         t.put("id", Tag::String(e.kind.clone()));
+        // what Entity.saveWithoutId always writes: Litematica's placement reads Rotation's two
+        // floats unconditionally (ListData.getFloatAt(0) on a missing list throws and the entity
+        // never reaches the schematic world, so it is never pasted: `litematic verify-ingame`)
+        if t.get("Motion").is_none() {
+            t.put("Motion", Tag::List(vec![Tag::Double(0.0); 3]));
+        }
+        if t.get("Rotation").is_none() {
+            t.put("Rotation", Tag::List(vec![Tag::Float(0.0); 2]));
+        }
+        // and a UUID (deterministic: the design's name and the entity's index): Litematica's
+        // schematic world replaces an entity by UUID when it loads a chunk again; without one,
+        // every reload adds a copy and the paste summons each copy
+        if t.get("UUID").is_none() {
+            let h = mctas::net::sha256_hex(format!("{}/entity/{}", d.name, entities.len()).as_bytes());
+            let word = |k: usize| u32::from_str_radix(&h[k * 8..k * 8 + 8], 16).unwrap_or(0) as i32;
+            t.put("UUID", Tag::IntArray(vec![word(0), word(1), word(2), word(3)]));
+        }
         entities.push(t);
     }
     let region = Tag::compound()
