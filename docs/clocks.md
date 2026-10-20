@@ -261,9 +261,13 @@ type; `summary.md`; `designs/`), archived as `kit-<kit>-<entity>-p<P>-<n>b`.
 | K3 `dripleaf` | a big dripleaf on dirt with an entity on its leaf (armor stand, item, oak boat), an observer watching the leaf, and up to 3 dust / stone / repeater or 4 dust / stone in a 5x4x4 box | 15 M, 23 min | 6 | 3: P4, 8 pieces, with each entity (the leaf tilts under any of them) |
 
 The items of the kits carry `Age:-32768s` (else an item despawns after 6000 gt and the clock stops
-after 5 minutes) and `PickupDelay:32767s`. The fluid census (core + water, soul sand, magma; boxes
-3x2x1, 3x1x2, 2x2x2 at k 4 so far) finds no clock with water in its family: water clocks need more
-room than 4 blocks.
+after 5 minutes) and `PickupDelay:32767s`.
+
+The fluid census (P1, 2026-10-19: `clock census --palette 'core,minecraft:water[level=0],minecraft:soul_sand,minecraft:magma_block'`,
+59 states) finds NO clock with water or a bubble column in its family in 3x2x1, 3x1x2, 2x2x2,
+3x3x1 and 3x2x2 at k 4 (29055, 21011, 60736, 126130 and 363357 clocks: the core clocks again, some
+with soul sand or magma as an inert support): a water clock needs more room than 4 blocks (the
+smallest archived, clk-misc-bubble-flip, has 12).
 
 ## What redsim models exactly
 
