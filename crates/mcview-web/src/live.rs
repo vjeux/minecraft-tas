@@ -71,6 +71,8 @@ pub struct Live {
     rec: Option<Rec>,
     /// A narrow viewer (a phone, [`NARROW_PX`]): the time badge on two lines.
     narrow: bool,
+    /// The left badge says why the machine runs slowed (until the person picks a speed).
+    slowed_note: bool,
 }
 
 /// A viewer narrower than this (CSS px) is a phone's: its time badge goes on two lines (seconds
@@ -403,6 +405,7 @@ pub fn start(app: &mut App, id: u32) {
         record,
         rec: None,
         narrow: false,
+        slowed_note: false,
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -756,6 +759,7 @@ pub fn load(app: &mut App, id: u32) {
                     _ => String::new(),
                 },
             };
+            l.slowed_note = false;
             l.player = Some(p);
             l.redraw = true;
             l.sync_status();
@@ -784,8 +788,17 @@ pub fn load(app: &mut App, id: u32) {
             if !l.speed_chosen
                 && let Some(p) = l.player.as_ref()
             {
-                let fast = p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && p.session.short_cycle(9, 120).is_some();
-                l.set_speed(if fast { SLOW } else { 0 });
+                let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+                l.set_speed(if fast.is_some() { SLOW } else { 0 });
+                // why it runs slowed, and how to change it (critique: "¼×" with no explanation),
+                // until the person picks a speed
+                if let Some(n) = fast
+                    && l.base_status.is_empty()
+                {
+                    l.base_status = format!("slowed to {}: it repeats every {n} gt (tap {} to speed up)", SPEEDS[SLOW].0, SPEEDS[SLOW].0);
+                    l.slowed_note = true;
+                    l.sync_status();
+                }
             }
             if let Some(p) = l.player.as_mut() {
                 p.tps = SPEEDS[l.speed_i].1;
@@ -1212,6 +1225,11 @@ impl Live {
     fn next_speed(&mut self) {
         self.speed_chosen = true;
         self.set_speed((self.speed_i + 1) % SPEEDS.len());
+        // the person picked a speed: the slow-motion note goes
+        if std::mem::take(&mut self.slowed_note) {
+            self.base_status.clear();
+            self.sync_status();
+        }
     }
 
     /// Show and use speed `i` of [`SPEEDS`].

@@ -55,10 +55,12 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     }
     let aspect = o.width as f32 / o.height as f32;
     let mut look = if o.picture { scene::default_look(&s) } else { scene::viewer_look(&s) };
+    // a picture (`web compare`) and the viewer's thumbnail (the browser's: nothing to press) draw
+    // no outlines, and frame what they draw
+    look.outlines.clear();
+    look.input_spans.clear();
+    look.port_outlines.clear();
     if o.picture {
-        look.outlines.clear();
-        look.input_spans.clear();
-        look.port_outlines.clear();
         look.ghost.clear();
     }
     // as the real-game pictures show it (`web compare`): their camera and their grass reach;

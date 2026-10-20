@@ -359,9 +359,12 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
         cells.insert(b.cell);
     }
     cells.extend(s.design.blocks.keys().copied());
-    cells.extend(s.inputs.iter().copied());
+    // the inputs and ports where the look marks them (a thumbnail draws no outlines: its empty
+    // input and port cells are not framed; critique: a BUD switch's lone observer sat beside its
+    // empty TARGET cell in a big frame); levers and buttons are blocks (above)
+    cells.extend(look.outlines.iter().copied());
+    cells.extend(look.port_outlines.iter().map(|(p, _)| *p));
     cells.extend(look.marker);
-    cells.extend(crate::circuit::port_tags(&s.design).into_iter().map(|(_, p, _)| p));
     if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
         cells.extend(crate::session::door_cells(door, along_z));
     }
@@ -407,9 +410,10 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
         }
     }
-    // a TNT duper standing above its judge's ground (8 blocks or less): the ground under it is in
-    // the picture, so its height shows (critique: from above it looked like it sat on the grass)
-    if let Some(f) = &s.floor {
+    // a TNT duper standing above its judge's ground (8 blocks or less): in a live view the ground
+    // under it is in the picture, so its height shows (critique: from above it looked like it sat
+    // on the grass); a thumbnail frames the build alone (critique: a speck on a green field)
+    if let Some(f) = s.floor.as_ref().filter(|_| moving) {
         let (lo, hi) = f.design_box;
         let up = lo[1] - 1 - f.hi[1];
         if up > 0 && up as f32 <= VIEW_REACH {
