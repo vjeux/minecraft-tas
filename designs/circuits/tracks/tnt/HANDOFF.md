@@ -22,11 +22,24 @@ tools). Notes: [NOTES.md](NOTES.md). Variations and results:
 
 ## Open variations, with what the code says
 
-* PRECISE: a piston push sets the pushed coordinate exactly (face + 0.01 + half the box) and a wall
-  collision zeroes that motion, so pushing the primed TNT against a wall on both horizontal axes
-  after its random kick makes it exact. Not built yet.
-* BURST: two dusts beside the same redstone block lose their connection in the same push (each
-  powers its own TNT); search running from the 12b (`search --require tnt,dust,fan`).
+* PRECISE: from `PistonMovingBlockEntity.moveCollidedEntities`: a moving block pushes the entities in
+  the slab it moves into this tick, by `min(needed, progress step) + 0.01` (step 0.5): an entity
+  it overlaps only partly (a block ENTERING the entity's cell from one side) ends exactly at the
+  face + 0.01, whatever its random offset; one it overlaps fully keeps its offset (moved 0.51).
+  A push that ends against a wall also zeroes that motion (TNT has no bounciness), and a moving
+  slime sets the motion on its axis to +-1. So an exact aligner = a block entering the TNT's cell
+  from one side along z, then along x, each ending against a wall; then the fall is exact (its
+  vertical motion is not random). In the 12b the TNT instead stays in the machine for its 80 gt
+  fuse (pushed by the frame about half the cycles, bouncing on the slime): an aligner stage needs
+  the TNT to leave the frame first. redsim has no piston-entity pushing yet (needed to search
+  aligners on redsim with fixed kicks).
+* BURST: one push priming 2 TNT does not fit: a second dust beside the same redstone block, its
+  TNT and its fan push the frame past the 12-block limit, and the free placements sit in the
+  frame's path (12.8M redsim samples from the 12b: none). The tiled 12b primes 4 TNT in the same
+  tick (4 engines).
+* The catalog's dominance fold (clk-rt/shulker's `circuit::archive::beats_on_variation`, on
+  explore/shulker c548b39e9): once in main, add tnt-duper-triggered's lower latency / gap there
+  so a bigger but faster-firing triggered duper keeps its own card.
 * MOVABLE: no silent power source rides a piston (dust pops; an observer lands unpowered unless an
   observer tick is pending at its landing cell, and the ticks observers schedule there are gone by
   then): no movable duper found or expected in 26.3.
