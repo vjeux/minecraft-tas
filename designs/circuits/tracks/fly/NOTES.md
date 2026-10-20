@@ -53,3 +53,22 @@ track's tracker as `crates/circuit/src/fly.rs`).
   rotation-dependent (east-west only). Tilting a horizontal machine to fly down gives
   east-west-only machines in every 6-block case found.
 - No other speed than 10 gt/block yet (k <= 7 in 4x2x1; bigger boxes running).
+
+## Two-way (return stations)
+- The reversible engine: the 6-block types with TWO sticky pistons (e.g. fly-horizontal-6b-10gt-
+  01ce95): each part's observer powers only its own part's piston at rest (the other piston sees
+  the slime through its front face), so whichever piston fires first sets the direction: kicking the
+  back-facing one first flies it backward (tested: rev-01ce95, 10 gt/block north).
+- `station` search (`mctas circuit fly station <machine> --k 3 --procs 8`): every obsidian wall cell
+  in front of the leading face + up to k station blocks around the stopping place; nothing with
+  k <= 2 (radius 1), 4 stations with k = 3, all one idea: an observer watching the cell ONLY the
+  trailing observer enters at the stop (its final cell: no earlier passage) fires 2 gt later into a
+  block under a cross dust that points into the BACK of the leading part's sticky piston; that
+  piston pushes the trailing part back with the 2 gt pulse (spit) and the engine runs the other
+  way. The other end: the same idea mirrored by hand (observer under the leading piston's final
+  cell watching the trailing observer's final cell).
+- fly-two-way-14b (tracks/fly/two-way, calibration cal-two-way-machine): engine 6 + 2 x 4 station
+  blocks, shuttles between shift -1 and +4, round trip 98 gt over 6 positions, real game robust.
+  Station blocks are design blocks marked `port station.<n>` (they count; the tracker leaves them
+  out of the machine's shape): implemented in crates/circuit (lib.rs, fly.rs, check.rs: an in-place
+  run that outlasts the moving runs wins = two-way) at clockinfra's request.
