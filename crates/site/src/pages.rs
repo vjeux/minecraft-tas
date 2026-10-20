@@ -36,19 +36,42 @@ pub fn shell_with(title: &str, description: &str, prefix: &str, body: &str, scri
 /// (`kind`: the page's own, shown active) and the search box (a plain form to the index, which
 /// the index's UI turns into its live search; on the Clocks tab it also takes a period).
 pub fn header(prefix: &str, kind: Option<&str>) -> String {
-    let tab = |k: &str, label: &str, frag: &str| -> String {
-        format!("<a id=\"tab-{k}\" class=\"tab-top{}\" href=\"{prefix}index.html#{frag}\">{label}</a>", if kind == Some(k) { " on" } else { "" })
+    header_with(prefix, kind, None)
+}
+
+/// The shown designs per tab (the index's own counts with no search), computed once per build.
+fn tab_counts(site: &Site) -> [usize; 3] {
+    static COUNTS: std::sync::OnceLock<[usize; 3]> = std::sync::OnceLock::new();
+    *COUNTS.get_or_init(|| {
+        let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
+        [n("door"), n("clock"), n("circuit")]
+    })
+}
+
+/// [`header`] with the tabs' counts: every page's header reads like the index's (critique C44:
+/// the study pages' tabs lost their counts and the search said just "Search").
+pub fn header_with(prefix: &str, kind: Option<&str>, counts: Option<[usize; 3]>) -> String {
+    let tab = |k: &str, label: &str, frag: &str, n: Option<usize>| -> String {
+        let count = n.map(|n| format!(" <span class=\"count\">{n}</span>")).unwrap_or_default();
+        format!("<a id=\"tab-{k}\" class=\"tab-top{}\" href=\"{prefix}index.html#{frag}\">{label}{count}</a>", if kind == Some(k) { " on" } else { "" })
     };
     let hidden = match kind {
         Some(k) => format!("<input type=\"hidden\" name=\"kind\" value=\"{}\">", esc(k)),
         None => String::new(),
     };
+    // the index UI's own placeholders (web/site's render)
+    let placeholder = match kind {
+        Some("clock") => "Search: 48 ticks, 2.5 s…",
+        Some("door") => "Search doors",
+        Some("circuit") => "Search: toggle, timer, 12…",
+        _ => "Search every build",
+    };
     format!(
         "<header class=\"top\"><a class=\"logo\" href=\"{prefix}index.html\"><span class=\"logo-dot\"></span>{SITE_NAME}</a><nav class=\"tabs-top\" aria-label=\"kinds\">{}{}{}</nav>\
-         <form id=\"hsearch\" class=\"hsearch\" action=\"{prefix}index.html\" method=\"get\" role=\"search\">{hidden}<input id=\"hq\" name=\"q\" type=\"search\" placeholder=\"Search\" aria-label=\"Search\" autocomplete=\"off\"></form></header>\n",
-        tab("door", "Doors", "kind=door"),
-        tab("clock", "Clocks", "kind=clock"),
-        tab("circuit", "Circuits", "kind=circuit")
+         <form id=\"hsearch\" class=\"hsearch\" action=\"{prefix}index.html\" method=\"get\" role=\"search\">{hidden}<input id=\"hq\" name=\"q\" type=\"search\" placeholder=\"{placeholder}\" aria-label=\"Search\" autocomplete=\"off\"></form></header>\n",
+        tab("door", "Doors", "kind=door", counts.map(|c| c[0])),
+        tab("clock", "Clocks", "kind=clock", counts.map(|c| c[1])),
+        tab("circuit", "Circuits", "kind=circuit", counts.map(|c| c[2]))
     )
 }
 
@@ -68,7 +91,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", { let c = versions().css; if c.is_empty() { String::new() } else { format!("?v={c}") } }));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
-    s.push_str(&header(prefix, kind));
+    s.push_str(&header_with(prefix, kind, Some(tab_counts(site))));
     s.push_str("<main>\n");
     s.push_str(body);
     s.push_str("\n</main>\n");
@@ -297,7 +320,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             })
         ));
     }
-    body.push_str(&page_heading(b));
+    body.push_str(&page_heading(b, design_text));
     let badges = site_model::html::badges(b);
     if !badges.is_empty() {
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
@@ -386,7 +409,7 @@ pub fn page_title(b: &Build) -> String {
 /// no design id): its kind in words with the community's name (small, above), the property line
 /// as the title, what it does in one plain sentence, then the secondary properties. The design's
 /// name is only in the collapsed details, the URL and the downloads.
-fn page_heading(b: &Build) -> String {
+fn page_heading(b: &Build, design_text: &str) -> String {
     let p = site_model::html::props(b);
     let kind = match &b.circuit {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
@@ -400,7 +423,12 @@ fn page_heading(b: &Build) -> String {
         (None, "clock") => crate::plain::clock(b).0,
         _ => String::new(),
     };
-    let warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
+    let mut warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
+    // what it needs where you build it, in the opening lines too (critique, real-world lens)
+    let needs = crate::plain::needs(b, design_text);
+    if !needs.is_empty() {
+        warn.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
+    }
     // why build it, on the first screen (critique: a phone's first screen said what but not why)
     let why = crate::plain::why_any(b);
     // the secondary line without what the opening sentence already says (critique: "subtitles
@@ -677,6 +705,37 @@ fn similar<'a>(site: &'a Site, b: &Build) -> Vec<(String, Vec<&'a Build>)> {
         out.push((format!("Other {} doors of a similar size", b.group), near));
     } else if let Some(c) = &b.circuit {
         out.push(circuit_axis_walk(site, b, c));
+        // counters and clock slowers do the same job (critique C18): each links the other's
+        // nearest counts
+        let other = match base_kind(&c.kind) {
+            "counter" => Some(("divider", "Clock slowers that do the same on a clock (the smallest of each)")),
+            "divider" => Some(("counter", "Counters that do the same with any input (the smallest of each)")),
+            _ => None,
+        };
+        if let Some((kind, title)) = other {
+            let mut best: BTreeMap<i64, &Build> = BTreeMap::new();
+            for o in &site.builds {
+                let Some(oc) = &o.circuit else { continue };
+                if base_kind(&oc.kind) != kind || oc.host.is_some() || oc.layout_of.is_some() {
+                    continue;
+                }
+                let Some(v) = oc.value else { continue };
+                if best.get(&v).is_none_or(|cur| (o.blocks, &o.name) < (cur.blocks, &cur.name)) {
+                    best.insert(v, o);
+                }
+            }
+            let mut list: Vec<&Build> = best.into_values().collect();
+            let mine = c.value.unwrap_or(0);
+            list.sort_by_key(|o| {
+                let v = o.circuit.as_ref().and_then(|x| x.value).unwrap_or(0);
+                ((v - mine).abs(), v)
+            });
+            list.truncate(6);
+            list.sort_by_key(|o| o.circuit.as_ref().and_then(|x| x.value).unwrap_or(0));
+            if !list.is_empty() {
+                out.push((title.to_string(), list));
+            }
+        }
     }
     out
 }
