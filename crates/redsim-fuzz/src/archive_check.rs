@@ -8,8 +8,26 @@ use anyhow::Result;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-fn strip_last(s: &str) -> &str {
-    s.rsplit_once(", ").map(|(a, _)| a).unwrap_or(s)
+fn strip_last(s: &str) -> String {
+    let s = s.rsplit_once(", ").map(|(a, _)| a).unwrap_or(s);
+    // older judge lines print the period without its seconds: "period 90 gt" vs "period 90 gt (4.5 s)"
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find(" gt (") {
+        let after = &rest[i + 5..];
+        match after.find(" s)") {
+            Some(j) if after[..j].chars().all(|c| c.is_ascii_digit() || c == '.' || c == ' ' || "min".contains(c) || c == 'h') => {
+                out.push_str(&rest[..i + 3]);
+                rest = &after[j + 3..];
+            }
+            _ => {
+                out.push_str(&rest[..i + 5]);
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// A short reason for grouping (`block "x"`, `item x`, `entity x`...).
@@ -24,6 +42,32 @@ fn reason(why: &str) -> String {
         }
     }
     why.chars().take(90).collect()
+}
+
+/// The fields of a judge-format line that differ (`warmup`, `on`, `family`...).
+fn differing_fields(a: &str, b: &str) -> String {
+    let fa: Vec<&str> = a.split(", ").collect();
+    let fb: Vec<&str> = b.split(", ").collect();
+    if fa.len() != fb.len() {
+        return "shape".into();
+    }
+    let mut names = Vec::new();
+    for (x, y) in fa.iter().zip(fb.iter()) {
+        if x != y {
+            let name = x.split_whitespace().next().unwrap_or("?");
+            let name = if name.starts_with("CLOCK:") || name.starts_with("CIRCUIT:") {
+                "period"
+            } else if x.ends_with("blocks") {
+                "blocks"
+            } else if x.chars().next().is_some_and(|c| c.is_ascii_digit()) && x.contains('x') {
+                "box"
+            } else {
+                name
+            };
+            names.push(name.to_string());
+        }
+    }
+    names.join("+")
 }
 
 enum Outcome {
@@ -79,8 +123,9 @@ pub fn run(paths: &[PathBuf], problems_only: bool) -> Result<()> {
             }
             Outcome::Diff { judge, redsim } => {
                 diff += 1;
-                println!("DIFF {name}\n  judge:  {judge}\n  redsim: {redsim}");
-                groups.entry("DIFF (redsim's line differs from the judge's)".into()).or_default().push(name);
+                let fields = differing_fields(&strip_last(&judge), &strip_last(&redsim));
+                println!("DIFF {name} ({fields})\n  judge:  {judge}\n  redsim: {redsim}");
+                groups.entry(format!("DIFF {fields}")).or_default().push(name);
             }
             Outcome::Not { word, why } => {
                 println!("{word} {name}: {why}");

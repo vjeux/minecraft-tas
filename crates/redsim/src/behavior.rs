@@ -60,7 +60,7 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Piston { extended, .. } => !extended,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -91,6 +91,8 @@ pub fn is_solid(s: &Block) -> bool {
         Block::PlainRail { .. } | Block::DetectorRail { .. } => false,
         // forceSolidOff
         Block::BigDripleaf { .. } => false,
+        // dynamic shape (no shape cache) and no collision without an entity
+        Block::PowderSnow => false,
         _ => true,
     }
 }
@@ -112,7 +114,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -179,7 +181,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
-        Block::ChiseledBookshelf { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         Block::DaylightDetector { .. } => face == Dir::Down,
         _ => false,
     }
@@ -200,7 +202,7 @@ pub fn is_signal_source(w: &World, s: &Block) -> bool {
         | Block::Target { .. }
         | Block::Sculk { .. } => true,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } | Block::DaylightDetector { .. } => true,
+        Block::Plate { .. } | Block::TripwireHook { .. } | Block::DetectorRail { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => true,
         _ => false,
     }
 }
@@ -226,6 +228,8 @@ pub fn get_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::DetectorRail { .. } => crate::rails::detector::signal(s),
         // ownSignal: its power, every side
         Block::DaylightDetector { power, .. } => power as i32,
+        // JukeboxBlock.ownSignal: 15 while a song plays
+        Block::Jukebox { .. } => crate::redstone::container::jukebox_signal(w, p),
         _ => 0,
     }
 }
@@ -244,7 +248,7 @@ pub fn get_direct_signal(w: &World, s: &Block, p: BlockPos, d: Dir) -> i32 {
         Block::TripwireHook { .. } => crate::react::hook::direct_signal(s, d),
         Block::DetectorRail { .. } => crate::rails::detector::direct_signal(s, d),
         // the daylight detector's power is weak only (getDirectSignal: 0)
-        Block::DaylightDetector { .. } => 0,
+        Block::DaylightDetector { .. } | Block::Jukebox { .. } => 0,
         _ => 0,
     }
 }
@@ -271,7 +275,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::Composter { .. }
             | Block::RespawnAnchor { .. }
             | Block::Sculk { .. }
-    ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. }) // ---- entity-reacting blocks (clk-misc) ----
+    ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -294,7 +298,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::RespawnAnchor { charges } => (charges as f32 / 4.0 * 15.0).floor() as i32,
         Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::ChiseledBookshelf { .. } => crate::redstone::container::analog_output(w, p),
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -312,7 +316,7 @@ pub fn instrument(s: &Block) -> Instrument {
         // (the wall variant has fresh properties: harp)
         Block::Skull { .. } => Instrument::Skeleton,
         // ---- entity-reacting blocks (clk-misc) ----
-        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } => Instrument::Bass,
+        Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
         _ => Instrument::Harp,
     }
@@ -363,7 +367,7 @@ pub fn has_block_entity(s: &Block) -> bool {
     matches!(
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
-    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. }) // ---- entity-reacting blocks (clk-misc) ----
+    ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -475,6 +479,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         Block::BigDripleaf { .. } => crate::react::dripleaf::collision_boxes(s),
         // DaylightDetectorBlock.SHAPE = column(16, 0, 6)
         Block::DaylightDetector { .. } => vec![[0, 16, 0, 6, 0, 16]],
+        // PowderSnowBlock.getCollisionShape: empty without an entity (no support either)
+        Block::PowderSnow => vec![],
         // LanternBlock: column(4, 7, 9) + column(6, 0, 7), 1 px higher when hanging
         Block::Lantern { hanging } => {
             let h = hanging as i32;
@@ -645,6 +651,7 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::TripwireHook { .. } => crate::react::hook::affect_neighbors_after_removal(w, s, p, moved),
         // Containers.updateNeighboursAfterDestroy
         Block::ChiseledBookshelf { .. } => w.update_neighbour_for_output_signal(p, Kind::ChiseledBookshelf),
+        Block::Jukebox { .. } => w.update_neighbour_for_output_signal(p, Kind::Jukebox),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }

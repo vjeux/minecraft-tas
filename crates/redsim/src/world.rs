@@ -287,7 +287,7 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
             Kind::Sculk(_) => crate::sculk::remove(self, pos),
             _ => {}
@@ -301,6 +301,10 @@ impl World {
             }
             Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),
+            Kind::Jukebox => {
+                crate::redstone::container::create(self, pos, &state);
+                crate::redstone::container::jukebox_update_ticker(self, pos, &state);
+            }
             Kind::Sculk(_) => crate::sculk::create(self, pos),
             _ => {}
         }
