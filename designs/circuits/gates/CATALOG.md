@@ -12,31 +12,31 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-imply-r7-5b](archive/gate-imply-r7-5b.txt) | gate imply | function imply, latency 2 gt, glitches 2 | 4 | 3x2x1 | robust | IMPLY (NOT a OR b): a's input block carries a torch, lit when a is off; that torch and input b both power the output dust between them. The b input never sits on the torch, so the gate is steady at rest. 2 gt, 5 blocks. |
+| [gate-imply](archive/gate-imply.txt) | gate imply | function imply, latency 2 gt | 3 | 2x2x2 | robust | IMPLY gate (A implies B), 3 blocks, glitch-free: the output lamp touches a wall torch hanging on input A (lit while A is off) and the repeater that input B arrives on. The repeater gives B the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp. |
 
 ## imply-ba
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-imply-ba-r7-5b](archive/gate-imply-ba-r7-5b.txt) | gate imply-ba | function imply-ba, latency 2 gt, glitches 2 | 4 | 3x2x1 | robust | IMPLY (NOT a OR b): a's input block carries a torch, lit when a is off; that torch and input b both power the output dust between them. The b input never sits on the torch, so the gate is steady at rest. 2 gt, 5 blocks. |
+| [gate-imply-ba](archive/gate-imply-ba.txt) | gate imply-ba | function imply-ba, latency 2 gt | 3 | 2x2x2 | robust | IMPLY gate (B implies A), 3 blocks, glitch-free: the mirror of gate-imply. The output lamp touches a wall torch hanging on input B (lit while B is off) and the repeater that input A arrives on; the repeater gives A the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp. |
 
 ## nand
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nand-4b](archive/gate-nand-4b.txt) | gate nand | function nand, latency 2 gt | 4 | 3x2x1 | robust | NAND with real signal inputs: a torch stands on each input block, so each goes out when its input turns on; the dust between them, on its own support stone, is therefore lit unless BOTH inputs are on. 2 gt, 4 blocks. |
+| [gate-nand](archive/gate-nand.txt) | gate nand | function nand, latency 2 gt | 2 | 2x1x2 | robust | NAND gate, 2 blocks: a wall torch hanging on each input block, and the output lamp touching both torches. Each torch goes out when its own input is on, so the lamp stays lit unless BOTH inputs are on. |
 
 ## nimply
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nimply-r7-6b](archive/gate-nimply-r7-6b.txt) | gate nimply | function nimply, latency 4 gt | 6 | 3x2x1 | robust | NIMPLY under R7: input b arrives on the design's own repeater, which outputs into a dust that feeds the subtract comparator's side (a comparator side reads only dust, a redstone block or a diode). |
+| [gate-nimply](archive/gate-nimply.txt) | gate nimply | function nimply, latency 2 gt | 4 | 1x2x2 | robust | NIMPLY gate (A and not B), 4 blocks: a subtract comparator reads input A's block behind it and, at its side, a dust lying against input B's block; it passes A minus B, so the output lights only while A is on and B is off. |
 
 ## nimply-ba
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nimply-ba-r7-6b](archive/gate-nimply-ba-r7-6b.txt) | gate nimply-ba | function nimply-ba, latency 4 gt | 6 | 3x2x1 | robust | NIMPLY under R7: input b arrives on the design's own repeater, which outputs into a dust that feeds the subtract comparator's side (a comparator side reads only dust, a redstone block or a diode). |
+| [gate-nimply-ba](archive/gate-nimply-ba.txt) | gate nimply-ba | function nimply-ba, latency 2 gt | 4 | 1x2x2 | robust | NIMPLY gate (B and not A), 4 blocks: the mirror of gate-nimply. A subtract comparator reads input B's block behind it and, at its side, a dust lying against input A's block; the output lights only while B is on and A is off. |
 
 ## nor
 
@@ -49,8 +49,8 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
+| [gate-not](archive/gate-not.txt) | gate not | function not, latency 2 gt, tileable every 1 (0 0 1) | 1 | 1x1x1 | robust | NOT gate, 1 block: a wall torch hanging on the input block itself. The input powers that block, the torch goes out, and the torch is the output: lit exactly when the input is off. A row of them side by side inverts a whole bus. |
 | [gate-not-lever-2b](archive/gate-not-lever-2b.txt) | gate not | function not, latency 2 gt | 2 | 1x2x1 | robust | NOT gate with a lever input (track gates): the lever strongly powers the stone it hangs on; a torch on top of that stone inverts it. 2 gt. |
-| [gate-not-torch-3b](archive/gate-not-torch-3b.txt) | gate not | function not, latency 2 gt, tileable every 3 (0 0 3) | 3 | 2x2x1 | robust | NOT gate, 2 gt (track gates): the input powers a dust on a stone; the dust powers the stone under it, and a wall torch on the stone's side goes out. The output cell is under the torch. |
 
 ## or
 
@@ -63,10 +63,10 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-xnor-r7-34b](archive/gate-xnor-r7-34b.txt) | gate xnor | function xnor, latency 6 gt | 34 | 5x3x5 | robust | XNOR with real signal inputs: the XOR core (two subtract comparators, each reading one input at its back and the other at its side, restored to full strength by a repeater on the detour) pointing into a stone instead of an air cell, with a torch on top of that stone: the stone is powered exactly when the inputs differ, so the torch is lit exactly when they agree. 6 gt. |
+| [gate-xnor](archive/gate-xnor.txt) | gate xnor | function xnor, latency 4 gt, input fed through the build | 23 | 5x4x3 | robust | XNOR gate, 23 blocks, 4 ticks: the 21-block XOR (two subtract comparators, each input crossing to the other comparator's side through a dust lying on or under its own block) whose two signals meet on a stone instead of the lamp; a wall torch on that stone is the output, lit unless exactly one input is on. |
 
 ## xor
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-xor-r7-32b](archive/gate-xor-r7-32b.txt) | gate xor | function xor, latency 4 gt, glitches 4 | 32 | 5x2x5 | robust | XOR with real signal inputs: two subtract comparators, C reading a at its back and b at its side, D reading b at its back and a at its side, both pointing into the same output cell. Each input also travels the long way round to a repeater that feeds the other comparator's side, and the repeater is what makes the gate exact: it restores the signal to 15, so a comparator sees back and side equal when both inputs are on and subtracts to zero. Without it the detoured signal arrives weaker and the gate behaves as OR. 4 gt. |
+| [gate-xor](archive/gate-xor.txt) | gate xor | function xor, latency 2 gt, input fed through the build | 21 | 4x4x3 | robust | XOR gate, 21 blocks, 2 ticks: two subtract comparators, each with one input behind it and the other at its side, so each lights only when its own input is on alone. The trick is the side feeds: a dust lying ON input A's block reaches the upper comparator's side, and a dust UNDER input B's block reaches the lower one's, each at full strength because it touches the powered input block itself, so the two inputs cross in height instead of around each other. The lower comparator lights the lamp directly; the upper one powers a block whose dust climbs over the core and lands on the lamp. A stone above A's dust keeps that dust from joining the route over the top. |

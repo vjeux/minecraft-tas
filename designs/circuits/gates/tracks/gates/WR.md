@@ -1,5 +1,29 @@
 # WR bar — study 4, logic gates
 
+## THE ONE DESIGN PER FUNCTION (vjeux 21:47Z: "ONE world best implementation of each")
+
+Signal inputs (R7), judged robust in the game. The table further down is the pre-R7 board, kept for its history only.
+
+| function | the one design | blocks | latency | gap to world class |
+|---|---|---|---|---|
+| OR | gate-or-2b | 2 | 0 gt, tileable every 2 | at the bar: one dust touching both input blocks, on its stone |
+| NOT | gate-not | 1 | 2 gt, tileable every 1 | was 3: a wall torch hanging on the input block itself is the output; floor reached |
+| NOR | gate-nor-r7-3b | 3 | 2 gt | at the bar: the OR dust powers its stone, a torch on it inverts |
+| NAND | gate-nand | 2 | 2 gt | was 4: a wall torch on each input block, the output lamp touching both torches (a lamp is lit by any neighbouring torch) |
+| AND | gate-and-5b-r7 | 5 | 4 gt | near: the NAND plus one wall torch |
+| NIMPLY | gate-nimply (+ mirror -ba) | 4 | 2 gt | was 6 blocks / 4 gt: subtract comparator on A, a dust lying against B's block at its side |
+| IMPLY | gate-imply (+ mirror -ba) | 3 | 2 gt, glitch-free | was 4 with 2 glitches: lamp touching a torch on A and the repeater B arrives on (both 2 gt, so no blink). A 1-block version (lamp touching B's block directly) works but glitches |
+| XOR | gate-xor | 21 | 2 gt | was 32. Core is 7 blocks (two comparators whose side feeds cross in HEIGHT: a dust on A's block, a dust under B's); the other 14 merge the two outputs, which always land 3+ apart (proved for every direct-feed layout, see below). A cheaper merge is the gap |
+| XNOR | gate-xnor | 23 | 4 gt | was 34: the XOR meeting on a stone with a wall torch on it |
+
+The `-ba` mirror kinds (nimply-ba, imply-ba) and the own-lever basics (or/not/nor with levers) are still archived as their own kinds; folding them is a catalog decision left to the coordinator.
+
+### Why the XOR's outputs cannot meet (2026-10-20)
+
+Each comparator reads one input behind it and must read the other at its SIDE at full strength (a weaker side leaks 1 when both are on), which means a dust or repeater touching that input's block. Solving the geometry for every direct-feed layout — flat, or with one comparator a level up — gives only layouts whose two outputs point in opposite directions from cells 3 apart (`f2 = -f1`, `e2 = -e1`), and no layout where both point into one cell or one above the other. So every comparator XOR of this family pays for a merge; the 21-block one routes the upper output over the top of the core, onto the lamp.
+
+## Pre-R7 board (history)
+
 What a world-record entry means here, per function. "Blocks" is `mctas circuit verify`'s count; latency and the `instant` class are the judge's own metrics. Judged in the game or it does not exist.
 
 The headline variation is the SIGNAL-input gate: both inputs are redstone signals from elsewhere in a machine, so the gate composes. A lever-input design is a different (easier) variation, because a lever powers its block from inside the gate; keep those, but list them after the signal ones and say so on the page.

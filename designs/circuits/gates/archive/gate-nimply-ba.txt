@@ -1,0 +1,19 @@
+# archived 2026-10-20T21:56Z from designs/circuits/gates/tracks/gates/gate-nimply-ba.txt by mctas circuit archive
+# CIRCUIT: gate-nimply-ba gate nimply-ba function nimply-ba, latency 2 gt, 4 blocks, 1x2x2, robust
+# NIMPLY gate (B and not A), 4 blocks: the mirror of gate-nimply. A subtract comparator reads input B's block behind it and, at its side, a dust lying against input A's block; the output lights only while B is on and A is off.
+name: gate-nimply-ba
+circuit: gate nimply-ba
+port input.b: 0 1 0
+port input.a: 1 1 2
+port output: 2 1 0
+origin: 1 0 0
+palette:
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  S
+  S
+layer 1:
+  C
+  d

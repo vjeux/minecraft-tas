@@ -1,0 +1,29 @@
+# XNOR gate, 23 blocks, 4 ticks: the 21-block XOR (two subtract comparators, each input crossing to the other comparator's side through a dust lying on or under its own block) whose two signals meet on a stone instead of the lamp; a wall torch on that stone is the output, lit unless exactly one input is on.
+name: gate-xnor
+circuit: gate xnor
+port input.a: 0 1 0
+port input.b: 1 2 1
+port output: 3 1 0
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  C minecraft:comparator[facing=west,mode=subtract,powered=false]
+  K minecraft:comparator[facing=east,mode=subtract,powered=false]
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  .....
+  ..S..
+  ..S..
+layer 1:
+  .....
+  ..CST
+  .Sd..
+layer 2:
+  SSSS.
+  Sd.d.
+  SK...
+layer 3:
+  dddd.
+  dS...
+  d....

@@ -257,7 +257,16 @@ pub fn beats_generic(b: &Row, a: &Row) -> bool {
             .collect()
     };
     let (mb, ma) = (parse(b), parse(a));
-    let first = |v: &str| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok());
+    // `over 30 gt` (a period the judge could not bound) reads as just above 30: a lower-is-better
+    // metric's "over N" is worse than any value <= N, so it is no distinct property (it kept
+    // tff-crafter7, which loses every number to tff-bulb, on its own card: critique)
+    let first = |v: &str| {
+        let (over, v) = match v.strip_prefix("over ") {
+            Some(rest) => (0.5, rest),
+            None => (0.0, v),
+        };
+        v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()).map(|x| x + over)
+    };
     for (k, vb) in &mb {
         if WORSE_IF_PRESENT.contains(&k.as_str()) {
             continue;
