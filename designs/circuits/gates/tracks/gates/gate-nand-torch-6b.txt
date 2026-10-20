@@ -3,6 +3,7 @@
 # its input is on. Both torches touch the output cell: it is on unless both inputs are. 2 gt.
 name: gate-nand-torch-6b
 circuit: gate nand
+tile: 0 0 4
 port input.a: -3 1 0
 port input.b: 3 1 0
 port output: 0 0 0

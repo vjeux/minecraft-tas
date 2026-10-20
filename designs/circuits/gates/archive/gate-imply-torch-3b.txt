@@ -1,10 +1,11 @@
-# archived 2026-10-20T01:56Z from designs/circuits/gates/tracks/gates/gate-imply-torch-3b.txt by mctas circuit archive
-# CIRCUIT: gate-imply-torch-3b gate imply function imply, latency 2 gt, glitches 2, 3 blocks, 1x2x2, robust
+# archived 2026-10-20T15:32Z from designs/circuits/gates/tracks/gates/gate-imply-torch-3b.txt by mctas circuit archive
+# CIRCUIT: gate-imply-torch-3b gate imply function imply, latency 2 gt, glitches 2, tileable every 3 (0 0 3), 3 blocks, 1x2x2, robust
 # IMPLY gate a -> b, 2 gt (track gates): the mirror of gate-imply-ba-torch-3b (inputs swapped):
 # input a powers a dust on a stone, which turns off a wall torch on the stone's side (NOT a); the
 # torch and input b both touch the output cell (OR b).
 name: gate-imply-torch-3b
 circuit: gate imply
+tile: 0 0 3
 port input.a: 1 1 0
 port input.b: 0 1 0
 port output: 0 0 0

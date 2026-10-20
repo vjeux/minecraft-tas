@@ -1,0 +1,43 @@
+name: pulse-dual-sculk-filter-L10
+circuit: dual-edge
+# One 10-tick pulse every time the input turns on AND every time it turns off, and nothing else: the
+# input makes a note block play when it turns on, and a torch on the input block opens a trapdoor
+# when it turns off; a sound sensor (calibrated sculk sensor) tuned to that one sound by a
+# comparator reading a chest hears both and switches on for 10 ticks, so footsteps, dropped items
+# and the trapdoor closing never set it off.
+# Detail: note_block_play and block_open are both frequency 10; the trapdoor closes (block_close,
+# 9) when the input turns on, filtered out like the lever's block_deactivate (9); the chest's 1111
+# cobblestone make the comparator output 10 into the sensor's back.
+origin: 0 0 0
+port input: 0 0 0 minecraft:redstone_block minecraft:stone
+port output: 3 0 1
+palette:
+  I minecraft:stone
+  W minecraft:redstone_torch[lit=true]
+  D minecraft:oak_trapdoor[facing=north,half=bottom,open=true,powered=true,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  K minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  H minecraft:chest[facing=north,type=single,waterlogged=false]
+  S minecraft:stone
+layer -1:
+  ...
+  ...
+  ..S
+  ...
+layer 0:
+  IN.
+  ..K
+  ..C
+  ..H
+layer 1:
+  W..
+  ...
+  ...
+  ...
+layer 2:
+  D..
+  ...
+  ...
+  ...
+nbt: 2 0 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:23}]}

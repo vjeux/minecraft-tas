@@ -199,6 +199,19 @@ fn is_false(b: &bool) -> bool {
 pub struct Circuit {
     /// The study (`pulse`, `tff`, `delay`, `gates`, `memory`, `pext`, `fly`).
     pub study: String,
+    /// Where it sorts among circuits: its study's place (pulse shapers first), the basics of a
+    /// study last (the gates with their own levers, the sand elevators).
+    #[serde(default)]
+    pub order: u32,
+    /// Its place within its kind (0 = the first shown design of the kind): the Circuits tab opens
+    /// on the first of every kind, then the second... (critique C40: it opened on six cards of
+    /// one kind).
+    #[serde(default)]
+    pub rank: u32,
+    /// The variation a machine is the best design for (a shulker loader's badge where it is the
+    /// fastest, then smallest): its card leads with it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lead: String,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -314,6 +327,10 @@ pub struct Circuit {
     /// only.
     #[serde(skip)]
     pub counter_on: Option<(u32, u32)>,
+    /// The design's blocks without their contents (the verdict's type key, NBT stripped): designs
+    /// that are one build with other items preloaded share it. Site build only.
+    #[serde(skip)]
+    pub layout_key: String,
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
@@ -495,9 +512,9 @@ pub const STATUS_FORMULA: &str = "formula";
 /// A member's status in words.
 pub fn status_label(s: &str) -> &'static str {
     match s {
-        STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated, not judged in the game",
-        _ => "formula, not individually judged",
+        STATUS_JUDGED => "tested in the game",
+        STATUS_REDSIM => "simulated",
+        _ => "formula only",
     }
 }
 
@@ -524,12 +541,15 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("chiral", "mirror image is a different design", "clock"),
     ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
+    ("census", "found by the census, not the smallest of its period", "clock"),
+    ("twin", "the same numbers as another clock shown", "clock"),
     ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "several clocks in one", "clock"),
     ("instant", "instant (reacts in the same tick)", "circuit"),
     ("button", "its own button as the input", "circuit"),
     ("lever", "its own lever as the input", "circuit"),
+    ("faster", "faster than the smallest of its value", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
@@ -786,6 +806,30 @@ impl Sort {
     }
 }
 
+/// A query with the players' words for a piston extender's reach (critique C12: "double piston
+/// extender" found nothing): `double` / `triple` / `quadruple piston extender`, `dpe` / `tpe` /
+/// `qpe` search the piston extenders of that reach.
+pub fn with_synonyms(q: &Query) -> Query {
+    let mut q = q.clone();
+    let lower = q.text.to_lowercase();
+    let words: Vec<&str> = lower.split_whitespace().collect();
+    let reach = |w: &str| match w {
+        "double" | "dpe" => Some(2),
+        "triple" | "tpe" => Some(3),
+        "quadruple" | "qpe" => Some(4),
+        _ => None,
+    };
+    let extender = words.iter().any(|w| *w == "extender" || *w == "dpe" || *w == "tpe" || *w == "qpe");
+    if let Some(n) = words.iter().find_map(|w| reach(w)).filter(|_| extender) {
+        let rest: Vec<&str> = words.iter().copied().filter(|w| reach(w).is_none() && *w != "piston" && *w != "extender").collect();
+        q.text = std::iter::once("piston extender").chain(rest).collect::<Vec<_>>().join(" ");
+        if q.value.trim().is_empty() {
+            q.value = format!("N {n}");
+        }
+    }
+    q
+}
+
 /// What the person asked for. Facets: `groups` (OR), block kinds and flags as include (all
 /// required) / exclude (none allowed) sets, numeric ranges, a free-text search, and the clock
 /// time search, which also expands extendable families to their members.
@@ -846,6 +890,10 @@ pub struct Facets {
 struct View<'a> {
     kind: &'a str,
     group: &'a str,
+    /// A circuit's [`Circuit::order`] (0 for doors and clocks).
+    order: u32,
+    /// A circuit's [`Circuit::rank`].
+    rank: u32,
     name: &'a str,
     blocks: i64,
     volume: Option<i64>,
@@ -856,7 +904,7 @@ struct View<'a> {
     close: Option<i64>,
     kinds: &'a [String],
     flags: &'a [String],
-    text: [&'a str; 4],
+    text: [&'a str; 5],
     variant: bool,
     /// A tunable group's member other than its shown design (hidden unless a value search hits
     /// it), and the circuit's latency in gt.
@@ -908,6 +956,8 @@ impl Site {
                 Some(View {
                     kind: &b.kind,
                     group: &b.group,
+                    order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: b.circuit.as_ref().map(|c| c.rank).unwrap_or(0),
                     name: &b.name,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
@@ -917,8 +967,8 @@ impl Site {
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&b.name, &b.caption, &b.group, &b.page],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
+                    text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
@@ -934,6 +984,8 @@ impl Site {
                 Some(View {
                     kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
+                    order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: u32::MAX,
                     name: &m.family,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
@@ -943,7 +995,7 @@ impl Site {
                     close: None,
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&m.family, &b.caption, &b.name, ""],
+                    text: [&m.family, &b.caption, &b.name, "", html::search_aliases(b)],
                     variant: false,
                     member: false,
                     latency: None,
@@ -957,6 +1009,7 @@ impl Site {
     /// clocks of those periods plus every extendable family's members that hit them (an archived
     /// design that is exactly a member shows once, as the member); without one, the builds.
     pub fn run(&self, q: &Query) -> Result<(Vec<Hit>, Facets), String> {
+        let q = &with_synonyms(q);
         let index = self.index();
         let time = if q.time.trim().is_empty() { None } else { Some(parse_time_query(&q.time)?) };
         let value = if q.value.trim().is_empty() { None } else { Some(parse_value_query(&q.value)?) };
@@ -1055,7 +1108,26 @@ impl Site {
         }
         let mut hits: Vec<(Hit, &View)> = views.iter().filter(|(_, v)| pass(v, Skip::None)).map(|(h, v)| (*h, v)).collect();
         let big = i64::MAX;
+        // a text search ranks what the words name first (critique C12: "toggle" led with doors):
+        // the kind's words and aliases, then the name, then the rest (captions)
+        let relevance = |v: &View| -> u8 {
+            if words.is_empty() {
+                return 0;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            if words.iter().all(|w| kind.contains(w.as_str())) {
+                0
+            } else if words.iter().all(|w| v.text[0].to_lowercase().contains(w.as_str())) {
+                1
+            } else {
+                2
+            }
+        };
         hits.sort_by(|(ha, a), (hb, b)| {
+            let rel = relevance(a).cmp(&relevance(b));
+            if rel != std::cmp::Ordering::Equal {
+                return rel;
+            }
             let primary = match q.sort {
                 Sort::Main => {
                     // doors: the solid ones first (the community's main ranking; sculk doors can
@@ -1070,7 +1142,10 @@ impl Site {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
                             "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
-                            _ => (2, v.group.to_string(), v.main.unwrap_or(big)),
+                            // circuits: the first of every kind, then the second of every kind...
+                            // (critique C40), each round by study (pulse shapers first), the
+                            // basics last
+                            _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
                         }
                     };
                     key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
@@ -1458,6 +1533,17 @@ mod tests {
         assert_eq!(f.kinds.get("clock"), Some(&3));
         assert_eq!(f.kinds.get("door"), Some(&1));
         assert_eq!(f.block_kinds.get("slime_block"), Some(&1));
+    }
+
+    #[test]
+    fn players_words_for_extenders() {
+        let q = Query { text: "Double Piston Extender".into(), ..Default::default() };
+        let s = with_synonyms(&q);
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender", "N 2"));
+        let s = with_synonyms(&Query { text: "tpe flat".into(), ..Default::default() });
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender flat", "N 3"));
+        // "double" alone is not an extender search
+        assert_eq!(with_synonyms(&Query { text: "double".into(), ..Default::default() }).value, "");
     }
 
     #[test]

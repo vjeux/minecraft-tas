@@ -2,6 +2,8 @@
 # CIRCUIT: pulse-rise-repeater-L6 rising-edge L 6 gt, delay 11 gt, min-pulse 4 gt, 4 blocks, 3x2x2, robust
 name: pulse-rise-repeater-L6
 circuit: rising-edge
+group: pulse-rise-repeater
+group title: rising-edge pulse: a piston-moved observer and a repeater
 # A sticky piston pushes an observer (facing sideways) whose back then faces a repeater: the
 # observer fires 2 gt after it lands and the delay-3 repeater stretches its pulse to 6 gt; on the
 # falling edge the observer is pulled back and fires into the empty cell beside the repeater.

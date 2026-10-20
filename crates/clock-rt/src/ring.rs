@@ -84,12 +84,9 @@ pub fn build(w: i32, h: i32, cells: &[Cell], name: &str) -> Option<B> {
             }
         }
     }
-    // the output: the first torch, else the first powered repeater, else cell 0
-    let out = (0..n)
-        .find(|&i| matches!(cells[i], Cell::Torch { .. }))
-        .or_else(|| (0..n).find(|&i| matches!(cells[i], Cell::Rep { on: true, .. })))
-        .unwrap_or(0);
-    b.port("output", [p[out].0, y, p[out].1]);
+    // no declared output: a clock's output is an exterior air cell the judge picks (clockinfra,
+    // 2026-10-20: `clock sim --exterior`; a component cell inside the build no longer counts)
+    let _ = (n, &cells);
     Some(b)
 }
 

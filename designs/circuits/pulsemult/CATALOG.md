@@ -4,7 +4,7 @@
 
 ## Extendable families
 
-Each card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.
+Each card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.
 
 ### off L = 52 + 56n gt
 
@@ -12,7 +12,7 @@ Each card: the value's formula in n, the size, how to extend it and the n range 
 
 n = 1: off L = 108 gt, 28 blocks · n = 2: off L = 164 gt, 32 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..7 (off L = 108 gt .. off L = 444 gt); judged in the game: n = 1, 2, 3, 4, 7.
+Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..7 (off L = 108 gt .. off L = 444 gt); judged in the game: off L = 108 gt, 164 gt, 220 gt, 276 gt, 332 gt, 388 gt, 444 gt.
 
 ### L = 60 + 56n gt
 
@@ -20,7 +20,7 @@ Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1.
 
 n = 1: L = 116 gt, 36 blocks · n = 2: L = 172 gt, 40 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..8 (L = 116 gt .. L = 508 gt); judged in the game: n = 1, 2, 3, 4, 8.
+Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1..8 (L = 116 gt .. L = 508 gt); judged in the game: L = 116 gt retriggerable, 172 gt retriggerable, 228 gt retriggerable, 284 gt retriggerable, 340 gt retriggerable, 396 gt retriggerable, 452 gt retriggerable, 508 gt retriggerable.
 
 ### L = 62 + 56n gt
 
@@ -28,7 +28,7 @@ Extend: one more comparator (on its stone) in each row of stage 2's ring. n = 1.
 
 n = 1: L = 118 gt, 44 blocks · n = 2: L = 174 gt, 50 blocks
 
-Extend: one more comparator (on its stone) in each row of stage 2's ring and one more dust (on its stone) in the link. n = 1..8 (L = 118 gt .. L = 510 gt); judged in the game: n = 1, 2, 3, 4, 8.
+Extend: one more comparator (on its stone) in each row of stage 2's ring and one more dust (on its stone) in the link. n = 1..8 (L = 118 gt .. L = 510 gt); judged in the game: L = 118 gt non-retriggerable, 174 gt non-retriggerable, 230 gt non-retriggerable, 286 gt non-retriggerable, 342 gt non-retriggerable, 398 gt non-retriggerable, 454 gt non-retriggerable, 510 gt non-retriggerable.
 
 ## Tunable groups
 

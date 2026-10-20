@@ -222,7 +222,7 @@ pub fn start(app: &mut App, id: u32) {
             ("position", "absolute"),
             ("right", "8px"),
             ("top", "8px"),
-            ("min-width", "17ch"),
+            ("min-width", "21ch"),
             ("height", "20px"),
             ("line-height", "20px"),
             ("padding", "0 8px"),
@@ -238,14 +238,15 @@ pub fn start(app: &mut App, id: u32) {
             ("z-index", "2"),
         ],
     );
-    label.set_text_content(Some("0 gt · 0.00 s"));
+    label.set_text_content(Some("0.00 s · 0 ticks"));
     for c in [reset.unchecked_ref::<HtmlElement>(), play.unchecked_ref(), step.unchecked_ref(), speed.unchecked_ref(), flip.unchecked_ref(), containers.unchecked_ref()] {
         let _ = bar.append_child(c);
     }
     let _ = root.append_child(&bar);
     let _ = root.append_child(&label);
     let _ = flip.style().set_property("display", "none");
-    // what is shown: redsim, a recording, or the design as built
+    // what to do or what runs: up to two lines on a narrow viewer (a demo phase in words never
+    // ends in an ellipsis), sized once from its longest text so it never resizes
     let status = el("div");
     style(
         &status,
@@ -254,16 +255,17 @@ pub fn start(app: &mut App, id: u32) {
             ("left", "8px"),
             ("top", "8px"),
             ("max-width", "calc(100% - 200px)"),
-            ("height", "20px"),
-            ("line-height", "20px"),
-            ("padding", "0 8px"),
+            ("line-height", "16px"),
+            ("padding", "2px 8px"),
             ("border-radius", "8px"),
             ("background", "rgba(0,0,0,0.45)"),
             ("color", "#fff"),
             ("font", "12px system-ui, sans-serif"),
-            ("white-space", "nowrap"),
+            ("white-space", "normal"),
             ("overflow", "hidden"),
-            ("text-overflow", "ellipsis"),
+            ("display", "-webkit-box"),
+            ("-webkit-line-clamp", "2"),
+            ("-webkit-box-orient", "vertical"),
             ("pointer-events", "none"),
             ("z-index", "2"),
         ],
@@ -432,6 +434,8 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
+    // where the build goes: clear of the bar and the badges at this viewer's height
+    let window = mcview::scene::live_window(v.h.max(1) as f32);
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -445,7 +449,7 @@ pub fn load(app: &mut App, id: u32) {
                 p.camera.fit(lo, hi, aspect, 0.85);
                 p.home = p.camera;
             } else {
-                p.show_inputs(&app.atlas, aspect);
+                p.show_inputs(&app.atlas, aspect, window);
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
@@ -497,9 +501,12 @@ pub fn load(app: &mut App, id: u32) {
                     l.inputs.push((b, false));
                 }
             }
+            // a new design (a swap): the badge sized again from its own texts
+            let _ = l.status.style().remove_property("min-width");
+            let _ = l.status.style().remove_property("min-height");
             // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
             // actions at cells (data-events: a BUD switch's target and footprint probes)
-            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some()) {
+            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 let mut demo = match &v.stimulus {
                     Some(st) if !names.is_empty() => match mcview::circuit::parse_stimulus(st, &names, 40) {
@@ -514,7 +521,7 @@ pub fn load(app: &mut App, id: u32) {
                 if let Some(ev) = &v.events {
                     match mcview::circuit::parse_events(ev) {
                         Ok(events) if !events.is_empty() => {
-                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new() });
+                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new(), levels: Vec::new() });
                             let last = events.iter().map(|(t, _, _)| *t).max().unwrap_or(0);
                             d.ticks = d.ticks.max(last + 40);
                             d.events = events;
@@ -523,29 +530,45 @@ pub fn load(app: &mut App, id: u32) {
                         Err(e) => log(&format!("data-events: {e}")),
                     }
                 }
+                // a strength input's values (data-levels: the judge's chest fills)
+                if let Some(lv) = &v.levels {
+                    match mcview::circuit::parse_levels(lv, &names) {
+                        Ok(levels) if !levels.is_empty() => {
+                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new(), levels: Vec::new() });
+                            let last = levels.iter().map(|(t, _, _)| *t).max().unwrap_or(0);
+                            d.ticks = d.ticks.max(last + 40);
+                            d.levels = levels;
+                        }
+                        Ok(_) => {}
+                        Err(e) => log(&format!("data-levels: {e}")),
+                    }
+                }
                 if let Some(d) = demo {
                     p.session.attach_demo(d);
-                    // the badge shows each phase in turn: as wide as its widest label from the
-                    // start, so it never resizes while the demo plays
+                    // the badge shows each phase in turn: as wide (and as tall: two lines on a
+                    // narrow viewer) as its longest label from the start, so it never resizes
+                    // while the demo plays
                     let mut labels = vec![demo_text(&p, None)];
                     labels.extend(p.phases.iter().map(|(_, _, ph)| demo_text(&p, Some(ph))));
-                    let mut widest = 0i32;
+                    let (mut widest, mut tallest) = (0i32, 0i32);
                     for t in &labels {
                         l.status.set_text_content(Some(t));
                         widest = widest.max(l.status.offset_width());
+                        tallest = tallest.max(l.status.offset_height());
                     }
                     if widest > 0 {
-                        // offset_width counts the 8 px paddings: min-width is the content's
+                        // offset sizes count the paddings (8 px each side, 2 px top and bottom)
                         let _ = l.status.style().set_property("min-width", &format!("{}px", widest - 16));
+                        let _ = l.status.style().set_property("min-height", &format!("{}px", tallest - 4));
                     }
                     l.shown_status = String::from("\u{0}");
                 }
             }
-            if mcview::labels::has_containers(&p.session) {
-                let _ = l.containers.style().set_property("display", "inline-flex");
-                let _ = l.containers.style().set_property("color", "#ffd27a");
-            }
             l.overlays.setup(&p);
+            // the contents button: shown with containers, gold while every container is labelled
+            let has = mcview::labels::has_containers(&p.session);
+            let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
+            let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
                 on(&t, "pointerdown", move |e: PointerEvent| {
@@ -600,7 +623,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        let (wx, y0, y1) = mcview::scene::LIVE_WINDOW;
+                        let (wx, y0, y1) = window;
                         c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
                     }
                     p.camera = c;
@@ -656,7 +679,7 @@ fn demo_text(p: &Player, phase: Option<&str>) -> String {
     let kind = p.session.design.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
     match phase {
         Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
-        None => "demo: the judge's test".to_string(),
+        None => "demo: the test sequence".to_string(),
     }
 }
 
@@ -708,7 +731,12 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     .clone()
                     .iter()
                     .map(|c| {
-                        let on = p.session.is_on(*c) as u8;
+                        // a circuit input: its own state (a strength chest is always a block);
+                        // a lever or button of a door: its cell's
+                        let on = match p.session.circuit_inputs.iter().position(|ci| ci.pos == *c) {
+                            Some(i) => p.session.input_on.get(i).copied().unwrap_or(false),
+                            None => p.session.is_on(*c),
+                        } as u8;
                         match p.screen_point(&atlas, *c, aspect) {
                             Some((x, y)) => format!("{:.4},{:.4},{on}", (x + 1.0) / 2.0, (1.0 - y) / 2.0),
                             None => format!("-,-,{on}"),
