@@ -1,0 +1,117 @@
+name: shulker-loader-1wide
+circuit: shulker-loader
+tile: 1 0 0
+# Draft (clk-rt, 2026-10-20): a 1-wide shulker loader (pitch 1).
+# - Box cell X: feed hopper above, dispenser below (facing up), piston on the north, comparator Q
+#   on the south reading X. Q stands on the collector hopper K: the piston pushes the dropped box
+#   over Q into K's pickup area.
+# - Full is tested exactly with a read-through comparator R:
+#   - Q, then Q2, carry the box level into a dust on a stone B. The copies share that dust line,
+#     but a neighbour only reaches it at 14 or less, so B is at 15 only when this copy's box is full.
+#   - R reads B and, through B, the empty dropper C behind it: 15 when B is at 15, else 0.
+# - R toggles a copper bulb. A comparator reads the bulb, and an observer line over the top pulses
+#   the piston on each change of that comparator: once per full box.
+# - An observer under R pulses a line along the bottom into a lamp under the dispenser, and the
+#   observer under the dispenser fires it. It fires on every change of R, so the next box is
+#   placed once the piston has retracted.
+# - A comparator on the second boxes hopper pulses the same lamp whenever boxes pass, which places
+#   the first box and refills after a box shortage.
+port items: 0 2 0
+port boxes: 0 0 -2
+port output: 0 -2 1
+origin: 0 0 -3
+palette:
+  S minecraft:stone
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  k minecraft:comparator[facing=north,mode=compare,powered=false]
+  n minecraft:observer[facing=north,powered=false]
+  L minecraft:redstone_lamp[lit=false]
+  s minecraft:observer[facing=south,powered=false]
+  u minecraft:observer[facing=up,powered=false]
+  d minecraft:observer[facing=down,powered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  D minecraft:dispenser[facing=up,triggered=false]
+  K minecraft:hopper[enabled=true,facing=down]
+  C minecraft:dropper[facing=down,triggered=false]
+  Q minecraft:comparator[facing=north,mode=compare,powered=false]
+  b minecraft:waxed_copper_bulb[lit=false,powered=false]
+  P minecraft:piston[extended=false,facing=south]
+  w minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  F minecraft:hopper[enabled=true,facing=down]
+layer -3:
+  u
+  n
+  n
+  L
+  s
+  s
+  s
+  u
+  .
+  .
+layer -2:
+  u
+  .
+  .
+  d
+  .
+  .
+  .
+  u
+  .
+  S
+layer -1:
+  c
+  h
+  h
+  D
+  K
+  C
+  S
+  Q
+  b
+  k
+layer 0:
+  .
+  .
+  P
+  .
+  Q
+  Q
+  w
+  .
+  .
+  d
+layer 1:
+  .
+  .
+  u
+  F
+  .
+  .
+  .
+  .
+  .
+  d
+layer 2:
+  .
+  .
+  u
+  .
+  .
+  .
+  .
+  .
+  .
+  d
+layer 3:
+  .
+  .
+  s
+  s
+  s
+  s
+  s
+  s
+  s
+  d
