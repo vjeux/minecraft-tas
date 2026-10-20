@@ -187,9 +187,26 @@ Logic:
   and the observer watching it powers the read-through stone.
 - The in-game shrink removed the drop cell's south wall (26 to 25).
 
-Open: the flush badge, which needs the feed hopper's falling edge routed to the piston without
-breaking an empty box on restart. Fewer hoppers awake would also help: the boxes chest cannot
-sit on the dispenser's hopper, because the read comparator holds that cell.
+Open: fewer hoppers awake would help. The boxes chest cannot sit on the dispenser's hopper,
+because the read comparator holds that cell.
+
+### With restart AND flush: RECORD `shulker-loader-pitch3-flush`
+
+40 blocks, tileable(3), robust, every badge but mixed. That is the restart-flush-loader's set
+plus tiling. The in-game greedy shrink removes nothing.
+
+Mechanism: the 25-block loader above, plus an hourglass.
+- A chest holds 420 stone over a hopper. A comparator on the items chest locks that hopper while
+  the items chest has items.
+- Once the items chest is empty, the hopper drains the stone chest into a sink chest at 8 gt per
+  item. 420 items take 3360 gt: longer than the restart pause (3000 gt), inside the flush
+  deadline (6000 gt).
+- When the stone chest is empty, its comparator turns off and the wall torch on its output stone
+  lights. A dust staircase down column 2 feeds a repeater into the full line's dust, and the
+  piston breaks the last box.
+- The hourglass comparator starts at the chest's level as placed (nbt OutputSignal 4; redsim
+  models it). The torch starts unlit.
+- The hourglass runs out once per batch; refill the chest to reset it.
 
 ## Speed per 1-wide slice (ceilings)
 
