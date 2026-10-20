@@ -357,7 +357,9 @@ their facing), output and payload cells marked, after the swaps that keep the ru
 the kind's stimulus, as for clocks: sticky pistons that never pull = pistons, inert solids =
 stone: `same type as <file>`). `--dedupe` (no game) keeps one design per kind and type in every
 study (the earliest archived) and lists the removed twins in `aliases.tsv` ("built with oak_planks,
-without stone"); the catalog shows them as "also found as". A name taken by another structure
+without stone"); the catalog shows them as "also found as". It also tidies what a union merge of
+the TSVs leaves: one verdict row and one caption per file, and no row whose design file is gone
+(`circuit catalog` refuses such a row). A name taken by another structure
 gets `-<6 hex digits of its type hash>`. The axis value: pulse kinds `L = <L>`, delay `N = <N>`,
 gates the function, T flip-flops their family, latches and registers the kind, `counter N`,
 `shift N`, extenders `N = <N>`,
