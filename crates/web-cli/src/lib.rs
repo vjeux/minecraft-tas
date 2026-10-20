@@ -783,12 +783,15 @@ fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u3
                 Some(p) => *p,
                 None => continue,
             },
+            // the vibration test's game events change no block: nothing to show
+            EventAt::Input(_) | EventAt::Cell(_) => continue,
         };
         let (name, state) = match op {
             TargetOp::Place(st) => ("place", Some(st.clone())),
             TargetOp::Clear => ("clear", None),
             TargetOp::Shape(st) => ("shape", Some(st.clone())),
             TargetOp::Update => ("update", None),
+            TargetOp::GameEvent(_) => continue,
         };
         v.push((*t, pos, name, state));
     }

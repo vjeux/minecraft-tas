@@ -134,6 +134,11 @@ pub fn kind_summary(kind: &str) -> String {
         "gate" => "the output is a fixed logic function of the inputs (NOT, AND, OR, XOR...)".into(),
         "rs-latch" => "a pulse on S turns the output on and it stays on; a pulse on R turns it off".into(),
         "d-latch" => "while the enable input E is active the output follows the data input D; otherwise it holds the last value".into(),
+        "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
+        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
+        "shift" => "a row of N D flip-flops: each clock edge moves every bit one step along, so the data input comes out N clock edges later".into(),
+        "tff-reset" => "a T flip-flop with a reset input: each input pulse flips the output, a pulse on R turns it off".into(),
+        "adder" => "adds two binary numbers, bit by bit with the carry".into(),
         "counter" => "counts input pulses: the output changes once every N pulses (a frequency divider)".into(),
         "piston-extender" => "one input pushes a block N cells out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
@@ -837,6 +842,10 @@ fn study11_try(c: &Circuit) -> String {
 /// Study 11: the judge's phase labels in words, for the view's demo badge and the timing diagram
 /// (`clock 40` -> `clock, a pulse every 40 gt`); other kinds keep theirs.
 pub fn phase_label(kind: &str, label: &str) -> String {
+    // a BUD's judge: `place 1 t`, `state 2b t`, `setup t`, `probe 3 place`, `rearm place 6 2`
+    if base(kind) == "bud" {
+        return bud_phase(label);
+    }
     let mut w = label.split_whitespace();
     let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
     if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
@@ -849,6 +858,40 @@ pub fn phase_label(kind: &str, label: &str) -> String {
         ("burst" | "monostable", "pair") => format!("2 pulses {v} gt apart"),
         ("burst", "train") => format!("6 presses, one every {v} gt"),
         ("off-delay", "train") => format!("3 pulses, gaps of {v} gt"),
+        _ => label.to_string(),
+    }
+}
+
+/// A BUD judge's phase in words (the demo badge, the diagram): `place 1 t` -> `place #1`, `state
+/// 2b t` -> `change back #2`, `shape 1 t` -> `shape-only #1`, `update 3 t` -> `pure update #3`,
+/// `setup t` -> `setting up`, `probe 3 place` -> `the cells around (3)`, `rearm place 6 2` -> `2
+/// changes 6 gt apart`.
+fn bud_phase(label: &str) -> String {
+    let w: Vec<&str> = label.split_whitespace().collect();
+    let class = |c: &str| -> String {
+        match c {
+            "place" => "place",
+            "remove" => "remove",
+            "state" => "change",
+            "shape" => "shape-only",
+            "update" => "pure update",
+            other => other,
+        }
+        .to_string()
+    };
+    match w.as_slice() {
+        ["idle"] => "idle".to_string(),
+        ["setup", ..] => "setting up".to_string(),
+        ["relatch", ..] => "a second change while it holds".to_string(),
+        ["probe", k, ..] => format!("the cells around ({k})"),
+        ["rearm", _, g, ..] => format!("2 changes {g} gt apart"),
+        [c @ ("place" | "remove" | "state" | "shape" | "update"), k, ..] => {
+            let (n, back) = match k.strip_suffix('b') {
+                Some(n) => (n, true),
+                None => (*k, false),
+            };
+            format!("{}{} #{n}", class(c), if back { " back" } else { "" })
+        }
         _ => label.to_string(),
     }
 }
@@ -1108,6 +1151,14 @@ mod tests {
 
     #[test]
     fn unsimulated_reasons_read_plainly() {
+        assert_eq!(phase_label("bud", "place 1 t"), "place #1");
+        assert_eq!(phase_label("bud", "state 2b t"), "change back #2");
+        assert_eq!(phase_label("bud", "rearm place 6 t"), "2 changes 6 gt apart");
+        assert_eq!(phase_label("bud", "probe 3 update"), "the cells around (3)");
+        // every published kind has a title and a summary (the study pages' headings)
+        for k in ["dff", "dff-enable", "shift 2", "tff-reset", "burst 2", "divider 3", "monostable retriggerable", "off-delay", "on-delay", "pulse-train"] {
+            assert!(!kind_summary(k).is_empty(), "{k}");
+        }
         assert_eq!(drop_source_paths("a comparator ring (crates/circuit-timer/src/rings.rs): 6 dust (C2) carry"), "a comparator ring: 6 dust (C2) carry");
         assert_eq!(plain_reason("not modeled by redsim (tick 28 of its run): dropper at (0,0,0) picks a random slot among 3 stacks (not modeled)"), "dropper picks a random slot among 3 stacks");
         assert_eq!(plain_reason("not modeled by redsim (tick 0 of its run): 2 container entities at (0,0,0): the game picks one at random (not modeled)"), "2 container entities: the game picks one at random");

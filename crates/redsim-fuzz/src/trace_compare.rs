@@ -311,6 +311,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                     let src = w.get(bp(pos)).kind();
                     w.update_neighbors_at(bp(pos), src);
                 }
+                Action::GameEvent { pos, event } => {
+                    w.game_event(event, bp(pos));
+                }
             }
         }
         if t > 0 {

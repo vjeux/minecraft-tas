@@ -47,6 +47,9 @@ pub struct RunOk {
     pub output: Option<Output>,
     /// Width x height x depth of every cell non-air during the run (and the design's box).
     pub dims: [i32; 3],
+    /// A clock holding a sculk sensor: whether ambient game events leave its output alone in this
+    /// build ([`crate::vibration::game_property`]; a property, never a failure).
+    pub vibration: Option<crate::vibration::Property>,
 }
 
 impl RunOk {
@@ -237,6 +240,9 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         }
         Action::Update { pos } => {
             w.update(sb, &[*pos], "neighbors")?;
+        }
+        Action::GameEvent { pos, event } => {
+            w.game_event_at(sb, event, &[*pos], true)?;
         }
     }
     Ok(())
@@ -452,7 +458,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         return Ok(Err(format!("COMPOSITE: the output {pos:?} repeats every {output_period} gt but the whole structure every {p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side)")));
     }
     let dims = [shi[0] - slo[0] + 1, shi[1] - slo[1] + 1, shi[2] - slo[2] + 1];
-    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims }))
+    // a sculk clock: the ambient property in this build (two more runs in fresh sandboxes; the
+    // events skip the swept box seen here)
+    let vibration = if crate::vibration::has_sculk(&c.design) { crate::vibration::game_property(w, c, o.margin, w0 as u32, p as u32, (slo, shi), output.as_ref().map(|o| o.pos))? } else { None };
+    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims, vibration }))
 }
 
 fn probe_now(w: &mut Worker, sb: u32, probes: &[Pos]) -> Result<Vec<u8>> {

@@ -36,6 +36,8 @@ port input: 0 1 0                # one input; several: port input.<name>: (input
 port output: 3 1 0               # one output; several: port output.<name>: (output.q / output.qbar)
 port target: 0 1 2               # bud only: a cell (air) where the judge performs its block updates
 stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker makes its own)
+input-device: far                # sculk designs only: the input comes from beyond the sensors' reach (no lever events)
+vibration: proof                 # sculk designs only: claim vibration-proof (refused if ambient events change it)
 ```
 
 * **Inputs** (`port input[.<name>]: x y z [args]`): the args say how the judge drives the cell.
@@ -73,6 +75,26 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
   stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
   input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  **Vibrations** (coordinator and clockinfra 2026-10-20, `crate::vibration`, shared events in
+  `clock::vibration`): a design that holds a sculk sensor (plain or calibrated) hears game events,
+  and the judge's own input (a redstone block written with `setBlock`) makes none. After its
+  plain run passes, two more runs of the same schedule:
+  * DEVICE, a hard rule: the game events a lever makes at every plain input cell
+    (`block_activate` when it turns on, `block_deactivate` when it turns off; a button makes the
+    same two) must leave the result unchanged, else `hears its input device`. A design whose input
+    comes by a line from beyond its sensors' reach says `input-device: far` and gets none (its
+    metric says `input from afar`).
+  * AMBIENT, a property: the device run plus seeded pseudo-random game events every 5..15 gt at
+    cells within the sensors' listener radius of the design's swept box (8 blocks, 16 with a
+    calibrated sensor), never inside it: footsteps, items hitting the ground, blocks placed or
+    broken, entities placed (frequencies 1, 2, 13, 12, 14). The metric `vibration-proof yes`
+    when the result is unchanged, else `no`; a `no` design is its own archive class (axis
+    `..., vibration-sensitive`). A design that says `vibration: proof` and is not is refused.
+  Every event is posted at its cell's center (redsim measures block centers), and the generator
+  is seeded by the build (the design as rotated and placed), so redsim and the game get the same
+  events for the same build. A calibrated sensor fed a constant back signal (a comparator reading
+  a chest) accepts that frequency only: `cal-sculk-filter-rise` (the note block's 10) is
+  vibration-proof.
   `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
@@ -243,7 +265,10 @@ kick) before the first input.
   piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
   claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
   (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
-  next). `explode: off` is for analysis only (the measuring calibrations): the archive
+  next). `Rolls::Max` covers every roll because a blast's destroyed set only grows with the rolls
+  and knockback ignores them, and nothing but design blocks can be destroyed: the redsim world and
+  the game sandbox are void around the design, and any destroyed block fails the run (clockinfra's
+  check). `explode: off` is for analysis only (the measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,
