@@ -192,6 +192,8 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             s.phase(0, t, "flight");
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
+        // judged by crate::shulker's own runner (judge chests), not by a stimulus
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
     }
     s.ticks = t;
     s
@@ -220,6 +222,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
     }
 }
 

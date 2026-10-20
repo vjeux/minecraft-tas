@@ -20,6 +20,7 @@ pub mod check;
 pub mod fly;
 pub mod run;
 pub mod seq;
+pub mod shulker;
 pub mod stimulus;
 pub mod trace;
 pub mod verify;
@@ -97,6 +98,11 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
+    /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
+    ShulkerLoader(u32),
+    /// Empties full shulker boxes: the items to one place, the empty boxes to another ([`shulker`]).
+    ShulkerUnloader(u32),
     /// A BUD switch (study 10, [`bud`]): an output pulse for the block updates the judge performs
     /// at its `port target:` cells (place, remove, state, shape, update).
     Bud,
@@ -163,9 +169,16 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "shulker-loader" | "shulker-unloader" => {
+                let stack = if w.len() > 1 { num(1)? } else { 64 };
+                if !matches!(stack, 64 | 16 | 1) {
+                    bail!("circuit: {s:?}: the item's max stack is 64 (cobblestone), 16 (snowballs) or 1 (iron shovels)");
+                }
+                if w[0] == "shulker-loader" { Kind::ShulkerLoader(stack) } else { Kind::ShulkerUnloader(stack) }
+            }
             "bud" => Kind::Bud,
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, bud)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], bud)"
             ),
         })
     }
@@ -191,6 +204,10 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::ShulkerLoader(64) => "shulker-loader".into(),
+            Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
+            Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
+            Kind::ShulkerUnloader(s) => format!("shulker-unloader {s}"),
             Kind::Bud => "bud".into(),
         }
     }
@@ -205,8 +222,15 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine => "fly",
+            Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
         }
+    }
+
+    /// A shulker loader or unloader: judged by [`shulker`]'s own runner (judge chests, items and
+    /// boxes counted), not by the waveform trace.
+    pub fn is_shulker(&self) -> bool {
+        matches!(self, Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_))
     }
 
     /// The input names the kind needs (`None`: any one input).
@@ -257,11 +281,25 @@ pub struct Circuit {
     pub distance: Option<u32>,
     /// The explicit `stimulus:` header.
     pub stimulus: Option<String>,
-    /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a [state-b]]`), where the
+    /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
+    /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
+    pub stores: Vec<Store>,
+    /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
     pub targets: Vec<bud::Target>,
     /// The update classes a BUD switch claims to detect (`bud: place remove ...`).
     pub bud_claims: Vec<String>,
+}
+
+/// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
+/// of the design (not counted), its contents filled or emptied between ticks.
+#[derive(Clone, Debug)]
+pub struct Store {
+    /// `items`, `boxes` or `reject`.
+    pub role: String,
+    /// The port's full name (`items`, `items.a`).
+    pub name: String,
+    pub pos: Pos,
 }
 
 impl Circuit {
@@ -275,6 +313,7 @@ impl Circuit {
         let mut outputs = Vec::new();
         let mut payloads = Vec::new();
         let mut stations = Vec::new();
+        let mut stores = Vec::new();
         let mut targets = Vec::new();
         for (name, pos) in &design.ports {
             let args = design.meta.get(&format!("port {name}")).cloned().unwrap_or_default();
@@ -298,13 +337,20 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], target[.name], start)"),
+                "items" | "boxes" | "reject" => {
+                    if design.blocks.contains_key(pos) {
+                        bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
+                    }
+                    stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
+                }
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
         inputs.sort_by(|a, b| a.name.cmp(&b.name));
         outputs.sort_by(|a, b| a.name.cmp(&b.name));
         payloads.sort_by(|a, b| a.name.cmp(&b.name));
+        stores.sort_by(|a: &Store, b: &Store| a.name.cmp(&b.name));
         for w in inputs.windows(2) {
             if w[0].name == w[1].name {
                 bail!("two inputs named {:?}", w[0].name);
@@ -325,7 +371,7 @@ impl Circuit {
         let stimulus = design.meta.get("stimulus").cloned();
         let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, targets, bud_claims };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -352,6 +398,11 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine => {}
+                Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
+                    if names.len() > 1 || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
+                        bail!("{}: at most one input, a lever the judge turns on once (`port input: x y z lever`); none = always on", k.name());
+                    }
+                }
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
@@ -370,6 +421,17 @@ impl Circuit {
             Kind::FlyingMachine => {
                 if self.travel.is_none() {
                     bail!("flying-machine: needs `travel: dx dy dz`");
+                }
+            }
+            Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("boxes") || self.outputs.is_empty() {
+                    bail!("{}: needs judge chests `port items:` (the items), `port boxes:` (the box supply) and `port output:` (where the boxes go)", k.name());
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
                 }
             }
             _ => {
@@ -392,7 +454,7 @@ impl Circuit {
     /// unbroken row of blocks in front of a piston (up to 12); with slime or honey in the design,
     /// any cell within 13 in front of a piston.
     pub fn consumer_cells(&self) -> Vec<Pos> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return Vec::new();
         }
         let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
@@ -466,7 +528,7 @@ impl Circuit {
     /// block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell, hopper).
     /// Piston extenders and flying machines are read through payloads.
     pub fn passive_output(&self) -> Option<(String, Pos, String)> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return None;
         }
         const ACTIVE: [&str; 20] = [

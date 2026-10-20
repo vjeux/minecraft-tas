@@ -14,6 +14,8 @@ pub mod atlas;
 pub mod camera;
 pub mod circuit;
 pub mod design;
+pub mod entitymodel;
+pub mod gamemodel;
 pub mod json;
 pub mod mesh;
 pub mod models;

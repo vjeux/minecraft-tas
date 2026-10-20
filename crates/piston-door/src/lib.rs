@@ -39,6 +39,8 @@ pub mod drive;
 pub mod harvest;
 pub mod ideal;
 pub mod ideal_rs;
+pub mod interleave;
+pub mod selffeed;
 pub mod route;
 pub mod route2;
 pub mod minimize;

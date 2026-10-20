@@ -612,6 +612,27 @@ fn checks() -> Vec<Check> {
             Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR and the latch claiming dff refused, the comparator AND robust", circ2.len()))
         }),
     });
+    // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
+    // chests, every item and box counted): the reference loader and unloader with unstackables
+    // (27 items per box: a fast run), and a loader that breaks its boxes early refused
+    v.push(Check {
+        name: "circuit:verify-shulker".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on track shulker's reference loader and unloader with unstackables: 3 boxes, robust, hopper pace (cycle 224 / 220 gt); a loader that breaks its boxes at the first item refused; `circuit sim` says redsim does not model them yet",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 4 designs/circuits/shulker/tracks/shulker/ref-loader-1.txt designs/circuits/shulker/tracks/shulker/ref-unloader-1.txt designs/circuits/selftest/shulker-early-loader.txt"),
+            args("circuit sim designs/circuits/shulker/tracks/shulker/ref-loader-1.txt"),
+        ],
+        timeout: 600,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: shulker-ref-loader-1 shulker-loader 1 boxes/min 5.357, items/s 2.41, first box 239 gt, cycle 224 gt, 29 blocks, 6x4x5, robust")?;
+            has(&o[0], "CIRCUIT: shulker-ref-unloader-1 shulker-unloader 1 boxes/min 5.455, items/s 2.45, first box 238 gt, cycle 220 gt, 47 blocks, 6x5x8, robust")?;
+            has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
+            has(&o[1], "UNMODELED: shulker-ref-loader-1: redsim does not model shulker boxes")?;
+            Ok("reference loader and unloader robust at hopper pace; the early breaker refused".into())
+        }),
+    });
     v
 }
 
