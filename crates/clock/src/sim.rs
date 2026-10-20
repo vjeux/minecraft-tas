@@ -90,6 +90,9 @@ pub struct SimReport {
     /// Every cell non-air at any tick of the run (warmup and one period) and the design's box.
     pub swept: (Pos, Pos),
     pub start: String,
+    /// A clock holding a sculk sensor: whether ambient game events leave its output alone
+    /// ([`crate::vibration::sim_property`]; a property, never a failure).
+    pub vibration: Option<crate::vibration::Property>,
 }
 
 impl SimReport {
@@ -107,6 +110,7 @@ impl SimReport {
             blocks: c.blocks(),
             swept: c.bounds(),
             start: c.start_label(),
+            vibration: None,
         }
     }
 
@@ -761,6 +765,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         blocks: c.blocks(),
         swept: (slo, shi),
         start: c.start_label(),
+        vibration: None,
     };
     if rep.analysis.cells.is_empty() {
         rep.verdict = Verdict::Stops;
@@ -805,6 +810,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         rep.why = format!(
             "composite: the output {pos:?} repeats every {out_period} gt but the whole structure every {full_p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side: the period would be their lcm); keep one sub-clock, or declare the combining cell as `port output` (a beat clock, marked `# composite`)"
         );
+    }
+    // a sculk clock: does it run the same with footsteps and blocks around it? (a property, never
+    // a failure: crate::vibration)
+    if rep.verdict == Verdict::Clock {
+        rep.vibration = crate::vibration::sim_property(c, o.margin, rep.warmup, rep.period, rep.swept, rep.output.as_ref().map(|o| o.pos));
     }
     rep
 }
