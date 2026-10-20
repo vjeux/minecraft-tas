@@ -22,11 +22,21 @@ pub struct Scripts {
 
 /// A whole page around `body`. `prefix` is the path from the page to the site root.
 pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site) -> String {
+    shell_with(title, description, prefix, body, scripts, site, None)
+}
+
+/// [`shell`] with a preview image for link unfurls (Open Graph).
+pub fn shell_with(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site, image: Option<&str>) -> String {
     let mut s = String::with_capacity(body.len() + 4096);
     s.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
     s.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
-    s.push_str(&format!("<title>{}</title>\n", esc(&if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") })));
+    let full_title = if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") };
+    s.push_str(&format!("<title>{}</title>\n", esc(&full_title)));
     s.push_str(&format!("<meta name=\"description\" content=\"{}\">\n", esc(description)));
+    s.push_str(&format!("<meta property=\"og:title\" content=\"{}\">\n<meta property=\"og:description\" content=\"{}\">\n<meta property=\"og:site_name\" content=\"{SITE_NAME}\">\n", esc(&full_title), esc(description)));
+    if let Some(img) = image {
+        s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
+    }
     s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css\">\n"));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
@@ -38,6 +48,7 @@ pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: 
          <a href=\"{prefix}index.html#kind=clock&amp;time=\">Clock by time</a>\
          <a href=\"{prefix}families/index.html\">Extendable families</a>\
          <a href=\"{prefix}index.html#kind=circuit\">Circuits</a>\
+         <a href=\"{prefix}index.html#sort=newest\">Newest</a>\
          <a href=\"{prefix}all.html\">Everything</a>\
          <a href=\"{prefix}about.html\">About</a></nav></header>\n"
     ));
@@ -164,7 +175,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
     }
     let desc = format!("{}: {}. {}", b.name, lede(b), b.caption.chars().take(160).collect::<String>());
-    shell(&b.name, &desc, prefix, &body, scripts, site)
+    shell_with(&b.name, &desc, prefix, &body, scripts, site, b.picture.as_deref())
 }
 
 /// One line under a build's title.
@@ -240,6 +251,17 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         }
         if let Some(v) = &d.video {
             s.push_str(&row("Video", &format!("<a href=\"{}\">watch (real game)</a>", esc(v))));
+        }
+        if !d.fill_of.is_empty() {
+            s.push_str(&row("Filled from", &format!("<a href=\"{REPO_URL}/blob/main/{}\">{}</a> (<code>door fill</code>: the same mechanism, other blocks in its free cells)", esc(&d.fill_of), esc(d.fill_of.rsplit('/').next().unwrap_or(&d.fill_of)))));
+        }
+        if let Some(h) = &d.host {
+            s.push_str(&row("Variant of", &format!("{} (the best filling of the same mechanism)", link_build(site, h, prefix))));
+        }
+        if !d.variants.is_empty() {
+            let shown: Vec<String> = d.variants.iter().take(40).map(|v| link_build(site, v, prefix)).collect();
+            let more = if d.variants.len() > 40 { format!(" and {} more", d.variants.len() - 40) } else { String::new() };
+            s.push_str(&row(&format!("Fill variants ({})", d.variants.len()), &format!("{}{more}", shown.join(", "))));
         }
     }
     if let Some(c) = &b.clock {
@@ -391,17 +413,16 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
     for m in members {
         let page = member_href(m, site);
         let name = if m.build.is_some() { format!("<a href=\"{prefix}{}\">{}</a>", esc(&page), esc(&m.family)) } else { esc(&m.family) };
+        let download = if m.design.is_empty() { "-".to_string() } else { format!("<a href=\"{prefix}{}\" download>.txt</a>", esc(&m.design)) };
         body.push_str(&format!(
-            "<tr id=\"n{}{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td><a href=\"{prefix}{}\" download>.txt</a></td></tr>\n",
-            m.n,
-            if card.families.len() > 1 && card.families.first().is_some_and(|f| f.id != m.family) { format!("-{}", esc(&m.family)) } else { String::new() },
+            "<tr id=\"{}\"><td>{name}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge st-{}\">{}</span></td><td>{download}</td></tr>\n",
+            esc(&site_model::html::member_anchor(m, site)),
             m.n,
             esc(&gt_time(m.period)),
             m.blocks,
             esc(m.dims.as_deref().unwrap_or("")),
             esc(&m.status),
             esc(status_label(&m.status)),
-            esc(&m.design)
         ));
     }
     body.push_str("</tbody></table></section>\n");
@@ -599,6 +620,7 @@ pub fn about_page(site: &Site, scripts: Scripts) -> String {
          <h2>Where the numbers come from</h2>\n<ul>\n\
          <li><strong>Doors</strong>: <code>mctas door verify --extra-offsets 28</code> (3 open/close cycles at 32 positions); size is the piston door community's volume (the bounding box of the build over a whole cycle, the lever excluded); seamless tiers, hallway and record eligibility follow the community regulation (<a href=\"{REPO_URL}/blob/main/docs/rules.md\">docs/rules.md</a>).</li>\n\
          <li><strong>Clocks</strong>: <code>mctas clock verify</code> (4 positions x 4 rotations in the real game); the period is the exact repeat of the whole state; the family is the set of block kinds that change state (<a href=\"{REPO_URL}/blob/main/docs/clocks.md\">docs/clocks.md</a>). A variant is a clock of a period that only adds block kinds to a smaller one. Extendable families give a formula for every n; their members are generated by the family's own generator, and each is marked as judged in the game, simulated in redsim, or given by the formula only.</li>\n\
+         <li><strong>Circuits</strong>: <code>mctas circuit verify</code> (4 positions x 4 rotations in the real game) against each kind's spec: pulse circuits by their output pulse length, delay lines by their shift, gates by their truth table, T flip-flops, latches and counters, piston extenders by their reach, flying machines by their speed (<a href=\"{REPO_URL}/blob/main/docs/circuits.md\">docs/circuits.md</a>).</li>\n\
          </ul>\n\
          <h2>Data</h2><p>Everything on this site is in <a href=\"data/site.json\">data/site.json</a> ({} builds, {} family members), regenerated by <code>mctas site build</code> from the repository.</p>\n",
         site.builds.len(),

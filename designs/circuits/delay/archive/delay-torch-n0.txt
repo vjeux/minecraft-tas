@@ -1,0 +1,32 @@
+# archived 2026-10-20T00:28Z from designs/circuits/delay/tracks/delay/families/delay-torch.txt by mctas circuit archive
+# CIRCUIT: delay-torch-n0 delay N 6 gt, min-pulse 3 gt, min-gap 3 gt, 6 blocks, 2x5x1, robust
+# Torch tower N = 6 gt (track delay, family delay-torch: N = 6 + 4n gt, n = 0): a repeater powers a
+# block, 2 torches climb from it (each torch powers the block above it, the next torch stands on
+# that block): N = 2 + 2 x 2 gt, non-inverting with an even count
+name: delay-torch-n0
+circuit: delay
+extend axis: 6 + 4n
+extend base: 0
+extend blocks: 6 + 4n
+extend family: delay-torch
+extend generator: mctas circuit delay family torch --n {n} --out {out}
+extend n: 0..4
+extend rule: add two torches and two blocks to the tower
+port input: 0 1 0
+port output: 2 4 0
+origin: 1 0 0
+palette:
+  A minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  R minecraft:redstone_torch[lit=false]
+  S minecraft:stone
+  r minecraft:redstone_torch[lit=true]
+layer 0:
+  S
+layer 1:
+  AS
+layer 2:
+  .r
+layer 3:
+  .S
+layer 4:
+  .R

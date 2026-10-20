@@ -82,17 +82,22 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let blocks = s.render_blocks(partial);
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
+    b.ground = look.ground.map(|y| y.floor() as i32);
     b.blocks(&items);
-    if !s.simulated() {
+    if let Some(r) = &s.replay {
+        for e in r.entities(partial) {
+            b.entity(&e);
+        }
+    } else if !s.simulated() {
         for e in &s.design.entities {
             b.entity(&EntityDraw { kind: e.kind.clone(), pos: [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32], yaw: entity_yaw(e.nbt.as_deref()) });
         }
     }
     if let Some(m) = look.marker {
-        b.marker(m, true, [255, 255, 255]);
+        b.marker(m, true, [255, 255, 255], s.output_on().unwrap_or(false));
     }
     for o in &look.outlines {
-        b.marker(*o, false, [110, 230, 40]);
+        b.marker(*o, false, [110, 230, 40], false);
     }
     let mut m = b.mesh;
     if let Some(y) = look.ground {
@@ -124,13 +129,53 @@ pub fn frame_bounds(s: &Session, look: &Look) -> ([f32; 3], [f32; 3]) {
     ([lo[0] as f32 - 0.25, lo[1] as f32 - 0.25, lo[2] as f32 - 0.25], [hi[0] as f32 + 1.25, hi[1] as f32 + 1.25, hi[2] as f32 + 1.25])
 }
 
-/// The real-game pictures' camera for a session at an aspect ratio.
+/// The real-game pictures' camera for a session at an aspect ratio: `mctas clock shot` frames the
+/// box at a vertical FOV of 70 degrees, then keeps the centered 64% of the frame (its ffmpeg
+/// `crop=iw*0.64:ih*0.64`): the same eye with a narrower view. Zoomed out when a block would leave
+/// the view.
 pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
     let (lo, hi) = frame_bounds(s, look);
-    Camera::frame(lo, hi, CAM_DIR, VFOV, aspect, 0.85)
+    let mut cam = Camera::frame(lo, hi, CAM_DIR, VFOV, aspect, 0.85);
+    cam.vfov = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
+    // every block inside the view
+    let (blo, bhi) = s.frame_box();
+    let (blo, bhi) = ([blo[0] as f32, blo[1] as f32, blo[2] as f32], [bhi[0] as f32 + 1.0, bhi[1] as f32 + 1.0, bhi[2] as f32 + 1.0]);
+    let m = cam.view_proj(aspect);
+    let inside = (0..8).all(|i| {
+        let c = [if i & 1 == 0 { blo[0] } else { bhi[0] }, if i & 2 == 0 { blo[1] } else { bhi[1] }, if i & 4 == 0 { blo[2] } else { bhi[2] }, 1.0];
+        let clip: Vec<f32> = (0..4).map(|r| (0..4).map(|k| m[k][r] * c[k]).sum()).collect();
+        clip[3] > 0.0 && (clip[0] / clip[3]).abs() <= 0.97 && (clip[1] / clip[3]).abs() <= 0.97
+    });
+    if !inside {
+        let target = cam.target;
+        cam.fit(blo, bhi, aspect, 0.92);
+        cam.target = target;
+    }
+    cam
 }
 
 /// Solid and translucent triangles of a mesh for a camera.
 pub fn triangles(m: &Mesh, cam: &Camera) -> (Vec<Vertex>, Vec<Vertex>) {
     (m.solid.clone(), m.sorted_translucent(cam.eye()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session::Options;
+
+    const OBS2: &str = "name: c\norigin: 0 0 0\nport output: 0 0 0\nport start: 1 0 0 last\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  B minecraft:observer[facing=west,powered=false]\nlayer 0:\n  AB\n";
+
+    #[test]
+    fn the_marker_never_shares_a_face_with_a_block() {
+        let atlas = Atlas::build();
+        let s = Session::new(OBS2, &Options::default()).unwrap();
+        let look = default_look(&s);
+        assert_eq!(look.marker, Some([-1, 0, 0]));
+        let m = build(&atlas, &s, 0.0, &look);
+        // the marker is the only translucent block: its faces against the observer and the
+        // ground are culled (they would z-fight), the other 4 remain
+        assert_eq!(m.translucent.len(), 4);
+        assert!(m.translucent.iter().all(|q| q.center[0] < -0.01 && q.center[1] > 0.01));
+    }
 }

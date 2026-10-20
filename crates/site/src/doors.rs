@@ -183,16 +183,79 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)>
                 archived: archived_at(&text),
                 entities: e.design.entities.len() as u32,
                 props: all_props,
+                ..Default::default()
             }),
             clock: None,
             circuit: None,
             trace: None,
             picture,
+            archived: site_model::normalize_time(&archived_at(&text)),
         });
     }
     out.sort_by(|a, b| (a.volume.unwrap_or(u32::MAX), a.blocks, &a.name).cmp(&(b.volume.unwrap_or(u32::MAX), b.blocks, &b.name)));
+    fold_fills(&mut out, &dir);
     let uncached = uncached.iter().map(|s| Path::new(s).file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default()).collect();
     Ok((out, uncached))
+}
+
+/// The design a fill variant was made from: `note: door fill of <path>: <changes>`.
+pub fn fill_parent(text: &str) -> Option<String> {
+    text.lines().find_map(|l| l.strip_prefix("note: door fill of ").map(|r| r.split(": ").next().unwrap_or(r).trim().to_string()))
+}
+
+/// Where an archived design came from: the path in its `# archived ... from <ref>:<path> (repo
+/// at ...)` header line, the ref dropped.
+pub fn archived_from(text: &str) -> Option<String> {
+    let l = text.lines().take(4).find(|l| l.starts_with("# archived "))?;
+    let from = l.split(" from ").nth(1)?.split(" (repo at").next()?.trim();
+    Some(from.rsplit_once(':').map(|(_, p)| p).unwrap_or(from).to_string())
+}
+
+/// Fold the fill variants of each mechanism (vjeux: "record all variants"; the archive holds
+/// hundreds): the doors filled from one design, with that design itself when it is archived,
+/// form a group; the best of the group (the list is sorted by size, then blocks) stands for it
+/// and the others become its variants (hidden by default, like the clock variants).
+fn fold_fills(out: &mut [Build], dir: &Path) {
+    let text = |b: &Build| std::fs::read_to_string(dir.join(format!("{}.txt", b.name))).unwrap_or_default();
+    let mut parent_of: Vec<Option<String>> = Vec::with_capacity(out.len());
+    let mut source_of: Vec<Option<String>> = Vec::with_capacity(out.len());
+    for b in out.iter() {
+        let t = text(b);
+        parent_of.push(fill_parent(&t));
+        source_of.push(archived_from(&t));
+    }
+    let parents: BTreeSet<String> = parent_of.iter().flatten().cloned().collect();
+    let mut groups: HashMap<String, Vec<usize>> = HashMap::new();
+    for i in 0..out.len() {
+        let key = parent_of[i].clone().or_else(|| source_of[i].clone().filter(|s| parents.contains(s)));
+        if let Some(k) = key {
+            groups.entry(k).or_default().push(i);
+        }
+    }
+    for (parent, members) in groups {
+        for &i in &members {
+            if let Some(d) = out[i].door.as_mut() {
+                d.fill_of = parent_of[i].clone().unwrap_or_default();
+            }
+        }
+        if members.len() < 2 {
+            continue;
+        }
+        // the list is sorted by (volume, blocks, name): the first member is the best
+        let host = members[0];
+        let host_id = out[host].id.clone();
+        let ids: Vec<String> = members[1..].iter().map(|&i| out[i].id.clone()).collect();
+        for &i in &members[1..] {
+            if let Some(d) = out[i].door.as_mut() {
+                d.host = Some(host_id.clone());
+            }
+            out[i].flags.push("variant".into());
+        }
+        if let Some(d) = out[host].door.as_mut() {
+            d.variants = ids;
+        }
+        let _ = parent;
+    }
 }
 
 #[cfg(test)]
@@ -209,5 +272,14 @@ mod tests {
     fn archived_header() {
         assert_eq!(archived_at("# verified WORKS\n# archived 2026-10-19 10:35Z from /tmp/x.txt (repo at ccbb856)\nname: x\n"), "2026-10-19 10:35Z");
         assert_eq!(archived_at("name: x\n"), "");
+    }
+
+    #[test]
+    fn fill_headers() {
+        let t = "# verified WORKS by door leaderboard: 37 blocks, category sculk\n# archived 2026-10-19 20:23Z from origin/explore/c77:designs/piston-door-3x3/tracks/c77/runs/x/e78st-fill-37b-1.txt (repo at 7c5e37c16)\nname: e78st-fill\nnote: door fill of designs/piston-door-3x3/tracks/c77/e78st-56b-38-1s.txt: (0,-3) calibrated_sculk_sensor[facing=west] (-2,-1) air\n";
+        assert_eq!(fill_parent(t).as_deref(), Some("designs/piston-door-3x3/tracks/c77/e78st-56b-38-1s.txt"));
+        assert_eq!(archived_from(t).as_deref(), Some("designs/piston-door-3x3/tracks/c77/runs/x/e78st-fill-37b-1.txt"));
+        assert_eq!(archived_from("# archived 2026-10-19 10:35Z from /tmp/x.txt (repo at ccbb856)\n").as_deref(), Some("/tmp/x.txt"));
+        assert_eq!(fill_parent("name: x\n"), None);
     }
 }

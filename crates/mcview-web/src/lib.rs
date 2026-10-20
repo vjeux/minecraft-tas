@@ -39,6 +39,14 @@ pub(crate) fn log(s: &str) {
     web_sys::console::log_1(&JsValue::from_str(&format!("mcview: {s}")));
 }
 
+/// `?mcview-debug` in the page URL: timings in the console.
+pub(crate) fn debug() -> bool {
+    thread_local! {
+        static DEBUG: bool = web_sys::window().and_then(|w| w.location().search().ok()).is_some_and(|s| s.contains("mcview-debug"));
+    }
+    DEBUG.with(|d| *d)
+}
+
 pub(crate) fn window() -> web_sys::Window {
     web_sys::window().expect("no window")
 }
@@ -59,7 +67,11 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
+    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
+    pub trace: Option<String>,
     pub tick: Option<u32>,
+    /// `data-autoplay`: a live viewer starts playing once loaded.
+    pub autoplay: bool,
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
     /// Canvas size in device pixels.
@@ -102,6 +114,7 @@ pub(crate) struct App {
     io: IntersectionObserver,
     ro: ResizeObserver,
     frame_scheduled: bool,
+    work_scheduled: bool,
 }
 
 #[wasm_bindgen(start)]
@@ -136,6 +149,7 @@ pub fn start() {
         io,
         ro,
         frame_scheduled: false,
+        work_scheduled: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
     // the shared thumbnail context, on a canvas that is never shown
@@ -185,6 +199,31 @@ pub fn start() {
     ensure_frame();
 }
 
+/// For `mctas web check --wasm`: memory the host fills with a design's text.
+#[unsafe(no_mangle)]
+pub extern "C" fn mcview_alloc(len: usize) -> *mut u8 {
+    let mut v = Vec::<u8>::with_capacity(len.max(1));
+    let p = v.as_mut_ptr();
+    std::mem::forget(v);
+    p
+}
+
+/// For `mctas web check --wasm`: the clock period detector of THIS wasm (the code the browser
+/// runs) on a design text written at `ptr` (taken back and freed). Returns state warmup, state
+/// period, visible warmup and visible period as four u16 (low to high), or u64::MAX.
+///
+/// # Safety
+/// `ptr` must come from `mcview_alloc(len)` with `len` bytes written.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn mcview_clock_period(ptr: *mut u8, len: usize, horizon: u32) -> u64 {
+    let bytes = unsafe { Vec::from_raw_parts(ptr, len, len.max(1)) };
+    let text = String::from_utf8_lossy(&bytes);
+    match Session::new(&text, &Options::default()).and_then(|s| s.period(horizon)) {
+        Ok(p) if p.state_warmup < 65536 && p.state_period < 65536 => p.state_warmup as u64 | (p.state_period as u64) << 16 | (p.warmup as u64) << 32 | (p.period as u64) << 48,
+        _ => u64::MAX,
+    }
+}
+
 /// Register every viewer element in (and including) `root`.
 fn scan(root: &Element) {
     let mut found: Vec<HtmlElement> = Vec::new();
@@ -209,22 +248,29 @@ fn scan(root: &Element) {
     }
 }
 
-/// Make sure an animation frame is coming.
+/// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
+/// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
-    let go = with_app(|a| {
-        if a.frame_scheduled {
-            false
-        } else {
-            a.frame_scheduled = true;
-            true
-        }
-    })
-    .unwrap_or(false);
+    let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
+    if work {
+        let cb = Closure::once_into_js(move || {
+            let more = with_app(|a| {
+                a.work_scheduled = false;
+                a.thumbs()
+            })
+            .unwrap_or(false);
+            if more {
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 0);
+    }
+    let go = with_app(|a| a.views.values().any(|v| v.full) && !std::mem::replace(&mut a.frame_scheduled, true)).unwrap_or(false);
     if go {
         let cb = Closure::once_into_js(move |ts: f64| {
             let more = with_app(|a| {
                 a.frame_scheduled = false;
-                a.frame(ts)
+                a.live_frames(ts)
             })
             .unwrap_or(false);
             if more {
@@ -277,7 +323,9 @@ impl App {
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
+            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            autoplay: el.has_attribute("data-autoplay"),
             yaw: attr_f32(&el, "data-yaw"),
             pitch: attr_f32(&el, "data-pitch"),
             el: el.clone(),
@@ -384,17 +432,31 @@ impl App {
             return Some(Ok(t.clone()));
         }
         let src = v.src.clone()?;
-        if let Some(r) = self.texts.get(&src) {
+        self.url_text(&src)
+    }
+
+    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
+    /// `View::trace` first).
+    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
+        let url = self.views.get(&id)?.trace.clone()?;
+        self.url_text(&url)
+    }
+
+    /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
+    /// arrives, every view using it (as design or recording) is queued again.
+    fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
+        if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
         }
+        let src = url.to_string();
         if self.fetching.insert(src.clone()) {
             wasm_bindgen_futures::spawn_local(async move {
                 let r = fetch_text(&src).await.map(|t| Rc::<str>::from(t.as_str()));
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    // wake every view waiting for this text
-                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| v.src.as_deref() == Some(src.as_str()) && !v.done && (v.visible || v.full)).map(|(id, _)| *id).collect();
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
                             a.queue.push_back(id);
@@ -407,11 +469,14 @@ impl App {
         None
     }
 
-    /// One animation frame: thumbnails within a time budget, then the live viewers. Returns
-    /// whether another frame is needed.
-    fn frame(&mut self, ts: f64) -> bool {
+    /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
+    /// work is left.
+    fn thumbs(&mut self) -> bool {
         let perf = window().performance();
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
+        if debug() && !self.queue.is_empty() {
+            log(&format!("work at {t0:.0}: {} queued", self.queue.len()));
+        }
         let mut waiting = VecDeque::new();
         while let Some(id) = self.queue.pop_front() {
             if perf.as_ref().is_some_and(|p| p.now() - t0 > 12.0) {
@@ -454,7 +519,12 @@ impl App {
             }
         }
         self.queue.extend(waiting);
-        let mut more = !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending);
+        !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending)
+    }
+
+    /// One animation frame of every live viewer; true while one needs more (playing).
+    fn live_frames(&mut self, ts: f64) -> bool {
+        let mut more = false;
         let ids: Vec<u32> = self.views.iter().filter(|(_, v)| v.full).map(|(id, _)| *id).collect();
         for id in ids {
             more |= live::frame(self, id, ts);
@@ -464,8 +534,12 @@ impl App {
 
     /// Draw a thumbnail (from the cache when it has this source at this size).
     fn thumb(&mut self, id: u32, text: &str) {
+        let t0 = window().performance().map(|p| p.now()).unwrap_or(0.0);
         let Some(v) = self.views.get(&id) else { return };
         let key = v.key();
+        if debug() {
+            log(&format!("thumb {key} start"));
+        }
         let (w, h) = (v.w.max(1), v.h.max(1));
         let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
         let Some(ctx) = ctx else { return };
@@ -477,7 +551,10 @@ impl App {
         let picture = (|| -> Result<(), String> {
             let mut s = Session::new(text, &Options::default())?;
             match v.tick {
-                Some(t) => s.run(t),
+                Some(t) => {
+                    s.find_auto_output(20_000);
+                    s.run(t)
+                }
                 None => {
                     s.go_to_still(20_000);
                 }
@@ -505,6 +582,9 @@ impl App {
         })();
         match picture {
             Ok(()) => {
+                if debug() {
+                    log(&format!("thumb {key} done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t0));
+                }
                 self.ready(id);
                 let canvas = self.views[&id].canvas.clone();
                 if let Ok(p) = window().create_image_bitmap_with_html_canvas_element(&canvas) {

@@ -29,7 +29,8 @@ pub struct Player {
 
 impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
-        let session = Session::new(text, &Options::default())?;
+        let mut session = Session::new(text, &Options::default())?;
+        session.find_auto_output(20_000);
         let look = scene::default_look(&session);
         let camera = scene::default_camera(&session, &look, aspect);
         Ok(Player { session, look, home: camera, camera, playing: false, tps: 20.0, acc: 0.0, partial: 0.0, mesh: None, mesh_key: (u32::MAX, 0), dirty: true })
@@ -37,7 +38,7 @@ impl Player {
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
     pub fn update(&mut self, dt: f32) -> bool {
-        if !self.playing || !self.session.simulated() {
+        if !self.playing || !self.session.playable() {
             return std::mem::take(&mut self.dirty);
         }
         self.acc += dt.min(0.25) * self.tps;
@@ -116,28 +117,33 @@ impl Player {
         self.dirty = true;
     }
 
-    /// The tick counter: `123 gt (6.15 s)`, plus the ticks since the last flip for a door.
+    /// After moving the camera: keep it above the ground (never under the floor).
+    pub fn keep_camera_above_ground(&mut self) {
+        if let Some(g) = self.look.ground {
+            self.camera.keep_above(g);
+        }
+    }
+
+    /// The tick counter: `123 gt · 6.15 s`, plus the ticks since the last flip for a door.
     pub fn label(&self) -> String {
         let s = &self.session;
         let t = s.tick.saturating_sub(s.rest_tick);
-        let mut out = format!("{t} gt ({})", seconds(t));
+        let mut out = format!("{t} gt · {}", seconds(t));
         if s.last_input.is_some() {
-            out.push_str(&format!(" · {} gt since the flip", s.since_input()));
+            out.push_str(&format!(" · flip +{} gt", s.since_input()));
         }
         out
     }
 }
 
-/// `6.15 s`, `1 min 2.5 s`.
+/// `6.15 s`, `1 min 2.50 s` (always two decimals: the counter keeps its width).
 pub fn seconds(gt: u32) -> String {
     let s = gt as f32 / 20.0;
     if s < 60.0 {
-        let t = format!("{s:.2}");
-        let t = t.trim_end_matches('0').trim_end_matches('.');
-        format!("{t} s")
+        format!("{s:.2} s")
     } else {
         let m = (s / 60.0).floor();
-        format!("{m} min {:.1} s", s - m * 60.0)
+        format!("{m} min {:05.2} s", s - m * 60.0)
     }
 }
 
@@ -155,6 +161,7 @@ mod tests {
         }
         assert_eq!(p.session.tick, 20);
         assert_eq!(seconds(123), "6.15 s");
-        assert_eq!(seconds(20), "1 s");
+        assert_eq!(seconds(20), "1.00 s");
+        assert_eq!(seconds(1250), "1 min 02.50 s");
     }
 }
