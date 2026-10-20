@@ -189,6 +189,7 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>)>
             circuit: None,
             trace: None,
             picture,
+            archived: site_model::normalize_time(&archived_at(&text)),
         });
     }
     out.sort_by(|a, b| (a.volume.unwrap_or(u32::MAX), a.blocks, &a.name).cmp(&(b.volume.unwrap_or(u32::MAX), b.blocks, &b.name)));

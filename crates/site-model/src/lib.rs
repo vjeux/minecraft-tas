@@ -80,6 +80,14 @@ pub struct Build {
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// When it was archived (`YYYY-MM-DD HH:MMZ`; `""` unknown): the "newest first" sort.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub archived: String,
+}
+
+/// `2026-10-19T15:45Z` / `2026-10-19 15:45Z` -> `2026-10-19 15:45Z`.
+pub fn normalize_time(s: &str) -> String {
+    s.trim().replacen('T', " ", 1)
 }
 
 /// A 3x3 piston door's facts (designs/piston-door-3x3/archive and its caches).
@@ -540,16 +548,19 @@ pub enum Sort {
     Period,
     Open,
     Close,
+    /// Most recently archived first.
+    Newest,
     Name,
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 6] = [
+    pub const ALL: [(Sort, &'static str, &'static str); 7] = [
         (Sort::Blocks, "blocks", "fewest blocks"),
         (Sort::Volume, "volume", "smallest volume"),
-        (Sort::Period, "period", "shortest period"),
+        (Sort::Period, "period", "shortest period / smallest value"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
+        (Sort::Newest, "newest", "newest first"),
         (Sort::Name, "name", "name"),
     ];
 
@@ -619,9 +630,12 @@ struct View<'a> {
     kind: &'a str,
     group: &'a str,
     name: &'a str,
+    archived: &'a str,
     blocks: i64,
     volume: Option<i64>,
     period: Option<i64>,
+    /// The main number for sorting: a clock's period, a circuit's axis value.
+    main: Option<i64>,
     open: Option<i64>,
     close: Option<i64>,
     kinds: &'a [String],
@@ -673,9 +687,11 @@ impl Site {
                     kind: &b.kind,
                     group: &b.group,
                     name: &b.name,
+                    archived: &b.archived,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
                     period: b.clock.as_ref().map(|c| c.period as i64),
+                    main: b.clock.as_ref().map(|c| c.period as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
                     open: b.door.as_ref().and_then(|d| d.open).map(|v| v as i64),
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
@@ -691,9 +707,11 @@ impl Site {
                     kind: "clock",
                     group: &b.group,
                     name: &m.family,
+                    archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
                     period: Some(m.period as i64),
+                    main: Some(m.period as i64),
                     open: None,
                     close: None,
                     kinds: &b.kinds,
@@ -791,9 +809,10 @@ impl Site {
             let primary = match q.sort {
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
-                Sort::Period => a.period.unwrap_or(big).cmp(&b.period.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
+                Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
+                Sort::Newest => b.archived.cmp(a.archived),
                 Sort::Name => std::cmp::Ordering::Equal,
             };
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
