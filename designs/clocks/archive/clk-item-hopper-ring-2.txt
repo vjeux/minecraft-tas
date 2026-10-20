@@ -1,5 +1,5 @@
 # archived 2026-10-19T19:57Z from designs/clocks/tracks/clk-item/cards/clk-item-hopper-ring-2.txt by mctas clock archive
-# CLOCK: clk-item-hopper-ring-2 period 14 gt (0.7 s), on 7/14, edges 1, warmup 3, family comparator+hopper, 6 blocks, 2x2x3, robust
+# CLOCK: clk-item-hopper-ring-2 period 14 gt (0.7 s), on 7/14, edges 1, warmup 7, family comparator+hopper, 6 blocks, 2x2x3, robust
 # Hopper ring with two items half a ring apart (clk-item): the state repeats every half turn, 7 L / 2 gt; odd multiples of 7 included (21, 35, 49 ...).
 
 name: clk-item-hopper-ring-2
@@ -13,7 +13,8 @@ extend generator: mctas clock item gen loop --m 2 --n {n} --out {out}
 extend n: 1..40
 extend period: 7 + 7n
 extend rule: lengthen the 2-wide hopper ring by one column (2 hoppers); the two items stay half a ring apart
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 1 -2
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 1 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: 0 0 -1

@@ -3,7 +3,8 @@
 name: clk-obs-p90-lamp-note-obs-stk-9b-3e3214
 # clk-obs grow: P=90 (redsim), family note_block+observer+redstone_lamp+sticky_piston, kick last 0 0 2, swept volume 15.
 origin: 0 0 0
-port output: 3 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 3 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 5 0 0
 port start: 0 0 2 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=east]

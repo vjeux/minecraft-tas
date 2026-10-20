@@ -1,9 +1,11 @@
 # archived 2026-10-20T00:50Z from /tmp/gen/arch6/climb3-p1512-1.txt by mctas clock archive
-# CLOCK: clk-sculk-climb3-p1512-1 period 1512 gt (1 min 15.6 s), on 1050/1512, edges 35, warmup 0, family calibrated_sculk_sensor+dispenser+observer+piston+sculk_sensor, 7 blocks, 4x2x3, robust
+# CLOCK: clk-sculk-climb3-p1512-1 period 1512 gt (1 min 15.6 s), on 630/1512, edges 63, warmup 0, family calibrated_sculk_sensor+dispenser+observer+piston+sculk_sensor, 7 blocks, 4x2x3, robust
 # Found by the long-period hunt `mctas clock sculk climb` (random one-block mutations that keep the period growing, composites refused) then reduced to a minimal design (climb from clk-sculk-climb2-p1168-2 (walker 66))
 name: clk-sculk-climb3-p1512-1
 # how: climb from clk-sculk-climb2-p1168-2 (walker 66)
 port start: 0 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 0 -1 0
 origin: 0 0 -1
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

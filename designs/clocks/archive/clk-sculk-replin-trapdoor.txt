@@ -9,7 +9,8 @@ extend generator: mctas clock sculk family replin-trapdoor --n {n} --out {out}
 extend n: 3..14
 extend period: 4 + 9n
 extend rule: one more delay-4 repeater on a stone at the end of the line (the observer and trapdoor move one block out): +8 gt of delay and +1 gt of travel
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

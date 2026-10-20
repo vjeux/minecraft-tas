@@ -1,9 +1,10 @@
 # archived 2026-10-20T00:35Z from designs/clocks/tracks/clk-obs/families9/p28-lamp-note-obs-rb-stk-8b-6a5efe.txt by mctas clock archive
-# CLOCK: clk-obs-p28-lamp-note-obs-rb-stk-8b-6a5efe period 28 gt (1.4 s), on 8/28, edges 4, warmup 3, family note_block+observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
+# CLOCK: clk-obs-p28-lamp-note-obs-rb-stk-8b-6a5efe period 28 gt (1.4 s), on 20/28, edges 2, warmup 3, family note_block+observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x3x4, robust
 name: clk-obs-p28-lamp-note-obs-rb-stk-8b-6a5efe
 # clk-obs grow: P=28 (redsim), family note_block+observer+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
 origin: 0 0 0
-port output: 0 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -2 2
 port start: 0 1 0 last
 palette:
   A minecraft:waxed_copper_bulb[lit=false,powered=false]

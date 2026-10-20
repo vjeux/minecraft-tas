@@ -13,7 +13,8 @@ extend generator: mctas clock item gen lockring --d 2 --m 2 --n {n} --out {out}
 extend n: 0..3
 extend period: 33 + 2n
 extend rule: one more tick of delay on the lock repeater (same blocks)
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 -2
 nbt: 0 1 1 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
 origin: 0 0 -2
 palette:

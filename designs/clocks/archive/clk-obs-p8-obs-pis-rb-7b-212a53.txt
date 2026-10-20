@@ -1,9 +1,10 @@
 # archived 2026-10-20T02:22Z from designs/clocks/tracks/clk-obs/families9/p8-obs-pis-rb-7b-212a53.txt by mctas clock archive
-# CLOCK: clk-obs-p8-obs-pis-rb-7b-212a53 period 8 gt (0.4 s), on 4/8, edges 2, warmup 15, family observer+piston+redstone_block, 7 blocks, 1x5x2, robust
+# CLOCK: clk-obs-p8-obs-pis-rb-7b-212a53 period 8 gt (0.4 s), on 2/8, edges 1, warmup 15, family observer+piston+redstone_block, 7 blocks, 1x5x2, robust
 name: clk-obs-p8-obs-pis-rb-7b-212a53
 # clk-obs grow: P=8 (redsim), family observer+piston+redstone_block, kick last 0 0 0, swept volume 10.
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 1
 port start: 0 0 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

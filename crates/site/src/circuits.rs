@@ -525,6 +525,18 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             continue;
         }
         let caps = captions(&dir);
+        // the extendable families' archived members (`extend.tsv`: family, n, axis, blocks, type
+        // key): a flying machine of the payload family carries n extra blocks, of the train family
+        // pulls n trailers
+        let members_of: BTreeMap<String, (String, i64)> = std::fs::read_to_string(dir.join("extend.tsv"))
+            .unwrap_or_default()
+            .lines()
+            .skip(1)
+            .filter_map(|l| {
+                let f: Vec<&str> = l.split('\t').collect();
+                (f.len() >= 5).then(|| (f[4].to_string(), (f[0].to_string(), f[1].parse().unwrap_or(0))))
+            })
+            .collect();
         // the catalog's fold: within one kind and axis value
         let mut groups: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
         for (i, r) in rows.iter().enumerate() {
@@ -661,6 +673,11 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     // (designs that hold items: the same blocks with other contents; shulker
                     // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
                     layout_key: if r.type_key.contains('{') { strip_contents(&r.type_key) } else if study == "shulker" { r.type_key.clone() } else { String::new() },
+                    feature: match members_of.get(&r.type_key) {
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-payload") => format!("carries {n} extra block{}", if *n == 1 { "" } else { "s" }),
+                        Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-train") => format!("pulls {n} trailer{}", if *n == 1 { "" } else { "s" }),
+                        _ => String::new(),
+                    },
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),

@@ -15,7 +15,8 @@ extend generator: mctas clock misc ring --relay crafter --n {n} --out {out}
 extend n: 0..47
 extend period: 10 + 4n
 extend rule: insert 2 observers: the 2-wide ring one row higher
-port output: 0 2 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 0
 port start: 1 2 0 last
 origin: 0 0 0
 palette:

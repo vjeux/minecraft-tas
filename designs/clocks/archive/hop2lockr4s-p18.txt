@@ -1,10 +1,11 @@
 # archived 2026-10-19T18:42Z from designs/clocks/tracks/clk-item/hop2lockr4s-p18.txt by mctas clock archive
-# CLOCK: hop2lockr4s-p18 period 18 gt, on 7/18, edges 1, warmup 8, family comparator+hopper+redstone_wire+repeater, 9 blocks, 2x2x3, robust
+# CLOCK: hop2lockr4s-p18 period 18 gt (0.9 s), on 7/18, edges 1, warmup 8, family comparator+hopper+redstone_wire+repeater, 9 blocks, 2x2x3, robust
 # Hopper pair with a delayed lock, one stone (clock item fill k=5): the layout of hop2lockr4-p25 (the comparator reading the east-facing hopper A powers stone S, the dust beside S feeds a delay-4 repeater pointing into the west-facing hopper B) holding one stone instead of two swords: B is locked 10 gt after A gets the stone until 10 gt after it leaves, P = 18.
 # redsim: P=18 gt, warmup 8, family comparator+hopper+redstone_wire+repeater, 9 blocks, output on 7/18 gt, 1 rising edge(s)
 
 name: hop2lockr4s-p18
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 -2
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: 0 0 -2
 palette:

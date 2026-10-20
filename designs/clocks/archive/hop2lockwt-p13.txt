@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:36Z from designs/clocks/tracks/clk-item/hop2lockwt-p13.txt by mctas clock archive
-# CLOCK: hop2lockwt-p13 period 13 gt, on 7/13, edges 1, warmup 2, family comparator+hopper+redstone_torch+redstone_wire, 9 blocks, 2x3x3, robust
+# CLOCK: hop2lockwt-p13 period 13 gt (0.65 s), on 11/13, edges 1, warmup 2, family comparator+hopper+redstone_torch+redstone_wire, 9 blocks, 2x3x3, robust
 # Hopper pair with a double-wall-torch lock (fill k=5): 2 swords; the comparator reading the east-facing hopper A powers stone S; a wall torch on S powers the block above it, whose own wall torch lights a dust standing ON the west-facing hopper B (dust powers the block below): B is locked 4 gt after A gets a sword until 4 gt after it empties: P = 13.
 # redsim: P=13 gt, warmup 54, family comparator+hopper+redstone_wall_torch+redstone_wire, 9 blocks, output on 7/13 gt, 1 rising edge(s)
 
 name: hop2lockwt-p13
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 1 -1
 nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
 origin: 0 0 -2
 palette:

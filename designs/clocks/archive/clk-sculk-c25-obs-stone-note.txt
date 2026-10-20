@@ -1,9 +1,10 @@
 # archived 2026-10-19T16:00Z from /tmp/clk-in3/clk-sculk--c25-obs-stone-note.txt by mctas clock archive
-# CLOCK: clk-sculk-c25-obs-stone-note period 25 gt, on 10/25, edges 1, warmup 2, family calibrated_sculk_sensor+note_block+observer, 4 blocks, 4x1x2, robust
+# CLOCK: clk-sculk-c25-obs-stone-note period 25 gt (1.25 s), on 10/25, edges 1, warmup 2, family calibrated_sculk_sensor+note_block+observer, 4 blocks, 4x1x2, robust
 name: clk-sculk-c25-obs-stone-note
 # Calibrated C, observer O watching C, stone strongly powered by O, note block beyond it (dist 3).
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 3 0 1 minecraft:redstone_block 1
 palette:
   C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]

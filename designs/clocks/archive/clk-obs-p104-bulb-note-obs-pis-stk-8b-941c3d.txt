@@ -1,9 +1,10 @@
 # archived 2026-10-19T22:50Z from designs/clocks/tracks/clk-obs/families9/p104-bulb-note-obs-pis-stk-8b-941c3d.txt by mctas clock archive
-# CLOCK: clk-obs-p104-bulb-note-obs-pis-stk-8b-941c3d period 104 gt (5.2 s), on 52/104, edges 26, warmup 8, family copper_bulb+note_block+observer+piston+sticky_piston, 8 blocks, 3x1x4, robust
+# CLOCK: clk-obs-p104-bulb-note-obs-pis-stk-8b-941c3d period 104 gt (5.2 s), on 52/104, edges 26, warmup 10, family copper_bulb+note_block+observer+piston+sticky_piston, 8 blocks, 3x1x4, robust
 name: clk-obs-p104-bulb-note-obs-pis-stk-8b-941c3d
 # clk-obs grow: P=104 (redsim), family note_block+observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 0 1, swept volume 12.
 origin: -1 0 0
-port output: -1 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -1 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 3
 port start: 0 0 1 last
 palette:
   A minecraft:waxed_copper_bulb[lit=false,powered=false]
