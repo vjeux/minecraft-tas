@@ -123,3 +123,22 @@ frees (1,-2) right under P (a direct feed cell). The flat rule lets a lever hang
 back face (rules.md), so any static is a lever-powered hub (levels at t0).
 So a 7x7 search should put the middle-frame piston in L1 / R1, keeping the margin cell beside L2 / R2 free
 (mechmut `--reserve`), e.g. w1's class turned in-plane (P pushing the middle row) and repaired.
+
+## Feed tables (`door feeds`, explore/d67 2fda8c604 .. 22a27a315)
+Per firing of an ideal plan (each redstone block it places): the pistons it powers and every flat feed
+option in cells free ALL cycle inside the box (cells only the plan writes count as free): a free
+neighbour (not the front), QC into the cell above, a conductor N powered from a free M, a fixed observer
+of the design. Flags: ! = an observer / repeater there would watch or take input from outside the box;
+? = from a block that never changes (dust / torch at best); @ / ~ = an observer's watched cell changes
+the tick before the firing / only at other ticks. Conflicts: one cell that is the only clean option of
+firings needing different targets. Library: `piston_door::feeds::analyze` -> FeedReport.
+- q7b (7x7, in2/q7b-feeds.txt): 39 of 42 firings fed; unfed: b at (0,-2) (open t42, close t0) and
+  SU(1,-2) at open t126; conflict: (-2,0) is the only clean feed of SE(-2,1) (up) and SU(-1,0) (east).
+  SU(1,-2)'s close feed (QC through BR at (2,-1) from (3,-1)) is not buildable: the right pocket
+  (3,-2),(3,-1) can only hold components watching / fed from x = 4 (outside), torches stay lit, dust has
+  no source. Delaying the open pulse to use BR would also re-fire SU(2,-2) (BR's cell is its QC cell).
+- w86's q7d (BM puller sharing a 6 gt pulse with SU(2,-2)): same pocket problem; and BR leaving F2
+  during the wiggle cuts SU(1,-2)'s QC (its extend event re-checks power: dropped or a 0-1 gt pulse).
+- c70b's u0-7x7 (explore/c70b 1d105a221, u0-7x7-feeds.txt): no unfed firing, 7 weak ones on the box
+  edges (SW(3,-1) x2, SE(-1,1), SD(-1,3) x3, SE(-1,-1)); conflict: the sealed (0,-2) is the only clean
+  feed of both SU(1,-2) and SU(-1,-2) (and its 2 gt delay orders them wrongly).
