@@ -27,6 +27,8 @@ pub struct TraceEntity {
     pub motion: [f64; 3],
     pub yaw: f32,
     pub pitch: f32,
+    /// The game's network id (`getId()`), when the trace has it (`net_id`).
+    pub net_id: Option<i32>,
 }
 
 /// A parsed exact trace.
@@ -83,6 +85,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
                 motion,
                 yaw: e["yaw"].as_f64().unwrap_or(0.0) as f32,
                 pitch: e["pitch"].as_f64().unwrap_or(0.0) as f32,
+                net_id: e["net_id"].as_i64().map(|n| n as i32),
             });
         }
         t.frames.push((blocks, ents));
@@ -148,6 +151,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
             motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
             yaw: e.y_rot,
             pitch: e.x_rot,
+            net_id: Some(e.network_id),
         })
         .collect()
 }
@@ -214,6 +218,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     }
     if let Err(e) = summon(&mut w, &c) {
         return Ok(Outcome::Unmodeled(e));
+    }
+    // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
+    // first frame, in the summon order
+    if let Some((_, ents)) = trace.frames.first() {
+        for (k, te) in ents.iter().enumerate() {
+            if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
+                e.network_id = n;
+            }
+        }
     }
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();

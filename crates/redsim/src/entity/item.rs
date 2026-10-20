@@ -8,8 +8,9 @@
 //!   neighbors every 2 ticks while moving between cells (40 at rest), age, a second
 //!   `updateFluidInteraction`, despawn at 6000.
 //! * Not reproducible in the game itself, so not modeled (a model note): an item stuck inside a
-//!   block (`moveTowardsClosestSpace` draws from the entity's own unseeded random), drops (the
-//!   level random places them), hoppers sucking items, stack sizes other than 64.
+//!   block (`moveTowardsClosestSpace` draws from the entity's own unseeded random) and drops (the
+//!   level random places them). Hoppers (blocks and minecarts) pull item entities
+//!   (`redstone::container::item_entities_above`); stack sizes come from the container item list.
 
 use crate::entity::{EntityKind, MoverType, Vec3, collide, mth};
 use crate::world::World;
@@ -67,9 +68,9 @@ fn set_state(w: &mut World, i: usize, s: ItemState) {
     w.entities.list[i].kind = EntityKind::Item(s);
 }
 
-/// `ItemEntity.isMergable` (every stack is taken to stack to 64).
+/// `ItemEntity.isMergable`.
 fn mergable(e: &crate::entity::Entity, s: &ItemState) -> bool {
-    !e.removed && s.pickup_delay != 32767 && s.age != -32768 && s.age < 6000 && s.count < 64
+    !e.removed && s.pickup_delay != 32767 && s.age != -32768 && s.age < 6000 && s.count < crate::redstone::container::max_stack_of(&s.item)
 }
 
 /// `ItemEntity.mergeWithNeighbours` / `tryToMerge` / `merge`: the smaller stack moves into the
@@ -88,13 +89,15 @@ fn merge_with_neighbours(w: &mut World, i: usize) {
         if !mergable(&w.entities.list[j], &b) {
             continue;
         }
-        if a.item != b.item || a.count as u32 + b.count as u32 > 64 {
+        let max = crate::redstone::container::max_stack_of(&a.item) as u32;
+        if a.item != b.item || a.count as u32 + b.count as u32 > max {
             continue;
         }
         // tryToMerge: into this one unless the other is at least as large
         let (to, from) = if b.count < a.count { (i, j) } else { (j, i) };
         let (mut ts, mut fs) = (state(w, to), state(w, from));
-        let delta = (64 - ts.count as i32).min(fs.count as i32).max(0);
+        // merge(toStack, fromStack, 64): min(min(maxStack, 64) - count, from count)
+        let delta = ((max.min(64)) as i32 - ts.count as i32).min(fs.count as i32).max(0);
         ts.count = (ts.count as i32 + delta) as u8;
         fs.count = (fs.count as i32 - delta) as u8;
         ts.pickup_delay = ts.pickup_delay.max(fs.pickup_delay);
