@@ -242,7 +242,11 @@ fn exploded_positions(w: &mut World, center: Vec3, radius: f32, rolls: Rolls) ->
                 let (mut xp, mut yp, mut zp) = (center.x, center.y, center.z);
                 while power > 0.0 {
                     let pos = BlockPos::new(mth::floor(xp), mth::floor(yp), mth::floor(zp));
-                    // isInWorldBounds: redsim's worlds sit far inside the build limits
+                    // isInWorldBounds (the build height, -64..=319: a TNT that fell into the void
+                    // below it reaches no cell, and its shuffle draws nothing)
+                    if pos.y < crate::gravity::MIN_Y || pos.y > crate::gravity::MAX_Y {
+                        break;
+                    }
                     let b = w.get(pos);
                     if let Some(r) = resistance(w, pos, &b) {
                         power -= (r + 0.3f32) * 0.3f32;
@@ -571,22 +575,28 @@ fn interact_with_blocks(w: &mut World, mut list: Vec<BlockPos>, rolls: Rolls) {
         if s.is_air() {
             continue;
         }
-        // Block.onExplosionHit (DESTROY): the drops (dropFromExplosion: not a TNT block)
+        // Block.onExplosionHit (DESTROY): the drops (dropFromExplosion: not a TNT block). A moving
+        // block drops what it moves (`MovingPistonBlock.getDrops`: its block entity's
+        // `movedState`, nothing without one); overwriting it runs `preRemoveSideEffects` ->
+        // `finalTick` on a cell that is air by then (nothing placed), and `wasExploded` is the
+        // default (a moving TNT is not primed)
         if !matches!(s, Block::Tnt { .. }) {
-            if matches!(s, Block::MovingPiston { .. }) {
-                w.errors.push(format!("explosion: destroying the moving piston at {pos} is not modeled"));
-            }
+            let dropped = match s {
+                Block::MovingPiston { .. } => w.piston.be(pos).map(|be| be.moved),
+                _ => Some(s),
+            };
             let payload = crate::redstone::shulker::box_payload(w, pos, &s);
             if payload.is_none() && w.containers.map.get(&pos).is_some_and(|c| c.slots.iter().any(|x| x.is_some())) {
                 w.errors.push(format!("explosion: the container at {pos} spills its items (not modeled)"));
             }
-            match crate::loot::drops(&s) {
-                Ok(v) => {
+            match dropped.map(|d| crate::loot::drops(&d)) {
+                Some(Ok(v)) => {
                     for (item, n) in v {
                         add_or_append(&mut stacks, pos, item, n, payload.unwrap_or(0));
                     }
                 }
-                Err(e) => w.errors.push(format!("explosion: {e}")),
+                Some(Err(e)) => w.errors.push(format!("explosion: {e}")),
+                None => {}
             }
         }
         // setBlockAndUpdate(air) (flags 3), then wasExploded
@@ -612,6 +622,8 @@ pub struct Blast {
     /// The blocks it destroyed, in the order it destroyed them (a block its neighbor updates
     /// removed in between is not listed: it was no longer there).
     pub destroyed: Vec<(BlockPos, Block)>,
+    /// How many cells the rays reached (`toBlow`, air included: the shuffle's length).
+    pub positions: usize,
 }
 
 /// A world where TNT lives and explodes like in a bridge sandbox seeded `seed` with the forced
@@ -639,8 +651,11 @@ pub fn explode(w: &mut World, source: Option<u32>, center: Vec3, radius: f32) {
     if !w.sculk.is_empty() {
         w.errors.push("explosion: its vibration near sculk sensors is not modeled".into());
     }
-    w.explosions.push(Blast { time: w.time, center, destroyed: Vec::new() });
+    w.explosions.push(Blast { time: w.time, center, destroyed: Vec::new(), positions: 0 });
     let blow = exploded_positions(w, center, radius, rolls);
+    if let Some(b) = w.explosions.last_mut() {
+        b.positions = blow.len();
+    }
     hurt_entities(w, source, center, radius);
     interact_with_blocks(w, blow, rolls);
 }

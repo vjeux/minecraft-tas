@@ -154,6 +154,9 @@ pub struct World {
     /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
     /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
     pub chunk_draws: u32,
+    /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
+    /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
+    pub entity_chunks: Option<[i32; 4]>,
     // ---- explosions and TNT outcomes (clk-misc, `explosion.rs`) ----
     /// How an explosion draws its rays' power (`explosion::Rolls`: the level random by default).
     pub explosion_rolls: crate::explosion::Rolls,
@@ -211,6 +214,7 @@ impl World {
             drop_count: 0,
             level_random: None,
             chunk_draws: 0,
+            entity_chunks: None,
             explosion_rolls: Default::default(),
             tnt_kicks: Vec::new(),
             tnt_spawned: 0,
@@ -228,6 +232,21 @@ impl World {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
         let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
         self.chunk_draws = 3 * n;
+        self.entity_chunks = Some(chunks);
+    }
+
+    /// Does an entity at (x, z) tick? Only in the sandbox's forced chunks when they are known
+    /// (`entity_chunks`): `ServerLevel.tick` skips an entity outside the entity-ticking range (a
+    /// forced chunk has level 31, its neighbours 32+), so a TNT or an item flying out of them
+    /// freezes there.
+    pub fn entity_ticks_at(&self, x: f64, z: f64) -> bool {
+        match self.entity_chunks {
+            None => true,
+            Some([x0, z0, x1, z1]) => {
+                let (cx, cz) = ((x.floor() as i64).div_euclid(16) as i32, (z.floor() as i64).div_euclid(16) as i32);
+                cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1
+            }
+        }
     }
 
     /// The mirrored level random, if any (draw from it at the game's spot).
