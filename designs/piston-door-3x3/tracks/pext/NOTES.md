@@ -52,6 +52,21 @@ the right thing on both lever edges because every pulse acts on whatever stands 
   `--observe` (every observer filling of the pocket added to the design, W's and/or (0,4)'s
   inputs dropped, a train searched for the rest): 0 of 124 fillings, each way. c70b is searching
   mechmut variants with one more free cell in the top-left (lever-held right stack kept).
+* The other m69T plans (mm01, 03, 04, 05, 06) have no train in 3M pairs (mm04, mm05 exhaust
+  their whole pair space: proven none in this model).
+* q7 family (w86 + clk-misc team-up: d67's 7x7 in2/mm01-oc-q7b and w86's q7c/q7d): no train in
+  3M pairs whatever the moves. Decisive: even with one-edge pulses free (`--edge-cost 1
+  --levels`), the opening can't be reproduced, because the search applies one input change at a
+  time and lets the build go idle in between, and this family's opening (like 6x7-u1's) needs
+  overlapping timing. A one-train for it would need a timed search (worlds not idle). With
+  clk-misc's 15 free cells as the only pulse cells (`--cells`, the (-3,2) trigger `--clear`ed):
+  10 cells off (b (0,-2) and c (1,-2) unfed). w86's read: the family is too action-heavy for the
+  7x7's 15 free cells.
+* Tool options since: `--cells` (pulse given feed cells instead of the plan's inputs), `--clear`
+  (empty a cell in both rests), `--edge-cost k` (one-edge pulses, i.e. lever-state-gated, at a
+  cost), `--levels`, `--fix`/`--drop`/`--observe`, real levers (`use` at t0) handled like
+  lever-held inputs, plan variables, the open target from the plan's own timing, batched
+  parallel expansion (3M pairs in ~45 s with `--threads 32`).
 
 ## `door selffeed <plan.ideal>`: inputs replaced by observers watching the mechanism
 * For each input, every observer in a free plane cell that powers the same piston (directly,
