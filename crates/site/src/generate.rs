@@ -387,14 +387,19 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // whose cards would read the same fold under one
     let (fd, fc) = fold_twins(&mut builds);
     eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
-    // no simulator attribution in the captions (vjeux 02:01Z)
-    for b in &mut builds {
-        b.caption = crate::explain::scrub_attribution(&b.caption);
-    }
     let mut cards = ce.cards;
     cards.extend(ccards);
     let mut members = ce.members;
     members.extend(cmembers);
+    // one world-best design per kind (vjeux 21:47Z): one door card with every board's record,
+    // one clock card with the best clock of every period
+    for n in crate::kinds::select_doors(&mut builds).into_iter().chain(crate::kinds::select_clocks(&mut builds, &mut cards, &mut members)) {
+        eprintln!("  note: {n}");
+    }
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();

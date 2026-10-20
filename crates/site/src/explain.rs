@@ -928,6 +928,21 @@ fn phase_label_any(kind: &str, label: &str) -> String {
     }
     let mut w = label.split_whitespace();
     let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    // a memory's inputs by name: `s pulse 4` -> `a 4-tick press on set (S)` (critique: the demo
+    // badge read "demo: r: a 4 gt pulse")
+    if let (Some("pulse"), Some(n), None) = (Some(v), w.clone().next(), w.clone().nth(1)) {
+        if n.parse::<u32>().is_ok() {
+            let input = match (base(kind), what) {
+                (_, "s") => "set (S)".to_string(),
+                (_, "r") => "reset (R)".to_string(),
+                (_, "e") => "enable (E)".to_string(),
+                (_, "d") => "data (D)".to_string(),
+                (_, "c" | "clk") => "clock (C)".to_string(),
+                (_, other) => other.to_uppercase(),
+            };
+            return format!("a {n}-tick press on {input}");
+        }
+    }
     if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
         return label.to_string();
     }
@@ -995,7 +1010,7 @@ pub const STUDIES: [(&str, &str, &str); 11] = [
     ),
     (
         "tff",
-        "Toggle switches (T flip-flops)",
+        "Toggle switches (T\u{2011}flip\u{2011}flops)",
         "Each input pulse flips the output (on, off, on...). We collect one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and rank them by blocks placed; we also measure how short a pulse and how fast a series of presses each one follows.",
     ),
     (

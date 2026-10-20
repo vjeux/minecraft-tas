@@ -109,7 +109,16 @@ pub fn one_liner(c: &Circuit) -> String {
         "pulse-extender" => format!("Even the shortest input pulse comes out at least {l} long."),
         "tff" => "Press once and the output turns on; press again and it turns off.".to_string(),
         "tff-reset" => "Each press flips the output on or off; a press on R turns it off.".to_string(),
-        "delay" => format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{} gt", if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() }))),
+        "delay" => {
+            let n = if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() };
+            // a 0-tick delay passes the signal on in the same tick: a signal carrier, not a delay
+            // (critique: "0-tick delay" on a page promising "a moment later")
+            if n == "0" {
+                "Carries a signal to its output in the same game tick, with no delay at all: a wire that does not slow the signal down.".to_string()
+            } else {
+                format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{n} gt")))
+            }
+        }
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
             let instant = m(c, "class") == "instant" || m(c, "latency") == "0 gt";
@@ -216,6 +225,7 @@ pub fn why_build(c: &Circuit) -> String {
         "pulse-limiter" => "stop a long press from keeping a piston or a dispenser busy: one short pulse however long a lever stays on".into(),
         "pulse-extender" => "make a 1-tick observer pulse long enough for a piston, a door or a lamp to notice it".into(),
         "tff" | "tff-reset" => "turn a button, which only gives a short pulse, into an on/off switch: one press opens a door, the next press closes it".into(),
+        "delay" if c.axis.trim_start_matches("N = ").starts_with("0 ") || m(c, "N").starts_with("0 ") => "pass a signal on without slowing it, where every other component adds a tick: keep one part of a machine in step with another".into(),
         "delay" => "time things: fire pistons one after another, or make a door wait before it closes".into(),
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
@@ -365,6 +375,13 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
+    // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
+        let detects = c.metrics.iter().find(|(k, _)| k == "detects").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !detects.split_whitespace().any(|w| w == "update") {
+            out.push("It does not notice pure block updates: a neighbour changing while the watched block itself stays the same gives no pulse.".to_string());
+        }
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),
@@ -414,7 +431,8 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     }
     if !items.is_empty() {
         let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
-        v.push(format!("Comes loaded with {} in its containers: the download includes them; building it by hand, put them in first.", list.join(" and ")));
+        let one = items.len() == 1 && items[0].1 == 1;
+        v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
     }
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());

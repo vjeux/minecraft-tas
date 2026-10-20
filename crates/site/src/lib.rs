@@ -16,6 +16,7 @@ pub mod deploy;
 pub mod doors;
 pub mod explain;
 pub mod generate;
+pub mod kinds;
 pub mod pages;
 pub mod plain;
 pub mod serve;
@@ -45,6 +46,16 @@ pub enum SiteCmd {
         #[arg(long, default_value = ".")]
         repo: PathBuf,
         /// Also the designs crates/site/hidden.tsv already keeps off the site.
+        #[arg(long)]
+        all: bool,
+    },
+    /// One world-best design per kind (vjeux 21:47Z): every study's kinds, the chosen design (a
+    /// parametric kind: its sizes and the widest family), and the other candidates.
+    Kinds {
+        /// The repository (designs/circuits).
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Also the designs crates/site/hidden.tsv keeps off the site.
         #[arg(long)]
         all: bool,
     },
@@ -190,6 +201,11 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             let (builds, _notes) = circuits::export_with(&repo, all)?;
             let site = site_model::Site { builds, ..Default::default() };
             print!("{}", audit::report(&site));
+            Ok(())
+        }
+        SiteCmd::Kinds { repo, all } => {
+            let (builds, _notes) = circuits::export_with(&repo, all)?;
+            print!("{}", kinds::report(&builds));
             Ok(())
         }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),

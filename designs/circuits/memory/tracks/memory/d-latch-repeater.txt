@@ -1,4 +1,4 @@
-# Repeater-lock D latch, 4 blocks (track memory census): the data input feeds repeater M (on stone) whose output is q; the enable input feeds a second repeater L pointing into M's side. While L is on M is locked and holds q; while it is off M follows d. Transparent while e is OFF (`enable low`), latency 4 gt.
+# D latch, 4 blocks: the data input feeds a repeater (on a stone) whose output is q, and the enable input feeds a second repeater pointing into its side. While that second repeater is on, the first is locked and holds q; while it is off, q follows d. So it is transparent while e is OFF; for a latch that follows d while e is ON, hang the 1-block NOT (a wall torch) on the enable input and let it feed the side repeater (5 blocks). Latency 4 ticks.
 name: d-latch-repeater
 circuit: d-latch
 port input.d: -1 1 1

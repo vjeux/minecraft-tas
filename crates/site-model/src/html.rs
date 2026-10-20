@@ -287,6 +287,10 @@ pub fn badge_words(badge: &str) -> String {
 /// ticks · restarts on every press`, `reach 2 to 4`), from its span (`L 12-36 gt, 5 values`);
 /// None for a design that is no group's card or whose span is no range.
 fn group_range(c: &crate::Circuit) -> Option<String> {
+    // the flying machine card (the coordinator 21:55Z: one card, a table of direction and load)
+    if c.kind.starts_with("flying-machine") && c.tunable.starts_with("kind:") && !c.span.is_empty() {
+        return Some("flies sideways, up or down, with cargo or trailers".into());
+    }
     // one machine timed with several kinds of items (critique: three cards for 1-, 16- and
     // 64-stack items): one card that works with any of them
     if c.kind.starts_with("shulker-") && !c.span.is_empty() {
@@ -469,6 +473,7 @@ pub fn lead_words(board: &str) -> String {
         "seamless, flat, no slime or honey" => "hidden 1-block-thick door",
         "wall" => "door in a 3-thick wall",
         "ground" => "door with nothing below it",
+        "entities" => "entity door",
         other => return format!("best: {other}{tail}"),
     };
     format!("most compact {what}{tail}")
@@ -494,6 +499,10 @@ pub fn door_category(group: &str) -> &'static str {
 /// `4 to 8 ticks`.
 fn tk(v: &str) -> String {
     let v = v.trim().trim_end_matches(" (from the press)");
+    // `over 30 gt` -> `over 30 ticks (1.5 s)` (critique: "handles presses over 30 gt apart")
+    if let Some(rest) = v.strip_prefix("over ") {
+        return format!("over {}", tk(rest));
+    }
     let mut w = v.split_whitespace();
     let n = w.next().unwrap_or("");
     if w.next() != Some("gt") {
@@ -606,11 +615,29 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
     };
     let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| said(label, k)).collect() };
     match k0 {
-        "rising-edge" | "falling-edge" | "dual-edge" => (format!("{}-tick pulse", num(cm(c, "L"))), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
+        // (an extendable family's base shows the family's range: critique, "30-tick pulse" badged
+        // "comes in every size"; a card's lead, when it has one, follows)
+        "rising-edge" | "falling-edge" | "dual-edge" => {
+            let main = match c.extend_range {
+                Some((lo, hi, _)) if hi > lo => format!("{lo}- to {hi}-tick pulse"),
+                _ => format!("{}-tick pulse", num(cm(c, "L"))),
+            };
+            let lead = if c.lead.is_empty() { String::new() } else { format!(" · {}", c.lead) };
+            (format!("{main}{lead}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")]))
+        }
         "pulse-limiter" => (format!("at most {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
         "pulse-extender" => (format!("at least {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
-        "tff" => (said("reacts in {}", "latency").unwrap_or_default(), sub(&[("handles presses {} apart", "min-period")])),
-        "delay" => (format!("{}-tick delay", if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) }), sub(&[("needs an input of at least {}", "min-pulse"), ("two pulses {} apart stay separate", "min-gap")])),
+        "tff" => {
+            // what sets it apart from the other toggles leads (critique: a 7-block card lost every
+            // number to the 3-block one with nothing saying what it adds)
+            let lead = if c.lead.is_empty() { String::new() } else { format!("{} · ", c.lead) };
+            (format!("{lead}{}", said("reacts in {}", "latency").unwrap_or_default()), sub(&[("handles presses {} apart", "min-period")]))
+        }
+        "delay" => {
+            let n = if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) };
+            // (a 0-tick delay is a signal carrier: critique, "0-tick delay" on a page of delays)
+            (if n == "0" { "no delay: same-tick signal carrier".to_string() } else { format!("{n}-tick delay") }, sub(&[("needs an input of at least {}", "min-pulse"), ("two pulses {} apart stay separate", "min-gap")]))
+        }
         "gate" => {
             let f = if cm(c, "function").is_empty() { k1 } else { cm(c, "function") };
             let instant = cm(c, "class") == "instant" || cm(c, "latency") == "0 gt";
@@ -619,8 +646,8 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "rs-latch" | "d-latch" | "dff" | "dff-enable" | "tff-reset" => {
             let mut v = sub(&[("reacts in {}", "latency"), ("resets in {}", "reset")]);
             match cm(c, "enable") {
-                "low" => v.push("enabled while E is off".into()),
-                "high" => v.push("enabled while E is on".into()),
+                "low" => v.push("copies its input while the enable input is off".into()),
+                "high" => v.push("copies its input while the enable input is on".into()),
                 _ => {}
             }
             match cm(c, "edge") {
@@ -804,18 +831,31 @@ pub fn props(b: &Build) -> Props {
                     chips.push("breaks on chunk reload".into());
                 }
             }
+            // the one clock card: the periods its page's table covers (vjeux 21:47Z)
+            if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
+                return Props { kind: "Clock".into(), title: format!("a clock for every period: {range}"), sub: format!("smallest: {period}, {}", blocks_word(b.blocks)), chips: Vec::new() };
+            }
             Props { kind: "Clock".into(), title: format!("{period} · {}", blocks_word(b.blocks)), sub, chips }
         }
         _ => match &b.circuit {
             Some(c) => {
                 let (main, sub) = circuit_props(c);
+                let k0 = c.kind.split_whitespace().next().unwrap_or("");
                 // a sand elevator lifts its block up (its own section: critique)
                 let main = if b.group == "Sand elevator" { format!("{} up", main.replace("reach ", "lifts ")) } else { main };
                 let mut chips: Vec<String> = Vec::new();
                 if !c.span.is_empty() {
                     chips.push(format!("{} versions", c.span.split(", ").last().unwrap_or("").trim_end_matches(" values").trim_end_matches(" versions")));
                 }
-                for (f, words) in [("faster", "faster than smaller versions"), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                // what "faster" means for its kind (critique: "faster than smaller versions" on a
+                // delay, whose speed metrics are the shortest pulse and gap it handles)
+                let faster = match k0 {
+                    "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "off-delay" => "handles shorter pulses than smaller versions",
+                    "tff" => "handles faster presses than smaller versions",
+                    "shulker-loader" | "shulker-unloader" => "moves more items a second than smaller versions",
+                    _ => "faster than smaller versions",
+                };
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
                     if b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -845,7 +885,7 @@ pub fn props(b: &Build) -> Props {
                 // a chip the card's lead already says is not repeated ("no slime" in "reach 2 ·
                 // no slime, 1 block wide"; "faster than smaller versions" under "fastest")
                 if !c.lead.is_empty() {
-                    chips.retain(|ch| !c.lead.contains(ch.as_str()) && !(ch == "faster than smaller versions" && c.lead.contains("fast")));
+                    chips.retain(|ch| !c.lead.contains(ch.as_str()) && !(ch.ends_with("than smaller versions") && c.lead.contains("fast")));
                 }
                 let mut sub = sub;
                 if !c.direction.is_empty() && c.kind != "flying-machine" {
@@ -921,7 +961,9 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
     // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
     if let Some(r) = b.circuit.as_ref().and_then(group_range) {
         let size = b.circuit.as_ref().map(|c| c.span_blocks.clone()).filter(|s| !s.is_empty()).unwrap_or_else(|| blocks_word(b.blocks));
-        p.title = format!("{r} · {size}");
+        // (what the group adds over the smaller ones of its kind, when it says: "adds 18, 34 ticks")
+        let lead = b.circuit.as_ref().filter(|c| !c.lead.is_empty() && !c.kind.starts_with("shulker-") && !c.kind.starts_with("piston-extender")).map(|c| format!(" · {}", c.lead)).unwrap_or_default();
+        p.title = format!("{r}{lead} · {size}");
     }
     let mut chips: Vec<String> = p
         .chips

@@ -76,10 +76,18 @@ The 18 dropper-ring counters R7 REFUSES (no side of their input cell leads out o
 
 | kind | design | blocks | note |
 |---|---|---|---|
-| dff | dff-lock | 15 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust; irreducible under `circuit shrink` |
-| shift 2 | shift2-lock | 30 | exactly 2 x the dff: the same two-repeater stage twice, sharing one clock dust line |
-| dff-enable | dffe-lock | 18 | the dff plus a second lock on the slave from e (wall torch + repeater); latency 6 gt, robust, irreducible under `circuit shrink` |
+| dff | dff-lock | 9 | rising edge, latency 6 gt, setup 1 gt, hold 1 gt, robust, irreducible. Was 15: the clock block itself is the master lock's back and carries the slave's wall torch, so there is no clock wiring at all |
+| shift 2 | shift2-lock | 27 | was 30: stage 1 is the 9-block dff on the clock block; a dust on the clock block carries the clock round to stage 2's stone (18 blocks for stage 2 — the loop-back from stage 1's output to a second stage sharing the clock block and torch from their other faces would cost more than it saves) |
+| dff-enable | dffe-lock | 12 | was 18: the 9-block dff plus a second lock on the slave from e (wall torch + repeater + stone); latency 6 gt, robust, irreducible |
 
 The dff went 31 -> 18 by the in-game shrink, then 18 -> 15 by hand: the shrink removes blocks but never re-routes, and the clock line it left ran three cells further than it needed. The stage is two repeaters on the data line (B west, A south locking B from the side), a wall torch for the inverted phase, and one clock dust above; a second stage reuses the same dust.
 
 dff-enable went 31 -> 18 by NOT gating the clock at all. The first build ANDed e into the clock (31 blocks, latency 38 gt, position-dependent), and every cheaper AND failed on support: a torch cannot hold the dust above it, a stone the dust reads has no support either, and the NAND one layer lower arrives a tick late and misses the first edge. The fix is a repeater fact: a repeater is locked when EITHER side is powered (`getAlternateSignal` takes the max of both sides), so the enable needs no gate, only its own lock on the slave's free side — a wall torch on the e cell and one repeater, 3 blocks. With e off the slave stays locked through any clock edge and q holds; the master still tracks d, which is harmless because the slave only reads it on an edge with e on. The judge changes e only while the clock is low (seq.rs), the same setup assumption every enable flip-flop makes.
+
+## ONE design per kind (vjeux 21:47Z, 2026-10-20)
+
+- D latch: d-latch-repeater, 4 blocks (transparent while e is off). The 8-block enable-high latch is removed: the same 4 blocks with the 1-block NOT on the enable (a wall torch on the e block feeding the side repeater) is an enable-high latch in 5 blocks, judged robust (latency 6 gt), and the caption says so.
+- RS latch: rs-dropper, 4 blocks, 6 gt, tileable every 2. rs-crafter (6 blocks, 13 gt) removed.
+- D flip-flop 15, with enable 18, shift-2 30: one each. Open: shift-2 should beat 2 x dff by sharing the inverted clock (one torch for both slaves) once the two phases run on opposite sides of the data line.
+- T flip-flop with reset: tffr-dropring 8 blocks, the only one; open.
+- Counters: one per N by the fold (item counter from 17 up, clk-rt's ring counters and the bulb chains below).
