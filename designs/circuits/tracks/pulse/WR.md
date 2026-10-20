@@ -34,7 +34,9 @@ edge's tick (docs/circuits.md, "Inputs"). What it changes for this study:
   piston one tick behind the input, which the block placement between ticks made) is gone with
   it. Odd lengths now come from the hopper item timer (L = 8n - 1).
 - A design must not move its input cell's block (the census pistons that pushed the input's
-  redstone block are out).
+  redstone block are out), nor its output cell's block (the judge's output rule, 56495c8b0: the
+  part in an output cell, or the judge's lamp in an air one, stays put; a design that read an
+  observer moved through its output cell now drives a fixed cell beside it).
 `mctas circuit r7` lists what changes; it skips tiled designs, so `mctas circuit sim` over the
 archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-10-20 16:00Z).
 
@@ -58,7 +60,10 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 - Repeater 2..8 gt (it stretches a shorter pulse to its delay), comparator 2 gt, torch 2 gt,
   observer 2 gt pulse after 2 gt, lamp off 4 gt after power, dust 0 gt. Pistons: the block event
   runs at the end of the tick the piston is powered in, and a pushed block lands in the
-  block-entity phase. A hopper passes one item per 8 gt; one that receives an item into an empty
+  block-entity phase. A moving block conducts and powers nothing from the block event on: a
+  piston opens a dust step (or takes a redstone block away) in the very tick it is powered, which
+  gives the delay-0 records and the 1-tick falling edge. A sticky piston given a pulse shorter
+  than its stroke leaves its block where it pushed it. A hopper passes one item per 8 gt; one that receives an item into an empty
   inventory from a hopper that ticked first waits 7 gt (`HopperBlockEntity.tryMoveInItem`: cooldown
   8 - 1), the odd step in the item timer's 8n - 1.
 
