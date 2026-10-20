@@ -39,9 +39,15 @@ pub struct CensusArgs {
     /// The frames each event is given.
     #[arg(long, default_value_t = 30)]
     pub gap: u32,
-    /// Write the smallest and the fastest designs of each class set here (up to 3 each).
+    /// Write the fastest designs of each class set here (`--keep` each).
     #[arg(long)]
     pub out_dir: Option<PathBuf>,
+    /// How many designs of each class set `--out-dir` gets (fastest first).
+    #[arg(long, default_value_t = 3)]
+    pub keep: usize,
+    /// Only class sets with this detected-classes text (`place remove state update`).
+    #[arg(long)]
+    pub only: Option<String>,
 }
 
 const FACINGS: [&str; 6] = ["north", "south", "east", "west", "up", "down"];
@@ -306,8 +312,11 @@ pub fn run(a: CensusArgs) -> Result<()> {
         let best = &v[0];
         println!("  detects {cl}: {} structures; fastest latency {} (pulse {})", v.len(), best.latency, best.pulse);
         if let Some(dir) = &a.out_dir {
+            if a.only.as_ref().is_some_and(|o| o != cl) {
+                continue;
+            }
             std::fs::create_dir_all(dir)?;
-            for (j, h) in v.iter().take(3).enumerate() {
+            for (j, h) in v.iter().take(a.keep).enumerate() {
                 let name = format!("census-k{}-{}-{}", a.k, cl.replace(' ', "-"), j + 1);
                 let text = h.text.replacen("name: bud-census", &format!("name: {name}"), 1);
                 std::fs::write(dir.join(format!("{name}.txt")), text)?;
