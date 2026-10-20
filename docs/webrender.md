@@ -86,13 +86,18 @@ each build's page.
   updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
   replays the BUD switches' events through this parser frame by frame against `circuit sim`.
   Cyan tags name a BUD switch's TARGET cells.
-* TNT dupers run live (redsim primes TNT); the primed TNT is drawn like the game's
-  `TntRenderer` (swelling over the last 10 ticks of its fuse, flashing 75% white every 5) and
-  moved by the viewer (`mcview::tnt`, redsim records only when and where TNT primes): the game's
-  `PrimedTnt.tick` (gravity, the game's collision, air drag, ground friction, slime bounce) and
-  `PistonMovingBlockEntity.moveCollidedEntities` (moving blocks push it, a moving slime block
-  launches it at one block per tick); its sideways direction (random in the game) comes from a
-  hash of the cell and time; it vanishes at fuse 0 without exploding (the judge removes it).
+* TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
+  clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces):
+  each primed TNT is redsim's `PrimedTnt` entity (its kick from the mirrored level random; moved
+  by the engine: gravity, collisions, slime, moving blocks), drawn like the game's `TntRenderer`
+  (swelling over the last 10 ticks of its fuse, flashing 75% white every 5), and at fuse 0 it
+  EXPLODES exactly like the game (`redsim::explosion`): the blocks it breaks vanish, their drops fly
+  as items, a TNT block it hits primes, other TNT is pushed. A TNT flying off the design falls into
+  the void below the drawn ground (the judge's world has none) and explodes there harmlessly.
+  `web check` runs each TNT design against a reference built from the repo's tools
+  (`clock::sim::drive_custom` with the same configuration): the same blocks and entities every tick
+  for 400 ticks, native and wasm. (The viewer's own TNT, `mcview::tnt`, only remains for worlds
+  without TNT entities.)
 * Shulker loaders and unloaders (`circuit: shulker-loader|shulker-unloader`) run live like their
   judge (redsim's `redstone::shulker::Chests`, the driver `mctas circuit shulker compare` checks
   tick for tick against the real game): the judge's chest on each `items`, `boxes`, `output` and

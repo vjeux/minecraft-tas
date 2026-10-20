@@ -462,6 +462,13 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
+        // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
+        // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
+        // the world box's chunks, like the clock traces): `explosion::explode_on`
+        if is_tnt_design(&s.design) {
+            let to = [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1];
+            redsim::explosion::explode_on(&mut world, 0, redsim::redstone::shulker::chunk_range([min.x, min.y, min.z], to));
+        }
         s.world = world;
         s.primed_seen = s.world.primed.len();
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
@@ -665,8 +672,12 @@ impl Session {
 
     /// The primed TNT of the tick just run: the TNT primed in it get their entity, then every
     /// entity ticks (the entity phase) and the blocks that moved push it (the block-entity
-    /// phase); a TNT at fuse 0 vanishes (the judge removes it before it explodes).
+    /// phase); a TNT at fuse 0 vanishes (the judge removes it before it explodes). A TNT design
+    /// (`is_tnt_design`) has redsim's own TNT entities instead, which explode.
     fn tick_primed(&mut self) {
+        if self.world.tnt_kick.is_some() {
+            return;
+        }
         for k in self.primed_seen..self.world.primed.len() {
             let (time, p) = self.world.primed[k];
             self.primed.push(crate::tnt::PrimedTnt::new(p, time));
@@ -838,6 +849,10 @@ impl Session {
                 let pitch = e.x_rot_o + (e.x_rot - e.x_rot_o) * partial;
                 let pos = [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y), lerp(e.zo, e.pos.z)];
                 let age = e.tick_count as f32 + partial;
+                if let EntityKind::PrimedTnt(st) = &e.kind {
+                    // TntRenderer: the fuse as drawn (getFuse() - partialTicks + 1) flashes and swells it
+                    return crate::mesh::EntityDraw { kind: "primed:minecraft:tnt[unstable=false]".to_string(), pos, fuse: st.fuse as f32 - partial + 1.0, ..Default::default() };
+                }
                 if let EntityKind::Minecart(_) = &e.kind {
                     // on a rail: the rail's line and slope (AbstractMinecartRenderer.oldRender)
                     let p64 = [e.xo + (e.pos.x - e.xo) * partial as f64, e.yo + (e.pos.y - e.yo) * partial as f64, e.zo + (e.pos.z - e.zo) * partial as f64];
@@ -1017,6 +1032,19 @@ impl Session {
         h
     }
 
+    /// [`Session::frames_digest`] with every entity too ([`entity_hash`]: its kind and the bits of
+    /// its position and motion): `web check`'s TNT designs.
+    pub fn frames_entities_digest(&self, ticks: u32) -> u64 {
+        let mut s = self.fresh();
+        let mut h: u64 = 0xcbf29ce484222325;
+        for _ in 0..=ticks {
+            h = frame_hash(h, &s.world.blocks());
+            h = entity_hash(h, &s.world);
+            s.step();
+        }
+        h
+    }
+
     /// Run `n` ticks (stops early at an error).
     pub fn run(&mut self, n: u32) {
         for _ in 0..n {
@@ -1171,10 +1199,11 @@ impl Session {
             return Err(format!("not modeled by redsim: {why}"));
         }
         let end = self.free_from();
-        let found = if !self.design.entities.is_empty() {
-            // designs with entities never repeat their exact state (an entity's doubles drift):
-            // the real-game judge's rule (`clock::sim::entity_clock_period`): the block frames over
-            // 4000 gt, periodic for 3 periods from the first free tick
+        let found = if !self.design.entities.is_empty() || self.world.tnt_kick.is_some() {
+            // designs with entities never repeat their exact state (an entity's doubles drift;
+            // a TNT design's TNT keep coming and exploding): the real-game judge's rule
+            // (`clock::sim::entity_clock_period`): the block frames over 4000 gt, periodic for 3
+            // periods from the first free tick
             let mut s = self.fresh();
             let mut ids: HashMap<u128, u64> = HashMap::new();
             let mut frames: Vec<u64> = Vec::with_capacity(ENTITY_HORIZON as usize + 1);
@@ -1456,7 +1485,35 @@ pub fn frame_hash(mut h: u64, cells: &[(BlockPos, Block)]) -> u64 {
     h
 }
 
-/// [`active`] for a block state string (a recording's cells).
+/// Every live entity (falling blocks included) folded into `h` in spawn order: its kind and the
+/// bits of its position and motion (FNV-1a, like [`frame_hash`]).
+pub fn entity_hash(mut h: u64, w: &World) -> u64 {
+    let mut eat = |bytes: &[u8]| {
+        for b in bytes {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+    };
+    for e in w.entities.list.iter().filter(|e| !e.removed) {
+        eat(format!("{:?}", std::mem::discriminant(&e.kind)).as_bytes());
+        for v in [e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z] {
+            eat(&v.to_bits().to_le_bytes());
+        }
+    }
+    for f in w.gravity.entities.iter().filter(|f| !f.removed) {
+        for v in [f.x, f.y, f.z, f.vy] {
+            eat(&v.to_bits().to_le_bytes());
+        }
+    }
+    eat(b"#");
+    h
+}
+
+/// A design with a TNT block: it runs with redsim's TNT entities and explosions
+/// (`explosion::explode_on`).
+pub fn is_tnt_design(d: &Design) -> bool {
+    d.blocks.values().any(|s| s.trim_start_matches("minecraft:").split('[').next() == Some("tnt"))
+}
 pub fn active_state(state: &str) -> bool {
     let st = crate::models::St::parse(state);
     match st.name {

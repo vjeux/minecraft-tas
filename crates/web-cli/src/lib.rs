@@ -952,7 +952,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped) = (0, 0, 0, 0, 0);
+    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts) = (0, 0, 0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -962,13 +962,17 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
         let fly = is_flying_machine(&text);
         // circuits judged under a stimulus: inputs, BUD targets (data-events); shulker designs run
-        // with the judge's chests (`shulker_pair`)
+        // with the judge's chests (`shulker_pair`); designs with TNT run with exploding TNT
+        // (`tnt_pair`)
         let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
-        let circ = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        let tnt = !fly && !shulker && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        let circ = !fly && !shulker && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
+        } else if tnt {
+            tnt_pair(&text, probe.as_mut())
         } else if circ {
             circuit_pair(&text)
         } else {
@@ -991,6 +995,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         };
         if fly {
             flyers += 1;
+        } else if tnt {
+            tnts += 1;
         } else if circ || shulker {
             circuits += 1;
         } else {
@@ -1001,8 +1007,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim) and {circuits} circuits (same frames as circuit sim under the judge's stimulus) agree{}, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " (clocks, flying machines and shulker designs in the native and the wasm viewer)" } else { "" }
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, {skipped} parse-only, {bad} failures",
+        if probe.is_some() { " (clocks, flying machines, shulker and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -1099,6 +1105,47 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         session.step();
     }
     Ok(Some(format!("{} {frames} frames agree", kind.name())))
+}
+
+/// Ticks a TNT design runs in `web check` (TNT primed early explode by ~85; several fuses).
+const TNT_TICKS: u32 = 400;
+
+/// A design with TNT (`mcview::session::is_tnt_design`) in the viewer (redsim's TNT entities and
+/// explosions: `explosion::explode_on`, seed 0, the viewer box's chunks) and in a reference run
+/// built from the repo's tools (`clock::sim::drive_custom`: the clock judge's placement and
+/// inputs in the viewer's box, the same configuration): the same blocks and entities (positions
+/// and motions, bit for bit) every tick for TNT_TICKS ticks as placed, and the same blocks in the
+/// wasm viewer when given. None when redsim does not run it (the viewer shows it as built).
+fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    if !s.simulated() {
+        return Ok(None);
+    }
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let Ok(c) = clock::Clock::from_design(d) else { return Ok(None) };
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let chunks = redsim::redstone::shulker::chunk_range(from, to);
+    let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
+    let mut blasts = 0usize;
+    let mut destroyed = 0usize;
+    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| redsim::explosion::explode_on(w, 0, chunks), |_, w| {
+        let b = w.blocks();
+        h = mcview::session::frame_hash(h, &b);
+        h = mcview::session::entity_hash(h, w);
+        hb = mcview::session::frame_hash(hb, &b);
+        blasts = w.explosions.len();
+        destroyed = w.explosions.iter().map(|x| x.destroyed.len()).sum();
+    })?;
+    if s.frames_entities_digest(TNT_TICKS) != h {
+        return Err(format!("frames 0..={TNT_TICKS} (blocks and entities) differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, TNT_TICKS)? != hb
+    {
+        return Err(format!("the wasm viewer's frames 0..={TNT_TICKS} differ from the reference run's"));
+    }
+    Ok(Some(format!("TNT design: {TNT_TICKS} ticks agree (blocks and entities; {blasts} explosions, {destroyed} blocks destroyed)")))
 }
 
 /// Ticks a shulker design runs in `web check` (3 boxes and more of unstackables).

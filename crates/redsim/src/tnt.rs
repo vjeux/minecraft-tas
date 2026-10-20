@@ -30,23 +30,61 @@ use crate::world::World;
 /// The dead coral fan kinds (`dead_<kind>_coral_fan`), by `Block::CoralFan::kind`.
 pub const DEAD_CORALS: [&str; 5] = ["tube", "brain", "bubble", "fire", "horn"];
 
+/// The kick (`nextDouble()`) of the next TNT entity: the injected one (`World::tnt_kicks`, by
+/// spawn index) or the level random's (drawn whenever it is mirrored, so later draws stay in
+/// step) or `tnt_kick`. `None`: TNT are records only (no `tnt_kick`).
+fn next_kick(w: &mut World) -> Option<f64> {
+    let k = w.tnt_spawned as usize;
+    w.tnt_spawned += 1;
+    let drawn = w.rng().map(|r| r.next_double());
+    let base = w.tnt_kick?;
+    Some(w.tnt_kicks.get(k).copied().or(drawn).unwrap_or(base))
+}
+
 /// `TntBlock.prime(level, pos)` with no source: the primed TNT and `PRIME_FUSE`. The `PrimedTnt`
-/// is an entity only with `World::tnt_kick` (its random kick replaced by that value); else a
-/// record that still takes its entity id (later entities keep the game's ids).
+/// is an entity only with `World::tnt_kick` (its kick: `next_kick`); else a record that still
+/// takes its entity id (later entities keep the game's ids).
 fn prime(w: &mut World, p: BlockPos) -> bool {
     w.primed.push((w.time, p));
-    // `new PrimedTnt(...)` draws its kick from the level random (`nextDouble()`): with the level
-    // random mirrored, that draw happens (and is the kick an entity takes); else `tnt_kick` stands in
-    let drawn = w.rng().map(|r| r.next_double());
-    match w.tnt_kick {
+    // `new PrimedTnt(...)` draws its kick from the level random (`nextDouble()`)
+    match next_kick(w) {
         Some(u) => {
             let pos = crate::entity::Vec3::new(p.x as f64 + 0.5, p.y as f64, p.z as f64 + 0.5);
-            crate::entity::primed_tnt::spawn(w, pos, drawn.unwrap_or(u));
+            crate::entity::primed_tnt::spawn(w, pos, u);
         }
         None => w.entities.next_id += 1,
     }
     w.game_event("prime_fuse", p);
     true
+}
+
+/// `TntBlock.wasExploded` (an explosion destroyed the TNT block at `p`): `new PrimedTnt(level, x +
+/// 0.5, y, z + 0.5, ..)` (its kick drawn first), then `setFuse(getRandomShortFuse(80, random))` =
+/// `nextInt(20) + 10` (or the injected `World::chain_fuses`), `addFreshEntity` (it ticks from
+/// the next tick).
+pub fn was_exploded(w: &mut World, p: BlockPos) {
+    w.chain_primed.push((w.time, p));
+    let kick = next_kick(w);
+    let k = w.chain_spawned as usize;
+    w.chain_spawned += 1;
+    let drawn = w.rng().map(|r| r.next_int(20) + 10);
+    let fuse = w.chain_fuses.get(k).copied().or(drawn);
+    match (kick, fuse) {
+        (Some(u), Some(f)) => {
+            let pos = crate::entity::Vec3::new(p.x as f64 + 0.5, p.y as f64, p.z as f64 + 0.5);
+            crate::entity::primed_tnt::spawn(w, pos, u);
+            if let Some(e) = w.entities.list.last_mut()
+                && let crate::entity::EntityKind::PrimedTnt(s) = &mut e.kind
+            {
+                s.fuse = f;
+            }
+        }
+        (Some(_), None) => {
+            w.entities.next_id += 1;
+            w.errors.push(format!("explosion: the TNT it primes at {p} needs a fuse (World::chain_fuses or the mirrored level random)"));
+        }
+        (None, _) => w.entities.next_id += 1,
+    }
 }
 
 /// `TntBlock.onPlace`.

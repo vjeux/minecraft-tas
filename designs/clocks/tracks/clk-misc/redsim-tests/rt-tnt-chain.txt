@@ -1,0 +1,16 @@
+name: rt-tnt-chain
+# redsim test scene (not a clock): TNT A primed at tick 2 (a redstone block beside it for 6 gt)
+# explodes at ~82 and destroys TNT block B three cells away, which becomes a primed TNT with a
+# short fuse (nextInt(20) + 10 from the level random) and explodes in turn.
+port start: 1 1 1 minecraft:redstone_block 6 at 2
+palette:
+  S minecraft:stone
+  T minecraft:tnt[unstable=false]
+layer 0:
+  SSSSSSSSS
+  SSSSSSSSS
+  SSSSSSSSS
+layer 1:
+  .........
+  ..T..T...
+  .........
