@@ -81,7 +81,13 @@ track's tracker as `crates/circuit/src/fly.rs`).
 - The up-flyer's 9 gt is the same 1 gt, by quasi-connectivity: the front observer watches the cell
   the rear piston lands in and powers the slime two above it.
 - `grow --add 2 --faster` (+ redstone block, glazed terracotta) on both 9 gt machines: nothing
-  faster. What 9 gt is made of: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1. The
+  faster. `grow --remove 1 --add 1|2 --faster` (one block taken out, then grown) on every 6-block
+  machine: UP 6 blocks 9 gt/block (fly-up-6b-9gt-0e4df1, -339615, robust: a redstone block on the
+  honey part, no rear observer) and 82 horizontal 7-block 9 gt/block candidates (30 types, 13
+  captions): the robust ones are the redstone-block-on-a-slime idea again (near-duplicates of
+  e75c5f, not archived); a second idea (fly-horizontal-7b-9gt-aa517c, archived, east-west only): a
+  redstone block on a slime stands diagonally above the pusher (quasi-connected) and a third,
+  sticky piston under that slime lifts it away and lowers it back. Nothing below 9 gt/block. What 9 gt is made of: push 2 + observer 2 + reach-pull 2 + pull 2 + landing fire 1. The
   pusher retracts only after the front lands (it misses the redstone block leaving: its state turns
   extended after its own push's neighbour updates), so the pull cannot start before t7.
 
