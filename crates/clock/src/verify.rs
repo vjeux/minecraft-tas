@@ -36,11 +36,13 @@ pub struct VerifyOptions {
     pub reload: bool,
     /// The tick of that reload (set by `verify_in_pool` from redsim's warmup and period).
     pub reload_at: Option<u32>,
+    /// The state period the clock must keep across the reload (redsim's).
+    pub reload_period: Option<u32>,
 }
 
 impl Default for VerifyOptions {
     fn default() -> Self {
-        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), reload: false, reload_at: None }
+        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), reload: false, reload_at: None, reload_period: None }
     }
 }
 
@@ -408,10 +410,15 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let Some((w0, p)) = wave::detect_period(&fr.ids, end, o.min_periods) else {
         return Ok(Err(format!("not periodic for {} periods within {} gt{}", o.min_periods, o.horizon, if o.reload_at.is_some() { " (with a chunk reload)" } else { "" })));
     };
+    // a chunk reload: the clock must keep working, i.e. run at the same state period afterwards; a
+    // short glitch right after it (lost block events, a phase shift) is fine, as for a builder
     if let Some(r) = o.reload_at
         && (w0 + p) as u32 > r
     {
-        return Ok(Err(format!("does not survive a chunk reload at tick {r}: the period ({p} gt) only holds from tick {w0}")));
+        let want = o.reload_period.unwrap_or(p as u32);
+        if p as u32 != want || w0 as u32 > r + 2 * want + 40 {
+            return Ok(Err(format!("does not survive a chunk reload at tick {r}: it runs at period {p} gt only from tick {w0} (period {want} gt before the reload)")));
+        }
     }
     // designs with entities: the period must hold over at least the second half of the horizon
     // (`sim::entity_clock_period`: a drifting entity can show a short pattern near the end)
@@ -551,10 +558,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
         let need = if c.design.entities.is_empty() { need } else { need.max(2 * r.warmup.max(r.state_warmup) + 100).max(crate::sim::entity_horizon(c)) };
         o.horizon = o.horizon.max(need.min(20_000));
         if o.reload {
-            // the chunk reload after the warmup and 2 periods, then the judge's periods again
+            // the chunk reload after the warmup and 2 periods, then room for a short glitch and
+            // the judge's periods again
             let at = r.warmup.max(r.state_warmup) + 2 * r.period + 1;
             o.reload_at = Some(at);
-            o.horizon = o.horizon.max((at + (o.min_periods as u32 + 1) * r.period + 100).min(24_000));
+            o.reload_period = Some(r.state_period);
+            o.horizon = o.horizon.max((at + (o.min_periods as u32 + 3) * r.state_period.max(r.period) + 140).min(24_000));
         }
     }
     let o = &o;
