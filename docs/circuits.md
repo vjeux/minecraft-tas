@@ -188,6 +188,20 @@ value tables, and `designs/circuits/families.tsv` lists the families for the web
 `mctas circuit gen repeater-line --n N --out F` is the judge's own calibration family (n + 1
 delay-1 repeaters: N = 2 + 2n gt).
 
+**Tunable groups** (vjeux 2026-10-19: "we don't need 20 variations of the same design"): designs
+that are ONE mechanism with other repeater delays, comparator modes or a longer repeater line are
+one card. A design joins a group with a `group: <name>` header (optional `group title:` and `group
+note:`, read from the first member carrying them; track generators stamp them, e.g. `mctas circuit
+pulse stamp-group`), or automatically when its TUNABLE key (the type key with every repeater's
+delay and every comparator's mode masked, `archive::tunable_key`) and kind equal another
+design's. A group of two or more designs gets a card under "Tunable groups" (the value range as
+the heading, the two smallest members, a table value -> blocks -> design, and the extendable
+families carrying the same `group:`); its members leave the value tables. **Equivalent layouts**:
+designs with the same kind, value, block count and block kinds as a shown design (the one with the
+smallest box, then archived first) are listed on its row as "also N other layouts". `catalog.tsv`
+has a `group` column (the member's group) and its `variant_of` names a layout's shown design too.
+`mctas circuit catalog` prints, per study, the card count before and after the folds.
+
 ## Commands
 
 | command | what |
