@@ -1,5 +1,6 @@
 name: tnt-precise-28b
 circuit: tnt-duper
+explode: off
 origin: 0 0 -3
 palette:
   A minecraft:stone

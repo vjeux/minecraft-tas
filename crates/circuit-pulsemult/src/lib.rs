@@ -73,6 +73,20 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Tunable bursts for any N: the observer-chase clock (a sticky piston pushes an observer face
+    /// to face with another: a pulse every 4 gt) held on by a copper-bulb gate that the edge pulse
+    /// toggles on and the same pulse, delayed by a repeater loop, toggles off; the loop's delay
+    /// sets N. Writes the smallest loop judged to give exactly N per N.
+    BurstGate {
+        #[arg(long, value_delimiter = ',')]
+        n: Vec<usize>,
+        /// Write the design with these loop delays (out row then back row) for the first --n,
+        /// unjudged (to inspect a loop).
+        #[arg(long, value_delimiter = ',')]
+        delays: Vec<u32>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Local search from passing designs: add, remove, move or change blocks (box: the design's
     /// box grown by --grow), keep a change when the judge still passes with the same axis value
     /// (N, L and class, T or P) and no more blocks; writes the smallest found per start.
@@ -123,6 +137,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::As { kind, designs } => {
             for p in &designs {
                 println!("{}", search::judge_as(p, &kind)?);
+            }
+        }
+        Cmd::BurstGate { n, delays, out } => {
+            std::fs::create_dir_all(&out)?;
+            if !delays.is_empty() {
+                let k = n.first().copied().unwrap_or(2);
+                let d = search::burst_gate_design(&format!("pm-burst{k}-gate"), k, &delays);
+                let p = out.join(format!("{}.txt", d.name));
+                d.save(&p)?;
+                println!("{}", p.display());
+                return Ok(());
+            }
+            for &k in &n {
+                println!("{}", search::burst_gate(k, &out)?);
             }
         }
         Cmd::SquareDivider { n, max_dust, out } => {

@@ -22,9 +22,12 @@ pub struct Trace {
     /// Primed TNT spawned during the run (TNT dupers; the judge removes each one before it can
     /// explode), in spawn order.
     pub primed: Vec<Primed>,
-    /// TNT dupers with `explode: on` (the SURVIVABLE variation, real game only): how many primed TNT
-    /// exploded during the run.
+    /// TNT dupers judged with explosions (the default; real game only): how many primed TNT
+    /// exploded during the run, and the frame of each explosion.
     pub exploded: u32,
+    pub explosions: Vec<u32>,
+    /// Burning TNT removed 16+ blocks from the design (harmless to it: `run::OUT_OF_RANGE`).
+    pub out_of_range: u32,
 }
 
 /// One primed TNT: the frame it first appears in, and where it is and how it moves there (the
@@ -45,6 +48,8 @@ pub struct Primed {
     pub last_pos: [f64; 3],
     /// The frame `end` was recorded at.
     pub end_frame: u32,
+    /// The real game, explosions on: its position and motion when it was removed out of range.
+    pub gone: Option<([f64; 3], [f64; 3])>,
 }
 
 impl Trace {
@@ -58,6 +63,9 @@ impl Trace {
             for (k, inp) in c.inputs.iter().enumerate() {
                 let s = get(inp.pos);
                 let on = match &inp.how {
+                    // an active-low input (on-state air: the pulse removes the rest block) reads on
+                    // while its cell is empty
+                    InputHow::Block { on, .. } if mctas::blockstate::is_air(on) => s.is_none_or(|s| state_matches(s, on)),
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
                 };

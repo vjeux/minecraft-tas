@@ -5,8 +5,10 @@
 //! `on_delay`; the designs live in designs/circuits/pulsemult/tracks/timer/.
 
 pub mod cells;
+pub mod long;
 pub mod rehead;
 pub mod rings;
+pub mod tile;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -56,6 +58,31 @@ enum Cmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// Two-stage comparator-ring timers for long L (crates/circuit-timer/src/long.rs): writes
+    /// `<out>/<prefix>-k<K>.txt` for each `--k` (stage 2 has 2K + 1 comparators).
+    Long {
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Write the one design (`--k K`) to this file instead (the `extend generator:` form).
+        #[arg(long)]
+        file: Option<PathBuf>,
+        #[arg(long, value_delimiter = ',')]
+        k: Vec<i32>,
+        /// `input` (an off-delay) or `retrig` (a retriggerable monostable).
+        #[arg(long, default_value = "input")]
+        front: String,
+    },
+    /// The tightest `tile:` step of each design on redsim (along x and z, pitch 1..max): its copies
+    /// side by side, each judged against its own input; `--out DIR` writes each design with it.
+    Tile {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 8)]
+        max: i32,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long, default_value = "26.3")]
+        version: String,
+    },
     /// Comparator-ring off-delays (crates/circuit-timer/src/rings.rs): two comparators in a ring,
     /// every dust return line in the box, every input and output cell, judged on redsim; the
     /// smallest pass of each L is written to `<out>/off-delay-ring-L<L>.txt`.
@@ -82,5 +109,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::As { kind, designs, out, prefix, quiet, margin, version } => rehead::run(&kind, &designs, out.as_deref(), &prefix, quiet, margin, &version),
         Cmd::Rings { out, max_line, workers, version, front } => rings::run(&out, max_line, workers, &version, rings::Front::parse(&front)?),
         Cmd::Cells { design, stimulus, from, to, margin } => cells::run(&design, &stimulus, from, to, margin),
+        Cmd::Long { out, file, k, front } => long::run(out.as_deref(), file.as_deref(), &k, rings::Front::parse(&front)?),
+        Cmd::Tile { designs, max, out, version } => tile::run(&designs, max, out.as_deref(), &version),
     }
 }

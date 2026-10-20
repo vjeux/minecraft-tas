@@ -9,6 +9,10 @@ use anyhow::{Result, anyhow};
 use mctas::sim::{Region, SandboxOptions, Worker};
 use std::collections::HashMap;
 
+/// A burning TNT this far (blocks) from the design's box can no longer reach it when it explodes
+/// (blocks up to about 7 away, entities up to 8): the game runner removes it as out of range.
+pub const OUT_OF_RANGE: f64 = 16.0;
+
 /// The watched box: the circuit's box plus `margin`, swept along `travel` by `distance` + margin
 /// (a flying machine) or by its reach + 1 (a piston extender).
 pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
@@ -50,6 +54,9 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
+    if tnt && c.explodes() {
+        return sim_tnt(c, &cc, &actions, s, &probes, from, to, KICK_DEFAULT);
+    }
     match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
             let ended = match d.stopped {
@@ -67,11 +74,51 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
     }
 }
 
+/// The kick of every primed TNT in a redsim run with explosions (`sim_trace`; the all-randoms
+/// sweep tries every kick: `tnt_kick_trace`).
+pub const KICK_DEFAULT: f64 = 0.0;
+
+/// A TNT duper with explosions on, on redsim (the exact explosion port, every ray at its largest
+/// roll), every primed TNT kicked by `kick`, removed out of range like the real-game judge does.
+pub fn tnt_kick_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64) -> std::result::Result<Trace, String> {
+    let actions = c.actions(s);
+    let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let (from, to) = watch_box(c, margin);
+    let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
+    sim_tnt(c, &cc, &actions, s, &probes, from, to, kick)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], from: Pos, to: Pos, kick: f64) -> std::result::Result<Trace, String> {
+    let o = clock::sim::TntOptions { kick, kicks: Vec::new(), max_rolls: true, out_of_range: OUT_OF_RANGE, design_box: c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])) };
+    match clock::sim::drive_tnt(&cc.clock, actions, s.ticks, probes, from, to, &o) {
+        Ok(d) => {
+            if let Some((_, why)) = d.driven.stopped {
+                return Err(why);
+            }
+            let mut t = Trace::new(c, d.driven.cells, d.driven.signals);
+            t.primed = d
+                .tnt
+                .iter()
+                .map(|r| crate::trace::Primed { frame: r.frame, pos: r.first_pos, motion: Some(r.first_motion), end: r.end, launch: r.launch, moved: r.moved, last_pos: r.last_pos, end_frame: r.end_frame, gone: r.gone })
+                .collect();
+            t.exploded = d.explosions.len() as u32;
+            t.explosions = d.explosions;
+            t.out_of_range = d.out_of_range;
+            Ok(t)
+        }
+        Err((_, why)) => Err(why),
+    }
+}
+
 /// Run a circuit (already turned and moved) in the real game, in a fresh sandbox: `Ok(Err(why))`
 /// when the run itself breaks a rule (an entity, a block reaching the edge of the watched box).
 pub fn game_trace(w: &mut Worker, c: &Circuit, s: &Schedule, margin: i32) -> Result<std::result::Result<Trace, String>> {
     let (from, to) = watch_box(c, margin);
-    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+    // TNT dupers with explosions: load far enough around for every burning TNT to keep ticking
+    // until it explodes or is out of range (OUT_OF_RANGE)
+    let pad = if c.explodes() { OUT_OF_RANGE as i32 + 2 } else { 0 };
+    let chunks = [(from[0] - pad).div_euclid(16), (from[2] - pad).div_euclid(16), (to[0] + pad).div_euclid(16), (to[2] + pad).div_euclid(16)];
     let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
     let r = game_in(w, sb, c, s, from, to, margin);
     let _ = w.drop_sandbox(sb);
@@ -117,6 +164,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let explode = tnt && c.explodes();
     let mut burning: HashMap<String, i32> = HashMap::new();
     let mut exploded = 0u32;
+    let mut out_of_range = 0u32;
+    let design_box: ([i32; 3], [i32; 3]) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
+    let mut explosions: Vec<u32> = Vec::new();
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut t = 0u32;
@@ -164,6 +214,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     // earlier left the loaded world or was removed otherwise
                     if *last_fuse <= 1 {
                         exploded += 1;
+                        explosions.push(next as u32);
                     } else if vanished_early.is_none() {
                         vanished_early = Some((u.clone(), *last_fuse));
                     }
@@ -198,6 +249,20 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
                 };
                 if explode {
+                    // out of range: 16+ blocks from the design's box, beyond any reach of its
+                    // explosion (blocks up to about 7, entities up to 8): harmless to the machine;
+                    // removed and counted (it would otherwise fly out of the loaded sandbox)
+                    let (lo, hi) = design_box;
+                    let dist = (0..3).map(|i| (lo[i] as f64 - e.pos[i]).max(e.pos[i] - (hi[i] as f64 + 1.0)).max(0.0)).fold(0.0f64, |a, b| a.max(b));
+                    if dist > OUT_OF_RANGE {
+                        out_of_range += 1;
+                        if let Some(&k) = tnt_index.get(&e.uuid) {
+                            primed[k].gone = Some((e.pos, e.motion));
+                        }
+                        burning.remove(&e.uuid);
+                        w.exec(sb, &format!("kill {}", e.uuid))?;
+                        continue;
+                    }
                     burning.insert(e.uuid.clone(), fuse);
                 }
                 // the burning TNT is a real entity in the game only (redsim records primes): an
@@ -261,5 +326,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     t.ended = ended.map(|k| format!("reached the corridor end at frame {k}"));
     t.primed = primed;
     t.exploded = exploded;
+    t.out_of_range = out_of_range;
+    t.explosions = explosions;
     Ok(Ok(t))
 }

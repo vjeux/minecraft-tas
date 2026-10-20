@@ -74,7 +74,46 @@ Derived from the 26.3 source (`mctas src show <Class>`) and what TNT builds use;
 The best design of each variation is archived (`mctas circuit archive`); a design that is bigger
 and slower than an archived one of the same variation is dominated and stays out.
 
-## Results so far (2026-10-20, explore/tnt)
+## Explosions on (vjeux 2026-10-20 11:53Z): the re-judge
+
+"You didn't model tnt explosion. This will blow up the machine." Every TNT duper is now judged
+with its explosions (the default; `explode: off` is analysis only and is not archived). The eight
+designs archived before, in the real game at 16 builds:
+
+| design | with explosions | now |
+|---|---|---|
+| tnt-duper-12b (smallest) | BLOWN UP: some TNT land on its frame (the 0.02 kick drifts a TNT up to 1 block) | out of the archive (tracks/tnt, `explode: off`) |
+| tnt-duper-triggered-13b | BLOWN UP (a destroyed block's item at the end) | out; survivable triggered: open |
+| tnt-lever-12b | BLOWN UP | replaced by archive/tnt-lever-launch-15b (survives: every TNT out of range) |
+| tnt-honey-15b (slime-free) | BLOWN UP | out; survivable slime-free: open |
+| tnt-precise-28b | survives (water channel), but NOT precise any more: the explosions knock the next TNT (spread 6.3 blocks) | out (same blocks as survive-28b) |
+| tnt-survive-28b | survives (44 exploded in water, 45 out of range) | out: dominated by the 15-block launcher |
+| tnt-launch-15b | survives: all 96 TNT leave out of range | archived: the SMALLEST survivable duper |
+| tnt-drop-16b | survives: all TNT fall straight down out of range | archived |
+
+PRECISE under explosions: DONE by slowing it down (coordinator): archive/tnt-precise-slow-43b — the
+precise water-channel aligner on a slow engine (a 7-block crafter-loop clock, period 91 gt, holds
+the sticky piston and releases it for 6 gt: one push a period), so one TNT is alive at a time
+(91 gt > its 80 gt fuse): no blast knocks the next one, each goes off in the water (no block
+damage). Game, 16 builds: 20 exploded, design intact, "precise: 19 TNT at one point at fuse 1",
+at rest 33+ gt. 13.2 TNT/min. The judge's self-running run is now 1800 gt (8 periods of up to
+110 gt in its second half).
+
+TRIGGERED survivable: DONE: archive/tnt-triggered-launch-19b — the lever engine plus the launcher,
+held by a redstone torch that each input pulse turns off (dust + stone) for one push; every TNT
+flung out of range. The 13b's own TNT was pushed back onto its frame and chain-primed it.
+
+SLIME-FREE survivable: open (honey cannot fling; a dropped TNT spawns level with the frame top and
+the kick drifts it over a neighbour frame block within 2 ticks).
+
+Next (coordinator 12:02Z, vjeux "pass every possible random number"): DONE for the kick:
+`circuit verify` judges every TNT duper on redsim at every kick angle (4096-point sweep, every
+change bisected to 1e-12, rays at their largest roll); all five archived designs are robust over
+every kick (one piece each: the outcome never changes with the kick), and the old triggered 13b
+fails for kicks in [0.1667, 0.6250) (blown up), which is what the game showed. Per-spawn kicks
+(different TNT, different kicks) are the next step.
+
+## Results so far (2026-10-20, explore/tnt; explosions OFF, kept for the record)
 
 | variation | status | design / measure |
 |---|---|---|

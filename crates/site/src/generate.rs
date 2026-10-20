@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 
 pub const STYLE: &str = include_str!("../assets/style.css");
 pub const FAVICON: &str = include_str!("../assets/favicon.svg");
+/// Pages vjeux deleted (2026-10-20 13:35Z: "I asked to remove the things from the header, it's
+/// not to put them back in the footer. Delete these pages altogether"): the door boards, the
+/// extendable families' index, the list of everything and the about page. `mctas site smoke`
+/// fails if one is written or linked.
+pub const DELETED_PAGES: [&str; 4] = ["boards.html", "families/index.html", "all.html", "about.html"];
 
 /// The repository commit (HEAD), or `unknown`.
 pub fn commit(repo: &Path) -> String {
@@ -357,10 +362,12 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
     write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
-    write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
-    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
-    write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
+    // pages vjeux deleted (13:35Z: "Delete these pages altogether"): never written, and gone from
+    // an output folder an earlier build left them in
+    for gone in DELETED_PAGES {
+        let _ = std::fs::remove_file(out.join(gone));
+    }
     // Litematica schematics of every build and every generated family member (a design that
     // cannot be exported fails the build: nothing is dropped silently)
     let n = write_litematics(&site, &repo, out)?;
@@ -389,7 +396,6 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let ms = by_card.get(&c.id).cloned().unwrap_or_default();
         write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
     }
-    write(&out.join("families/index.html"), &pages::families_index(&site, &by_card, scripts))?;
     eprintln!(
         "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
         out.display(),

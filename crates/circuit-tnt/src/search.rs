@@ -38,6 +38,9 @@ pub struct SearchOptions {
     pub rng: u64,
     pub workers: usize,
     pub out: PathBuf,
+    /// Keep only dupers that survive their own explosions on redsim at `survive` evenly spaced
+    /// kicks (0: no explosion screen); the full all-kicks sweep and the game come after.
+    pub survive: usize,
 }
 
 /// A palette shorthand's block states.
@@ -329,6 +332,9 @@ pub fn search(o: &SearchOptions) -> Result<usize> {
                     if let Some((p, per)) = dupes_counted(c, &ex, o.ticks, stats).filter(|(_, per)| *per >= o.min_per) {
                         let mut key: Vec<(Pos, String)> = extra.iter().map(|(p, s)| (*p, pal[*s].0.clone())).collect();
                         key.sort();
+                        if o.survive > 0 && !survives(c, &key, o.survive) {
+                            continue;
+                        }
                         let mut g = found.lock().unwrap();
                         if g.1.len() < o.max_found && g.0.insert(key.clone()) {
                             let n = g.1.len();
@@ -398,4 +404,25 @@ fn design_text(c: &Clock, extra: &[(Pos, String)], name: &str) -> String {
         d.blocks.insert(*p, s.clone());
     }
     d.to_text()
+}
+
+/// The duper (seed + extra) judged with its explosions on redsim at `kicks` evenly spaced kicks
+/// (circuit::robust::judge_kick): every one must pass.
+pub fn survives(c: &Clock, extra: &[(Pos, String)], kicks: usize) -> bool {
+    let mut d = c.design.clone();
+    for (p, s) in extra {
+        d.blocks.insert(*p, s.clone());
+    }
+    if !d.meta.contains_key("circuit") {
+        d.meta.insert("circuit".into(), "tnt-duper".into());
+    }
+    d.meta.remove("explode");
+    let Ok(cc) = circuit::Circuit::from_design(d) else { return false };
+    let o = circuit::verify::Options { margin: 3, ..Default::default() };
+    let Ok(rep) = circuit::verify::sim(&cc, &o) else { return false };
+    if !rep.outcome.is_some_and(|x| x.pass) {
+        return false;
+    }
+    let s = rep.schedule;
+    (1..kicks).all(|k| circuit::robust::judge_kick(&cc, &s, k as f64 / kicks as f64, 3).is_ok_and(|x| x.pass))
 }

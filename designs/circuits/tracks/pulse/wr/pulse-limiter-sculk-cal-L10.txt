@@ -1,0 +1,21 @@
+name: pulse-limiter-sculk-cal-L10
+circuit: pulse-limiter
+input-device: far
+# Cuts any input down to exactly 10 ticks (half a second), from just 2 blocks, for quiet builds: the
+# input makes a note block play, and a sound sensor (calibrated sculk sensor) that hears it
+# switches on for exactly 10 ticks. It hears every other sound within 16 blocks too, so it only
+# works where nobody walks or drops items nearby and where the input arrives by a long line, not
+# from a lever next to it (the 5-block filtered version has neither limit). The smallest 10 gt
+# pulse limiter; shorter inputs come out as 10 ticks too.
+# Detail: the note block plays only when it becomes powered (note_block_play); the sensor sits
+# diagonal to it (its own power never replays the note), active 10 gt
+# (CalibratedSculkSensorBlock.getActiveTicks); nothing at its back, so every frequency is heard.
+origin: 0 0 0
+port input: 0 0 0
+port output: 3 0 1
+palette:
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  K minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .N.
+  ..K

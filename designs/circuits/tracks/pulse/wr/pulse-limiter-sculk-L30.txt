@@ -1,0 +1,20 @@
+name: pulse-limiter-sculk-L30
+circuit: pulse-limiter
+input-device: far
+# Cuts any input down to exactly 30 ticks (1.5 seconds), from just 2 blocks, for quiet builds: the
+# input makes a note block play, and a sound sensor (sculk sensor) that hears it switches on for
+# exactly 30 ticks. It hears every other sound too, so it only works where nobody walks or drops
+# items within 8 blocks and where the input arrives by a long line, not from a lever next to it.
+# The smallest 30 gt pulse limiter; shorter inputs come out as 30 ticks too.
+# Detail: the note block plays only when it becomes powered (note_block_play); the sensor is 1.4
+# blocks away (diagonal, so its own power never replays the note) and stays active 30 gt
+# (SculkSensorBlock.ACTIVE_TICKS).
+origin: 0 0 0
+port input: 0 0 0
+port output: 3 0 1
+palette:
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  K minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .N.
+  ..K
