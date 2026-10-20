@@ -1,0 +1,15 @@
+[package]
+name = "circuit-pulsemult"
+description = "Contraption study 11, track pulsemult (mctas circuit pulsemult ...): searches for pulse multipliers, frequency dividers, monostables and timers on redsim, judged by circuit::pulsemult; see docs/circuits.md and designs/circuits/pulsemult/VARIATIONS.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+clock = { path = "../clock" }
+mctas = { path = "../mctas" }
+redsim = { path = "../redsim" }

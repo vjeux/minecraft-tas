@@ -1,7 +1,8 @@
 name: cal-repeater-or-off-delay
 circuit: off-delay
-# the input ORed with itself through a delay-4 repeater: one pulse comes out 6 gt longer, but a
-# repeater holds one pending tick, so three close inputs end 6 gt after the SECOND one: refused
+# the input ORed with itself through a delay-4 repeater: a long pulse comes out 6 gt longer, but
+# the repeater stretches a short input to 8 gt (inputs under 8 gt do not come out input + 6), and
+# it holds one pending tick, so three close inputs would end 6 gt after the SECOND one: refused
 port input: 0 1 0
 port output: 3 1 0
 palette:
