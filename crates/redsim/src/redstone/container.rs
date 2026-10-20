@@ -425,6 +425,10 @@ fn jukebox_tick(w: &mut World, pos: BlockPos) {
         if ticks % 20 == 0 {
             let s = w.get(pos);
             w.game_event_state("jukebox_play", pos, s);
+            // spawnMusicParticles: the note's colour is `level.getRandom().nextInt(4)`
+            if let Some(r) = w.rng() {
+                r.next_int(4);
+            }
         }
         if let Some(c) = w.containers.map.get_mut(&pos) {
             c.song_ticks += 1;
@@ -461,6 +465,15 @@ fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
             let bb = crate::entity::Aabb::new(c[0] - 0.5, c[1] - 0.5, c[2] - 0.5, c[0] + 0.5, c[1] + 0.5, c[2] + 0.5);
             let found: Vec<u32> = w.get_entities(bb, |e| w_has_container(e)).into_iter().map(|i| w.entities.list[i].id).collect();
             let found: Vec<u32> = found.into_iter().filter(|id| w.containers.entities.contains_key(id)).collect();
+            if found.is_empty() {
+                return None;
+            }
+            // getEntityContainer: entities.get(level.getRandom().nextInt(entities.size())) (a draw
+            // even for one; the list in entity-section order: one section here, insertion order)
+            if let Some(r) = w.rng() {
+                let k = r.next_int(found.len() as i32) as usize;
+                return Some(CRef::Entity(found[k]));
+            }
             if found.len() > 1 {
                 w.errors.push(format!("{} container entities at {p}: the game picks one at random (not modeled)", found.len()));
             }
@@ -690,6 +703,20 @@ fn add_item(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack) -> Opt
     (st.count > 0).then_some(st)
 }
 
+/// `DispenserBlockEntity.getRandomSlot(level.getRandom())` with the level random mirrored: a
+/// `nextInt(k)` for the k-th filled slot (from 1: a draw even for one), the slot kept when it is 0.
+/// `None` without the mirror (callers keep their own rule).
+fn random_slot(w: &mut World, filled: &[usize]) -> Option<usize> {
+    let r = w.rng()?;
+    let mut slot = None;
+    for (k, &i) in filled.iter().enumerate() {
+        if r.next_int(k as i32 + 1) == 0 {
+            slot = Some(i);
+        }
+    }
+    slot
+}
+
 /// `DropperBlock.dispenseFrom` (the 4 gt trigger tick of a dropper).
 pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let Some(c) = w.containers.map.get(&pos) else { return };
@@ -697,10 +724,16 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     if filled.is_empty() {
         return; // levelEvent 1001 (click): no block change
     }
-    if filled.len() > 1 {
-        w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
-    }
-    let slot = filled[0];
+    let slot = match random_slot(w, &filled) {
+        Some(s) => s,
+        None => {
+            if filled.len() > 1 {
+                w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+            }
+            filled[0]
+        }
+    };
+    let Some(c) = w.containers.map.get(&pos) else { return };
     let st = c.slots[slot].unwrap();
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
     let me = CRef::Block(pos);
@@ -736,22 +769,28 @@ pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
         w.game_event_state("block_activate", pos, s);
         return;
     }
-    if filled.len() > 1 {
-        // getRandomSlot draws from the level random (not mirrored), but when every filled slot
-        // holds the same stack (item, count and contents: a loader's empty boxes, an unloader's
-        // full ones) every pick gives the same world: take the first (clk-rt)
-        let first = c.slots[filled[0]].unwrap();
-        let contents = payload_slots(w, first.payload);
-        let same = filled.iter().all(|&i| {
-            let s = c.slots[i].unwrap();
-            s.item == first.item && s.count == first.count && (s.payload == first.payload || payload_slots(w, s.payload) == contents)
-        });
-        if !same {
-            w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
-            return;
+    let slot = if let Some(s) = random_slot(w, &filled) {
+        s
+    } else {
+        let Some(c) = w.containers.map.get(&pos) else { return };
+        if filled.len() > 1 {
+            // getRandomSlot draws from the level random (not mirrored), but when every filled slot
+            // holds the same stack (item, count and contents: a loader's empty boxes, an unloader's
+            // full ones) every pick gives the same world: take the first (clk-rt)
+            let first = c.slots[filled[0]].unwrap();
+            let contents = payload_slots(w, first.payload);
+            let same = filled.iter().all(|&i| {
+                let s = c.slots[i].unwrap();
+                s.item == first.item && s.count == first.count && (s.payload == first.payload || payload_slots(w, s.payload) == contents)
+            });
+            if !same {
+                w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+                return;
+            }
         }
-    }
-    let slot = filled[0];
+        filled[0]
+    };
+    let Some(c) = w.containers.map.get(&pos) else { return };
     let st = c.slots[slot].unwrap();
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
     if is_box_item(st.item) {

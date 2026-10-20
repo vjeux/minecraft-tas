@@ -28,6 +28,8 @@ pub enum Outcome {
 struct Frame {
     blocks: Vec<(Pos, String)>,
     entities: Vec<Value>,
+    /// The level random's state after the frame (`rng`, when the trace has it).
+    rng: Option<i64>,
 }
 
 fn bp(p: Pos) -> BlockPos {
@@ -131,7 +133,7 @@ fn load(path: &Path) -> Result<(Value, Vec<Frame>)> {
                     .collect()
             })
             .unwrap_or_default();
-        frames.push(Frame { blocks, entities: v["entities"].as_array().cloned().unwrap_or_default() });
+        frames.push(Frame { blocks, entities: v["entities"].as_array().cloned().unwrap_or_default(), rng: v["rng"].as_i64() });
     }
     Ok((header, frames))
 }
@@ -162,6 +164,16 @@ pub fn compare_one(path: &Path, max: usize) -> Result<Outcome> {
         Err(e) => return Ok(Outcome::Unmodeled(e)),
     };
     w.drop_seed = Some(seed);
+    // the level random (clk-misc): the sandbox was made from the watch box (game_run_recorded:
+    // chunks = the box's chunk range) with this seed
+    let chunks = h["chunks"]
+        .as_array()
+        .and_then(|a| {
+            let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        })
+        .unwrap_or([from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)]);
+    w.mirror_level_random(seed, chunks);
     // the judge's chests (raw), then the settle
     let sources: Vec<Pos> = c.stores.iter().filter(|s| s.role == "items").map(|s| s.pos).collect();
     let supplies: Vec<Pos> = c.stores.iter().filter(|s| s.role == "boxes").map(|s| s.pos).collect();
@@ -235,6 +247,12 @@ pub fn compare_one(path: &Path, max: usize) -> Result<Outcome> {
             }
         }
         entity_diffs(&f.entities, &w, &mut diffs);
+        // the level random (clk-misc), every frame of a trace that records it
+        if let (Some(game), Some(r)) = (f.rng, w.level_random.as_ref()) {
+            if let Some(d) = redsim::rng::state_diff(game, r.state()) {
+                diffs.push(d);
+            }
+        }
         if !diffs.is_empty() {
             diffs.truncate(max);
             return Ok(Outcome::Diverged(t as u32, diffs));

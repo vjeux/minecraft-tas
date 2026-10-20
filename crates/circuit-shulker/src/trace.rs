@@ -60,7 +60,13 @@ impl Recorder for Lines {
                 json!({"id": id, "type": e.kind, "pos": [round(e.pos[0], 4), round(e.pos[1], 4), round(e.pos[2], 4)], "yaw": round(e.yaw as f64, 2), "pitch": round(e.pitch as f64, 2)})
             });
         }
-        self.lines.push(json!({"t": t, "blocks": blocks, "entities": ents}).to_string());
+        // exact traces: the level random's state after the frame (clk-misc: redsim's mirror is
+        // checked against it every frame)
+        let mut frame = json!({"t": t, "blocks": blocks, "entities": ents});
+        if self.exact {
+            frame["rng"] = json!(w.random_state(sb)?);
+        }
+        self.lines.push(frame.to_string());
         Ok(())
     }
 }
@@ -84,6 +90,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bo
         "design": path.display().to_string(),
         "scenario": format!("{} 3 boxes of {}", if sc.loader { "load" } else { "unload" }, sc.item.trim_start_matches("minecraft:")),
         "seed": circuit::shulker::build_seed(rec.from, rec.to, 0),
+        "chunks": [rec.from[0].div_euclid(16), rec.from[2].div_euclid(16), rec.to[0].div_euclid(16), rec.to[2].div_euclid(16)],
         "period": 0,
         "warmup": 0,
         "ticks": ticks,

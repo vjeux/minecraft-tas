@@ -143,6 +143,16 @@ pub struct World {
     /// drop is only recorded in `drops`.
     pub drop_seed: Option<i64>,
     pub drop_count: u64,
+    // ---- the level random (clk-misc) ----
+    /// `Level.random`, mirrored (`mirror_level_random`): the sandbox's LegacyRandomSource, seeded
+    /// like the bridge's and drawn at every game spot redsim models (chunk ticks, piston sounds,
+    /// note blocks, door sounds, dispenser slots, entity containers, drops...). `None` (the
+    /// default): nothing is drawn and anything that would choose by it stays a model error.
+    /// Never part of the state key.
+    pub level_random: Option<crate::rng::LegacyRandom>,
+    /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
+    /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
+    pub chunk_draws: u32,
 }
 
 impl World {
@@ -181,6 +191,41 @@ impl World {
             payloads: Vec::new(),
             drop_seed: None,
             drop_count: 0,
+            level_random: None,
+            chunk_draws: 0,
+        }
+    }
+
+    /// Mirror the bridge sandbox's level random: seeded `seed` (`level.getRandom().setSeed`, at
+    /// create and reset), its chunk box `[minX, minZ, maxX, maxZ]` (chunk coordinates, forced:
+    /// each draws `RANDOM_TICK_SPEED` = 3 `nextInt(48)` per tick).
+    pub fn mirror_level_random(&mut self, seed: i64, chunks: [i32; 4]) {
+        self.level_random = Some(crate::rng::LegacyRandom::new(seed));
+        let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
+        self.chunk_draws = 3 * n;
+    }
+
+    /// The mirrored level random, if any (draw from it at the game's spot).
+    pub fn rng(&mut self) -> Option<&mut crate::rng::LegacyRandom> {
+        self.level_random.as_mut()
+    }
+
+    /// One `level.getRandom().nextFloat()` (a sound's random pitch: pistons, doors, trapdoors,
+    /// fence gates, sculk clicks, dripleaf tilts...), when the level random is mirrored.
+    pub fn draw_sound_pitch(&mut self) {
+        if let Some(r) = self.level_random.as_mut() {
+            r.next_float();
+        }
+    }
+
+    /// `Block.popResource`'s three `Mth.nextDouble(level.random, -0.25, 0.25)` (one item stack a
+    /// broken block drops; the bridge then reseeds the item's own random: `rng::Drop`), when the
+    /// level random is mirrored.
+    pub fn draw_pop_resource(&mut self) {
+        if let Some(r) = self.level_random.as_mut() {
+            for _ in 0..3 {
+                r.next_double_between(-0.25, 0.25);
+            }
         }
     }
 
@@ -357,6 +402,8 @@ impl World {
             return false;
         }
         if drop && bh::drops_item(&s) {
+            // dropResources -> popResource: three level-random draws (when mirrored)
+            self.draw_pop_resource();
             self.drops.push((pos, s));
         }
         // Level.destroyBlock: the cell keeps its fluid (a waterlogged block leaves water)
@@ -635,6 +682,14 @@ impl World {
             }
             self.fluid_ticks.end_tick();
         }
+        // ServerChunkCache.tickChunks (after raids, before block events): every forced chunk's
+        // ServerLevel.tickChunk draws randomTickSpeed x nextInt(48) for precipitation (a void
+        // world: nothing else happens; no random-ticking sections are modeled)
+        if let Some(r) = self.level_random.as_mut() {
+            for _ in 0..self.chunk_draws {
+                r.next_int(48);
+            }
+        }
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {
@@ -704,9 +759,13 @@ impl World {
             Block::Wire { .. } => crate::redstone::wire::use_block(self, s, pos),
             Block::Trapdoor { iron: false, facing, top, open, powered } => {
                 self.set_block(pos, Block::Trapdoor { iron: false, facing, top, open: !open, powered }, flags::CLIENTS);
+                // TrapDoorBlock.toggle -> playSound (a level-random nextFloat pitch)
+                self.draw_sound_pitch();
             }
             Block::Door { iron: false, facing, upper, hinge_right, open, powered } => {
                 self.set_block(pos, Block::Door { iron: false, facing, upper, hinge_right, open: !open, powered }, flags::CLIENTS | flags::IMMEDIATE);
+                // DoorBlock.useWithoutItem -> playSound (a level-random nextFloat pitch)
+                self.draw_sound_pitch();
                 self.game_event(if open { "block_close" } else { "block_open" }, pos);
             }
             Block::Trapdoor { .. } | Block::Door { .. } | Block::Air | Block::Water { .. } | Block::BubbleColumn { .. } => {}

@@ -273,6 +273,8 @@ pub fn neighbor_changed(w: &mut World, state: Block, pos: BlockPos, _src: Kind, 
     if can_survive(w, pos) {
         update_power_strength(w, pos, state);
     } else {
+        // dropResources -> popResource (three level-random draws)
+        w.draw_pop_resource();
         w.drops.push((pos, state));
         w.remove_block(pos, false);
     }
