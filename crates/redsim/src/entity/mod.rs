@@ -20,6 +20,7 @@ pub mod item;
 pub mod kinds;
 pub mod minecart;
 pub mod mth;
+pub mod primed_tnt;
 pub mod vec3;
 
 use crate::block::Block;
@@ -44,6 +45,8 @@ pub enum EntityKind {
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
     ArmorStand(armor_stand::ArmorStandState),
+    /// Track tnt: a primed TNT (`primed_tnt.rs`), only with `World::tnt_kick`.
+    PrimedTnt(primed_tnt::PrimedTntState),
 }
 
 impl EntityKind {
@@ -54,6 +57,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
             EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+            EntityKind::PrimedTnt(_) => (primed_tnt::WIDTH, primed_tnt::HEIGHT),
         }
     }
 
@@ -64,6 +68,7 @@ impl EntityKind {
             EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
             EntityKind::Item(_) => 0.2125,
             EntityKind::ArmorStand(_) => 1.7775,
+            EntityKind::PrimedTnt(_) => primed_tnt::EYE_HEIGHT,
         }
     }
 }
@@ -430,6 +435,7 @@ pub fn tick_one(w: &mut World, i: usize) {
         EntityKind::Minecart(_) => minecart::tick(w, i),
         EntityKind::Item(_) => item::tick(w, i),
         EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
+        EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
     }
 }
 

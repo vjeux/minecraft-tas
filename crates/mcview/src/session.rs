@@ -674,6 +674,7 @@ impl Session {
                         EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
                         EntityKind::Item(_) => String::new(),
                         EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                        EntityKind::PrimedTnt(_) => "minecraft:tnt".to_string(),
                     },
                 };
                 let kind = match &e.kind {
