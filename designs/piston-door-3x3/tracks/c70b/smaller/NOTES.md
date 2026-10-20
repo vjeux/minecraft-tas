@@ -180,3 +180,21 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   (extended at rest) collide with Q at L0. w86 continues this search (devvm59213).
 - 8x6 from w86's a3r with `--no-inside --repair --add` (1 round, 363 neighbours, 1807 s): no
   variant solves without W's inside firing; growth stays at 2 cells filled (BM and C); killed.
+
+## macrosat -> mechmut bridge (2026-10-20, coordinator: repair clockinfra's SAT models)
+- `door mechmut <dump or folder>` reads `door macrosat` dumps (clockinfra's
+  tracks/macrosat/sat/ on explore/clockinfra): the rest grid is the seed (pistons, stones outside
+  the 3x3, obsidian, redstone blocks; wiring cells = free, `--reserve-wiring` keeps them free; an
+  old-dump `w` in both grids that no action names counts as wiring: a never-acting normal west
+  piston reads the same, and dropping it is what prune would do anyway); its actions are the
+  first schedule tried (EXTEND / RETRACT = L, PULSE = P, PULSE-PULL = L L), then the exact solver.
+- Ranking (`--rank-unfed`): redsim WORKS, extent inside the box (w86's `ideal-rs --extent`),
+  unfed receivers, island start, d67's `door feeds --strict` (strict_fail), feeds none /
+  cannot-start / conflicts, connect, weak, pocket load, max actions per piston, extent volume.
+- families' model now holds 32 pistons (macrosat's models use 13-25).
+- Round 0 on the 18 non-strict dumps: only 48 (m86-a) solves in families' model (WORKS in
+  redsim, 8x6, unfed 2, island start 11, 6 regions cannot start); 9 rest states refused (a
+  piston held at rest QC-arms the retracted piston below it: macrosat's non-strict model ignores
+  quasi-connectivity, its --strict mode models it), 8 hit the 3M-state cap. macrosat's own
+  schedules never replay in families' model, for the same reason (a firing piston QC-fires the
+  retracted one below it). A repair run (neighbours of every seed, 2 rounds) is in msat/r2*.
