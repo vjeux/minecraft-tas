@@ -73,10 +73,11 @@ pub enum SiteCmd {
         frames: u32,
         #[arg(long, default_value_t = 700)]
         interval: u64,
-        /// With --page: press the button with this label once the view is ready (a viewer's
-        /// input button: `INP` flips a shulker machine's start lever).
+        /// With --page: press the buttons with these labels, in order, once the view is ready (a
+        /// viewer's input button: `INP` flips a shulker machine's start lever; `1×` then `2×` then
+        /// `5×` sets the speed to 20×).
         #[arg(long)]
-        click: Option<String>,
+        click: Vec<String>,
     },
 }
 
@@ -179,7 +180,7 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");
                 }
-                return webkit::film(&dir, url.as_deref(), &page, frames, interval, click.as_deref());
+                return webkit::film(&dir, url.as_deref(), &page, frames, interval, &click);
             }
             let fails = match engine.as_str() {
                 "webkit" => webkit::smoke(&dir, url.as_deref())?,

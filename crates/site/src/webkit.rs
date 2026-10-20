@@ -481,9 +481,10 @@ fn click_button(s: &Session, label: &str) -> Result<()> {
 /// each page's first 3D view, `interval` ms apart, desktop and phone, saved as
 /// `<page>-<desktop|phone>-<k>.png` in $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots),
 /// with each frame's colors and brightness in the view, how much of the view changed since the
-/// previous frame and since the first, and the page's console. `click`: press the button with
-/// that label first (a viewer's input button: `INP` turns a shulker machine's start lever on).
-pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64, click: Option<&str>) -> Result<()> {
+/// previous frame and since the first, and the page's console. `click`: press the buttons with
+/// these labels first, in order (a viewer's input button: `INP` turns a shulker machine's start
+/// lever on; `1×`, `2×`, `5×` step the speed to 20×).
+pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64, click: &[String]) -> Result<()> {
     let r = rig(dir, remote)?;
     let out = std::env::var_os("MCTAS_WEBKIT_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/mctas-webkit-shots"));
     std::fs::create_dir_all(&out)?;
@@ -496,11 +497,12 @@ pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, int
                 Ok(d) => println!("{tag} {page}: ready, {d}"),
                 Err(e) => println!("{tag} {page}: {e:#}"),
             }
-            if let Some(label) = click {
+            for label in click {
                 match click_button(&s, label) {
                     Ok(()) => println!("  pressed the {label} button"),
                     Err(e) => println!("  could not press {label}: {e:#}"),
                 }
+                std::thread::sleep(Duration::from_millis(300));
             }
             // the view's rectangle in screenshot pixels
             s.script(&format!("document.querySelector('{sel}').scrollIntoView({{block: 'center', inline: 'nearest'}}); return true;"))?;
