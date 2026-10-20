@@ -6,6 +6,8 @@
 //! runner).
 
 pub mod census;
+pub mod family;
+pub mod grow;
 pub mod ident;
 pub mod machine;
 pub mod orient;
@@ -135,6 +137,42 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+    },
+    /// Add 1 or 2 blocks around each design (every empty cell next to it, every palette state),
+    /// run each candidate in every quarter turn on redsim with the design's kick; print and write
+    /// the ones that fly at ANOTHER speed than their base.
+    Grow {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 1)]
+        add: usize,
+        #[arg(long, default_value = "slime,honey,stone,observer,piston,sticky")]
+        palette: String,
+        #[arg(long, default_value_t = 160)]
+        horizon: u32,
+        #[arg(long, default_value_t = 6)]
+        margin: i32,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Generators for extendable families: `gen payload --base <design> --from x,y,z --dir up
+    /// --n N [--block <state>] --out f` (a payload column of N blocks, slime, the last one
+    /// `--block`, growing from the cell next to `from`).
+    Gen {
+        family: String,
+        #[arg(long)]
+        base: PathBuf,
+        #[arg(long)]
+        from: String,
+        #[arg(long, default_value = "up")]
+        dir: String,
+        #[arg(long)]
+        n: usize,
+        #[arg(long, default_value = "minecraft:slime_block")]
+        block: String,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Return-station search on redsim: the machine flies `approach` cells toward an obsidian
     /// wall (every wall cell in front of its leading face) with up to k more station blocks
@@ -290,6 +328,36 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Grow { designs, add, palette, horizon, margin, workers, out_dir } => {
+            let ms: Vec<machine::Machine> = designs.iter().map(|p| machine::Machine::load(p)).collect::<Result<_>>()?;
+            let o = grow::GrowOptions { add, palette: clock::census::expand_palette(&palette)?, horizon, margin, workers };
+            let found = grow::grow(&ms, &o)?;
+            std::fs::create_dir_all(&out_dir)?;
+            let mut seen: std::collections::BTreeMap<(String, String, usize), usize> = std::collections::BTreeMap::new();
+            for g in &found {
+                let key = (g.speed(), g.class().to_string(), g.cells.len());
+                let k = seen.entry(key.clone()).or_insert(0);
+                if *k < 3 {
+                    let name = format!("grow-{}b-{}gt-{}-{}", g.cells.len(), g.speed().replace('/', "_"), g.class(), *k);
+                    std::fs::write(out_dir.join(format!("{name}.txt")), grow::design_text(g, &name))?;
+                }
+                *k += 1;
+            }
+            for ((speed, class, blocks), n) in &seen {
+                println!("{blocks} blocks, {speed} gt/block, {class}: {n} candidates");
+            }
+        }
+        Cmd::Gen { family, base, from, dir, n, block, out } => {
+            let v: Vec<i32> = from.split(',').map(|s| s.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            if v.len() != 3 {
+                bail!("--from x,y,z");
+            }
+            let m = match family.as_str() {
+                "payload" => family::payload(&base, [v[0], v[1], v[2]], &dir, n, &mctas::blockstate::BlockState::parse(&block)?.to_string())?,
+                f => bail!("unknown family {f:?} (payload)"),
+            };
+            std::fs::write(&out, m.to_text())?;
         }
         Cmd::Station { machine, approach, k, radius, palette, horizon, back, workers, out_dir, keep, procs, shard } => {
             let m = machine::Machine::load(&machine)?;

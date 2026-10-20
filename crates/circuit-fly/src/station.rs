@@ -91,6 +91,8 @@ struct Engine {
     cells: Vec<(Pos, Block)>,
     kick: Kick,
     kick_block: Block,
+    /// A temporary kick block stands this many gt.
+    kick_ticks: u32,
     travel: Pos,
 }
 
@@ -100,12 +102,15 @@ fn engine(m: &Machine) -> Result<Engine> {
     for (p, s) in &m.design().blocks {
         cells.push((*p, Block::parse(s).map_err(|e| anyhow::anyhow!("{e}"))?));
     }
-    let (kick, kick_block) = match &m.clock.kick {
-        Some(clock::Kick::Last { pos }) => (Kick::Last(*pos), Block::Air),
-        Some(clock::Kick::Place { pos, state, ticks: 1 }) => (Kick::Temp(*pos), Block::parse(state).map_err(|e| anyhow::anyhow!("{e}"))?),
-        _ => bail!("station search: the machine's kick must be `last` or a 1 gt temporary block"),
+    let (kick, kick_block, kick_ticks) = match &m.clock.kick {
+        Some(clock::Kick::Last { pos }) => (Kick::Last(*pos), Block::Air, 0),
+        Some(clock::Kick::Place { pos, state, ticks }) => (Kick::Temp(*pos), Block::parse(state).map_err(|e| anyhow::anyhow!("{e}"))?, *ticks),
+        _ => bail!("station search: the machine's kick must be `last` or a temporary block"),
     };
-    Ok(Engine { cells, kick, kick_block, travel })
+    if m.clock.kick_at != 0 {
+        bail!("station search: the kick must start at tick 0");
+    }
+    Ok(Engine { cells, kick, kick_block, kick_ticks, travel })
 }
 
 /// Run the machine toward a station; Some((tick at the wall, tick back)) when it comes back.
@@ -142,7 +147,7 @@ fn run(e: &Engine, station: &[(Pos, Block)], o: &StationOptions, lo: Pos, hi: Po
     let mut at_wall: Option<u32> = None;
     let mut shape: Vec<(Pos, Block)> = Vec::new();
     for t in 0..=o.horizon {
-        if t == 1
+        if t == e.kick_ticks
             && let Kick::Temp(p) = e.kick
         {
             w.set_block(bp(p), Block::Air, flags::ALL);
@@ -170,7 +175,7 @@ fn run(e: &Engine, station: &[(Pos, Block)], o: &StationOptions, lo: Pos, hi: Po
                     {
                         continue;
                     }
-                    if t == 0
+                    if t < e.kick_ticks
                         && let Kick::Temp(kp) = e.kick
                         && kp == pa
                     {
@@ -344,13 +349,13 @@ fn rec(e: &Engine, o: &StationOptions, region: &[Pos], pal: &[Block], st: &mut V
     }
 }
 
-/// The machine with the station as one design text (the station blocks are design blocks: they
-/// count).
+/// The machine with the station as one design text (`station:` lines: they count).
 pub fn design_text(m: &Machine, s: &Station, name: &str) -> String {
     let mut mm = m.clone();
     for (p, b) in &s.blocks {
-        mm.clock.design.blocks.insert(*p, b.to_string());
+        mm.stops.push((*p, b.to_string()));
+        mm.stations.insert(*p);
     }
     mm.clock.design.name = name.to_string();
-    format!("# return station search: at the wall t{}, {} cells back t{}\n{}", s.at_wall, 4, s.back_at, mm.to_text())
+    format!("# return station search: at the wall t{}, back t{}\n{}", s.at_wall, s.back_at, mm.to_text())
 }

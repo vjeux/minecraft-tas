@@ -47,7 +47,9 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
-  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload).
+  go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload),
+  `port station[.<name>]: x y z` (a two-way flying machine's return-station block: a design block
+  that counts, left out of the machine's tracked shape; calibration: `cal-two-way-machine`).
 * **Block count**: every design block except piston heads (part of their piston) and the blocks in
   input cells (a lever or button there is the stimulus device), plus design entities. A block in
   the output cell counts: leave it air when it is only a marker.
@@ -135,10 +137,14 @@ kick) before the first input.
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
   machine's translation (structural states, piston heads part of their piston, a moving block = in
-  motion) and a canonical frame; the steady state is frame t + P = frame t shifted by d cells for
-  at least 2 periods. It must fly along `travel` and stay intact over `distance` cells (or to the
-  corridor's end); a steady shuttle in place over 2+ positions passes as two-way. `speed`: P / d gt
-  per block; `latency`: the kick to the first change; the box is the design's own.
+  motion; station cells holding their own block left out of the shape, never out of the frame) and
+  a canonical frame; the steady state is frame t + P = frame t shifted by d cells for at least 2
+  periods, an in-place run (d = 0, frames changing) winning over a moving run it outlasts. It must
+  fly along `travel` and stay intact over `distance` cells (or to the corridor's end); a steady
+  shuttle in place over 2+ positions (a two-way machine between its return stations: the round
+  trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
+  trip's period and the positions it stands intact at; `latency`: the kick to the first change;
+  the box is the design's own.
 
 ## Archive and catalog
 
