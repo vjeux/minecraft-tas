@@ -47,6 +47,12 @@ pub enum DoorCmd {
     /// block change of the first cycle at the first position; `--compact-dir` pulls every input
     /// group as early as the mechanism allows and writes `<name>-cpt.ideal` with its windows.
     IdealRs(cmd::ideal::IdealRsArgs),
+    /// Per firing of an ideal plan (each redstone block it places): the pistons it powers and
+    /// where a FLAT build could feed them instead (piston-door feeds.rs): free cells next to the
+    /// piston (not its front), quasi-connectivity into the cell above it, or a conductor block
+    /// powered from a free cell; cells must stay free all cycle inside `--box`. Firings with no
+    /// option are listed last (cores for static wiring).
+    Feeds(cmd::ideal::FeedsArgs),
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -63,6 +69,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RedsimCase(a) => cmd::fuzz::cmd_redsim_case(version, a),
         DoorCmd::RedsimVerify(a) => cmd::judge::cmd_redsim_verify(version, a),
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
+        DoorCmd::Feeds(a) => cmd::ideal::cmd_feeds(a),
         DoorCmd::Pistfuzz(a) => cmd::fuzz::cmd_pistfuzz(version, a),
     }
 }
