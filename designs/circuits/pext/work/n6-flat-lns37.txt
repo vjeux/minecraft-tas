@@ -1,9 +1,7 @@
-# archived 2026-10-20T17:56Z from designs/circuits/pext/work/n6-flat-lns38.txt by mctas circuit archive
-# CIRCUIT: pext-n6-flat-cascade38 piston-extender 6 N 6, extend 61 gt, retract 77 gt, 38 blocks, 18x6x1, robust
-name: pext-n6-flat-cascade38
+name: pext-n6-flat-cascade37
 circuit: piston-extender 6
 travel: 1 0 0
-port input: 17 4 0 lever
+port input: 16 4 0 lever
 port payload: 12 1 0
 origin: 1 0 0
 palette:
@@ -30,4 +28,4 @@ layer 2:
 layer 3:
   C.C.C.C.C...C..C
 layer 4:
-  rAsARAR.oDAAAA.PL
+  rAsARAR.oDAAA.PL
