@@ -364,6 +364,9 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
+    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+        // no build fails but they disagree: name the first build whose metrics differ
+        rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
     rep.pass = true;
     rep
