@@ -88,6 +88,35 @@ pub enum ClockCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// The verdict table's `gaps` column (the ticks between the output's rising edges over one
+    /// period), backfilled from redsim for every row whose redsim output reads like the judge's
+    /// line; lists the rows it cannot measure. `--write` rewrites verdicts-v1.tsv.
+    Gaps {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+    },
+    /// Archived clocks whose output pulses unevenly: move `port output` to a cell of the clock
+    /// that pulses evenly (redsim picks the longest such period), judge again in the game, and with
+    /// `--write` replace the archived design and its verdict row when the judge confirms the same
+    /// period with an even output (coordinator, 2026-10-20). Default: every archived clock.
+    Retap {
+        /// Archived design file names (default: every row of the verdict table).
+        files: Vec<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+        #[arg(long, default_value_t = 4)]
+        positions: usize,
+        #[arg(long, default_value_t = 4000)]
+        horizon: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// Exhaustive census on redsim: every filling of an AxBxC box with kmin..=k blocks of the
     /// palette (every facing), one per class up to translation and the 4 rotations, judged
     /// self-starting and then with each block placed last; writes <out>/clocks.tsv (every clock:
@@ -417,6 +446,39 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             if failed > 0 {
                 std::process::exit(1);
             }
+        }
+        ClockCmd::Gaps { dir, write } => {
+            let b = clock::gaps::backfill(&dir, write)?;
+            for f in &b.unknown {
+                println!("UNMEASURED {f}");
+            }
+            println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
+        }
+        ClockCmd::Retap { files, dir, write, positions, horizon, margin, workers } => {
+            let files: Vec<String> = if files.is_empty() { clock::catalog::read_rows(&dir)?.into_iter().map(|r| r.file).collect() } else { files };
+            let o = VerifyOptions { positions, rotations: true, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+            let pool = clock::verify::spawn_pool(&o)?;
+            let (mut moved, mut refused, mut notap) = (0, 0, 0);
+            for f in &files {
+                match clock::gaps::retap(&pool, &o, &dir, f, write) {
+                    Ok(clock::gaps::Retap::Even) => {}
+                    Ok(clock::gaps::Retap::Moved { from, to, line }) => {
+                        moved += 1;
+                        println!("MOVED {f}: output {from:?} -> {to:?}: {line}");
+                    }
+                    Ok(clock::gaps::Retap::Refused { to, line }) => {
+                        refused += 1;
+                        println!("REFUSED {f}: output -> {to:?}: {line}");
+                    }
+                    Ok(clock::gaps::Retap::NoTap(why)) => {
+                        notap += 1;
+                        println!("NO EVEN CELL {f}: {why}");
+                    }
+                    Ok(clock::gaps::Retap::Skip(why)) => println!("SKIP {f}: {why}"),
+                    Err(e) => println!("ERROR {f}: {e:#}"),
+                }
+            }
+            println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no even cell", if write { " (written)" } else { " (report only: --write)" });
         }
         ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
             let mut items = Vec::new();

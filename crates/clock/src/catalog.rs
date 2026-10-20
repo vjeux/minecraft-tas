@@ -20,7 +20,29 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps";
+
+/// The verdict table's header line.
+pub fn header() -> &'static str {
+    HEADER
+}
+
+/// A `gaps` cell of the verdict table (`[52, 71, 53]`, the ticks between the output's rising edges
+/// over one period; empty = not measured yet) parsed; None when empty or unreadable.
+pub fn parse_gaps(s: &str) -> Option<Vec<u32>> {
+    let t = s.trim().strip_prefix('[')?.strip_suffix(']')?;
+    if t.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    t.split(',').map(|x| x.trim().parse().ok()).collect()
+}
+
+/// An output whose rising edges are unevenly spaced (coordinator, 2026-10-20: a clock on the site
+/// must deliver evenly spaced pulses at its declared output; such rows are kept in the repository
+/// but left out of the catalog and the site).
+pub fn uneven(gaps: &[u32]) -> bool {
+    gaps.len() >= 2 && gaps.iter().any(|&g| g != gaps[0])
+}
 
 /// FNV-1a 64 of a clock's content key, in hex (the archive's identity of a clock).
 pub fn content_hash(c: &Clock) -> String {
@@ -51,9 +73,21 @@ pub struct Row {
     pub type_key: String,
     pub chiral: bool,
     pub summary: String,
+    /// The ticks between the output's rising edges over one period (`[6, 6]`; empty: not measured).
+    pub gaps: String,
 }
 
 impl Row {
+    /// The output's rising edges are unevenly spaced (see [`uneven`]).
+    pub fn uneven(&self) -> bool {
+        parse_gaps(&self.gaps).is_some_and(|g| uneven(&g))
+    }
+
+    /// The row as a line of the verdict table.
+    pub fn tsv(&self) -> String {
+        self.to_tsv()
+    }
+
     fn to_tsv(&self) -> String {
         [
             self.hash.clone(),
@@ -72,11 +106,12 @@ impl Row {
             self.type_key.clone(),
             self.chiral.to_string(),
             self.summary.clone(),
+            self.gaps.clone(),
         ]
         .join("\t")
     }
 
-    fn from_tsv(line: &str) -> Option<Row> {
+    pub fn from_tsv(line: &str) -> Option<Row> {
         let f: Vec<&str> = line.split('\t').collect();
         if f.len() < 16 || f[0] == "hash" {
             return None;
@@ -98,6 +133,7 @@ impl Row {
             type_key: f[13].into(),
             chiral: f[14] == "true",
             summary: f[15].into(),
+            gaps: f.get(16).copied().unwrap_or("").into(),
         })
     }
 }
@@ -438,6 +474,17 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
     }
+    // a builder needs evenly spaced pulses at the output (coordinator, 2026-10-20)
+    if let Some(w) = rep.base().and_then(|b| b.output.as_ref()).map(|o| &o.wave)
+        && let Some((lo, hi)) = w.irregular()
+    {
+        let tap = rep.base().and_then(|b| b.analysis.cells.iter().filter_map(|c| c.output_period().map(|p| (p, c.pos))).max());
+        let hint = match tap {
+            Some((p, pos)) => format!("; the cell {} {} {} pulses every {p} gt: declare it as `port output`", pos[0], pos[1], pos[2]),
+            None => "; no cell of it pulses evenly".into(),
+        };
+        bail!("not archived: uneven output ({} rising edges per {} gt, gaps {:?}, {lo}..{hi} gt){hint}", w.edges, rep.base().map(|b| b.period).unwrap_or(0), w.gaps);
+    }
     if let (Some(b), true) = (rep.base(), sim_period.is_none() && !is_family) {
         if let Some(r) = same_type.iter().find(|r| r.period == b.period) {
             return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
@@ -476,6 +523,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     std::fs::write(dir.join(&file), format!("{header}{text}"))?;
     let [w, h, d] = base.dims;
     let (on, edges, pulses) = base.output.as_ref().map(|o| (o.wave.on, o.wave.edges, format!("{:?}", o.wave.widths))).unwrap_or_default();
+    let gaps = base.output.as_ref().map(|o| format!("{:?}", o.wave.gaps)).unwrap_or_default();
     let row = Row {
         hash,
         file: file.clone(),
@@ -493,6 +541,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         chiral: canon::chiral(c.design.blocks.iter()),
         type_key: tk,
         summary: summary.clone(),
+        gaps,
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);
@@ -545,7 +594,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         .filter(|r| std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default().lines().any(|l| l.trim_start().starts_with("# composite")))
         .map(|r| r.file.clone())
         .collect();
-    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file)).cloned().collect();
+    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && !r.uneven()).cloned().collect();
     // one instance per type: the smallest (blocks, volume, then file name)
     let mut by_type: BTreeMap<(u32, String), Row> = BTreeMap::new();
     // each archived design's type (recomputed from its file: rotations and mirror images are one
