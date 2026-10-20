@@ -27,6 +27,7 @@ every facing).
 | 3 | qc (16: pistons, slime, honey, redstone block, stone) | 201,608 | 6 | place remove state update only: sticky piston + slime or honey + redstone block (3 output cells each) |
 | 3 | dropper (27: droppers, dispensers, observers, sticky pistons in every facing, redstone block, stone, slime) | 957,088 | 70,510 | place remove state shape (70,507: an observer + 2 blocks); place remove state update (3: the slime QC BUD) |
 | 3 | all (50 states) | 5,994,737 | 97,252 | place remove state shape (97,229); place remove state update (6: the slime/honey QC BUD); place remove (17: the torch presence detector, a torch under the target + a power follower beside it + an observer) |
+| 4 | sticky pistons in every facing, slime, honey, redstone block, stone (10) | 3,285,503 | 958 | place remove state update only; on the full judge (redsim): 852 pass, 166 of them `fragile` (a probe block carried away or left behind), the other 686 all jam on an update pair 2 gt apart, re-arm 6 gt, latency 3, pulse 1, footprint 4 or 5: none beats the archived ones on a variation metric |
 
 All census runs: `mctas circuit bud census --k K --palette P --threads 6` (k=3 all: 50 min on 6
 threads).

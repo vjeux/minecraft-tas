@@ -304,10 +304,13 @@ kick) before the first input.
   JAMS the design (`jams: <family> pair N gt apart`: reported, and nothing after it is measured).
   Before the pairs, the FOOTPRINT: a place, a removal and a pure update at every air cell next to
   the design that is no port of it (`Circuit::probe_cells`); `footprint` counts the targets plus
-  the probe cells where any of them gives a pulse (`>=` when a probe jams it). The box leaves out
-  the target cells and the probe block in the probe cells.
+  the probe cells where any of them gives a pulse (`>=` when a probe jams it). Each probe must
+  leave the design as it was (every cell as at rest once its block is gone): one that does not
+  (the design carried the probe block away, or broke) makes it `fragile`, and the later probes and
+  the re-arm pairs are not measured. The box leaves out the target cells and the probe block in
+  the probe cells.
   Axis: `detects <classes>`; metrics: latency, pulse, re-arm (per class when they differ:
-  `latency 2 gt place / 6 gt remove`), jams, footprint.
+  `latency 2 gt place / 6 gt remove`), jams, footprint, fragile.
   The judge's actions in the game: the bridge's `set` (modes `update` and `shape`) and `update`
   (`neighbors`) ops; on redsim `World::set_block` (flags 3 / 2) and `update_neighbors_at`.
 
