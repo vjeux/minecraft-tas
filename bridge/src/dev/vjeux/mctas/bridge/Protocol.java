@@ -560,9 +560,10 @@ public final class Protocol {
         a.add(p.z);
         j.add("pos", a);
         j.addProperty("uuid", e.getStringUUID());
-        // the network id (Entity.getId(): a server-wide counter), which some ticks read
-        // (ItemEntity's 1-in-4 rest moves)
-        j.addProperty("net_id", e.getId());
+        // the network id within the sandbox: Entity.getId() - Sandbox#entityIdBase (the bridge
+        // numbers each sandbox's entities from 0 in the order they enter; some ticks read it:
+        // ItemEntity's 1-in-4 rest moves)
+        j.addProperty("net_id", e.getId() - sb.entityIdBase());
         Vec3 m = e.getDeltaMovement();
         JsonArray mv = new JsonArray();
         mv.add(m.x);
