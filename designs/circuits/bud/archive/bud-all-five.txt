@@ -1,7 +1,8 @@
-# archived 2026-10-20T09:59Z from designs/circuits/tracks/bud/bud-all-five.txt by mctas circuit archive
-# CIRCUIT: bud-all-five bud detects place remove state shape update, latency 1 gt place / 1 gt remove / 1 gt state / 2 gt shape / 1 gt update, pulse 5 gt, re-arm 6 gt, jams place pair 4 gt apart, footprint 4 cells, 13 blocks, 3x6x3, robust
+# archived 2026-10-20T11:02Z from designs/circuits/tracks/bud/bud-all-five.txt by mctas circuit archive
+# CIRCUIT: bud-all-five bud detects place remove state shape update, latency 1 gt place / 1 gt remove / 1 gt state / 2 gt shape / 1 gt update, pulse 5 gt, re-arm 6 gt, jams place pair 4 gt apart, footprint 4 cells, tileable every 4 (0 0 4), 13 blocks, 3x6x3, robust
 name: bud-all-five
 circuit: bud
+tile: 0 0 4
 # Detects all five: the fast slime QC BUD (a stone on the slime block cuts the step between two
 # dusts; the piston, armed by quasi-connectivity, takes it off the step in the tick after a block
 # update) with its low dust standing on an observer that watches the target below the piston. A

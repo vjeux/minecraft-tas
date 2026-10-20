@@ -1,5 +1,6 @@
 name: bud-latched-qc-fast
 circuit: bud
+tile: 0 0 4
 # A latched BUD (manual reset) with a 1 gt latency: the sticky piston, armed by quasi-connectivity
 # from the redstone block above the stone in front of it, pushes that stone off the step between
 # two dusts in the tick after the update; the low dust joins the high one (powered by its redstone

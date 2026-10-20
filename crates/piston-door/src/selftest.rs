@@ -534,6 +534,7 @@ fn checks() -> Vec<Check> {
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
         ("slime-bud", "cal-slime-bud bud detects place remove state update, latency 3 gt, pulse 1 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 5 cells, 3 blocks, 1x4x1"),
         ("latched-bud", "cal-latched-bud bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1"),
+        ("observer-stone-bud", "cal-observer-stone-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 2 blocks, 2x1x1"),
         ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
         ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
     ];
@@ -553,16 +554,16 @@ fn checks() -> Vec<Check> {
     for f in ["bulb-tff-claimed-reset", "dlatch-claimed-dff", "dff-claimed-enable", "dff-claimed-shift2"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
-    // the BUD kind: a clock, a BUD that never re-arms, a false claim and a pulse BUD given a reset
-    // input (not latched) refused
-    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update", "observer-bud-claims-latched"] {
+    // the BUD kind: a clock, a BUD that never re-arms, a false claim, a pulse BUD given a reset
+    // input (not latched) and an observer BUD claiming to tile side by side (cross-talk) refused
+    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update", "observer-bud-claims-latched", "observer-bud-tile1"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 21 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims and three false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates) refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 22 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims and five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -588,12 +589,13 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-latching-bud bud: the output is on at rest")?;
             has(&o[0], "FAIL: cal-observer-bud-claims-update bud: claims update but does not detect it")?;
             has(&o[0], "FAIL: cal-observer-bud-claims-latched bud: not latched: after a place the output goes off")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims and 4 false BUDs refused; the comparator AND kept"))
+            has(&o[0], "FAIL: cal-observer-bud-tile1 bud: not tileable (every 1 (0 0 1)): copy 0: cross-talk")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims and 5 false BUDs refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 21 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 22 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
