@@ -1,0 +1,31 @@
+name: pocket2-set4
+covers: (3,-1)c24
+port door: 0 0 0
+port lever: 4 -4 0
+origin: -1 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  L minecraft:lever[face=ceiling,facing=west,powered=false]
+  R minecraft:redstone_wall_torch[facing=west,lit=true]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -4:
+  .....L
+layer -3:
+  .AA.RC
+layer -2:
+  ..A.s
+layer -1:
+  .A..B
+layer 0:
+  CCCC.B
+layer 1:
+  CCCC.B
+layer 2:
+  CCCC.B
+layer 3:
+  s...B
+layer 4:
+  .SS
