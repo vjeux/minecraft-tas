@@ -92,6 +92,13 @@ fn on_above_bubble_column(w: &mut World, i: usize, drag: bool) {
     let m = e.delta_movement;
     let yd = if drag { crate::entity::vec3::jmax(-0.9, m.y - 0.03) } else { crate::entity::vec3::jmin(1.8, m.y + 0.1) };
     e.delta_movement = crate::entity::Vec3::new(m.x, yd, m.z);
+    // sendBubbleColumnParticles: 2 x (splash + bubble) at random spots in the cell, drawn from
+    // the level random (8 nextDouble)
+    if let Some(r) = w.rng() {
+        for _ in 0..8 {
+            r.next_double();
+        }
+    }
 }
 
 /// `Entity.onInsideBubbleColumn` (`handleOnInsideBubbleColumn`; the fall distance is reset).
@@ -395,11 +402,23 @@ pub mod dripleaf {
         }
     }
 
-    /// `setTiltAndScheduleTick` (the sounds are not modeled).
-    fn set_tilt_and_schedule(w: &mut World, s: Block, p: BlockPos, tilt: u8) {
+    /// `setTiltAndScheduleTick` (a tilt sound draws its pitch from the level random:
+    /// `Mth.randomBetween(level.getRandom(), 0.8, 1.2)`, after the write, before the tick).
+    fn set_tilt_and_schedule(w: &mut World, s: Block, p: BlockPos, tilt: u8, sound: bool) {
         set_tilt(w, s, p, tilt);
+        if sound {
+            w.draw_sound_pitch();
+        }
         if let Some(d) = delay(tilt) {
             w.schedule_tick(p, Kind::BigDripleaf, d, Priority::Normal);
+        }
+    }
+
+    /// `resetTilt`: tilt 0, and the tilt-up sound (a level-random pitch) when it was tilted.
+    fn reset_tilt(w: &mut World, s: Block, p: BlockPos) {
+        set_tilt(w, s, p, 0);
+        if tilt_of(&s) != 0 {
+            w.draw_sound_pitch();
         }
     }
 
@@ -409,20 +428,20 @@ pub mod dripleaf {
         let e = &w.entities.list[i];
         let can_tilt = e.on_ground && e.pos.y > (p.y as f32 + 0.6875f32) as f64;
         if tilt_of(&s) == 0 && can_tilt && !w.has_neighbor_signal(p) {
-            set_tilt_and_schedule(w, s, p, 1);
+            set_tilt_and_schedule(w, s, p, 1, false);
         }
     }
 
     /// `tick`.
     pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         if w.has_neighbor_signal(p) {
-            set_tilt(w, s, p, 0);
+            reset_tilt(w, s, p);
             return;
         }
         match tilt_of(&s) {
-            1 => set_tilt_and_schedule(w, s, p, 2),
-            2 => set_tilt_and_schedule(w, s, p, 3),
-            3 => set_tilt(w, s, p, 0),
+            1 => set_tilt_and_schedule(w, s, p, 2, true),
+            2 => set_tilt_and_schedule(w, s, p, 3, true),
+            3 => reset_tilt(w, s, p),
             _ => {}
         }
     }
@@ -430,7 +449,7 @@ pub mod dripleaf {
     /// `neighborChanged`: power resets the tilt.
     pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos) {
         if w.has_neighbor_signal(p) {
-            set_tilt(w, s, p, 0);
+            reset_tilt(w, s, p);
         }
     }
 
@@ -508,7 +527,8 @@ pub mod hook {
         w.update_neighbors_at(p.rel(front), Kind::TripwireHook);
     }
 
-    /// `emitState`: the game events (the sounds are not modeled).
+    /// `emitState`: the game events (the sounds: fixed pitches, except the detach sound's
+    /// level-random one).
     fn emit_state(w: &mut World, p: BlockPos, attached: bool, powered: bool, was_attached: bool, was_powered: bool) {
         if powered && !was_powered {
             w.game_event("block_activate", p);
@@ -517,6 +537,7 @@ pub mod hook {
         } else if attached && !was_attached {
             w.game_event("block_attach", p);
         } else if !attached && was_attached {
+            w.draw_sound_pitch();
             w.game_event("block_detach", p);
         }
     }

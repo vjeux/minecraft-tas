@@ -448,6 +448,8 @@ fn spread_to(w: &mut World, p: BlockPos, s: Block, _d: Dir, target: FluidState) 
         return;
     }
     if !s.is_air() && bh::drops_item(&s) {
+        // beforeDestroyingBlock -> Block.dropResources -> popResource (three level-random draws)
+        w.draw_pop_resource();
         w.drops.push((p, s));
     }
     w.set_block_and_update(p, target.create_legacy_block());
