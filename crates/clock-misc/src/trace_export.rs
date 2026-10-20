@@ -77,10 +77,13 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
     let to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
+    let seed = 0i64;
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
     clock::verify::place(w, sb, &c)?;
     let out_path = out_dir.join(format!("{stem}.trace"));
     let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path)?);
+    // the sandbox's forced chunk box and seed: what redsim's level-random mirror needs (the chunk
+    // ticks draw randomTickSpeed x nextInt(48) per forced chunk every tick)
     let mut header = json!({
         "trace": 1,
         "name": c.design.name,
@@ -89,6 +92,8 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
         "warmup": warmup,
         "ticks": ticks,
         "box": [from, to],
+        "chunks": chunks,
+        "seed": seed,
         "loop": [warmup, warmup + period],
     });
     if let Some(o) = c.output {
@@ -143,7 +148,13 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
                 })
             });
         }
-        writeln!(out, "{}", json!({"t": t, "blocks": blocks, "entities": ents}))?;
+        // exact traces: the level random's state after this frame (redsim's mirror is checked
+        // against it every frame)
+        let mut frame = json!({"t": t, "blocks": blocks, "entities": ents});
+        if exact {
+            frame["rng"] = json!(w.random_state(sb)?);
+        }
+        writeln!(out, "{frame}")?;
     }
     out.flush()?;
     let _ = w.drop_sandbox(sb);
