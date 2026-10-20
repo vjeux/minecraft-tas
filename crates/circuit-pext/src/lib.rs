@@ -108,6 +108,9 @@ enum Cmd {
         /// Minimum gap between consecutive round starts of one edge (gt).
         #[arg(long, default_value_t = 6)]
         gap: i32,
+        /// The FLAT layout (everything in the line's plane).
+        #[arg(long)]
+        flat: bool,
         /// Write the `extend` headers of this family id (an extendable family base: N = base +
         /// step * n for n in 0..=--n-max, built by this generator).
         #[arg(long)]
@@ -162,6 +165,9 @@ enum Cmd {
         palette: String,
         #[arg(long, default_value_t = 64)]
         threads: usize,
+        /// Only place new blocks in this z plane (keeps a flat design flat).
+        #[arg(long, allow_hyphen_values = true)]
+        plane_z: Option<i32>,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -195,14 +201,14 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near };
             cmd_grow(&base, &o, show)
         }
-        Cmd::Cascade { n, base, step, gap, family, n_max, group, out } => {
+        Cmd::Cascade { n, base, step, gap, flat, family, n_max, group, out } => {
             let reach = base + step * n;
-            let (mut d, log) = cascade::generate(&cascade::CascadeOptions { n: reach, gap })?;
+            let (mut d, log) = cascade::generate(&cascade::CascadeOptions { n: reach, gap, flat })?;
             if let Some(id) = &family {
                 // blocks(N) is linear along N = base + step*n when step is a multiple of 3 (a
                 // cell shared by two rounds comes every third N); measured, not assumed
                 let count = |k: usize| -> Result<i64> {
-                    let d = cascade::generate(&cascade::CascadeOptions { n: base + step * k, gap })?.0;
+                    let d = cascade::generate(&cascade::CascadeOptions { n: base + step * k, gap, flat })?.0;
                     Ok(Pext::from_design(d)?.blocks() as i64)
                 };
                 let (b0, b1, b2) = (count(0)?, count(1)?, count(2)?);
@@ -221,15 +227,23 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 );
                 m.insert(
                     "extend generator".into(),
-                    format!("mctas circuit pext cascade --base {base} --step {step} --n {{n}} --out {{out}}"),
+                    format!("mctas circuit pext cascade{} --base {base} --step {step} --n {{n}} --out {{out}}", if flat { " --flat" } else { "" }),
                 );
                 if let Some(g) = &group {
                     m.insert("extend group".into(), g.clone());
-                    m.insert("extend group title".into(), "cascade extender (self-triggered units)".into());
+                    m.insert(
+                        "extend group title".into(),
+                        if flat { "flat cascade extender (self-triggered units, 1 wide)" } else { "cascade extender (self-triggered units)" }.into(),
+                    );
                     m.insert("extend group period".into(), "N = any reach >= 2".into());
                     m.insert(
                         "extend group note".into(),
-                        "blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)".into(),
+                        if flat {
+                            "blocks = 10N - 5 - floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)"
+                        } else {
+                            "blocks = 12N - 7 - 2 floor((N-1)/3), extend 14N - 6 gt, retract 16N - 8 gt; one family per N mod 3 (every third N two rounds share a pulser)"
+                        }
+                        .into(),
                     );
                 }
                 d.name = format!("{id}-n{n}");
@@ -315,9 +329,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 trains::report(n, max, show, shift)
             }
         }
-        Cmd::Minimize { design, palette, threads, out } => {
+        Cmd::Minimize { design, palette, threads, plane_z, out } => {
             let p = Pext::load(&design)?;
-            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads })?;
+            let steps = search::minimize(&p, &search::MinOptions { palette: search::palette(&palette)?, threads, plane_z })?;
             for (i, d) in steps.iter().enumerate() {
                 let np = Pext::from_design(d.clone())?;
                 let prep = rs::Prepared::new(&np, 4).map_err(|e| anyhow!("{e}"))?;

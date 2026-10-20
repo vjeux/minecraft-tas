@@ -28,6 +28,11 @@ pub struct CascadeOptions {
     pub n: usize,
     /// Minimum gap between consecutive round starts of one edge (gt).
     pub gap: i32,
+    /// FLAT (1 wide, everything in the line's plane z=0): pulsers two above the line at (x, 3, 0)
+    /// facing up (quasi-connectivity through the air cell above the piston), the spine right above
+    /// them at y=4 (a pulser fires 2 gt after its spine node), towers going up, A pulsed the same
+    /// way, the lever at the spine's east end on a stone.
+    pub flat: bool,
 }
 
 const OBS: &str = "minecraft:observer";
@@ -69,9 +74,38 @@ pub fn generate(o: &CascadeOptions) -> Result<(Design, Vec<String>)> {
     put(&mut b, [2 * ni, 1, 0], "minecraft:gold_block".into())?;
     // lever + its stone
     let xs = 3 * (ni - 1) + 1;
-    put(&mut b, [xs, 2, 3], "minecraft:stone".into())?;
-    let lever = [xs, 3, 3];
+    let flat = o.flat;
+    // spine node cell at x; the lead from a spine node to its pulse
+    let node = |x: i32| -> Pos { if flat { [x, 4, 0] } else { [x, 3, 2] } };
+    let lead_of = |x: i32| -> i32 {
+        if flat {
+            2
+        } else if x == 1 {
+            6
+        } else {
+            4
+        }
+    };
+    let lever = if flat { [xs + 1, 4, 0] } else { [xs, 3, 3] };
+    if flat {
+        put(&mut b, [xs + 1, 3, 0], "minecraft:stone".into())?;
+    } else {
+        put(&mut b, [xs, 2, 3], "minecraft:stone".into())?;
+    }
     put(&mut b, lever, "minecraft:lever[face=floor,facing=north]".into())?;
+    // a pulse cell's pulser (and trigger)
+    let pulser = |b: &mut BTreeMap<Pos, String>, x: i32| -> Result<()> {
+        if flat {
+            put(b, [x, 3, 0], obs("up"))
+        } else if x == 1 {
+            put(b, [1, 3, 1], obs("south"))?;
+            put(b, [1, 3, 0], obs("south"))?;
+            put(b, [1, 2, 0], obs("up"))
+        } else {
+            put(b, [x, 2, 2], obs("up"))?;
+            put(b, [x, 2, 1], obs("south"))
+        }
+    };
     // schedule
     let cells = pulse_cells(n);
     let mut t_on: BTreeMap<usize, i32> = BTreeMap::new(); // round j -> pulse time on the on-edge
@@ -79,24 +113,24 @@ pub fn generate(o: &CascadeOptions) -> Result<(Design, Vec<String>)> {
     let mut s: BTreeMap<i32, i32> = BTreeMap::new(); // spine node time per x
     let mut log = Vec::new();
     s.insert(xs, 2);
-    put(&mut b, [xs, 3, 2], obs("south"))?;
+    put(&mut b, node(xs), obs(if flat { "east" } else { "south" }))?;
     if let Some((on, off)) = cells.get(&xs) {
-        put(&mut b, [xs, 2, 2], obs("up"))?;
-        put(&mut b, [xs, 2, 1], obs("south"))?;
+        pulser(&mut b, xs)?;
+        let t = 2 + lead_of(xs);
         if let Some(j) = on {
-            t_on.insert(*j, 6);
+            t_on.insert(*j, t);
         }
         if let Some(j) = off {
-            t_off.insert(*j, 6);
+            t_off.insert(*j, t);
         }
-        log.push(format!("x{xs} at t6 (off-edge round of piston {})", n - 1));
+        log.push(format!("x{xs} at t{t} (off-edge round of piston {})", n - 1));
     }
     let mut last_tower: Option<(i32, bool)> = None; // (x of the pair's high side, up?)
     for x in (1..xs).rev() {
         let base = s[&(x + 1)] + 2;
         // required spine time at x
         let mut req = base;
-        let lead = if x == 1 { 6 } else { 4 };
+        let lead = lead_of(x);
         if x == 1 {
             let a = t_on.get(&1).copied().unwrap_or(0).max(t_off.get(&1).copied().unwrap_or(0)) + o.gap;
             req = req.max(a - lead);
@@ -115,43 +149,46 @@ pub fn generate(o: &CascadeOptions) -> Result<(Design, Vec<String>)> {
         let h = (req - base + 3).max(0) / 4;
         let sx = base + 4 * h;
         s.insert(x, sx);
+        let [_, ny, nz] = node(x);
         if h == 0 {
-            put(&mut b, [x, 3, 2], obs("east"))?;
+            put(&mut b, node(x), obs("east"))?;
         } else {
             // a tower between x+1 and x; alternate planes for consecutive towers, never back at the
-            // lever
-            let up = match last_tower {
-                Some((hx, up)) if hx == x + 2 => !up,
-                _ => true,
-            } || x + 1 == xs;
+            // lever; a flat design only has up
+            let up = flat
+                || match last_tower {
+                    Some((hx, up)) if hx == x + 2 => !up,
+                    _ => true,
+                }
+                || x + 1 == xs;
+            if flat && matches!(last_tower, Some((hx, _)) if hx == x + 2) {
+                bail!("flat cascade: consecutive towers at x = {} and {}", x + 2, x + 1);
+            }
             if up {
                 for i in 1..=h {
-                    put(&mut b, [x + 1, 3 + i, 2], obs("down"))?;
+                    put(&mut b, [x + 1, ny + i, nz], obs("down"))?;
                 }
-                put(&mut b, [x, 3 + h, 2], obs("east"))?;
+                put(&mut b, [x, ny + h, nz], obs("east"))?;
                 for i in (0..h).rev() {
-                    put(&mut b, [x, 3 + i, 2], obs("up"))?;
+                    put(&mut b, [x, ny + i, nz], obs("up"))?;
                 }
             } else {
                 for i in 1..=h {
-                    put(&mut b, [x + 1, 3, 2 + i], obs("north"))?;
+                    put(&mut b, [x + 1, ny, nz + i], obs("north"))?;
                 }
-                put(&mut b, [x, 3, 2 + h], obs("east"))?;
+                put(&mut b, [x, ny, nz + h], obs("east"))?;
                 for i in (0..h).rev() {
-                    put(&mut b, [x, 3, 2 + i], obs("south"))?;
+                    put(&mut b, [x, ny, nz + i], obs("south"))?;
                 }
             }
             last_tower = Some((x + 1, up));
         }
         let t = sx + lead;
         if x == 1 {
-            put(&mut b, [1, 3, 1], obs("south"))?;
-            put(&mut b, [1, 3, 0], obs("south"))?;
-            put(&mut b, [1, 2, 0], obs("up"))?;
+            pulser(&mut b, 1)?;
             log.push(format!("A at t{t}"));
         } else if let Some((on, off)) = cells.get(&x) {
-            put(&mut b, [x, 2, 2], obs("up"))?;
-            put(&mut b, [x, 2, 1], obs("south"))?;
+            pulser(&mut b, x)?;
             if let Some(j) = on {
                 t_on.insert(*j, t);
             }
