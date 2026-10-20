@@ -201,8 +201,10 @@ pub mod indicator {
             Block::Trapdoor { iron, facing, top, open, powered } => {
                 let signal = w.has_neighbor_signal(pos);
                 if signal != powered {
-                    // TrapDoorBlock.playSound: the game event comes before the write
+                    // TrapDoorBlock.playSound (pitch: a level-random nextFloat): the game event
+                    // comes before the write
                     if open != signal {
+                        w.draw_sound_pitch();
                         w.game_event(if signal { "block_open" } else { "block_close" }, pos);
                     }
                     w.set_block(pos, Block::Trapdoor { iron, facing, top, open: signal, powered: signal }, flags::CLIENTS);
@@ -213,6 +215,8 @@ pub mod indicator {
                 let signal = w.has_neighbor_signal(pos) || w.has_neighbor_signal(other);
                 if src != s.kind() && signal != powered {
                     if signal != open {
+                        // DoorBlock.playSound (a level-random nextFloat pitch), then the game event
+                        w.draw_sound_pitch();
                         w.game_event(if signal { "block_open" } else { "block_close" }, pos);
                     }
                     w.set_block(pos, Block::Door { iron, facing, upper, hinge_right, open: signal, powered: signal }, flags::CLIENTS);
@@ -223,6 +227,8 @@ pub mod indicator {
                 if powered != has {
                     w.set_block(pos, Block::FenceGate { facing, in_wall, open: has, powered: has }, flags::CLIENTS);
                     if open != has {
+                        // FenceGateBlock.neighborChanged: playSound (a level-random nextFloat pitch)
+                        w.draw_sound_pitch();
                         w.game_event(if has { "block_open" } else { "block_close" }, pos);
                     }
                 }
@@ -317,6 +323,8 @@ pub mod rail {
         }
         if let Block::Rail { shape, .. } = s {
             if should_be_removed(w, pos, shape) {
+                // dropResources: its loot's stacks pop (level-random draws, seeded items)
+                w.drop_resources(pos, s);
                 w.drops.push((pos, s));
                 w.remove_block(pos, moved);
             } else {
@@ -388,6 +396,8 @@ pub mod rail {
                 }
                 shape = RailShape::NorthSouth;
             }
+            // (clk-misc) curves exist only for plain rails, never here
+            _ => return false,
         }
         let k = s.kind();
         same_rail_with_power(w, BlockPos::new(x, y, z), forward, depth, shape, k)
@@ -436,177 +446,13 @@ pub mod rail {
                 _ => RailShape::NorthSouth,
             };
             let signal = w.has_neighbor_signal(pos);
-            let ns = RailState::new(w, pos, s).place(w, signal, true, current);
+            // the shared RailState (every rail kind is a neighbor: rails.rs)
+            let ns = crate::rails::RailState::new(pos, s).place(w, signal, true, current);
             w.neighbor_changed_full(ns, pos, s.kind(), moved);
         }
     }
 
-    fn is_rail(s: &Block) -> bool {
-        matches!(s, Block::Rail { .. })
-    }
-
-    fn shape_of(s: &Block) -> RailShape {
-        match *s {
-            Block::Rail { shape, .. } => shape,
-            _ => RailShape::NorthSouth,
-        }
-    }
-
-    fn with_shape(s: Block, shape: RailShape) -> Block {
-        match s {
-            Block::Rail { activator, powered, .. } => Block::Rail { activator, shape, powered },
-            _ => s,
-        }
-    }
-
-    /// `RailState` for straight rails (powered, activator).
-    struct RailState {
-        pos: BlockPos,
-        state: Block,
-        conns: Vec<BlockPos>,
-    }
-
-    fn conns_for(pos: BlockPos, shape: RailShape) -> Vec<BlockPos> {
-        let (n, s, wst, e) = (pos.rel(Dir::North), pos.rel(Dir::South), pos.rel(Dir::West), pos.rel(Dir::East));
-        match shape {
-            RailShape::NorthSouth => vec![n, s],
-            RailShape::EastWest => vec![wst, e],
-            RailShape::AscendingEast => vec![wst, e.above()],
-            RailShape::AscendingWest => vec![wst.above(), e],
-            RailShape::AscendingNorth => vec![n.above(), s],
-            RailShape::AscendingSouth => vec![n, s.above()],
-        }
-    }
-
-    fn get_rail(w: &World, p: BlockPos) -> Option<RailState> {
-        for q in [p, p.above(), p.below()] {
-            let s = w.get(q);
-            if is_rail(&s) {
-                return Some(RailState::new(w, q, s));
-            }
-        }
-        None
-    }
-
-    impl RailState {
-        fn new(_w: &World, pos: BlockPos, state: Block) -> RailState {
-            RailState { pos, state, conns: conns_for(pos, shape_of(&state)) }
-        }
-
-        fn has_connection(&self, p: BlockPos) -> bool {
-            self.conns.iter().any(|c| c.x == p.x && c.z == p.z)
-        }
-
-        fn remove_soft_connections(&mut self, w: &World) {
-            let mut i = 0;
-            while i < self.conns.len() {
-                match get_rail(w, self.conns[i]) {
-                    Some(r) if r.has_connection(self.pos) => {
-                        self.conns[i] = r.pos;
-                        i += 1;
-                    }
-                    _ => {
-                        self.conns.remove(i);
-                    }
-                }
-            }
-        }
-
-        fn can_connect_to(&self, p: BlockPos) -> bool {
-            self.has_connection(p) || self.conns.len() != 2
-        }
-
-        fn connect_to(&mut self, w: &mut World, p: BlockPos) {
-            self.conns.push(p);
-            let (n, s, wst, e) = (self.pos.rel(Dir::North), self.pos.rel(Dir::South), self.pos.rel(Dir::West), self.pos.rel(Dir::East));
-            let (hn, hs, hw, he) = (self.has_connection(n), self.has_connection(s), self.has_connection(wst), self.has_connection(e));
-            let mut shape = None;
-            if hn || hs {
-                shape = Some(RailShape::NorthSouth);
-            }
-            if hw || he {
-                shape = Some(RailShape::EastWest);
-            }
-            shape = ascend(w, shape, n, s, wst, e);
-            let shape = shape.unwrap_or(RailShape::NorthSouth);
-            self.state = with_shape(self.state, shape);
-            w.set_block_and_update(self.pos, self.state);
-        }
-
-        fn has_neighbor_rail(&self, w: &World, p: BlockPos) -> bool {
-            match get_rail(w, p) {
-                Some(mut n) => {
-                    n.remove_soft_connections(w);
-                    n.can_connect_to(self.pos)
-                }
-                None => false,
-            }
-        }
-
-        fn place(mut self, w: &mut World, _has_signal: bool, first: bool, default: RailShape) -> Block {
-            let (n, s, wst, e) = (self.pos.rel(Dir::North), self.pos.rel(Dir::South), self.pos.rel(Dir::West), self.pos.rel(Dir::East));
-            let hn = self.has_neighbor_rail(w, n);
-            let hs = self.has_neighbor_rail(w, s);
-            let hw = self.has_neighbor_rail(w, wst);
-            let he = self.has_neighbor_rail(w, e);
-            let ns = hn || hs;
-            let ew = hw || he;
-            let mut shape = None;
-            if ns && !ew {
-                shape = Some(RailShape::NorthSouth);
-            }
-            if ew && !ns {
-                shape = Some(RailShape::EastWest);
-            }
-            if shape.is_none() {
-                if ns && ew {
-                    shape = Some(default);
-                } else if ns {
-                    shape = Some(RailShape::NorthSouth);
-                } else if ew {
-                    shape = Some(RailShape::EastWest);
-                }
-            }
-            shape = ascend(w, shape, n, s, wst, e);
-            let shape = shape.unwrap_or(default);
-            self.conns = conns_for(self.pos, shape);
-            self.state = with_shape(self.state, shape);
-            if first || w.get(self.pos) != self.state {
-                w.set_block_and_update(self.pos, self.state);
-                for i in 0..self.conns.len() {
-                    if let Some(mut nb) = get_rail(w, self.conns[i]) {
-                        nb.remove_soft_connections(w);
-                        if nb.can_connect_to(self.pos) {
-                            nb.connect_to(w, self.pos);
-                        }
-                    }
-                }
-            }
-            self.state
-        }
-    }
-
-    /// The slope rule shared by `place` and `connectTo`.
-    fn ascend(w: &World, shape: Option<RailShape>, n: BlockPos, s: BlockPos, wst: BlockPos, e: BlockPos) -> Option<RailShape> {
-        let mut shape = shape;
-        if shape == Some(RailShape::NorthSouth) {
-            if is_rail(&w.get(n.above())) {
-                shape = Some(RailShape::AscendingNorth);
-            }
-            if is_rail(&w.get(s.above())) {
-                shape = Some(RailShape::AscendingSouth);
-            }
-        }
-        if shape == Some(RailShape::EastWest) {
-            if is_rail(&w.get(e.above())) {
-                shape = Some(RailShape::AscendingEast);
-            }
-            if is_rail(&w.get(wst.above())) {
-                shape = Some(RailShape::AscendingWest);
-            }
-        }
-        shape
-    }
+    // (the shape logic, `RailState`, is shared by every rail kind: `crate::rails`)
 
     pub fn affect_neighbors_after_removal(w: &mut World, s: Block, pos: BlockPos, moved: bool) {
         if !moved && let Block::Rail { shape, .. } = s {
@@ -781,9 +627,7 @@ pub mod scaffolding {
             if old == 7 {
                 // FallingBlockEntity.fall: the cell becomes air (flags 3), then the entity
                 // carrying the new state (distance 7) joins the entity list
-                let e = crate::gravity::FallingBlock { block: ns, x: pos.x as f64 + 0.5, y: pos.y as f64, z: pos.z as f64 + 0.5, vy: 0.0, time: 0, removed: false };
-                w.set_block_and_update(pos, Block::Air);
-                w.gravity.entities.push(e);
+                crate::gravity::fall(w, ns, pos);
             } else {
                 w.destroy_block(pos, true, 512);
             }

@@ -1,0 +1,24 @@
+name: cal-tile-off-delay-crosstalk
+circuit: off-delay
+tile: 4 0 0
+# study 11's `tile:` header refusing crosstalk: the 13-block comparator-ring off-delay (L 24)
+# built 3 times only 4 blocks apart along x: copy 0's output lamp sits beside copy 1's comparator
+# stone A, so it also shows copy 1's ring (driven 7 gt later) and copy 0 measures L 33, not 24.
+origin: 0 0 0
+port input: 1 1 3
+port output: 3 1 0
+palette:
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:comparator[facing=east,mode=compare,powered=false]
+  n minecraft:comparator[facing=north,mode=compare,powered=false]
+layer 0:
+  .S..
+  S.S.
+  .SS.
+  ....
+layer 1:
+  SES.
+  n.d.
+  Sdd.
+  ....

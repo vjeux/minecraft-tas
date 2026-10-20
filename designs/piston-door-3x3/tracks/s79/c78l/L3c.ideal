@@ -1,0 +1,12 @@
+# c78l L3c: TP + L1/L2 REAL from s's t8 extension: calibrated sensor (0,4) (back east, away from s) -> observer (-1,4) facing east -> wool (-2,4) -> TP by QC, L2 by QC; dust dot (-2,3) on L2 -> L2 + L1. M ideal (in-plane block (2,5), symmetric), s lowered optionally ideal.
+design designs/piston-door-3x3/tracks/s79/c78l/L3c.txt
+let a3 = 15
+let a5 = 25
+let a4 = 18
+let s2 = 1
+open 0 use 5 -1 0
+open a3 set 2 5 0 minecraft:redstone_block
+open a5 clear 2 5 0
+close 0 use 5 -1 0
+close a3 set 2 5 0 minecraft:redstone_block
+close a5 clear 2 5 0

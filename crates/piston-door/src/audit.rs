@@ -519,6 +519,42 @@ pub fn mechanism(name: &str, door: &RsDoor) -> std::result::Result<Mechanism, St
 }
 
 impl Mechanism {
+    /// The mechanism pistons as [local rest x, y, z, facing dx, dy, dz, sticky, extended at rest],
+    /// sorted (wiring ignored): `door provenance` compares mechanisms with it, off-plane ones too.
+    pub fn signature(&self) -> Vec<[i32; 8]> {
+        let mut v: Vec<[i32; 8]> = self
+            .mech
+            .iter()
+            .map(|&j| {
+                let p = &self.pistons[j];
+                let q = local(&self.spec, p.rest);
+                let d = local_dir(&self.spec, p.facing.step());
+                [q[0], q[1], q[2], d[0], d[1], d[2], i32::from(p.sticky), i32::from(p.ext_rest)]
+            })
+            .collect();
+        v.sort();
+        v
+    }
+    /// The door blocks' opening paths (door-plane cells, consecutive repeats dropped), sorted by
+    /// start cell: the choreography, independent of where the pistons stand (`door provenance`:
+    /// the community 7x9's moves re-laid in an 8x8 box keep it).
+    pub fn path_signature(&self) -> Vec<Vec<[i32; 3]>> {
+        let mut v: Vec<Vec<[i32; 3]>> = self
+            .paths_open
+            .iter()
+            .map(|p| {
+                let mut q: Vec<[i32; 3]> = Vec::new();
+                for c in p {
+                    if q.last() != Some(c) {
+                        q.push(*c);
+                    }
+                }
+                q
+            })
+            .collect();
+        v.sort();
+        v
+    }
     /// The mechanism pistons as families pieces (None when one is off the door plane).
     pub fn pieces(&self) -> Option<Vec<Pc>> {
         let mut v = Vec::new();
@@ -583,19 +619,47 @@ pub struct GenCfg {
     pub carry: usize,
     pub vmid: &'static str,
     pub ext_pullers: bool,
+    /// families' `--ext-max` / `--ext-apart` (0 / false = the generator's defaults).
+    pub ext_max: usize,
+    pub ext_apart: bool,
+    /// families' `--ring-escape` (ring-resting pistons carried into a corner / out of the frame).
+    pub ring_escape: bool,
 }
 
 pub fn gen_cfgs() -> Vec<GenCfg> {
     // g1 is the catalog generator as it was before 2026-10-19 (1-move exits by RETRACTED pullers
-    // only); since then extended-at-rest pullers are every generator's default (g2..g6).
+    // only); since then extended-at-rest pullers are every generator's default (g2..g5, bounded:
+    // --ext-max 3, each next to an earlier one), g6 drops that bound too, g7 adds --ring-escape
+    // (c77's 7x7 w1: pistons resting in ring cells escape into the corners).
     vec![
-        GenCfg { name: "families v3 --no-ext-pullers (the catalog before 2026-10-19)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: false },
-        GenCfg { name: "families v3 (catalog: P<=10, two 1, lifts, pushes)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: true },
-        GenCfg { name: "mechspace gen default (P<=11, two 1)", tool: "mechspace", pmax: 11, two: 1, carry: 0, vmid: "", ext_pullers: true },
-        GenCfg { name: "mechspace --two 7", tool: "mechspace", pmax: 11, two: 7, carry: 0, vmid: "", ext_pullers: true },
-        GenCfg { name: "mechspace --two 7 --carry 2 --vmid any", tool: "mechspace", pmax: 11, two: 7, carry: 2, vmid: "any", ext_pullers: true },
-        GenCfg { name: "every flag, P<=16", tool: "(widest)", pmax: 16, two: 7, carry: 2, vmid: "any", ext_pullers: true },
+        GenCfg { name: "families v3 --no-ext-pullers (the catalog before 2026-10-19)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: false, ext_max: 0, ext_apart: false, ring_escape: false },
+        GenCfg { name: "families v3 (catalog: P<=10, two 1, lifts, pushes)", tool: "families / fullmech", pmax: 10, two: 1, carry: 0, vmid: "", ext_pullers: true, ext_max: 0, ext_apart: false, ring_escape: false },
+        GenCfg { name: "mechspace gen default (P<=11, two 1)", tool: "mechspace", pmax: 11, two: 1, carry: 0, vmid: "", ext_pullers: true, ext_max: 0, ext_apart: false, ring_escape: false },
+        GenCfg { name: "mechspace --two 7", tool: "mechspace", pmax: 11, two: 7, carry: 0, vmid: "", ext_pullers: true, ext_max: 0, ext_apart: false, ring_escape: false },
+        GenCfg { name: "mechspace --two 7 --carry 2 --vmid any", tool: "mechspace", pmax: 11, two: 7, carry: 2, vmid: "any", ext_pullers: true, ext_max: 0, ext_apart: false, ring_escape: false },
+        GenCfg { name: "every flag, P<=16 (--ext-max 12 --ext-apart)", tool: "(widest)", pmax: 16, two: 7, carry: 2, vmid: "any", ext_pullers: true, ext_max: 12, ext_apart: true, ring_escape: false },
+        GenCfg { name: "every flag + --ring-escape, P<=16", tool: "families --ring-escape", pmax: 16, two: 7, carry: 2, vmid: "any", ext_pullers: true, ext_max: 12, ext_apart: true, ring_escape: true },
     ]
+}
+
+/// Set families' extended-puller switches for `c` (the defaults where `c` leaves them 0 / false).
+fn set_ext(c: &GenCfg) {
+    use std::sync::atomic::Ordering::Relaxed;
+    fam::EXT_PULLERS.store(c.ext_pullers, Relaxed);
+    fam::EXT_MAX.store(if c.ext_max == 0 { 3 } else { c.ext_max }, Relaxed);
+    fam::EXT_ADJACENT.store(!c.ext_apart, Relaxed);
+    fam::RING_ESCAPE.store(c.ring_escape, Relaxed);
+    fam::RING_ESCAPE_MAX.store(4, Relaxed);
+}
+
+/// families' extended-puller switches back to their defaults.
+fn reset_ext() {
+    use std::sync::atomic::Ordering::Relaxed;
+    fam::EXT_PULLERS.store(true, Relaxed);
+    fam::EXT_MAX.store(3, Relaxed);
+    fam::EXT_ADJACENT.store(true, Relaxed);
+    fam::RING_ESCAPE.store(false, Relaxed);
+    fam::RING_ESCAPE_MAX.store(3, Relaxed);
 }
 
 fn vmid_of(s: &str) -> Vec<Vec<(i8, i8)>> {
@@ -622,11 +686,11 @@ pub fn member(target: &[Pc], bx: Bx, c: &GenCfg) -> bool {
         out.iter().any(|v| *v == want)
     };
     let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    fam::EXT_PULLERS.store(c.ext_pullers, std::sync::atomic::Ordering::Relaxed);
+    set_ext(c);
     let mirrored: Vec<Pc> = target.iter().map(|p| p.mirror()).collect();
     let mbx = Bx { x0: 2 - (bx.x0 + bx.w - 1), y0: bx.y0, w: bx.w, h: bx.h };
     let r = try_one(target, bx) || try_one(&mirrored, mbx);
-    fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+    reset_ext();
     r
 }
 
@@ -815,25 +879,26 @@ pub fn mech_row(m: &Mechanism, cap: usize) -> MechRow {
             let prefer = m.paths_open.iter().find(|v| v[0][0] == 1 && v[0][1] == 1).filter(|v| v.len() > 1).map(|v| ((v[1][0] - v[0][0]) as i8, (v[1][1] - v[0][1]) as i8));
             if members.iter().all(|(_, v)| v == "out") {
                 let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-                fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+                set_ext(&widest);
                 for w in fam::explain_within(bx, widest.pmax, widest.two, widest.carry, &allow, prefer) {
                     rules.push(format!("generator (every flag): {w}"));
                 }
+                reset_ext();
             } else if members.get(1).is_some_and(|(_, v)| v == "out") {
                 // the catalog's default generator (g2) leaves it out
                 let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-                fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+                reset_ext();
                 for w in fam::explain_within(bx, 10, 1, 0, &allow, prefer) {
                     rules.push(format!("generator (catalog defaults): {w}"));
                 }
             } else if members.first().is_some_and(|(_, v)| v == "out") {
                 // only the retracted-pullers generator (before 2026-10-19) leaves it out
                 let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-                fam::EXT_PULLERS.store(false, std::sync::atomic::Ordering::Relaxed);
+                set_ext(&gen_cfgs()[0]);
                 for w in fam::explain_within(bx, 10, 1, 0, &allow, prefer) {
                     rules.push(format!("generator (--no-ext-pullers): {w}"));
                 }
-                fam::EXT_PULLERS.store(true, std::sync::atomic::Ordering::Relaxed);
+                reset_ext();
             }
             // the macro model on the piece set (+ the static frame stones)
             let mut with_st = p.clone();
@@ -1217,7 +1282,7 @@ pub fn rules() -> Vec<Rule> {
         Rule { name: "satwire: written levers keep the rest polarity (FIXED main)", file: "satwire.rs", pattern: r"if p\.lever_on_rest \{ lc\.state\.replace", excludes: "-" },
         Rule { name: "boxproof: rest lever ON option (FIXED main fd8c52b3)", file: "boxproof/bmc.rs", pattern: r"lever_on_rest", excludes: "before fd8c52b3: lever-ON doors" },
         Rule { name: "boxproof: cells = air/stone/obsidian/glass/note/lamp/rblock/dust/rep/obs/torch/piston + dropper, copper bulb, comparator (fd8c52b3)", file: "boxproof/diff.rs", pattern: r"pub fn cell_of_state", excludes: "slime, honey, iron trapdoors, slabs, subtract-mode comparators, leaves and logs, rails, sculk (droppers, bulbs, comparators added in fd8c52b3)" },
-        Rule { name: "families: 1-move exits by RETRACTED sticky pullers only with --no-ext-pullers (extended-at-rest pullers are every generator's default since 2026-10-19)", file: "families.rs", pattern: r"if !EXT_PULLERS\.load\(Ordering::Relaxed\) \|\| ext\.0 == 0", excludes: "with --no-ext-pullers only: level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2); the community 7x8's TR, SD+(2,4)); by default at most --ext-max (2) such exits per mechanism, the second next to the first (--ext-apart)" },
+        Rule { name: "families: 1-move exits by RETRACTED sticky pullers only with --no-ext-pullers (extended-at-rest pullers are every generator's default since 2026-10-19)", file: "families.rs", pattern: r"if !EXT_PULLERS\.load\(Ordering::Relaxed\) \|\| ext\.0 == 0", excludes: "with --no-ext-pullers only: level-held pullers released by the lever (c79's MR/TR, SW+(4,1) SW+(4,2); the community 7x8's TR, SD+(2,4)); by default at most --ext-max (3) such exits per mechanism, each next to an earlier one (--ext-apart)" },
         Rule { name: "families: paths of 1-2 unit moves, no reversal", file: "families.rs", pattern: r"fn paths\(", excludes: "a door block moving 3 times or back (c79's TM: down, up, up) - only harmless when the pieces are generated for another nominal path" },
         Rule { name: "families: the center leaves straight in exactly 2 moves", file: "families.rs", pattern: r"fn core\(", excludes: "a center that exits in 1 move sideways, 3 moves, or bends" },
         Rule { name: "families: providers = a sticky puller 2 ahead or a pusher 1-2 behind", file: "families.rs", pattern: r"fn providers\(", excludes: "a block pushed through a chain from 3+ cells (c79's BM is pushed from (1,3) through TM and C; generated anyway via its (1,-2) pull)" },
@@ -1230,7 +1295,7 @@ pub fn rules() -> Vec<Rule> {
         Rule { name: "families/mechspace hole rule (swept ring cells air when open)", file: "families.rs", pattern: r"hole", excludes: "replaced by frame 12/12 (vjeux 03:36Z)" },
         Rule { name: "mechspace sub-model: no piston body inside the 3x3", file: "mechspace.rs", pattern: r"no_door_bodies|NO_DOOR_BODIES", excludes: "doors whose piston bodies cross the opening (none known among working flat doors; see the audit table)" },
         Rule { name: "topology heuristic (parity, regions); `families --check` runs it in the MECHANISM's own box", file: "families.rs", pattern: r"topology: \{\}", excludes: "label: `families --check` prints 'topology: no' for c79 (no free cell in the mechanism's bounding box); in each door's own build box topology says 'strict' for c79 and every flat archived door (68 on main dfe893a)" },
-        Rule { name: "connect: only the lever's region awake at each flip; regions = free cells outside the footprint", file: "connect.rs", pattern: r"pub fn check\(", excludes: "no known door: WIRABLE for c79 (real 7x9 placement; NOT in 7x8 or 7x9 shifted up) and every flat archived door in its own box (68 on main dfe893a)" },
+        Rule { name: "connect: only the lever's region awake at each flip (or the lever outside the box on a never-moved piston's back face / a static's outer face); regions = free cells outside the footprint; sealed single cells hold an observer only", file: "connect.rs", pattern: r"pub fn check\(", excludes: "no known door: WIRABLE for c79 (real 7x9 placement; NOT in 7x8 or 7x9 shifted up) and every flat archived door in its own box (1396 on main 0303f70e6 + d67's connect; 6 of 16 sampled were NOT wirable before the outside lever: the lever-held top trio)" },
         Rule { name: "sheet piston count excludes heads (FIXED explore/audit add7f90)", file: "sheet.rs", pattern: r"piston bases only", excludes: "label only: c79 printed '14 pistons' (11 + 3 heads)" },
         Rule { name: "sheet (designs): flip 1 = open", file: "sheet.rs", pattern: r"fn draw\(", excludes: "a design file of an OPEN state (c79-open-b) draws 'frame 3/12' (door cycle handles it)" },
         Rule { name: "properties CLEAN: never moves back", file: "properties.rs", pattern: r"moves back", excludes: "label: c79's TM moves down then up (correct per regulation 2.1.5.3)" },
@@ -1539,6 +1604,39 @@ pub fn run(o: &Opts) -> Result<()> {
 }
 
 /// Print one design's extracted mechanism (paths, moves, providers) for a human.
+/// `door audit --member FILE`: generator membership of mechanisms given as piece lists (ideal-input
+/// designs have no wiring to cycle): lines `W H x0 y0 piece piece ...` (the box in door
+/// coordinates; `#` comments). Prints one row per line with g1..gN and, when every generator
+/// leaves it out, why (the widest generator's explanation).
+pub fn member_file(path: &Path) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
+    let cfgs = gen_cfgs();
+    println!("| mechanism | {} | why (widest generator) |", (1..=cfgs.len()).map(|k| format!("g{k}")).collect::<Vec<_>>().join(" | "));
+    println!("|---|{}---|", "---|".repeat(cfgs.len()));
+    for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        let t: Vec<&str> = line.split_whitespace().collect();
+        anyhow::ensure!(t.len() > 4, "line {line:?}: expected W H x0 y0 pieces...");
+        let (w, h, x0, y0): (i8, i8, i8, i8) = (t[0].parse()?, t[1].parse()?, t[2].parse()?, t[3].parse()?);
+        let bx = Bx { x0, y0, w, h };
+        // static frame stones (`stone(x,y)`) are not generator pieces: membership of the pistons
+        let target: Vec<Pc> = t[4..].iter().map(|s| crate::mechspace::parse_piece(s)).collect::<Result<Vec<_>>>()?.into_iter().filter(|p| !matches!(p.k, K::Stone)).collect();
+        let cols: Vec<&str> = cfgs.iter().map(|c| if member(&target, bx, c) { "IN" } else { "out" }).collect();
+        let why = if cols.iter().all(|c| *c == "out") {
+            let widest = cfgs.last().cloned().unwrap();
+            let allow: HashSet<Pc> = target.iter().copied().collect();
+            let _guard = GEN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            set_ext(&widest);
+            let w = fam::explain_within(bx, widest.pmax, widest.two, widest.carry, &allow, None);
+            reset_ext();
+            w.join("; ")
+        } else {
+            String::new()
+        };
+        println!("| {w}x{h} ({x0},{y0}) {} | {} | {why} |", t[4..].join(" "), cols.join(" | "));
+    }
+    Ok(())
+}
+
 pub fn explain(path: &Path) -> Result<()> {
     let (_, door) = cs::load_door(path)?;
     let name = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();

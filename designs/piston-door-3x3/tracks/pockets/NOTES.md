@@ -345,7 +345,16 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   solid 7x8 work (no owner left; rerun when the box is idle).
 * SOLID 7x8 FOUND by e78k (16:51Z, explore/q78 e755e4de tracks/q78/e78s/h2.txt, 45 blocks, 44/15: rr2 + a B'-watcher
   loop); shrunk here to **`finds/e78s-56b-44.txt` 44 blocks SOLID, 44/15, verify 32 positions + rotations** (top-left
-  observer (-1,3) E into the row-3 dust, row-4 wiring gone); no 43 at <= 3 changes. c77's stone line: e78st-56b-38-1s
+  observer (-1,3) E into the row-3 dust, row-4 wiring gone); then **`finds/e78s-56b-43.txt` 43 blocks, open 29 / close
+  15** (exactly 4 changed with --max-blocks 43: (-2,-3) sticky up, (0,-3) dropper, (-2,-2) out, (-2,-1) observer W).
+  The coordinator's rule (17:06Z): the solid target needs FULL frame 12/12 (all 12 frame cells hold the door block
+  when open), so e78k's h3 (38, frame 9/12: (0,-1) and (3,2) removed) does not count; his FULL line: h4 42 (36/19) ->
+  h5 41 (36/19) -> h6 42 (29/15, = my 43 + h5's right bottom). h5 -> 40: none within <= 3 / exactly 4 over 25 cells,
+  exactly 5 over the bottom 15 (19 states) or the top/right 10 (26 states); h6 -> 41: none within <= 3 / exactly 4.
+* Tool fix (e724cae1): FULL + frame 12/12 in cosearch eval / door fill / pockets follow the door's own material
+  (properties' quartz-like names; frame = the door's block name): the community 7x8 in white concrete reported
+  "not FULL | frame 0/12". Selftest fixture designs/piston-door-3x3/selftest/e78s-43-white-concrete.txt.
+* c77's stone line: e78st-56b-38-1s
   (one sensor) minus obsidian (-2,-1) = **`finds/e78st-56b-37.txt` 37 blocks sculk, 48/15, verified** (75 finds at 37
   from --keep --max-blocks 37: the 46/14 ones turn (0,-3) back into a calibrated sensor); no 36 at <= 3.
 * SOLID (sculk-less) 7x8, vjeux's ask (16:06Z): every sensor-to-solid swap fails: wool 40 with all 3 sensors forced
@@ -357,6 +366,45 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
   cells, 42 solid states (runs/s11-keep3).
 * Cross-region --keep on other one-input near-doors (the e78 recipe): c78l L3a (TP + L) 0 of 57.7M; c70b m2 (BL)
   0 of 47.1M, m2w 0 of 47.1M, m2 with the 5 bottom-left cells cleared at k <= 5 x 47 states 0 of 70.8M (255M
-  fillings); c78z p5-0 (P2) started, stopped for s11 (rerun). Candidates still unscreened this way: f131 pn31 (7x9,
-  only P3: svc/f131-pn31.txt, /tmp-free plan in tracks/f131/ppn31.ideal), satwire m79q-sat-topright (7x9, only
-  L1/L2: plans/p79q-sat-L.ideal).
+  fillings); c78z p5-0 (P2) 0 of 63M; f131 pn31 (7x9 solid, only P3; 29 cells, 42 solid states) 0 of 136M; satwire
+  m79q-sat-topright (7x9, only L1/L2; 31 cells) 0 of 161M. So the e78 rescue was the exception.
+* Solid FULL 7x8 shrink ladder (frame cells fixed, FULL filter): h5 (41) and h6 (42) hold against <= 3 / exactly 4
+  (full 42-state palette: 0 of 481M / 588M) / exactly 5 (13-20-state cuts, bottom 15, top 10, all 25 for h5).
+* SUB-56 CAMPAIGN (vjeux 20:02Z: 7x7 / 6x8 / 8x6 / 6x9 / 9x6, solid, flat, FULL frame): pockets screens on every
+  candidate the designers sent (all plan inputs assisted, default solid palette + gaps):
+  - 6x9 m69 (c78l, 12 pistons): k=4 right stack R0..R2 + U0 + s1/P3t; bottom elevator U1/MB/P3b and the top-left
+    (s0/W/M0 from (-1,4)/(-1,5)) never.
+  - 7x7 w1 (c77): k=3 only TR + MR from the top-right 5 cells; P/Q/bottom pullers boxed in (no feed cells). Run
+    without --keep-lever (its lever ON at rest QC-powers the TL puller) and with the plan's `phase tile` line removed.
+  - 7x6 a3s (w86): k=4 2 of 30 groups (single free cells next to KR/SDd drive nothing).
+  - 9x6 m69t/m69u (w86, m69 turned): k=4 R0, U0, R2, P3b (+ (4,1) o2 in one filling), MB; with U1/MB's plan inputs
+    moved off the plane (svc/w86-m69v.ideal) the bottom-left 6 cells drive U1's 4 groups (4 blocks), R0 + (-1,-1)
+    (4), MB (3), R0 + MB (5, lean palette k=5); R1 (1,-2) never. Dropped: left/right halves cannot share the lever.
+  - 8x6 m73 (w86, real lever on the top trio): k=4 corner (3,3) o8/c48, (4,1) o2/c2, R5 c8; the top-left drives
+    nothing (a flip watcher fires at ~t2 on BOTH edges, the plan's close pulses are at c48/c54): needs re-timing.
+  - 7x7 mm01-11 (c70b via c77): P (the wiggle piston) never driven from (0,-2) / (-1,-2) (solid or sculk).
+  - 6x7 = 42b (c70b's repair search, mm01..mm08): only mm01/02/03/05 are FULL (frame 12/12 when open); feed report:
+    pistons firing inside the door square / flanked frame cells have no free feed; pockets k=3: 1 input each;
+    satwire solid UNSAT at once, one-piston cores (mm01 (1,-2) open, mm02/03 (3,-1) close, mm05 (2,2) close).
+    c70b's mechmut now rejects firings inside the door square (--outside-only) and fills FULL frames.
+  - 6x9 m69T mechmut variants (c70b): satwire with c78l's lever-behind-held-piston recipe UNSAT, cores close (4,0)
+    / (4,1): their held levels drop at t30/t60/t72, not at the flip; under a strict lever rule the macro model has
+    no solution for the family (c70b, 01:55Z).
+  - 6x7-in2 mm01 (c70b, one inside action): satwire core open (0,-2) = the SU carried there from (-1,-2), fed
+    in the plan from (0,-3) below the volume; pockets k=4 drives 3 of 16 inputs (pulse counts: (-2,1) fires 9x).
+    d67's q7 (7x7, observer feeds the inside action): same core (0,-2).
+  - pext's one-train plans (same pulses on both lever edges; `door interleave`): w1k2-train (7x7) core (1,-2)
+    (P/Q/BM-down boxed in); m69T-mm02 trains with the right stack lever-held: satwire UNSAT in 11-23 s with
+    one-piston cores cycling through the top-left (0,4)/(-1,3), the top middle (1,3)+(1,4) and the bottom-left
+    (0,-2)/(0,-1): the 3-cell top-left and bottom-left pockets can't make the taps (pext's --sat-loop agrees).
+  - w86's 6x8 s1: right side close to wired (pockets k=4: (4,1)+(4,2)+(3,3) from the top-right 4 cells,
+    (1,-1), (4,0), (3,-1) c24 from the bottom-right); the bottom-left trio and the top-left drive nothing.
+  - TOOL TRAP fixed (56fb440b): pockets kept the `port lever` cell out of the free cells even without
+    --keep-lever; the ports I add to designers' plans (they carry none) cost a pocket one cell in the 6x7 / w1k2 /
+    m69T screens above (their satwire cores are elsewhere, so the conclusions stand). Put such ports outside
+    the box, or use a binary with 56fb440b.
+  - New report lines in pockets (quick: `--k 1 --only-pockets 99`): POCKET LOAD (10be184f: forced inputs and
+    distinct pulse ticks per pocket) and ISLAND START (ad9c171c, from clk-misc's island argument: a pocket fires
+    only after a change next to it caused by already-running pockets, attributed by replaying the plan without
+    each input, or the lever in it). c70b's u0/u2-7x7, w86 s1, pext's p33: no lever pocket starts every pocket
+    = no static wiring for the plan as timed; c79 bottom-left (positive control): every pocket starts.

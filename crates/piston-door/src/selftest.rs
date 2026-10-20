@@ -292,6 +292,23 @@ fn checks() -> Vec<Check> {
             }),
         });
     }
+    // 6a. the first sub-56 mechanism (7x7 = 49b, c77 w1): ideal inputs must keep working
+    const W1: &str = "designs/piston-door-3x3/tracks/c77/seven/w1.ideal";
+    v.push(Check {
+        name: "ideal:7x7-w1".into(),
+        what: "c77's 7x7 (49b) mechanism w1 (13 sticky pistons: the center emptied by a pull after a column wiggle, ring pistons escaping to the corners) WORKS with ideal inputs (--between-ticks) in 55 / 43",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("?door ideal-rs {W1} --between-ticks"))],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let v = ideal_verdict(&o[0]).ok_or(format!("ideal-rs: no verdict: {}", tail(&o[0])))?;
+            if !v.starts_with("WORKS") || !v.contains("open after 55 ticks / closed after 43 ticks") {
+                return Err(format!("w1 changed: `{v}` (expected WORKS 55 / 43)"));
+            }
+            Ok("WORKS 55 / 43".into())
+        }),
+    });
     // 6b. plan phase: an observer-driven input works at plan t exactly like the wired door at t
     const PH: &str = "designs/piston-door-3x3/selftest/s25-br-observer.ideal";
     v.push(Check {
@@ -333,6 +350,22 @@ fn checks() -> Vec<Check> {
             if v.contains("open after 34 ticks / closed after 34 ticks") { Ok(v.chars().take(100).collect()) } else { Err(v) }
         }),
     });
+    // 6c. the first sub-56 mechanisms in 6-tall boxes (w86): ring pistons resting in frame cells, a
+    // carried ring puller, wiggles, QC-coupled stacks avoided; redsim must keep opening and closing them
+    for (plan, label) in [("designs/piston-door-3x3/selftest/w86-a3s-7x6.ideal", "a3s-7x6"), ("designs/piston-door-3x3/selftest/w86-a3r-8x6.ideal", "a3r-8x6")] {
+        v.push(Check {
+            name: format!("ideal:w86-{label}"),
+            what: "w86's 6-tall mechanisms (7x6 = 42b a3s, 8x6 = 48b a3r: ideal inputs, FULL frame 12/12, the game agrees): `door ideal-rs` WORKS at 4 positions x 2 cycles",
+            quick: true,
+            jvm: false,
+            steps: vec![args(&format!("?door ideal-rs {plan}"))],
+            timeout: 120,
+            pred: Box::new(|o| {
+                let v = ideal_verdict(&o[0]).ok_or(format!("no verdict: {}", tail(&o[0])))?;
+                if v.starts_with("WORKS") { Ok(v.chars().take(100).collect()) } else { Err(v) }
+            }),
+        });
+    }
     // 7. generator membership (docs/audit.md acceptance list)
     let expect: Vec<(&str, [&str; 6])> = vec![
         ("c79-closed", ["out", "IN", "IN", "IN", "IN", "IN"]),
@@ -357,6 +390,33 @@ fn checks() -> Vec<Check> {
                 }
             }
             Ok("membership as documented".into())
+        }),
+    });
+    // 7b. ideal-input mechanisms of the smaller-door campaign (piece lists): c77's 7x7 w1 is in
+    // the every-flag generators (g6, g7 = + --ring-escape); w86's 7x6 a3s is outside every one
+    // (BM leaves through the center column: a 3-move path). Update when a generator admits it.
+    v.push(Check {
+        name: "audit:member-ideal".into(),
+        what: "door audit --member smaller/ideal-mechs.txt: 7x7 w1 IN g6 and g7 only, 7x6 a3s out of g1..g7",
+        quick: true,
+        jvm: false,
+        steps: vec![args("door audit --member designs/piston-door-3x3/tracks/c70b/smaller/ideal-mechs.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let row = |tag: &str| -> std::result::Result<Vec<String>, String> {
+                let l = o[0].lines().find(|l| l.starts_with(&format!("| {tag} "))).ok_or(format!("no {tag} row"))?;
+                Ok(l.split('|').map(|s| s.trim().to_string()).skip(2).take(7).collect())
+            };
+            let w1 = row("7x7 (-2,-2)")?;
+            let a3s = row("7x6 (-2,-1)")?;
+            let want_w1 = ["out", "out", "out", "out", "out", "IN", "IN"];
+            if w1 != want_w1 {
+                return Err(format!("w1 g1..g7 = {w1:?}, expected {want_w1:?}"));
+            }
+            if a3s.iter().any(|c| c != "out") {
+                return Err(format!("a3s g1..g7 = {a3s:?}, expected all out"));
+            }
+            Ok("w1 IN g6/g7, a3s outside every generator".into())
         }),
     });
     // 8. the clock judge (docs/clocks.md): known periods on redsim, the real game agreeing, a
@@ -430,6 +490,210 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("?clock verify {NOKICK} --positions 1 --no-rotations --no-sim --workers 1"))],
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("CLOCK:")) { Err("accepted a non-clock".into()) } else { Ok("rejected".into()) }),
+    });
+    v.push(Check {
+        name: "clock:verify-entities".into(),
+        what: "`clock verify` with design entities: the observer pair beside a minecart on a rail is a robust clock (the cart summoned, turned and still there at the end); with the cart in the air (it falls away) it is rejected",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?clock verify designs/clocks/selftest/observer-pair-cart.txt --positions 1 --no-sim --workers 4"),
+            args("?clock verify designs/clocks/selftest/observer-pair-falling-cart.txt --positions 1 --no-rotations --no-sim --workers 1"),
+        ],
+        timeout: 600,
+        pred: Box::new(|o| {
+            if !o[0].lines().any(|l| l.starts_with("CLOCK: entity-test-decor period 6 gt") && l.ends_with("robust")) {
+                return Err(format!("the cart design is not a robust P6 clock: {}", o[0].lines().next().unwrap_or("")));
+            }
+            if o[1].lines().any(|l| l.starts_with("CLOCK:")) || !o[1].contains("entities at the end") {
+                return Err(format!("the falling cart was not rejected for its entity: {}", o[1].lines().next().unwrap_or("")));
+            }
+            Ok("cart kept: robust P6; cart lost: rejected".into())
+        }),
+    });
+    // 9. the circuit judge (docs/circuits.md): known metrics on redsim and in the real game, a
+    // false claim refused
+    const CIRC: &str = "designs/circuits/calibration";
+    let circ: Vec<(&str, &str)> = vec![
+        ("observer-dual-edge", "cal-observer-dual-edge dual-edge L 2 gt, delay 2 gt, min-pulse 4 gt, 1 blocks, 1x1x1"),
+        ("subtract-rising-edge", "cal-subtract-rising-edge rising-edge L 4 gt, delay 2 gt, min-pulse 4 gt, 12 blocks, 2x2x3"),
+        ("bulb-tff", "cal-bulb-tff tff latency 2 gt, edge rising, min-pulse 1 gt, min-period 2 gt, 3 blocks, 2x2x1"),
+        ("repeater-delay", "cal-repeater-delay delay N 4 gt, min-pulse 4 gt, min-gap 4 gt, 2 blocks, 1x2x1"),
+        ("torch-not", "cal-torch-not gate not function not, latency 2 gt, 4 blocks, 3x2x1"),
+        ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
+        ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
+        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+        ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 3 gt, retract 3 gt, 2 blocks, 3x1x1"),
+        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
+        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
+        ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1"),
+        ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 1 gt, 8 blocks, 3x3x2"),
+        ("window-dff", "cal-window-dff dff latency 4 gt, edge falling, setup 0 gt, hold 2 gt, 10 blocks, 2x2x5"),
+        ("window-dff-enable", "cal-window-dff-enable dff-enable latency 4 gt, edge falling, 13 blocks, 4x2x5"),
+        ("window-shift1", "cal-window-shift1 shift 1 N 1, latency 4 gt, edge falling, 10 blocks, 2x2x5"),
+        ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
+        ("slime-bud", "cal-slime-bud bud detects place remove state update, latency 3 gt, pulse 1 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 5 cells, 3 blocks, 1x4x1"),
+        ("latched-bud", "cal-latched-bud bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1"),
+        ("observer-stone-bud", "cal-observer-stone-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 2 blocks, 2x1x1"),
+        ("sculk-filter-rise", "cal-sculk-filter-rise rising-edge L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes, 5 blocks, 2x2x4"),
+        ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
+        ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
+        ("bulb-burst2", "cal-bulb-burst2 burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1"),
+        ("bulb-divider4", "cal-bulb-divider4 divider 4 N 4, duty 50%, output square, latency 4 gt, min-period 2 gt, 6 blocks, 4x2x1"),
+        ("bulb-monostable", "cal-bulb-monostable monostable L 8 gt, delay 12 gt, retrigger non-retriggerable, re-arm 16 gt, min-pulse 1 gt, 6 blocks, 4x2x1"),
+        ("tap-off-delay", "cal-tap-off-delay off-delay L 4 gt, latency 2 gt, min-pulse 2 gt, 26 blocks, 5x2x3"),
+        ("subtract-on-delay", "cal-subtract-on-delay on-delay T 8 gt, shortening 4 gt, latency 6 gt, 16 blocks, 3x3x3"),
+        ("torch-pulse-train", "cal-torch-pulse-train pulse-train P 12 gt, pulse 6 gt, latency 6 gt, stop 4 gt, 15 blocks, 2x3x6"),
+    ];
+    let mut s = args("circuit sim");
+    s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+    s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
+    s.push("designs/circuits/selftest/floating-not.txt".into());
+    s.push("designs/circuits/selftest/shortening-delay-line.txt".into());
+    s.push("designs/circuits/selftest/plus4-stretcher.txt".into());
+    // a circuit must drive something (the judge's lamp in each air output cell): a redirection-only
+    // output refused, a comparator AND kept with its metrics
+    s.push("designs/circuits/selftest/update-less-nor.txt".into());
+    s.push("designs/circuits/selftest/comparator-and.txt".into());
+    s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
+    // the sequential memory kinds: a claim each refused (a reset that drives nothing, a level
+    // latch as an edge-triggered register, an enable that drives nothing, one cell as two)
+    for f in ["bulb-tff-claimed-reset", "dlatch-claimed-dff", "dff-claimed-enable", "dff-claimed-shift2"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    // the BUD kind: a clock, a BUD that never re-arms, a false claim, a pulse BUD given a reset
+    // input (not latched) and an observer BUD claiming to tile side by side (cross-talk) refused
+    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update", "observer-bud-claims-latched", "observer-bud-tile1"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    // the vibration test: a sculk design that hears its own lever, a false `vibration: proof`
+    for f in ["sculk-hears-lever", "sculk-claims-proof"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    // study 11: a monostable whose second edge cuts its pulse, an OR off-delay that does not
+    // restart, a false retriggerable claim refused; a tiled off-delay kept (`tile 5 blocks x3`)
+    // and its crosstalking 4-block tiling refused
+    for f in ["oneshot-retriggered", "repeater-or-off-delay", "bulb-claims-retriggerable", "tile-off-delay-ring", "tile-off-delay-crosstalk"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    let circ2 = circ.clone();
+    let n = circ.len();
+    v.push(Check {
+        name: "circuit:sim-calibration".into(),
+        what: "`circuit sim` (redsim) on the 29 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) and two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) refused; a comparator AND kept; study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("redsim")) {
+                    return Err(format!("{f}: expected `{want}`: {}", tail(&o[0])));
+                }
+            }
+            has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
+            has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
+            has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
+            has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
+            has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
+            has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
+            has(&o[0], "FAIL: cal-bulb-tff-claimed-reset tff-reset: A r 4: an r pulse must clear q")?;
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            has(&o[0], "FAIL: cal-dff-claimed-enable dff-enable: rising edge:")?;
+            has(&o[0], "FAIL: cal-dff-claimed-shift2 shift 2: rising edge:")?;
+            has(&o[0], "FAIL: cal-observer-pair-bud bud: the output is on at rest")?;
+            has(&o[0], "FAIL: cal-latching-bud bud: the output is on at rest")?;
+            has(&o[0], "FAIL: cal-observer-bud-claims-update bud: claims update but does not detect it")?;
+            has(&o[0], "FAIL: cal-observer-bud-claims-latched bud: not latched: after a place the output goes off")?;
+            has(&o[0], "FAIL: cal-observer-bud-tile1 bud: not tileable (every 1 (0 0 1)): copy 0: cross-talk")?;
+            has(&o[0], "FAIL: cal-sculk-hears-lever rising-edge: hears its input device")?;
+            has(&o[0], "FAIL: cal-sculk-claims-proof falling-edge: not vibration-proof (it says `vibration: proof`)")?;
+            has(&o[0], "FAIL: cal-oneshot-retriggered monostable: re-trigger behaviour changes with the delay")?;
+            has(&o[0], "FAIL: cal-repeater-or-off-delay off-delay: min-pulse 8 gt")?;
+            has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
+            has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
+            has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs and 3 false study-11 timers and 2 sculk designs failing the vibration test refused; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused"))
+        }),
+    });
+    v.push(Check {
+        name: "circuit:verify-calibration".into(),
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 29 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
+        quick: false,
+        jvm: true,
+        steps: vec![{
+            let mut s = args("?circuit verify --positions 2 --workers 8");
+            s.extend(circ2.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
+            s.push("designs/circuits/selftest/update-less-nor.txt".into());
+            s.push("designs/circuits/selftest/comparator-and.txt".into());
+            s.push("designs/circuits/selftest/dlatch-claimed-dff.txt".into());
+            // a copper-bulb toggle given a reset input is no latch (redsim does not model bulbs)
+            s.push("designs/circuits/selftest/bulb-toggle-bud.txt".into());
+            // study 11's `tile:`: three copies 5 apart, each judged against its own input
+            s.push("designs/circuits/selftest/tile-off-delay-ring.txt".into());
+            s
+        }],
+        timeout: 600,
+        pred: Box::new(move |o| {
+            for (f, want) in &circ2 {
+                if !o[0].lines().any(|l| l.starts_with("CIRCUIT: ") && l.contains(want) && l.ends_with("robust")) {
+                    return Err(format!("{f}: expected `{want}`, robust: {}", tail(&o[0])));
+                }
+            }
+            has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
+            has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust")?;
+            has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
+            has(&o[0], "FAIL: cal-bulb-toggle-bud bud: latches")?;
+            has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, robust")?;
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff and a bulb toggle claiming a latched BUD refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
+        }),
+    });
+    // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
+    // chests, every item and box counted): track shulker's always-on loader and unloader with
+    // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
+    // boxes early refused
+    v.push(Check {
+        name: "circuit:verify-shulker".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on track shulker's always-on loader and unloader with unstackables: 3 boxes, robust, hopper pace (cycle 224 / 220 gt), every badge they claim (always-on, colours, restart, box-starved, drop-free); a loader that breaks its boxes at the first item refused; `circuit sim` says redsim does not model them yet",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 4 designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt designs/circuits/selftest/shulker-early-loader.txt"),
+            args("circuit sim designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            // the drop's random offset can move a median time by a gt: match around the times
+            let line = |name: &str| o[0].lines().find(|l| l.starts_with(&format!("CIRCUIT: {name} "))).unwrap_or("").to_string();
+            let l = line("shulker-auto-loader-1");
+            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
+                return Err(format!("auto loader: {l:?}: {}", tail(&o[0])));
+            }
+            let l = line("shulker-auto-unloader-1");
+            if !(l.contains("shulker-unloader 1 boxes/min ") && l.contains("items/s 2.4") && l.contains("cycle 22") && l.contains("badges always-on+colours+box-starved+drop-free, bill 16 iron, 5 quartz, 35 redstone, 1 slime, 49 blocks, 5x6x8, robust")) {
+                return Err(format!("auto unloader: {l:?}: {}", tail(&o[0])));
+            }
+            has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
+            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not judge shulker loaders")?;
+            Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
+        }),
+    });
+    // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
+    // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
+    // seeds it, its pickup)
+    v.push(Check {
+        name: "circuit:shulker-compare".into(),
+        what: "`circuit shulker compare` replays the exact real-game traces of the reference loader and unloader (3 boxes of unstackables each) in redsim: every cell and entity identical every tick",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit shulker compare designs/circuits/shulker/traces/exact/shulker-ref-loader-1.trace designs/circuits/shulker/traces/exact/shulker-ref-unloader-1.trace")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "OK shulker-ref-loader-1: 687 ticks identical")?;
+            has(&o[0], "OK shulker-ref-unloader-1: 678 ticks identical")?;
+            Ok("reference loader and unloader traces tick-identical in redsim".into())
+        }),
     });
     v
 }

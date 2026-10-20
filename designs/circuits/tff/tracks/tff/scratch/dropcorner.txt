@@ -1,0 +1,24 @@
+# Dropper + hopper T flip-flop without dust, 8 blocks (track tff): the input cell touches two droppers (east and above). The stone goes from the east dropper up into a hopper that hands it to the upper dropper, and from the upper dropper through three hoppers back down to the east one; each pulse fires both droppers, only the one holding the stone moves it, and it always lands after both have fired. A comparator reads the east dropper.
+name: tff-dropcorner
+circuit: tff
+port input: 0 0 0
+port output: 3 0 0
+nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  A minecraft:dropper[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  h minecraft:hopper[enabled=true,facing=west]
+  i minecraft:hopper[enabled=true,facing=east]
+  j minecraft:hopper[enabled=true,facing=down]
+  k minecraft:hopper[enabled=true,facing=north]
+layer -1:
+  ..S
+layer 0:
+  .AC
+  .k
+layer 1:
+  Bh
+  ij

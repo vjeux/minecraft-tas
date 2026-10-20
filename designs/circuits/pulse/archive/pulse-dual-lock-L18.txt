@@ -1,0 +1,35 @@
+# archived 2026-10-20T00:33Z from designs/circuits/tracks/pulse/dual-lock/pulse-dual-lock-L18.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-lock-L18 dual-edge L 18 gt, delay 6 gt, min-pulse 40 gt, 23 blocks, 3x2x5, robust
+name: pulse-dual-lock-L18
+# Dual-edge one-shot (L = 18 gt on each edge): an observer watching the input fires on both edges through a repeater into a copper bulb (lit on a rising edge of its power); a comparator reads the bulb and feeds a lock (a repeater pointing into the trigger repeater's side: triggers are ignored while the bulb is lit, so short inputs cannot latch it) and a U of delay-4 repeaters back into the bulb, which turns it off one loop later. The loop keeps the bulb powered a loop longer, so the falling edge is answered only for inputs of 40 gt or more (generator: mctas circuit pulse family dual-lock --n 0).
+circuit: dual-edge
+group: pulse-dual-lock
+group title: locked dual-edge bulb one-shot
+group note: L set by the repeater U's length
+origin: 1 0 -2
+port input: 2 1 3
+port output: 3 1 0
+palette:
+  S minecraft:stone
+  V minecraft:observer[facing=south,powered=false]
+  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  M minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire
+layer 0:
+  .SSS
+  .S.S
+  .SSS
+  .SSS
+  ....
+  ....
+layer 1:
+  .WWW
+  .N.M
+  .BCW
+  .TLW
+  .V..
+  ....

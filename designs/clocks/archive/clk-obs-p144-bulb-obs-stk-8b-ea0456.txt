@@ -1,0 +1,29 @@
+# archived 2026-10-19T23:22Z from designs/clocks/tracks/clk-obs/families9/p144-bulb-obs-stk-8b-ea0456.txt by mctas clock archive
+# CLOCK: clk-obs-p144-bulb-obs-stk-8b-ea0456 period 144 gt (7.2 s), on 48/144, edges 24, warmup 2, family copper_bulb+observer+sticky_piston, 8 blocks, 1x4x4, robust
+name: clk-obs-p144-bulb-obs-stk-8b-ea0456
+# clk-obs grow: P=144 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 16.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=south]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  .
+  B
+  .
+layer 1:
+  C
+  D
+  D
+  B
+layer 2:
+  E
+  .
+  .
+  F

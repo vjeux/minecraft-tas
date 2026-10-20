@@ -20,10 +20,15 @@ Tools: `mctas clock rt <command>` (crates/clock-rt):
 | `divider --d1 D1 --d2 D2 --stages K` / `divider --fade C --stages K` | divider chain: base U-loop or fading ring + K master-slave T flip-flop stages |
 | `shrink <design> [--period P] [--pairs]` | local search for a smaller clock (single-cell and remove-two-add-one moves) |
 | `table <files or dirs>` | best design per period over existing designs (clock sim) |
+| `family <name> --n N [--card] --out F` | the n-th member of an extendable family (EXTEND.md); `--card` writes the `extend` headers |
+| `prune-members [--apply]` | remove archived clk-rt clocks that are exact instances of a family card |
 
 Archive: clk-rt archives its own clocks (`mctas clock archive`, coordinator protocol 10-19);
 generated names carry the family: `uloop<n>t-` (n torches), `fade-`, `ring<w>x<h>-`, `div-`,
-`odd-`, `burn-`.
+`odd-`, `burn-`. The repeated-unit families are archived as EXTENDABLE catalog cards (one base
+design + `extend` headers: P and blocks formulas, rule, judged n range, generator), listed in
+[EXTEND.md](EXTEND.md) with their base designs in `families/`; the archived clocks that were exact
+instances of a card were removed from the archive (`rt prune-members`).
 
 ## Results (fewest blocks per period, all robust)
 

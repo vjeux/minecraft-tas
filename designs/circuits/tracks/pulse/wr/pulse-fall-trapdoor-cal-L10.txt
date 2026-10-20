@@ -1,0 +1,20 @@
+name: pulse-fall-trapdoor-cal-L10
+circuit: falling-edge
+# One 10-tick pulse (half a second) every time the input turns OFF, from just 2 blocks, for quiet
+# builds: the input opens a trapdoor and closes it when it turns off, and a sound sensor
+# (calibrated sculk sensor) switches on for 10 ticks when it hears it. The sensor's back touches
+# the input, and a sensor with power at its back only listens to one kind of sound, so while the
+# input is on it ignores the opening and the moment the input turns off it hears the closing. It
+# also hears footsteps and dropped items within 16 blocks, so it needs a quiet spot (the 5-block
+# filtered version does not). The smallest falling-edge detector, and it sees 1-tick inputs.
+# Detail: block_open is frequency 10, block_close 9; the input's 15 at the back accepts only 15;
+# a lever's switch-off (9) comes on the same edge as the closing.
+origin: 0 0 0
+port input: 0 0 0
+port output: 0 0 2
+palette:
+  T minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  K minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .T
+  K.

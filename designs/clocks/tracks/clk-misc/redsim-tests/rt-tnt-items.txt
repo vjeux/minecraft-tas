@@ -1,0 +1,20 @@
+name: rt-tnt-items
+# redsim test scene (not a clock): a TNT primed at tick 2 explodes at ~82 near item entities at
+# about 3, 6.5, 7.5 and 7.8 blocks: the near ones lose their 5 health and vanish, the far ones keep
+# some and are pushed (exposure raycasts, knockback).
+port start: 1 1 1 minecraft:redstone_block 6 at 2
+entity: minecraft:item 5.5 1.0 1.5 {Item:{id:"minecraft:dirt",count:1},PickupDelay:32767s}
+entity: minecraft:item 9.0 1.0 1.5 {Item:{id:"minecraft:oak_planks",count:1},PickupDelay:32767s}
+entity: minecraft:item 10.0 1.0 1.5 {Item:{id:"minecraft:glass",count:1},PickupDelay:32767s}
+entity: minecraft:item 10.3 1.0 0.5 {Item:{id:"minecraft:white_wool",count:1},PickupDelay:32767s}
+palette:
+  S minecraft:stone
+  T minecraft:tnt[unstable=false]
+layer 0:
+  SSSSSSSSSSSSSSSSS
+  SSSSSSSSSSSSSSSSS
+  SSSSSSSSSSSSSSSSS
+layer 1:
+  .................
+  ..T..............
+  .................

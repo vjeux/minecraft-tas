@@ -1,0 +1,10 @@
+name: rt-item-drop
+# redsim test scene (not a clock): a stone item thrown along +x above a 4x1x3 stone floor
+# (gravity, drag 0.98, the bounce, the friction 0.6 on the ground, rest).
+entity: minecraft:item 0.5 3.0 1.5 {Item:{id:"minecraft:stone",count:1},Motion:[0.2d,0.1d,0.0d],PickupDelay:32767s}
+palette:
+  S minecraft:stone
+layer 0:
+  SSSS
+  SSSS
+  SSSS

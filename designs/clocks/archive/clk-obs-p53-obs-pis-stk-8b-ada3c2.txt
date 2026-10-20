@@ -1,0 +1,27 @@
+# archived 2026-10-20T01:38Z from designs/clocks/tracks/clk-obs/families9/p53-obs-pis-stk-8b-ada3c2.txt by mctas clock archive
+# CLOCK: clk-obs-p53-obs-pis-stk-8b-ada3c2 period 53 gt (2.65 s), on 24/53, edges 12, warmup 30, family observer+piston+sticky_piston, 8 blocks, 1x5x3, robust
+name: clk-obs-p53-obs-pis-stk-8b-ada3c2
+# clk-obs grow: P=53 (redsim), family observer+piston+sticky_piston, kick last 0 1 0, swept volume 15.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:piston[extended=false,facing=down]
+  D minecraft:stone
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:observer[facing=up,powered=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  F
+layer 2:
+  .
+  B
+  G

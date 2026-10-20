@@ -1,0 +1,44 @@
+# verified WORKS by door leaderboard: 44 blocks, category solid
+# archived 2026-10-19 19:51Z from HEAD:designs/piston-door-3x3/tracks/pockets/runs/rf-lw-k4/pockets-63b-44-159.txt (repo at 60a8b6fb9)
+name: pockets-63b-44-159
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  D minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:sticky_piston[extended=true,facing=down]
+  H minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -4:
+  .HooN
+layer -3:
+  .RDEAH
+layer -2:
+  .OOEoCH
+layer -1:
+  .s..H.A
+layer 0:
+  s.HHH.F
+layer 1:
+  s.HHH.F
+layer 2:
+  SHHHHHH
+layer 3:
+  A.PPPBR
+layer 4:
+  roGGG
+layer 5:
+  ...L

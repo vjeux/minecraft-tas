@@ -1,0 +1,25 @@
+name: pulse-dual-odd-L7
+circuit: dual-edge
+# Odd dual-edge pulses: one observer watches the input cell, the other a sticky piston the input
+# moves (a piston's block event runs in the tick after the input changes), so they fire 1 gt apart
+# on each edge; each feeds a delay-3 repeater (6 gt pulses) into one dust line, where the two
+# pulses overlap into 6 + 1 = 7 gt.
+origin: 0 0 0
+port input: 1 1 0
+port output: 1 1 3
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[extended=false,facing=north]
+  O minecraft:observer[facing=north,powered=false]
+  R minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
+  W minecraft:redstone_wire
+layer 0:
+  ...
+  ...
+  .SS
+  .SS
+layer 1:
+  ..P
+  .OO
+  .RR
+  .WW

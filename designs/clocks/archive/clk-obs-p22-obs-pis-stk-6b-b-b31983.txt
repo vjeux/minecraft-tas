@@ -1,0 +1,26 @@
+# archived 2026-10-19T20:01Z from designs/clocks/tracks/clk-obs/mech2/p22-obs-pis-stk-6b-b-b31983.txt by mctas clock archive
+# CLOCK: clk-obs-p22-obs-pis-stk-6b-b-b31983 period 22 gt (1.1 s), on 8/22, edges 4, warmup 8, family observer+piston+sticky_piston, 6 blocks, 1x3x3, robust
+name: clk-obs-p22-obs-pis-stk-6b-b-b31983
+# P22: 1 copper bulb, 1 note block, 2 observers, 1 piston, 1 sticky piston; changing in place: observer, piston, sticky_piston (copper bulb, note block only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:note_block[instrument=harp,note=0,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:piston[extended=false,facing=down]
+layer 0:
+  A
+  .
+  .
+layer 1:
+  B
+  C
+  D
+layer 2:
+  .
+  E
+  F

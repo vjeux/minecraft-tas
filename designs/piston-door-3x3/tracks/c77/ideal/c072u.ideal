@@ -1,0 +1,43 @@
+# c77: families 8x7-072 (c070 with U = SU+(-1,-1) LEVEL-held: extended at rest, retracts on open, extends on close) + ceil's ceiling-held top.
+design designs/piston-door-3x3/tracks/c77/wip/c072u.txt
+let e1 = 0
+let e1c = 0
+let u = 6
+let uc = 6
+let d1 = 12
+let m = 18
+let d2 = 24
+let z = 30
+let zc = 12
+open 0 use 1 5 0
+open e1 set -2 1 1 minecraft:redstone_block
+open e1+2 clear -2 1 1
+open d1 set -3 1 1 minecraft:redstone_block
+open d1+2 clear -3 1 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open d2 set -3 1 1 minecraft:redstone_block
+open d2+2 clear -3 1 1
+open z set -2 1 -1 minecraft:redstone_block
+open z set 0 -2 1 minecraft:redstone_block
+open z set 1 -2 1 minecraft:redstone_block
+open z set 4 1 1 minecraft:redstone_block
+open z set 4 0 1 minecraft:redstone_block
+open z+2 clear -2 1 -1
+open z+2 clear 0 -2 1
+open z+2 clear 1 -2 1
+open z+2 clear 4 1 1
+open z+2 clear 4 0 1
+close 0 use 1 5 0
+close e1c set -2 1 1 minecraft:redstone_block
+close e1c+2 clear -2 1 1
+close zc set -2 1 -1 minecraft:redstone_block
+close zc set 0 -2 1 minecraft:redstone_block
+close zc set 1 -2 1 minecraft:redstone_block
+close zc set 4 1 1 minecraft:redstone_block
+close zc set 4 0 1 minecraft:redstone_block
+close zc+2 clear -2 1 -1
+close zc+2 clear 0 -2 1
+close zc+2 clear 1 -2 1
+close zc+2 clear 4 1 1
+close zc+2 clear 4 0 1

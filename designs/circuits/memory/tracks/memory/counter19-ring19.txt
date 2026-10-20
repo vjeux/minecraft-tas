@@ -1,0 +1,45 @@
+# Counter 19, dropper ring, 54 blocks (track memory, `mctas circuit memory ring --n 19`): the input cell fires 19 droppers (2 next to it, 17 through 1 dust and 2 repeater relays: a repeater strongly powers a stone, a cross dust past it powers an outer stone, both fire their neighbours), and 19 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 19 (level style).
+name: counter19-ring19
+circuit: counter 19
+group: dropper-ring
+group title: Dropper ring (counter N)
+group note: N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`)
+port input: 0 0 0
+port output: -6 1 0
+nbt: -4 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -5 0 -1
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  J minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  K minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  R minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  S minecraft:stone
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer -1:
+  .
+  ..S.S.S.S
+  .....S
+  .
+  .
+layer 0:
+  hB.DhB.DhB
+  dSrSJ.KSrS
+  FEIE.RGEIE
+  ...FESA
+  .....BI
+layer 1:
+  .G.H.G.H.G
+  CDhd.Dhd.A
+  .........H
+  ....HE
+  .....F

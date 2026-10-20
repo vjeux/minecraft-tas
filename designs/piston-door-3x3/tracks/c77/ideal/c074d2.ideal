@@ -1,0 +1,36 @@
+# c77: c074 + bridge's right side (obs (3,3) W -> note (4,3) -> obs (4,2) up: MR direct, BR by QC)
+# + ceil's D driver (obs (-2,2) E watching ML's park -> stone (-3,2) over D). Ideal: E1, TLc, M, E2, BL, BM.
+design designs/piston-door-3x3/tracks/c77/wip/c074d2.txt
+let e1o = 2
+let e1c = 2
+let tlo = 5
+let tlc = 5
+let m = 9
+let e2o = 20
+let e2c = 16
+let bo = 20
+let bc = 20
+open 0 use 1 5 0
+open e1o set -2 1 1 minecraft:redstone_block
+open e1o+2 clear -2 1 1
+open tlo set -1 3 1 minecraft:redstone_block
+open tlo+2 clear -1 3 1
+open m set -1 1 1 minecraft:redstone_block
+open m+2 clear -1 1 1
+open e2o set -2 1 1 minecraft:redstone_block
+open e2o+2 clear -2 1 1
+open bo set 0 -2 1 minecraft:redstone_block
+open bo set 1 -2 1 minecraft:redstone_block
+open bo+2 clear 0 -2 1
+open bo+2 clear 1 -2 1
+close 0 use 1 5 0
+close e1c set -2 1 1 minecraft:redstone_block
+close e1c+2 clear -2 1 1
+close tlc set -1 3 1 minecraft:redstone_block
+close tlc+2 clear -1 3 1
+close e2c set -2 1 1 minecraft:redstone_block
+close e2c+2 clear -2 1 1
+close bc set 0 -2 1 minecraft:redstone_block
+close bc set 1 -2 1 minecraft:redstone_block
+close bc+2 clear 0 -2 1
+close bc+2 clear 1 -2 1

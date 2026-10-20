@@ -1,0 +1,20 @@
+# archived 2026-10-20T01:55Z from designs/circuits/gates/tracks/gates/gate-nor-bump-4b.txt by mctas circuit archive
+# CIRCUIT: gate-nor-bump-4b gate nor function nor, latency 0 gt, class instant, 4 blocks, 2x2x1, robust
+# NOR gate, instant and update-correct (track gates): a dust on a redstone block (15) feeds a second
+# dust on a stone (14), a straight line pointing west into the output cell; either input (north or
+# south of the second dust) bends it AND raises its power to 15, so the output cell gets the block
+# update (a dust only redirected sends none). 0 gt.
+name: gate-nor-bump-4b
+circuit: gate nor
+port input.a: 1 1 -1
+port input.b: 1 1 1
+port output: 0 1 0
+origin: 1 0 0
+palette:
+  B minecraft:redstone_block
+  S minecraft:stone
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  SB
+layer 1:
+  rr

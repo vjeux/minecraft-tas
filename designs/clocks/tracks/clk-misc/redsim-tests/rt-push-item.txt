@@ -1,0 +1,12 @@
+name: rt-push-item
+# redsim test scene (not a clock): a sticky piston facing east pushes an item entity along +x
+# (moveCollidedEntities), held 6 gt from tick 2, then retracts.
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:item 2.5 1.0 0.5 {Item:{id:"minecraft:cobblestone",count:1},PickupDelay:32767s}
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=east,extended=false]
+layer 0:
+  SSSSSSSS
+layer 1:
+  .P......

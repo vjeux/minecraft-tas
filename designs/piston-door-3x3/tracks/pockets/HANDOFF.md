@@ -2,7 +2,8 @@
 
 ## State
 - 7x8 = 56 doors now exist in all three lines (all verify --extra-offsets 28, 32 positions + rotations):
-  - SOLID: e78k's h2 (explore/q78 e755e4de, 45, 44/15) -> **`finds/e78s-56b-44.txt` 44 blocks, 44/15** (mine).
+  - SOLID (FULL frame 12/12 required by the coordinator, 17:06Z): e78k's h2 45 -> **`finds/e78s-56b-43.txt` 43, 29/15**
+    (mine, = BEST.txt); e78k's FULL line h5 41 (36/19) / h6 42 (29/15) leads (explore/q78 tracks/q78/e78s/).
   - SCULK stone (c77's line): e78st-56b-38-1s (one sensor) -> **`finds/e78st-56b-37.txt` 37 blocks, 48/15** (mine).
   - SCULK wool (mine): **`finds/e78-56b-40.txt` = BEST.txt, 40 blocks, 98/24** (archived on main with 45/42 too).
   All found/shrunk with `door fill --keep` (+ `--max-blocks N` pre-filter). The wool line is locally minimal (no 39
@@ -16,10 +17,41 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
-- `h2-shrink43k4`: the solid 44, exactly 4 changed over 25 cells, 42 solid states, --max-blocks 43 (~1 h from 16:54Z).
-- `st37-shrink36k4`: the stone 37, exactly 4 changed, sculk palette, --max-blocks 36.
-- `st38-s2-k5`: for c77, e78st38-s2 (the 38 with its last sensor S2 cleared), 10 cells, exactly 5 changed, 24 solid
-  states (2.0G fillings, from 16:33Z, hours): a find = a SOLID stone 7x8 (verify, ping, tell c77).
+- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (cloned
+  ~/agents/pockets/minecraft-tas from GitHub, built with ~/bin/cargo, JVM cache warmed by one `door verify`: the
+  first selftest on a fresh box fails 3 JVM checks while two checks download Java/the server at once; full selftest
+  35/35 after). Nothing was in flight worth restarting: the 6x7 satwire runs had already answered (UNSAT, one-piston
+  cores) and c70b asked to wait for its next variants (mechmut --outside-only, FULL frames filled).
+- Recipes for designers' sub-56 plans: pockets --box enlarged to hold the plan's inputs outside the volume (they were
+  silently dropped: seed 9/79) + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire
+  --rec-ticks >= open ticks + settle (default 80 recorded c70b's 99-tick opens unfinished: false frame errors);
+  statics must be the door material (smooth-stone statics fail the record frame rule): my svc copies turn them to
+  stone. c70b's 6x9 recipe: `door satwire <plan> --keep-wiring --lever-on --lever='5,1,0' --box=-1,-3,0:4,5,0
+  --full-frame --forbid-ring --update-order --exact-order --dmax 8 --skip 8 --hold auto --free-order --retime
+  --palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston,wool --first`.
+- Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
+- Pockets prints a POCKET LOAD line per pocket (10be184f): forced inputs + distinct pulse ticks; quick report with
+  `--k 1 --only-pockets 99`. The lever port cell is a wiring cell again without --keep-lever (56fb440b). ISLAND START
+  (ad9c171c): per lever pocket, the pockets that can never fire (run it first on any designer plan).
+- Screens since the box move (all satwire UNSAT, one-piston cores, reported to the senders): c70b 6x7-in2
+  (core (0,-2)), d67 q7 (0,-2), c70b t1-r22 7x7 ((-1,4): its lever at (0,5) QC-powers SD (-1,4)/(1,4)), pext's
+  one-trains (w1k2 (1,-2); m69T-mm02 x8: top-left / bottom-left / top-middle), w86 6x8 s1 ((3,3) solid; with
+  sculk in (-1,4) + the bottom-left trio: (0,4) close).
+- Later (01:00-04:15Z): c70b u0-7x7 (core (1,-2)), u2-7x7 ((-2,0); (0,-2) load fixed to 2 ticks), pext u2-train-isl
+  (islands OK with the lever top-left; pockets k=4 2 of 12 real; (-1,-2) fires 9x), d67 u0-s0 with sculk in the
+  bottom-right (everything else ideal: core SU(2,-2)), clockinfra macrosat m86-a 8x6 (core (3,-1); retracted by
+  clockinfra, which now encodes the lever-level / static-conductor / per-region-budget rules). clk-misc's exact
+  lever screen: `door ideal-rs <plan> --vary 'x,y,z=lever[...]'` + `open 0 use` / `close 0 use`.
+- Waiting for: c70b's island-start-0 mechmut variants, macrosat's next exports, pext's budgeted trains.
+- nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
+  same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
+  c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
+  m69 k=4: right stack + U0 + s1/P3t drivable, bottom elevator + top-left never; w1 k=3: only TR + MR (top-right 5
+  cells), P/Q/bottom boxed in; a3s k=4: 2 of 30 groups. These mechanisms lack free feed cells: wiring needs variants.
+- pockets with plans that never `use` the lever: run WITHOUT --keep-lever (w1's lever ON at rest QC-powers its TL
+  puller); a plan with `phase tile` ignores --between-ticks: strip the line (svc/c77-w1bt.ideal). Designers' plans
+  often feed pistons from IN-PLANE input cells, which pockets reserves: use `--offplane` (moves them behind the fed
+  pistons; I did it by hand in svc/w86-m69v.ideal and svc/c77-mm01v.ideal before finding the flag).
 
 ## Exact next steps
 1. Shrink the solid 44 (k=4 result; then k=5 on e78k's likely-removable cells with a ~15-state palette and the

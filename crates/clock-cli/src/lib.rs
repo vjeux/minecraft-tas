@@ -11,6 +11,26 @@ use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum ClockCmd {
+    /// The ambient vibration property of sculk clocks (`clock::vibration`): each clock run on
+    /// redsim with and without footsteps, items and blocks placed or broken around it (seeded by the
+    /// build); `yes` when its output sequence after the warmup is the same. A property, never a
+    /// verdict. `--archive`: every archived clock holding a sensor; `--game N`: spot-check N of them
+    /// in the game too. Writes the table (`--out`, default designs/clocks/archive/vibration.tsv).
+    Vibration {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        archive: bool,
+        /// Also run this many of them (spread over the list) in the game.
+        #[arg(long, default_value_t = 0)]
+        game: usize,
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// JVM workers for `--game` (capped by MCTAS_MAX_WORKERS).
+        #[arg(long, default_value_t = 6)]
+        workers: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Exact period on redsim (milliseconds): place like the judge, kick, run until the whole
     /// state repeats; prints the period, warmup, waveform per changing cell and at the output,
     /// the family, blocks placed and the swept box. Blocks redsim does not model: UNMODELED.
@@ -90,6 +110,25 @@ pub enum ClockCmd {
     /// period, waveform, family, blocks, box, start, type key, canonical encoding), a design per
     /// smallest clock of each (period, family) in <out>/designs/, <out>/summary.md. Resumable
     /// (<out>/parts/, one file per finished chunk). The ground truth of the small clocks.
+    /// Structured census of ENTITY clocks on redsim (kits.rs): one mechanism's design space in its
+    /// own coordinates, one candidate per mirror class, screened then judged by the real-game
+    /// judge's rule for designs with entities. Kits: `shuttle` (K1: a straight track of plain /
+    /// powered / detector rails over stone or redstone blocks, bumpers, one minecart). Writes
+    /// <out>/clocks.tsv, summary.md, designs/ (every minimal clock).
+    Kit {
+        kit: String,
+        /// The longest track (`shuttle`).
+        #[arg(long, default_value_t = 7)]
+        max_len: usize,
+        /// Ticks of the quick screen (comes to rest / no late block change: dropped).
+        #[arg(long, default_value_t = 1000)]
+        screen: u32,
+        /// Threads (default: every core but 4).
+        #[arg(long)]
+        workers: Option<usize>,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Census {
         /// Box as AxBxC (x, y, z).
         #[arg(long = "box")]
@@ -152,6 +191,10 @@ pub enum ClockCmd {
         /// Take pictures that exist again.
         #[arg(long)]
         redo: bool,
+        /// Take again only the pictures that are missing or bad (nearly uniform, dark, or with a
+        /// dark band across the top).
+        #[arg(long)]
+        redo_bad: bool,
     },
     /// Compare the pictures of a directory with the same-named ones of another (SSIM, lowest
     /// first): checks one shooter's output against a trusted set.
@@ -207,6 +250,28 @@ pub enum ClockCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Set the catalog card group of extendable family base designs (archived copies, track
+    /// sources): `extend group: <id>` (+ optional title, general period formula, note) after their
+    /// `extend family:` line; families of one group share one card. `--clear` removes the group.
+    Group {
+        /// Family base designs (files with `extend family:`).
+        designs: Vec<PathBuf>,
+        /// The group id (e.g. `clk-item-dropring`).
+        #[arg(long)]
+        id: Option<String>,
+        /// The card's title (e.g. "dropper ring").
+        #[arg(long)]
+        title: Option<String>,
+        /// The general period formula, the card's heading (e.g. "20 + 14 (W - 3) + ...").
+        #[arg(long)]
+        period: Option<String>,
+        /// One line under the title (e.g. "every P >= 42 together").
+        #[arg(long)]
+        note: Option<String>,
+        /// Remove the group headers.
+        #[arg(long)]
+        clear: bool,
+    },
     /// Judge instances of an extendable family (a design with `extend` headers) in the game:
     /// build each n with its generator, verify it, compare period and blocks with the formulas.
     ExtendCheck {
@@ -257,10 +322,20 @@ pub enum ClockCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track clk-misc's commands (crates/clock-misc: crafters, rails, doors, fence gates, heads and
+    /// other blocks no other track covers).
+    Misc {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
+    if let ClockCmd::Vibration { designs, archive, game, threads, workers, out } = cmd {
+        return vibration_cmd(version, designs, archive, game, threads, workers, out);
+    }
     match cmd {
+        ClockCmd::Vibration { .. } => unreachable!("handled above"),
         ClockCmd::Sim { designs, horizon, margin, json, quiet, trace } => {
             if designs.is_empty() {
                 bail!("clock sim <design>...");
@@ -338,17 +413,53 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
+            let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
             for p in &designs {
                 let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 if let Some(h) = std::fs::read_to_string(p).ok().as_deref().and_then(clock::shot::judge_hint) {
                     hints.insert(stem.clone(), h);
                 }
-                items.push((stem, Clock::load(p)?));
+                let c = Clock::load(p)?;
+                // an extendable family's base: its two smallest members are pictured too, built
+                // with the family's generator (`<stem>.n<k>.jpg`; the base's own n is `<stem>.jpg`)
+                if let Ok(Some(f)) = clock::extend::Family::of(&c) {
+                    for n in [f.n_lo, f.n_lo + 1] {
+                        if n > f.n_hi || n == f.base {
+                            continue;
+                        }
+                        let mstem = format!("{stem}.n{n}");
+                        if !redo && !redo_bad && clock::shot::shot_path(&out_dir, &mstem).exists() {
+                            continue;
+                        }
+                        match f.build(p, n, &build_dir).and_then(|bp| Clock::load(&bp)) {
+                            Ok(mc) => items.push((mstem, mc)),
+                            Err(e) => println!("SKIP {mstem}: {e:#}"),
+                        }
+                    }
+                }
+                items.push((stem, c));
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo, hints, ..Default::default() };
+            // --redo-bad: only the pictures that are missing or bad (checked 16 at a time)
+            if redo_bad {
+                let paths: Vec<std::path::PathBuf> = items.iter().map(|(s, _)| clock::shot::shot_path(&out_dir, s)).collect();
+                let bad: Vec<Option<String>> = std::thread::scope(|sc| {
+                    let parts: Vec<&[std::path::PathBuf]> = paths.chunks(paths.len().div_ceil(16).max(1)).collect();
+                    let hs: Vec<_> = parts.into_iter().map(|part| sc.spawn(move || part.iter().map(|p| clock::shot::bad_picture(p)).collect::<Vec<_>>())).collect();
+                    hs.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+                });
+                let mut kept = Vec::new();
+                for ((stem, c), why) in items.into_iter().zip(bad) {
+                    if let Some(why) = why {
+                        println!("BAD {stem}: {why}");
+                        kept.push((stem, c));
+                    }
+                }
+                items = kept;
+            }
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, ..Default::default() };
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
@@ -402,6 +513,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 None => print!("{md}"),
             }
         }
+        ClockCmd::Group { designs, id, title, period, note, clear } => {
+            if id.is_none() && !clear {
+                anyhow::bail!("give --id <group> (or --clear)");
+            }
+            let id = if clear { None } else { id };
+            for d in &designs {
+                clock::extend::set_group(d, id.as_deref(), title.as_deref(), period.as_deref(), note.as_deref())?;
+                println!("{}: {}", d.display(), id.as_deref().map(|g| format!("extend group: {g}")).unwrap_or_else(|| "group cleared".into()));
+            }
+        }
         ClockCmd::ExtendCheck { design, n, positions, workers, record, dir } => {
             let c = Clock::load(&design)?;
             let f = clock::extend::Family::of(&c)?.ok_or_else(|| anyhow::anyhow!("{}: no `extend family:` header", design.display()))?;
@@ -429,6 +550,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Catalog { dir, out, coverage } => {
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Kit { kit, max_len, screen, workers, out } => {
+            let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
+            let o = clock::kits::KitOptions { kit, max_len, workers, out, screen };
+            let t0 = std::time::Instant::now();
+            let all = clock::kits::run(&o, &|done, total, n| eprintln!("  {done}/{total} candidates, {n} clocks, {:.0} s", t0.elapsed().as_secs_f64()))?;
+            let best = clock::kits::best_per_period(&o, &all);
+            let (n, written) = clock::kits::write_outputs(&o, &all, &best)?;
+            println!("kit {}: {n} clock types, {written} designs (the smallest per period) in {:.1} s: {}", o.kit, t0.elapsed().as_secs_f64(), o.out.display());
         }
         ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
@@ -465,6 +595,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         ClockCmd::Rt { args } => clock_rt::run(args)?,
         ClockCmd::Sculk { args } => clock_sculk::run(args)?,
         ClockCmd::Item { args } => clock_item::run(args)?,
+        ClockCmd::Misc { args } => clock_misc::run(args)?,
     }
     Ok(())
 }
@@ -582,4 +713,44 @@ fn verify_json(r: &VerifyReport, sim: Option<&SimReport>) -> serde_json::Value {
         }).collect::<Vec<_>>(),
         "redsim": sim.map(|s| agreement(r, s)),
     })
+}
+
+/// `mctas clock vibration`: the ambient property table (`clock::vibration`).
+fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usize, threads: usize, workers: usize, out: Option<PathBuf>) -> Result<()> {
+    let dir = PathBuf::from("designs/clocks/archive");
+    let mut paths = designs;
+    if archive {
+        let mut v: Vec<PathBuf> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        paths.extend(v);
+    }
+    if paths.is_empty() {
+        bail!("clock vibration <design>... | --archive");
+    }
+    let t0 = std::time::Instant::now();
+    let mut rows = clock::vibration::sim_rows(&paths, threads);
+    eprintln!("redsim: {} sculk clocks in {:.0} s", rows.len(), t0.elapsed().as_secs_f64());
+    if game > 0 && !rows.is_empty() {
+        // spread over the list, the rows that have a redsim property first
+        let have: Vec<usize> = (0..rows.len()).filter(|&i| rows[i].sim.is_some()).collect();
+        let step = (have.len() / game).max(1);
+        let picks: Vec<usize> = have.iter().step_by(step).take(game).copied().collect();
+        let gdir = if archive { dir.clone() } else { paths[0].parent().map(|p| p.to_path_buf()).unwrap_or_default() };
+        clock::vibration::game_rows(&mut rows, &gdir, &picks, workers, version)?;
+    }
+    let proof = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| p.proof)).count();
+    let sensitive = rows.iter().filter(|r| r.sim.as_ref().is_some_and(|p| !p.proof)).count();
+    let none = rows.len() - proof - sensitive;
+    let agree = rows.iter().filter(|r| r.game.is_some()).filter(|r| r.game.as_ref().map(|g| g.proof) == r.sim.as_ref().map(|s| s.proof)).count();
+    let checked = rows.iter().filter(|r| r.game.is_some()).count();
+    let mut text = String::from(clock::vibration::TSV_HEADER);
+    text.push('\n');
+    for r in &rows {
+        text.push_str(&r.line());
+        text.push('\n');
+    }
+    let out = out.unwrap_or_else(|| dir.join("vibration.tsv"));
+    std::fs::write(&out, text)?;
+    println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
+    Ok(())
 }

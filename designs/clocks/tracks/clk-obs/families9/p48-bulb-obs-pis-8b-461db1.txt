@@ -1,0 +1,24 @@
+name: clk-obs-p48-bulb-obs-pis-8b-461db1
+# clk-obs grow: P=48 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
+origin: 0 0 0
+port output: 0 2 2
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:piston[extended=false,facing=up]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  E
+  A
+layer 2:
+  .
+  F
+  E

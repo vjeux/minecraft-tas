@@ -1,0 +1,29 @@
+name: w86-a3r
+# 8x6 (48b) MECHANISM candidate, ideal inputs. Box A (one row above), floor = 3 statics, 14 sticky pistons.
+# Column 1 goes UP: W (1,3) ring puller carried by Q (1,4). Row 2: RP_L (-1,2) pulls TM to (0,2), then
+# wiggles TM+C+TR right (TR into the wall (3,2), C to (2,2)) and pulls TM back; RP_L escapes up (-1,4);
+# W escapes right to the corner (3,3): KR (3,3) pull, KR2 (5,3) carries KR to (4,3), KR pull again.
+# Close: TR goes up by (3,4), KR pushes TR+W left, (2,4) pushes TR+C down, MR's puller pushes MR+C left.
+port door: 0 0 0
+port lever: -2 5 0
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  W minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=east,powered=false]
+layer -1:
+  ..FFF...
+layer 0:
+  E.FFF.W.
+layer 1:
+  E.FFF.W.
+layer 2:
+  EEFFF...
+layer 3:
+  ...D.W.W
+layer 4:
+  FDDDDD..
+layer 5:
+  L

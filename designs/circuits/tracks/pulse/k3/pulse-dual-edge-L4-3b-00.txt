@@ -1,0 +1,16 @@
+name: pulse-dual-edge-L4-3b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 3 + input): dual-edge L=4 delay=6/6 min-pulse=8.
+circuit: dual-edge
+origin: 0 0 0
+port output: 0 1 -1
+port input: 0 1 2
+palette:
+  A minecraft:piston[extended=false,facing=down]
+  B minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+layer 0:
+  A
+  .
+layer 1:
+  B
+  C

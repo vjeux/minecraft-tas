@@ -74,9 +74,11 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
   with P <= 3 among every <= 5-block polycube (the full palette, and piston/sticky/redstone
   block/slime/stone), every 6-block polycube with exactly 4 pistons + 2 redstone blocks
   (1.94 G sims, 42 min), and every 6-subset (connected or not) of a 3x2x2 box (982 M sims) or a
-  2x3x2 box (496 M sims) with 4 pistons + 2 redstone blocks. Running: every 6-block polycube of
-  piston/sticky/redstone block/slime/stone with >= 2 pistons and a powered piston as placed
-  (`--need-powered-piston`: lossless without observers, nothing else can start a move).
+  2x3x2 box (496 M sims) with 4 pistons + 2 redstone blocks, and EVERY 6-block polycube of
+  piston/sticky/redstone block/slime/stone with a redstone block and a powered piston as placed
+  (`--need-powered-piston`: lossless without observers, nothing else can start a move): 21.9 G
+  sims, 191 K minimal clocks, periods 6, 9, 12, 18, 24 only (P18 and P24 new for observer-free
+  clocks, archived). So no block-update clock of period 3 has 6 blocks or fewer in these palettes.
 * Pure observer clocks: each observer watches one cell, so the watch graph is functional (one
   cycle per component) and lattice cycles have even length n. One pulse runs 2 gt per observer:
   P = 2n for n >= 4. The pair (n = 2) has two stable modes chosen by the order of the two
@@ -91,6 +93,24 @@ P12 4979 / 3724 (most P4/P6 structures are the observer pair with different star
 * Odd periods come from pistons: a block landing in the block-entity phase makes a piston fire
   the NEXT tick (+1 gt). The 6-block P5 runs a 10 gt loop carrying two pulses 5 gt apart (the odd
   offset is made during the warmup).
+
+### Extendable families (`mctas clock obs family list`, cards in `extend/`)
+
+| family | P (gt) | blocks | extension rule |
+|---|---|---|---|
+| obs-ring | 8 + 4n | 4 + 2n | insert 2 observers: one more column of the 2-wide ring |
+| note-ring | 10 + 4n | 6 + 2n | same (a note block after a straight observer: a cell, no delay) |
+| trap-ring | 10 + 4n | 6 + 2n | same (an iron trapdoor relay) |
+| bulb-ring | 20 + 8n | 6 + 2n | same (a copper bulb relay: the pulse goes round twice per bulb cycle) |
+| odd-a | 11 + 4n | 8 + 2n | raise the observer tower by one (one observer per column) |
+| odd-b | 13 + 4n | 10 + 2n | same (slime variant of the odd piston stage) |
+| divider | 12 x 2^n | 3 + 3n | add a comparator (on a stone floor) + bulb behind the last bulb |
+
+`mctas clock obs family <name> --n N --out FILE` builds any instance, `--check K` confirms n =
+0..K in redsim (all exact up to n = 40, the divider up to n = 12), `--card-max-n K` writes the
+family card (`extend` headers), `members <paths>` lists archived instances (any layout) and
+`prune --members FILE` removes them (design, every TSV row, picture) unless one is also the
+smallest clock of its period outside the family.
 
 ### Every period P >= 4 (constructions, `mctas clock obs every --min 8 --max 200`)
 

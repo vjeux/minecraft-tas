@@ -1,0 +1,32 @@
+name: pocket0-set1
+covers: (0,-2)o2 (-3,1)o18 (0,-2)c2 (-3,1)c8
+port door: 0 0 0
+port lever: -3 -3 0
+origin: -3 0 0
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:stone
+  L minecraft:lever[face=ceiling,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:smooth_stone
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -3:
+  L
+layer -2:
+  SRACCC
+layer -1:
+  roC...C
+layer 0:
+  O..EEE
+layer 1:
+  BB.EEE.D
+layer 2:
+  .B.EEE.DD
+layer 3:
+  ...EEEs

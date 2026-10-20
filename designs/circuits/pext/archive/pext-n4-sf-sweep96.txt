@@ -1,0 +1,59 @@
+# archived 2026-10-20T01:58Z from designs/circuits/pext/work/n4-sfx-gen.txt by mctas circuit archive
+# CIRCUIT: pext-n4-sf-sweep96 piston-extender 4 N 4, extend 162 gt, retract 160 gt, 96 blocks, 11x5x7, robust
+name: pext-n4-sf-sweep96
+circuit: piston-extender 4
+travel: 1 0 0
+port input: 9 1 2 lever
+port payload: 5 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -1:
+  .
+  .
+  .
+  .
+  .
+  ....ooC
+  .
+layer 0:
+  .
+  ....CDB
+  ......B
+  ......B
+  ...BDDD
+  ...CO.C...s
+  .
+layer 1:
+  .
+  ....COO.C
+  ....AAA.A
+  BDSSSSG
+  B..BBBBBB
+  C..BOBCCooL
+  ...C.ooA
+layer 2:
+  .....BDD
+  ....COO.B
+  ........C
+  O.....C
+  ADDDDDDD
+  C...OOCAO
+  ...ooA
+layer 3:
+  .......O
+  ....ooOA
+  ......oAB
+  ......ADD
+  .
+  ooooO.ooO
+  .

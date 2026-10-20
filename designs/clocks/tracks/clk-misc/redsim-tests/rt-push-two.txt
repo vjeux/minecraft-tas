@@ -1,0 +1,14 @@
+name: rt-push-two
+# redsim test scene (not a clock): one piston head pushes two armor stands at once (both in the
+# swept box; list order) and a boat behind them; held 6 gt from tick 2, then retracts.
+port start: 0 1 0 minecraft:redstone_block 6 at 2
+entity: minecraft:armor_stand 2.6 1.0 0.3
+entity: minecraft:armor_stand 2.8 1.0 0.7
+entity: minecraft:oak_boat 4.6 1.0 0.5
+palette:
+  S minecraft:stone
+  P minecraft:sticky_piston[facing=east,extended=false]
+layer 0:
+  SSSSSSSSS
+layer 1:
+  .P.......

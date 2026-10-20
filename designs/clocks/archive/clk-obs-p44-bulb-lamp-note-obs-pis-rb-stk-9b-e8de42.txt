@@ -1,0 +1,36 @@
+# archived 2026-10-20T01:08Z from designs/clocks/tracks/clk-obs/families9/p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42.txt by mctas clock archive
+# CLOCK: clk-obs-p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42 period 44 gt (2.2 s), on 16/44, edges 8, warmup 3, family copper_bulb+note_block+observer+piston+redstone_block+redstone_lamp+sticky_piston, 9 blocks, 1x5x3, robust
+name: clk-obs-p44-bulb-lamp-note-obs-pis-rb-stk-9b-e8de42
+# clk-obs grow: P=44 (redsim), family note_block+observer+piston+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 15.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:redstone_block
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:piston[extended=false,facing=down]
+  E minecraft:sticky_piston[extended=false,facing=down]
+  F minecraft:observer[facing=down,powered=false]
+  G minecraft:redstone_lamp[lit=false]
+  H minecraft:note_block[instrument=harp,note=0,powered=false]
+layer -2:
+  A
+  .
+  .
+layer -1:
+  .
+  B
+  C
+layer 0:
+  D
+  .
+  E
+layer 1:
+  F
+  E
+  .
+layer 2:
+  G
+  H
+  .

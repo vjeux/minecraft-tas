@@ -9,14 +9,26 @@
 pub mod behavior;
 pub mod block;
 pub mod classes;
+pub mod entity;
+pub mod fluid;
 pub mod gravity;
 pub mod links;
 pub mod piston;
 pub mod pos;
+pub mod daylight;
+pub mod explosion;
+pub mod fence;
+pub mod loot;
+pub mod loot_gen;
+pub mod rails;
+pub mod react;
 pub mod redstone;
+pub mod rng;
+pub mod robust;
 pub mod sculk;
 pub mod snapshot;
 pub mod ticks;
+pub mod tnt;
 pub mod world;
 
 pub use block::{Block, Kind};

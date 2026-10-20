@@ -69,16 +69,55 @@ impl World {
         for e in self.events.iter() {
             e.hash(h);
         }
+        // fluid ticks (only when there are any: designs without water keep their keys)
+        let fticks = self.fluid_ticks.all();
+        if !fticks.is_empty() {
+            0xf1u8.hash(h);
+            (fticks.len() as u32).hash(h);
+            let mut rank = 0u32;
+            let mut last_trigger = i64::MIN;
+            for t in &fticks {
+                if t.trigger != last_trigger {
+                    rank = 0;
+                    last_trigger = t.trigger;
+                }
+                (t.trigger - now, rank, t.pos, t.kind).hash(h);
+                rank += 1;
+            }
+        }
         let mut comps: Vec<_> = self.comparator_out.iter().map(|(p, v)| (*p, *v)).collect();
         comps.sort();
         comps.hash(h);
         self.containers.key_into(now, h);
+        // daylight detectors read only when the game time is a multiple of 20
+        if self.watch_light {
+            (0xd1u8, now.rem_euclid(20)).hash(h);
+        }
         let toggles: Vec<_> = self.torch_toggles.iter().filter(|(_, when)| now - when <= TORCH_WINDOW).map(|(p, when)| (*p, now - when)).collect();
         toggles.hash(h);
         self.piston.key_into(now, h);
         self.gravity.key_into(h);
+        // entities (only when there are any: designs without entities keep their keys); every
+        // field by its exact bits (Debug prints round-trip floats), payloads included
+        if !self.entities.list.is_empty() {
+            0xe7u8.hash(h);
+            for e in self.entities.list.iter().filter(|e| !e.removed) {
+                let mut k = e.clone();
+                k.id = 0;
+                k.tick_count = 0;
+                format!("{k:?}").hash(h);
+            }
+        }
         self.sculk.key_into(now, h);
         (self.drops.len() as u32).hash(h);
         (self.errors.len() as u32).hash(h);
+        // TNT primed in the tick just run (only when there are any: designs without TNT keep
+        // their keys). Not the running count: a duper primes every period and its key must
+        // repeat; the primed TNT themselves are gone (the judge removes them).
+        if self.primed.last().is_some_and(|(t, _)| *t == now) {
+            0x7au8.hash(h);
+            let recent: Vec<crate::pos::BlockPos> = self.primed.iter().filter(|(t, _)| *t == now).map(|(_, p)| *p).collect();
+            recent.hash(h);
+        }
     }
 }

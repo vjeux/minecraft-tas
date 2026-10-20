@@ -173,6 +173,8 @@ pub fn neighbor_changed(w: &mut World, s: Block, pos: BlockPos, _src: Kind, _mov
     if can_survive(w, pos) {
         check_tick_on_neighbor(w, pos, s);
     } else {
+        // dropResources: its loot's stacks pop (level-random draws, seeded items)
+        w.drop_resources(pos, s);
         w.drops.push((pos, s));
         w.remove_block(pos, false);
         for d in Dir::ALL {

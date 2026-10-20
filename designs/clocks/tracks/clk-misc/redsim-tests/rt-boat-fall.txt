@@ -1,0 +1,9 @@
+name: rt-boat-fall
+# redsim test scene (not a clock): a boat dropped 3 blocks onto a stone floor (IN_AIR -> ON_LAND).
+entity: minecraft:oak_boat 1.5 3.0 1.5
+palette:
+  S minecraft:stone
+layer 0:
+  SSS
+  SSS
+  SSS

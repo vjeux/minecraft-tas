@@ -1,0 +1,65 @@
+name: pext-n6-sf-sweep214
+circuit: piston-extender 6
+travel: 1 0 0
+port input: 13 1 2 lever
+port payload: 7 1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -1:
+  .
+  ...ooCooC
+  ........oooC
+  ........ADDDDD
+  .............A
+  ....ooC.ooC
+  .
+layer 0:
+  .
+  ...OCCO.CBB
+  ...AADDDDDBC
+  ........O.B
+  ...BDDDDDDD..O
+  ...CO.CCO.C...s
+  .....ooA
+layer 1:
+  .....C.ooB
+  ....CAOACOO.C
+  ...OAAAAAAACA
+  BDSSSSSSG
+  B..BBBBBBBBBBO
+  C..BOBCBOBCCooL
+  ...C.O.C.ooA
+layer 2:
+  .....ooB
+  ....C.OOC.O.B
+  ...ODDDDD..CC
+  O.....CCC.C
+  ADDDDDDDDDDDoO
+  C...OOC.OOCAO
+  ...ooA.ooA
+layer 3:
+  .
+  ....ooO.ooO
+  ......BDO..CB
+  ......BAA.BDD
+  ......C...ooO
+  ooooO.ooO.ooO
+  .
+layer 4:
+  .
+  .
+  .......BDDDD
+  .......OO
+  ......ooA
+  .
+  .

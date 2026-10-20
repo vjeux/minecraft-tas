@@ -105,6 +105,10 @@ pub struct SatwireArgs {
     /// in-plane cell, e.g. the piston it sits behind).
     #[arg(long)]
     keep_ideal: Option<String>,
+    /// Sculk sensors only in these cells "x,y;x,y" (with sculk/csculk in --palette): a solid
+    /// wiring plus sensors in one pocket, much cheaper than sculk everywhere.
+    #[arg(long)]
+    sound_cells: Option<String>,
     /// Exact timing (--dmax 0 --skip 0): a candidate the judge rejects blocks only its choices
     /// within 3 cells of the first piston that misbehaves in its real run.
     #[arg(long)]
@@ -304,6 +308,7 @@ fn satwire_one(version: &str, args: SatwireArgs, hold_cells: Option<Option<Vec<(
         motion: !recorded_power,
         clusters: !one_warp && !check,
         full_frame,
+        sound_cells: args.sound_cells.as_deref().map(piston_door::fill::parse_cells).transpose()?,
     };
     let mut p = sw::build_prob(rec, &po)?;
     if (keep_ideal.is_some() || retime) && !from_wired && families.is_none() {
@@ -347,7 +352,7 @@ fn satwire_check_all(version: &str, args: SatwireArgs) -> Result<()> {
     use crate::satwire as sw;
     // with --update-order: the synthesis model must accept each design's own wiring
     sw::EXPLAIN.store(update_order, std::sync::atomic::Ordering::Relaxed);
-    let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,dot,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,traptop,dropper,obsidian,glass,leaves,upiston,rblock")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false };
+    let po = sw::ProbOpts { bx: None, palette: sw::palette("block,dust,dot,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,traptop,dropper,obsidian,glass,leaves,upiston,rblock")?, forbid_ring: false, hall_ring: false, levers: None, lever_oop: true, dmax: 0, skip: 0, settle, qc: !no_qc, levels, blocked_dc: false, motion: !recorded_power, clusters: false, full_frame: false, sound_cells: None };
     let next = std::sync::atomic::AtomicUsize::new(0);
     let out = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|sc| {
@@ -401,6 +406,7 @@ fn satwire_batch(version: &str, args: SatwireArgs, hold_cells: Option<Option<Vec
         motion: !recorded_power,
         clusters: !one_warp,
         full_frame,
+        sound_cells: args.sound_cells.as_deref().map(piston_door::fill::parse_cells).transpose()?,
     };
     std::thread::scope(|sc| {
         for _ in 0..jobs.min(mechanism.len()) {

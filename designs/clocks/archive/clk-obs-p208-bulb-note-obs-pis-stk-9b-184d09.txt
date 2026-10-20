@@ -1,0 +1,30 @@
+# archived 2026-10-19T23:59Z from designs/clocks/tracks/clk-obs/families9/p208-bulb-note-obs-pis-stk-9b-184d09.txt by mctas clock archive
+# CLOCK: clk-obs-p208-bulb-note-obs-pis-stk-9b-184d09 period 208 gt (10.4 s), on 88/208, edges 44, warmup 27, family copper_bulb+note_block+observer+piston+sticky_piston, 9 blocks, 1x3x4, robust
+name: clk-obs-p208-bulb-note-obs-pis-stk-9b-184d09
+# clk-obs grow: P=208 (redsim), family note_block+observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:note_block[instrument=harp,note=0,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  A
+  B
+  C
+  .
+layer 1:
+  D
+  E
+  E
+  F
+layer 2:
+  .
+  B
+  .
+  G

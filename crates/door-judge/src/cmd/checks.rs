@@ -8,6 +8,34 @@ use piston_door::*;
 use std::path::PathBuf;
 
 #[derive(clap::Args)]
+pub struct ProvenanceArgs {
+    /// The archive folder.
+    #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+    archive: PathBuf,
+    /// Community root designs (their mechanisms; archived copies named community* / c79-community*
+    /// are added).
+    #[arg(long, value_delimiter = ',', default_value = "designs/piston-door-3x3/tracks/c79/c79-closed.txt,designs/piston-door-3x3/tracks/c70b/community-7x8.txt")]
+    roots: Vec<PathBuf>,
+    #[arg(long, default_value = "designs/piston-door-3x3/archive/provenance.tsv")]
+    out: PathBuf,
+    #[arg(long, default_value_t = 16)]
+    threads: usize,
+    /// A mechanism within this many pieces (symmetric difference, mirrors merged) of a root's is
+    /// community-derived (2 = one piston moved).
+    #[arg(long, default_value_t = 2)]
+    near: usize,
+    /// No lineage step (by default a design within --near pieces of, or with the paths of, a
+    /// community-derived one is community-derived too, to a fixpoint).
+    #[arg(long)]
+    no_propagate: bool,
+}
+
+pub fn cmd_provenance(args: ProvenanceArgs) -> Result<()> {
+    let ProvenanceArgs { archive, roots, out, threads, near, no_propagate } = args;
+    crate::provenance::run(&archive, &roots, &out, threads, near, !no_propagate)
+}
+
+#[derive(clap::Args)]
 pub struct AuditArgs {
     /// Design files or folders (default: tracks/c79/c79-closed.txt).
     designs: Vec<PathBuf>,
@@ -37,10 +65,17 @@ pub struct AuditArgs {
     /// Print one design's extracted mechanism (paths, moves, providers, membership) instead.
     #[arg(long)]
     explain: bool,
+    /// Generator membership of piece lists instead (ideal-input designs): lines
+    /// `W H x0 y0 piece piece ...` (box in door coordinates).
+    #[arg(long)]
+    member: Option<PathBuf>,
 }
 
 pub fn cmd_audit(version: &str, args: AuditArgs) -> Result<()> {
-    let AuditArgs { designs, sections, jvm, out, tsv, threads, cap, src, only_flat, explain } = args;
+    let AuditArgs { designs, sections, jvm, out, tsv, threads, cap, src, only_flat, explain, member } = args;
+    if let Some(m) = member {
+        return crate::audit::member_file(&m);
+    }
     let designs = if designs.is_empty() { vec![PathBuf::from("designs/piston-door-3x3/tracks/c79/c79-closed.txt")] } else { designs };
     if explain {
         for d in &designs {

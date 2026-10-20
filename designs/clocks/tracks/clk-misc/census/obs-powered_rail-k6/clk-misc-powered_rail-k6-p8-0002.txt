@@ -1,0 +1,19 @@
+name: clk-misc-powered_rail-k6-p8-0002
+# clk-obs census (k=6, palette obs,stone,minecraft:powered_rail[shape=east_west]): P=8 (redsim), family observer+powered_rail, kick last 0 0 0, swept volume 6.
+origin: 0 0 0
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:stone
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  D
+  D
+  E

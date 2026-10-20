@@ -1,0 +1,35 @@
+# archived 2026-10-19T19:46Z from designs/clocks/tracks/clk-rt/families/div-fade.txt by mctas clock archive
+# CLOCK: clk-rt-div-fade period 228 gt (11.4 s), on 114/228, edges 1, warmup 6, family comparator+redstone_torch+redstone_wire+repeater, 36 blocks, 6x2x5, robust
+# EXTENDABLE divider chain, n = 1 stages on a comparator fading ring (P114): P = 114 x 2^n; each
+# stage a master-slave T flip-flop (18 blocks)
+name: clk-rt-div-fade
+extend base: 1
+extend blocks: 18 + 18n
+extend family: clk-rt-div-fade
+extend generator: mctas clock rt family div-fade --n {n} --out {out}
+extend n: 1..5
+extend period: 114 * 2^n
+extend rule: append one master-slave T flip-flop stage (18 blocks) to the chain on the P114 comparator fading ring: the period doubles
+port output: 3 1 -4
+origin: 0 0 -4
+palette:
+  A minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  T minecraft:target
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  r minecraft:redstone_wire
+layer 0:
+  ....SS
+  ..SSSS
+  ...SS
+  SSS
+  SSSSS
+layer 1:
+  ..TRrr
+  ..rAAr
+  ...BB
+  rccSR
+  rCCrr

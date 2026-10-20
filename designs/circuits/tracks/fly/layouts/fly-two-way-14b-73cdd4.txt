@@ -1,0 +1,64 @@
+# archived 2026-10-20T03:23Z from designs/circuits/tracks/fly/two-way/fly-two-way-73cdd4.txt by mctas circuit archive
+# CIRCUIT: fly-two-way-14b-73cdd4 flying-machine two-way period 200 gt over 9 positions, latency 2 gt, 14 blocks, 2x3x12, robust
+name: fly-two-way-14b-73cdd4
+circuit: flying-machine
+distance: 24
+travel: 0 0 1
+port start: 0 2 0 minecraft:stone 1
+port station.0: 0 1 5
+port station.1: 0 2 -5
+port station.2: 0 2 -4
+port station.3: 0 2 -3
+port station.4: 1 1 -4
+port station.5: 1 2 4
+port station.6: 1 2 5
+port station.7: 1 2 6
+origin: 0 0 -5
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:obsidian
+  D minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  .
+  .
+  .
+  .
+  .
+  SD
+  sS
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  .
+  .C
+  .
+  .
+  .
+  B
+  .B
+  .
+  .
+  .
+  C
+  .
+layer 2:
+  O
+  o
+  C
+  .
+  .
+  .
+  .
+  .
+  .
+  .C
+  .A
+  .O

@@ -87,7 +87,7 @@ impl Pc {
             K::Piston { sticky, f, ext } => format!("{}{}{}({},{})", if sticky { "S" } else { "N" }, FNAME[f as usize], if ext { "+" } else { "" }, self.x, self.y),
         }
     }
-    fn cells(&self) -> Vec<(i8, i8)> {
+    pub(crate) fn cells(&self) -> Vec<(i8, i8)> {
         match self.k {
             K::Piston { ext: true, f, .. } => vec![(self.x, self.y), (self.x + F[f as usize].0, self.y + F[f as usize].1)],
             _ => vec![(self.x, self.y)],
@@ -166,15 +166,19 @@ pub struct Mech {
 /// (TR / MR released by the lever), so the retracted-only generator left both out.
 pub static EXT_PULLERS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 /// `--ext-max`: the most 1-move exits by a puller EXTENDED at rest per mechanism (each needs the
-/// level to hold it; c79 has 2: its MR and TR pullers, the community 7x8 1: its TR puller). Bounds
-/// the generator's blow-up: every non-core block's 1-move exit has twice the choices with
-/// extended pullers allowed (7x8, P <= 10, two 1: 124k candidates retracted-only, 690k with 1,
-/// 1.75M with 2 (61 s on 4 threads, 2.3 GB), unbounded > 7 min single-threaded unfinished).
-pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(2);
-/// `--ext-apart` turns this off: by default a second 1-move exit by an extended puller must sit
-/// next to the first (8-neighbourhood), as one level holds both (c79's MR/TR pullers (4,1)/(4,2)
-/// are adjacent). 7x8 (P <= 10, two 1, --ext-max 2): 845k candidates instead of 1.75M.
+/// level to hold it; the lever-held top of e78 / t7b / ring56 has 3: TL/TM/TR's pullers, c79 2:
+/// its MR and TR pullers, the community 7x8 1: its TR puller). Bounds the generator's blow-up:
+/// every non-core block's 1-move exit has twice the choices with extended pullers allowed.
+/// 7x8 (P <= 10, two 1; adjacent pullers, below): 124k candidates retracted-only, 690k with 1,
+/// 845k with 2, 870k with 3; with `--ext-apart` and 2: 1.75M; unbounded and apart, the generator
+/// ran > 7 min single-threaded without finishing.
+pub static EXT_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+/// `--ext-apart` turns this off: by default every 1-move exit by an extended puller after the
+/// first must sit next to an earlier one (8-neighbourhood), as one level holds them all (c79's
+/// MR/TR pullers (4,1)/(4,2); the lever-held top row (0..2,4)).
 pub static EXT_ADJACENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// `--ext-dist`: how near an earlier extended-puller exit each later one must be (Chebyshev).
+pub static EXT_DIST: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 /// `--bottom-su` (mechspace): exactly one piston in the box's bottom row, sticky facing up.
 pub static BOTTOM_SU: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--lift-ext` (audit bound a): a piston extended at rest may be reused lifted / carried (it
@@ -183,6 +187,40 @@ pub static LIFT_EXT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBo
 /// `--carry-in` (audit bound b, with --carry): a new provider piston may rest 1-2 cells beside its
 /// action position and be carried there.
 pub static CARRY_IN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--ring-escape`: a piston resting IN a ring cell (it must be gone when open) gets escape
+/// providers: carried 1-2 cells along the ring row / column into a ring corner or straight out of
+/// the frame, by a pull carrier 2 ahead or a push carrier 1 behind (that carrier escapes too when
+/// it rests in the ring). c77's 7x7 w1: P (1,-1) is push-spit by Q (0,-1) to (2,-1) and pulled to
+/// the corner (3,-1) by R (4,-1); Q is pulled to (-1,-1) by L (-2,-1).
+pub static RING_ESCAPE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--ring-escape`: most escapes (ring-resting pistons given a way out) per candidate.
+pub static RING_ESCAPE_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+/// `--ring-escape-only`: emit only candidates with at least one ring escape (the new space; the
+/// plain candidates are the default run's).
+pub static RING_ESCAPE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--feedable`: keep only candidates whose every piston has a cell wiring could feed it from at
+/// rest (see [`feedable`]).
+pub static FEEDABLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `--feedable` (c77's filter for the 7x7 wiggle doors): every piston of `v` has a FEED cell at
+/// rest: a neighbour (not its head side) or, by quasi-connectivity, the cell above it or one of
+/// that cell's neighbours, which is free (in the box, outside the 3x3, no piece) and either off
+/// the ring or a ring cell with a free off-ring neighbour (a static frame stone a margin
+/// component can strongly power). Structural and optimistic: the real check is the solved
+/// cycle's (`connect`, the catalog's wire column).
+pub fn feedable(bx: Bx, v: &[Pc]) -> bool {
+    let occ: HashSet<(i8, i8)> = v.iter().flat_map(|p| p.cells()).collect();
+    let free0 = |c: (i8, i8)| bx.has(c.0, c.1) && !in_t(c.0, c.1) && !occ.contains(&c);
+    let free = |c: (i8, i8)| free0(c) && (!in_r(c.0, c.1) || F.iter().any(|d| free0((c.0 + d.0, c.1 + d.1)) && !in_r(c.0 + d.0, c.1 + d.1)));
+    v.iter().all(|p| {
+        let K::Piston { f, .. } = p.k else { return true };
+        let head = F[f as usize];
+        let side = F.iter().filter(|&&d| d != head).any(|d| free((p.x + d.0, p.y + d.1)));
+        let a = (p.x, p.y + 1);
+        let qc = free(a) || F.iter().any(|d| (a.0 + d.0, a.1 + d.1) != (p.x, p.y) && free((a.0 + d.0, a.1 + d.1)));
+        side || qc
+    })
+}
 
 /// `families --rows --forbid-fire`: x columns (door coordinates) no piston may fire from.
 pub static FORBID_X: std::sync::OnceLock<Vec<i8>> = std::sync::OnceLock::new();
@@ -1323,7 +1361,7 @@ struct Gen {
     /// Middle-row side blocks that must leave vertically (`--vmid`).
     vmid: Vec<(i8, i8)>,
     out: HashSet<Vec<Pc>>,
-    memo: HashSet<(usize, (usize, Option<(i8, i8)>), Vec<Pc>)>,
+    memo: HashSet<(usize, Vec<(i8, i8)>, Vec<Pc>)>,
     order: Vec<(i8, i8)>,
     /// `door audit`: only pieces of this set may be added (membership of a known door's
     /// mechanism in the generator's space, without enumerating the whole space).
@@ -1594,18 +1632,58 @@ impl Gen {
         v
     }
 
+    /// `--ring-escape`: every way to give the ring-resting pistons of `v` (not yet in `done`) an
+    /// escape: carried 1-2 cells along u into a cell outside the 3x3 and the ring (a ring corner,
+    /// or straight out of the frame), through ring cells only; new carriers resting in the ring
+    /// escape in turn, at most `left` escapes in all. Only complete sets are returned.
+    fn escapes(&self, v: &[Pc], done: Vec<(i8, i8)>, left: usize) -> Vec<Vec<Pc>> {
+        let Some(r) = v.iter().find(|p| matches!(p.k, K::Piston { .. }) && in_r(p.x, p.y) && !done.contains(&(p.x, p.y))).map(|p| (p.x, p.y)) else {
+            return if done.is_empty() { Vec::new() } else { vec![v.to_vec()] };
+        };
+        if left == 0 || n_pistons(v) >= self.pmax {
+            return Vec::new();
+        }
+        let mut done2 = done.clone();
+        done2.push(r);
+        let mut out = Vec::new();
+        for u in F {
+            for k in 1..=2i8 {
+                let dest = (r.0 + k * u.0, r.1 + k * u.1);
+                let via_ok = (1..k).all(|j| in_r(r.0 + j * u.0, r.1 + j * u.1));
+                if !via_ok || in_t(dest.0, dest.1) || in_r(dest.0, dest.1) || !self.bx.has(dest.0, dest.1) {
+                    continue;
+                }
+                for w in self.carry_by(v, r, u, k, 1) {
+                    out.extend(self.escapes(&w, done2.clone(), left - 1));
+                }
+            }
+        }
+        out
+    }
+
     /// The other perimeter blocks: a 1-move exit by a pull-type puller (retracted, or extended at
-    /// rest while `ext.0` allows, next to the first such puller `ext.1` under `--ext-adjacent`),
-    /// or, while the budget allows (`two_left`), a 2-move path with any providers.
-    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: (usize, Option<(i8, i8)>)) {
+    /// rest: at most `--ext-max` of those, each next to an earlier one (`ext` = their cells)
+    /// unless `--ext-apart`), or, while the budget allows (`two_left`), a 2-move path with any
+    /// providers.
+    fn others(&mut self, i: usize, v: Vec<Pc>, two_left: usize, ext: Vec<(i8, i8)>) {
         if n_pistons(&v) > self.pmax {
             return;
         }
         if i == self.order.len() {
-            self.out.insert(v);
+            let feed = FEEDABLE.load(Ordering::Relaxed);
+            if RING_ESCAPE.load(Ordering::Relaxed) {
+                for w in self.escapes(&v, Vec::new(), RING_ESCAPE_MAX.load(Ordering::Relaxed)) {
+                    if !feed || feedable(self.bx, &w) {
+                        self.out.insert(w);
+                    }
+                }
+            }
+            if (!feed || feedable(self.bx, &v)) && !RING_ESCAPE_ONLY.load(Ordering::Relaxed) {
+                self.out.insert(v);
+            }
             return;
         }
-        if !self.memo.insert((i, ext, v.clone())) {
+        if !self.memo.insert((i, ext.clone(), v.clone())) {
             return;
         }
         let b = self.order[i];
@@ -1617,7 +1695,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left, ext);
+                    self.others(i + 1, w, two_left, ext.clone());
                 }
             }
             return;
@@ -1630,17 +1708,21 @@ impl Gen {
             let a = (b.0 + 2 * d.0, b.1 + 2 * d.1);
             for is_ext in [false, true] {
                 if is_ext {
-                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.0 == 0 {
+                    if !EXT_PULLERS.load(Ordering::Relaxed) || ext.len() >= EXT_MAX.load(Ordering::Relaxed) {
                         continue;
                     }
-                    if let Some(f) = ext.1
-                        && EXT_ADJACENT.load(Ordering::Relaxed)
-                        && ((f.0 - a.0).abs() > 1 || (f.1 - a.1).abs() > 1)
-                    {
+                    let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
+                    if EXT_ADJACENT.load(Ordering::Relaxed) && !ext.is_empty() && !ext.iter().any(|f| (f.0 - a.0).abs() <= dist && (f.1 - a.1).abs() <= dist) {
                         continue;
                     }
                 }
-                let ext2 = if is_ext { (ext.0 - 1, ext.1.or(Some(a))) } else { ext };
+                let ext2 = if is_ext {
+                    let mut e = ext.clone();
+                    e.push(a);
+                    e
+                } else {
+                    ext.clone()
+                };
                 if let Some(w) = self.add(&v, Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(d)), ext: is_ext } }) {
                     self.others(i + 1, w, two_left, ext2);
                 }
@@ -1652,7 +1734,7 @@ impl Gen {
                     continue;
                 }
                 for w in self.provide_path(&v, b, &path) {
-                    self.others(i + 1, w, two_left - 1, ext);
+                    self.others(i + 1, w, two_left - 1, ext.clone());
                 }
             }
         }
@@ -1721,7 +1803,7 @@ fn generate_one_in(bx: Bx, pmax: usize, lifts: bool, pushes: bool, two: usize, c
                         if n_pistons(&c) > pmax {
                             continue;
                         }
-                        g.others(0, c, two, (EXT_MAX.load(Ordering::Relaxed), None));
+                        g.others(0, c, two, Vec::new());
                     }
                     g.out
                 })
@@ -1831,6 +1913,42 @@ pub fn explain_within(bx: Bx, pmax: usize, two: usize, carry: usize, allow: &Has
         if twos > two {
             why.push(format!("{twos} perimeter blocks need a 2-move path (budget --two {two})"));
         }
+        // the extended-puller exits' bound (--ext-max, adjacency)
+        if EXT_PULLERS.load(Ordering::Relaxed) {
+            let mut cells: Vec<(i8, i8)> = Vec::new();
+            for &b in &order {
+                for dd in F {
+                    let c = (b.0 + dd.0, b.1 + dd.1);
+                    let a = (b.0 + 2 * dd.0, b.1 + 2 * dd.1);
+                    if !in_t(c.0, c.1) && !cells.contains(&a) && target.contains(&Pc { x: a.0, y: a.1, k: K::Piston { sticky: true, f: opp(fdir(dd)), ext: true } }) {
+                        cells.push(a);
+                    }
+                }
+            }
+            let max = EXT_MAX.load(Ordering::Relaxed);
+            if cells.len() > max {
+                why.push(format!("{} 1-move exits by pullers EXTENDED at rest > --ext-max {max}", cells.len()));
+            }
+            // connected within --ext-dist (the generator adds each near an earlier one)
+            let dist = EXT_DIST.load(Ordering::Relaxed) as i8;
+            let mut seen = vec![false; cells.len()];
+            if !cells.is_empty() {
+                seen[0] = true;
+                let mut grew = true;
+                while grew {
+                    grew = false;
+                    for j in 0..cells.len() {
+                        if !seen[j] && (0..cells.len()).any(|k| seen[k] && (cells[k].0 - cells[j].0).abs() <= dist && (cells[k].1 - cells[j].1).abs() <= dist) {
+                            seen[j] = true;
+                            grew = true;
+                        }
+                    }
+                }
+            }
+            if EXT_ADJACENT.load(Ordering::Relaxed) && seen.iter().any(|s| !s) {
+                why.push("its extended-puller exits are not next to each other (each must touch an earlier one unless --ext-apart)".into());
+            }
+        }
         // pieces no option uses
         if why.is_empty() {
             let mut used: HashSet<Pc> = HashSet::new();
@@ -1915,10 +2033,13 @@ pub struct Wire {
     pub forced: usize,
     /// Pistons fed from more than one position (riders).
     pub riders: usize,
+    /// Receivers (a piston at one firing cell) whose largest feeding free-cell region has fewer
+    /// than 3 cells (unfed ones included): pockets3's wirability bar.
+    pub weak: usize,
     pub why: String,
 }
 
-fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
+pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     let bx = m.bx;
     let n = bx.n();
     // the two runs of the train (or open then close)
@@ -2081,12 +2202,13 @@ fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
     }
     let mut sorted = sizes.clone();
     sorted.sort_unstable_by(|a, b| b.cmp(a));
+    let weak = used.iter().filter(|&&k| feeds[k].iter().map(|&r| sizes[r]).max().unwrap_or(0) < 3).count();
     if !why.is_empty() {
-        return Wire { class: 'X', regions: sorted, forced: 0, riders, why: why.join("; ") };
+        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, why: why.join("; ") };
     }
     // one region feeding everything?
     if (0..nr).any(|r| used.iter().all(|&k| feeds[k].contains(&r))) {
-        return Wire { class: 'A', regions: sorted, forced: 1, riders, why: "one region feeds every piston".into() };
+        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, why: "one region feeds every piston".into() };
     }
     // forced regions: the only region of some receiver
     let mut forced: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -2143,7 +2265,7 @@ fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
         }
     }
     let (class, w) = best.unwrap_or(('X', "no region".into()));
-    Wire { class, regions: sorted, forced: forced.len(), riders, why: w }
+    Wire { class, regions: sorted, forced: forced.len(), riders, weak, why: w }
 }
 
 fn wireability(m: &Mech, rest: &St, sol: &Sol) -> (usize, usize) {

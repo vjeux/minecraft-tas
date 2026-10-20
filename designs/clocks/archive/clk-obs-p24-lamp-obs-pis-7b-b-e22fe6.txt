@@ -1,0 +1,30 @@
+# archived 2026-10-19T20:04Z from designs/clocks/tracks/clk-obs/mech2/p24-lamp-obs-pis-7b-b-e22fe6.txt by mctas clock archive
+# CLOCK: clk-obs-p24-lamp-obs-pis-7b-b-e22fe6 period 24 gt (1.2 s), on 12/24, edges 6, warmup 17, family observer+piston+redstone_lamp, 7 blocks, 1x4x3, robust
+name: clk-obs-p24-lamp-obs-pis-7b-b-e22fe6
+# P24: 4 observers, 2 pistons, 1 redstone lamp; changing in place: observer, piston, redstone_lamp. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
+origin: 0 0 0
+port output: 0 0 1
+port start: 0 0 0 last
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:piston[extended=false,facing=down]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:piston[extended=false,facing=up]
+  E minecraft:observer[facing=down,powered=false]
+  F minecraft:redstone_lamp[lit=false]
+layer -1:
+  .
+  A
+  .
+layer 0:
+  B
+  C
+  D
+layer 1:
+  E
+  A
+  .
+layer 2:
+  F
+  .
+  .

@@ -1,0 +1,54 @@
+# m81.ideal (= m78.ideal with W' lifting BR instead of V + P3t'): lever flip + ideal inputs (redstone blocks at z = -1 behind the piston's current cell).
+# QC couplings used on purpose: s1 (4,1) fires RP0 (4,0) below it; U1 (-2,1) fires U0 (-2,0) below it.
+design designs/piston-door-3x3/tracks/w86/m69t/m81.txt
+# phase between: V (3,4) sits on P3t' (3,3) (QC-coupled); a tile-phase torch input wakes P3t' before V, a real
+# observer feed into V (update in front first) does not
+phase between
+open 0 use 1 5 0
+# MB0 spits U0 into (-1,0); carried U0 spits the bottom row right (BR into (3,0)), pulls BL back to (0,0); MB0 pulls U0 home
+open 2 set -3 0 -1 minecraft:redstone_block
+open 4 clear -3 0 -1
+open 8 set -1 0 -1 minecraft:redstone_block
+open 10 clear -1 0 -1
+open 14 set -1 0 -1 minecraft:redstone_block
+open 16 clear -1 0 -1
+open 20 set -3 0 -1 minecraft:redstone_block
+open 22 clear -3 0 -1
+# M1 carries s1 into (3,1) [24,44); carried s1 spits row 1 left (ML into (-1,1)), pulls MR back to (2,1); P3b' lifts ML
+open 24 set 5 1 -1 minecraft:redstone_block
+open 30 set 3 1 -1 minecraft:redstone_block
+open 32 clear 3 1 -1
+open 36 set 3 1 -1 minecraft:redstone_block
+open 38 clear 3 1 -1
+open 36 set -1 3 -1 minecraft:redstone_block
+open 38 clear -1 3 -1
+open 44 clear 5 1 -1
+# U1 pulls C into (-1,1) (QC: U0 pulls BL into (-1,0))
+open 42 set -2 1 -1 minecraft:redstone_block
+open 44 clear -2 1 -1
+# W' (3,-1) spits BR up to (3,1); P3t' pulls it to (3,2)
+open 50 set 3 -1 -1 minecraft:redstone_block
+open 52 clear 3 -1 -1
+open 56 set 3 3 -1 minecraft:redstone_block
+open 58 clear 3 3 -1
+# s1 pulls MR into (3,1) (QC: RP0 pulls BM into (3,0))
+open 62 set 4 1 -1 minecraft:redstone_block
+open 64 clear 4 1 -1
+# close
+close 0 use 1 5 0
+# s1 spits MR to (2,1) (QC: RP0 spits BM to (2,0)); MB0 level [2,8): pushes U0 into (-1,0) and BL out to (0,0),
+# then takes U0 back home (U0 never fires alone on close: its only close firing rides U1's)
+close 2 set 4 1 -1 minecraft:redstone_block
+close 4 clear 4 1 -1
+close 2 set -3 0 -1 minecraft:redstone_block
+close 8 clear -3 0 -1
+# P3t' spits BR to (3,1); P3b' spits ML + C down
+close 8 set 3 3 -1 minecraft:redstone_block
+close 10 clear 3 3 -1
+close 14 set -1 3 -1 minecraft:redstone_block
+close 16 clear -1 3 -1
+# M1 level: line s1 + BR + MR (BR to (2,1), MR to (1,1)); U1 spits ML home (QC: U0 spits the line C + BL right)
+close 14 set 5 1 -1 minecraft:redstone_block
+close 22 clear 5 1 -1
+close 20 set -2 1 -1 minecraft:redstone_block
+close 22 clear -2 1 -1

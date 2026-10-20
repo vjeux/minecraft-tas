@@ -1,0 +1,17 @@
+name: rev-01ce95
+circuit: flying-machine
+distance: 16
+travel: 0 0 -1
+port start: -1 1 1 minecraft:redstone_block 2
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer 0:
+  O
+  .O
+layer 1:
+  SA
+  sS

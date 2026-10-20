@@ -1,0 +1,20 @@
+[package]
+name = "web-cli"
+description = "mctas web commands (the in-browser viewer, docs/webrender.md): clap definitions and dispatch only, compiled unoptimized; the work is in crates/mcview"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+mctas = { path = "../mctas" }
+clock = { path = "../clock" }
+mcview = { path = "../mcview" }
+redsim = { path = "../redsim" }
+circuit-fly = { path = "../circuit-fly" }
+circuit = { path = "../circuit" }
+zip.workspace = true
+serde_json.workspace = true
+libc = "0.2"

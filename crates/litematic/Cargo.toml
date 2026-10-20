@@ -1,0 +1,13 @@
+[package]
+name = "litematic"
+description = "Litematica schematics (.litematic, the format of Litematica for Minecraft 26.3) of the repository's designs: the writer (`mctas litematic export`), a reader for round-trip checks (`mctas litematic read|check`), binary NBT and SNBT (docs/litematic.md)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+mctas = { path = "../mctas" }

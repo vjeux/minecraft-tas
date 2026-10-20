@@ -1,0 +1,78 @@
+design designs/piston-door-3x3/tracks/w86/wip/a3.txt
+phase between
+# open
+open 2 set 0 4 1 minecraft:redstone_block
+open 6 clear 0 4 1
+open 2 set 4 2 1 minecraft:redstone_block
+open 6 clear 4 2 1
+open 8 set -1 2 1 minecraft:redstone_block
+open 12 clear -1 2 1
+open 14 set 1 3 1 minecraft:redstone_block
+open 18 clear 1 3 1
+open 20 set -1 2 1 minecraft:redstone_block
+open 26 clear -1 2 1
+open 30 set -1 4 1 minecraft:redstone_block
+open 34 clear -1 4 1
+open 36 set -2 2 1 minecraft:redstone_block
+open 40 clear -2 2 1
+open 42 set 1 4 1 minecraft:redstone_block
+open 48 set 1 2 1 minecraft:redstone_block
+open 52 clear 1 2 1
+open 56 clear 1 4 1
+open 62 set 1 3 1 minecraft:redstone_block
+open 66 clear 1 3 1
+open 70 set 3 3 1 minecraft:redstone_block
+open 74 clear 3 3 1
+open 76 set 5 3 1 minecraft:redstone_block
+open 80 clear 5 3 1
+open 82 set 4 3 1 minecraft:redstone_block
+open 86 clear 4 3 1
+open 88 set 1 4 1 minecraft:redstone_block
+open 92 clear 1 4 1
+open 94 set 2 4 1 minecraft:redstone_block
+open 98 clear 2 4 1
+open 100 set -2 1 1 minecraft:redstone_block
+open 104 clear -2 1 1
+open 100 set -2 0 1 minecraft:redstone_block
+open 104 clear -2 0 1
+open 100 set 4 1 1 minecraft:redstone_block
+open 104 clear 4 1 1
+open 100 set 4 0 1 minecraft:redstone_block
+open 104 clear 4 0 1
+# close
+close 2 set 2 4 1 minecraft:redstone_block
+close 4 clear 2 4 1
+close 8 set 1 4 1 minecraft:redstone_block
+close 10 clear 1 4 1
+close 14 set 4 3 1 minecraft:redstone_block
+close 16 clear 4 3 1
+close 20 set 5 3 1 minecraft:redstone_block
+close 22 clear 5 3 1
+close 26 set 3 3 1 minecraft:redstone_block
+close 28 clear 3 3 1
+close 32 set 1 3 1 minecraft:redstone_block
+close 34 clear 1 3 1
+close 38 set 1 4 1 minecraft:redstone_block
+close 44 set 1 2 1 minecraft:redstone_block
+close 46 clear 1 2 1
+close 50 clear 1 4 1
+close 56 set -2 2 1 minecraft:redstone_block
+close 58 clear -2 2 1
+close 62 set -1 4 1 minecraft:redstone_block
+close 64 clear -1 4 1
+close 68 set 4 2 1 minecraft:redstone_block
+close 70 clear 4 2 1
+close 74 set 1 3 1 minecraft:redstone_block
+close 76 clear 1 3 1
+close 80 set -1 2 1 minecraft:redstone_block
+close 82 clear -1 2 1
+close 86 set 0 4 1 minecraft:redstone_block
+close 88 clear 0 4 1
+close 92 set -2 1 1 minecraft:redstone_block
+close 94 clear -2 1 1
+close 92 set -2 0 1 minecraft:redstone_block
+close 94 clear -2 0 1
+close 92 set 4 1 1 minecraft:redstone_block
+close 94 clear 4 1 1
+close 92 set 4 0 1 minecraft:redstone_block
+close 94 clear 4 0 1

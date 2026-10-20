@@ -1,0 +1,108 @@
+# m69c.ideal: TL up (s0) t2; M3 holds P3t at (2,3) [m3, m3e); P3t pulls TL (0,3)->(1,3) at p1 (while at (2,3));
+# M3 off; P3t pulls TL (1,3)->(2,3) at p2 (at home); s1 pulls TM up at t1; M0 [mo, mf) with s0 pulls at s2, s3.
+# Bottom as m69b. Close = reverse.
+design designs/piston-door-3x3/tracks/s79/c69/m69c.txt
+phase tile
+let r = 2
+let u = 2
+let t0 = 2
+let m3 = 6
+let p1 = 10
+let m3e = 14
+let p2 = 18
+let t1 = 22
+let mo = 26
+let s2 = 30
+let mf = 34
+let s3 = 38
+let c3 = 6
+let bo = 12
+let u2 = 16
+let bf = 20
+let u3 = 24
+open 0 use 5 -3 0
+open r set 4 0 -1 minecraft:redstone_block
+open r+2 clear 4 0 -1
+open r set 4 1 -1 minecraft:redstone_block
+open r+2 clear 4 1 -1
+open r set 4 2 -1 minecraft:redstone_block
+open r+2 clear 4 2 -1
+open u set 0 -2 -1 minecraft:redstone_block
+open u+2 clear 0 -2 -1
+open u set 2 -2 0 minecraft:redstone_block
+open u+2 clear 2 -2 0
+open t0 set 0 4 -1 minecraft:redstone_block
+open t0+2 clear 0 4 -1
+open m3 set 4 4 0 minecraft:redstone_block
+open m3e clear 4 4 0
+open p1 set 2 3 -1 minecraft:redstone_block
+open p1+2 clear 2 3 -1
+open p2 set 3 3 -1 minecraft:redstone_block
+open p2+2 clear 3 3 -1
+open t1 set 1 4 -1 minecraft:redstone_block
+open t1+2 clear 1 4 -1
+open mo set 0 6 0 minecraft:redstone_block
+open mf clear 0 6 0
+open s2 set 0 4 -1 minecraft:redstone_block
+open s2+2 clear 0 4 -1
+open s3 set 0 4 -1 minecraft:redstone_block
+open s3+2 clear 0 4 -1
+open c3 set 3 -1 -1 minecraft:redstone_block
+open c3+2 clear 3 -1 -1
+open bo set 2 -3 0 minecraft:redstone_block
+open bf clear 2 -3 0
+open u2 set 1 -1 -1 minecraft:redstone_block
+open u2+2 clear 1 -1 -1
+open u3 set 2 -2 0 minecraft:redstone_block
+open u3+2 clear 2 -2 0
+let cs = 2
+let cmo = 6
+let cs2 = 10
+let cmf = 14
+let ct1 = 18
+let cp2 = 22
+let cm3 = 26
+let cp1 = 30
+let cm3e = 34
+let ct0 = 38
+let cu = 2
+let cbo = 6
+let cu2 = 10
+let cbf = 14
+let cpb = 18
+let cub = 22
+close 0 use 5 -3 0
+close cs set 0 4 -1 minecraft:redstone_block
+close cs+2 clear 0 4 -1
+close cmo set 0 6 0 minecraft:redstone_block
+close cmf clear 0 6 0
+close cs2 set 0 4 -1 minecraft:redstone_block
+close cs2+2 clear 0 4 -1
+close ct1 set 1 4 -1 minecraft:redstone_block
+close ct1+2 clear 1 4 -1
+close cp2 set 3 3 -1 minecraft:redstone_block
+close cp2+2 clear 3 3 -1
+close cm3 set 4 4 0 minecraft:redstone_block
+close cm3e clear 4 4 0
+close cp1 set 2 3 -1 minecraft:redstone_block
+close cp1+2 clear 2 3 -1
+close ct0 set 0 4 -1 minecraft:redstone_block
+close ct0+2 clear 0 4 -1
+close cu set 2 -2 0 minecraft:redstone_block
+close cu+2 clear 2 -2 0
+close cbo set 2 -3 0 minecraft:redstone_block
+close cbf clear 2 -3 0
+close cu2 set 1 -1 -1 minecraft:redstone_block
+close cu2+2 clear 1 -1 -1
+close cpb set 3 -1 -1 minecraft:redstone_block
+close cpb+2 clear 3 -1 -1
+close cub set 2 -2 0 minecraft:redstone_block
+close cub+2 clear 2 -2 0
+close 2 set 0 -2 -1 minecraft:redstone_block
+close 4 clear 0 -2 -1
+close 2 set 4 0 -1 minecraft:redstone_block
+close 4 clear 4 0 -1
+close 2 set 4 1 -1 minecraft:redstone_block
+close 4 clear 4 1 -1
+close 2 set 4 2 -1 minecraft:redstone_block
+close 4 clear 4 2 -1

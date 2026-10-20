@@ -1,0 +1,42 @@
+# c78L0: TM up (s pull) + left (TP pull), C up 2 (M lowers s, s pulls, M raises s, s pulls); close reverses. Real: U (lever repeater F), R0 (lever), R1/R2 (sensor chain), L0 (U watcher). Ideal: s, M, TP, L1/L2.
+design designs/piston-door-3x3/tracks/s79/c78l/c78L0.txt
+let a1 = 2
+let a2 = 6
+let a3 = 10
+let a4 = 14
+let a5 = 20
+let a6 = 24
+let l = 4
+let c1 = 2
+let c2 = 6
+let c3 = 10
+let c4 = 16
+let c5 = 20
+let c6 = 24
+let cl = 4
+open 0 use 5 -1 0
+open a1 set 1 4 -1 minecraft:redstone_block
+open a1+2 clear 1 4 -1
+open a2 set -1 3 -1 minecraft:redstone_block
+open a2+2 clear -1 3 -1
+open a3 set 2 5 0 minecraft:redstone_block
+open a5 clear 2 5 0
+open a4 set 1 3 -1 minecraft:redstone_block
+open a4+2 clear 1 3 -1
+open a6 set 1 4 -1 minecraft:redstone_block
+open a6+2 clear 1 4 -1
+open l set -2 2 -1 minecraft:redstone_block
+open l+2 clear -2 2 -1
+close 0 use 5 -1 0
+close c1 set 1 4 -1 minecraft:redstone_block
+close c1+2 clear 1 4 -1
+close c2 set 2 5 0 minecraft:redstone_block
+close c4 clear 2 5 0
+close c3 set 1 3 -1 minecraft:redstone_block
+close c3+2 clear 1 3 -1
+close c5 set -1 3 -1 minecraft:redstone_block
+close c5+2 clear -1 3 -1
+close c6 set 1 4 -1 minecraft:redstone_block
+close c6+2 clear 1 4 -1
+close cl set -2 2 -1 minecraft:redstone_block
+close cl+2 clear -2 2 -1

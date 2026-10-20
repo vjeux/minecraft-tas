@@ -1,0 +1,21 @@
+# archived 2026-10-19T23:48Z from designs/circuits/memory/tracks/memory/rs-dropper.txt by mctas circuit archive
+# CIRCUIT: rs-dropper rs-latch latency 6 gt, 4 blocks, 2x2x2, robust
+# Dropper RS latch, 4 blocks (track memory): droppers A (facing east) and B (facing west) face each other and hold one stone. s (next to A) fires A and the stone goes to B; r (next to B) fires B and it comes back; firing the empty one does nothing, so repeated s or r change nothing. A comparator on stone reads B: q is its output (1). Latency 6 gt (dropper 4 + comparator 2).
+name: rs-dropper
+circuit: rs-latch
+port input.s: -1 1 0
+port input.r: 2 1 0
+port output: 1 1 2
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  A minecraft:dropper[facing=east,triggered=false]
+  B minecraft:dropper[facing=west,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+layer 0:
+  ..
+  .S
+layer 1:
+  AB
+  .C

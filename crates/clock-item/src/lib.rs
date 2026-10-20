@@ -19,6 +19,7 @@
 pub mod ccensus;
 pub mod census;
 pub mod cli;
+pub mod extend;
 pub mod families;
 pub mod fill;
 pub mod jvm;

@@ -47,6 +47,9 @@ pub struct RunOk {
     pub output: Option<Output>,
     /// Width x height x depth of every cell non-air during the run (and the design's box).
     pub dims: [i32; 3],
+    /// A clock holding a sculk sensor: whether ambient game events leave its output alone in this
+    /// build ([`crate::vibration::game_property`]; a property, never a failure).
+    pub vibration: Option<crate::vibration::Property>,
 }
 
 impl RunOk {
@@ -127,6 +130,26 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
     d.blocks = c.design.blocks.keys().zip(turned.iter()).map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
     d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), crate::rotate_pos(*p, turns))).collect();
     d.block_entities = c.design.block_entities.iter().map(|(p, s)| (crate::rotate_pos(*p, turns), s.clone())).collect();
+    // design entities (minecarts...): positions by the same map in continuous coordinates (a turn
+    // takes cell (x, z) to (-z, x): (X, Z) -> (1 - Z, X), as the door judge turns them), their
+    // data (Rotation) by the game, their Motion turned here
+    if !c.design.entities.is_empty() {
+        let nbts = w.transform_entities(&c.design.entities, turns, false)?;
+        d.entities = c
+            .design
+            .entities
+            .iter()
+            .zip(nbts)
+            .map(|(e, nbt)| {
+                let mut p = e.pos;
+                for _ in 0..turns {
+                    p = [1.0 - p[2], p[1], p[0]];
+                }
+                let nbt = nbt.or_else(|| e.nbt.clone()).map(|s| crate::turn_motion(&s, turns));
+                mctas::design::EntitySpec { kind: e.kind.clone(), pos: p, nbt }
+            })
+            .collect();
+    }
     if let Some(Kick::Place { ticks, .. }) = &c.kick {
         let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
         d.meta.insert("port start".into(), format!("{} {ticks}{at}", turned.last().unwrap()));
@@ -163,7 +186,38 @@ pub fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
             merge(w)?;
         }
     }
+    // the design's entities (minecarts...), once the blocks stand (as the door judge summons them)
+    if !c.design.entities.is_empty() {
+        w.summon(sb, &c.design.entities)?;
+    }
     Ok(())
+}
+
+/// The end-of-run entity check: the design's own entities may stay (the same kinds and counts,
+/// inside the watched box); anything else (a drop, a popped block, a lost or extra cart) fails.
+fn entity_problem(c: &Clock, ents: &[mctas::sim::EntityInfo], from: Pos, to: Pos) -> Option<String> {
+    let norm = |k: &str| if k.contains(':') { k.to_string() } else { format!("minecraft:{k}") };
+    let mut want: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for e in &c.design.entities {
+        *want.entry(norm(&e.kind)).or_default() += 1;
+    }
+    let mut have: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    for e in ents {
+        *have.entry(norm(&e.kind)).or_default() += 1;
+    }
+    if want != have {
+        let list = |m: &std::collections::BTreeMap<String, usize>| if m.is_empty() { "none".to_string() } else { m.iter().map(|(k, n)| format!("{n} {}", short(k))).collect::<Vec<_>>().join(", ") };
+        let first = ents.iter().find(|e| want.get(&norm(&e.kind)).copied().unwrap_or(0) < have[&norm(&e.kind)]);
+        let at = first.map(|e| format!(" ({} at {:.1?})", short(&e.kind), e.pos)).unwrap_or_default();
+        return Some(format!("entities at the end: {} (the design has {}): a drop, a popped block or a lost/extra entity{at}", list(&have), list(&want)));
+    }
+    ents.iter()
+        .find(|e| (0..3).any(|i| e.pos[i] < from[i] as f64 || e.pos[i] >= to[i] as f64 + 1.0))
+        .map(|e| format!("{} at {:.1?} left the watched box (margin cells included)", short(&e.kind), e.pos))
+}
+
+fn short(k: &str) -> &str {
+    crate::short(k)
 }
 
 /// Apply one input of the start kick between ticks.
@@ -180,6 +234,15 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         }
         Action::Clear { pos } => {
             w.set_blocks(sb, &[(*pos, "minecraft:air".to_string())], PlaceMode::Update)?;
+        }
+        Action::ShapeSet { pos, state } => {
+            w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Shape)?;
+        }
+        Action::Update { pos } => {
+            w.update(sb, &[*pos], "neighbors")?;
+        }
+        Action::GameEvent { pos, event } => {
+            w.game_event_at(sb, event, &[*pos], true)?;
         }
     }
     Ok(())
@@ -315,14 +378,19 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         }
     }
     let ents = w.entities(sb)?;
-    if let Some(e) = ents.first() {
-        return Ok(Err(format!("{} entit{} appeared (a drop or a popped block): {} at {:?}", ents.len(), if ents.len() == 1 { "y" } else { "ies" }, e.kind, e.pos)));
+    if let Some(why) = entity_problem(c, &ents, from, to) {
+        return Ok(Err(why));
     }
     let (slo, shi) = (fr.slo, fr.shi);
     let end = c.free_from() as usize;
     let Some((w0, p)) = wave::detect_period(&fr.ids, end, o.min_periods) else {
         return Ok(Err(format!("not periodic for {} periods within {} gt", o.min_periods, o.horizon)));
     };
+    // designs with entities: the period must hold over at least the second half of the horizon
+    // (`sim::entity_clock_period`: a drifting entity can show a short pattern near the end)
+    if !c.design.entities.is_empty() && w0 > fr.ids.len() / 2 {
+        return Ok(Err(format!("not periodic over the second half of {} gt (period {p} only from {w0}: an entity that never repeats)", o.horizon)));
+    }
     // the cells: every cell non-air at some tick of one period, and the output cell; their states
     // over that period (index t - w0)
     let mut idxs: std::collections::BTreeSet<u32> = (w0..w0 + p).flat_map(|t| fr.sparse[t].iter().map(|(i, _)| *i)).collect();
@@ -345,7 +413,16 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         .collect();
     let int = &fr.int;
     let states: Vec<Vec<&str>> = per_frame.iter().map(|v| v.iter().map(|id| int.name(*id)).collect()).collect();
-    let analysis = wave::analyze(&cells, &states);
+    let mut analysis = wave::analyze(&cells, &states);
+    // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
+    // join the family (`detector_rail+minecart`)
+    for e in &c.design.entities {
+        let k = short(&e.kind).to_string();
+        if !analysis.family.contains(&k) {
+            analysis.family.push(k);
+        }
+    }
+    analysis.family.sort();
     if analysis.cells.is_empty() {
         return Ok(Err(if p == 1 { format!("goes still at tick {w0}") } else { format!("no block changes in its period ({p} gt)") }));
     }
@@ -381,7 +458,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         return Ok(Err(format!("COMPOSITE: the output {pos:?} repeats every {output_period} gt but the whole structure every {p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side)")));
     }
     let dims = [shi[0] - slo[0] + 1, shi[1] - slo[1] + 1, shi[2] - slo[2] + 1];
-    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims }))
+    // a sculk clock: the ambient property in this build (two more runs in fresh sandboxes; the
+    // events skip the swept box seen here)
+    let vibration = if crate::vibration::has_sculk(&c.design) { crate::vibration::game_property(w, c, o.margin, w0 as u32, p as u32, (slo, shi), output.as_ref().map(|o| o.pos))? } else { None };
+    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims, vibration }))
 }
 
 fn probe_now(w: &mut Worker, sb: u32, probes: &[Pos]) -> Result<Vec<u8>> {
@@ -414,6 +494,8 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     let mut o = o.clone();
     if r.verdict == Verdict::Clock {
         let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
+        // designs with entities must also repeat over the second half of the horizon
+        let need = if c.design.entities.is_empty() { need } else { need.max(2 * r.warmup.max(r.state_warmup) + 100) };
         o.horizon = o.horizon.max(need.min(20_000));
     }
     let o = &o;

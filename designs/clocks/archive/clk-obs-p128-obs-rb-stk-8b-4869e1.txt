@@ -1,0 +1,36 @@
+# archived 2026-10-19T23:13Z from designs/clocks/tracks/clk-obs/families9/p128-obs-rb-stk-8b-4869e1.txt by mctas clock archive
+# CLOCK: clk-obs-p128-obs-rb-stk-8b-4869e1 period 128 gt (6.4 s), on 56/128, edges 28, warmup 2, family observer+redstone_block+sticky_piston, 8 blocks, 1x3x6, robust
+name: clk-obs-p128-obs-rb-stk-8b-4869e1
+# clk-obs grow: P=128 (redsim), family observer+redstone_block+sticky_piston+waxed_copper_bulb, kick self, swept volume 18.
+origin: 0 0 0
+port output: 0 0 4
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:sticky_piston[extended=false,facing=south]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  G minecraft:redstone_block
+  H minecraft:sticky_piston[extended=false,facing=north]
+layer -1:
+  .
+  .
+  .
+  .
+  .
+  A
+layer 0:
+  B
+  C
+  D
+  .
+  E
+  F
+layer 1:
+  .
+  .
+  G
+  H
+  .
+  .
