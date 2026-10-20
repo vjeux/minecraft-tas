@@ -83,7 +83,7 @@ fn speed(b: &Build) -> f64 {
     let Some(c) = &b.circuit else { return f64::MAX };
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
-        "shulker-loader" | "shulker-unloader" => -num("items/s").unwrap_or(0.0),
+        "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),

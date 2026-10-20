@@ -178,7 +178,7 @@ pub fn stacks_of_be_checked(nbt: &str) -> std::result::Result<Vec<Stack>, String
 
 /// The stack an item entity carries (its `state` from the bridge: the saved data with `Item:{..}`).
 /// The stacks a container entity holds (its `Items:[...]` list: a hopper or chest minecart).
-fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
+pub(crate) fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
     let Some(i) = state.find("Items:[") else { return Vec::new() };
     let s = &state[i + 6..];
     let mut depth = 0i32;
@@ -197,7 +197,7 @@ fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
     Vec::new()
 }
 
-fn stack_of_entity(state: &str) -> Option<Stack> {
+pub(crate) fn stack_of_entity(state: &str) -> Option<Stack> {
     let i = state.find("Item:")?;
     let v = parse_snbt(&state[i + 5..]).ok().or_else(|| {
         // the state may go on after the compound: cut at its matching brace
@@ -505,7 +505,7 @@ pub struct RunLog {
 }
 
 /// One snapshot line set: every cell whose state differs from `base`, every non-empty container.
-fn snapshot(w: &mut Worker, sb: u32, from: Pos, to: Pos, base: &mctas::sim::Region, label: &str) -> Result<Vec<String>> {
+pub(crate) fn snapshot(w: &mut Worker, sb: u32, from: Pos, to: Pos, base: &mctas::sim::Region, label: &str) -> Result<Vec<String>> {
     let r = w.get_region(sb, from, to)?;
     let mut out = vec![format!("-- {label}")];
     for (p, s) in r.iter() {
@@ -559,7 +559,7 @@ pub fn build_seed(from: Pos, to: Pos, salt: i64) -> i64 {
     redsim::redstone::shulker::build_seed(from, to, salt)
 }
 
-fn design_dims(c: &Circuit) -> [i32; 3] {
+pub(crate) fn design_dims(c: &Circuit) -> [i32; 3] {
     let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
@@ -572,7 +572,7 @@ fn design_dims(c: &Circuit) -> [i32; 3] {
     if lo[0] == i32::MAX { [0, 0, 0] } else { [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1] }
 }
 
-fn read_chest(w: &mut Worker, sb: u32, p: Pos) -> Result<Vec<Stack>> {
+pub(crate) fn read_chest(w: &mut Worker, sb: u32, p: Pos) -> Result<Vec<Stack>> {
     match w.block_entities(sb, p, p)?.into_iter().find(|b| b.pos == p) {
         Some(b) => stacks_of_be_checked(&b.nbt).map_err(|e| anyhow!("judge: the chest at {p:?} does not parse ({e}): {}", b.nbt)),
         None => Ok(Vec::new()),

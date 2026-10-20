@@ -234,6 +234,40 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 13, item sorters: ONE run of a sorter's base scenario (or a badge's tiled run) in the
+    /// game at rotation 0, its table printed (what reached each chest) and the outcome: a design
+    /// aid; `mctas circuit verify` is the judge.
+    SorterRun {
+        design: PathBuf,
+        /// `tileable` or `overflow`: that badge's tiled run instead of the base scenario.
+        #[arg(long)]
+        badge: Option<String>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// On redsim (milliseconds) instead of the game.
+        #[arg(long)]
+        sim: bool,
+    },
+    /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
+    /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
+    /// fewer palette blocks added in the air cells of --cells; prints those passing the base, tiled
+    /// and overflow runs and writes the smallest to --out.
+    SorterCensus {
+        base: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        remove: usize,
+        /// The box the added blocks go in: `x,y,z..x,y,z`.
+        #[arg(long)]
+        cells: String,
+        /// Block states, comma-separated (`stone,glass,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s`
+        /// are shorthands).
+        #[arg(long, default_value = "stone,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s")]
+        palette: String,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -465,6 +499,56 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
+        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => {
+            let c = Circuit::load(&base)?;
+            let pos = |s: &str| -> Result<[i32; 3]> {
+                let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
+                Ok([v[0], v[1], v[2]])
+            };
+            let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z"))?;
+            let states: Vec<String> = palette
+                .split(',')
+                .map(|s| match s.trim() {
+                    "stone" => "minecraft:stone".to_string(),
+                    "glass" => "minecraft:glass".to_string(),
+                    "wire" => "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".to_string(),
+                    "torch" => "minecraft:redstone_torch[lit=true]".to_string(),
+                    "wtorch-n" => "minecraft:redstone_wall_torch[facing=north,lit=true]".to_string(),
+                    "wtorch-s" => "minecraft:redstone_wall_torch[facing=south,lit=true]".to_string(),
+                    "rep-n" => "minecraft:repeater[delay=1,facing=north,locked=false,powered=false]".to_string(),
+                    "rep-s" => "minecraft:repeater[delay=1,facing=south,locked=false,powered=false]".to_string(),
+                    other => other.to_string(),
+                })
+                .collect();
+            let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
+            let found = circuit::sorter::census(&c, remove, (pos(a)?, pos(b)?), &states, threads)?;
+            println!("sorter census: {} designs pass (base {} blocks)", found.len(), c.blocks());
+            if let (Some(path), Some((n, d))) = (out, found.first()) {
+                let mut d = d.clone();
+                d.meta.insert("name".into(), format!("{}-{n}", c.name()));
+                std::fs::write(&path, d.to_text())?;
+                println!("wrote {} ({n} blocks)", path.display());
+            }
+        }
+        CircuitCmd::SorterRun { design, badge, margin, sim } => {
+            let c = Circuit::load(&design)?;
+            let out = if sim {
+                circuit::sorter::sim_one(&c, badge.as_deref(), margin)?
+            } else {
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                circuit::sorter::run_one(&pool, &c, badge.as_deref(), margin)?
+            };
+            for l in &out.table {
+                println!("  {l}");
+            }
+            if out.pass {
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                println!("SORTER: {} {}{}: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), badge.map(|b| format!(" ({b} run)")).unwrap_or_default(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
     }
     Ok(())
 }
