@@ -54,6 +54,26 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   chain: top lever -> slime -> bottom-left (W/O) -> B1 -> bottom-right. Close problem: the order
   must be K pull (bottom-right) -> W push (bottom-left) -> slime return (top), and nothing the top
   does is visible from the bottoms before the slime returns. WORKS 32 x 3.
+* q69c (6x9): no wiggle: a top elevator (A' (2,4) + B' (2,5)) lifts MR two cells, K' (3,3)
+  moves TR west into (1,3), an e78k-style center elevator, G moves BM west, A pulls BR down.
+  WORKS 32 x 3, but G at (-1,-1) blinds the bottom-left (on close the slime drags anything at
+  (-2,-1) into G), so it cannot be wired with one lever. Dropped.
+* q69i (6x9 = 54): q69h made wireable on paper, so every area starts on something it sees:
+  - The lever is in the top-right (Qr, Br), the only part of the top that has no view at all.
+  - The top-left watches Br from (1,5).
+  - The bottom-left sees W, which the slime drags.
+  - The bottom-right sees B1 from (2,-3).
+  - D_O (0,-3) pulls O down to (0,-2) before B1 drops Qv. K then moves only BR and BM, so
+    (-1,-1) stays free and the slime returns FIRST on close.
+  - The close does not retrace paths (all door blocks are stone): B1 blinks BR up into (1,0),
+    W pushes BM east, K + A send it up the right column, and D_O brings O home LAST, while the
+    column BR C TM is jammed under P_T's extended head, so O's arrival pulse cannot move Qv.
+  - WORKS 32 x 3 (open 105 / close 81).
+* Rules learned on the way:
+  - An observer in the top row (or at (3,3)/(3,4)) watching a mechanism cell always outputs out
+    of the box, so the top runs on timers.
+  - A moved observer fires on arrival.
+  - A powered piston whose push is jammed does nothing, which makes stray pulses harmless.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
