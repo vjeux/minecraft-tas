@@ -123,11 +123,15 @@ pub enum CircuitCmd {
         /// The study directory name (designs/circuits/<study>).
         study: String,
         /// The archived file (`tnt-launch-14b.txt` or without `.txt`).
-        file: String,
+        file: Option<String>,
         #[arg(long)]
-        text: String,
+        text: Option<String>,
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
+        /// Set every `file<TAB>caption` row of this file instead (after a merge took the other
+        /// side's captions.tsv, for instance).
+        #[arg(long)]
+        from: Option<PathBuf>,
     },
     /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
     /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
@@ -361,29 +365,36 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{l}");
             }
         }
-        CircuitCmd::Caption { study, file, text, root } => {
-            let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+        CircuitCmd::Caption { study, file, text, root, from } => {
+            // the rows to set: one from the flags, or every `file<TAB>caption` row of --from
+            let rows: Vec<(String, String)> = match &from {
+                Some(f) => std::fs::read_to_string(f)?.lines().filter_map(|l| l.split_once('\t')).filter(|(f, _)| *f != "file").map(|(f, c)| (f.to_string(), c.to_string())).collect(),
+                None => vec![(file.clone().unwrap_or_default(), text.clone().unwrap_or_default())],
+            };
             let dir = root.join(&study).join("archive");
-            anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
-            anyhow::ensure!(!text.contains('\t') && !text.contains('\n'), "a caption is one line without tabs");
             let path = dir.join("captions.tsv");
-            let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
-            let mut out = String::new();
-            let mut done = false;
-            for (i, line) in old.lines().enumerate() {
-                if i > 0 && line.split('\t').next() == Some(file.as_str()) {
-                    out.push_str(&format!("{file}\t{text}\n"));
-                    done = true;
-                } else {
-                    out.push_str(line);
-                    out.push('\n');
+            for (file, text) in rows {
+                let file = if file.ends_with(".txt") { file } else { format!("{file}.txt") };
+                anyhow::ensure!(dir.join(&file).exists(), "{} is not archived", dir.join(&file).display());
+                anyhow::ensure!(!text.is_empty() && !text.contains('\t') && !text.contains('\n'), "a caption is one non-empty line without tabs");
+                let old = std::fs::read_to_string(&path).unwrap_or_else(|_| "file\tcaption\n".into());
+                let mut out = String::new();
+                let mut done = false;
+                for (i, line) in old.lines().enumerate() {
+                    if i > 0 && line.split('\t').next() == Some(file.as_str()) {
+                        out.push_str(&format!("{file}\t{text}\n"));
+                        done = true;
+                    } else {
+                        out.push_str(line);
+                        out.push('\n');
+                    }
                 }
+                if !done {
+                    out.push_str(&format!("{file}\t{text}\n"));
+                }
+                std::fs::write(&path, out)?;
+                println!("{}: caption of {file} set", path.display());
             }
-            if !done {
-                out.push_str(&format!("{file}\t{text}\n"));
-            }
-            std::fs::write(&path, out)?;
-            println!("{}: caption of {file} set", path.display());
         }
         CircuitCmd::Catalog { root } => {
             for l in circuit::archive::catalog(&root)? {
