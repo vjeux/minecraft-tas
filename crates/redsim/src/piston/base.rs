@@ -116,10 +116,10 @@ pub fn trigger_event(w: &mut World, state: Block, p: BlockPos, b0: i32, b1: i32)
     true
 }
 
-/// `Block.dropResources` of a block a piston destroys: an item entity unless its loot table
-/// gives nothing without a tool.
+/// `Block.dropResources` of a block a piston destroys: an item entity unless the block has no
+/// loot table (heads, moving pistons, water).
 fn drop_resources(w: &mut World, state: Block, p: BlockPos) {
-    if !matches!(state, Block::PistonHead { .. } | Block::MovingPiston { .. }) {
+    if crate::behavior::drops_item(&state) {
         w.drops.push((p, state));
     }
 }
