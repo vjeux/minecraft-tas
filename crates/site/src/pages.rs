@@ -38,6 +38,7 @@ pub fn shell(title: &str, description: &str, prefix: &str, body: &str, scripts: 
          <a href=\"{prefix}index.html#kind=clock&amp;time=\">Clock by time</a>\
          <a href=\"{prefix}families/index.html\">Extendable families</a>\
          <a href=\"{prefix}index.html#kind=circuit\">Circuits</a>\
+         <a href=\"{prefix}index.html#sort=newest\">Newest</a>\
          <a href=\"{prefix}all.html\">Everything</a>\
          <a href=\"{prefix}about.html\">About</a></nav></header>\n"
     ));

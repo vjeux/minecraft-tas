@@ -174,6 +174,7 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     host: host_id,
                     archived: r.archived.clone(),
                 }),
+                archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
         }
@@ -201,17 +202,21 @@ fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             continue;
         };
         let kind_name = kind.name();
-        let (metrics, verdict) = match sim(&c, &Options::default()) {
+        let (metrics, verdict, outcome) = match sim(&c, &Options::default()) {
             Ok(r) => {
                 let m = r.outcome.as_ref().filter(|o| o.pass).map(|o| o.metrics.clone()).unwrap_or_default();
                 if let Some(o) = r.outcome.as_ref().filter(|o| !o.pass) {
                     notes.push(format!("{}: redsim screen fails: {}", path.display(), o.why));
                 }
-                (m, format!("{} (redsim screen at site build time)", r.summary(&c)))
+                (m, format!("{} (redsim screen at site build time)", r.summary(&c)), r.outcome.clone().filter(|o| o.pass))
             }
-            Err(e) => (Vec::new(), format!("redsim screen failed: {e:#}")),
+            Err(e) => (Vec::new(), format!("redsim screen failed: {e:#}"), None),
         };
-        let axis = metrics.first().map(|(k, v)| if v.is_empty() { k.clone() } else { format!("{k} {v}") }).unwrap_or_else(|| kind_name.clone());
+        // the axis as the archive writes it (`L = 2 gt`, `N = 4 gt`, the gate's function)
+        let axis = match &outcome {
+            Some(o) => circuit::archive::axis(&kind, o, &p.kinds.join("+")),
+            None => kind_name.clone(),
+        };
         let mut flags = flags_of(&metrics, "", &verdict);
         flags.push("calibration".into());
         let id = format!("circuits/calibration/{stem}");
@@ -232,7 +237,7 @@ fn calibration(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             circuit: Some(Circuit {
                 study: kind.study().to_string(),
                 kind: kind_name,
-                value: metrics.first().and_then(|(_, v)| number(v)),
+                value: number(&axis),
                 axis,
                 metrics,
                 verdict,
