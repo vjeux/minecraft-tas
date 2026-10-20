@@ -140,6 +140,15 @@ impl Sim {
                     Some(x) => cs::convert_state(x)?,
                     None => Block::Air,
                 };
+                // an input never replaces a block of the mechanism standing in its cell (a set over
+                // a door block would destroy it when the pulse clears)
+                let here = w.get(cs::bp(*q));
+                if st.is_some() && here != Block::Air && here != b {
+                    return Err("input cell occupied".into());
+                }
+                if st.is_none() && here != Block::Air && !here.to_string().contains("redstone_block") && !here.to_string().contains("dirt") {
+                    return Err("clearing a mechanism block".into());
+                }
                 w.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
                 i += 1;
             }
@@ -389,6 +398,17 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
             best = best.min(h2);
             let g2 = nodes[id].4 + costs.get(mi).copied().unwrap_or(1);
             nodes.push((sa, sb, Some(id), mi, g2, used2));
+            if h2 == 0 {
+                // reached both targets: done (no need to wait for it to be popped)
+                let mut out = Vec::new();
+                let mut c = nodes.len() - 1;
+                while let Some(p) = nodes[c].2 {
+                    out.push(moves[nodes[c].3].clone());
+                    c = p;
+                }
+                out.reverse();
+                return (Some(out), nodes.len(), 0);
+            }
             heap.push((std::cmp::Reverse(g2 + h2 * weight), nodes.len() - 1));
         }
     }
@@ -717,7 +737,9 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     for (p, st) in &o.fix {
         d.blocks.insert(*p, st.clone());
     }
-    let sim = Sim { lo, hi };
+    // snapshots cover the whole simulated world (the watch box plus cosearch's margin of 4): a
+    // block pushed past the watch box must not vanish from the rebuilt worlds
+    let sim = Sim { lo: [lo[0] - 4, lo[1] - 4, lo[2] - 4], hi: [hi[0] + 4, hi[1] + 4, hi[2] + 4] };
     let os = steps(&open_ev, o.split);
     let cl = steps(&close_ev, o.split);
     say!(o, "{}: open {} steps, close {} steps", path.display(), os.len(), cl.len());
@@ -889,11 +911,13 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             }
         }
         if o.edge_cost > 0 {
-            // a pulse on one edge only (wiring gates it on the lever's state), at a higher cost
+            // a pulse on one edge only (wiring gates it on the lever's state), at a higher cost;
+            // on a pocket's input it counts against that pocket's budget too
             for &c in &cells {
+                let pk = o.pockets.iter().position(|(s, _)| s.contains(&c));
                 for edge in [1u8, 2] {
                     moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)], edge });
-                    pocket_of.push(None);
+                    pocket_of.push(pk);
                 }
             }
         }
