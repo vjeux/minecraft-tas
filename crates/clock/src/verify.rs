@@ -88,6 +88,8 @@ pub struct VerifyReport {
     /// `robust`, `position-dependent` or `rotation-dependent` (a clock), else why it fails.
     pub robustness: String,
     pub verdict: Verdict,
+    /// The tick of the chunk reload (`VerifyOptions::reload`), when there was one.
+    pub reload_at: Option<u32>,
 }
 
 impl VerifyReport {
@@ -593,7 +595,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         runs.push(Run { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock };
+    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock, reload_at: o.reload_at };
     let ok: Vec<&Run> = rep.runs.iter().filter(|r| r.result.is_ok()).collect();
     if ok.is_empty() {
         rep.verdict = Verdict::Invalid;

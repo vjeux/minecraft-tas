@@ -1,6 +1,7 @@
 //! A session as a picture: its blocks (moving ones mid-way), the output marker (orange stained
-//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, the
-//! grass ground; and the default camera framing it like `mctas clock shot`.
+//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, a TNT
+//! duper's ground (real blocks); the pictures' grass ground (`web compare` only); and the default
+//! camera framing it like `mctas clock shot`.
 
 use crate::atlas::Atlas;
 use crate::camera::{CAM_DIR, Camera, VFOV};
@@ -8,6 +9,7 @@ use crate::design::Pos;
 use crate::mesh::{self, Builder, EntityDraw, Item, Mesh, Vertex};
 use crate::session::{Session, bp};
 use redsim::Block;
+use std::collections::HashSet;
 
 /// How far the viewer's grass reaches around the build: past the browser viewer's render
 /// distance (24 chunks, 384 blocks), so its fogged end sits at the horizon and no edge shows.
@@ -129,6 +131,9 @@ pub fn default_look(s: &Session) -> Look {
 pub const OUT_COLOUR: [u8; 3] = [255, 176, 74];
 pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
 
+/// The side tiles of a TNT duper's ground layers (`Floor::LAYERS`), top first.
+pub const FLOOR_SIDES: [&str; 4] = ["grass_side", "dirt", "dirt", "bedrock"];
+
 /// The viewer's look (live viewers, thumbnails): [`default_look`], with a clock's output in the
 /// circuits' OUT box (vjeux: red while powered) instead of the real-game pictures' orange glass
 /// marker (kept for `web compare`).
@@ -137,6 +142,11 @@ pub fn viewer_look(s: &Session) -> Look {
     // no orange glass anywhere in the viewer: an output has its OUT box (a circuit's from its
     // port tags, a clock's added here)
     look.marker = None;
+    // no ground but real blocks (vjeux 2026-10-20 17:53Z: "Please don't put a fake ground if the
+    // tnt goes through it"): the judges' worlds are void under a design, so the viewer draws no
+    // surface there (the sky goes on below the horizon); a TNT duper stands on its judge's
+    // ground, real blocks of its world (`Session::floor`, drawn by `build`)
+    look.ground = None;
     if !s.design.meta.contains_key("circuit")
         && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
@@ -150,10 +160,45 @@ pub fn viewer_look(s: &Session) -> Look {
 
 /// The frame of a session at `partial` (0..1) after its current tick.
 pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
-    let blocks = s.render_blocks(partial);
+    let mut blocks = s.render_blocks(partial);
+    // a TNT duper's ground (real blocks of its world, `Session::floor`): what changed in it (a
+    // crater, something fallen in) and the ground cells next to that are drawn as blocks, the rest
+    // by its intact faces (`mesh::floor`); the intact cells around the drawn ones occlude and
+    // shade them like the blocks they are
+    let floor = s.floor.as_ref().filter(|_| s.simulated() && s.replay.is_none());
+    let mut skip: HashSet<Pos> = HashSet::new();
+    let mut extra_occ: HashSet<Pos> = HashSet::new();
+    const NEXT: [[i32; 3]; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    let add = |c: Pos, d: [i32; 3]| [c[0] + d[0], c[1] + d[1], c[2] + d[2]];
+    if let Some(f) = floor {
+        let mut as_blocks: HashSet<Pos> = HashSet::new();
+        for (c, _) in &f.changed {
+            skip.insert(*c);
+            for n in std::iter::once(*c).chain(NEXT.iter().map(|d| add(*c, *d))) {
+                if f.contains(n) && f.shown(n).is_some() {
+                    as_blocks.insert(n);
+                }
+            }
+        }
+        for c in &as_blocks {
+            skip.insert(*c);
+            if let Some(state) = f.shown(*c) {
+                blocks.push(crate::session::RBlock { cell: *c, offset: [0.0; 3], state });
+            }
+        }
+        for c in &as_blocks {
+            for d in NEXT {
+                let n = add(*c, d);
+                if f.contains(n) && !skip.contains(&n) {
+                    extra_occ.insert(n);
+                }
+            }
+        }
+    }
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
+    b.extra_occ = extra_occ;
     b.blocks(&items);
     if let Some(r) = &s.replay {
         for e in r.entities(partial) {
@@ -188,6 +233,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     let occ = b.opaque_cells().clone();
     let mut m = b.mesh;
+    if let Some(f) = floor {
+        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &occ));
+    }
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
         // the sky like the game's render distance); `web compare` passes the real-game pictures'

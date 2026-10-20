@@ -65,6 +65,8 @@ pub struct Overlays {
     history: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
     /// What the strip is (`output, last 2 s`), beside it.
     history_caption: Option<HtmlElement>,
+    /// The viewer's own controls over the view (the Record button): no tag or label goes there.
+    pub keep_clear: Vec<HtmlElement>,
 }
 
 fn div(css: &str) -> HtmlElement {
@@ -141,7 +143,13 @@ impl Overlays {
             hits: Vec::new(),
             history: None,
             history_caption: None,
+            keep_clear: Vec::new(),
         }
+    }
+
+    /// The layer holding the tags, labels, leaders and the output strip (a recording paints it).
+    pub fn layer(&self) -> &HtmlElement {
+        &self.layer
     }
 
     /// The tags and the history strip of a (new) player.
@@ -329,6 +337,14 @@ impl Overlays {
             Some(b)
         };
         let mut layout = Layout::default();
+        // the viewer's own controls over the view (the Record button) stay clear
+        let base = self.layer.get_bounding_client_rect();
+        for e in &self.keep_clear {
+            if e.offset_width() > 0 {
+                let b = e.get_bounding_client_rect();
+                layout.obstacles.push(Rect { x0: b.left() - base.left() - 4.0, y0: b.top() - base.top() - 4.0, x1: b.right() - base.left() + 4.0, y1: b.bottom() - base.top() + 4.0 });
+            }
+        }
         // the history strip and its caption stay clear
         if let Some((c, _)) = &self.history {
             let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);

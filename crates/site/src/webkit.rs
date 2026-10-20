@@ -483,7 +483,7 @@ fn click_button(s: &Session, label: &str) -> Result<()> {
 /// with each frame's colors and brightness in the view, how much of the view changed since the
 /// previous frame and since the first, and the page's console. `click`: press the buttons with
 /// these labels first, in order (a viewer's input button: `INP` turns a shulker machine's start
-/// lever on; `1×`, `2×`, `5×` step the speed to 20×).
+/// lever on; `1×`, `2×`, `5×` step the speed to 20×; `css:<selector>`: any element).
 pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, interval: u64, click: &[String]) -> Result<()> {
     let r = rig(dir, remote)?;
     let out = std::env::var_os("MCTAS_WEBKIT_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp/mctas-webkit-shots"));
@@ -498,7 +498,7 @@ pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, int
                 Err(e) => println!("{tag} {page}: {e:#}"),
             }
             for label in click {
-                match click_button(&s, label) {
+                match press(&s, label) {
                     Ok(()) => println!("  pressed the {label} button"),
                     Err(e) => println!("  could not press {label}: {e:#}"),
                 }
