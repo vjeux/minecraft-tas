@@ -9,7 +9,7 @@ commands: `mctas circuit delay ...` (crates/circuit-delay).
 
 | N (gt) | blocks | design | how | min-pulse / min-gap |
 |---|---|---|---|---|
-| 1 | - | (delay-piston-1, 4b: update-less, see below) | | |
+| 1 | 6 | delay-piston-qc-1 | update-correct: power-bumped dust + quasi-connected piston (below) | 3 / 3 |
 | 2 | 2 | card delay-rep2 (n=0), card delay-cmp (n=0) | one repeater (delay 1) / one comparator on a stone | 2 / 2 |
 | 3 | 9 | delay-piston-or-3 | sticky piston's 3/1 copy OR'ed with itself 2 gt later | 4 / 3 |
 | 4, 6, 8 | 2 | cards delay-rep4/6/8 (n=0) | one repeater, delay 2/3/4 | N / N |
@@ -46,11 +46,13 @@ Combining: OR takes the earlier rise and the later fall, AND the later rise and 
   block's arrival next to the output covers the gt after the fall. The judge accepted it until it
   learned that a circuit must drive something: straightening a dust whose power stays 15 sends no
   block update, so a lamp at the output only lights when the block lands (3 gt): update-less,
-  removed by `circuit archive --rejudge` (file in `update-less/`). An update-correct version needs
-  the dust's power to change when the block leaves (fed by the input through one more dust, 14,
-  while the block gives 15), but then the input cell must touch both that dust and the piston,
-  which never share a neighbor in this layout; a second piston or a slime-coupled pair is the next
-  thing to try. Update-correct odd delays therefore start at N = 3 (9 blocks).
+  removed by `circuit archive --rejudge` (file in `update-less/`). The update-correct version,
+  delay-piston-qc-1 (6 blocks, robust): the input cell sits ABOVE a dust E (a redstone block above a
+  dust powers it without a connection), E feeds the output dust D at 14 while the redstone block at
+  rest gives D 15, so when the block leaves D's power drops 15 -> 14 (a power change: the output
+  cell gets its update); and the piston beside E is powered by quasi-connectivity (the input touches
+  the cell above the piston; E's power change updates the piston, so it still acts 1 gt after the
+  rise). Update-correct odd delays: N = 1 (6 blocks), 3 (9), 5+ (13 + 2n).
 
 ## Things that fail the judge (and why)
 

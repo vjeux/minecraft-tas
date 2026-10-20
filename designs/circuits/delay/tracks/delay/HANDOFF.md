@@ -6,10 +6,10 @@ NOTES](NOTES.md), [gates NOTES](../../../gates/tracks/gates/NOTES.md).
 
 ## State (everything pushed, archived robust in the real game)
 
-* Delay lines (`designs/circuits/delay/archive/`): N=3 in 9 blocks (`delay-piston-or-3`, the odd
-  stage); cards `delay-rep2/4/6/8` (group "repeater line", N = 2 x sum of delays, 2 + 2n blocks),
-  `delay-cmp` (N = 2 + 2n), `delay-piston-or5/7/9/11` (N = base + 8n, 13 + 2n blocks), `delay-torch`
-  (N = 6 + 4n). Every N >= 2 has a design; N = 1 is open (the 4-block line was update-less).
+* Delay lines (`designs/circuits/delay/archive/`): N=1 in 6 blocks (`delay-piston-qc-1`), N=3 in 9
+  blocks (`delay-piston-or-3`, the odd stage); cards `delay-rep2/4/6/8` (group "repeater line", N =
+  2 x sum of delays, 2 + 2n blocks), `delay-cmp` (N = 2 + 2n), `delay-piston-or5/7/9/11` (N = base
+  + 8n, 13 + 2n blocks), `delay-torch` (N = 6 + 4n). Every N >= 1 has a design.
 * Logic gates (`designs/circuits/gates/archive/`): OR (lever 1b, dust 2b, 0 gt), NOT / NOR (lever
   2b; torch 3b; bump 4b at 0 gt), NIMPLY(-BA) (comparator 2b; bump 4b at 0 gt), IMPLY(-BA) (torch 3b;
   bump 4b at 0 gt), NAND (torch 6b; bump 8b at 0 gt), AND (comparators 5b, 4 gt). XOR and XNOR open.
@@ -32,9 +32,8 @@ NOTES](NOTES.md), [gates NOTES](../../../gates/tracks/gates/NOTES.md).
 
 ## Open
 
-* N = 1 update-correct: the AND(1/3, OR(input, 3/1)) needs the redirected dust's power to change
-  when the block leaves (feed it from the input through one more dust, at 14); with one piston the
-  input cell cannot touch both that dust and the piston; try two pistons or a slime pair.
+* N = 3 and odd N >= 5 smaller than 9 / 13 blocks: the N=1 tricks (input above a dust, a
+  quasi-connected piston, the power bump) may shrink the OR stage.
 * XOR / XNOR update-correct: one dust cannot (two transitions need a power change); two subtract
   comparators with both inputs direct face opposite ways (their outputs are 3 cells apart), so the
   smallest is probably 7-8 blocks; XNOR = 15 - max(a - b, b - a) on a third comparator.
