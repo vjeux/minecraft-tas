@@ -987,8 +987,15 @@ pub struct Atlas {
 
 impl Atlas {
     pub fn build() -> Atlas {
-        let tiles = paint_all();
+        let mut tiles = paint_all();
+        // wgpu's WebGL2 backend guesses a texture's view kind from its layer count: a multiple of
+        // 6 is taken for a cube map array, and our 2D array then samples black (every block and
+        // the floor: f141e8417's 180 tiles). A blank layer keeps the count off multiples of 6.
+        if tiles.len() % 6 == 0 {
+            tiles.push(("pad", Tile::new(0)));
+        }
         assert!(tiles.len() <= MAX_LAYERS, "too many tiles for a WebGL2 texture array");
+        assert!(tiles.len() % 6 != 0);
         let mut names = HashMap::new();
         let mut mips: Vec<Vec<u8>> = (0..MIPS).map(|_| Vec::new()).collect();
         for (i, (name, t)) in tiles.iter().enumerate() {

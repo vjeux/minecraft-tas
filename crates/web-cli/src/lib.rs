@@ -94,6 +94,10 @@ pub enum WebCmd {
         /// The hand-drawn tiles only (default: the game's textures).
         #[arg(long)]
         procedural: bool,
+        /// Also write `<stem>.zoom.png`: this region (x,y,w,h of the picture) of the real picture
+        /// and of the viewer's, side by side, scaled up 4x (nearest), to compare pixels.
+        #[arg(long)]
+        zoom: Option<String>,
     },
     /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
     /// software): opens `<url>?mcview-debug` for `--seconds`, reads every frame's bounding boxes of
@@ -127,6 +131,10 @@ pub enum WebCmd {
         /// Tap (touch events, a phone) instead of a mouse click.
         #[arg(long)]
         touch: bool,
+        /// Press and HOLD each circuit input in the view instead: it must be on while held, off
+        /// once released, and the camera must not move.
+        #[arg(long)]
+        hold: bool,
         #[arg(long, default_value_t = 8)]
         wait: u64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
@@ -147,6 +155,24 @@ pub enum WebCmd {
         /// Scroll the page down this many CSS px first.
         #[arg(long, default_value_t = 0.0)]
         scroll: f64,
+        /// Also evaluate this JavaScript expression in the page at the end and print its value
+        /// (diagnostics: a WebGL limit, an element's state).
+        #[arg(long)]
+        eval: Option<String>,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
+    /// Mostly-black check: natively, every design given rendered offscreen (its still, small);
+    /// with `--url`, every viewer of a page in headless Chromium through the real bundle (the
+    /// WebGL path). Fails on any frame with a mean luma under `--min` or mostly near-black.
+    Luma {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long, default_value_t = 40.0)]
+        min: f64,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
@@ -249,7 +275,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
-        WebCmd::Compare { designs, img_dir, out, procedural } => cmd_compare(&designs, &img_dir, &out, procedural),
+        WebCmd::Compare { designs, img_dir, out, procedural, zoom } => cmd_compare(&designs, &img_dir, &out, procedural, zoom.as_deref()),
         WebCmd::Tiles { out } => {
             let atlas = mcview::atlas::Atlas::build();
             std::fs::create_dir_all(&out)?;
@@ -322,8 +348,18 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
-        WebCmd::Snap { url, out, seconds, window, scale, scroll, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, &out, &browser),
-        WebCmd::Click { url, window, scale, touch, wait, browser } => crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser),
+        WebCmd::Luma { designs, url, min, window, browser } => match url {
+            Some(u) => crate::cdp::cmd_luma(&u, &window, min, &browser),
+            None => cmd_luma_native(&designs, min),
+        },
+        WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), &out, &browser),
+        WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
+            if hold {
+                crate::cdp::cmd_hold(&url, &window, scale, touch, &browser)
+            } else {
+                crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser)
+            }
+        }
         WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {
@@ -344,8 +380,50 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     }
 }
 
-fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool) -> Result<()> {
+/// Every design's still rendered offscreen (small): fails on a mostly black frame.
+fn cmd_luma_native(designs: &[PathBuf], min: f64) -> Result<()> {
+    let atlas = atlas(false);
+    let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
+    let (mut n, mut dark, mut errors) = (0usize, Vec::new(), 0usize);
+    let mut worst = (f64::MAX, String::new());
+    for d in designs {
+        let Ok(text) = std::fs::read_to_string(d) else { continue };
+        match mcview::tools::shot(&mut off, &atlas, &text, &mcview::tools::ShotOptions { width: 160, height: 90, ..Default::default() }) {
+            Ok((rgba, _)) => {
+                n += 1;
+                let (mean, black) = crate::cdp::luma_stats(&rgba);
+                if mean < worst.0 {
+                    worst = (mean, d.display().to_string());
+                }
+                if mean < min || black > 0.5 {
+                    dark.push(format!("{}: mean luma {mean:.0}, {:.0}% near black", d.display(), black * 100.0));
+                }
+            }
+            Err(e) => {
+                // a file the viewer cannot read at all (not a design): reported, not a frame
+                errors += 1;
+                if errors <= 5 {
+                    println!("{}: {e}", d.display());
+                }
+            }
+        }
+    }
+    for l in &dark {
+        println!("DARK {l}");
+    }
+    println!("web luma: {n} designs rendered natively, {} dark, {errors} unreadable (darkest {:.0}: {})", dark.len(), worst.0, worst.1);
+    if !dark.is_empty() {
+        bail!("{} designs render mostly black", dark.len());
+    }
+    Ok(())
+}
+
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>) -> Result<()> {
     let atlas = atlas(procedural);
+    let zoom: Option<Vec<u32>> = zoom.map(|z| z.split(',').filter_map(|v| v.trim().parse().ok()).collect());
+    if zoom.as_ref().is_some_and(|z| z.len() != 4) {
+        bail!("--zoom wants x,y,w,h");
+    }
     let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
     std::fs::create_dir_all(out)?;
     let (mut n, mut sum_px, mut sum_coarse) = (0, 0.0, 0.0);
@@ -361,7 +439,25 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
             Ok(c) => {
                 let path = out.join(format!("{stem}.cmp.png"));
                 mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;
-                println!("{stem}: pixel diff {:.1}, coarse diff {:.1} ({}) -> {}", c.pixel_diff, c.coarse_diff, c.note, path.display());
+                if let Some(z) = &zoom {
+                    // the region of both halves (real left, viewer right), 4x nearest
+                    let (zx, zy, zw, zh, s) = (z[0], z[1], z[2], z[3], 4u32);
+                    let half = c.width / 2;
+                    let (ow, oh) = (2 * zw * s + 8, zh * s);
+                    let mut img = vec![30u8; (ow * oh * 4) as usize];
+                    for (k, x_off) in [(0u32, 0u32), (1, zw * s + 8)] {
+                        for y in 0..zh * s {
+                            for x in 0..zw * s {
+                                let (sx, sy) = ((zx + x / s).min(half - 1) + k * half, (zy + y / s).min(c.height - 1));
+                                let si = ((sy * c.width + sx) * 4) as usize;
+                                let di = ((y * ow + x_off + x) * 4) as usize;
+                                img[di..di + 4].copy_from_slice(&c.rgba[si..si + 4]);
+                            }
+                        }
+                    }
+                    mcview::render::headless::write_png(&out.join(format!("{stem}.zoom.png")), ow, oh, &img).map_err(anyhow::Error::msg)?;
+                }
+                println!("{stem}: pixel diff {:.1}, coarse diff {:.1}, bottom {:.1}, top {:.1} ({}) -> {}", c.pixel_diff, c.coarse_diff, c.bottom_diff, c.top_diff, c.note, path.display());
                 n += 1;
                 sum_px += c.pixel_diff;
                 sum_coarse += c.coarse_diff;

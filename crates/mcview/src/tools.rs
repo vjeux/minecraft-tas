@@ -82,6 +82,10 @@ pub struct Comparison {
     pub height: u32,
     pub pixel_diff: f64,
     pub coarse_diff: f64,
+    /// The pixel diff of the bottom eighth (usually grass only: the textures' noise floor) and of
+    /// the top eighth (the horizon, the sky band).
+    pub bottom_diff: f64,
+    pub top_diff: f64,
     pub note: String,
 }
 
@@ -95,9 +99,15 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
         jpeg_decoder::PixelFormat::L8 => px.iter().map(|v| [*v, *v, *v]).collect(),
         f => return Err(format!("jpeg: unsupported pixel format {f:?}")),
     };
-    let (mine, note) = shot(off, atlas, text, &ShotOptions { width: w, height: h, ..Default::default() })?;
+    // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
+    // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
+    let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
+    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, ..Default::default() })?;
+    let mine = lanczos_resize(&big, bw, bh, w, h);
     let mut out = vec![0u8; (2 * w * h * 4) as usize];
     let mut diff = 0f64;
+    let (mut bottom, mut top) = (0f64, 0f64);
+    let band = (h / 8).max(1) as usize;
     for y in 0..h as usize {
         for x in 0..w as usize {
             let r = real[y * w as usize + x];
@@ -106,7 +116,14 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
             out[o..o + 4].copy_from_slice(&[r[0], r[1], r[2], 255]);
             let o = (y * 2 * w as usize + w as usize + x) * 4;
             out[o..o + 4].copy_from_slice(&[m[0], m[1], m[2], 255]);
-            diff += (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
+            let d = (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
+            diff += d;
+            if y >= h as usize - band {
+                bottom += d;
+            }
+            if y < band {
+                top += d;
+            }
         }
     }
     let (gw, gh) = (32usize, 18usize);
@@ -130,7 +147,7 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8]) -> Re
             coarse += (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
         }
     }
-    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, note })
+    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, bottom_diff: bottom / (band * w as usize) as f64, top_diff: top / (band * w as usize) as f64, note })
 }
 
 /// A camera variant tried by [`fit`]: zoom (tan of the half field of view divided by it), pitch
@@ -216,6 +233,74 @@ pub fn fit(off: &mut Offscreen, atlas: &Atlas, cases: &[(String, Vec<u8>)], w: u
     }
     out.sort_by(|a, b| a.0.total_cmp(&b.0));
     Ok(out)
+}
+
+/// Resize RGBA with a separable Lanczos-3 filter (ffmpeg's `flags=lanczos` downscale).
+pub fn lanczos_resize(src: &[u8], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u8> {
+    fn weights(src_n: u32, dst_n: u32) -> Vec<(usize, Vec<f32>)> {
+        let scale = src_n as f32 / dst_n as f32;
+        let support = 3.0 * scale.max(1.0);
+        let lanczos = |x: f32| -> f32 {
+            if x.abs() < 1e-6 {
+                1.0
+            } else if x.abs() >= 3.0 {
+                0.0
+            } else {
+                let px = std::f32::consts::PI * x;
+                3.0 * px.sin() * (px / 3.0).sin() / (px * px)
+            }
+        };
+        (0..dst_n)
+            .map(|i| {
+                let center = (i as f32 + 0.5) * scale;
+                let a = ((center - support).floor() as i64).max(0) as usize;
+                let b = ((center + support).ceil() as i64).min(src_n as i64) as usize;
+                let mut ws: Vec<f32> = (a..b).map(|j| lanczos((j as f32 + 0.5 - center) / scale.max(1.0))).collect();
+                let s: f32 = ws.iter().sum();
+                if s.abs() > 1e-6 {
+                    for v in &mut ws {
+                        *v /= s;
+                    }
+                }
+                (a, ws)
+            })
+            .collect()
+    }
+    let wx = weights(sw, dw);
+    let wy = weights(sh, dh);
+    // horizontal pass
+    let mut tmp = vec![0f32; (dw * sh * 4) as usize];
+    for y in 0..sh as usize {
+        for (x, (a, ws)) in wx.iter().enumerate() {
+            let mut acc = [0f32; 4];
+            for (k, w) in ws.iter().enumerate() {
+                let s = (y * sw as usize + a + k) * 4;
+                for c in 0..4 {
+                    acc[c] += src[s + c] as f32 * w;
+                }
+            }
+            let d = (y * dw as usize + x) * 4;
+            tmp[d..d + 4].copy_from_slice(&acc);
+        }
+    }
+    // vertical pass
+    let mut out = vec![0u8; (dw * dh * 4) as usize];
+    for (y, (a, ws)) in wy.iter().enumerate() {
+        for x in 0..dw as usize {
+            let mut acc = [0f32; 4];
+            for (k, w) in ws.iter().enumerate() {
+                let s = ((a + k) * dw as usize + x) * 4;
+                for c in 0..4 {
+                    acc[c] += tmp[s + c] * w;
+                }
+            }
+            let d = (y * dw as usize + x) * 4;
+            for c in 0..4 {
+                out[d + c] = acc[c].round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+    out
 }
 
 /// A grid of frames over time (the animation the browser plays): a door from its lever flip, a
