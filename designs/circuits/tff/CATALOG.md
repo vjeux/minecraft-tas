@@ -36,7 +36,7 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tff-window](archive/tff-window.txt) | tff | latency 4 gt, edge falling, min-pulse 2 gt, min-period 4 gt | 18 | 3x2x6 | robust | Single-latch pulse-window T flip-flop, redstone only, 18 blocks (track tff, shrunk from the master-slave by a lock census): repeater M holds q; its lock C (a comparator) reads a dust A that the input powers while on and that a stone powers while off (through a subtract comparator with a redstone block behind it: NOT input). The stone takes 2 gt to come back after the falling edge, so A and C drop for one short window, and M copies its own inverse once (M's output stone B, B's torch, three dust back into M). Latency 4 gt (falling edge), 2 gt pulses, trains down to a 4 gt period. |
+| [tff-window](archive/tff-window.txt) | tff | latency 4 gt, edge falling, min-pulse 2 gt, min-period 4 gt | 17 | 3x2x6 | robust | Single-latch pulse-window T flip-flop, redstone only, 17 blocks (track tff, shrunk from a master-slave by a lock census): repeater M holds q; its lock C (a comparator) reads a dust A that the input powers while on and that a stone powers while off (through a subtract comparator with a redstone block behind it: NOT input). That stone takes 2 gt to come back after the falling edge, so A and C drop for one short window and M copies its own inverse once: M powers stone B, two dust carry q to stone K, and K's torch (NOT q) stands right behind M. Latency 4 gt (falling edge), 2 gt pulses, trains down to a 4 gt period. |
 
 ## observer+piston+redstone_block+sticky_piston
 
