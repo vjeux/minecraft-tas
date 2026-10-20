@@ -23,9 +23,16 @@ is the short version for whoever picks the work up.
   designs/clocks/calibration/*.txt designs/circuits/fly/archive/*.txt` (today: 3494 clocks + 74
   flying machines agree native and wasm, 7 parse-only, 0 failures); after a UI change
   `mctas web demo ... -o /tmp/demo`, `mctas web serve /tmp/demo --port 8765`, then
-  `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`)
-  and `mctas web layout <url> --window 390,844 --scale 2` (needs `data-autoplay` viewers);
-  `mctas web snap <url> -o x.png --seconds 6` to look at a page.
+  `mctas web click http://127.0.0.1:8765/index.html` (also `--touch --window 390,844 --scale 2`,
+  and `--hold` on circuits), `mctas web layout <url> --window 390,844 --scale 2` (needs
+  `data-autoplay` viewers), `mctas web swap <url> --to <src>` (in-place swap keeps the camera),
+  `mctas web lose <url>` (WebGL context loss); `mctas web snap <url> -o x.png --seconds 6` to
+  look at a page (prints its console). EVERY bundle: `mctas web luma --url <page>` over a page of
+  many designs (a demo page of every 20th door, all circuits, every 25th clock: ~550 viewers,
+  1.5 min) and `mctas web luma <all archived designs>` natively: no mostly-black frame. NOTE: a
+  demo page carries a COPY of the bundle (`web demo` copies web/viewer): re-run `web demo` after
+  `web bundle`, and build with plain `cargo build --release` (`-p mctas` does not relink the
+  binary).
 - Push to `explore/webrender` and tell the coordinator: it merges and deploys (ONE deployer;
   never deploy, never ask site to redeploy).
 
