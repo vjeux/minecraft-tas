@@ -70,17 +70,19 @@ track's tracker as `crates/circuit/src/fly.rs`).
 - No other speed than 10 gt/block horizontally at 6-7 blocks (k <= 7 in 4x2x1, k <= 6 in 14
   boxes, grow +1).
 
-## Speed ladder (grow)
+## Speed ladder (grow) — dominated, NOT archived
 - `grow --add 2` on every archived 6-block machine (8 blocks): 11, 12, 16, 17 gt/block
-  horizontal and 16 gt/block up (162 candidates, 145 types, one per caption archived: 84, all
-  pass in the real game: 11 gt 13 (2 rotation-dependent), 12 gt 16, 16 gt 32, 17 gt 21 (12
-  rotation-dependent), up 16 gt 2). The two extra blocks are observers (and a slime) that watch
-  the other part or the first observer: the puller stays powered longer (a pulse stretched to 4 gt
-  = +2 gt), or both sticky pistons fight and the machine ratchets (11 gt: it steps back and forth,
-  net one cell per 11 gt).
-- `grow --add 1` on the 8-block ones (9 blocks): 18, 19, 24, 25 gt/block (12 archived, 24 gt
-  robust, the others rotation-dependent).
-- So far: 9 (up, 7 blocks), 10 (6), 11, 12, 16, 17 (8), 18, 19, 24, 25 (9) gt/block.
+  horizontal and 16 gt/block up (162 candidates, 145 types); `grow --add 1` on those (9 blocks):
+  18, 19, 24, 25 gt/block. One per caption (96) all passed in the real game, but every one is
+  bigger AND slower than the 6-block 10 gt/block machines of its direction: dominated, so taken
+  back out of the archive (coordinator, vjeux: "we don't need 20 variations of the same design");
+  kept as a record in tracks/fly/speed (8 blocks) and tracks/fly/speed9 (9 blocks). The two extra
+  blocks are observers (and a slime) that watch the other part or the first observer: the puller
+  stays powered longer (a pulse stretched to 4 gt = +2 gt), or both sticky pistons fight and the
+  machine ratchets (11 gt: it steps back and forth, net one cell per 11 gt).
+- The Pareto front (blocks vs speed) per direction: horizontal 6 blocks 10 gt/block; up 6 blocks
+  10 gt/block and 7 blocks 9 gt/block; down 6 blocks 10 gt/block (east-west only) and 7 blocks 10
+  gt/block robust. Faster than 9 gt/block: not found yet.
 
 ## Payload
 - fly-payload-e2cf52 family (base tracks/fly/payload/fly-payload-n1.txt, generator `mctas circuit
