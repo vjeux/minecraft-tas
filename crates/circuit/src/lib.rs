@@ -33,6 +33,12 @@ pub use clock::Pos;
 /// The default on-state of an input cell: a redstone block written with updates.
 pub const INPUT_ON: &str = "minecraft:redstone_block";
 
+/// The judge's consumer, placed in every air output cell (vjeux/coordinator 2026-10-19: a circuit
+/// must DRIVE something): a redstone lamp. The output's level is still the best signal into the
+/// cell, and the lamp must follow it ([`check::update_less`]): an output that changes without a
+/// block update (a dust redirected without a power change) leaves the lamp stale and fails.
+pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
+
 /// How the judge drives an input cell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InputHow {
@@ -316,6 +322,54 @@ impl Circuit {
 
     pub fn name(&self) -> &str {
         &self.clock.design.name
+    }
+
+    /// The output cells that get the judge's consumer ([`CONSUMER`]): air in the design and not
+    /// an input cell, for every kind read through its outputs (piston extenders and flying
+    /// machines are read through their payload and travel), and not on a piston's line (within 13
+    /// cells in front of any piston: a pushed or pulled block may move into the cell, and the
+    /// block there is what the output reads).
+    pub fn consumer_cells(&self) -> Vec<Pos> {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+            return Vec::new();
+        }
+        let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
+        let mut lines: BTreeSet<Pos> = BTreeSet::new();
+        for (p, s) in &self.clock.design.blocks {
+            if !(s.starts_with("minecraft:piston[") || s.starts_with("minecraft:sticky_piston[")) {
+                continue;
+            }
+            let f = match s.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()) {
+                Some("north") => [0, 0, -1],
+                Some("south") => [0, 0, 1],
+                Some("east") => [1, 0, 0],
+                Some("west") => [-1, 0, 0],
+                Some("up") => [0, 1, 0],
+                Some("down") => [0, -1, 0],
+                _ => continue,
+            };
+            for k in 1..=13 {
+                lines.insert([p[0] + k * f[0], p[1] + k * f[1], p[2] + k * f[2]]);
+            }
+        }
+        let mut v: Vec<Pos> = self.outputs.iter().map(|o| o.pos).filter(|p| !ins.contains(p) && !lines.contains(p) && !self.clock.design.blocks.contains_key(p)).collect();
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    /// The circuit as the judge builds it: its consumer ([`CONSUMER`]) in every consumer cell
+    /// (not one of the design's blocks: not counted, not part of its type).
+    pub fn with_consumers(&self) -> Result<Circuit> {
+        let cells = self.consumer_cells();
+        if cells.is_empty() {
+            return Ok(self.clone());
+        }
+        let mut d = self.clock.design.clone();
+        for p in cells {
+            d.blocks.insert(p, CONSUMER.to_string());
+        }
+        Circuit::from_design(d)
     }
 
     /// The design's blocks, except piston heads (part of their piston) and the blocks in input

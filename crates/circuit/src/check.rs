@@ -196,6 +196,9 @@ fn state_name(st: usize, n: usize) -> String {
 
 /// Judge a run of `kind`'s stimulus.
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    if let Some(why) = update_less(c, t) {
+        return Outcome::fail(why, Vec::new());
+    }
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
@@ -206,6 +209,34 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::PistonExtender(n) => pext(c, *n, s, t),
         Kind::FlyingMachine => flying(c, t),
     }
+}
+
+/// A circuit must drive something: the judge's lamp in each air output cell
+/// ([`crate::CONSUMER`]) must follow the output, lit whenever the output is on and unlit once it
+/// has been off for 6 gt (a lamp turns off 4 gt after the block update that tells it, so short gaps
+/// stay lit), from the first frame the circuit may be driven. An output that changes without a
+/// block update (a dust redirected without a power change) leaves the lamp stale: why it fails.
+pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
+    let from = (start(c) as usize).min(t.frames());
+    for p in c.consumer_cells() {
+        let Some(k) = c.outputs.iter().position(|o| o.pos == p) else {
+            continue;
+        };
+        let name = &c.outputs[k].name;
+        let mut off = 0usize;
+        for f in from..t.frames() {
+            let on = t.on(k, f);
+            let lit = crate::trace::lamp_lit(t.state(f, p));
+            off = if on { 0 } else { off + 1 };
+            if on && !lit {
+                return Some(format!("update-less output: {name} turns on at frame {f} without a block update (a lamp in its cell stays unlit), it drives nothing"));
+            }
+            if off >= 6 && lit {
+                return Some(format!("update-less output: {name} is off from frame {} without a block update (a lamp in its cell stays lit), it drives nothing", f + 1 - off));
+            }
+        }
+    }
+    None
 }
 
 /// A flying machine (track fly's tracker, [`crate::fly`]): a steady motion along `travel` (frame

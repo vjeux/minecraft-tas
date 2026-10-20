@@ -76,6 +76,14 @@ pub enum CircuitCmd {
         workers: usize,
         #[arg(long)]
         dedupe: bool,
+        /// Judge every archived design again with the current judge (in the game, family bases
+        /// with their sampled members): passing ones get their new metrics, failing ones leave
+        /// the archive and go back to their track (`update-less/` or `rejudged/`).
+        #[arg(long)]
+        rejudge: bool,
+        /// With --rejudge: only these studies (default: all).
+        #[arg(long)]
+        study: Vec<String>,
     },
     /// Write every study's CATALOG.md and variants.md, the index designs/circuits/CATALOG.md and
     /// the website's data designs/circuits/catalog.tsv from the archives (no game).
@@ -212,17 +220,22 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study } => {
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
                     println!("{l}");
                 }
-                if designs.is_empty() {
+                if designs.is_empty() && !rejudge {
                     return Ok(());
                 }
             }
             let o = Options { positions, workers, version: version.to_string(), ..Default::default() };
             let pool = circuit::verify::spawn_pool(&o)?;
+            if rejudge {
+                for l in circuit::archive::rejudge(&pool, &root, &o, &study)? {
+                    println!("{l}");
+                }
+            }
             for p in &designs {
                 match circuit::archive::archive(&pool, p, &o, &root, caption.as_deref()) {
                     Ok(a) => println!("{} {}: {}", if a.new { "ARCHIVED" } else { "SKIPPED" }, a.file.display(), a.summary),

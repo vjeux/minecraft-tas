@@ -118,7 +118,9 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     }
-    let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers are not the circuit's
+    ins.extend(c.consumer_cells());
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
@@ -203,6 +205,8 @@ impl VerifyReport {
 /// a copper bulb; piston heads and moving blocks are their piston's), `+`-joined.
 pub fn family(c: &Circuit, t: &Trace) -> String {
     let mut ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers (lamps in air output cells) are not the circuit's
+    ins.extend(c.consumer_cells());
     // a temporary kick block's cell is the judge's, not the design's
     if let Some(clock::Kick::Place { pos, .. }) = &c.clock.kick {
         ins.insert(*pos);

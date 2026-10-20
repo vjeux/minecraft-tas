@@ -39,10 +39,12 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let (from, to) = watch_box(c, margin);
-    if let Some((p, st)) = clock::sim::unsupported(&c.clock, from, to)?.first() {
+    // the judge's consumer in every air output cell (crate::CONSUMER)
+    let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
+    if let Some((p, st)) = clock::sim::unsupported(&cc.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
-    match clock::sim::drive(&c.clock, &actions, s.ticks, &probes, from, to) {
+    match clock::sim::drive(&cc.clock, &actions, s.ticks, &probes, from, to) {
         Ok(d) => {
             let ended = match d.stopped {
                 None => None,
@@ -75,13 +77,15 @@ fn frame_cells(f: &Region, extras: &HashMap<Pos, String>) -> Vec<(Pos, String)> 
 }
 
 fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Pos, margin: i32) -> Result<std::result::Result<Trace, String>> {
-    clock::verify::place(w, sb, &c.clock)?;
+    // the judge's consumer in every air output cell (crate::CONSUMER)
+    let cc = c.with_consumers()?;
+    clock::verify::place(w, sb, &cc.clock)?;
     // every block must be able to stand where it is (a player could build it): the placement
     // removes a floating dust (its shape update) and keeps a floating lever, torch or repeater,
     // which would pop at its first shape update
     let placed = w.get_region(sb, from, to)?;
-    let popped = c.clock.design.blocks.iter().filter(|(p, _)| Some(**p) != c.clock.withheld()).find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
-    let floating = w.unsupported(sb, from, to)?.first().map(|p| (*p, c.clock.design.blocks.get(p).cloned().unwrap_or_default()));
+    let popped = cc.clock.design.blocks.iter().filter(|(p, _)| Some(**p) != cc.clock.withheld()).find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
+    let floating = w.unsupported(sb, from, to)?.first().map(|p| (*p, cc.clock.design.blocks.get(p).cloned().unwrap_or_default()));
     if let Some((p, st)) = popped.or(floating) {
         return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }

@@ -412,6 +412,119 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
 
 pub const ALIASES: &str = "aliases.tsv";
 
+/// `mctas circuit archive --rejudge`: judge every archived design again (the current judge, in
+/// the game; family bases with their sampled members) in the given studies (all when empty). A
+/// passing design keeps its row with the new metrics, box, family, robustness and summary (its
+/// `# CIRCUIT:` line rewritten); a failing one leaves the archive (file, verdict row, caption,
+/// its family's extend.tsv rows, aliases it hosts) and is copied back next to the track file it
+/// was archived from, under `update-less/` when it fails for an update-less output (else
+/// `rejudged/`), with a first line saying why.
+pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        if rows.is_empty() {
+            continue;
+        }
+        let mut keep: Vec<Row> = Vec::new();
+        let mut removed: Vec<String> = Vec::new();
+        let mut instances = read_instances(&dir);
+        for row in rows {
+            let path = dir.join(&row.file);
+            if !path.exists() {
+                out.push(format!("MISSING {}: no file, row dropped", path.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let c = Circuit::load(&path)?;
+            let Some(kind) = c.kind.clone() else {
+                keep.push(row);
+                continue;
+            };
+            let rep = verify::verify_in_pool(pool, &c, o)?;
+            let fam = family_of(&c)?;
+            let fam_check = match (&fam, rep.pass) {
+                (Some(f), true) => Some(check_family(pool, &path, f, &kind, o)),
+                _ => None,
+            };
+            let failure = if !rep.pass {
+                Some(rep.summary(&c))
+            } else if let Some(Err(e)) = &fam_check {
+                Some(format!("{e:#}"))
+            } else {
+                None
+            };
+            let text = std::fs::read_to_string(&path)?;
+            if let Some(why) = failure {
+                // back to the track it came from, with why
+                let from = text.lines().find_map(|l| l.strip_prefix("# archived ").and_then(|r| r.split(" from ").nth(1)).map(|r| r.trim_end_matches(" by mctas circuit archive").to_string()));
+                let sub = if why.contains("update-less output") { "update-less" } else { "rejudged" };
+                let back = match from.as_deref().map(Path::new).and_then(|p| p.parent()) {
+                    Some(d) if d.starts_with(root.join(study).join("tracks")) => d.join(sub),
+                    _ => root.join(study).join("tracks").join(sub),
+                };
+                std::fs::create_dir_all(&back)?;
+                let body: String = text.lines().filter(|l| !l.starts_with("# archived ") && !l.starts_with("# CIRCUIT: ")).map(|l| format!("{l}\n")).collect();
+                let copy = back.join(&row.file);
+                std::fs::write(&copy, format!("# {sub} ({}, mctas circuit archive --rejudge): {why}\n{body}", clock::catalog::now_utc()))?;
+                std::fs::remove_file(&path)?;
+                if let Some(f) = &fam {
+                    instances.retain(|i| i.family != f.id);
+                }
+                out.push(format!("REMOVED {}: {why} (copy: {})", path.display(), copy.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let base = rep.base().ok_or_else(|| anyhow!("no passing build"))?.clone();
+            let summary = rep.summary(&c);
+            let [w, h, d] = base.dims;
+            let new = Row {
+                axis: axis(&kind, &base.outcome, &base.family),
+                metrics: base.outcome.metrics_text(),
+                blocks: c.blocks(),
+                dims: format!("{w}x{h}x{d}"),
+                volume: (w * h * d) as i64,
+                family: base.family.clone(),
+                robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
+                summary: summary.clone(),
+                ..row.clone()
+            };
+            let changed = new.metrics != row.metrics || new.robustness != row.robustness || new.dims != row.dims;
+            let header_lines: Vec<String> = text.lines().map(|l| if l.starts_with("# CIRCUIT: ") || l.starts_with("# FAIL: ") { format!("# {summary}") } else { l.to_string() }).collect();
+            std::fs::write(&path, header_lines.join("\n") + "\n")?;
+            if let (Some(f), Some(Ok(inst))) = (&fam, fam_check) {
+                instances.retain(|i| i.family != f.id);
+                instances.extend(inst);
+            }
+            out.push(if changed { format!("UPDATED {}: {} (was: {}, {})", path.display(), summary, row.metrics, row.robustness) } else { format!("KEPT {}: {summary}", path.display()) });
+            keep.push(new);
+        }
+        write_rows(&dir, &keep)?;
+        if !removed.is_empty() {
+            let cp = dir.join(CAPTIONS);
+            if cp.exists() {
+                let caps: String = std::fs::read_to_string(&cp)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cp, caps)?;
+            }
+            let ap = dir.join(ALIASES);
+            if ap.exists() {
+                let al: String = std::fs::read_to_string(&ap)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&ap, al)?;
+            }
+        }
+        let ep = dir.join(EXTEND_TSV);
+        if ep.exists() || !instances.is_empty() {
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(&ep, all)?;
+        }
+    }
+    Ok(out)
+}
+
 /// The aliases of an archive: kept file -> the names of its removed twins (with what they were
 /// built with).
 fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {

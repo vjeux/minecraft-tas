@@ -102,6 +102,11 @@ impl Trace {
     }
 }
 
+/// Whether a recorded state is a lit redstone lamp (the judge's consumer, [`crate::CONSUMER`]).
+pub fn lamp_lit(state: Option<&str>) -> bool {
+    state.is_some_and(|s| s.starts_with("minecraft:redstone_lamp") && s.contains("lit=true"))
+}
+
 /// The level of an output cell holding `state` (`None`: air) with `best` the best signal its
 /// neighbors give into it: redstone dust gives its power; a repeater, torch or observer its own
 /// output (15 when on); a comparator its strength; any other cell (air, a solid block, a lamp, a
