@@ -808,6 +808,57 @@ fn prune_idle(pieces: &[Pc], named: &HashSet<(i8, i8)>, open: Option<&HashMap<(i
         .collect()
 }
 
+/// A macrosat dump's own `--export` pair (`export/c-<dump>.txt` + `.ideal` beside it): its
+/// feed-faithful plan (QC feeds through the cell above + a glass update, conductor feeds via a
+/// lever) judged directly: redsim at 32 positions x 2 cycles, d67's strict feed screen (no feed,
+/// weak only, one-cell conflict, a region that cannot start, a moving via conductor), w86's
+/// extent. Returns (summary, passes: WORKS + strict clean + extent inside the box).
+fn macrosat_export_check(dump: &Path, bx: Bx) -> Option<(String, bool)> {
+    let stem = dump.file_stem()?.to_string_lossy().to_string();
+    let dir = dump.parent()?.join("export");
+    let (dtxt, dideal) = (dir.join(format!("c-{stem}.txt")), dir.join(format!("c-{stem}.ideal")));
+    if !dtxt.exists() || !dideal.exists() {
+        return None;
+    }
+    // the design line names the exporting box's path: point it at the file beside the plan
+    let text: String = std::fs::read_to_string(&dideal)
+        .ok()?
+        .lines()
+        .map(|l| if l.starts_with("design ") { format!("design {}", dtxt.display()) } else { l.to_string() })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    let s = match crate::ideal::Schedule::parse_with(&text, &std::collections::BTreeMap::new()) {
+        Ok(s) => s,
+        Err(e) => return Some((format!("export does not parse: {e:#}"), false)),
+    };
+    let redsim = crate::ideal_rs::run(&s, s.vars(), &crate::ideal::offsets(28), 2, false);
+    let bxs = Some((bx.x0 as i32, bx.y0 as i32, (bx.x0 + bx.w - 1) as i32, (bx.y0 + bx.h - 1) as i32));
+    let strict = crate::feeds::analyze_full(&text, &stem, bxs, false, true);
+    let ext = crate::ideal_rs::extent(&s, s.vars());
+    let (ew, eh) = match &ext {
+        Ok((lo, hi)) => (hi[0] - lo[0] + 1, hi[1] - lo[1] + 1),
+        Err(_) => (0, 0),
+    };
+    let works = redsim.is_ok();
+    let clean = strict.as_ref().is_ok_and(|r| r.strict_fail.is_empty());
+    let inside = ew > 0 && ew <= bx.w as i32 && eh <= bx.h as i32;
+    let summary = format!(
+        "export: redsim {}; strict {}; extent {ew}x{eh}{}",
+        match &redsim {
+            Ok((o, c)) => format!("WORKS (open {o} / close {c})"),
+            Err(e) => format!("BROKEN ({})", e.chars().take(100).collect::<String>()),
+        },
+        match &strict {
+            Ok(r) if r.strict_fail.is_empty() => "clean".to_string(),
+            Ok(r) => format!("FAILS: {}", r.strict_fail.join("; ").chars().take(240).collect::<String>()),
+            Err(e) => format!("not analysable ({e:#})"),
+        },
+        if inside { "" } else { " (leaves the box)" }
+    );
+    Some((summary, works && clean && inside))
+}
+
 /// The seeds in `input`: a file of `W H x0 y0 pieces` lines, a macrosat dump, or a folder (every
 /// macrosat dump under it, recursively). `reserve_wiring`: a macrosat seed keeps its wiring cells
 /// free; `macrosat_qc_off`: macrosat seeds are solved without quasi-connectivity coupling.
@@ -853,7 +904,10 @@ pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool, macr
                     Err(e) => format!("; its schedule does not replay: {e}"),
                 }
             );
-            seeds.push(Seed { bx, pieces, hint: hint.ok(), reserve: res, origin: label, qc_off: macrosat_qc_off });
+            seeds.push(Seed { bx, pieces, hint: hint.ok(), reserve: res, origin: label.clone(), qc_off: macrosat_qc_off });
+            if let Some((summary, pass)) = macrosat_export_check(f, bx) {
+                eprintln!("[mechmut] macrosat {label}: {summary}{}", if pass { "  ** CANDIDATE: send to w86 **" } else { "" });
+            }
         } else if !input.is_dir() {
             for (bx, pieces) in parse_lines(&text)? {
                 seeds.push(Seed { bx, pieces, hint: None, reserve: reserve.to_vec(), origin: String::new(), qc_off: false });
