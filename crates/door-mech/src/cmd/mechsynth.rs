@@ -272,11 +272,33 @@ pub struct FullmechArgs {
     /// ideal-input design; by default plain blocks are taken for wiring and dropped).
     #[arg(long)]
     keep_stone: bool,
+    /// --anneal: every restart begins from this design's pieces (pistons, slime, honey; plain
+    /// stones with --keep-stone).
+    #[arg(long)]
+    anneal_seed: Option<PathBuf>,
+    /// --anneal-seed: the seed's first N pieces (file order) are never mutated (0: none).
+    #[arg(long, default_value_t = 0)]
+    anneal_freeze: usize,
+    /// Open also needs a door block in each of the 12 frame cells (the boards' FULL FRAME rule).
+    #[arg(long)]
+    frame_full: bool,
+    /// Exhaustive completion of --anneal-seed: every placement of --complete-k pieces from
+    /// --complete-palette in these cells (`x,y;x,y`, door coordinates), each solved exactly, in the
+    /// --anneal box at the first --offsets offset.
+    #[arg(long)]
+    complete: Option<String>,
+    #[arg(long, default_value_t = 2)]
+    complete_k: usize,
+    /// Comma list: pistons, sticky (sticky pistons only), slime, honey, stone, obsidian, rb, obs,
+    /// all.
+    #[arg(long, default_value = "pistons,slime,stone")]
+    complete_palette: String,
 }
 
 pub fn cmd_fullmech(args: FullmechArgs) -> Result<()> {
-    let FullmechArgs { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, keep_stone } = args;
+    let FullmechArgs { check, boxes, pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, export, slime, verify_ideal, groups, shrink, replay_ideal, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, lift_ext, keep_stone, anneal_seed, anneal_freeze, frame_full, complete, complete_k, complete_palette } = args;
     crate::fullmech::KEEP_STONE.store(keep_stone, std::sync::atomic::Ordering::Relaxed);
+    crate::fullmech::FRAME_FULL.store(frame_full, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_PULLERS.store(!no_ext_pullers, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_MAX.store(ext_max, std::sync::atomic::Ordering::Relaxed);
     crate::families::EXT_ADJACENT.store(!ext_apart, std::sync::atomic::Ordering::Relaxed);
@@ -298,7 +320,7 @@ pub fn cmd_fullmech(args: FullmechArgs) -> Result<()> {
         None => None,
     };
     let pulses: Vec<u8> = pulses.split(',').filter(|s| !s.is_empty()).map(|s| s.trim().parse::<u8>()).collect::<std::result::Result<_, _>>()?;
-    let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal, groups, shrink, replay_ideal };
+    let o = crate::fullmech::CliOpts { check, boxes, pmax: pistons, two, vmid, pulses, levels, cap, threads, limit, out, macro_cap, only_new, reduce, reduce_cap, pairs, anneal, offsets, seconds, seed, helpers, slime, export, verify_ideal, groups, shrink, replay_ideal, anneal_seed, anneal_freeze, complete, complete_k, complete_palette };
     crate::fullmech::cli(&o)?;
     Ok(())
 }

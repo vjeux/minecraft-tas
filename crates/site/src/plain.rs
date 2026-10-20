@@ -252,7 +252,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let b = base(&c.kind);
     match b {
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
-        "tnt-duper" => return "It runs by itself: watch the lit TNT drop out of the machine each cycle while the TNT block lands back in place.".to_string(),
+        "tnt-duper" => {
+            // (the try-it matches the card: a launcher throws its TNT, critique)
+            return if c.axis.contains("launched") {
+                "It runs by itself: watch it throw a lit TNT away each cycle while its TNT block stays in place.".to_string()
+            } else {
+                "It runs by itself: watch a lit TNT come out of the machine each cycle while its TNT block stays in place.".to_string()
+            };
+        }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
@@ -369,6 +376,10 @@ pub fn warning(b: &Build) -> Option<String> {
     } else if robustness.contains("position") || robustness.contains("offset") {
         out.push("Depends on where it is built: at another spot in the world its timing changed in our test, so try it where you build it.".to_string());
     }
+    // what a chunk reload does to a clock (clockinfra's `reload`: never a reason to hide)
+    if let Some(w) = b.clock.as_ref().and_then(|c| reload_words(&c.reload)) {
+        out.push(w);
+    }
     if out.is_empty() { None } else { Some(out.join(" ")) }
 }
 
@@ -423,6 +434,31 @@ fn thousands(n: u64) -> String {
     out
 }
 
+/// What a chunk reload does to a clock, in plain words (clockinfra's `reload`; the coordinator:
+/// "stops for good if its chunk unloads mid-cycle (you walk away and come back)"); None when it
+/// keeps going or was not checked.
+pub fn reload_words(reload: &str) -> Option<String> {
+    let r = reload.trim();
+    let (what, some) = match r.split_once(" in ") {
+        Some((w, k)) if k.ends_with(" builds") => (w.trim(), Some(k.trim_end_matches(" builds").to_string())),
+        _ => (r, None),
+    };
+    let some = some.map(|k| format!(" (in {k} of our test builds)")).unwrap_or_default();
+    let walk = "its chunk unloads mid-cycle (you walk away and come back)";
+    Some(if what == "stops" {
+        format!("Stops for good if {walk}{some}: start it again the way you started it after building it.")
+    } else if what == "glitch then resumes" {
+        format!("If {walk}, it skips a beat, then keeps going{some}.")
+    } else if let Some(p) = what.strip_prefix("changes period to ") {
+        let gt = p.trim_end_matches(" gt").trim();
+        format!("If {walk}, its period changes to {}{some}.", ticks(&format!("{gt} gt")))
+    } else if let Some(why) = what.strip_prefix("fails: ") {
+        format!("A chunk reload breaks it{some}: {why}.")
+    } else {
+        return None;
+    })
+}
+
 /// A door's plain lines: (what it does, why you would build it, how to try it).
 pub fn door(b: &Build) -> (String, String, String) {
     let d = b.door.as_ref();
@@ -456,8 +492,9 @@ pub fn clock(b: &Build) -> (String, String, String) {
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Its output pulses by itself every {period}{cycle}, forever.{start}"),
-        "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
+        // (not "forever" when something stops it: critique, the daylight clock stops at night)
+        format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
+        if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { "A beat that runs only while the sun is up: lamps or machines that should work by day and rest at night." } else { "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself." }.to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
@@ -543,6 +580,11 @@ mod tests {
         let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
         assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
         assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
+        // a chunk reload, in plain words (clockinfra's reload column)
+        assert!(reload_words("stops").unwrap().starts_with("Stops for good if its chunk unloads mid-cycle"));
+        assert_eq!(reload_words("glitch then resumes in 2 of 4 builds").unwrap(), "If its chunk unloads mid-cycle (you walk away and come back), it skips a beat, then keeps going (in 2 of 4 of our test builds).");
+        assert!(reload_words("changes period to 12 gt").unwrap().contains("its period changes to 12 ticks (0.6 s)"));
+        assert!(reload_words("ok").is_none() && reload_words("").is_none());
     }
 
     #[test]

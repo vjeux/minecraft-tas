@@ -152,6 +152,11 @@ pub struct ClockInfo {
     /// gaps: N equal gaps g): what a builder means by the clock's time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pulse_every: Option<u32>,
+    /// What a chunk reload mid-run does to it (clockinfra's `reload` column: `ok`, `glitch then
+    /// resumes`, `stops`, `changes period to P gt`, `fails: why`, each maybe `in K of N builds`;
+    /// empty: not checked).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reload: String,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
