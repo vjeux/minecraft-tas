@@ -24,6 +24,20 @@ cycles, `door ideal` (the real game) WORKS at 4 x 2; frame 12/12 when open (trac
   TM C BM down by one into its rest (the column was rebuilt contiguous at (1,1..3)).
 Open 18 inputs, close 17 (one per piston action). Next: wiring inside the 48 cells.
 `wip/vq78.*`: the same center in a 7x8 with classic right pullers (7 pistons), WORKS 32 x 3.
+q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-offsets 28`).
+
+### Wiring progress (pockets3 + me, 19:15Z-)
+* pockets3: satwire UNSAT with core Qv (boxed: G's head, the transit cell (2,-1), BM, B1's head);
+  free areas bottom-left 7 cells, top 8 (with row y = 5, box 6x9 = 54), bottom-right 2 (overloaded:
+  A, K, B need 8 distinct ticks); the three areas are islands (none can start without the lever).
+* q68c (P_T / P_TR extended at rest, e88's lever trick): the lever re-extends them at close t0 and
+  blocks the slime's return, so not usable as is.
+* q68e: Qv's boxed actions come from a REAL observer O at (0,-1) facing west, fired by a normal
+  piston N at (-2,-1) whose head enters / leaves (-1,-1): the two 2 gt pulses are a spit (BM, C
+  up) and a reach-and-pull (BM back) = the wiggle. G is gone: K's spit pushes BR, BM and O west
+  (O lands in the corner (-1,-1)); on close N pushes O and BM back east and stays extended while the
+  slime returns (a retracted N next to (-2,0) gets dragged east), then N's retraction fires O for
+  Qv's last spit. Qv's other actions happen at (1,-2), fed from (0,-2). WORKS redsim 32 x 3.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
