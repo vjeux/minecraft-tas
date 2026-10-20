@@ -125,16 +125,12 @@ pub fn trigger_event(w: &mut World, state: Block, p: BlockPos, b0: i32, b1: i32)
     true
 }
 
-/// `Block.dropResources` of a block a piston destroys: an item entity unless the block has no
-/// loot table (heads, moving pistons, water). A shulker box with a drop seed becomes the item
-/// entity the bridge spawns (`redstone::shulker::drop_box`); every drop is also recorded.
+/// `Block.dropResources` of a block a piston destroys (`World::drop_resources`: its loot's stacks
+/// pop, a shulker box with its contents; with a drop seed each is the item entity the bridge
+/// spawns); every drop is also recorded.
 fn drop_resources(w: &mut World, state: Block, p: BlockPos) {
     if crate::behavior::drops_item(&state) {
-        // popResource: its three level-random draws (when mirrored) come before the item exists
-        w.draw_pop_resource();
-        if matches!(state, Block::ShulkerBox { .. }) {
-            crate::redstone::shulker::drop_box(w, p, &state);
-        }
+        w.drop_resources(p, state);
         w.drops.push((p, state));
     }
 }

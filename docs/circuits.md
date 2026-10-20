@@ -213,7 +213,8 @@ kick) before the first input.
   the box is the design's own.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
-  is killed by its UUID before it can explode, so explosions never happen). 600 gt after the kick
+  is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
+  (8 periods of up to 110 gt fit in its second half)
   the frames must repeat with a period P through the run's second half for at least 8 periods,
   every period must spawn the same n >= 1 primed TNT, and every TNT block of the design must stand
   again in every period (a moved TNT is in flight for 2 gt: the most seen in the period counts).
@@ -233,8 +234,16 @@ kick) before the first input.
   its rest state; a switchable one's running windows end with the same frames as its first
   period, its stopped windows the same; at least one TNT exploded or left out of range; no item
   entity at the end (a destroyed block drops one). The line then carries `(survives its own
-  explosions: N exploded, M out of range, design intact)`; redsim reports UNMODELED (no
-  explosions yet). `explode: off` is for analysis only (the measuring calibrations): the archive
+  explosions: N exploded, M out of range, design intact)`. On redsim (clk-misc's exact explosion
+  port, `clock::sim::drive_tnt`) the same run has every primed TNT kicked by one `d`, every ray at
+  its largest roll (`Rolls::Max`: surviving it is surviving every roll), TNT removed out of range
+  the same way. **All randoms** (vjeux 2026-10-20: "pass every possible random number"):
+  `circuit verify` then runs `circuit::robust::tnt_robust`: the kick's `nextDouble()` swept over
+  [0, 1) at 4096 points, every change bisected to 1e-12 (`redsim::robust::critical_points`), every
+  piece and boundary judged; every one must pass with the same metrics (and the same PRECISE
+  claim), else `not robust over every kick (redsim): fails for every kick in [a, b): ...`
+  (`mctas circuit tnt robust` alone). Limit: one kick for all the TNT of a run (per-spawn kicks:
+  next). `explode: off` is for analysis only (the measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
   Direction flags (real game, each TNT followed to fuse 1): `launched at (vx, vy, vz) blocks/gt,

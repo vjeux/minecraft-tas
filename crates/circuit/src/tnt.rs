@@ -20,8 +20,9 @@ use crate::stimulus::Schedule;
 use crate::trace::Trace;
 use crate::{Circuit, Kind, Pos};
 
-/// Ticks a self-running duper runs after its kick.
-pub const RUN: u32 = 600;
+/// Ticks a self-running duper runs after its kick: 8 periods of up to 110 gt fit in the second
+/// half (a slow duper whose period exceeds a fuse keeps one TNT alive at a time: the PRECISE one).
+pub const RUN: u32 = 1800;
 /// Periods a self-running duper must repeat for.
 pub const CYCLES: usize = 8;
 /// Pulses and pulse length of the triggered stimulus.
@@ -273,10 +274,11 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         return Outcome { pass: false, why: format!("not periodic within {} gt", s.ticks), metrics: Vec::new(), table };
     };
     // explosions on (the default): the block frames repeat with the period from before the first
-    // explosion through the end, so nothing the explosions did changed the machine
+    // explosion through the end, so nothing the explosions did changed the machine (a block they
+    // destroyed would be missing from the frames seen before them)
     if c.explodes()
         && let Some(&x) = t.explosions.iter().min()
-        && start + p > x as usize
+        && start >= x as usize
     {
         return Outcome {
             pass: false,

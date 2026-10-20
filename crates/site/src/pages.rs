@@ -4,7 +4,7 @@
 //! GitHub project page under /minecraft-tas/); viewers are `data-mcview` elements that
 //! webrender's bundle (viewer/mcview.js) renders when present.
 
-use site_model::html::{build_card, esc, kind_title, member_href, size_line};
+use site_model::html::{build_card, esc, kind_title, member_href};
 use site_model::{Build, Card, Member, Site, flag_label, gt_time, real_time, status_label};
 use std::collections::BTreeMap;
 
@@ -294,8 +294,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             esc(&b.group.replace('+', " + "))
         ));
     }
-    body.push_str(&format!("<h1>{}</h1>\n", esc(&b.name)));
-    body.push_str(&format!("<p class=\"lede\">{}</p>\n", esc(&lede(b))));
+    body.push_str(&page_heading(b));
     let badges = site_model::html::badges(b);
     if !badges.is_empty() {
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
@@ -352,42 +351,39 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let cards: Vec<String> = list.iter().map(|o| build_card(o, prefix)).collect();
         body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
     }
-    let desc = format!("{}: {}. {}", b.name, lede(b), b.caption.chars().take(160).collect::<String>());
-    shell_full(&b.name, &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
+    let p = site_model::html::props(b);
+    let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
+    shell_full(&page_title(b), &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
 }
 
-/// One line under a build's title.
-fn lede(b: &Build) -> String {
-    match b.kind.as_str() {
-        "door" => {
-            let mut s = format!("3x3 piston door, {}, {}", b.group, size_line(b));
-            if let Some(d) = &b.door {
-                if let (Some(o), Some(c)) = (d.open, d.close) {
-                    s.push_str(&format!(", opens in {o} gt, closes in {c} gt"));
-                }
-            }
-            s
-        }
-        "clock" => {
-            let c = b.clock.as_ref();
-            format!("Clock, period {}, {} blocks, family {}", c.map(|c| gt_time(c.period)).unwrap_or_default(), b.blocks, b.group.replace('+', " + "))
-        }
-        _ => match &b.circuit {
-            Some(c) => {
-                let mut parts = vec![crate::explain::kind_title(&c.kind)];
-                // the study's axis when it says more than the kind (`L = 2 gt`, `N = 3 gt`)
-                if !c.axis.is_empty() && c.axis != c.kind && !c.kind.ends_with(&c.axis) && c.axis.contains('=') {
-                    parts.push(c.axis.clone());
-                }
-                parts.push(format!("{} blocks", b.blocks));
-                if let Some(d) = &b.dims {
-                    parts.push(d.clone());
-                }
-                parts.join(" · ")
-            }
-            None => format!("{} blocks", b.blocks),
-        },
+/// A build page's `<title>`: its kind and properties first, the design's name after
+/// (`Piston extender: N = 3 · 19 blocks (pext-n3-flat-cascade19)`).
+pub fn page_title(b: &Build) -> String {
+    let p = site_model::html::props(b);
+    format!("{}: {} ({})", p.kind, p.title, b.name)
+}
+
+/// A build page's heading (vjeux 12:09Z: lead with the properties): its kind (small, above), the
+/// property line as the title, the secondary properties and the box, then the design's name in
+/// small text.
+fn page_heading(b: &Build) -> String {
+    let p = site_model::html::props(b);
+    let mut lede: Vec<String> = Vec::new();
+    if !p.sub.is_empty() {
+        lede.push(p.sub.clone());
     }
+    if b.kind != "door" {
+        if let Some(d) = &b.dims {
+            lede.push(format!("box {}", d.replace('x', "×")));
+        }
+    }
+    format!(
+        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}<p class=\"design-name\">design <code>{}</code></p>\n",
+        esc(&p.kind),
+        esc(&p.title),
+        if lede.is_empty() { String::new() } else { format!("<p class=\"lede\">{}</p>\n", esc(&lede.join(" · "))) },
+        esc(&b.name)
+    )
 }
 
 fn link_build(site: &Site, id: &str, prefix: &str) -> String {
@@ -489,7 +485,7 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &format!("{} (<code>circuit: {}</code>)", esc(&crate::explain::kind_title(&c.kind)), esc(&c.kind))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
         if !c.axis.is_empty() {
             s.push_str(&row("The study's axis", &esc(&c.axis)));
         }
@@ -605,7 +601,10 @@ fn base_kind(kind: &str) -> &str {
 /// variants), and so are this design's own tunable group (the picker).
 fn circuit_axis_walk<'a>(site: &'a Site, b: &Build, c: &site_model::Circuit) -> (String, Vec<&'a Build>) {
     let base = base_kind(&c.kind);
-    let by_kind = matches!(base, "counter" | "piston-extender" | "delay" | "gate" | "flying-machine" | "tff" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender");
+    let by_kind = matches!(
+        base,
+        "counter" | "piston-extender" | "delay" | "gate" | "flying-machine" | "tff" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "burst" | "divider" | "monostable" | "off-delay" | "on-delay" | "pulse-train"
+    );
     let key = |xc: &site_model::Circuit| -> String {
         if base_kind(&xc.kind) == "flying-machine" {
             format!("{} {}", xc.direction, xc.axis)
@@ -659,6 +658,12 @@ fn circuit_axis_walk<'a>(site: &'a Site, b: &Build, c: &site_model::Circuit) -> 
         "tff" => "Other T flip-flop mechanisms (the smallest of each)".to_string(),
         "flying-machine" => "Flying machines of other directions and speeds (the smallest of each)".to_string(),
         "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" => format!("{}s of other pulse lengths (the smallest of each L)", crate::explain::kind_title(base)),
+        "burst" => "Bursts of other N (the smallest of each)".to_string(),
+        "divider" => "Dividers by other N (the smallest of each)".to_string(),
+        "monostable" => "Monostables of other lengths (the smallest of each L)".to_string(),
+        "off-delay" => "Off-delay timers of other holds (the smallest of each L)".to_string(),
+        "on-delay" => "On-delay timers of other thresholds (the smallest of each T)".to_string(),
+        "pulse-train" => "Pulse trains of other periods (the smallest of each P)".to_string(),
         _ => format!("Other {} circuits (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.to_lowercase()).unwrap_or_else(|| c.study.clone())),
     };
     (title, list)
@@ -695,7 +700,7 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
     // button); its second line the other: what differs (delays 4+4), or the block count
     let chip_text = |o: &Build| -> (String, String) {
         let oc = o.circuit.as_ref();
-        let axis = oc.map(|oc| oc.axis.replace(" = ", " ")).unwrap_or_default();
+        let axis = oc.map(|oc| site_model::html::axis_shown("", &oc.axis).unwrap_or_else(|| oc.axis.clone()).replace(" = ", " ")).unwrap_or_default();
         let what = oc.map(|oc| oc.variant_label.clone()).unwrap_or_default();
         if same_axis {
             (if what.is_empty() { o.name.clone() } else { what }, site_model::html::blocks_word(o.blocks))
@@ -725,7 +730,7 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
         esc(&title),
         esc(&if same_axis { format!("{} versions · {}", members.len(), c.axis) } else { span.clone() }),
         esc(&differs),
-        if same_axis { String::new() } else { format!(", which sets {}", c.axis.split(" = ").next().filter(|l| l.len() <= 2).unwrap_or("its value")) },
+        if same_axis { String::new() } else { format!(", which sets {}", c.axis.split(" = ").next().and_then(|l| l.split_whitespace().last()).filter(|l| l.len() <= 2).unwrap_or("its value")) },
         if c.group_note.is_empty() { String::new() } else { format!(" ({})", esc(&c.group_note)) }
     )
 }
@@ -1107,13 +1112,16 @@ fn pick_min<'a>(v: Vec<&'a Build>, key: &dyn Fn(&Build) -> (i64, i64)) -> Option
 fn best_cell(b: Option<&Build>, prefix: &str, key: &str, unit: &str) -> String {
     match b {
         Some(b) => {
+            // the design's properties lead (vjeux 12:09Z), its name is the small text
             let n = cmetric(b, key);
+            let p = site_model::html::props(b);
             format!(
-                "<a href=\"{prefix}{}\">{}</a><br><span class=\"hint\">{}{}</span>",
+                "<a href=\"{prefix}{}\" title=\"{}\">{}</a><br><span class=\"hint\">{}{}</span>",
                 esc(&b.page),
                 esc(&b.name),
-                esc(&site_model::html::blocks_word(b.blocks)),
-                if n.is_empty() { String::new() } else { format!(" · {}{unit}", esc(n)) }
+                esc(&p.title),
+                esc(&b.name),
+                if n.is_empty() || p.title.contains(n) { String::new() } else { format!(" · {}{unit}", esc(n)) }
             )
         }
         None => "<span class=\"hint\">none yet</span>".to_string(),
@@ -1125,7 +1133,7 @@ fn best_cell(b: Option<&Build>, prefix: &str, key: &str, unit: &str) -> String {
 /// it, computed from the designs' metrics.
 fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String {
     let all: Vec<&'a Build> = site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder && c.layout_of.is_none())).collect();
-    if all.is_empty() || !matches!(folder, "shulker" | "tnt" | "bud") {
+    if all.is_empty() || !matches!(folder, "shulker" | "tnt" | "bud" | "pulsemult") {
         return String::new();
     }
     let has_badge = |b: &Build, badge: &str| cmetric(b, "badges").split('+').any(|x| x == badge);
@@ -1171,6 +1179,10 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
             row("fastest", "most lit TNT per minute", pick_min(running.clone(), &|b| (-rate(b), b.blocks as i64)), "rate", "");
             row("smallest, one shot per pulse", "fewest blocks of the dupers that light TNT on an input pulse", pick_min(pulsed.clone(), &|b| (b.blocks as i64, 0)), "per pulse", " TNT per pulse");
         }
+        "pulsemult" => {
+            head = "<tr><th>variation</th><th>what it means</th><th>best design</th></tr>";
+            rows.push_str(&pulsemult_rows(site, &all, prefix));
+        }
         _ => {
             head = "<tr><th>variation</th><th>what it means</th><th>best design</th></tr>";
             let detects = |b: &Build, k: &str| cmetric(b, "detects").split_whitespace().any(|x| x == k);
@@ -1191,6 +1203,102 @@ fn variations_section<'a>(site: &'a Site, folder: &str, prefix: &str) -> String 
         "<section><h2>Variations</h2><p>What builds need from these machines, each measured by the judge as its own scenario, and the best design for each (the smallest that has it). Every variation, how the judge measures it, and the ones still open: <a href=\"{}\">VARIATIONS.md</a>.</p><table class=\"list variations\"><thead>{head}</thead><tbody>\n{rows}</tbody></table></section>\n",
         esc(&link)
     )
+}
+
+/// The kind's first word (`burst` of `burst 2`, `monostable` of `monostable retriggerable`).
+fn kind_base(b: &Build) -> &str {
+    b.circuit.as_ref().and_then(|c| c.kind.split_whitespace().next()).unwrap_or("")
+}
+
+/// The number in the kind (`2` of `burst 2`).
+fn kind_n(b: &Build) -> Option<u32> {
+    b.circuit.as_ref().and_then(|c| c.kind.split_whitespace().nth(1)).and_then(|n| n.parse().ok())
+}
+
+/// A variations row that another study answers: a link to that study's page and the smallest
+/// design of the kind there.
+fn linked_cell(site: &Site, prefix: &str, study: &str, kind: &str, key: &str, unit: &str) -> String {
+    let title = crate::explain::study(study).map(|s| s.0).unwrap_or(study);
+    let number = circuit::archive::STUDIES.iter().position(|s| s.0 == study).map(|i| format!(" (study {})", i + 1)).unwrap_or_default();
+    let of: Vec<&Build> = site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == study && c.layout_of.is_none()) && kind_base(b) == kind).collect();
+    let best = pick_min(of, &|b| (b.blocks as i64, 0));
+    format!(
+        "<span class=\"hint\">linked:</span> <a href=\"{prefix}circuits/{study}/index.html\">{}</a>{}<br>{}",
+        esc(title),
+        esc(&number),
+        if best.is_some() { format!("smallest there: {}", best_cell(best, prefix, key, unit)) } else { String::new() }
+    )
+}
+
+/// Study 11's variations (designs/circuits/pulsemult/VARIATIONS.md): the best design of each,
+/// and rows that point at the earlier studies that answer them.
+fn pulsemult_rows<'a>(site: &'a Site, all: &[&'a Build], prefix: &str) -> String {
+    let mut rows = String::new();
+    let mut row = |label: &str, meaning: &str, cell: String| {
+        rows.push_str(&format!("<tr><th scope=\"row\">{}</th><td class=\"def\">{}</td><td>{cell}</td></tr>\n", esc(label), esc(meaning)));
+    };
+    let of = |k: &str| -> Vec<&'a Build> { all.iter().copied().filter(|b| kind_base(b) == k).collect() };
+    let num = |b: &Build, k: &str| cnum(b, k).map(|v| v as i64);
+    let lat = |b: &Build| num(b, "latency").or_else(|| num(b, "delay")).unwrap_or(999);
+    let values = |v: &[&Build]| -> Vec<u32> {
+        let mut n: Vec<u32> = v.iter().filter_map(|b| kind_n(b)).collect();
+        n.sort_unstable();
+        n.dedup();
+        n
+    };
+    // bursts: one row per N, the re-trigger classes, the fastest repeat
+    let bursts = of("burst");
+    for n in values(&bursts) {
+        let with: Vec<&Build> = bursts.iter().copied().filter(|b| kind_n(b) == Some(n)).collect();
+        row(&format!("burst {n}"), &format!("exactly {n} output pulses per input pulse"), best_cell(pick_min(with, &|b| (b.blocks as i64, lat(b))), prefix, "latency", " latency"));
+    }
+    let consistent: Vec<&Build> = bursts.iter().copied().filter(|b| matches!(cmetric(b, "retrigger"), "ignores" | "adds")).collect();
+    row("burst, a second press ignored (or adding a burst)", "the same answer to a second press whenever it comes during the burst", best_cell(pick_min(consistent, &|b| (b.blocks as i64, lat(b))), prefix, "retrigger", ""));
+    row("burst, fastest repeat", "keeps up with the fastest presses, each still giving exactly N pulses", best_cell(pick_min(bursts.clone(), &|b| (num(b, "repeat").unwrap_or(999), b.blocks as i64)), prefix, "repeat", " repeat"));
+    // dividers
+    let divs = of("divider");
+    for n in values(&divs) {
+        let square: Vec<&Build> = divs.iter().copied().filter(|b| kind_n(b) == Some(n) && cmetric(b, "output") == "square").collect();
+        row(&format!("divider {n}, square"), &format!("one output cycle per {n} input pulses, on for exactly half of it"), best_cell(pick_min(square, &|b| (b.blocks as i64, num(b, "min-period").unwrap_or(999))), prefix, "min-period", " fastest clock"));
+    }
+    row("divider, fastest input clock", "divides the fastest clock (any N)", best_cell(pick_min(divs.clone(), &|b| (num(b, "min-period").unwrap_or(999), b.blocks as i64)), prefix, "min-period", " fastest clock"));
+    row("divider N, pulse output", "a short output pulse per N input pulses: every counter of study 5 passes the divider test on running clocks", linked_cell(site, prefix, "memory", "counter", "N", " pulses per cycle"));
+    row("divide by 2", "a T flip-flop divides a clock by 2", linked_cell(site, prefix, "tff", "tff", "min-period", " fastest clock"));
+    row("×2 frequency multiplier", "one pulse per input edge: on a square clock, two evenly spaced pulses per period", linked_cell(site, prefix, "pulse", "dual-edge", "L", ""));
+    // monostables
+    let monos = of("monostable");
+    let retrig: Vec<&Build> = monos.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.ends_with(" retriggerable"))).collect();
+    row("monostable, retriggerable", "one output pulse of L per press, stretched to L after the last press while presses keep coming", best_cell(pick_min(retrig, &|b| (b.blocks as i64, lat(b))), prefix, "L", ""));
+    let non: Vec<&Build> = monos.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.ends_with("non-retriggerable"))).collect();
+    if non.is_empty() {
+        row("monostable, non-retriggerable", "one output pulse of L per press, presses during it ignored: fed single pulses it is study 1's rising-edge detector", linked_cell(site, prefix, "pulse", "rising-edge", "L", ""));
+    } else {
+        row("monostable, non-retriggerable", "one output pulse of L per press, presses during it ignored", best_cell(pick_min(non, &|b| (b.blocks as i64, lat(b))), prefix, "L", ""));
+    }
+    row("longest output pulse (pulse extender)", "an output at least L long for any input: study 1", linked_cell(site, prefix, "pulse", "pulse-extender", "L", ""));
+    row("shortest output pulse (pulse limiter)", "an output at most L long for any input: study 1", linked_cell(site, prefix, "pulse", "pulse-limiter", "L", ""));
+    // timers
+    let offs = of("off-delay");
+    row("off-delay", "the output stays on L after the input turns off", best_cell(pick_min(offs.clone(), &|b| (b.blocks as i64, lat(b))), prefix, "L", ""));
+    row("off-delay, longest L", "the longest hold", best_cell(pick_min(offs, &|b| (-num(b, "L").unwrap_or(0), b.blocks as i64)), prefix, "L", ""));
+    let ons = of("on-delay");
+    row("on-delay (pulse filter)", "the output only once the input has been on for T; shorter inputs give nothing", best_cell(pick_min(ons.clone(), &|b| (b.blocks as i64, lat(b))), prefix, "T", ""));
+    row("on-delay, longest T", "the longest threshold", best_cell(pick_min(ons, &|b| (-num(b, "T").unwrap_or(0), b.blocks as i64)), prefix, "T", ""));
+    // gated pulse trains
+    let trains = of("pulse-train");
+    row("pulse train, smallest", "fewest blocks", best_cell(pick_min(trains.clone(), &|b| (b.blocks as i64, num(b, "P").unwrap_or(999))), prefix, "P", " period"));
+    row("pulse train, fastest", "the shortest period P", best_cell(pick_min(trains.clone(), &|b| (num(b, "P").unwrap_or(999), b.blocks as i64)), prefix, "P", " period"));
+    let tunable = pick_min(trains.iter().copied().filter(|b| b.circuit.as_ref().is_some_and(|c| !c.span.is_empty())).collect(), &|b| (b.blocks as i64, 0));
+    row(
+        "pulse train, tunable P",
+        "one design whose period a repeater sets",
+        match tunable {
+            Some(b) => format!("{}<br><span class=\"hint\">{}</span>", best_cell(Some(b), prefix, "", ""), esc(&b.circuit.as_ref().map(|c| c.span.clone()).unwrap_or_default())),
+            None => best_cell(None, prefix, "", ""),
+        },
+    );
+    row("self-running clocks", "no on switch", format!("<span class=\"hint\">linked:</span> <a href=\"{prefix}index.html#kind=clock\">the Clocks tab</a>"));
+    rows
 }
 
 /// circuits/<study>/index.html: what the study collects, how designs are ranked, then each kind
@@ -1266,6 +1374,12 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             "bud" => "BUD switches".to_string(),
             "tnt-duper" => "TNT dupers (self-running)".to_string(),
             "tnt-duper-triggered" => "TNT dupers (one shot per pulse)".to_string(),
+            "burst" => "Bursts (pulse multipliers)".to_string(),
+            "divider" => "Clock dividers".to_string(),
+            "monostable" => "Monostables (one-shot timers)".to_string(),
+            "off-delay" => "Off-delay timers".to_string(),
+            "on-delay" => "On-delay timers (pulse filters)".to_string(),
+            "pulse-train" => "Gated pulse trains".to_string(),
             _ => crate::explain::kind_title(k),
         };
         let cards: Vec<String> = reps.iter().map(|b| build_card(b, prefix)).collect();
@@ -1393,7 +1507,9 @@ mod tests {
         let s = tiny_site();
         let p = build_page(&s, &s.builds[0], "name: obs2\n", "designs/clocks/archive/obs2.txt", Scripts { viewer: true, app: false, ui: false });
         assert!(p.starts_with("<!DOCTYPE html>"));
-        assert!(p.contains("<title>obs2 · REDSTONEPEDIA</title>"));
+        // the kind and the properties lead, the design's name after
+        assert!(p.contains("<title>Clock: ") && p.contains(" (obs2) · REDSTONEPEDIA</title>"), "{p}");
+        assert!(p.contains("<p class=\"design-name\">design <code>obs2</code></p>"), "{p}");
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("<a class=\"card\" href=\"../clocks/obs3.html\""), "similar builds link to the other clock of the period");
@@ -1401,7 +1517,7 @@ mod tests {
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
         let d = build_page(&s, &s.builds[2], "name: fc2\n", "designs/piston-door-3x3/archive/fc2-40b.txt", Scripts::default());
-        assert!(d.contains("144b (8x9x2)"));
+        assert!(d.contains("<h1>144b (8×9×2) · 40 blocks</h1>"), "{d}");
         assert!(d.contains("14 / 16 gt"));
         assert!(!d.contains("mcview.js"), "no viewer script without the bundle");
     }

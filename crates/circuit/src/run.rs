@@ -54,6 +54,9 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
+    if tnt && c.explodes() {
+        return sim_tnt(c, &cc, &actions, s, &probes, from, to, KICK_DEFAULT);
+    }
     match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
             let ended = match d.stopped {
@@ -65,6 +68,43 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
             t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], ..Default::default() }).collect();
+            Ok(t)
+        }
+        Err((_, why)) => Err(why),
+    }
+}
+
+/// The kick of every primed TNT in a redsim run with explosions (`sim_trace`; the all-randoms
+/// sweep tries every kick: `tnt_kick_trace`).
+pub const KICK_DEFAULT: f64 = 0.0;
+
+/// A TNT duper with explosions on, on redsim (the exact explosion port, every ray at its largest
+/// roll), every primed TNT kicked by `kick`, removed out of range like the real-game judge does.
+pub fn tnt_kick_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64) -> std::result::Result<Trace, String> {
+    let actions = c.actions(s);
+    let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let (from, to) = watch_box(c, margin);
+    let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
+    sim_tnt(c, &cc, &actions, s, &probes, from, to, kick)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], from: Pos, to: Pos, kick: f64) -> std::result::Result<Trace, String> {
+    let o = clock::sim::TntOptions { kick, kicks: Vec::new(), max_rolls: true, out_of_range: OUT_OF_RANGE, design_box: c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])) };
+    match clock::sim::drive_tnt(&cc.clock, actions, s.ticks, probes, from, to, &o) {
+        Ok(d) => {
+            if let Some((_, why)) = d.driven.stopped {
+                return Err(why);
+            }
+            let mut t = Trace::new(c, d.driven.cells, d.driven.signals);
+            t.primed = d
+                .tnt
+                .iter()
+                .map(|r| crate::trace::Primed { frame: r.frame, pos: r.first_pos, motion: Some(r.first_motion), end: r.end, launch: r.launch, moved: r.moved, last_pos: r.last_pos, end_frame: r.end_frame, gone: r.gone })
+                .collect();
+            t.exploded = d.explosions.len() as u32;
+            t.explosions = d.explosions;
+            t.out_of_range = d.out_of_range;
             Ok(t)
         }
         Err((_, why)) => Err(why),

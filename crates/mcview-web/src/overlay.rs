@@ -1,22 +1,52 @@
-//! What a live viewer draws over its canvas as page elements (crisp text, no 3D text needed): a
-//! circuit's input and output tags (IN, A, B... in lime, OUT in orange), the contents of the
-//! containers (droppers, dispensers, hoppers) above each one, and the outputs' recent history.
-//! Placed every frame by projecting their cells with the player's camera.
+//! The live viewer's HTML overlays: a circuit's tags (its inputs IN, A, B... in lime, outputs in
+//! orange, a shulker design's ITEMS / BOXES chests, a BUD switch's TARGET), ONE compact label per
+//! container with what it holds (an icon and a count per kind: `[cobblestone] 1,344`, a shulker
+//! box `12/27`, at most two kinds and `+n`), and the outputs' recent history. Placed every frame
+//! by projecting their points with the player's camera, then laid out so that nothing overlaps:
+//! a tag or label that would cover another goes higher (or aside) with a leader line back to its
+//! cell; a label with no free spot is left out.
 
 use crate::document;
-use mcview::design::Pos;
+use mcview::atlas::Atlas;
+use mcview::labels::{self, Entry, Key, Rect, spot};
 use mcview::player::{HISTORY, Player};
 use std::collections::HashMap;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{Clamped, JsCast};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement};
+
+/// One container's label: its element, what it shows (to rebuild only on change), its size.
+struct Label {
+    el: HtmlElement,
+    content: String,
+    size: (f64, f64),
+}
+
+/// A tag (a port's name over its cell); a container there (a judge's chest) shows its contents
+/// inside the tag, after the name: one pill per chest.
+struct Tag {
+    el: HtmlElement,
+    /// The world point it hangs at.
+    point: [f32; 3],
+    /// Its cell (the container whose contents it shows).
+    cell: [i32; 3],
+    contents: HtmlElement,
+    content: String,
+    /// Its size, measured again when its contents change.
+    size: (f64, f64),
+}
 
 pub struct Overlays {
     layer: HtmlElement,
-    /// (tag, the world point it hangs at).
-    tags: Vec<(HtmlElement, [f32; 3])>,
+    /// The leader lines from moved tags and labels to their cells.
+    leaders: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
+    tags: Vec<Tag>,
     /// The input tags (input index, tag): pressing one presses its input.
     pub input_tags: Vec<(usize, HtmlElement)>,
-    boxes: HashMap<Pos, (HtmlElement, String)>,
+    labels: HashMap<Key, Label>,
+    /// Item icons as data URLs (None: no texture: a coloured square), for the game assets
+    /// `icons_of` (rebuilt when the item atlas arrives).
+    icons: HashMap<String, Option<String>>,
+    icons_of: (usize, bool),
     /// Container contents shown (the bar's toggle).
     pub containers_on: bool,
     history: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
@@ -28,54 +58,96 @@ fn div(css: &str) -> HtmlElement {
     e
 }
 
-/// The color of an item's icon (the items redsim models).
+fn span(css: &str, text: &str) -> HtmlElement {
+    let e: HtmlElement = document().create_element("span").unwrap().dyn_into().unwrap();
+    let _ = e.set_attribute("style", css);
+    e.set_text_content(Some(text));
+    e
+}
+
+/// The colour of an item without a texture (the items redsim models).
 fn item_color(item: &str) -> &'static str {
     match item {
-        "stone" => "#8f8f8f",
+        "stone" | "cobblestone" => "#8f8f8f",
         "redstone" => "#d01c10",
         "snowball" => "#f2f6fa",
         "ender_pearl" => "#1f8a7a",
         "wooden_shovel" => "#a07a45",
         "diamond_sword" => "#4ad8d0",
+        "paper" => "#f4f1e4",
+        id if id.ends_with("shulker_box") => "#9a6ea6",
         _ => "#c0c0c0",
     }
+}
+
+/// The game texture set an icon was made from (its address, and whether the item atlas is in).
+fn game_of(atlas: &Atlas) -> (usize, bool) {
+    atlas.game.as_ref().map(|g| (std::rc::Rc::as_ptr(g) as usize, g.entities)).unwrap_or((0, false))
+}
+
+fn show_at(e: &HtmlElement, r: &Rect) {
+    let s = e.style();
+    let _ = s.set_property("display", "flex");
+    let _ = s.set_property("left", &format!("{:.1}px", r.x0));
+    let _ = s.set_property("top", &format!("{:.1}px", r.y0));
+}
+
+fn hide(e: &HtmlElement) {
+    let _ = e.style().set_property("display", "none");
+}
+
+/// An element's size (laid out now if needed).
+fn measure(e: &HtmlElement) -> (f64, f64) {
+    let _ = e.style().set_property("display", "flex");
+    (e.offset_width() as f64, e.offset_height() as f64)
 }
 
 impl Overlays {
     pub fn new(parent: &HtmlElement) -> Overlays {
         let layer = div("position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;overflow:hidden;z-index:1;font:600 11px system-ui,sans-serif");
         let _ = parent.append_child(&layer);
-        Overlays { layer, tags: Vec::new(), input_tags: Vec::new(), boxes: HashMap::new(), containers_on: true, history: None }
+        let leaders = (|| {
+            let c: HtmlCanvasElement = document().create_element("canvas").ok()?.dyn_into().ok()?;
+            let _ = c.set_attribute("style", "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none");
+            let _ = layer.append_child(&c);
+            let ctx = c.get_context("2d").ok()??.dyn_into::<CanvasRenderingContext2d>().ok()?;
+            Some((c, ctx))
+        })();
+        Overlays { layer, leaders, tags: Vec::new(), input_tags: Vec::new(), labels: HashMap::new(), icons: HashMap::new(), icons_of: (0, false), containers_on: true, history: None }
     }
 
     /// The tags and the history strip of a (new) player.
     pub fn setup(&mut self, p: &Player) {
-        for (t, _) in self.tags.drain(..) {
-            t.remove();
+        for t in self.tags.drain(..) {
+            t.el.remove();
+        }
+        for (_, l) in self.labels.drain() {
+            l.el.remove();
         }
         self.input_tags.clear();
-        let tag = |text: &str, color: &str| {
-            let t = div(&format!("position:absolute;transform:translate(-50%,-100%);padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
-            t.set_text_content(Some(text));
-            t
+        let make = |layer: &HtmlElement, text: &str, color: &str, cell: [i32; 3]| -> Tag {
+            let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
+            let _ = el.append_child(&span("", text));
+            let contents = span("display:none;align-items:center;gap:2px;color:#fff;font:600 10px/14px system-ui,sans-serif;letter-spacing:0", "");
+            let _ = el.append_child(&contents);
+            let _ = layer.append_child(&el);
+            Tag { el, point: [cell[0] as f32 + 0.5, cell[1] as f32 + 1.05, cell[2] as f32 + 0.5], cell, contents, content: String::new(), size: (0.0, 0.0) }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name: String = ci.name.to_uppercase().chars().take(3).collect();
-            let t = tag(&name, "#a6f05a");
+            let t = make(&self.layer, &name, "#a6f05a", ci.pos);
             // pressing the tag presses its input (a tap or a hold)
-            let s = t.style();
+            let s = t.el.style();
             let _ = s.set_property("pointer-events", "auto");
             let _ = s.set_property("cursor", "pointer");
             let _ = s.set_property("touch-action", "none");
-            let _ = self.layer.append_child(&t);
-            self.tags.push((t.clone(), [ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 1.05, ci.pos[2] as f32 + 0.5]));
-            self.input_tags.push((i, t));
+            self.input_tags.push((i, t.el.clone()));
+            self.tags.push(t);
         }
         // a circuit's other ports: its outputs, a shulker design's chests, a BUD switch's target
         for (label, pos, colour) in mcview::circuit::port_tags(&p.session.design) {
-            let t = tag(&label, colour);
-            let _ = self.layer.append_child(&t);
-            self.tags.push((t, [pos[0] as f32 + 0.5, pos[1] as f32 + 1.05, pos[2] as f32 + 0.5]));
+            let t = make(&self.layer, &label, colour, pos);
+            self.tags.push(t);
         }
         if let Some((c, _)) = self.history.take() {
             c.remove();
@@ -94,8 +166,69 @@ impl Overlays {
         }
     }
 
+    /// An item's icon as a data URL (cached; None: no texture for it).
+    fn icon(&mut self, atlas: &Atlas, id: &str) -> Option<String> {
+        if let Some(u) = self.icons.get(id) {
+            return u.clone();
+        }
+        let url = labels::item_icon(atlas, id).and_then(|rgba| {
+            let c: HtmlCanvasElement = document().create_element("canvas").ok()?.dyn_into().ok()?;
+            c.set_width(16);
+            c.set_height(16);
+            let ctx = c.get_context("2d").ok()??.dyn_into::<CanvasRenderingContext2d>().ok()?;
+            let img = web_sys::ImageData::new_with_u8_clamped_array_and_sh(Clamped(&rgba), 16, 16).ok()?;
+            ctx.put_image_data(&img, 0.0, 0.0).ok()?;
+            c.to_data_url().ok()
+        });
+        if url.is_none()
+            && labels::wants_item_atlas(atlas, id)
+            && let Some(g) = &atlas.game
+        {
+            // the item atlas loads (the page's next frame), then the icons are made again
+            g.wants_entities.set(true);
+        }
+        self.icons.insert(id.to_string(), url.clone());
+        url
+    }
+
+    /// A label's contents: per kind (two at most) its icon and count, then `+n` more kinds.
+    fn fill_label(&mut self, atlas: &Atlas, el: &HtmlElement, entries: &[Entry]) {
+        el.set_inner_html("");
+        for e in entries.iter().take(2) {
+            let id = match e {
+                Entry::Items { id, .. } | Entry::Boxes { id, .. } => *id,
+            };
+            let icon: HtmlElement = match self.icon(atlas, id) {
+                Some(url) => {
+                    let img: HtmlElement = document().create_element("img").unwrap().dyn_into().unwrap();
+                    let _ = img.set_attribute("src", &url);
+                    let _ = img.set_attribute("alt", "");
+                    let _ = img.set_attribute("style", "width:12px;height:12px;image-rendering:pixelated;flex:none");
+                    img
+                }
+                None => div(&format!("width:10px;height:10px;border-radius:2px;flex:none;background:{}", item_color(id))),
+            };
+            let _ = el.append_child(&icon);
+            let _ = el.append_child(&span("margin-right:2px", &labels::entry_text(e)));
+            // several boxes: how full they are, as a bar
+            if let Entry::Boxes { n, used, slots, .. } = e
+                && *n > 1
+            {
+                let bar = div("width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,0.25);overflow:hidden;flex:none;margin-right:2px");
+                let fill = div(&format!("height:100%;width:{:.0}%;background:#d9a8ff", *used as f64 * 100.0 / (*slots).max(1) as f64));
+                let _ = bar.append_child(&fill);
+                let _ = el.append_child(&bar);
+            }
+        }
+        if entries.len() > 2 {
+            let _ = el.append_child(&span("color:#ddd", &format!("+{}", entries.len() - 2)));
+        }
+        let title: Vec<String> = entries.iter().map(labels::entry_title).collect();
+        let _ = el.set_attribute("aria-label", &title.join(", "));
+    }
+
     /// Place everything for the player's camera (`w` x `h` CSS px view) and its current tick.
-    pub fn update(&mut self, p: &Player, w: f64, h: f64) {
+    pub fn update(&mut self, p: &Player, atlas: &Atlas, w: f64, h: f64) {
         let aspect = (w / h.max(1.0)) as f32;
         let (f, r, u) = p.camera.basis();
         let eye = p.camera.eye();
@@ -113,66 +246,122 @@ impl Overlays {
             }
             Some(((x as f64 + 1.0) / 2.0 * w, (1.0 - y as f64) / 2.0 * h))
         };
-        let place = |e: &HtmlElement, at: Option<(f64, f64)>| {
-            let s = e.style();
-            match at {
-                Some((x, y)) => {
-                    let _ = s.set_property("display", "block");
-                    let _ = s.set_property("left", &format!("{x:.1}px"));
-                    let _ = s.set_property("top", &format!("{y:.1}px"));
-                }
-                None => {
-                    let _ = s.set_property("display", "none");
-                }
-            }
-        };
-        for (e, q) in &self.tags {
-            place(e, project(*q));
+        let mut placed: Vec<Rect> = Vec::new();
+        let mut leaders: Vec<((f64, f64), Rect)> = Vec::new();
+        // the history strip stays clear
+        if let Some((c, _)) = &self.history {
+            let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);
+            placed.push(Rect { x0: w - 8.0 - cw, y0: 34.0, x1: w - 8.0, y1: 34.0 + ch });
         }
-        // container contents
-        let now = if self.containers_on { p.session.containers() } else { Vec::new() };
-        let keep: Vec<Pos> = now.iter().map(|(c, _, _)| *c).collect();
-        self.boxes.retain(|c, (e, _)| {
-            let k = keep.contains(c);
+        // what the containers hold (nearest first)
+        let game = game_of(atlas);
+        if game != self.icons_of {
+            self.icons.clear();
+            self.icons_of = game;
+        }
+        let mut now = if self.containers_on { labels::summaries(&p.session, p.partial) } else { Vec::new() };
+        let dist = |a: [f32; 3]| (a[0] - eye[0]).powi(2) + (a[1] - eye[1]).powi(2) + (a[2] - eye[2]).powi(2);
+        now.sort_by(|a, b| dist(a.anchor).total_cmp(&dist(b.anchor)).then(a.key.cmp(&b.key)));
+        // the tags first, always shown (at their cell when no free spot is left); a container
+        // under a tag (a judge's chest) shows its contents in the tag
+        let view = Rect { x0: 0.0, y0: 0.0, x1: w, y1: h };
+        let mut in_tags: Vec<Key> = Vec::new();
+        for i in 0..self.tags.len() {
+            let cell = self.tags[i].cell;
+            let held = now.iter().find(|s| s.key == Key::Block(cell));
+            let content = match held {
+                Some(s) => format!("{:?}{:?}", s.entries, self.icons_of),
+                None => String::new(),
+            };
+            if let Some(s) = held {
+                in_tags.push(s.key);
+            }
+            if self.tags[i].content != content || self.tags[i].size.0 <= 0.0 {
+                let contents = self.tags[i].contents.clone();
+                match held {
+                    Some(s) => {
+                        let entries = s.entries.clone();
+                        self.fill_label(atlas, &contents, &entries);
+                        let _ = contents.style().set_property("display", "inline-flex");
+                    }
+                    None => {
+                        contents.set_inner_html("");
+                        let _ = contents.style().set_property("display", "none");
+                    }
+                }
+                let t = &mut self.tags[i];
+                t.content = content;
+                t.size = measure(&t.el);
+            }
+            let t = &self.tags[i];
+            let Some((ax, ay)) = project(t.point) else {
+                hide(&t.el);
+                continue;
+            };
+            let (wt, ht) = t.size;
+            let (rect, moved) = spot(&placed, &view, ax, ay, wt, ht, 5).unwrap_or((Rect { x0: ax - wt / 2.0, y0: ay - 2.0 - ht, x1: ax + wt / 2.0, y1: ay - 2.0 }, false));
+            show_at(&t.el, &rect);
+            placed.push(rect);
+            if moved {
+                leaders.push(((ax, ay), rect));
+            }
+        }
+        // the other containers' labels; clear of the badges (top), the bar (bottom), and every
+        // outlined cell (the ports and inputs: a label never covers one)
+        now.retain(|s| !in_tags.contains(&s.key));
+        for c in p.look.outlines.iter().copied().chain(p.look.port_outlines.iter().map(|(c, _)| *c)) {
+            let corners: Vec<(f64, f64)> = (0..8)
+                .filter_map(|k| project([c[0] as f32 + (k & 1) as f32, c[1] as f32 + ((k >> 1) & 1) as f32, c[2] as f32 + ((k >> 2) & 1) as f32]))
+                .collect();
+            if corners.len() == 8 {
+                let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+                for (x, y) in corners {
+                    x0 = x0.min(x);
+                    y0 = y0.min(y);
+                    x1 = x1.max(x);
+                    y1 = y1.max(y);
+                }
+                placed.push(Rect { x0, y0, x1, y1 });
+            }
+        }
+        let keep: Vec<Key> = now.iter().map(|s| s.key).collect();
+        self.labels.retain(|k, l| {
+            let k = keep.contains(k);
             if !k {
-                e.remove();
+                l.el.remove();
             }
             k
         });
-        for (cell, _slots, stacks) in now {
-            let key = format!("{stacks:?}");
-            let entry = self.boxes.entry(cell).or_insert_with(|| {
-                let e = div("position:absolute;transform:translate(-50%,-100%);display:flex;gap:2px;padding:2px;border-radius:5px;background:rgba(0,0,0,0.58)");
-                let _ = self.layer.append_child(&e);
-                (e, String::new())
-            });
-            if entry.1 != key {
-                entry.1 = key;
-                let e = &entry.0;
-                e.set_inner_html("");
-                if stacks.is_empty() {
-                    let s = div("width:14px;height:14px;border-radius:3px;border:1px dashed rgba(255,255,255,0.35);box-sizing:border-box");
-                    let _ = e.append_child(&s);
-                }
-                let shown = stacks.len().min(5);
-                for (item, count) in stacks.iter().take(shown) {
-                    let s = div(&format!("position:relative;width:16px;height:16px;border-radius:3px;background:{};box-shadow:inset 0 -3px rgba(0,0,0,0.25)", item_color(item)));
-                    s.set_title(&format!("{count} {}", item.replace('_', " ")));
-                    if *count > 1 {
-                        let n = div("position:absolute;right:-2px;bottom:-3px;color:#fff;font:700 10px system-ui,sans-serif;text-shadow:0 0 2px #000,0 0 2px #000");
-                        n.set_text_content(Some(&count.to_string()));
-                        let _ = s.append_child(&n);
-                    }
-                    let _ = e.append_child(&s);
-                }
-                if stacks.len() > shown {
-                    let more = div("color:#fff;padding:0 2px;line-height:16px");
-                    more.set_text_content(Some(&format!("+{}", stacks.len() - shown)));
-                    let _ = e.append_child(&more);
-                }
+        let safe = Rect { x0: 2.0, y0: 30.0, x1: w - 2.0, y1: h - 62.0 };
+        for s in &now {
+            let content = format!("{:?}{:?}", s.entries, self.icons_of);
+            if !self.labels.contains_key(&s.key) {
+                let el = div("position:absolute;display:none;align-items:center;gap:2px;padding:1px 4px;border-radius:5px;background:rgba(0,0,0,0.68);color:#fff;font:600 10px/14px system-ui,sans-serif;white-space:nowrap;width:max-content;pointer-events:none");
+                let _ = self.layer.append_child(&el);
+                self.labels.insert(s.key, Label { el, content: String::new(), size: (0.0, 0.0) });
             }
-            place(&entry.0, project([cell[0] as f32 + 0.5, cell[1] as f32 + 1.0, cell[2] as f32 + 0.5]));
+            if self.labels[&s.key].content != content {
+                let el = self.labels[&s.key].el.clone();
+                self.fill_label(atlas, &el, &s.entries);
+                let size = measure(&el);
+                let l = self.labels.get_mut(&s.key).unwrap();
+                l.content = content;
+                l.size = size;
+            }
+            let l = &self.labels[&s.key];
+            let at = project(s.anchor).and_then(|(ax, ay)| spot(&placed, &safe, ax, ay, l.size.0, l.size.1, 6).map(|(r, moved)| ((ax, ay), r, moved)));
+            match at {
+                Some((a, rect, moved)) => {
+                    show_at(&l.el, &rect);
+                    placed.push(rect);
+                    if moved {
+                        leaders.push((a, rect));
+                    }
+                }
+                None => hide(&l.el),
+            }
         }
+        self.draw_leaders(&leaders, w, h);
         // the outputs' history
         if let Some((c, ctx)) = &self.history {
             let (cw, ch) = (c.width() as f64, c.height() as f64);
@@ -185,6 +374,36 @@ impl Overlays {
                     ctx.fill_rect(((pad + k) * 3) as f64, y + if *on { 0.0 } else { 5.0 }, 2.0, if *on { 8.0 } else { 3.0 });
                 }
             }
+        }
+    }
+
+    /// A thin line from each moved tag or label down to its cell, with a dot there.
+    fn draw_leaders(&self, leaders: &[((f64, f64), Rect)], w: f64, h: f64) {
+        let Some((c, ctx)) = &self.leaders else { return };
+        let dpr = crate::window().device_pixel_ratio().clamp(1.0, 3.0);
+        let (pw, ph) = ((w * dpr).round().max(1.0) as u32, (h * dpr).round().max(1.0) as u32);
+        if c.width() != pw || c.height() != ph {
+            c.set_width(pw);
+            c.set_height(ph);
+        }
+        ctx.clear_rect(0.0, 0.0, pw as f64, ph as f64);
+        if leaders.is_empty() {
+            return;
+        }
+        ctx.set_line_width(dpr);
+        ctx.set_stroke_style_str("rgba(255,255,255,0.8)");
+        ctx.set_fill_style_str("rgba(255,255,255,0.9)");
+        for ((ax, ay), r) in leaders {
+            // to the nearest point of the box's edge facing the cell
+            let x = ax.clamp(r.x0 + 3.0, r.x1 - 3.0);
+            let y = if *ay >= r.y1 { r.y1 } else if *ay <= r.y0 { r.y0 } else { ay.clamp(r.y0, r.y1) };
+            ctx.begin_path();
+            ctx.move_to(ax * dpr, ay * dpr);
+            ctx.line_to(x * dpr, y * dpr);
+            ctx.stroke();
+            ctx.begin_path();
+            let _ = ctx.arc(ax * dpr, ay * dpr, 1.6 * dpr, 0.0, std::f64::consts::TAU);
+            ctx.fill();
         }
     }
 }
