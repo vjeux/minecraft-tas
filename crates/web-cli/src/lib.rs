@@ -1128,12 +1128,14 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     let chunks = redsim::redstone::shulker::chunk_range(from, to);
     let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
     let mut blasts = 0usize;
+    let mut destroyed = 0usize;
     clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| redsim::explosion::explode_on(w, 0, chunks), |_, w| {
         let b = w.blocks();
         h = mcview::session::frame_hash(h, &b);
         h = mcview::session::entity_hash(h, w);
         hb = mcview::session::frame_hash(hb, &b);
         blasts = w.explosions.len();
+        destroyed = w.explosions.iter().map(|x| x.destroyed.len()).sum();
     })?;
     if s.frames_entities_digest(TNT_TICKS) != h {
         return Err(format!("frames 0..={TNT_TICKS} (blocks and entities) differ from the reference run's"));
@@ -1143,7 +1145,7 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     {
         return Err(format!("the wasm viewer's frames 0..={TNT_TICKS} differ from the reference run's"));
     }
-    Ok(Some(format!("TNT design: {TNT_TICKS} ticks agree (blocks and entities; {blasts} explosions)")))
+    Ok(Some(format!("TNT design: {TNT_TICKS} ticks agree (blocks and entities; {blasts} explosions, {destroyed} blocks destroyed)")))
 }
 
 /// Ticks a shulker design runs in `web check` (3 boxes and more of unstackables).
