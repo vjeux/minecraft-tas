@@ -219,6 +219,20 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
     the statics and transit door blocks, and power does not chain through stone.
   - So this family is out for 6x9. The next family worth it is 7 wide (both sides have a spare
     column: lever-held side stacks + toggles), i.e. 7x7 = 49.
+* 7x7 check (22:00Z): every 3x3 door needs C, the centre block, to make a 2-cell move. In 7x7 no
+  side has 2 spare rows or columns, so:
+  - an elevator is impossible;
+  - a column push from (1,3) or (1,-1) needs a piston parked in a frame cell, with no room to
+    vacate (the S-stone trick pushes the column down by 1, but then TM is stuck);
+  - sideways moves need a puller reaching from the frame cell (-1,1).
+  So 7x7 is blocked for these families too (consistent with macrosat's strict UNSAT at short
+  horizons). Sub-56 boxes: 54 (blind corner), 49 (C's 2-cell move), 48 (worse than both).
+* pockets3 on m69T (22:00Z): with the lever in the BOTTOM-RIGHT area every area starts on both
+  edges; with the lever-held stack trick (lever on R1's back), the bottom-right's first pulse
+  must move to t3 or later so that an observer sees R0 retract.
+* `fullmech --complete` cannot check the box-edge column claim at this size: calibration with
+  r69a's own 4 right pieces (k=4) refinds nothing (the exact solver's horizon is shorter than
+  r69a's 17-pulse sequence).
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
