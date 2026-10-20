@@ -432,7 +432,8 @@ pub fn door(b: &Build) -> (String, String, String) {
     let why = match b.group.as_str() {
         // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
         // nearby can open it")
-        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner: footsteps nearby can set it off, so not on a busy path.".to_string(),
+        // (the sensor's warning is the line right under it: said once, critique)
+        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner.".to_string(),
         "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
         "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
         _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
