@@ -14,8 +14,11 @@
 //! (`MinecartHopper.suckInItems`) are clk-misc's too.
 //!
 //! Out of scope (a model note is recorded): a dropper whose 2+ non-empty slots make it pick a
-//! RANDOM slot, a dropper or dispenser spitting an item into the world (item entities), item
-//! entities sucked by hoppers, composters and crafters as targets.
+//! RANDOM slot (a dispenser whose filled slots all hold the same stack takes the first: every
+//! pick gives the same world), a dropper or dispenser spitting an item into the world (item
+//! entities), composters and crafters as targets. Shulker boxes and single chests (27 slots) are
+//! the shulker study's (clk-rt, `shulker.rs`): a box item's contents ride on its stack's
+//! `payload`.
 
 use crate::block::{Block, Kind};
 use crate::pos::{BlockPos, Dir};
@@ -24,8 +27,9 @@ use std::collections::{BTreeMap, HashMap};
 
 /// Items with their max stack sizes (the fuzzer picks among these).
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
-/// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc).
-pub const MORE_ITEMS: [(&str, u8); 15] = [
+/// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
+/// then the shulker study's (clk-rt; ids stay stable: append only).
+pub const MORE_ITEMS: [(&str, u8); 18] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -41,6 +45,9 @@ pub const MORE_ITEMS: [(&str, u8); 15] = [
     ("music_disc_blocks", 1),
     ("music_disc_precipice", 1),
     ("music_disc_ward", 1),
+    ("iron_shovel", 1),
+    ("shulker_box", 1),
+    ("paper", 64),
 ];
 
 /// A disc's `JukeboxSong` (`data/minecraft/jukebox_song`): `lengthInTicks` = ceil(seconds * 20)
@@ -95,10 +102,47 @@ fn is_book(id: u8) -> bool {
     item_name(id) == "book"
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+/// An item stack. `payload` is a shulker box item's contents (clk-rt): 0 = none, else 1 + an index
+/// into `World::payloads` (27 slots). Hash and Debug leave a zero payload out, so every stack
+/// without one hashes and prints as before the field existed.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Stack {
     pub item: u8,
     pub count: u8,
+    pub payload: u16,
+}
+
+impl Stack {
+    /// A plain stack (no contents).
+    pub const fn new(item: u8, count: u8) -> Stack {
+        Stack { item, count, payload: 0 }
+    }
+
+    /// The same item (and contents) with another count.
+    pub const fn with_count(self, count: u8) -> Stack {
+        Stack { count, ..self }
+    }
+}
+
+impl std::hash::Hash for Stack {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        self.item.hash(h);
+        self.count.hash(h);
+        if self.payload != 0 {
+            self.payload.hash(h);
+        }
+    }
+}
+
+impl std::fmt::Debug for Stack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("Stack");
+        d.field("item", &self.item).field("count", &self.count);
+        if self.payload != 0 {
+            d.field("payload", &self.payload);
+        }
+        d.finish()
+    }
 }
 
 /// A container block entity (dropper, dispenser: 9 slots; hopper: 5 slots + cooldown; chiseled
@@ -252,6 +296,11 @@ pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
         w.containers.map.insert(pos, ContainerBe::jukebox());
         return;
     }
+    // ---- shulker study (clk-rt): 27 slots, no ticker ----
+    if let Block::ShulkerBox { .. } | Block::Chest { .. } = s {
+        w.containers.map.insert(pos, ContainerBe::entity(27));
+        return;
+    }
     let hopper = matches!(s, Block::Hopper { .. });
     let crafter = matches!(s, Block::Crafter { .. });
     w.containers.map.insert(pos, if crafter { ContainerBe::crafter() } else { ContainerBe::new(hopper) });
@@ -377,6 +426,10 @@ fn jukebox_tick(w: &mut World, pos: BlockPos) {
         if ticks % 20 == 0 {
             let s = w.get(pos);
             w.game_event_state("jukebox_play", pos, s);
+            // spawnMusicParticles: the note's colour is `level.getRandom().nextInt(4)`
+            if let Some(r) = w.rng() {
+                r.next_int(4);
+            }
         }
         if let Some(c) = w.containers.map.get_mut(&pos) {
             c.song_ticks += 1;
@@ -413,6 +466,15 @@ fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
             let bb = crate::entity::Aabb::new(c[0] - 0.5, c[1] - 0.5, c[2] - 0.5, c[0] + 0.5, c[1] + 0.5, c[2] + 0.5);
             let found: Vec<u32> = w.get_entities(bb, |e| w_has_container(e)).into_iter().map(|i| w.entities.list[i].id).collect();
             let found: Vec<u32> = found.into_iter().filter(|id| w.containers.entities.contains_key(id)).collect();
+            if found.is_empty() {
+                return None;
+            }
+            // getEntityContainer: entities.get(level.getRandom().nextInt(entities.size())) (a draw
+            // even for one; the list in entity-section order: one section here, insertion order)
+            if let Some(r) = w.rng() {
+                let k = r.next_int(found.len() as i32) as usize;
+                return Some(CRef::Entity(found[k]));
+            }
             if found.len() > 1 {
                 w.errors.push(format!("{} container entities at {p}: the game picks one at random (not modeled)", found.len()));
             }
@@ -450,7 +512,7 @@ fn bookshelf_update_state(w: &mut World, pos: BlockPos, slot: usize) {
 
 /// `setItem`: a dropper notifies (`setChanged`); a hopper's override does not; a chiseled
 /// bookshelf takes books only and updates its state; a container entity just stores it.
-fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
+pub(crate) fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
     if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
     {
@@ -522,11 +584,11 @@ fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
     }
     let c = w.containers.get_mut(r)?;
     let s = c.slots[slot]?;
-    c.slots[slot] = if s.count > 1 { Some(Stack { item: s.item, count: s.count - 1 }) } else { None };
+    c.slots[slot] = if s.count > 1 { Some(s.with_count(s.count - 1)) } else { None };
     if !c.hopper {
         changed(w, r);
     }
-    Some(Stack { item: s.item, count: 1 })
+    Some(s.with_count(1))
 }
 
 /// The item taken out by [`remove_one`] did not fit: `itemStack.setCount(originalCount)` on the
@@ -535,7 +597,7 @@ fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
     // a bookshelf's or jukebox's item left the slot: only setItem puts it back
     let left = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf || c.jukebox));
     if !left && let Some(c) = w.containers.get_mut(r) {
-        c.slots[slot] = Some(Stack { item: st.item, count: original });
+        c.slots[slot] = Some(st.with_count(original));
     }
     if original == 1 {
         set_item(w, r, slot, Some(st));
@@ -547,6 +609,13 @@ fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
 /// while a later enabled slot is empty or holds a smaller stack of the same item); the others
 /// anything.
 fn can_place_item(w: &World, r: CRef, slot: usize, st: Stack) -> bool {
+    // ShulkerBoxBlockEntity.canPlaceItemThroughFace: never a box into a box (clk-rt)
+    if let CRef::Block(p) = r
+        && is_box_item(st.item)
+        && matches!(w.get(p), Block::ShulkerBox { .. })
+    {
+        return false;
+    }
     match w.containers.get(r) {
         Some(c) if c.bookshelf => is_book(st.item) && c.slots[slot].is_none(),
         // JukeboxBlockEntity.canPlaceItem: a playable disc into the empty jukebox
@@ -605,12 +674,12 @@ fn add_item(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack) -> Opt
                 st.count = 0;
                 success = true;
             }
-            Some(cur) if cur.item == st.item && cur.count <= max_stack(cur.item) => {
+            Some(cur) if cur.item == st.item && cur.payload == st.payload && cur.count <= max_stack(cur.item) => {
                 let space = max_stack(st.item).saturating_sub(cur.count);
                 let n = st.count.min(space);
                 st.count -= n;
                 if let Some(c) = w.containers.get_mut(into) {
-                    c.slots[slot] = Some(Stack { item: cur.item, count: cur.count + n });
+                    c.slots[slot] = Some(cur.with_count(cur.count + n));
                 }
                 success = n > 0;
             }
@@ -635,6 +704,20 @@ fn add_item(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack) -> Opt
     (st.count > 0).then_some(st)
 }
 
+/// `DispenserBlockEntity.getRandomSlot(level.getRandom())` with the level random mirrored: a
+/// `nextInt(k)` for the k-th filled slot (from 1: a draw even for one), the slot kept when it is 0.
+/// `None` without the mirror (callers keep their own rule).
+fn random_slot(w: &mut World, filled: &[usize]) -> Option<usize> {
+    let r = w.rng()?;
+    let mut slot = None;
+    for (k, &i) in filled.iter().enumerate() {
+        if r.next_int(k as i32 + 1) == 0 {
+            slot = Some(i);
+        }
+    }
+    slot
+}
+
 /// `DropperBlock.dispenseFrom` (the 4 gt trigger tick of a dropper).
 pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let Some(c) = w.containers.map.get(&pos) else { return };
@@ -642,10 +725,16 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     if filled.is_empty() {
         return; // levelEvent 1001 (click): no block change
     }
-    if filled.len() > 1 {
-        w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
-    }
-    let slot = filled[0];
+    let slot = match random_slot(w, &filled) {
+        Some(s) => s,
+        None => {
+            if filled.len() > 1 {
+                w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+            }
+            filled[0]
+        }
+    };
+    let Some(c) = w.containers.map.get(&pos) else { return };
     let st = c.slots[slot].unwrap();
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
     let me = CRef::Block(pos);
@@ -655,11 +744,11 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
             if w.containers.map.values().any(|c| c.hopper) {
                 w.errors.push(format!("dropper at {pos} spits an item into the world (item entity, not modeled)"));
             }
-            (st.count > 1).then_some(Stack { item: st.item, count: st.count - 1 })
+            (st.count > 1).then_some(st.with_count(st.count - 1))
         }
         Some(into) => {
-            if add_item(w, Some(me), into, Stack { item: st.item, count: 1 }).is_none() {
-                (st.count > 1).then_some(Stack { item: st.item, count: st.count - 1 })
+            if add_item(w, Some(me), into, st.with_count(1)).is_none() {
+                (st.count > 1).then_some(st.with_count(st.count - 1))
             } else {
                 Some(st)
             }
@@ -681,13 +770,33 @@ pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
         w.game_event_state("block_activate", pos, s);
         return;
     }
-    if filled.len() > 1 {
-        w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
-        return;
-    }
-    let slot = filled[0];
+    let slot = if let Some(s) = random_slot(w, &filled) {
+        s
+    } else {
+        let Some(c) = w.containers.map.get(&pos) else { return };
+        if filled.len() > 1 {
+            // getRandomSlot draws from the level random (not mirrored), but when every filled slot
+            // holds the same stack (item, count and contents: a loader's empty boxes, an unloader's
+            // full ones) every pick gives the same world: take the first (clk-rt)
+            let first = c.slots[filled[0]].unwrap();
+            let same = filled.iter().all(|&i| {
+                let s = c.slots[i].unwrap();
+                s.item == first.item && s.count == first.count && same_payload(w, s.payload, first.payload)
+            });
+            if !same {
+                w.errors.push(format!("dispenser at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+                return;
+            }
+        }
+        filled[0]
+    };
+    let Some(c) = w.containers.map.get(&pos) else { return };
     let st = c.slots[slot].unwrap();
     let Block::Dispenser { facing, .. } = w.get(pos) else { return };
+    if is_box_item(st.item) {
+        crate::redstone::shulker::dispense_box(w, pos, slot, st, facing);
+        return;
+    }
     let target = pos.rel(facing);
     let me = CRef::Block(pos);
     match item_name(st.item) {
@@ -695,15 +804,15 @@ pub fn dispenser_dispense(w: &mut World, pos: BlockPos) {
         "powder_snow_bucket" if w.get(target).is_air() => {
             w.set_block_and_update(target, Block::PowderSnow);
             w.game_event("fluid_place", target);
-            set_item(w, me, slot, Some(Stack { item: item_id("bucket").unwrap(), count: 1 }));
+            set_item(w, me, slot, Some(Stack::new(item_id("bucket").unwrap(), 1)));
         }
         // the empty-bucket behavior: PowderSnowBlock.pickupBlock (setBlock air, flags 11)
         "bucket" if matches!(w.get(target), Block::PowderSnow) => {
             w.set_block(target, Block::Air, crate::world::flags::NEIGHBORS | crate::world::flags::CLIENTS | crate::world::flags::IMMEDIATE);
             w.game_event("fluid_pickup", target);
-            let filled = Stack { item: item_id("powder_snow_bucket").unwrap(), count: 1 };
+            let filled = Stack::new(item_id("powder_snow_bucket").unwrap(), 1);
             // consumeWithRemainder: the stack shrinks; an emptied stack takes the remainder
-            let rest = if st.count > 1 { Some(Stack { item: st.item, count: st.count - 1 }) } else { None };
+            let rest = if st.count > 1 { Some(st.with_count(st.count - 1)) } else { None };
             if rest.is_some() {
                 w.errors.push(format!("dispenser at {pos}: a stack of buckets fills one (insertItem of the remainder not modeled)"));
                 return;
@@ -813,7 +922,7 @@ pub fn crafter_dispense(w: &mut World, pos: BlockPos) {
         let into_crafter = w.containers.get(into).is_some_and(|c| c.crafter);
         if into_crafter || count > max_stack(item).min(99) {
             while remaining > 0 {
-                if add_item(w, Some(me), into, Stack { item, count: 1 }).is_some() {
+                if add_item(w, Some(me), into, Stack::new(item, 1)).is_some() {
                     break;
                 }
                 remaining -= 1;
@@ -821,7 +930,7 @@ pub fn crafter_dispense(w: &mut World, pos: BlockPos) {
         } else {
             while remaining > 0 {
                 let old = remaining;
-                remaining = add_item(w, Some(me), into, Stack { item, count: remaining }).map(|s| s.count).unwrap_or(0);
+                remaining = add_item(w, Some(me), into, Stack::new(item, remaining)).map(|s| s.count).unwrap_or(0);
                 if old == remaining {
                     break;
                 }
@@ -974,7 +1083,7 @@ fn take_item_entities(w: &mut World, hopper: CRef, bb: crate::entity::Aabb) -> b
         if s.count == 0 {
             continue;
         }
-        match add_item(w, None, hopper, Stack { item, count: s.count }) {
+        match add_item(w, None, hopper, Stack { item, count: s.count, payload: s.payload }) {
             None => {
                 if let EntityKind::Item(st) = &mut w.entities.list[i].kind {
                     st.count = 0;
@@ -1168,30 +1277,144 @@ pub fn parse_snbt(s: &str) -> Result<Snbt, String> {
 }
 
 /// The `Items` list of block-entity SNBT: (slot, stack) per entry (`count` defaults to 1, as in
-/// `ItemStack.MAP_CODEC`).
+/// `ItemStack.MAP_CODEC`). Components need a world ([`snbt_items_full`]).
 fn snbt_items(v: &Snbt) -> Result<Vec<(usize, Stack)>, String> {
+    snbt_items_full(v)?
+        .into_iter()
+        .map(|e| if e.contents.is_empty() && e.name.is_none() { Ok((e.slot, e.stack)) } else { Err("item components are only modeled in a block entity".to_string()) })
+        .collect()
+}
+
+/// An `Items` entry (clk-rt): its slot, its stack (no payload yet) and the components redsim
+/// models: a shulker box's contents (`"minecraft:container":[{slot:N,item:{id,count}},..]`) and a
+/// custom name (`"minecraft:custom_name"`, kept as its SNBT text).
+struct ItemEntry {
+    slot: usize,
+    stack: Stack,
+    contents: Vec<(usize, Stack)>,
+    name: Option<String>,
+}
+
+fn snbt_items_full(v: &Snbt) -> Result<Vec<ItemEntry>, String> {
     let Snbt::List(list) = v else { return Err("Items is not a list".into()) };
     let mut out = Vec::new();
     for e in list {
         let Snbt::Compound(fields) = e else { return Err("an Items entry is not a compound".into()) };
-        let (mut slot, mut id, mut count) = (None, None, 1i64);
+        let mut slot = None;
+        let mut rest: Vec<(String, Snbt)> = Vec::new();
         for (k, v) in fields {
             match (k.as_str(), v) {
                 ("Slot", Snbt::Int(n)) => slot = Some(*n),
-                ("id", Snbt::Str(s) | Snbt::Word(s)) => id = Some(s.clone()),
-                ("count", Snbt::Int(n)) => count = *n,
-                (other, _) => return Err(format!("item field {other} is not modeled")),
+                _ => rest.push((k.clone(), v.clone())),
             }
         }
         let slot = slot.ok_or("an Items entry has no Slot")?;
-        let name = id.ok_or("an Items entry has no id")?;
-        let item = item_id(&name).ok_or_else(|| format!("item {name} is not modeled (redsim knows {})", all_items().collect::<Vec<_>>().join(", ")))?;
-        if !(1..=max_stack(item) as i64).contains(&count) || !(0..=255).contains(&slot) {
-            return Err(format!("bad Items entry: slot {slot}, {count} {name}"));
+        let mut entry = snbt_stack(&rest)?;
+        if !(0..=255).contains(&slot) {
+            return Err(format!("bad Items entry: slot {slot}, {} {}", entry.stack.count, item_name(entry.stack.item)));
         }
-        out.push((slot as usize, Stack { item, count: count as u8 }));
+        entry.slot = slot as usize;
+        out.push(entry);
     }
     Ok(out)
+}
+
+/// An item compound's fields: `id`, `count` (default 1) and `components` (a shulker box's
+/// `minecraft:container`, a `minecraft:custom_name`): its stack and components (slot 0).
+fn snbt_stack(fields: &[(String, Snbt)]) -> Result<ItemEntry, String> {
+    let (mut id, mut count, mut contents, mut label) = (None, 1i64, Vec::new(), None);
+    for (k, v) in fields {
+        match (k.as_str(), v) {
+            ("id", Snbt::Str(s) | Snbt::Word(s)) => id = Some(s.clone()),
+            ("count", Snbt::Int(n)) => count = *n,
+            ("components", Snbt::Compound(comps)) => {
+                for (ck, cv) in comps {
+                    match (ck.as_str(), cv) {
+                        ("minecraft:custom_name", v) => label = Some(format!("{v:?}")),
+                        ("minecraft:container", Snbt::List(entries)) => {
+                            for x in entries {
+                                let Snbt::Compound(xf) = x else { return Err("a container entry is not a compound".into()) };
+                                let (mut s, mut item) = (None, None);
+                                for (xk, xv) in xf {
+                                    match (xk.as_str(), xv) {
+                                        ("slot", Snbt::Int(n)) => s = Some(*n),
+                                        ("item", Snbt::Compound(i)) => item = Some(i.clone()),
+                                        (o, _) => return Err(format!("container entry field {o} is not modeled")),
+                                    }
+                                }
+                                let inner = snbt_stack(&item.ok_or("a container entry has no item")?)?;
+                                let s = s.ok_or("a container entry has no slot")?;
+                                if !inner.contents.is_empty() || inner.name.is_some() || !(0..27).contains(&s) {
+                                    return Err(format!("bad container entry: slot {s} (a box inside a box, a renamed item in a box: not modeled)"));
+                                }
+                                contents.push((s as usize, inner.stack));
+                            }
+                        }
+                        (o, _) => return Err(format!("item component {o} is not modeled")),
+                    }
+                }
+            }
+            (other, _) => return Err(format!("item field {other} is not modeled")),
+        }
+    }
+    let name = id.ok_or("an item has no id")?;
+    let item = item_id(&name).ok_or_else(|| format!("item {name} is not modeled (redsim knows {})", all_items().collect::<Vec<_>>().join(", ")))?;
+    if !(1..=max_stack(item) as i64).contains(&count) {
+        return Err(format!("bad item: {count} {name}"));
+    }
+    if !contents.is_empty() && !is_box_item(item) {
+        return Err(format!("{name} with contents is not modeled"));
+    }
+    if label.is_some() && is_box_item(item) {
+        // its block entity would carry the name through a placement and a break: not modeled
+        return Err(format!("a renamed {name} is not modeled"));
+    }
+    Ok(ItemEntry { slot: 0, stack: Stack::new(item, count as u8), contents, name: label })
+}
+
+/// A shulker box item (any colour).
+pub fn is_box_item(id: u8) -> bool {
+    item_name(id).ends_with("shulker_box")
+}
+
+/// An item's components redsim models (`World::payloads`, a `Stack::payload` > 0): a shulker
+/// box's contents (27 slots) and a custom name (its SNBT, compared as text; a renamed item stacks
+/// only with the same stack's own items here, not with another stack renamed alike).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Payload {
+    pub slots: Vec<Option<Stack>>,
+    pub name: Option<String>,
+}
+
+/// Register a shulker box item's contents in `World::payloads`: its payload (0 when empty).
+pub fn new_payload(w: &mut World, contents: &[(usize, Stack)]) -> u16 {
+    new_payload_named(w, contents, None)
+}
+
+/// [`new_payload`] with a custom name (0 when neither).
+pub fn new_payload_named(w: &mut World, contents: &[(usize, Stack)], name: Option<String>) -> u16 {
+    if contents.is_empty() && name.is_none() {
+        return 0;
+    }
+    let mut slots = vec![None; 27];
+    for (s, st) in contents {
+        if *s < 27 {
+            slots[*s] = Some(*st);
+        }
+    }
+    w.payloads.push(Payload { slots, name });
+    w.payloads.len() as u16
+}
+
+/// A payload's 27 slots (all empty for 0).
+pub fn payload_slots(w: &World, payload: u16) -> Vec<Option<Stack>> {
+    if payload == 0 { vec![None; 27] } else { w.payloads[payload as usize - 1].slots.clone() }
+}
+
+/// Two payloads with the same components (contents and name).
+pub fn same_payload(w: &World, a: u16, b: u16) -> bool {
+    let get = |p: u16| if p == 0 { Payload { slots: vec![None; 27], name: None } } else { w.payloads[p as usize - 1].clone() };
+    a == b || get(a) == get(b)
 }
 
 /// A design's `nbt:` line on a placed container, exactly as `data merge block x y z <snbt>`
@@ -1210,13 +1433,19 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let mut crafting_ticks = c.crafting_ticks;
     let mut disabled_given = None;
     let mut song_ticks: Option<i64> = None;
+    // shulker box items with contents (clk-rt): their payloads are registered once `c` is done
+    let mut boxes: Vec<(usize, Vec<(usize, Stack)>, Option<String>)> = Vec::new();
     for (k, v) in &fields {
         match (k.as_str(), v) {
             ("Items", v) => {
                 slots = vec![None; c.slots.len()];
-                for (slot, st) in snbt_items(v).map_err(|e| format!("nbt at {pos}: {e}"))? {
-                    if slot < slots.len() {
-                        slots[slot] = Some(st);
+                boxes.clear();
+                for e in snbt_items_full(v).map_err(|e| format!("nbt at {pos}: {e}"))? {
+                    if e.slot < slots.len() {
+                        slots[e.slot] = Some(e.stack);
+                        if !e.contents.is_empty() || e.name.is_some() {
+                            boxes.push((e.slot, e.contents, e.name));
+                        }
                     }
                 }
             }
@@ -1244,7 +1473,7 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
                 });
                 let name = id.ok_or_else(|| format!("nbt at {pos}: RecordItem without an id"))?;
                 let item = item_id(&name).ok_or_else(|| format!("nbt at {pos}: item {name} is not modeled"))?;
-                slots = vec![Some(Stack { item, count: 1 })];
+                slots = vec![Some(Stack::new(item, 1))];
             }
             ("ticks_since_song_started", Snbt::Int(n)) if c.jukebox => song_ticks = Some(*n),
             (other, _) => return Err(format!("nbt at {pos}: key {other} is not modeled here")),
@@ -1261,6 +1490,12 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
             let jc = w.containers.map.get_mut(&pos).unwrap();
             jc.song = Some(st.item);
             jc.song_ticks = t;
+        }
+    }
+    for (slot, contents, name) in &boxes {
+        let payload = new_payload_named(w, contents, name.clone());
+        if let Some(s) = slots[*slot].as_mut() {
+            s.payload = payload;
         }
     }
     let c = &w.containers.map[&pos];
@@ -1292,7 +1527,7 @@ pub fn apply_block_entities<'a>(w: &mut World, lines: impl IntoIterator<Item = (
 }
 
 pub fn kind_is_container(k: Kind) -> bool {
-    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox)
+    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::ShulkerBox(_) | Kind::Chest)
 }
 
 #[cfg(test)]
@@ -1300,13 +1535,35 @@ mod tests {
     use super::*;
     use crate::block::Block;
 
+    /// A stack without a payload hashes and prints exactly as the struct did before `payload`
+    /// (a derived `Hash` of `{ item, count }`: the fields in order): state keys and model notes
+    /// of every design without a shulker box stay what they were. Keep the manual impls.
+    #[test]
+    fn stack_without_payload_hashes_as_before() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let s = Stack::new(3, 17);
+        let mut a = DefaultHasher::new();
+        s.hash(&mut a);
+        let mut b = DefaultHasher::new();
+        3u8.hash(&mut b);
+        17u8.hash(&mut b);
+        assert_eq!(a.finish(), b.finish());
+        assert_eq!(format!("{s:?}"), "Stack { item: 3, count: 17 }");
+        let p = Stack { payload: 2, ..s };
+        let mut c = DefaultHasher::new();
+        p.hash(&mut c);
+        assert_ne!(c.finish(), b.finish());
+        assert_eq!(format!("{p:?}"), "Stack { item: 3, count: 17, payload: 2 }");
+    }
+
     #[test]
     fn snbt_items_parse() {
         let v = parse_snbt("{Items:[{Slot:0b,id:\"minecraft:stone\",count:3},{Slot:2b, id:'minecraft:snowball'}],TransferCooldown:-1}").unwrap();
         let Snbt::Compound(f) = &v else { panic!() };
         assert_eq!(f[1], ("TransferCooldown".to_string(), Snbt::Int(-1)));
         let items = snbt_items(&f[0].1).unwrap();
-        assert_eq!(items, vec![(0, Stack { item: 0, count: 3 }), (2, Stack { item: 2, count: 1 })]);
+        assert_eq!(items, vec![(0, Stack::new(0, 3)), (2, Stack::new(2, 1))]);
         assert!(parse_snbt("{Items:[}").is_err());
         assert!(parse_snbt("{a:1} x").is_err());
         assert!(snbt_items(&parse_snbt("[{Slot:0b,id:\"minecraft:dirt_path\"}]").unwrap()).is_err());
@@ -1320,7 +1577,7 @@ mod tests {
         w.place_raw(&[(hopper, Block::parse("minecraft:hopper[enabled=true,facing=down]").unwrap())]);
         assert!(apply_block_entity(&mut w, hopper, "{Items:[{Slot:4b,id:\"minecraft:diamond_sword\",count:1}],TransferCooldown:3}").unwrap());
         let c = &w.containers.map[&hopper];
-        assert_eq!(c.slots[4], Some(Stack { item: 5, count: 1 }));
+        assert_eq!(c.slots[4], Some(Stack::new(5, 1)));
         assert_eq!(c.cooldown, 3);
         assert_eq!(analog_output(&w, hopper), 3); // 1/5 full: floor(14 * 0.2) + 1
         // the same data again changes nothing (data merge's ERROR_MERGE_UNCHANGED: no setChanged)

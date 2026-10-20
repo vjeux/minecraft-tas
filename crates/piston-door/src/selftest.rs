@@ -533,8 +533,19 @@ fn checks() -> Vec<Check> {
         ("window-shift1", "cal-window-shift1 shift 1 N 1, latency 4 gt, edge falling, 10 blocks, 2x2x5"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
         ("slime-bud", "cal-slime-bud bud detects place remove state update, latency 3 gt, pulse 1 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 5 cells, 3 blocks, 1x4x1"),
+        ("latched-bud", "cal-latched-bud bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1"),
+        ("observer-stone-bud", "cal-observer-stone-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 2 blocks, 2x1x1"),
+        ("dust-encoder2", "cal-dust-encoder2 encoder 2 latency 0 gt, class instant, 16 blocks, 4x2x3"),
+        ("bulb-counter2", "cal-bulb-counter2 binary-counter 2 latency 6 gt, edge rising, per bit 4.0 blocks, 8 blocks, 5x2x2"),
+        ("bulb-counter-slice", "cal-bulb-counter-slice binary-counter 1 latency 2 gt, edge falling, per bit 5.0 blocks, slice 5 blocks per bit, latency 2 + 4 (N-1) gt, 5 blocks, 3x2x2"),
         ("tnt-duper", "cal-tnt-duper tnt-duper rate 200 TNT/min, period 6 gt, per period 1, latency 1 gt, 15 blocks, 3x3x5"),
         ("tnt-duper-triggered", "cal-tnt-duper-triggered tnt-duper-triggered per pulse 1, latency 1 gt, gap 20 gt, 13 blocks, 3x2x4"),
+        ("bulb-burst2", "cal-bulb-burst2 burst 2 N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt, 7 blocks, 5x2x1"),
+        ("bulb-divider4", "cal-bulb-divider4 divider 4 N 4, duty 50%, output square, latency 4 gt, min-period 2 gt, 6 blocks, 4x2x1"),
+        ("bulb-monostable", "cal-bulb-monostable monostable L 8 gt, delay 12 gt, retrigger non-retriggerable, re-arm 16 gt, min-pulse 1 gt, 6 blocks, 4x2x1"),
+        ("tap-off-delay", "cal-tap-off-delay off-delay L 4 gt, latency 2 gt, min-pulse 2 gt, 26 blocks, 5x2x3"),
+        ("subtract-on-delay", "cal-subtract-on-delay on-delay T 8 gt, shortening 4 gt, latency 6 gt, 16 blocks, 3x3x3"),
+        ("torch-pulse-train", "cal-torch-pulse-train pulse-train P 12 gt, pulse 6 gt, latency 6 gt, stop 4 gt, 15 blocks, 2x3x6"),
     ];
     let mut s = args("circuit sim");
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
@@ -552,15 +563,23 @@ fn checks() -> Vec<Check> {
     for f in ["bulb-tff-claimed-reset", "dlatch-claimed-dff", "dff-claimed-enable", "dff-claimed-shift2"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
-    // the BUD kind: a clock, a BUD that never re-arms and a false claim refused
-    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update"] {
+    // the BUD kind: a clock, a BUD that never re-arms, a false claim, a pulse BUD given a reset
+    // input (not latched) and an observer BUD claiming to tile side by side (cross-talk) refused
+    for f in ["observer-pair-bud", "latching-bud", "observer-bud-claims-update", "observer-bud-claims-latched", "observer-bud-tile1"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
+    // study 12: a plain encoder claiming to be a priority encoder refused (two inputs at once)
+    s.push("designs/circuits/selftest/dust-encoder2-claims-priority.txt".into());
+    // study 11: a monostable whose second edge cuts its pulse, an OR off-delay that does not
+    // restart, a false retriggerable claim refused
+    for f in ["oneshot-retriggered", "repeater-or-off-delay", "bulb-claims-retriggerable"] {
         s.push(format!("designs/circuits/selftest/{f}.txt"));
     }
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 20 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, self-running and triggered TNT dupers): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims and three false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates) refused; a comparator AND kept",
+        what: "`circuit sim` (redsim) on the 31 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, D flip-flop, D flip-flop with enable, 1-cell shift register, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, study 12's dust 4-to-2 encoder, 2-bit bulb ripple counter and its bit slice stacked to 4 bits): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side) and three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim) and a plain encoder claiming priority refused; a comparator AND kept",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -585,12 +604,18 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-observer-pair-bud bud: the output is on at rest")?;
             has(&o[0], "FAIL: cal-latching-bud bud: the output is on at rest")?;
             has(&o[0], "FAIL: cal-observer-bud-claims-update bud: claims update but does not detect it")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims and 3 false BUDs refused; the comparator AND kept"))
+            has(&o[0], "FAIL: cal-observer-bud-claims-latched bud: not latched: after a place the output goes off")?;
+            has(&o[0], "FAIL: cal-observer-bud-tile1 bud: not tileable (every 1 (0 0 1)): copy 0: cross-talk")?;
+            has(&o[0], "FAIL: cal-dust-encoder2-claims-priority encoder 2 priority: wrong output: d2 rises from d=0010: q0 is 1, want 0")?;
+            has(&o[0], "FAIL: cal-oneshot-retriggered monostable: re-trigger behaviour changes with the delay")?;
+            has(&o[0], "FAIL: cal-repeater-or-off-delay off-delay: min-pulse 8 gt")?;
+            has(&o[0], "FAIL: cal-bulb-claims-retriggerable monostable retriggerable: claims retriggerable but behaves as non-retriggerable")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers and a false priority encoder refused; the comparator AND kept"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 20 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 31 calibration circuits (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust",
         quick: false,
         jvm: true,
         steps: vec![{
@@ -599,6 +624,8 @@ fn checks() -> Vec<Check> {
             s.push("designs/circuits/selftest/update-less-nor.txt".into());
             s.push("designs/circuits/selftest/comparator-and.txt".into());
             s.push("designs/circuits/selftest/dlatch-claimed-dff.txt".into());
+            // a copper-bulb toggle given a reset input is no latch (redsim does not model bulbs)
+            s.push("designs/circuits/selftest/bulb-toggle-bud.txt".into());
             s
         }],
         timeout: 600,
@@ -611,7 +638,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, robust")?;
             has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
-            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR and the latch claiming dff refused, the comparator AND robust", circ2.len()))
+            has(&o[0], "FAIL: cal-bulb-toggle-bud bud: latches")?;
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff and a bulb toggle claiming a latched BUD refused, the comparator AND robust", circ2.len()))
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
@@ -632,7 +660,7 @@ fn checks() -> Vec<Check> {
             // the drop's random offset can move a median time by a gt: match around the times
             let line = |name: &str| o[0].lines().find(|l| l.starts_with(&format!("CIRCUIT: {name} "))).unwrap_or("").to_string();
             let l = line("shulker-auto-loader-1");
-            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.5") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
+            if !(l.contains("shulker-loader 1 boxes/min ") && l.contains("items/s 2.") && l.contains("cycle 22") && l.contains("hoppers awake 3, badges always-on+colours+restart+top-up+box-starved+drop-free, bill 16 iron, 4 quartz, 28 redstone, 1 slime, 31 blocks, 5x5x5, robust")) {
                 return Err(format!("auto loader: {l:?}: {}", tail(&o[0])));
             }
             let l = line("shulker-auto-unloader-1");
@@ -640,8 +668,24 @@ fn checks() -> Vec<Check> {
                 return Err(format!("auto unloader: {l:?}: {}", tail(&o[0])));
             }
             has(&o[0], "FAIL: cal-shulker-early-loader shulker-loader 1: box 1 arrived at t=")?;
-            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not model shulker boxes")?;
+            has(&o[1], "UNMODELED: shulker-auto-loader-1: redsim does not judge shulker loaders")?;
             Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
+        }),
+    });
+    // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
+    // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
+    // seeds it, its pickup)
+    v.push(Check {
+        name: "circuit:shulker-compare".into(),
+        what: "`circuit shulker compare` replays the exact real-game traces of the reference loader and unloader (3 boxes of unstackables each) in redsim: every cell and entity identical every tick",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit shulker compare designs/circuits/shulker/traces/exact/shulker-ref-loader-1.trace designs/circuits/shulker/traces/exact/shulker-ref-unloader-1.trace")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "OK shulker-ref-loader-1: 687 ticks identical")?;
+            has(&o[0], "OK shulker-ref-unloader-1: 678 ticks identical")?;
+            Ok("reference loader and unloader traces tick-identical in redsim".into())
         }),
     });
     v

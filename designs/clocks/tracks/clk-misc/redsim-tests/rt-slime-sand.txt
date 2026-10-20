@@ -1,0 +1,14 @@
+name: rt-slime-sand
+# redsim test scene (not a clock): a piston facing east pushes a slime block into a falling sand
+# (summoned at y 9) at tick 15, as the sand crosses y 4..5: the slime bounce gives the falling block
+# motion x = 1, so it flies east while it falls (gravity::move_general) and lands far from its column.
+port start: -1 4 0 minecraft:redstone_block 4 at 15
+entity: minecraft:falling_block 2.5 9.0 0.5 {BlockState:"minecraft:sand",Time:1}
+palette:
+  S minecraft:stone
+  P minecraft:piston[facing=east,extended=false]
+  L minecraft:slime_block
+layer 0:
+  SSSSSSSSSSSS
+layer 4:
+  PL..........

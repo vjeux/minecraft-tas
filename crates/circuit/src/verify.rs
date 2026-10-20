@@ -127,15 +127,62 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not model shulker boxes and chests yet (study 8: judged in the game only, `mctas circuit verify`)".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
-        (Ok(t), Some(k)) => Some(check::check(c, k, &schedule, t)),
+        (Ok(t), Some(k)) => {
+            let out = check::check(c, k, &schedule, t);
+            match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Some(Outcome::fail(why, out.table)),
+                _ => Some(out),
+            }
+        }
         _ => None,
     };
+    // a BUD's `tile:` claim: the copies side by side (crate::bud::tile_check)
+    let outcome = match (outcome, c.tile) {
+        (Some(out), Some(tl)) if out.pass && kind == Some(Kind::Bud) && o.stimulus.is_none() => {
+            Some(crate::bud::tile_check(c, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| Ok(run::sim_trace(tc, ts, o.margin)))?)
+        }
+        (out, _) => out,
+    };
+    // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
+    let outcome = match (outcome, &kind, c.slice) {
+        (Some(out), Some(Kind::Compute(op, _)), Some(_)) if out.pass && o.stimulus.is_none() => {
+            let margin = o.margin;
+            let gap0 = crate::compute::gap_of(&schedule);
+            Some(crate::compute::slice_check(c, *op, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+        }
+        (out, _, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
+}
+
+/// The judge's consumer lamps observe the outputs, never take part in the circuit (clockinfra
+/// 2026-10-20): run again on redsim with every consumer cell left as AIR; every output in such a
+/// cell must see the same signal in every frame, else the lamp closes a loop or feeds a block (it
+/// is a conductor) and the design would not run with another consumer.
+pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option<String> {
+    let cells = c.consumer_cells();
+    if cells.is_empty() {
+        return None;
+    }
+    let bare = run::sim_trace_with(c, s, margin, false).ok()?;
+    for (k, o) in c.outputs.iter().enumerate() {
+        if !cells.contains(&o.pos) {
+            continue;
+        }
+        let (a, b) = (with.levels.get(k)?, bare.levels.get(k)?);
+        if let Some(f) = (0..a.len().min(b.len())).find(|&f| a[f] != b[f]) {
+            return Some(format!(
+                "the judge's lamp is part of the circuit: with output {} left as air its signal differs from frame {f} ({} with the lamp, {} without)",
+                o.name, a[f], b[f]
+            ));
+        }
+    }
+    None
 }
 
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
@@ -305,21 +352,49 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = run::game_trace(w, &rc, &schedule, o.margin)?;
-        Ok(r.map(|tr| {
-            let out = match &kind {
-                Some(k) => check::check(&rc, k, &schedule, &tr),
-                None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
-            };
-            BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }
-        }))
+        let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
+            Ok(tr) => tr,
+            Err(why) => return Ok(Err(why)),
+        };
+        let mut out = match &kind {
+            Some(k) => check::check(&rc, k, &schedule, &tr),
+            None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
+        };
+        // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
+        // the metric names the design's own step (the same in every build)
+        if out.pass
+            && kind == Some(Kind::Bud)
+            && o.stimulus.is_none()
+            && let Some(tl) = c.tile
+        {
+            out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
+        if out.pass
+            && o.stimulus.is_none()
+            && let (Some(Kind::Compute(op, _)), Some(_)) = (&kind, rc.slice)
+        {
+            let gap0 = crate::compute::gap_of(&schedule);
+            out = crate::compute::slice_check(&rc, *op, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
+        }
+        Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
     let mut builds = Vec::new();
     for ((t, off), r) in jobs.into_iter().zip(results) {
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    Ok(verdict(VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() }))
+    let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
+    if rep.pass
+        && kind.is_some()
+        && let Ok(t) = run::sim_trace(c, &schedule, o.margin)
+        && let Some(why) = lamp_part(c, &schedule, o.margin, &t)
+    {
+        rep.pass = false;
+        rep.verdict = why;
+    }
+    Ok(rep)
 }
 
 /// The verdict of a report's builds: no passing build fails it; builds that disagree (other
@@ -364,6 +439,9 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
+    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+        // no build fails but they disagree: name the first build whose metrics differ
+        rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
     rep.pass = true;
     rep

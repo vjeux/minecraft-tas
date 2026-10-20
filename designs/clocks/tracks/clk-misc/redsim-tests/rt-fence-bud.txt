@@ -1,0 +1,18 @@
+name: rt-fence-bud
+# redsim test scene (not a clock): bud-fence-observer's detector: a stone placed west of an oak fence
+# at tick 2 and removed at tick 8 changes the fence's west arm each time; the observer watching the
+# fence pulses into a lamp behind it.
+port start: 0 1 0 minecraft:stone 6 at 2
+palette:
+  S minecraft:stone
+  F minecraft:oak_fence
+  O minecraft:observer[facing=north,powered=false]
+  M minecraft:redstone_lamp[lit=false]
+layer 0:
+  SSS
+  SSS
+  SSS
+layer 1:
+  .F.
+  .O.
+  .M.

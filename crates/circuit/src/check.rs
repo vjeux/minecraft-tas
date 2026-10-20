@@ -72,6 +72,9 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
+    if let Kind::Compute(op, n) = kind {
+        return crate::compute::stimulus(c, *op, *n, z);
+    }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
     let gap = z.gap.max(20);
@@ -195,6 +198,8 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
+        Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
+        Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
     }
     s.ticks = t;
     s
@@ -224,8 +229,11 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
+        Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
         Kind::TntDuper => crate::tnt::check_duper(c, s, t),
         Kind::TntDuperTriggered => crate::tnt::check_triggered(c, s, t),
+        Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
+        Kind::Compute(op, n) => crate::compute::check(c, *op, *n, s, t),
     }
 }
 

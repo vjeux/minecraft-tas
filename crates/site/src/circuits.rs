@@ -151,6 +151,60 @@ struct Details {
     output_lamp: bool,
     /// The judge's actions at the target / probe cells (`data-events`).
     events: String,
+    /// Why redsim cannot run the design (empty: it can).
+    unmodeled: String,
+    /// A shulker machine run like its 3D view runs it.
+    view_run: Option<site_model::ViewRun>,
+}
+
+/// Game ticks a shulker machine is run at most the way its 3D view runs it, until it has sent out
+/// four boxes (a 64-stack filter loader takes ~13800 gt a box).
+const VIEW_RUN: u32 = 60_000;
+/// Boxes the view's run waits for (per OUT chest).
+const VIEW_BOXES: usize = 4;
+
+/// Run a shulker machine the way the 3D view does (the viewer's own session: the judge's chests
+/// kept full / emptied, its start lever turned on like the visitor and the judge do) and count
+/// the boxes that reach the OUT chests: the page's numbers, and proof the view's machine runs.
+fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun {
+    use redsim::redstone::{container, shulker};
+    let levers: Vec<usize> = s
+        .circuit_inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, ci)| ci.how == mcview::circuit::InputHow::Lever && !(ci.name == "mode" || ci.name.starts_with("mode.")))
+        .map(|(i, _)| i)
+        .collect();
+    for i in levers {
+        s.set_input(i, true);
+    }
+    let outs = s.shulker.as_ref().map(|c| c.outputs.clone()).unwrap_or_default();
+    let rejects = s.shulker.as_ref().map(|c| c.rejects.clone()).unwrap_or_default();
+    let item = s.shulker.as_ref().map(|c| container::item_name(c.item).to_string()).unwrap_or_default();
+    let mut arrivals: Vec<u32> = Vec::new();
+    let mut rejected = 0u32;
+    let mut run = ticks;
+    // a machine with several OUT chests (two lines) delivers in bursts: wait for 4 boxes a chest
+    let want = VIEW_BOXES * outs.len().max(1);
+    for k in 0..ticks {
+        // an OUT chest holds what the last tick delivered until the next visit empties it
+        let n: u32 = outs
+            .iter()
+            .map(|p| shulker::chest_stacks(&s.world, *p).iter().filter(|st| container::item_name(st.item).ends_with("shulker_box")).map(|st| st.count as u32).sum::<u32>())
+            .sum();
+        arrivals.extend(std::iter::repeat_n(k, n as usize));
+        rejected += rejects.iter().map(|p| shulker::chest_stacks(&s.world, *p).iter().map(|st| st.count as u32).sum::<u32>()).sum::<u32>();
+        if arrivals.len() >= want {
+            run = k;
+            break;
+        }
+        s.step();
+    }
+    let cycle = match (arrivals.first(), arrivals.last()) {
+        (Some(a), Some(b)) if arrivals.len() >= 2 => Some((b - a) as f64 / (arrivals.len() - 1) as f64),
+        _ => None,
+    };
+    site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
 fn details(c: &Design) -> Details {
@@ -169,7 +223,7 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new() };
+    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -377,16 +431,42 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             }
         }
         let id_of = |r: &circuit::archive::Row| format!("circuits/{study}/{}", r.file.trim_end_matches(".txt"));
-        // the judge's test of every design, simulated in parallel (big counters take seconds)
-        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64)> = par_map(&rows, |r| {
+        // the judge's test of every design, simulated in parallel (big counters take seconds),
+        // and whether the 3D view runs it (the viewer's own session decides: shown as built when
+        // the browser's simulator cannot follow it)
+        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
             let loaded = parse(&dir.join(&r.file));
             let t_sim = std::time::Instant::now();
-            let det = loaded.as_ref().map(|(c, _)| details(c));
-            (loaded, det, t_sim.elapsed().as_secs_f64())
+            let mut det = loaded.as_ref().map(|(c, _)| details(c));
+            let mut raw = None;
+            if let Some(d) = det.as_mut() {
+                let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
+                raw = match mcview::session::Session::new(&text, &Default::default()) {
+                    Ok(mut s) => {
+                        if s.unsimulated.is_none() && s.shulker.is_some() {
+                            d.view_run = Some(view_run(&mut s, VIEW_RUN));
+                        }
+                        s.unsimulated
+                    }
+                    Err(e) => Some(format!("the viewer cannot load it: {e}")),
+                };
+                d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+            }
+            (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
         });
-        for (i, (r, (loaded, det, took))) in rows.iter().zip(loaded_all).enumerate() {
+        for (i, (r, (loaded, det, took, raw))) in rows.iter().zip(loaded_all).enumerate() {
             let path = dir.join(&r.file);
             let text = std::fs::read_to_string(&path).unwrap_or_default();
+            if let Some(raw) = raw {
+                notes.push(format!("{study}/{}: the 3D view shows it as built: {raw}", r.file));
+            }
+            if let Some(v) = det.as_ref().and_then(|d| d.view_run.as_ref()) {
+                notes.push(match (v.first, v.cycle) {
+                    (Some(f), Some(c)) => format!("{study}/{}: the 3D view's run sends out {} boxes in {} gt (the first at {f} gt, then one every {c:.0} gt)", r.file, v.boxes, v.ticks),
+                    (Some(f), None) => format!("{study}/{}: the 3D view's run sends out 1 box in {} gt (at {f} gt)", r.file, v.ticks),
+                    _ => format!("{study}/{}: WARNING the 3D view's run sends out NO box in {} gt (its chests supply {}; {} items reached the reject chests)", r.file, v.ticks, v.item, v.rejected),
+                });
+            }
             if took > 10.0 {
                 notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
             }
@@ -433,6 +513,8 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
                     output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
+                    unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
+                    view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     ..Default::default()
                 }),
                 archived: site_model::normalize_time(&r.archived),

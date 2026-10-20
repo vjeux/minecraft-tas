@@ -1,7 +1,8 @@
-# archived 2026-10-20T06:51Z from designs/circuits/tracks/bud/bud-slime-qc-fast.txt by mctas circuit archive
-# CIRCUIT: bud-slime-qc-fast bud detects place remove state update, latency 1 gt, pulse 5 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 4 cells, 9 blocks, 2x5x3, robust
+# archived 2026-10-20T11:05Z from designs/circuits/tracks/bud/bud-slime-qc-fast.txt by mctas circuit archive
+# CIRCUIT: bud-slime-qc-fast bud detects place remove state update, latency 1 gt, pulse 5 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 4 cells, tileable every 4 (0 0 4), 9 blocks, 2x5x3, robust
 name: bud-slime-qc-fast
 circuit: bud
+tile: 0 0 4
 # The slime-block QC BUD with a 1 gt latency: a stone block stuck to the slime block sits on the
 # step between two dusts and cuts it. A block update reaching the piston (armed by the redstone
 # block on the slime block, through quasi-connectivity) starts the push in the very next tick: the

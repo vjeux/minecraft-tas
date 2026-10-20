@@ -83,8 +83,8 @@ fn shapes_collide(a: usize, moving: Aabb, shapes: &[Vec<Aabb>], mut distance: f6
     distance
 }
 
-/// `Entity.collideWithShapes`.
-fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
+/// `Entity.collideWithShapes` (public for entities the viewer moves itself: primed TNT).
+pub fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
     if shapes.is_empty() {
         return movement;
     }
@@ -102,14 +102,20 @@ fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
 /// `BlockStateBase.hasLargeCollisionShape`: a collision shape leaving the cell, or no shape
 /// cache (dynamic shapes).
 fn has_large_collision_shape(s: &Block) -> bool {
-    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. })
+    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. } | Block::Fence { .. })
 }
 
-/// One block's collision boxes moved to `p`.
-fn boxes_at(s: &Block, p: BlockPos) -> Vec<Aabb> {
+/// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
+/// `piston::shape`; a moving block under `NOCLIP` keeps only a retracting base's box).
+fn boxes_at(w: &World, s: &Block, p: BlockPos) -> Vec<Aabb> {
     let f = |v: i32| v as f64 / 16.0;
     let (x, y, z) = (p.x as f64, p.y as f64, p.z as f64);
-    crate::behavior::collision_boxes(s).iter().map(|c| Aabb::new(x + f(c[0]), y + f(c[2]), z + f(c[4]), x + f(c[1]), y + f(c[3]), z + f(c[5]))).collect()
+    let raw: Vec<[i32; 6]> = match s {
+        Block::Piston { .. } | Block::PistonHead { .. } => crate::piston::shape::of(w, *s, p).into_iter().map(|b| b.0).collect(),
+        Block::MovingPiston { .. } => crate::piston::shape::moving_noclip(w, p, w.entities.noclip).into_iter().map(|b| b.0).collect(),
+        _ => crate::behavior::collision_boxes(s),
+    };
+    raw.iter().map(|c| Aabb::new(x + f(c[0]), y + f(c[2]), z + f(c[4]), x + f(c[1]), y + f(c[3]), z + f(c[5]))).collect()
 }
 
 /// `BlockCollisions` over `bb` (the entity collision context): every block shape that meets
@@ -135,7 +141,7 @@ pub fn block_collisions(w: &World, bb: Aabb) -> Vec<(BlockPos, Vec<Aabb>)> {
                 if s.is_air() || (face == 1 && !has_large_collision_shape(&s)) || (face == 2 && !matches!(s, Block::MovingPiston { .. })) {
                     continue;
                 }
-                let boxes = boxes_at(&s, p);
+                let boxes = boxes_at(w, &s, p);
                 if boxes.is_empty() {
                     continue;
                 }
@@ -149,13 +155,16 @@ pub fn block_collisions(w: &World, bb: Aabb) -> Vec<(BlockPos, Vec<Aabb>)> {
 }
 
 /// `Level.getEntityCollisions(source, box)`: the boxes of the entities `source` collides with
-/// (boats: `canVehicleCollide`; other kinds: entities that `canBeCollidedWith` it, i.e. boats).
+/// (`canCollideWith`: boats and minecarts use `AbstractBoat.canVehicleCollide` = the other
+/// `canBeCollidedWith` (boats) or `isPushable` (boats, minecarts); every other kind takes the entities
+/// that `canBeCollidedWith` it, i.e. boats).
 pub fn entity_collisions(w: &World, i: usize, bb: Aabb) -> Vec<Vec<Aabb>> {
     if w.entities.list.len() < 2 || bb.x_size() * bb.y_size() * bb.z_size() < 1.0e-7 {
         return Vec::new();
     }
     let query = bb.inflate(1.0e-7, 1.0e-7, 1.0e-7);
-    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)))
+    let vehicle = matches!(w.entities.list[i].kind, super::EntityKind::Boat(_) | super::EntityKind::Minecart(_));
+    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)) || (vehicle && super::minecart::is_pushable(e)))
         .into_iter()
         .filter(|&j| j != i)
         .map(|j| vec![w.entities.list[j].bb])
@@ -225,7 +234,7 @@ pub fn collide(w: &World, i: usize, movement: Vec3) -> Vec3 {
 
 /// `CollisionGetter.findSupportingBlock`: the colliding block nearest the entity's position
 /// (ties: the greater position by `Vec3i.compareTo`: y, then z, then x).
-fn find_supporting_block(w: &World, pos: Vec3, bb: Aabb) -> Option<BlockPos> {
+pub fn find_supporting_block(w: &World, pos: Vec3, bb: Aabb) -> Option<BlockPos> {
     let mut best: Option<BlockPos> = None;
     let mut best_d = f64::MAX;
     for (p, _) in block_collisions(w, bb) {
@@ -268,8 +277,8 @@ pub fn get_on_pos(w: &World, e: &Entity, offset: f32) -> BlockPos {
             return p;
         }
         let below = w.get(p);
-        // fences and walls are not modeled; fence gates keep the support
-        if matches!(below, Block::FenceGate { .. }) {
+        // walls are not modeled; fence gates keep the support, fences only for offset <= 0.5
+        if matches!(below, Block::FenceGate { .. }) || (offset <= 0.5 && matches!(below, Block::Fence { .. })) {
             return p;
         }
         return BlockPos::new(p.x, mth::floor(e.pos.y - offset as f64), p.z);
@@ -353,6 +362,52 @@ fn restitute(w: &mut World, i: usize, x_col: bool, z_col: bool, movement: Vec3) 
     }
 }
 
+/// `Entity.limitPistonMovement(vec)`: one axis only (x, else y, else z), and what pistons move it
+/// along that axis in one game tick stays within +-0.51 (`applyPistonMovementRestriction`).
+fn limit_piston_movement(w: &mut World, i: usize, v: Vec3) -> Vec3 {
+    let time = w.time;
+    let e = &mut w.entities.list[i];
+    limit_piston(&mut e.piston_deltas, &mut e.piston_deltas_time, time, v)
+}
+
+/// `limitPistonMovement` on an entity's `pistonDeltas` / `pistonDeltasGameTime` (any kind:
+/// falling blocks keep theirs in `gravity::FallingBlock`).
+pub fn limit_piston(deltas: &mut [f64; 3], deltas_time: &mut i64, time: i64, v: Vec3) -> Vec3 {
+    if v.length_sqr() <= 1.0e-7 {
+        return v;
+    }
+    if time != *deltas_time {
+        *deltas = [0.0; 3];
+        *deltas_time = time;
+    }
+    let (axis, amount) = if v.x != 0.0 {
+        (0, v.x)
+    } else if v.y != 0.0 {
+        (1, v.y)
+    } else if v.z != 0.0 {
+        (2, v.z)
+    } else {
+        return Vec3::ZERO;
+    };
+    let clamped = mth::clamp(amount + deltas[axis], -0.51, 0.51);
+    let a = clamped - deltas[axis];
+    deltas[axis] = clamped;
+    if a.abs() <= 1.0e-5f32 as f64 {
+        return Vec3::ZERO;
+    }
+    Vec3::ZERO.with_axis(axis, a)
+}
+
+/// `Entity.collide` of a box against block shapes only, with no step-up (falling blocks: no
+/// `maxUpStep`, and no modeled entity they collide with).
+pub fn collide_box(w: &World, bb: Aabb, movement: Vec3) -> Vec3 {
+    if movement.length_sqr() == 0.0 {
+        return movement;
+    }
+    let colliders: Vec<Vec<Aabb>> = block_collisions(w, bb.expand_towards(movement.x, movement.y, movement.z)).into_iter().map(|(_, s)| s).collect();
+    collide_with_shapes(movement, bb, &colliders)
+}
+
 /// `Entity.move(moverType, delta)` of entity `i`.
 pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     if w.entities.list[i].no_physics {
@@ -367,12 +422,17 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     }
     let mut delta = delta;
     if mover == MoverType::Piston {
-        w.errors.push("entities pushed by pistons are not modeled yet".into());
-        return;
+        // `limitPistonMovement` (piston pushing, clk-misc)
+        delta = limit_piston_movement(w, i, delta);
+        if delta.x == 0.0 && delta.y == 0.0 && delta.z == 0.0 {
+            return;
+        }
     }
     if w.entities.list[i].stuck_speed.length_sqr() > 1.0e-7 {
         let e = &mut w.entities.list[i];
-        delta = delta.multiply(e.stuck_speed.x, e.stuck_speed.y, e.stuck_speed.z);
+        if mover != MoverType::Piston {
+            delta = delta.multiply(e.stuck_speed.x, e.stuck_speed.y, e.stuck_speed.z);
+        }
         e.stuck_speed = Vec3::ZERO;
         e.delta_movement = Vec3::ZERO;
     }
@@ -380,7 +440,23 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     let len = movement.length_sqr();
     if len > 1.0e-7 || delta.length_sqr() - len < 1.0e-7 {
         if w.entities.list[i].fall_distance != 0.0 && len >= 1.0 {
-            w.errors.push("entity: the fall-distance raycast of a long move is not modeled".into());
+            // the raycast of min(|movement|, 8) along the movement against FALL_DAMAGE_RESETTING
+            // blocks (scaffolding among the modeled ones) and water, which resets the fall
+            // distance: nothing to do when no such block lies near the ray (track tnt: flung
+            // TNT), a model note otherwise
+            let pos = w.entities.list[i].pos;
+            let to = pos.add_v(movement.normalize().scale(movement.length().min(8.0)));
+            let f = |a: f64, b: f64| (a.min(b).floor() as i32 - 1, a.max(b).floor() as i32 + 1);
+            let ((x0, x1), (y0, y1), (z0, z1)) = (f(pos.x, to.x), f(pos.y, to.y), f(pos.z, to.z));
+            let near = (x0..=x1).any(|x| {
+                (y0..=y1).any(|y| (z0..=z1).any(|z| {
+                    let b = w.get(BlockPos::new(x, y, z));
+                    matches!(b, Block::Scaffolding { .. } | Block::Water { .. } | Block::BubbleColumn { .. }) || crate::fluid::waterlogged(&b) == Some(true)
+                }))
+            });
+            if near {
+                w.errors.push("entity: the fall-distance raycast of a long move near water or scaffolding is not modeled".into());
+            }
         }
         let e = &mut w.entities.list[i];
         let pos = e.pos;

@@ -160,6 +160,11 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track pulsemult's commands (crates/circuit-pulsemult): study 11's searches.
+    Pulsemult {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -317,6 +322,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
         CircuitCmd::Shulker { args } => circuit_shulker::run(args)?,
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
+        CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
     }
     Ok(())
 }

@@ -37,15 +37,21 @@ reuse the deployed UI: `git fetch origin gh-pages && mctas site publish --pkg-re
 `chrome-headless-shell` unpacked in `~/tools/chrome-headless-shell-linux64/` (smoke), the Nu HTML
 checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page so far).
 
-## State (2026-10-20 03:25Z, explore/site e7a7579bd)
+## State (2026-10-20 10:50Z, explore/site after main c188d60ab; box devvm59220, devvm59165 is gone)
 
-- 5148 builds: 914 doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
+- 5629 builds: doors (only OUR OWN work: `ours` in archive/provenance.tsv and no seed-rule
   match; `door fill` variants folded under the best filling of their mechanism), clocks (the
-  catalog's grouping), 303 circuits (the studies' archives + the calibration designs; vjeux keeps
-  the basic single-component ones: "The interaction model is useful").
-- Extendable families: 32 clock cards + 13 circuit cards, 1997 members generated at build time by
+  catalog's grouping), 408 circuits in 10 studies (the archives; vjeux keeps the basic
+  single-component ones: "The interaction model is useful"; the shulker loaders, TNT dupers and
+  BUD switches have a Variations table on their study page: the best design per VARIATIONS.md
+  variation, from the metrics).
+- Extendable families: clock and circuit cards, members generated at build time by
   each family's generator (judged in the game / simulated at exactly the formula's value / formula
   only).
+- Shulker loaders and unloaders run live in the 3D view (clk-rt cb9ac3d79; all 16 since clk-misc
+  2a2a3f8b9: the viewer's world is the judge's sandbox); the site runs each one at build time with
+  the viewer's own session to give its box timings (circuits.rs `view_run`; a machine with two OUT
+  chests is timed over 4 boxes a chest); whether a design is shown as built is the viewer's call.
 - A Litematica schematic next to every design and member (`designs/<kind>/<stem>.litematic`;
   `mctas litematic`, [docs/litematic.md](../../docs/litematic.md)): "Download .litematic" on every
   build page and family member row.
@@ -59,7 +65,8 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
   a value picker on every member page; equivalent layouts collapse under their shown design; study
   pages (circuits/<study>/) and a circuits overview. No simulator attribution anywhere (vjeux).
 - webrender's viewer renders every thumbnail and build page (contract in docs/site.md: data-src,
-  data-trace, data-autoplay, data-stimulus / data-phases / data-input-mode for circuits; a viewer
+  data-trace, data-autoplay, data-stimulus / data-events (a BUD's target changes) / data-phases /
+  data-input-mode for circuits; a viewer
   with class `mcview-live-src` reloads on a data-src change keeping the camera: the tunable-group
   picker and the family pages' member rows swap in place, web/site/src/swap.rs).
 - Related lists walk the study's axis (the smallest design of each other value); the judge's

@@ -1,5 +1,6 @@
 name: bud-slime-qc-fast
 circuit: bud
+tile: 0 0 4
 # The slime-block QC BUD with a 1 gt latency: a stone block stuck to the slime block sits on the
 # step between two dusts and cuts it. A block update reaching the piston (armed by the redstone
 # block on the slime block, through quasi-connectivity) starts the push in the very next tick: the

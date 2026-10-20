@@ -344,6 +344,15 @@ pub fn trace(c: &Clock, o: &SimOptions, ticks: u32) -> Vec<String> {
     out
 }
 
+/// A redsim world over `from..=to` with the design placed as the real-game judge places it (its
+/// block entities and entities too), before any tick: for callers that drive the run themselves
+/// (the shulker judge's replay, `mctas circuit shulker compare`).
+pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
+}
+
 /// The design's blocks that cannot stand where they are once placed like the judge places them:
 /// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
 /// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
@@ -520,8 +529,11 @@ const ENTITY_MIN_PERIODS: usize = 3;
 
 /// (warmup, period) of a design with entities by the real-game judge's rule: the block frames
 /// (every cell of the world box: block state + block-entity extras; entities left out) over
-/// 0..=[`ENTITY_HORIZON`], `wave::detect_period` from the first free tick with 3 periods. `None`:
-/// not periodic.
+/// 0..=[`ENTITY_HORIZON`], `wave::detect_period` from the first free tick with 3 periods, and the
+/// period must hold over at least the second half of the horizon (warmup <= horizon / 2): an
+/// entity that never repeats exactly (a drifting item) can show a short block pattern near the
+/// end of any window (kit-bouncer-item-p12-20b: "period 12 from 3965" here, 13 from 4074 in the
+/// game; clk-misc, 2026-10-20). `None`: not periodic.
 fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, end: u32) -> Result<Option<(u32, u32)>, (Verdict, String)> {
     let mut s = start(c, blocks, o.margin)?;
     let wmin = s.world.min;
@@ -547,7 +559,7 @@ fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, 
             s.world.tick();
         }
     }
-    Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).map(|(w, p)| (w as u32, p as u32)))
+    Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).filter(|(w, _)| *w <= ENTITY_HORIZON as usize / 2).map(|(w, p)| (w as u32, p as u32)))
 }
 
 /// A quick screen for entity-kit candidates (`clock kit`): run `ticks` gt; false when the design
@@ -615,7 +627,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     } else {
         match entity_clock_period(c, &blocks, o, end) {
             Ok(Some(wp)) => Some(wp),
-            Ok(None) => return SimReport::fail(c, Verdict::NoRepeat, format!("not periodic for 3 periods within {ENTITY_HORIZON} gt (the judge's rule for designs with entities)")),
+            Ok(None) => return SimReport::fail(c, Verdict::NoRepeat, format!("not periodic for 3 periods over the second half of {ENTITY_HORIZON} gt (the judge's rule for designs with entities)")),
             Err((v, why)) => return SimReport::fail(c, v, why),
         }
     };

@@ -57,7 +57,7 @@ fn fill(w: &mut World, f: &Fixture) {
     use redsim::redstone::container::{Stack, item_id, set_contents};
     let mut groups: Vec<(BlockPos, Vec<(usize, Stack)>)> = Vec::new();
     for (p, slot, item, count) in &f.items {
-        let st = Stack { item: item_id(item).expect("known item"), count: *count };
+        let st = Stack::new(item_id(item).expect("known item"), *count);
         match groups.iter_mut().find(|(q, _)| q == p) {
             Some((_, v)) => v.push((*slot, st)),
             None => groups.push((*p, vec![(*slot, st)])),

@@ -1,46 +1,51 @@
 # Track tnt: handoff
 
-State (2026-10-20): study 9 (TNT dupers) has its judge, two archived designs and a catalog page.
-Branch explore/tnt (merged into main up to e9a8f249e; later commits: archive, catalog, site,
-tools). Notes: [NOTES.md](NOTES.md). Variations and results:
-[designs/circuits/tnt/VARIATIONS.md](../../tnt/VARIATIONS.md).
+State (2026-10-20): study 9 (TNT dupers) is complete: every variation in
+[designs/circuits/tnt/VARIATIONS.md](../../tnt/VARIATIONS.md) has an archived design or a written
+reason. Branch explore/tnt, merged with main. Notes: [NOTES.md](NOTES.md).
 
-## Archived (designs/circuits/tnt/archive/)
+## Archived (designs/circuits/tnt/archive/, all robust in the game at 16 builds)
 
-* tnt-duper-12b: self-running, 12 blocks, 200 TNT/min (period 6), robust; tileable (4 copies:
-  800 TNT/min, robust).
-* tnt-duper-triggered-13b: 1 TNT per input pulse, latency 1 gt, robust.
+| design | variation | line |
+|---|---|---|
+| tnt-duper-12b | smallest self-running, FLAT (2 high: the minimum), TILEABLE (4 copies = 800 TNT/min) | 12 blocks, 200 TNT/min, period 6 |
+| tnt-duper-triggered-13b | per pulse | 13 blocks, 1 TNT per pulse, latency 1 gt |
+| tnt-lever-12b | lever on/off | runs while the input is off, stops at once, restarts 5 gt after |
+| tnt-precise-28b | PRECISE, STATIONARY | every TNT at one point at fuse 1 (bit for bit), at rest 33+ gt |
+| tnt-survive-28b | SURVIVABLE (`explode: on`) | 64 explosions in the judge run, design intact (they go off in water) |
+| tnt-launch-15b | LAUNCHED | every TNT flung at exactly vz = -1.0, vy = 0.1568 blocks/gt |
+| tnt-drop-16b | DROPPED straight down | flung, stopped by a wall, falls straight down 72+ blocks |
+| tnt-honey-15b | SLIME-FREE / HONEY-ONLY | a honey frame; a wall fan hangs on a riding stone |
+
+Written impossibilities / limits: MOVABLE (only a dust gives a TNT silent power inside a push, and
+dust cannot ride a piston); 1-WIDE (the dust, its power source and the TNT form an L across both
+horizontal axes); FLAT below 2 high (dust needs a support); one-push BURST (the 12-block push
+limit; tiles give same-tick bursts); 2-wide and frame-free: not found, not proven impossible.
+
+## The judge (crates/circuit/src/tnt.rs, docs/circuits.md; clockinfra reviewed every change)
+
+* `tnt-duper` (self-running), `tnt-duper-triggered` (per pulse), `tnt-duper` with an input
+  (switchable). The game runner follows each primed TNT to fuse 1 and removes it there (with
+  `explode: on` it lets them explode and counts the explosions).
+* Flags in the judge line, each its own catalog card: `precise`, `survives its own explosions`,
+  `launched at`, `stationary`, `dropped`, `slime-free`.
+
+## redsim (crates/redsim)
+
+* TNT and dead coral fans (`tnt.rs`), PrimedTnt entities when `World::tnt_kick` is set
+  (`entity/primed_tnt.rs`), slime bounce and `stepOn` in the entity core, clk-misc's piston
+  entity pushing: the duper traces (12b, water aligner) are bit-identical with the game.
+* Exact traces: designs/clocks/traces/exact/tnt-c1, tnt-phys-stone / -slime / -shaft.
 
 ## Tools (mctas circuit tnt ...)
 
-* `sim` (redsim; `--tile N --offset dx,dy,dz` for side-by-side copies), `run` (the real game
-  with redsim's line next to it), `tile` (writes a tiled design for `circuit verify`).
-* `search` (seeded random search: k palette blocks added to a seed in a box, required kinds placed
-  first with their supports), `shrink`, `improve` (local search, the Pareto front of blocks vs
-  TNT per minute; triggered designs scored by the judge's redsim check).
-* `precision` (the real game: each primed TNT followed to fuse 1: spreads, direction class).
+`sim` (`--tile`), `run`, `search` (`--min-per`, `--forbid`), `shrink`, `improve`, `precise-sim`
+(`--follow`), `align`, `precise-shrink`, `precision` (`--list`), `tile`.
 
-## Open variations, with what the code says
+## Ideas left
 
-* PRECISE: from `PistonMovingBlockEntity.moveCollidedEntities`: a moving block pushes the entities in
-  the slab it moves into this tick, by `min(needed, progress step) + 0.01` (step 0.5): an entity
-  it overlaps only partly (a block ENTERING the entity's cell from one side) ends exactly at the
-  face + 0.01, whatever its random offset; one it overlaps fully keeps its offset (moved 0.51).
-  A push that ends against a wall also zeroes that motion (TNT has no bounciness), and a moving
-  slime sets the motion on its axis to +-1. So an exact aligner = a block entering the TNT's cell
-  from one side along z, then along x, each ending against a wall; then the fall is exact (its
-  vertical motion is not random). In the 12b the TNT instead stays in the machine for its 80 gt
-  fuse (pushed by the frame about half the cycles, bouncing on the slime): an aligner stage needs
-  the TNT to leave the frame first. redsim has no piston-entity pushing yet (needed to search
-  aligners on redsim with fixed kicks).
-* BURST: one push priming 2 TNT does not fit: a second dust beside the same redstone block, its
-  TNT and its fan push the frame past the 12-block limit, and the free placements sit in the
-  frame's path (12.8M redsim samples from the 12b: none). The tiled 12b primes 4 TNT in the same
-  tick (4 engines).
-* The catalog's dominance fold (clk-rt/shulker's `circuit::archive::beats_on_variation`, on
-  explore/shulker c548b39e9): once in main, add tnt-duper-triggered's lower latency / gap there
-  so a bigger but faster-firing triggered duper keeps its own card.
-* MOVABLE: no silent power source rides a piston (dust pops; an observer lands unpowered unless an
-  observer tick is pending at its landing cell, and the ticks observers schedule there are gone by
-  then): no movable duper found or expected in 26.3.
-* Lever on/off, slime-free (honey: a floor fan cannot stand on honey, its top is not sturdy).
+* A faster duper (> 200 TNT/min per engine): a 2-TNT push within the 12-block limit, or a faster
+  engine than the sticky piston's 6 gt.
+* A smaller precise / survivable duper (28 blocks today): `align` from the 15b launcher with a
+  smaller aligner.
+* 2-wide: an exhaustive census in a 2-wide box would settle it.

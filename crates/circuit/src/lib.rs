@@ -16,8 +16,10 @@
 
 pub mod archive;
 pub mod bud;
+pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod pulsemult;
 pub mod run;
 pub mod seq;
 pub mod shulker;
@@ -113,6 +115,22 @@ pub enum Kind {
     /// A TNT duper fired by its input: each pulse spawns the same number of primed TNT, nothing
     /// without one, every TNT block surviving (`tnt.rs`).
     TntDuperTriggered,
+    /// Study 11 ([`pulsemult`]): one input pulse gives exactly N output pulses (a pulse multiplier).
+    Burst(u32),
+    /// Study 11: a running clock divided by N (N >= 3; 2 is a T flip-flop).
+    Divider(u32),
+    /// Study 11: one output pulse of L per rising edge, its behaviour under a second edge measured
+    /// (`retriggerable` / `non-retriggerable`: the claim, when given).
+    Monostable(Option<String>),
+    /// Study 11: the output follows the input and stays on L more.
+    OffDelay,
+    /// Study 11: no output for inputs of T or less, input - T for longer ones (a pulse filter).
+    OnDelay,
+    /// Study 11: pulses every P gt while the input is on (a gated clock).
+    PulseTrain,
+    /// Study 12 ([`compute`]): an adder, subtractor, incrementer, comparator, multiplexer,
+    /// demultiplexer, decoder, encoder (exhaustive truth table) or binary counter, N bits.
+    Compute(compute::Op, u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -186,8 +204,35 @@ impl Kind {
             "bud" => Kind::Bud,
             "tnt-duper" => Kind::TntDuper,
             "tnt-duper-triggered" => Kind::TntDuperTriggered,
+            "burst" => {
+                let n = num(1)?;
+                if n < 2 {
+                    bail!("circuit: burst {n}: a burst gives at least 2 pulses (1 is a rising-edge detector)");
+                }
+                Kind::Burst(n)
+            }
+            "divider" => {
+                let n = num(1)?;
+                if n < 3 {
+                    bail!("circuit: divider {n}: N >= 3 (a /2 divider is a T flip-flop: circuit: tff)");
+                }
+                Kind::Divider(n)
+            }
+            "monostable" => match w.get(1).copied() {
+                None => Kind::Monostable(None),
+                Some(c @ ("retriggerable" | "non-retriggerable")) => Kind::Monostable(Some(c.to_string())),
+                Some(c) => bail!("circuit: monostable {c:?}: the claim is retriggerable or non-retriggerable"),
+            },
+            "off-delay" => Kind::OffDelay,
+            "on-delay" => Kind::OnDelay,
+            "pulse-train" => Kind::PulseTrain,
+            k if compute::Op::parse(&w).is_some() => {
+                let _ = k;
+                let (op, n) = compute::Op::parse(&w).unwrap()?;
+                Kind::Compute(op, n)
+            }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N)"
             ),
         })
     }
@@ -220,6 +265,14 @@ impl Kind {
             Kind::Bud => "bud".into(),
             Kind::TntDuper => "tnt-duper".into(),
             Kind::TntDuperTriggered => "tnt-duper-triggered".into(),
+            Kind::Burst(n) => format!("burst {n}"),
+            Kind::Divider(n) => format!("divider {n}"),
+            Kind::Monostable(None) => "monostable".into(),
+            Kind::Monostable(Some(c)) => format!("monostable {c}"),
+            Kind::OffDelay => "off-delay".into(),
+            Kind::OnDelay => "on-delay".into(),
+            Kind::PulseTrain => "pulse-train".into(),
+            Kind::Compute(op, n) => op.kind_name(*n),
         }
     }
 
@@ -236,6 +289,8 @@ impl Kind {
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
+            Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
+            Kind::Compute(..) => "compute",
         }
     }
 
@@ -298,6 +353,10 @@ pub struct Circuit {
     pub stores: Vec<Store>,
     /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
     pub tile: Option<Tile>,
+    /// `slice: dx dy dz` (study 12 bit slices, [`compute::sliced`]): the design is one bit of a
+    /// ripple circuit; copy k + 1 sits one step from copy k, its chain input on copy k's chain
+    /// output.
+    pub slice: Option<Pos>,
     /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
     pub targets: Vec<bud::Target>,
@@ -402,8 +461,18 @@ impl Circuit {
             None => None,
         };
         let bud_claims = design.meta.get("bud").map(|s| s.split_whitespace().map(|w| w.to_string()).collect()).unwrap_or_default();
+        let slice = match design.meta.get("slice") {
+            Some(t) => {
+                let v: Vec<i32> = t.split_whitespace().map(|x| x.parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("slice: {t:?}"))?;
+                if v.len() != 3 || v == [0, 0, 0] {
+                    bail!("slice: {t:?}: want dx dy dz (the step from one bit to the next)");
+                }
+                Some([v[0], v[1], v[2]])
+            }
+            None => None,
+        };
         let clock = Clock::from_design(design)?;
-        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, targets, bud_claims };
+        let c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims };
         c.check_ports()?;
         Ok(c)
     }
@@ -415,6 +484,9 @@ impl Circuit {
         };
         if *k == Kind::Bud {
             return bud::check_ports(self);
+        }
+        if let Kind::Compute(op, n) = k {
+            return compute::check_ports(self, *op, *n);
         }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
@@ -431,10 +503,13 @@ impl Circuit {
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
-                    // a tiled run ([`shulker::tiled`]) has one lever per copy
+                    // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
+                    // combo's mode lever (badge `combo`)
                     let most = self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()).unwrap_or(1);
-                    if names.len() > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
-                        bail!("{}: at most one input, a lever the judge turns on once (`port input: x y z lever`); none = always on", k.name());
+                    let starts = names.iter().filter(|n| !(**n == "mode" || n.starts_with("mode."))).count();
+                    let modes = names.len() - starts;
+                    if starts > most || modes > most || self.inputs.iter().any(|i| i.how != InputHow::Lever) {
+                        bail!("{}: at most one start lever (`port input: x y z lever`, none = always on) and one mode lever (`port input.mode: x y z lever`, a loader + unloader combo)", k.name());
                     }
                 }
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
@@ -477,7 +552,10 @@ impl Circuit {
             }
         }
         if self.tile.is_some() && !k.is_shulker() {
-            bail!("tile: only shulker loaders and unloaders are tiled");
+            bail!("tile: only shulker loaders and unloaders and BUD switches are tiled");
+        }
+        if self.slice.is_some() {
+            bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
         }
         Ok(())
     }
@@ -558,6 +636,12 @@ impl Circuit {
         v.sort();
         v.dedup();
         v
+    }
+
+    /// `explode: on` (TNT dupers, the SURVIVABLE variation): the judge's game run lets every primed
+    /// TNT explode instead of removing it; redsim does not model explosions (UNMODELED).
+    pub fn explodes(&self) -> bool {
+        self.clock.design.meta.get("explode").is_some_and(|v| v.trim() == "on")
     }
 
     /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
@@ -652,6 +736,10 @@ impl Circuit {
         if let Some(t) = self.tile {
             let r = clock::rotate_pos(t.step, turns);
             d.meta.insert("tile".into(), format!("{} {} {} {}", r[0], r[1], r[2], t.copies));
+        }
+        if let Some(st) = self.slice {
+            let r = clock::rotate_pos(st, turns);
+            d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
         Circuit::from_design(d)
     }

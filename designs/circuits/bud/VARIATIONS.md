@@ -81,8 +81,17 @@ failed.
   BUDs); observer-based otherwise. From the block list.
 * **Silent**: no block that plays a sound when the BUD fires: pistons (extend / retract sounds),
   dispensers and droppers (dispense or fail click), note blocks, bells. From the block list.
-* **Size, box, flat** (height of the box), **tileable** (two copies side by side along each axis:
-  triggering one must not trigger the other; measured on request).
+* **Size, box, flat** (height of the box).
+* **Tileable** (a `tile: dx dy dz` claim): 3 copies side by side along the step, every class at
+  every copy's target; each copy's output answers its own target only (`tileable every N`: targets
+  every N blocks). Two things in the source decide how dense a BUD can tile:
+  * a lamp strongly powered by an observer or a repeater (`getDirectSignal`) makes its neighbors
+    see 15 through it (`Level.getSignal` of a conductor is the strong power into it), so two
+    judge lamps side by side cross-talk; a lamp lit through a solid block is not strongly powered
+    and does not: an observer that must tile every block powers a stone, the lamp beyond it;
+  * a piston's own move sets its base block with `UPDATE_NEIGHBORS`, so an armed (quasi-powered)
+    piston next to another copy's piston fires when that one moves: QC piston BUDs cannot tile
+    every block.
 
 ## 5. Variation families to build
 
@@ -95,8 +104,28 @@ failed.
 3. Dropper / dispenser QC BUD: `TRIGGERED` on the first block update, fires 4 gt later; output
    through an observer watching it (the `TRIGGERED` change is a flags-2 shape update) or a
    comparator; re-arms only when unpowered and updated again.
-4. Hybrids: an observer watching a QC sensor (an update-only detector that outputs a clean 2 gt
-   pulse), or a QC sensor fed by an observer.
+4. Hybrids: an observer watching a QC sensor (the QC sensor's classes with an observer's clean
+   2 gt pulse), or a QC sensor fed by an observer.
 5. Relay footprints: blocks whose shape follows their neighbors (redstone wire, fences, walls,
    panes, stairs) let an observer see changes at cells it does not face (a wire's connection
    changes when T changes: an observer facing the wire detects T).
+
+## 6. Which class sets can exist (from the channels above)
+
+* `shape` only, `state` only, `update` only: impossible. A placement, a removal or a flags-3 change
+  sends both channels to the same 6 neighbors; a sensor that sees a shape-only change (an
+  observer: a real state change of the cell it faces) also sees every placement, removal and
+  flags-3 change of that cell, and a sensor that sees a pure update (a QC sensor: any block update
+  at its own cell) also sees every placement, removal and flags-3 change beside it. A shape change
+  never becomes a block update by itself (`Level.setBlock` passes shape updates on without
+  `UPDATE_NEIGHBORS`), except by breaking a block that needs support: one use only.
+* `place remove state shape`: an observer (1 block, the smallest possible BUD).
+* `place remove state update`: a QC sensor (the census finds no observer-free one under 3 blocks).
+* `place remove`: an observer behind a relay whose shape follows the PRESENCE of a solid block, not
+  its state (a fence: 2 blocks).
+* all five: two sensors (an observer for shape-only changes, a QC sensor for pure updates) with
+  their outputs merged. An observer's back is 2 cells from the cell it watches, never beside a
+  piston that is beside that cell, so it cannot trigger that piston directly: the merge takes a
+  dust run (the union of two archived designs, not built).
+* `place` only or `remove` only: a presence LEVEL (a solid block at T conducting power) and an
+  edge detector (study 1) behind it (a composition, not built).

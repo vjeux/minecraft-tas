@@ -1,5 +1,6 @@
 name: bud-observer
 circuit: bud
+tile: 0 0 2
 # An observer facing the target cell: any real change of that block (placed, removed, a property
 # changed, even by shape updates alone, as crops grow) fires it 2 gt later for 2 gt. A pure block
 # update changes nothing there, so it is not seen; a change while its tick is pending or while it
