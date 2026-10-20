@@ -1,10 +1,38 @@
 # Circuit designs REDSTONEPEDIA does not publish: they stay in the repository's archives (research,
 # the judge's history) but get no card, page, search hit, count or download on the site. One line
-# each: <study>/<archived file pattern, * = any text> TAB <why>. Read by crates/site/src/circuits.rs
-# (`hidden`); `mctas site smoke` checks that none of them is published.
+# each: <study>/<archived file pattern, * = any text> TAB <why>. A line starting with `!` is an
+# exception: a design it matches is published whatever the other lines say. Read by
+# crates/site/src/circuits.rs (`hidden`); `mctas site smoke` checks that none of them is published;
+# `mctas site build` lists the dominated designs still published (`mctas site dominated`).
 pext/pext-*-sf*	vjeux 2026-10-20 12:12Z on pext-n5-sf-sweep136: "Why would anyone use this monstrosity? It's bigger and slower than the other ones we have" (the slime-free line of the piston extenders)
+# 2026-10-20 12:55Z, the coordinator from pext's world-record bar (explore/pext designs/circuits/pext/WR.md): only the current holder of each N
+!pext/pext-n2-sf7-1	the N = 2 slime-free holder stays (pext's WR bar)
+!pext/pext-n2-sf7-1-button	the N = 2 slime-free holder with its own button stays (pext's WR bar)
+!pext/pext-n2-sf8-flat	the N = 2 slime-free flat holder stays (pext's WR bar)
+pext/pext-n1-sticky	a lone sticky piston (N = 1): not a holder (pext's WR bar)
+pext/pext-n2-rider7-3d	dominated at N = 2 (pext's WR bar)
+pext/pext-n2-rider-3d	dominated at N = 2 (pext's WR bar)
+pext/pext-n2-rider-flat	dominated at N = 2 (pext's WR bar)
+pext/pext-n2-flat-cascade11	dominated at N = 2 (pext's WR bar)
+pext/pext-n2-flat-cascade11-button	dominated at N = 2 (pext's WR bar)
+pext/pext-n3-cascade22	dominated at N = 3 (pext's WR bar)
+pext/pext-n3-cascade-v1	dominated at N = 3 (pext's WR bar)
+pext/pext-n3-rider24	dominated at N = 3 (pext's WR bar)
+pext/pext-n3-rider-v1	dominated at N = 3 (pext's WR bar)
+pext/pext-n4-cascade30	dominated at N = 4 (pext's WR bar)
+pext/pext-n4-cascade33	dominated at N = 4 (pext's WR bar)
+pext/pext-n4-cascade-v1	dominated at N = 4 (pext's WR bar)
+pext/pext-n5-cascade38	dominated at N = 5 (pext's WR bar)
+pext/pext-n5-cascade46	dominated at N = 5 (pext's WR bar)
+pext/pext-n5-cascade-v1	dominated at N = 5 (pext's WR bar)
+pext/pext-n6-cascade47	dominated at N = 6 (pext's WR bar)
+pext/pext-n7-cascade58	dominated at N = 7 (pext's WR bar)
+pext/pext-n8-cascade66	dominated at N = 8 (pext's WR bar)
+pext/pext-cascade-r2-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
+pext/pext-cascade-r0-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
+pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext's WR bar)
 # 2026-10-20 12:46Z, the coordinator from `mctas site dominated`: bigger than a copper-bulb counter of the same N, no better, only copper-free
-memory/counter2-ring	3 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
+memory/counter2-ring	5 blocks bigger than counter2-bulb, same counter, only avoids copper bulbs
 memory/counter4-ring	4 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
 memory/counter4-ring9	3 blocks bigger than counter4-bulb2, same counter, only avoids copper bulbs
 memory/counter12-ring3-ring4	4 blocks bigger than counter12-ring3-bulb2, same counter, only avoids copper bulbs

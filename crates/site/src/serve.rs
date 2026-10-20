@@ -437,9 +437,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             crate::circuits::hidden(&c.study, &format!("{}.txt", b.name)).map(|_| b.name.clone())
         })
         .collect();
-    let hidden_pages = crate::circuits::hidden_rules().iter().filter(|(s, p, _)| {
-        std::fs::read_dir(dir.join("circuits").join(s)).map(|rd| rd.flatten().any(|e| crate::circuits::glob(&format!("{p}.html"), &e.file_name().to_string_lossy()) || crate::circuits::glob(p, &e.file_name().to_string_lossy().replace(".html", ".txt")))).unwrap_or(false)
-    }).count();
+    let studies: std::collections::BTreeSet<String> = crate::circuits::hidden_rules().into_iter().map(|(s, _, _)| s).collect();
+    let hidden_pages = studies
+        .iter()
+        .map(|s| {
+            std::fs::read_dir(dir.join("circuits").join(s))
+                .map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().strip_suffix(".html").is_some_and(|stem| crate::circuits::hidden(s, &format!("{stem}.txt")).is_some())).count())
+                .unwrap_or(0)
+        })
+        .sum::<usize>();
     check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
