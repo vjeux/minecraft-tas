@@ -46,16 +46,23 @@ stimulus: in 10+ 14- 40+ 41-     # optional, for exploring (the kind's checker m
   would see). On = level > 0. Put the output where a lamp would go, not on a lamp (a lamp's lit
   state lags 4 gt when it turns off). The main output is `q` when there is one, else the first.
 * **A circuit must drive something** (vjeux/coordinator 2026-10-19): the judge puts a redstone
-  lamp in every AIR output cell (not a design block: not counted, not part of the type; kinds
-  read through payloads, piston extenders and flying machines, get none) and the lamp must follow
-  the output: lit whenever the output is on, unlit once it has been off for 6 gt (a lamp turns
-  off 4 gt after the update that tells it, so shorter gaps stay lit), from the first frame the
-  circuit may be driven. The metrics still come from the level above, so they do not change. An
+  lamp in every AIR output cell (not a design block: not counted, not part of the type; none for
+  kinds read through payloads, piston extenders and flying machines, nor in a cell on a piston's
+  line, where a moved block may land) and the lamp must follow the output: lit whenever the output
+  is on, unlit within 5 gt after it turns off (a lamp turns off 4 gt after the update that tells
+  it, so shorter gaps stay lit; a later 4 gt flash from a state inside one tick, like two inputs
+  placed in the same tick, is a glitch, not a failure), from the first frame the circuit may be
+  driven. The metrics still come from the level above, so they do not change. An
   output that changes without a block update fails (`update-less output: ... it drives
   nothing`): a dust that is only REDIRECTED (it changes shape, its power stays the same) updates
   nothing, so a lamp, a torch on a block or a repeater there never reacts (instant
-  dust-redirection gates, track delay's 1 gt line). `mctas circuit archive --rejudge` re-judges an
-  archive after a judge change.
+  dust-redirection gates, track delay's 1 gt line). An output cell is therefore air or holds a
+  redstone component or consumer (dust, repeater, comparator, torch, observer, lamp, piston, copper
+  bulb, note block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell,
+  hopper; a lamp the design puts there is watched like the judge's): a passive block there (a
+  stone...) drives nothing by itself and is refused. A dust redirected WITH a power change (the
+  input stronger than the power it had: `gate-not-bump-4b`) does update, and passes.
+  `mctas circuit archive --rejudge` re-judges an archive after a judge change.
 * **Machines**: `port start:` (the clock kick: `last`, `use [T]`, `<state> T`), `travel: dx dy dz`
   (the push or travel direction, a unit vector), `distance: k` (how far a flying machine must
   go), `port payload[.<name>]: x y z` (tracked blocks: the pushed block, the payload).

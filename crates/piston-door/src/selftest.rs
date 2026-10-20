@@ -535,6 +535,7 @@ fn checks() -> Vec<Check> {
     // output refused, a comparator AND kept with its metrics
     s.push("designs/circuits/selftest/update-less-nor.txt".into());
     s.push("designs/circuits/selftest/comparator-and.txt".into());
+    s.push("designs/circuits/selftest/stone-output-nimply.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -553,8 +554,9 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
             has(&o[0], "FAIL: cal-update-less-nor gate nor: update-less output")?;
+            has(&o[0], "FAIL: cal-stone-output-nimply gate nimply: output out at [2, 1, 1] holds stone, which drives nothing by itself")?;
             has(&o[0], "CIRCUIT: cal-comparator-and gate and function and, latency 4 gt, 5 blocks, 3x2x1, redsim")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust and an update-less NOR refused; the comparator AND kept"))
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, an update-less NOR and a stone output refused; the comparator AND kept"))
         }),
     });
     v.push(Check {

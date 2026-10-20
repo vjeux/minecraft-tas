@@ -196,6 +196,9 @@ fn state_name(st: usize, n: usize) -> String {
 
 /// Judge a run of `kind`'s stimulus.
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    if let Some((name, p, id)) = c.passive_output() {
+        return Outcome::fail(format!("output {name} at {p:?} holds {id}, which drives nothing by itself: leave the output cell air (the judge puts a lamp there) or put a consumer there"), Vec::new());
+    }
     if let Some(why) = update_less(c, t) {
         return Outcome::fail(why, Vec::new());
     }
@@ -219,7 +222,7 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
 /// update (a dust redirected without a power change) leaves the lamp stale: why it fails.
 pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
     let from = (start(c) as usize).min(t.frames());
-    for p in c.consumer_cells() {
+    for p in c.watched_lamps() {
         let Some(k) = c.outputs.iter().position(|o| o.pos == p) else {
             continue;
         };

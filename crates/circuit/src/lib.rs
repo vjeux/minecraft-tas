@@ -372,6 +372,63 @@ impl Circuit {
         Circuit::from_design(d)
     }
 
+    /// The lamps whose lit state must follow an output ([`check::update_less`]): the judge's in
+    /// every consumer cell, and a lamp the design itself puts in an output cell.
+    pub fn watched_lamps(&self) -> Vec<Pos> {
+        let mut v = self.consumer_cells();
+        for o in &self.outputs {
+            if self.clock.design.blocks.get(&o.pos).is_some_and(|s| s.starts_with("minecraft:redstone_lamp")) {
+                v.push(o.pos);
+            }
+        }
+        v.sort();
+        v.dedup();
+        v
+    }
+
+    /// An output cell holding a block that drives nothing by itself (a stone, glass, a redstone
+    /// block...): its "level" would be read by query alone, so a change without a block update would
+    /// go unseen. An output cell is air (the judge's lamp goes there) or holds a redstone component
+    /// or consumer (dust, repeater, comparator, torch, observer, lamp, piston, copper bulb, note
+    /// block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell, hopper).
+    /// Piston extenders and flying machines are read through payloads.
+    pub fn passive_output(&self) -> Option<(String, Pos, String)> {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::FlyingMachine)) {
+            return None;
+        }
+        const ACTIVE: [&str; 20] = [
+            "redstone_wire",
+            "repeater",
+            "comparator",
+            "redstone_torch",
+            "redstone_wall_torch",
+            "observer",
+            "redstone_lamp",
+            "piston",
+            "sticky_piston",
+            "copper_bulb",
+            "note_block",
+            "door",
+            "trapdoor",
+            "fence_gate",
+            "dispenser",
+            "dropper",
+            "crafter",
+            "rail",
+            "tnt",
+            "bell",
+        ];
+        for o in &self.outputs {
+            let Some(s) = self.clock.design.blocks.get(&o.pos) else { continue };
+            let id = s.split(['[', '{']).next().unwrap_or(s);
+            let id = id.strip_prefix("minecraft:").unwrap_or(id);
+            if !ACTIVE.iter().any(|a| id == *a || id.ends_with(&format!("_{a}"))) && id != "hopper" {
+                return Some((o.name.clone(), o.pos, id.to_string()));
+            }
+        }
+        None
+    }
+
     /// The design's blocks, except piston heads (part of their piston) and the blocks in input
     /// cells (a lever or button there is the stimulus device), plus design entities.
     pub fn blocks(&self) -> usize {
