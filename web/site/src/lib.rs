@@ -7,7 +7,7 @@
 //! lives in the URL fragment, so every search is a link. The cards' 3D thumbnails are
 //! `data-mcview` elements that webrender's viewer (viewer/mcview.js) renders when it is loaded.
 
-use site_model::html::{esc, hit_card, nearest_searches};
+use site_model::html::{chip_plural, esc, hit_card_run, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -30,6 +30,10 @@ struct App {
     /// The block-kind chips' own filter text.
     kind_filter: String,
     error: String,
+    /// The chips most of the first hits share: said once in the count line, left off the cards.
+    shared: Vec<String>,
+    /// The kind line of the last card drawn (a run of cards shows it only where it changes).
+    last_kind: Option<String>,
 }
 
 thread_local! {
@@ -102,7 +106,7 @@ async fn load() -> Result<(), JsValue> {
             }
         }
     }
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new() }));
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -377,6 +381,8 @@ fn refresh(write_hash: bool) {
     let done = with_app(|a| {
         match a.site.run(&a.q) {
             Ok((hits, facets)) => {
+                // the chips most of the first cards share, said once in the count line
+                a.shared = site_model::html::hits_common_chips(&a.site, &hits);
                 a.hits = hits;
                 a.facets = facets;
                 a.error.clear();
@@ -384,6 +390,7 @@ fn refresh(write_hash: bool) {
             Err(e) => a.error = e,
         }
         a.shown = 0;
+        a.last_kind = None;
     });
     if done.is_none() {
         return;
@@ -415,7 +422,10 @@ fn more() {
             return (empty_message(a), 0, 0);
         }
         let end = (a.shown + PAGE).min(a.hits.len());
-        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card(&a.site, *h, "")).collect();
+        // (a run of cards: the home page shows a kind line only where the kind changes)
+        let mut prev = a.last_kind.take();
+        let html: String = a.hits[a.shown..end].iter().map(|h| hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev)).collect();
+        a.last_kind = prev;
         a.shown = end;
         (html, end, a.hits.len())
     }) else {
@@ -546,6 +556,20 @@ fn draw_dynamic() {
             }
             if members > 0 {
                 s.push_str(&format!(" ({members} of them generated family member{})", if members == 1 { "" } else { "s" }));
+            }
+            // the chips most cards share, once (critique: six cards in a row repeated "no slime ·
+            // 1 block thick · works facing any way")
+            if !a.shared.is_empty() {
+                let parts: Vec<String> = a.shared.iter().map(|c| chip_plural(c)).collect();
+                let list = match parts.len() {
+                    1 => parts[0].clone(),
+                    n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+                };
+                s.push_str(&format!(". Most {}", esc(&list)));
+            }
+            // what a tick is, once (critique: players count repeater ticks, 1 = 2 game ticks)
+            if q.kind == "clock" {
+                s.push_str(". Times in game ticks: 20 a second (a repeater's 1 tick is 2 game ticks)");
             }
             // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
             if a.hits.is_empty() && !q.text.trim().is_empty() {

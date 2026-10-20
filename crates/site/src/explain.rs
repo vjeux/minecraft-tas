@@ -178,8 +178,8 @@ pub fn kind_summary(kind: &str) -> String {
         "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
         "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output follows a fixed rule of its inputs: NOT, AND, OR, XOR...; the two-input gates call their inputs A and B".into(),
-        "rs-latch" => "a pulse on S turns the output on and it stays on; a pulse on R turns it off".into(),
-        "d-latch" => "while the enable input E is active the output follows the data input D; otherwise it holds the last value".into(),
+        "rs-latch" => "a pulse on the set input (S) turns the output on and it stays on; a pulse on the reset input (R) turns it off".into(),
+        "d-latch" => "while its enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
         "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
@@ -194,7 +194,7 @@ pub fn kind_summary(kind: &str) -> String {
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
         "tnt-duper-triggered" => "lights TNT on every press without using up its TNT block".into(),
         "burst" => "turns one press into an exact number of pulses".into(),
-        "divider" => "slows a clock down: the output goes on and off once for every few input pulses".into(),
+        "divider" => "the output goes on and off once for every few input pulses, even from a fast clock".into(),
         "monostable" => "gives one output pulse of a set length for each press, however short the press".into(),
         "off-delay" => "keeps the output on for a set time after the input turns off".into(),
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
@@ -1058,7 +1058,7 @@ pub const STUDY_USES: [(&str, &str); 11] = [
     ("shulker", "Box up a farm's output automatically, or unpack shulker boxes into a storage system, without opening them by hand."),
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
-    ("pulsemult", "Timers and pulse tools: keep a door open while people keep stepping on a pressure plate (one-shot timer), keep a light on a while after the last press (stay-on timer), ignore accidental taps (hold-to-activate), fire a dispenser exactly 3 times per press (burst), or slow a clock down (clock divider)."),
+    ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1290,17 +1290,41 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
     // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
-    // once on the first step (critique: "5 gt, 10 gt, 15 gt")
-    let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
-    let mut t = 0u32;
+    // once on the first step (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N"
+    // phases) puts its labels on the cycle lines, every k cycles (critique: "5 ticks" sat across
+    // the cycle-2 line drawn at tick 6)
+    let cycles: Vec<&(u32, u32, String)> = w.phases.iter().filter(|(_, _, l)| l.starts_with("cycle ")).collect();
+    let (first, step) = match cycles.first() {
+        Some((a, b, _)) if b > a && cycles.iter().all(|(x, y, _)| y - x == b - a) => {
+            let p = b - a;
+            (*a, p * ((60.0 / (p as f64 * px)).ceil() as u32).max(1))
+        }
+        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000)),
+    };
     let ya = height - 6.0;
+    let mut marks: Vec<u32> = Vec::new();
+    if first > 0 && (first as f64) * px >= 30.0 {
+        marks.push(0);
+    }
+    let mut t = first;
     while (t as f64) <= ticks {
+        marks.push(t);
+        t += step;
+    }
+    let mut named = false;
+    for t in marks {
         // (a label that would run past the right edge is left out)
-        let label = if t == 0 { "0".to_string() } else if t == step { format!("{t} ticks") } else { t.to_string() };
+        let label = if t == 0 {
+            "0".to_string()
+        } else if !named {
+            named = true;
+            format!("{t} ticks")
+        } else {
+            t.to_string()
+        };
         if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
             s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }
-        t += step;
     }
     s.push_str("</svg>");
     s

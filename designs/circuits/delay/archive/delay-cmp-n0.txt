@@ -1,5 +1,5 @@
 # archived 2026-10-20T15:31Z from designs/circuits/delay/tracks/delay/delay-cmp-n0.txt by mctas circuit archive
-# CIRCUIT: delay-cmp-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, tileable every 1 (0 0 1), 2 blocks, 1x2x1, robust
+# CIRCUIT: delay-cmp-n0 delay N 2 gt, min-pulse 3 gt, min-gap 3 gt, tileable every 1 (0 0 1), 2 blocks, 1x2x1, robust
 # Comparator line N = 2 gt (track delay, family delay-cmp: N = 2 + 2n gt, n = 0): 1 compare-mode
 # comparator(s) in a row on stones, 2 gt each; keeps pulses down to 2-3 gt
 name: delay-cmp-n0

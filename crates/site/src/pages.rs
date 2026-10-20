@@ -347,7 +347,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         ));
     }
     body.push_str(&format!(
-        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design file</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{}</p>\n<p>Blocks used: {}</p></section>\n",
+        "<section><h2>Build it</h2><p><a class=\"button\" href=\"{prefix}{}\" download>Download .litematic</a> <a class=\"button alt\" href=\"{prefix}{}\" download>Download the design as text</a></p>\n<p class=\"hint\">The .litematic opens in <a href=\"https://github.com/maruohon/litematica\">Litematica</a> (Minecraft 26.3): every block of the design in one region.{} The text file is the same build as a plain-text design, for this project's own tools.</p>\n<p>Blocks used: {}</p></section>\n",
         esc(&crate::generate::litematic_path(&b.design)),
         esc(&b.design),
         if b.kind == "door" || b.circuit.is_some() || b.clock.is_some() { " Verified in the real game." } else { "" },
@@ -390,8 +390,23 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         if list.is_empty() {
             continue;
         }
-        let cards: Vec<String> = list.iter().map(|o| build_card(o, prefix)).collect();
-        body.push_str(&format!("<section><h2>{}</h2>\n{}</section>\n", esc(&title), grid(&cards)));
+        // like the index's tabs: no kind line every card repeats, the chips most share said once
+        // (critique: "Other sculk doors" cards each repeated the kicker and four badges)
+        let shared = site_model::html::common_chips(&list);
+        let all_same = list.iter().all(|o| site_model::html::props(o).kind == site_model::html::props(list[0]).kind);
+        let cards: Vec<String> = list.iter().map(|o| site_model::html::build_card_opts(o, prefix, !all_same, &shared)).collect();
+        let most = if shared.is_empty() {
+            String::new()
+        } else {
+            let parts: Vec<String> = shared.iter().map(|c| site_model::html::chip_plural(c)).collect();
+            let words = match parts.len() {
+                1 => parts[0].clone(),
+                n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+            };
+            let all = site_model::html::shared_chips(&list);
+            format!("<p class=\"hint\">{} {}.</p>", if shared.iter().all(|c| all.contains(c)) { "All" } else { "Most" }, esc(&words))
+        };
+        body.push_str(&format!("<section><h2>{}</h2>\n{most}{}</section>\n", esc(&title), grid(&cards)));
     }
     let p = site_model::html::props(b);
     let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
@@ -443,7 +458,8 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     format!(
         "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}{}{warn}{}",
         esc(&kind),
-        esc(&p.title),
+        // (each number kept with its unit: critique, "2 / blocks" wrapped in the title)
+        esc(&site_model::html::keep_units(&p.title)),
         if what.is_empty() { String::new() } else { format!("<p class=\"oneliner\">{}</p>\n", esc(&what)) },
         if why.is_empty() { String::new() } else { format!("<p class=\"why\"><b>Why build it:</b> {}</p>\n", esc(&why)) },
         if lede.is_empty() { String::new() } else { format!("<p class=\"lede\">{}</p>\n", esc(&site_model::html::keep_units(&lede))) }
@@ -484,7 +500,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Boards", &esc(&d.boards.join(", "))));
         }
         if !d.leads.is_empty() {
-            s.push_str(&row("#1 on", &esc(&d.leads.join(", "))));
+            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::lead_words(l)).collect::<Vec<_>>().join("; "))));
         }
         if let Some(r) = d.record {
             s.push_str(&row("Record progression", &format!("took the solid record at {r} blocks placed")));
@@ -575,8 +591,17 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
         s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
-        // picture of five)
-        s.push_str(&row("Blocks placed", &format!("{} (not counting the input levers or buttons and the test lamp the view adds)", b.blocks)));
+        // picture of five), said only where they do (not on flying machines or extenders)
+        let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
+        let mut extra: Vec<&str> = Vec::new();
+        if !c.inputs.is_empty() && !own_device {
+            extra.push("the input levers or buttons");
+        }
+        if c.output_lamp {
+            extra.push("the test lamp");
+        }
+        let count = if extra.is_empty() { b.blocks.to_string() } else { format!("{} (not counting {} the view adds)", b.blocks, extra.join(" and ")) };
+        s.push_str(&row("Blocks placed", &count));
         if let (Some(v), Some(dm)) = (b.volume, &b.dims) {
             s.push_str(&row("Box", &format!("{} ({v} blocks of space)", esc(&dm.replace('x', "×")))));
         }
@@ -818,7 +843,9 @@ fn circuit_axis_walk<'a>(site: &'a Site, b: &Build, c: &site_model::Circuit) -> 
         "off-delay" => "Stay-on timers of other lengths (the smallest of each)".to_string(),
         "on-delay" => "Hold-to-activate circuits with other hold times (the smallest of each)".to_string(),
         "pulse-train" => "Rapid fire at other beats (the smallest of each)".to_string(),
-        _ => format!("Other {} (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.to_lowercase()).unwrap_or_else(|| c.study.clone())),
+        // (the study's title without its parenthesized name: critique, "Other block change
+        // detectors (bud switches) (the smallest of each kind)")
+        _ => format!("Other {} (the smallest of each kind)", crate::explain::study(&c.study).map(|s| s.0.split(" (").next().unwrap_or(s.0).to_lowercase()).unwrap_or_else(|| c.study.clone())),
     };
     (title, list)
 }
@@ -1041,7 +1068,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         (Some(a), Some(b)) => format!("Every size, from {} to {}", member_value(a, &kind_of_base), member_value(b, &kind_of_base)),
         _ => card.title.clone(),
     };
-    body.push_str(&format!("<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n", esc(&what), esc(&title)));
+    body.push_str(&format!("<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n", esc(&what), esc(&site_model::html::keep_units(&title))));
     let mut lede = format!("{} sizes, all ready to download", sorted.len());
     if let Some(s) = step {
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
@@ -1156,7 +1183,7 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Every redstone build of <a href=\"{REPO_URL}\">minecraft-tas</a>, each design tested tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, each design tested tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n",
@@ -1164,7 +1191,7 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
         n("clock"),
         if n("circuit") > 0 { format!(", {} circuits", n("circuit")) } else { String::new() }
     );
-    shell(SITE_NAME, "Every redstone build of minecraft-tas: piston doors, clocks and circuits, verified in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
+    shell(SITE_NAME, "Redstone builds you can download: piston doors, clocks and circuits, each tested in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
 }
 
 /// The circuits of one study folder (`pulse`, `tff`, ...), representatives first.
@@ -1417,12 +1444,14 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
     // what you would use them for first; the designs right after (critique C6 / P5); how we test
     // and rank them folds at the end
     let mut body = format!(
-        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n",
+        "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}circuits/index.html\">Circuits</a> › {}</p>\n<h1>{}</h1>\n<p class=\"lede\">{}{}</p>\n<p><a class=\"button alt\" href=\"{prefix}index.html#kind=circuit&amp;q={}\">Filter them in the index</a></p>\n{}",
         esc(&title),
         esc(&title),
         esc(if uses.is_empty() { &intro } else { uses }),
         esc(&missing),
-        site_model::encode(folder)
+        site_model::encode(folder),
+        // (only where the view adds a test lamp: critique, not on flying machines or extenders)
+        if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp)) { "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n" } else { "" }
     );
     let mut after = String::new();
     // the studies of machines: the best design for each variation (VARIATIONS.md)
@@ -1480,16 +1509,16 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let n_fam = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.card_member && c.tunable.is_empty())).count();
         let mut hidden: Vec<String> = Vec::new();
         if n_mem > 0 {
-            hidden.push(format!("{n_mem} more member{} of the tunable groups (on each group's page)", if n_mem == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_mem} other version{} of the designs above (each design's page lists them)", if n_mem == 1 { "" } else { "s" }));
         }
         if n_fam > 0 {
-            hidden.push(format!("{n_fam} more base design{} of the extendable families (on each family's page)", if n_fam == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_fam} more size{} of the designs you can make longer (on their pages)", if n_fam == 1 { "" } else { "s" }));
         }
         if n_lay > 0 {
             hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
         }
         if n_var > 0 {
-            hidden.push(format!("{n_var} variant{} (extra block kinds)", if n_var == 1 { "" } else { "s" }));
+            hidden.push(format!("{n_var} bigger variant{} using extra kinds of blocks", if n_var == 1 { "" } else { "s" }));
         }
         // the kind's title: what it does first, the community's name in parentheses (critique P1);
         // a study's basics: their own heading
@@ -1559,16 +1588,23 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();
         // the picture: a design of 3 blocks or more (a 1-block one is mostly the test lamp's
-        // outline), not one another tile already shows (counter2-bulb is tff-bulb)
-        let Some(first) = shown
-            .iter()
-            .find(|b| b.blocks >= 3 && !pictured.contains(&b.design))
-            .or_else(|| shown.iter().find(|b| !pictured.contains(&b.design)))
+        // outline), not one another tile already shows, by name or as the same build (critique:
+        // the Toggle and Memory tiles showed one picture, counter2-bulb is tff-bulb); memory
+        // shows a set/reset memory first
+        let key = |b: &Build| b.circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, b.name)).unwrap_or_default();
+        let used = |b: &Build| pictured.contains(&key(b)) || b.circuit.as_ref().is_some_and(|c| c.same_build.iter().any(|s| pictured.contains(s)));
+        let preferred = if *folder == "memory" { shown.iter().find(|b| !used(b) && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("rs-latch"))) } else { None };
+        // (a study's basics, the lever gates and the sand elevator, never picture it)
+        let basic = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.order % 100 == 50);
+        let Some(first) = preferred
+            .or_else(|| shown.iter().find(|b| b.blocks >= 3 && !used(b) && !basic(b)))
+            .or_else(|| shown.iter().find(|b| b.blocks >= 3 && !used(b)))
+            .or_else(|| shown.iter().find(|b| !used(b)))
             .or_else(|| shown.first())
         else {
             continue;
         };
-        pictured.push(first.design.clone());
+        pictured.push(key(first));
         cards.push(format!(
             "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"kind\">{} designs</div><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
             esc(title),
@@ -1655,7 +1691,7 @@ mod tests {
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
         let d = build_page(&s, &s.builds[2], "name: fc2\n", "designs/piston-door-3x3/archive/fc2-40b.txt", Scripts::default());
-        assert!(d.contains("<h1>40 blocks in a 8×9×2 space</h1>"), "{d}");
+        assert!(d.contains("<h1>40\u{a0}blocks in a 8×9×2\u{a0}space</h1>"), "{d}");
         assert!(d.contains("14 / 16 gt"));
         assert!(!d.contains("mcview.js"), "no viewer script without the bundle");
     }

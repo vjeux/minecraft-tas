@@ -3,7 +3,8 @@
 name: clk-obs-p14-note-obs-10b-b-ba58a1
 # A ring of 9 observers and one note relay (10 cells): the observer before the relay powers it, the next one watches it. P=14 (redsim), family note_block+observer.
 origin: 0 0 0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 3
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=south,powered=false]

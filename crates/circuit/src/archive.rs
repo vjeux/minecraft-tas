@@ -939,7 +939,14 @@ pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Res
             let failure = if !rep.pass {
                 Some(rep.summary(&c))
             } else if let Some(Err(e)) = &fam_check {
-                Some(format!("{e:#}"))
+                let e = format!("{e:#}");
+                // a generator that could not run is the tool's fault, not the design's: keep it
+                if e.contains("tool error") {
+                    out.push(format!("ERROR (kept) {}: {e}", path.display()));
+                    None
+                } else {
+                    Some(e)
+                }
             } else {
                 None
             };
@@ -1404,7 +1411,13 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         // ([`beats_on_variation`]), whatever their block kinds
         let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r) && !in_group(r)) {
-            groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
+            // study 2's axis is the BLOCK FAMILY, which is a palette label, not a capability: with
+            // it in the key every mechanism becomes its own card and nothing ever folds, so a
+            // visitor reads nine T flip-flops that tff-bulb beats on every metric (critique
+            // 2026-10-20). Fold those by kind alone; the variation metrics still protect anything
+            // that wins something real.
+            let axis = if r.kind == "tff" { String::new() } else { r.axis.clone() };
+            groups.entry((r.kind.clone(), axis)).or_default().push(r);
         }
         let mut host: BTreeMap<String, String> = BTreeMap::new();
         for g in groups.values() {

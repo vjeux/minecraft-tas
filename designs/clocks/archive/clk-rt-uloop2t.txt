@@ -11,7 +11,8 @@ extend generator: mctas clock rt family uloop2t --n {n} --out {out}
 extend n: 0..10
 extend period: 20 + 16n
 extend rule: add one delay-4 repeater (powered at placement) to each row of the 2-torch U-ring (wall torch on block A -> top row -> block F -> wall torch on F -> bottom row -> A)
-port output: 0 1 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 origin: 0 0 -1
 palette:
   A minecraft:repeater[delay=4,facing=east,locked=false,powered=true]

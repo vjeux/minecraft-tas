@@ -1,5 +1,5 @@
 # archived 2026-10-20T12:08Z from designs/circuits/pulsemult/tracks/timer/long/mono-nonretrig-2stage-k1.txt by mctas circuit archive
-# CIRCUIT: mono-nonretrig-2stage-k1 monostable non-retriggerable L 118 gt, delay 20 gt, retrigger non-retriggerable, re-arm 160 gt, min-pulse 1 gt, 44 blocks, 5x2x8, robust
+# CIRCUIT: mono-nonretrig-2stage-k1 monostable non-retriggerable L 118 gt, delay 20 gt, retrigger non-retriggerable, re-arm 160 gt, min-pulse 2 gt (the shortest a real input makes), 44 blocks, 5x2x8, robust
 name: mono-nonretrig-2stage-k1
 circuit: monostable non-retriggerable
 group: mono-nonretrig-2stage

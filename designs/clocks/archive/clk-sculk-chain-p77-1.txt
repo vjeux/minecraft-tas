@@ -1,9 +1,10 @@
 # archived 2026-10-19T17:54Z from designs/clocks/tracks/clk-sculk/best/chain-p77-1.txt by mctas clock archive
-# CLOCK: clk-sculk-chain-p77-1 period 77 gt (3.85 s), on 30/77, edges 1, warmup 0, family note_block+redstone_torch+repeater+sculk_sensor, 14 blocks, 7x2x2, robust
+# CLOCK: clk-sculk-chain-p77-1 period 77 gt (3.85 s), on 47/77, edges 1, warmup 0, family note_block+redstone_torch+repeater+sculk_sensor, 14 blocks, 7x2x2, robust
 # A plain sculk sensor drives repeater(s) of delay [4,4,4,4,4], then wall torch on a stone, note beside the torch, 5 from the sensor (travel time)
 name: clk-sculk-chain-p77-1
 # how: chain plain line reps [4,4,4,4,4], wall torch on a stone, note beside the torch (travel 5)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 6 0 1
 origin: 0 0 0
 palette:
   N minecraft:note_block[instrument=harp,note=0,powered=false]

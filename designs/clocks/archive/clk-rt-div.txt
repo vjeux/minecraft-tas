@@ -10,7 +10,8 @@ extend generator: mctas clock rt family div --n {n} --out {out}
 extend n: 1..7
 extend period: 36 * 2^n
 extend rule: append one master-slave T flip-flop stage (18 blocks: 2 latch repeaters, 2 lock repeaters, a target block with a wall torch, dust) to the chain on the P36 torch + repeater loop: the period doubles
-port output: -3 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -3 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -3 -1 -2
 origin: -3 0 -2
 palette:
   A minecraft:repeater[delay=1,facing=east,locked=false,powered=false]

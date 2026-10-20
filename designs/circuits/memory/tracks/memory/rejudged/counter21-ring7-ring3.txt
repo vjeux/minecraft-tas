@@ -1,0 +1,38 @@
+# rejudged (2026-10-20T17:57Z, mctas circuit archive --rejudge): needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input): FAIL: counter21-ring7-ring3 counter 21: input in at [0, 0, 0]: no side of the input cell leads out of the build for the judge's input repeater (a free cell for the repeater, one under it and one beyond it outside the box; a moving design: all outside its swept box). R7: inputs are driven like a real build drives them; move the input to the edge of the build
+# Counter 21, two dropper rings, 28 blocks (track memory, `mctas circuit memory ring --n 7 --then 3`): ring 1 (7 droppers fired by the input, some through 1 dust, hoppers between them) advances its stone one dropper per pulse; its comparator lights once every 7 pulses and strongly powers a stone whose neighbours are ring 2's 3 droppers, so ring 2's stone advances once every 7 pulses; ring 2's comparator is on during one pulse window in 21 (level style). Every transit crosses a hopper, so the firing order never matters.
+name: counter21-ring7-ring3
+circuit: counter 21
+group: ring-chain
+group title: Chained dropper rings (counter N1 x N2 x ...)
+group note: each ring's comparator strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one; copper bulbs may follow (`mctas circuit memory ring --n N1 --then N2,N3 [--bulbs K]`)
+port input: 0 0 0
+port output: -6 0 0
+nbt: -4 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+nbt: -1 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: -5 0 -1
+palette:
+  A minecraft:dropper[facing=south,triggered=false]
+  B minecraft:dropper[facing=up,triggered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  E minecraft:dropper[facing=west,triggered=false]
+  F minecraft:hopper[enabled=true,facing=north]
+  G minecraft:hopper[enabled=true,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  S minecraft:stone
+  d minecraft:dropper[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  .
+  S..S..S
+  .
+layer 0:
+  ....hB
+  CBSCd.RSA
+  .FE.FEIEI
+layer 1:
+  .....G
+  .hA..DhDH
+  ..H

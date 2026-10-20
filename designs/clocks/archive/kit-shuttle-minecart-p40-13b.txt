@@ -1,5 +1,5 @@
 # archived 2026-10-20T03:54Z from designs/clocks/tracks/clockinfra/kits/shuttle/designs/kit-shuttle-minecart-p40-13b.txt by mctas clock archive
-# CLOCK: kit-shuttle-minecart-p40-13b period 40 gt (2 s), on 20/40, edges 1, warmup 24, family detector_rail+minecart, 13 blocks, 7x2x1, robust
+# CLOCK: kit-shuttle-minecart-p40-13b period 40 gt (2 s), on 20/40, edges 1, warmup 28, family detector_rail+minecart, 13 blocks, 7x2x1, robust
 name: kit-shuttle-minecart-p40-13b
 # Minecart shuttle (clock kit K1, `mctas clock kit shuttle`): a straight track S P D D D P S from west
 # to east (S stone bumper, P powered rail on a redstone block, p unpowered powered rail, R rail, D
@@ -8,7 +8,8 @@ name: kit-shuttle-minecart-p40-13b
 # against the far bumper or runs out of speed and comes back; the detector rail turns on as it passes
 # and off at its 20 gt recheck.
 kit: shuttle (kit-shuttle-5-413133): period 40 gt, family detector_rail+minecart, minimal; 103 types with this period
-port output: 1 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 -1 0
 entity: minecraft:minecart 0.5 1.0625 0.5
 origin: -1 0 0
 palette:

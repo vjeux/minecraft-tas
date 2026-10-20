@@ -1,9 +1,10 @@
 # archived 2026-10-19T22:40Z from /tmp/gen/arch3/ringbig16-p244-1.txt by mctas clock archive
 # CLOCK: clk-sculk-ringbig16-p244-1 period 244 gt (12.2 s), on 10/244, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 32 blocks, 83x1x83, robust
-# CLOCK: cand period 244 gt, on 10/244, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 32 blocks, 83x1x83, kick: use 34,0,24
+# CLOCK: clk-sculk-ringbig16-p244-1 period 244 gt (12.2 s), on 10/244, edges 1, warmup 21, family calibrated_sculk_sensor+note_block, 32 blocks, 83x1x83, robust
 # built by `mctas clock sculk`: ring of 16 calibrated sensors on a circle (r 42.01), hops [15,15,16,15,15,15,16,15,15,15,16,15,15,15,16,15], first resonator a note block (the kick), the others amethyst
 name: clk-sculk-ringbig16-p244-1
-port output: 35 0 24
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 35 0 24: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -41 -1 -9
 port start: 34 0 24 use
 origin: -41 0 -41
 palette:

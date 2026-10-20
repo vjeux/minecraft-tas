@@ -1,9 +1,10 @@
 # archived 2026-10-19T19:45Z from designs/clocks/tracks/clk-obs/mech2/p12-note-obs-pis-5b-b-17b1cc.txt by mctas clock archive
-# CLOCK: clk-obs-p12-note-obs-pis-5b-b-17b1cc period 12 gt (0.6 s), on 6/12, edges 3, warmup 4, family note_block+observer+piston, 5 blocks, 2x1x4, robust
+# CLOCK: clk-obs-p12-note-obs-pis-5b-b-17b1cc period 12 gt (0.6 s), on 4/12, edges 2, warmup 4, family note_block+observer+piston, 5 blocks, 2x1x4, robust
 name: clk-obs-p12-note-obs-pis-5b-b-17b1cc
 # P12: 1 note block, 3 observers, 1 piston; changing in place: note_block, observer, piston. Found by the clk-obs exhaustive census of every 5-block structure (all orientations, every block placed last as a kick); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
-port output: 1 0 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 0 0 1 last
 palette:
   A minecraft:note_block[instrument=harp,note=0,powered=false]

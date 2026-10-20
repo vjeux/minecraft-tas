@@ -1,8 +1,9 @@
 # archived 2026-10-19T18:22Z from designs/clocks/tracks/clk-item/snowdisp-p12.txt by mctas clock archive
-# CLOCK: snowdisp-p12 period 12 gt, on 8/12, edges 2, warmup 1, family dispenser+observer+redstone_wire, 5 blocks, 3x3x1, robust
+# CLOCK: snowdisp-p12 period 12 gt (0.6 s), on 4/12, edges 2, warmup 2, family dispenser+observer+redstone_wire, 5 blocks, 3x3x1, robust
 # Powder snow dispenser clock, 5 blocks (clk-item): a dispenser facing down holds one powder snow bucket; each fire toggles the cell under it (the bucket places powder snow and becomes an empty bucket; the empty bucket picks the powder snow back up). An observer watching that cell pulses (2 gt) into a dust behind it, which climbs onto the observer and powers the dispenser: each toggle re-fires the dispenser 2 + 4 gt later, P = 12. Kicked once (a stone flashed in the cell for 1 gt). JVM only (redsim does not model dispenser item behaviors).
 name: snowdisp-p12
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 2 -2 0
 port start: 0 0 0 minecraft:stone 1
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:powder_snow_bucket",count:1}]}
 origin: 0 0 0

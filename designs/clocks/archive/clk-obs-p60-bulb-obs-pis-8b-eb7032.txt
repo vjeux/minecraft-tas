@@ -1,9 +1,10 @@
 # archived 2026-10-20T01:49Z from designs/clocks/tracks/clk-obs/families9/p60-bulb-obs-pis-8b-eb7032.txt by mctas clock archive
-# CLOCK: clk-obs-p60-bulb-obs-pis-8b-eb7032 period 60 gt (3 s), on 28/60, edges 14, warmup 18, family copper_bulb+observer+piston, 8 blocks, 1x3x4, robust
+# CLOCK: clk-obs-p60-bulb-obs-pis-8b-eb7032 period 60 gt (3 s), on 20/60, edges 10, warmup 18, family copper_bulb+observer+piston, 8 blocks, 1x3x4, robust
 name: clk-obs-p60-bulb-obs-pis-8b-eb7032
 # clk-obs grow: P=60 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
 origin: 0 0 -1
-port output: 0 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 2 -1
 port start: 0 1 0 last
 palette:
   A minecraft:piston[extended=false,facing=up]

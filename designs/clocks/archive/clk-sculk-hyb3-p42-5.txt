@@ -3,7 +3,8 @@
 # A plain sculk sensor watched by a chain of 3 observer(s) (each watching the previous); the last observer powers a stone and an oak trapdoor (placed open+powered: it closes on placement, the self-start) beside the stone, 3 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3-p42-5
 # how: obs plain k=3 path 0,1,0 -1,1,0 -2,1,0 stone at the output, emitter trapdoor beside it (travel 3) + piston[extended=false,facing=east] at -2,0,0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 origin: -3 0 0
 palette:
   A minecraft:observer[facing=east,powered=false]

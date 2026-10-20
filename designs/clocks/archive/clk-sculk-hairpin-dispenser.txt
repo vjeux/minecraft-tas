@@ -9,7 +9,8 @@ extend generator: mctas clock sculk family hairpin-dispenser --n {n} --out {out}
 extend n: 1..12
 extend period: 7 + 16n
 extend rule: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 2 -1 0
 origin: -1 0 0
 palette:
   A minecraft:repeater[delay=4,facing=east,locked=false,powered=true]

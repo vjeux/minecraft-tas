@@ -92,8 +92,9 @@ pub enum ClockCmd {
         no_sim: bool,
         #[arg(long)]
         json: bool,
-        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods):
-        /// the period must hold across it (a clock must survive a chunk reload).
+        /// Also save, unload and load the chunks again mid-run (after the warmup and 2 periods): the
+        /// clock must run at the same state period afterwards, a short glitch allowed (a clock must
+        /// survive a chunk reload).
         #[arg(long)]
         reload: bool,
     },
@@ -124,6 +125,14 @@ pub enum ClockCmd {
     /// period), backfilled from redsim for every row whose redsim output reads like the judge's
     /// line; lists the rows it cannot measure. `--write` rewrites verdicts-v1.tsv.
     Gaps {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+    },
+    /// The clocks kept off the catalog and the site (verdicts-v1.tsv's `hidden` column), counted
+    /// per reason; `--write` also writes the list to `hidden.md` in the archive directory.
+    Hidden {
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
         #[arg(long)]
@@ -428,6 +437,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     let mut d = c.design.clone();
                     d.ports.remove("output");
                     let free = Clock::from_design(d)?;
+                    if quiet {
+                        // (with -q: every exterior candidate that gets power, even or not)
+                        let base = simulate(&free, &o);
+                        println!("{}: {}", c.name(), base.summary());
+                        for (q, w) in clock::sim::exterior_scan(&free, base.state_warmup, base.period, base.swept, &base.occupied, true) {
+                            println!("  candidate {q:?}: on {}/{}, gaps {:?}{}", w.on, base.period, w.gaps, if w.irregular().is_some() { " (uneven)" } else { "" });
+                        }
+                    }
                     match clock::sim::lamp_outputs(&free, 1).into_iter().next() {
                         Some((q, r)) => println!("EXTERIOR: {} port output: {} {} {}: {}", c.name(), q[0], q[1], q[2], r.summary()),
                         None => println!("NO EXTERIOR: {}", c.name()),
@@ -528,6 +545,16 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
         }
+        ClockCmd::Hidden { dir, write } => {
+            let (md, counts) = clock::gaps::hidden_report(&dir)?;
+            for (reason, n) in &counts {
+                println!("{n:5} {reason}");
+            }
+            if write {
+                std::fs::write(dir.join("hidden.md"), md)?;
+                println!("wrote {}", dir.join("hidden.md").display());
+            }
+        }
         ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers } => {
             if !apply.is_empty() {
                 let res = clock::gaps::read_results(&apply)?;
@@ -551,7 +578,15 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             };
             let (mut moved, mut refused, mut notap, mut hidden) = (0, 0, 0, 0);
             let shown: std::collections::BTreeSet<String> = if reload_pass { clock::catalog::read_rows(&dir)?.into_iter().filter(|r| r.shown()).map(|r| r.file).collect() } else { Default::default() };
+            // a results file already holding a file's result (a restarted shard): skip it
+            let done: std::collections::BTreeSet<String> = match &results {
+                Some(p) if p.exists() => clock::gaps::read_results(std::slice::from_ref(p))?.into_keys().collect(),
+                _ => Default::default(),
+            };
             for f in &files {
+                if done.contains(f) {
+                    continue;
+                }
                 let r = if reload_pass {
                     if !shown.contains(f) {
                         continue;

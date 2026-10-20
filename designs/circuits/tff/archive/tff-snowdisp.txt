@@ -1,5 +1,5 @@
 # archived 2026-10-19T23:48Z from designs/circuits/tff/tracks/tff/tff-snowdisp.txt by mctas circuit archive
-# CIRCUIT: tff-snowdisp tff latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt, 6 blocks, 2x3x3, robust
+# CIRCUIT: tff-snowdisp tff latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes), 6 blocks, 2x3x3, robust
 # Powder snow dispenser T flip-flop, 6 blocks (track tff): each input pulse fires a dispenser facing up; it holds a powder snow bucket (it places powder snow above itself and keeps an empty bucket) or an empty bucket (it picks the powder snow back up). Comparator C reads the dispenser: 2 with the powder snow bucket (stack size 1), 1 with the empty bucket (stack size 16); comparator K feeds C's side a constant 2 read from a dropper holding a powder snow bucket, so C (compare mode) gives 2 or 0. Latency 6 gt (dispenser 4 + comparator 2), 1 gt pulses, trains down to 4 gt; rests ON.
 name: tff-snowdisp
 circuit: tff

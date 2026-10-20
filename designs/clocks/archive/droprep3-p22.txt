@@ -1,10 +1,11 @@
 # archived 2026-10-19T18:36Z from designs/clocks/tracks/clk-item/droprep3-p22.txt by mctas clock archive
-# CLOCK: droprep3-p22 period 22 gt, on 7/22, edges 1, warmup 57, family comparator+dropper+hopper+repeater, 18 blocks, 3x2x5, robust
+# CLOCK: droprep3-p22 period 22 gt (1.1 s), on 8/22, edges 1, warmup 57, family comparator+dropper+hopper+repeater, 18 blocks, 3x2x5, robust
 # Dropper ring with a delayed fire and three filled cells (clock item sweep-dropring --triples --delays): a hopper ring 5 deep with two droppers in the bottom row; the comparator in the inner column reads the top-row hopper above it and fires the droppers through two repeaters (delays 1 and 4, on stone). Stones in three cells (see the nbt lines): P = 22.
 # redsim: P=22 gt, warmup 57, family comparator+dropper+hopper+repeater, 18 blocks, output on 7/22 gt, 1 rising edge(s)
 
 name: droprep3-p22
-port output: 1 1 1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 0 4
 nbt: 0 1 3 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
 nbt: 2 1 3 {Items:[{Slot:0b,id:"minecraft:stone",count:2}]}
