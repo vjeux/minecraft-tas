@@ -20,6 +20,15 @@ use redsim::{Block, World};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::Path;
 
+/// `println!` unless the run is quiet (batch mode prints one summary line per plan).
+macro_rules! say {
+    ($o:expr, $($t:tt)*) => {
+        if !$o.quiet {
+            println!($($t)*);
+        }
+    };
+}
+
 /// One step: the input events of one tick group of a plan, ticks relative to the group's start.
 #[derive(Clone, Debug, PartialEq)]
 struct Step {
@@ -272,6 +281,33 @@ pub struct Options {
     pub search: Option<usize>,
     /// The heuristic's weight in the search (A* with f = steps + weight * cells off).
     pub weight: usize,
+    /// Print nothing but the summary (batch mode).
+    pub quiet: bool,
+}
+
+/// Several plans at once (in parallel), one summary line each; `out_dir` gets
+/// `<stem>-train.ideal` for each plan with a train.
+pub fn batch(paths: &[std::path::PathBuf], o: &Options, out_dir: Option<&Path>, threads: usize) -> Result<()> {
+    if let Some(dir) = out_dir {
+        std::fs::create_dir_all(dir)?;
+    }
+    let res = cs::par_map(paths, threads, |p| {
+        let out = out_dir.map(|d| d.join(format!("{}-train.ideal", p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default())));
+        run(p, o, out.as_deref())
+    });
+    for (p, r) in paths.iter().zip(res) {
+        match r {
+            Ok(s) => println!("{}: {s}", p.display()),
+            Err(e) => println!("{}: error: {e:#}", p.display()),
+        }
+    }
+    Ok(())
+}
+
+pub fn cli(path: &Path, o: &Options) -> Result<()> {
+    let s = run(path, o, o.out.as_deref())?;
+    println!("{s}");
+    Ok(())
 }
 
 /// Write a plan file: a header comment, the source plan's `design` line, its phase, the events.
@@ -295,48 +331,55 @@ fn write_plan(out: &Path, header: &str, text: &str, phase: crate::ideal::PlanPha
 }
 
 /// A train found by `--search`: judge it timed (one 2 gt pulse every `spacing` ticks, the same on
-/// both edges), compact it on both edges together, print each input's ticks, write it.
-fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, train: &[Pos], n: usize, o: &Options) -> Result<()> {
+/// both edges), compact it on both edges together, print each input's ticks, write it (to `out`).
+/// Returns a one-line summary.
+fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, train: &[Pos], n: usize, o: &Options, out: Option<&Path>) -> Result<String> {
     let shown: Vec<String> = train.iter().map(|c| format!("{},{},{}", c[0], c[1], c[2])).collect();
-    println!("TRAIN of {} single pulses for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
+    say!(o, "TRAIN of {} single pulses for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
     let offsets = crate::ideal::offsets(o.extra_offsets);
     for spacing in [4u32, 6, 8, 10, 12] {
         let mut times: Vec<u32> = (0..train.len() as u32).map(|k| k * spacing).collect();
         let (plan, _) = train_plan(d, phase, train, &times);
         if let Err(e) = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
-            println!("timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>());
+            say!(o, "timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>());
             continue;
         }
-        println!("WORKS timed every {spacing} gt ({} positions x {} cycles)", offsets.len(), o.cycles);
+        say!(o, "WORKS timed every {spacing} gt ({} positions x {} cycles)", offsets.len(), o.cycles);
         compact_train(d, phase, train, &mut times, o.cycles);
         let (plan, mut all) = train_plan(d, phase, train, &times);
         let shown: Vec<String> = train.iter().zip(&times).map(|(c, t)| format!("t{t}:{},{},{}", c[0], c[1], c[2])).collect();
-        println!("compacted (both edges together): {}", shown.join(" "));
-        match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
-            Ok((a, b)) => println!("WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last pulse t{}", offsets.len(), o.cycles, times.iter().max().unwrap_or(&0)),
+        say!(o, "compacted (both edges together): {}", shown.join(" "));
+        let distinct = all.iter().filter(|e| e.0 && e.3.is_some()).count();
+        let summary = match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
+            Ok((a, b)) => {
+                let last = times.iter().max().unwrap_or(&0);
+                say!(o, "WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last pulse t{last}", offsets.len(), o.cycles);
+                format!("ONE TRAIN: {distinct} pulses, last t{last}, open {a} / close {b} ({} positions)", offsets.len())
+            }
             Err(e) => {
-                println!("compacted train fails at the full positions ({e}); keeping every {spacing} gt");
+                say!(o, "compacted train fails at the full positions ({e}); keeping every {spacing} gt");
                 times = (0..train.len() as u32).map(|k| k * spacing).collect();
                 all = train_plan(d, phase, train, &times).1;
+                format!("ONE TRAIN: {} pulses every {spacing} gt (compaction failed)", train.len())
             }
-        }
+        };
         let mut per_cell: BTreeMap<Pos, Vec<u32>> = BTreeMap::new();
         for (c, t) in train.iter().zip(&times) {
             per_cell.entry(*c).or_default().push(*t);
         }
         for (c, ts) in &per_cell {
-            println!("  input {c:?}: pulses at {ts:?} on both edges");
+            say!(o, "  input {c:?}: pulses at {ts:?} on both edges");
         }
-        if let Some(out) = &o.out {
+        if let Some(out) = out {
             let header = format!("door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len());
             write_plan(out, &header, text, phase, &mut all)?;
         }
-        return Ok(());
+        return Ok(summary);
     }
-    Ok(())
+    Ok(format!("train of {} pulses found step by step but no timing works", train.len()))
 }
 
-pub fn cli(path: &Path, o: &Options) -> Result<()> {
+fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
     let (d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
@@ -356,12 +399,12 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let sim = Sim { lo, hi };
     let os = steps(&open_ev, o.split);
     let cl = steps(&close_ev, o.split);
-    println!("{}: open {} steps, close {} steps", path.display(), os.len(), cl.len());
+    say!(o, "{}: open {} steps, close {} steps", path.display(), os.len(), cl.len());
     for (k, st) in os.iter().enumerate() {
-        println!("  O{} {} ({} gt)", k + 1, st.label(), st.len());
+        say!(o, "  O{} {} ({} gt)", k + 1, st.label(), st.len());
     }
     for (k, st) in cl.iter().enumerate() {
-        println!("  C{} {} ({} gt)", k + 1, st.label(), st.len());
+        say!(o, "  C{} {} ({} gt)", k + 1, st.label(), st.len());
     }
     // the open rest state: the open plan applied step by step
     let mut wopen = w0.clone();
@@ -373,13 +416,18 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
         cells.sort();
         cells.dedup();
         let (found, n, best) = search_pairs(&sim, &w0, &wopen, &cells, cap, o.weight);
-        match found {
-            None => println!("NO train within {n} world pairs (best: {best} cells off the targets)"),
-            Some(train) => timed_train(&d, s.phase, &text, path, &train, n, o)?,
-        }
-        return Ok(());
+        return match found {
+            None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
+            Some(train) => timed_train(&d, s.phase, &text, path, &train, n, o, out),
+        };
     }
-    // breadth-first over (i, j)
+    merge(&sim, &d, s.phase, &text, path, &os, &cl, &w0, &wopen, o, out)
+}
+
+/// The plan's own steps merged into one train (plain mode): breadth-first over (open steps done,
+/// close steps done).
+#[allow(clippy::too_many_arguments)]
+fn merge(sim: &Sim, d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, os: &[Step], cl: &[Step], w0: &World, wopen: &World, o: &Options, out: Option<&Path>) -> Result<String> {
     let start = (0usize, 0usize);
     let mut worlds: HashMap<(usize, usize), (World, World)> = HashMap::new();
     worlds.insert(start, (w0.clone(), wopen.clone()));
@@ -424,8 +472,7 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     }
     if !worlds.contains_key(&goal) {
         let best = worlds.keys().max_by_key(|(i, j)| i + j).copied().unwrap_or(start);
-        println!("NO single train: the furthest state is {} open + {} close steps ({} states)", best.0, best.1, worlds.len());
-        return Ok(());
+        return Ok(format!("NO single train from the plan's own steps: the furthest state is {} open + {} close steps ({} states)", best.0, best.1, worlds.len()));
     }
     let mut path_steps: Vec<char> = Vec::new();
     let mut c = goal;
@@ -458,7 +505,7 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
             }
         }
     }
-    println!("ONE TRAIN for both edges, {} steps: {}", train.len(), labels.join(" "));
+    say!(o, "ONE TRAIN for both edges, {} steps: {}", train.len(), labels.join(" "));
     // judge it as a plan with the same events on both edges
     let mut all: Vec<(bool, u32, Pos, Option<String>)> = Vec::new();
     let mut t0 = 0u32;
@@ -471,15 +518,15 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
         t0 += st.len().max(2) + o.gap;
     }
     let mut plan = Schedule::from_events(d.clone(), &all);
-    plan.phase = s.phase;
+    plan.phase = phase;
     let offsets = crate::ideal::offsets(o.extra_offsets);
-    match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
-        Ok((a, b)) => println!("WORKS as one plan on both edges ({} positions x {} cycles): open {a} / close {b}", offsets.len(), o.cycles),
-        Err(e) => println!("the merged plan FAILS when timed with a {} gt gap: {e}", o.gap),
-    }
-    if let Some(out) = &o.out {
+    let summary = match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
+        Ok((a, b)) => format!("ONE TRAIN of the plan's own {} steps ({}): WORKS on both edges ({} positions x {} cycles): open {a} / close {b}", train.len(), labels.join(" "), offsets.len(), o.cycles),
+        Err(e) => format!("ONE TRAIN of the plan's own {} steps ({}), but it FAILS timed with a {} gt gap: {e}", train.len(), labels.join(" "), o.gap),
+    };
+    if let Some(out) = out {
         let header = format!("door interleave {}: one train for both edges: {}", path.display(), labels.join(" "));
-        write_plan(out, &header, &text, s.phase, &mut all)?;
+        write_plan(out, &header, text, phase, &mut all)?;
     }
-    Ok(())
+    Ok(summary)
 }

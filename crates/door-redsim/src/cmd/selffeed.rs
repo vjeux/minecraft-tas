@@ -59,8 +59,10 @@ pub fn cmd_selffeed(args: SelffeedArgs) -> Result<()> {
 
 #[derive(clap::Args)]
 pub struct InterleaveArgs {
-    /// The `door ideal` plan (open and close sequences).
-    schedule: PathBuf,
+    /// The `door ideal` plan(s) (open and close sequences); several = batch mode, one summary
+    /// line each, in parallel.
+    #[arg(required = true, num_args = 1..)]
+    schedule: Vec<PathBuf>,
     #[arg(long, default_value_t = 28)]
     extra_offsets: u32,
     #[arg(long, default_value_t = 2)]
@@ -71,6 +73,12 @@ pub struct InterleaveArgs {
     /// Write the merged plan (the same events on both edges).
     #[arg(long)]
     out: Option<PathBuf>,
+    /// Batch mode: write `<stem>-train.ideal` here for every plan with a train.
+    #[arg(long)]
+    out_dir: Option<PathBuf>,
+    /// Batch mode: plans searched in parallel.
+    #[arg(long, default_value_t = 16)]
+    threads: usize,
     /// Every input between ticks (the old rule), like `door ideal-rs --between-ticks`.
     #[arg(long)]
     between_ticks: bool,
@@ -87,7 +95,12 @@ pub struct InterleaveArgs {
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, between_ticks, split, search, weight } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight } = args;
     crate::ideal::cli_phase(between_ticks);
-    crate::interleave::cli(&schedule, &crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight })
+    let quiet = schedule.len() > 1;
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet };
+    if quiet {
+        return crate::interleave::batch(&schedule, &o, out_dir.as_deref(), threads);
+    }
+    crate::interleave::cli(&schedule[0], &o)
 }
