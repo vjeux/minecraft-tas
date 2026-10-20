@@ -426,7 +426,7 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
             }
         }
     }
-    for (g, members) in groups {
+    for (_group, members) in groups {
         if members.len() < 2 {
             if let Some(c) = builds[members[0]].circuit.as_mut() {
                 c.tunable.clear();
@@ -461,7 +461,8 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         }
         for &i in &members {
             if let Some(c) = builds[i].circuit.as_mut() {
-                c.group_title = if title.is_empty() { g.clone() } else { title.clone() };
+                // without a `group title:` header: the kind for people (`Piston extender (reach 2)`)
+                c.group_title = if title.is_empty() { crate::explain::kind_title(&c.kind) } else { title.clone() };
                 c.group_note = note.clone();
             }
         }

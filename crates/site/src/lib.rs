@@ -18,6 +18,7 @@ pub mod generate;
 pub mod pages;
 pub mod serve;
 pub mod web;
+pub mod webkit;
 
 use anyhow::{Result, bail};
 use clap::{Args, Subcommand};
@@ -58,6 +59,11 @@ pub enum SiteCmd {
         /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
         #[arg(long)]
         url: Option<String>,
+        /// `chrome` (headless Chrome: every check) or `webkit` (WebKitGTK through WebKitWebDriver
+        /// in Xvfb, desktop + phone: the 3D views of the main page, a door, a clock, a circuit
+        /// and a family page must draw a real picture).
+        #[arg(long, default_value = "chrome")]
+        engine: String,
     },
 }
 
@@ -155,8 +161,12 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url } => {
-            let fails = serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?;
+        SiteCmd::Smoke { dir, chrome, budget, url, engine } => {
+            let fails = match engine.as_str() {
+                "webkit" => webkit::smoke(&dir)?,
+                "chrome" => serve::smoke(&dir, chrome.as_deref(), budget, url.as_deref())?,
+                other => bail!("--engine {other}: chrome or webkit"),
+            };
             if fails > 0 {
                 bail!("{fails} smoke check(s) failed");
             }

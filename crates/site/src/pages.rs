@@ -184,8 +184,9 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool, prefix: &str) -> 
         } else {
             " <span class=\"tag-pos\">Blue</span>: how far the machine has moved along its path, in blocks.".to_string()
         };
+        let notes: String = w.rows.iter().filter(|r| !r.note.is_empty()).map(|r| format!("<p class=\"wave-note\"><span class=\"tag-pos\">{}</span>: {}.</p>", esc(&r.name.to_uppercase()), esc(&r.note))).collect();
         s.push_str(&format!(
-            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{}</section>\n",
+            "<section><h2>The judge's test</h2><p>The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text} Time runs left to right in game ticks (20 gt = 1 s).</p><div class=\"wave-wrap\">{}</div>{notes}{}</section>\n",
             if c.inputs.len() == 1 { "" } else { "s" },
             crate::explain::wave_svg(w),
             if c.table.is_empty() {
@@ -485,7 +486,13 @@ fn properties(site: &Site, b: &Build, prefix: &str) -> String {
         }
         if !c.inputs.is_empty() || !c.outputs.is_empty() {
             let ins: Vec<String> = c.inputs.iter().enumerate().map(|(i, n)| format!("{} ({})", n.to_uppercase(), c.devices.get(i).map(String::as_str).unwrap_or("redstone block"))).collect();
-            s.push_str(&row("Inputs / outputs", &esc(&format!("{} / {}", ins.join(", "), c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect::<Vec<_>>().join(", ")))));
+            let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
+            let text = match (ins.is_empty(), outs.is_empty()) {
+                (false, false) => format!("{} / {}", ins.join(", "), outs.join(", ")),
+                (false, true) => format!("{} (no output: it moves blocks)", ins.join(", ")),
+                (true, _) => format!("no input / {}", outs.join(", ")),
+            };
+            s.push_str(&row("Inputs / outputs", &esc(&text)));
         }
         if let Some(h) = &c.host {
             s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same kind and value)", link_build(site, h, prefix))));
