@@ -2208,7 +2208,7 @@ mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-drop-16b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-clocked-22b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
@@ -2228,18 +2228,19 @@ mod tests {
 
     /// vjeux 17:53Z: "Please don't put a fake ground if the tnt goes through it". A TNT duper
     /// stands on its judge's ground, real blocks of its world: grass over two dirt over bedrock,
-    /// its top the archived safe drop under the design (tnt-launch-15b: 8 blocks), the judge's
-    /// reach around it; its TNT land and explode on it (craters: ground cells that changed), and
-    /// what is drawn of it is the world's every tick. A clock has no ground at all.
+    /// its top the archived safe drop under the design (tnt-clocked-22b, the TNT study's one
+    /// duper since 2026-10-20: 0 blocks, right under it), the judge's reach around it; its TNT
+    /// land and explode on it (craters: ground cells that changed), and what is drawn of it is the
+    /// world's every tick. A clock has no ground at all.
     #[test]
     fn tnt_dupers_stand_on_their_judges_ground() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-launch-15b.txt")).unwrap();
-        assert_eq!(safe_drop(&text), 8);
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-clocked-22b.txt")).unwrap();
+        assert_eq!(safe_drop(&text), 0);
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let f = s.floor.clone().expect("a TNT duper's ground");
         let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
-        assert_eq!(f.hi[1], lowest - 9, "the top 8 air blocks under the design");
+        assert_eq!(f.hi[1], lowest - 1, "the ground right under the design");
         assert_eq!(f.hi[1] - f.lo[1], 3, "4 layers");
         assert!([GROUND_REACH, 2 * GROUND_REACH, MAX_GROUND_REACH].contains(&f.reach), "reach {}", f.reach);
         assert_eq!(s.world.get(BlockPos::new(f.lo[0], f.hi[1], f.lo[2])).to_string(), Block::parse("minecraft:grass_block").unwrap().to_string());
