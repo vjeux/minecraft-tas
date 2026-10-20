@@ -1,116 +1,115 @@
-# archived 2026-10-20T07:55Z from designs/circuits/shulker/tracks/shulker-speed/loader-dropper75.txt by mctas circuit archive
-# CIRCUIT: shulker-speed-loader-dropper75 shulker-loader boxes/min 0.257, items/s 7.39, first box 4663 gt, cycle 4681 gt, hoppers awake 12, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(9), bill 61 iron, 9 quartz, 86 redstone, 1 slime, 108 blocks, 8x8x9, robust
-# Fastest always-on shulker loader, 7.4 items/s real fill rate (cycle 4681 gt per box of 1728 cobblestone: the ceiling of hoppers under 3 item chests; 3x the hopper loader; track shulker-speed, clk-item). The dispenser D above the box cell X places empty boxes; a sticky piston P breaks a full box and its stone pushes the drop into the walled cell over the collection hopper K. Items: chests a and b feed a pool hopper H1 (a from above, b through a side hopper); hopper N under H1 pulls from it and feeds X from the south; chest c feeds N directly through its south side, and hopper U under N pulls from N into the dropper Y under X (facing up); H1's push runs west and down a hopper chain into Y's west face. So N, which gives every new box its first item, never starves while any chest has items, and Y gets 5 items/s. Gate: comparator C reads X's level L through a stone into dust A; K2 (compare, redstone block beside it) passes only a full box, to the piston through two delay-4 repeaters and onto the side of subtract comparator Z, so Z passes L only while 0 < L < 15; repeater W squares it into the rear of G, a subtract comparator looping through repeater R into its own side (an 8 gt clock while the gate is open). Two observers fire Y: Q under Y watches G (it catches G's on-change; the off-change comes while Q is still on) and a second observer under the stone north of Y watches a delay-2 repeater on G's output, which changes 4 gt later; together they give Y a rising edge every 4 gt, 5 items/s. Y never fires at an empty cell, a breaking box or air (a dropper facing a full box keeps its item). Always-on: comparator E reads D and observer Q2 fires D when D's contents go between empty and not; the dispenser is powered through a stone so Y is not QC-fired by it.
+# archived 2026-10-20T10:15Z from designs/circuits/shulker/tracks/shulker-speed/loader-dropper75.txt by mctas circuit archive
+# CIRCUIT: shulker-speed-loader-dropper75 shulker-loader boxes/min 0.257, items/s 7.39, first box 4670 gt, cycle 4684 gt, hoppers awake 12, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(9), bill 61 iron, 9 quartz, 79 redstone, 1 slime, 96 blocks, 7x8x9, robust
+# Fastest always-on shulker loader, 7.4 items/s real fill rate (cycle 4681 gt per box of 1728 cobblestone: the ceiling of hoppers under 3 item chests; 3x the hopper loader; track shulker-speed, clk-item). The dispenser D above the box cell X places empty boxes; a sticky piston P breaks a full box and its stone pushes the drop into the cell over the collection hopper K. Items: chests a and b feed a pool hopper H1 (a from above, b through a side hopper); hopper N under H1 pulls from it and feeds X from the south; chest c feeds N directly through its south side, and hopper U under N pulls from N into the dropper Y under X (facing up); H1's push runs west and down a hopper chain into Y's west face. So N, which gives every new box its first item, never starves while any chest has items, and Y gets 5 items/s. Gate: comparator C reads X's level L through a stone into dust A; K2 (compare, redstone block beside it) passes only a full box, to the piston through two delay-4 repeaters and onto the side of subtract comparator Z, so Z passes L only while 0 < L < 15; repeater W squares it into the rear of G, a subtract comparator looping through repeater R into its own side (an 8 gt clock while the gate is open). Two observers fire Y: Q under Y watches G (it catches G's on-change; the off-change comes while Q is still on) and a second observer under the stone north of Y watches a delay-2 repeater on G's output, which changes 4 gt later; together they give Y a rising edge every 4 gt, 5 items/s. Y never fires at an empty cell, a breaking box or air (a dropper facing a full box keeps its item). Always-on: comparator E reads D and observer Q2 fires D when D's contents go between empty and not; the dispenser is powered through a stone so Y is not QC-fired by it. Shrunk in the game from 108 blocks (with `--min-rate`): two drop-cell walls and an unused delay line from Q2 into the gate are not needed.
 name: shulker-speed-loader-dropper75
-tile: 0 0 9
 circuit: shulker-loader
+tile: 0 0 9
+port boxes: 0 3 -1
 port items.a: 0 3 1
 port items.b: 1 3 1
 port items.c: 0 3 2
-port boxes: 0 3 -1
 port output: 2 0 0
 origin: -3 0 -6
 palette:
-  B minecraft:redstone_block
-  C minecraft:comparator[facing=south,mode=compare,powered=false]
-  Z minecraft:comparator[facing=west,mode=subtract,powered=false]
-  G minecraft:comparator[facing=east,mode=subtract,powered=false]
-  E minecraft:comparator[facing=west,mode=compare,powered=false]
+  A minecraft:comparator[facing=west,mode=compare,powered=false]
+  B minecraft:comparator[facing=west,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
   D minecraft:dispenser[facing=down,triggered=false]
-  Y minecraft:dropper[facing=up,triggered=false]
-  e minecraft:hopper[enabled=true,facing=east]
-  v minecraft:hopper[enabled=true,facing=down]
-  w minecraft:hopper[enabled=true,facing=west]
-  h minecraft:hopper[enabled=true,facing=south]
-  n minecraft:hopper[enabled=true,facing=north]
-  P minecraft:sticky_piston[extended=false,facing=east]
-  Q minecraft:observer[facing=down,powered=false]
-  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  t minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
-  s minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  W minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
-  f minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
-  x minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  d minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
-  S minecraft:stone
+  E minecraft:hopper[enabled=true,facing=north]
+  F minecraft:hopper[enabled=true,facing=south]
+  G minecraft:hopper[enabled=true,facing=west]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  J minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  K minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  L minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  M minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=east]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dropper[facing=up,triggered=false]
+  h minecraft:hopper[enabled=true,facing=east]
   r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:stone
 layer -3:
-  ........
-  ........
-  ........
-  ........
-  ........
-  ..SS....
-  ..SSSSS.
-  ..SS....
-  ..SS....
+  .
+  .
+  .
+  .
+  .
+  ..ss
+  ..sssss
+  ..ss
+  ..ss
 layer -2:
-  ........
-  ........
-  ........
-  ........
-  ........
-  ..rd..S.
-  ..rGrrr.
-  ..rR....
-  ..rr....
+  .
+  .
+  .
+  .
+  .
+  ..rM..s
+  ..rCrrr
+  ..rK
+  ..rr
 layer -1:
-  ........
-  ........
-  ........
-  ........
-  ......S.
-  ...Q..r.
-  ...Q....
-  ........
-  ........
+  .
+  .
+  .
+  .
+  ......s
+  ...O..r
+  ...O
+  .
+  .
 layer 0:
-  SSSS....
-  S..SS...
-  S..SS...
-  SS.SSSSS
-  .S.S..r.
-  ...S....
-  ..eYe...
-  ..nn....
-  ........
+  ssss
+  s..ss
+  s..ss
+  ss.ssss
+  .s.s..r
+  ...s
+  ..hdh
+  ..EE
+  .
 layer 1:
-  rrrr....
-  r..rr...
-  t.BCf...
-  rr.rZWrr
-  .t.C...S
-  .S.SS...
-  .PS..S..
-  ..vnS...
-  ...n....
+  rrrr
+  r..rr
+  N.RcJ
+  rr.rBLr
+  .N.c
+  .s.s
+  .Ss..s
+  ..HE
+  ...E
 layer 2:
-  ........
-  ........
-  ........
-  ........
-  .......r
-  ...h...S
-  ..QDSE..
-  ..vww...
-  ...v....
+  .
+  .
+  .
+  .
+  .
+  ...F
+  ..ODsA
+  ..HGG
+  ...H
 layer 3:
-  ........
-  ........
-  ........
-  ........
-  ........
-  .......r
-  ..SSSQSS
-  ........
-  ........
+  .
+  .
+  .
+  .
+  .
+  .
+  ..sssO
+  .
+  .
 layer 4:
-  ........
-  ........
-  ........
-  ........
-  ........
-  ........
-  ..rrxSsr
-  ........
-  ........
+  .
+  .
+  .
+  .
+  .
+  .
+  ..rrIs
+  .
+  .

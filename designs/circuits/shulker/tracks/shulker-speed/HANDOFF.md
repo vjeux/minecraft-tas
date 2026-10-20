@@ -6,10 +6,10 @@ Split with clk-rt (owner of study 8, branch explore/shulker): clk-rt keeps the j
 
 | design | kind | rate | blocks | badges | track file |
 |---|---|---|---|---|---|
-| shulker-speed-unloader-rail2 | unloader | 11.62 items/s | 122 | always-on, 16-stack, unstackable, colours, box-starved, drop-free | unloader-rail2.txt |
+| shulker-speed-unloader-rail2 | unloader | 11.62 items/s | 116 (shrunk in the game from 122) | always-on, 16-stack, unstackable, colours, box-starved, drop-free, tileable(12) | unloader-rail2.txt |
 | shulker-speed-unloader-rail | unloader | 7.50 items/s (3x) | 57 | the same + tileable(6) | unloader-rail.txt |
 | shulker-small-unloader | unloader | 2.50 | 41 | the same, tileable(5) | unloader-small.txt |
-| shulker-speed-loader-dropper75 | loader | 7.39 items/s (3x; the ceiling of hoppers under 3 item chests) | 108 | always-on, 16-stack, unstackable, colours, restart, top-up, box-starved, drop-free, tileable(9) | loader-dropper75.txt |
+| shulker-speed-loader-dropper75 | loader | 7.39 items/s (3x; the ceiling of hoppers under 3 item chests) | 96 (shrunk in the game from 108) | always-on, 16-stack, unstackable, colours, restart, top-up, box-starved, drop-free, tileable(9) | loader-dropper75.txt |
 | shulker-mixed-loader | loader | 2.50 | 57 | always-on, 16-stack, unstackable, colours, top-up, flush, MIXED, box-starved, drop-free | loader-mixed.txt |
 | shulker-restart-flush-loader | loader | 2.50 | 65 (shrunk in the game from 75) | always-on, 16-stack, unstackable, colours, RESTART + FLUSH, top-up, box-starved, drop-free | loader-rs.txt |
 | shulker-combo | loader + unloader (`port input.mode` lever) | 2.50 | 79 (shrunk in the game from 85) | the loader badges + combo | combo.txt |

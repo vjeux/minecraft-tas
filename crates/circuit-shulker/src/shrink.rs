@@ -1,15 +1,24 @@
 //! `mctas circuit shulker shrink`: greedy block removal, judged in the game.
 
 use anyhow::{Result, anyhow, bail};
-use circuit::shulker::{Scenario, badge_scenarios, scenario_check};
+use circuit::shulker::{Scenario, badge_scenarios, flow_rate, game_run, judge, scenario_check};
 use circuit::verify::{Options, verify_in_pool};
 use circuit::{Circuit, Pos};
-use mctas::sim::{Pool, WorkerConfig};
+use mctas::sim::{Pool, Worker, WorkerConfig};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// Shrink `design` and write the result to `out` (only when at least one block went).
-pub fn shrink(design: &Path, out: &Path, keep: &[String], workers: usize, version: &str, margin: i32) -> Result<()> {
+/// Whether `c` runs the plain scenario `sc` at rotation 0, passes, and keeps items/s >= `min`.
+fn rate_ok(w: &mut Worker, c: &Circuit, sc: &Scenario, min: f64, margin: i32) -> bool {
+    match game_run(w, c, sc, margin) {
+        Ok(Ok(log)) => judge(sc, &log).pass && flow_rate(sc, &log).is_some_and(|r| r >= min),
+        _ => false,
+    }
+}
+
+/// Shrink `design` and write the result to `out` (only when at least one block went). With
+/// `min_rate`, every removal also keeps the plain 64-stack scenario's items/s at or above it.
+pub fn shrink(design: &Path, out: &Path, keep: &[String], min_rate: Option<f64>, workers: usize, version: &str, margin: i32) -> Result<()> {
     let c0 = Circuit::load(design)?;
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit:` line", design.display()))?;
     let base = Scenario::base(&kind).ok_or_else(|| anyhow!("{}: {} is not a shulker kind", design.display(), kind.name()))?;
@@ -40,7 +49,7 @@ pub fn shrink(design: &Path, out: &Path, keep: &[String], workers: usize, versio
         // stage 1: the plain scenario at rotation 0
         let first = pool.map(cands.clone(), |w, _, p| {
             Ok(match Circuit::from_design(without(&cur, p)) {
-                Ok(c) => scenario_check(w, &c, "base", &scen[0].1, 0, margin).is_ok(),
+                Ok(c) => scenario_check(w, &c, "base", &scen[0].1, 0, margin).is_ok() && min_rate.is_none_or(|m| rate_ok(w, &c, &base, m, margin)),
                 Err(_) => false,
             })
         });
@@ -85,9 +94,10 @@ pub fn shrink(design: &Path, out: &Path, keep: &[String], workers: usize, versio
     }
     cur.name = format!("{}-shrunk", c0.name());
     let text = format!(
-        "# {} shrunk by `mctas circuit shulker shrink` (kept: plain{}): without {}.\n{}",
+        "# {} shrunk by `mctas circuit shulker shrink` (kept: plain{}{}): without {}.\n{}",
         c0.name(),
         keep.iter().map(|b| format!(", {b}")).collect::<String>(),
+        min_rate.map(|m| format!(", items/s >= {m}")).unwrap_or_default(),
         removed.join(", "),
         cur.to_text()
     );
