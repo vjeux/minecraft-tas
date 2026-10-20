@@ -771,6 +771,33 @@ impl Circuit {
         None
     }
 
+    /// The output cells' blocks stay put for the whole run (the R7 counterpart of
+    /// [`Circuit::input_entered`] for outputs): the block a design leaves in an output cell (a
+    /// self-reporting part: dust, repeater, comparator, torch, observer) or the judge's lamp in an
+    /// air one ([`CONSUMER`]) is never moved out or replaced by a block moved in. Otherwise the
+    /// judge would read two different things in one cell: the part's own state while it is there,
+    /// the signal into the emptied cell from a neighbour (a redstone block beside it) while it is
+    /// away, and no builder's wire can follow an output that leaves its cell. Kinds whose machines
+    /// move as a whole (flying machines, extenders, TNT) are not output-cell kinds and are skipped.
+    pub fn output_entered(&self, t: &trace::Trace) -> Option<String> {
+        if !self.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+            return None;
+        }
+        let id = |s: &str| s.split(['[', '{']).next().unwrap_or(s).to_string();
+        let lamp = id(CONSUMER);
+        for out in &self.outputs {
+            let want = self.clock.design.blocks.get(&out.pos).map(|s| id(s)).unwrap_or_else(|| lamp.clone());
+            for (f, frame) in t.cells.iter().enumerate() {
+                let here = frame.binary_search_by_key(&out.pos, |(q, _)| *q).ok().map(|i| t.names[frame[i].1 as usize].as_str());
+                let s = here.unwrap_or("minecraft:air");
+                if id(s) != want {
+                    return Some(format!("the design moves a block into or out of the output cell {:?} (output {}, frame {f}: {} instead of {}): an output's block stays put", out.pos, out.name, clock::short(s), clock::short(&want)));
+                }
+            }
+        }
+        None
+    }
+
     /// The ports the kind needs.
     fn check_ports(&self) -> Result<()> {
         let Some(k) = &self.kind else {

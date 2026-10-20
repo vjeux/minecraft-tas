@@ -169,6 +169,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
                 _ => out,
             };
+            // and an output's block stays put
+            let out = match c.output_entered(t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
             Some(if out.pass && tiles(c, k) { tiled_sim(c, k, &schedule, o.margin, &out) } else { out })
         }
         _ => None,
@@ -479,6 +484,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         if out.pass
             && kind.is_some()
             && let Some(why) = rc.input_entered(&tr)
+        {
+            out = Outcome::fail(why, out.table);
+        }
+        // and an output's block stays put
+        if out.pass
+            && kind.is_some()
+            && let Some(why) = rc.output_entered(&tr)
         {
             out = Outcome::fail(why, out.table);
         }
