@@ -293,7 +293,8 @@ pub struct Circuit {
     #[serde(skip)]
     pub events: String,
     /// Why the browser's simulator cannot run this design (`block "oak_fence" is not modeled`),
-    /// empty when it can: the 3D view then shows it as built. Pages only.
+    /// empty when it can: the 3D view then shows it as built (the viewer's own session decides,
+    /// `mcview::session::Session::unsimulated`). Pages only.
     #[serde(skip)]
     pub unmodeled: String,
 }

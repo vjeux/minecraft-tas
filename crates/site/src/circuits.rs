@@ -176,15 +176,10 @@ fn details(c: &Design) -> Details {
         Ok(r) => r,
         Err(e) => {
             d.summary = format!("simulation failed: {e:#}");
-            d.unmodeled = format!("{e:#}");
             return d;
         }
     };
     d.summary = r.summary(c);
-    if let Err(e) = &r.trace {
-        // `not modeled by redsim: block "oak_fence" is not modeled by redsim` -> the reason
-        d.unmodeled = e.rsplit(": ").next().unwrap_or(e).replace(" by redsim", "").trim().to_string();
-    }
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
     }
@@ -384,16 +379,30 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
             }
         }
         let id_of = |r: &circuit::archive::Row| format!("circuits/{study}/{}", r.file.trim_end_matches(".txt"));
-        // the judge's test of every design, simulated in parallel (big counters take seconds)
-        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64)> = par_map(&rows, |r| {
+        // the judge's test of every design, simulated in parallel (big counters take seconds),
+        // and whether the 3D view runs it (the viewer's own session decides: shown as built when
+        // the browser's simulator cannot follow it)
+        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
             let loaded = parse(&dir.join(&r.file));
             let t_sim = std::time::Instant::now();
-            let det = loaded.as_ref().map(|(c, _)| details(c));
-            (loaded, det, t_sim.elapsed().as_secs_f64())
+            let mut det = loaded.as_ref().map(|(c, _)| details(c));
+            let mut raw = None;
+            if let Some(d) = det.as_mut() {
+                let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
+                raw = match mcview::session::Session::new(&text, &Default::default()) {
+                    Ok(s) => s.unsimulated,
+                    Err(e) => Some(format!("the viewer cannot load it: {e}")),
+                };
+                d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+            }
+            (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
         });
-        for (i, (r, (loaded, det, took))) in rows.iter().zip(loaded_all).enumerate() {
+        for (i, (r, (loaded, det, took, raw))) in rows.iter().zip(loaded_all).enumerate() {
             let path = dir.join(&r.file);
             let text = std::fs::read_to_string(&path).unwrap_or_default();
+            if let Some(raw) = raw {
+                notes.push(format!("{study}/{}: the 3D view shows it as built: {raw}", r.file));
+            }
             if took > 10.0 {
                 notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
             }

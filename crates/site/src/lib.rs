@@ -73,6 +73,10 @@ pub enum SiteCmd {
         frames: u32,
         #[arg(long, default_value_t = 700)]
         interval: u64,
+        /// With --page: press the button with this label once the view is ready (a viewer's
+        /// input button: `INP` flips a shulker machine's start lever).
+        #[arg(long)]
+        click: Option<String>,
     },
 }
 
@@ -170,12 +174,12 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click } => {
             if !page.is_empty() {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");
                 }
-                return webkit::film(&dir, url.as_deref(), &page, frames, interval);
+                return webkit::film(&dir, url.as_deref(), &page, frames, interval, click.as_deref());
             }
             let fails = match engine.as_str() {
                 "webkit" => webkit::smoke(&dir, url.as_deref())?,

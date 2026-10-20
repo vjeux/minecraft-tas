@@ -402,9 +402,33 @@ fn input_label(name: &str) -> String {
 /// The kinds whose inputs are steady (toggled) rather than pulsed (webrender's input mode).
 pub fn input_mode(kind: &str) -> &'static str {
     match base(kind) {
-        "gate" | "d-latch" | "piston-extender" => "toggle",
+        // a shulker machine's start lever (and the combo's mode lever) stays where it is put
+        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" => "toggle",
         _ => "pulse",
     }
+}
+
+/// The reason a design cannot be simulated, for a page, without the simulator's name, the tick
+/// and the world coordinates (`not modeled by redsim (tick 28 of its run): dropper at (0,0,0)
+/// picks a random slot among 3 stacks (not modeled)` -> `dropper picks a random slot among 3
+/// stacks`).
+pub fn plain_reason(e: &str) -> String {
+    let mut s = e.trim().to_string();
+    // the viewer's prefix: `not modeled by redsim (tick N of its run): `
+    if let Some(i) = s.find("of its run): ") {
+        s = s[i + "of its run): ".len()..].to_string();
+    } else if let Some(rest) = s.strip_prefix("not modeled by redsim: ") {
+        s = rest.to_string();
+    }
+    // world coordinates mean nothing to a visitor: ` at (0,0,0)`
+    while let Some(i) = s.find(" at (") {
+        match s[i..].find(')') {
+            Some(j) => s.replace_range(i..i + j + 1, ""),
+            None => break,
+        }
+    }
+    let s = s.trim_end_matches(" (not modeled)");
+    s.replace(" by redsim", "").replace("redsim", "the simulator").trim().to_string()
 }
 
 /// How to try the circuit in the viewer: the demo, the input buttons, the markers.
@@ -427,7 +451,49 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     }
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" => {
-            s.push_str("<p>The 3D view shows the machine as it is built, with the judge's chests at the cells tagged ITEMS, BOXES and OUT, and a shulker box where the dispenser places it. Shulker boxes, item transfers and dropped boxes are judged in the real game only: the browser's simulator does not model shulker boxes yet, so the view does not run the machine. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>");
+            let loader = base(&c.kind) == "shulker-loader";
+            if !c.unmodeled.is_empty() {
+                s.push_str(&format!(
+                    "<p>The 3D view shows the machine <b>as built</b>, with the judge's chests at the cells tagged ITEMS, BOXES and OUT and a shulker box in front of the dispenser: the browser's simulator cannot follow its run yet ({}). The judge tested it in the real game; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
+                    esc(&c.unmodeled)
+                ));
+                return s;
+            }
+            let badges = metric(c, "badges");
+            let sorts = badges.split('+').any(|b| b == "filter");
+            let items_s = metric(c, "items/s").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).filter(|v| *v > 0.0);
+            let supply = if loader {
+                "The view runs it the way the judge does, without end: the chests at the cells tagged ITEMS and BOXES are kept full (items, empty shulker boxes) and the one at OUT is emptied as boxes arrive"
+            } else {
+                "The view runs it the way the judge does, without end: the chest at the cell tagged BOXES is kept full of full shulker boxes, and the chests at ITEMS and OUT are emptied as the items and the empty boxes arrive"
+            };
+            let what = if sorts {
+                " (with the one kind of item it packs).".to_string()
+            } else {
+                match items_s {
+                    Some(r) => format!(". The items are unstackable (27 fill a box), so at its {r:.2} items per second a box goes out about every {:.0} s.", (27.0 / r).max(1.0)),
+                    None => ". The items are unstackable (27 fill a box).".to_string(),
+                }
+            };
+            s.push_str(&format!("<p><b>The machine runs in the view.</b> {supply}{what} The numbers over each chest, hopper and dispenser show what it holds. Speed it up with the bar's speed button (up to 100x).</p>"));
+            // the start lever is the visitor's (the judge flips it at its start); the combo's
+            // mode lever switches loading and unloading
+            let mut levers: Vec<String> = Vec::new();
+            for (i, name) in c.inputs.iter().enumerate() {
+                if c.devices.get(i).map(String::as_str) != Some("lever") {
+                    continue;
+                }
+                let label: String = name.to_uppercase().chars().take(3).collect();
+                if name == "mode" || name.starts_with("mode.") {
+                    levers.push(format!("Its <b>{label}</b> lever switches it between loading and unloading (the lime {label} button in the bar, or tap the lever)."));
+                } else {
+                    levers.push(format!("<b>Flip its start lever</b> to start it, as the judge does: the lime {label} button in the bar, or tap the lever."));
+                }
+            }
+            if !levers.iter().any(|l| l.contains("start lever")) {
+                levers.insert(0, "It starts by itself (no lever to flip).".to_string());
+            }
+            s.push_str(&format!("<p>{} Drag to look around, pinch or scroll to zoom.</p>", levers.join(" ")));
             return s;
         }
         "tnt-duper" => {
@@ -754,6 +820,14 @@ pub fn card_kind(b: &Build) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unsimulated_reasons_read_plainly() {
+        assert_eq!(plain_reason("not modeled by redsim (tick 28 of its run): dropper at (0,0,0) picks a random slot among 3 stacks (not modeled)"), "dropper picks a random slot among 3 stacks");
+        assert_eq!(plain_reason("not modeled by redsim (tick 0 of its run): 2 container entities at (0,0,0): the game picks one at random (not modeled)"), "2 container entities: the game picks one at random");
+        assert_eq!(plain_reason("block \"oak_fence\" is not modeled by redsim"), "block \"oak_fence\" is not modeled");
+        assert!(!plain_reason("redsim does not model shulker boxes").contains("redsim"));
+    }
 
     fn circuit(kind: &str, metrics: &[(&str, &str)], inputs: &[&str]) -> Circuit {
         Circuit {
