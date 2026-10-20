@@ -12,7 +12,9 @@
 //! model error (a run using them is not trustworthy) until M2 fills them. Falling blocks still
 //! live in `gravity.rs` (they move into this list as a kind in M2, bit-identical).
 
+pub mod armor_stand;
 pub mod boat;
+pub mod fluid_push;
 pub mod item;
 pub mod minecart;
 pub mod mth;
@@ -39,6 +41,7 @@ pub enum EntityKind {
     Boat(boat::BoatState),
     Minecart(minecart::MinecartState),
     Item(item::ItemState),
+    ArmorStand(armor_stand::ArmorStandState),
 }
 
 impl EntityKind {
@@ -48,6 +51,17 @@ impl EntityKind {
             EntityKind::Boat(_) => (boat::WIDTH, boat::HEIGHT),
             EntityKind::Minecart(_) => (minecart::WIDTH, minecart::HEIGHT),
             EntityKind::Item(_) => (item::WIDTH, item::HEIGHT),
+            EntityKind::ArmorStand(_) => (armor_stand::WIDTH, armor_stand::HEIGHT),
+        }
+    }
+
+    /// `EntityDimensions.eyeHeight` (`eyeHeight(..)` in `EntityTypes`, else height * 0.85F).
+    pub fn eye_height(&self) -> f32 {
+        match self {
+            EntityKind::Boat(_) => 0.5625,
+            EntityKind::Minecart(_) => minecart::HEIGHT * 0.85,
+            EntityKind::Item(_) => 0.2125,
+            EntityKind::ArmorStand(_) => 1.7775,
         }
     }
 }
@@ -89,6 +103,8 @@ pub struct Entity {
     pub first_tick: bool,
     pub fall_distance: f64,
     pub tick_count: i32,
+    /// `EntityFluidInteraction` (trackers, current): `fluid_push.rs`.
+    pub fluid: fluid_push::FluidInteraction,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -130,6 +146,7 @@ impl Entity {
             first_tick: true,
             fall_distance: 0.0,
             tick_count: 0,
+            fluid: Default::default(),
         }
     }
 
@@ -181,6 +198,7 @@ pub fn tick_all(w: &mut World) {
             EntityKind::Boat(_) => boat::tick(w, i),
             EntityKind::Minecart(_) => minecart::tick(w, i),
             EntityKind::Item(_) => item::tick(w, i),
+            EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
         }
     }
     w.entities.list.retain(|e| !e.removed);
@@ -200,10 +218,10 @@ pub fn check_inside_blocks(w: &mut World, _i: usize) {
     w.errors.push("entity checkInsideBlocks is not modeled yet (redsim M2)".into());
 }
 
-/// `Entity.updateFluidHeightAndDoFluidPushing(tag, flowScale)`. STUB until M2 (false).
-pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, _i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
-    w.errors.push("entity fluid pushing is not modeled yet (redsim M2)".into());
-    false
+/// `Entity.updateFluidInteraction` (the old name `updateFluidHeightAndDoFluidPushing`): see
+/// [`fluid_push::update_fluid_interaction`]; the fluid and scale are the game's (water, 0.014).
+pub fn update_fluid_height_and_do_fluid_pushing(w: &mut World, i: usize, _fluid: crate::fluid::Fluid, _flow_scale: f64) -> bool {
+    fluid_push::update_fluid_interaction(w, i)
 }
 
 impl World {
