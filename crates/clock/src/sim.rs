@@ -213,8 +213,13 @@ struct Started {
 pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
 
 /// The cell of the judge's lamp: the declared output when the design leaves it empty (an air
-/// output cell). Not a block of the design: never counted, never in the family or the box.
+/// output cell). Not a block of the design: never counted, never in the family or the box. Clocks
+/// only: a circuit (a `circuit:` kind, or an input port) keeps its own consumer rule
+/// (`circuit::consumer_cells`).
 pub fn judge_lamp(c: &Clock) -> Option<Pos> {
+    if c.design.meta.contains_key("circuit") || c.design.ports.contains_key("input") || c.design.ports.keys().any(|k| k.starts_with("input")) {
+        return None;
+    }
     c.output.filter(|op| !c.design.blocks.contains_key(op))
 }
 
