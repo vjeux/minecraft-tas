@@ -403,3 +403,8 @@ Screens (all real-door `door fill` unless "pockets"; 0 = nothing passes the 1-po
     --keep-lever; the ports I add to designers' plans (they carry none) cost a pocket one cell in the 6x7 / w1k2 /
     m69T screens above (their satwire cores are elsewhere, so the conclusions stand). Put such ports outside
     the box, or use a binary with 56fb440b.
+  - New report lines in pockets (quick: `--k 1 --only-pockets 99`): POCKET LOAD (10be184f: forced inputs and
+    distinct pulse ticks per pocket) and ISLAND START (ad9c171c, from clk-misc's island argument: a pocket fires
+    only after a change next to it caused by already-running pockets, attributed by replaying the plan without
+    each input, or the lever in it). c70b's u0/u2-7x7, w86 s1, pext's p33: no lever pocket starts every pocket
+    = no static wiring for the plan as timed; c79 bottom-left (positive control): every pocket starts.
