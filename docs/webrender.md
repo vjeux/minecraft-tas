@@ -70,11 +70,16 @@ each build's page.
   speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
-  sized once from its longest text (`tap the lever`, `press the inputs`, the demo's phase,
+  sized once from its longest text, measured unrounded (`tap the lever`, `press the inputs`, the demo's phase,
   `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
-  meets something it does not model during the run: the view stops at the last exact state), the
+  meets something it does not model during the run: the view stops at the last exact state;
+  it wraps between clauses, never inside a short one: `demo: A off,` / `B off`), the
   time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
-  moves while it runs, `mctas web layout` checks it).
+  moves while it runs, `mctas web layout` checks it; on a viewer under 520 CSS px, a phone, on
+  two lines, seconds over ticks, so the left badge keeps room for its words). No tag or label
+  goes under the badges or the Record button, and the output strip sits under the time badge.
+  The flip button says `Flip` beside its lever icon (on a phone whose bar also holds the
+  contents button, the icon alone).
 * Circuits (`circuit:` designs, the contract with the site): `data-stimulus` (the judge's own
   stimulus, `circuit::stimulus` syntax: `in 40+ 44-; ...` or `pulse L every T x K [from S]`,
   input names = the port names, `in` for a bare `port input:`), `data-phases` (`from-to label;

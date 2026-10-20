@@ -69,6 +69,45 @@ pub struct Live {
     /// The Record button, and the recording running (drawn instead of the live view meanwhile).
     record: HtmlButtonElement,
     rec: Option<Rec>,
+    /// A narrow viewer (a phone, [`NARROW_PX`]): the time badge on two lines.
+    narrow: bool,
+}
+
+/// A viewer narrower than this (CSS px) is a phone's: its time badge goes on two lines (seconds
+/// over ticks), so the badge on the left keeps room for its words.
+const NARROW_PX: f64 = 520.0;
+
+/// The time badge's text: `6.15 s · 123 ticks`, on a narrow viewer one part per line.
+fn time_text(p: &Player, narrow: bool) -> String {
+    let t = p.label();
+    if narrow { t.replace(" · ", "\n") } else { t }
+}
+
+/// A badge's words wrap between clauses, never inside a short one (critique: `demo: A off, B` /
+/// `off`): the spaces of a clause of 3 words or fewer become non-breaking.
+fn badge_words(s: &str) -> String {
+    s.split(", ").map(|c| if c.split(' ').count() <= 3 { c.replace(' ', "\u{a0}") } else { c.to_string() }).collect::<Vec<_>>().join(", ")
+}
+
+/// Size the badge once for all the texts it will show (as wide and as tall as the largest, up to
+/// two lines), so it never resizes while they change: its size is measured unrounded and rounded
+/// up (a text cut to its rounded width wrapped, and its second line was clipped: critique,
+/// "demo: the test").
+fn fit_badge(status: &HtmlElement, texts: &[String]) {
+    let _ = status.style().remove_property("width");
+    let _ = status.style().remove_property("height");
+    let (mut widest, mut tallest) = (0f64, 0f64);
+    for t in texts {
+        status.set_text_content(Some(t));
+        let r = status.get_bounding_client_rect();
+        widest = widest.max(r.width());
+        tallest = tallest.max(r.height());
+    }
+    if widest > 0.0 {
+        // the box counts the paddings (8 px each side, 2 px top and bottom)
+        let _ = status.style().set_property("width", &format!("{}px", (widest - 16.0).ceil() + 1.0));
+        let _ = status.style().set_property("height", &format!("{}px", (tallest - 4.0).ceil()));
+    }
 }
 
 /// A recording (the Record button: vjeux 2026-10-20 "add a record video button using
@@ -327,7 +366,11 @@ pub fn start(app: &mut App, id: u32) {
     });
     let _ = root.append_child(&record);
     let mut overlays = crate::overlay::Overlays::new(&root);
+    // no tag or label under the Record button or the badges (critique: TARGET touched the demo
+    // badge's bottom edge)
     overlays.keep_clear.push(record.clone().unchecked_into());
+    overlays.keep_clear.push(status.clone());
+    overlays.keep_clear.push(label.clone());
     v.live = Some(Live {
         gpu: None,
         player: None,
@@ -359,6 +402,7 @@ pub fn start(app: &mut App, id: u32) {
         demo: None,
         record,
         rec: None,
+        narrow: false,
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -527,6 +571,24 @@ pub fn load(app: &mut App, id: u32) {
             l.text = Some(text.clone());
             l.name = file_name(v.src.as_deref(), p.session.design.meta.get("name").map(|s| s.as_str()));
             l.demo = None;
+            // a narrow viewer (a phone): the time badge on two lines, seconds over ticks
+            // (critique: at 390 px it took half the width and squeezed the demo badge), the badge
+            // on the left as wide as the rest of the top
+            let css_w = match v.canvas.client_width() {
+                w if w > 0 => w as f64,
+                _ => v.w as f64,
+            };
+            l.narrow = css_w < NARROW_PX;
+            let time_style: &[(&str, &str)] = if l.narrow {
+                &[("height", "auto"), ("line-height", "16px"), ("padding", "2px 8px"), ("min-width", "11ch"), ("white-space", "pre-line")]
+            } else {
+                &[("height", "20px"), ("line-height", "20px"), ("padding", "0 8px"), ("min-width", "21ch"), ("white-space", "nowrap")]
+            };
+            style(&l.label, time_style);
+            l.label.set_text_content(Some(&time_text(&p, l.narrow)));
+            // the left badge ends 6 px short of it: its width counts no padding (16 px), and both
+            // stand 8 px from the edges
+            let _ = l.status.style().set_property("max-width", &format!("calc(100% - {}px)", l.label.offset_width() + 38));
             let circuit = !p.session.circuit_inputs.is_empty() && p.session.simulated();
             if p.session.simulated() && !circuit && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
                 let _ = l.flip.style().set_property("display", "inline-flex");
@@ -624,18 +686,7 @@ pub fn load(app: &mut App, id: u32) {
                     // while the demo plays
                     let mut labels = vec![demo_text(&p, None)];
                     labels.extend(p.phases.iter().map(|(_, _, ph)| demo_text(&p, Some(ph))));
-                    let (mut widest, mut tallest) = (0i32, 0i32);
-                    for t in &labels {
-                        l.status.set_text_content(Some(t));
-                        widest = widest.max(l.status.offset_width());
-                        tallest = tallest.max(l.status.offset_height());
-                    }
-                    if widest > 0 {
-                        // offset sizes count the paddings (8 px each side, 2 px top and bottom); an
-                        // exact size (not a minimum: a wrapping text's width is fractional)
-                        let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
-                        let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
-                    }
+                    fit_badge(&l.status, &labels);
                     l.shown_status = String::from("\u{0}");
                 }
             }
@@ -643,23 +694,24 @@ pub fn load(app: &mut App, id: u32) {
             // demo), the badge sized once from its four texts
             if v.autoplay && p.session.mode.is_door() && p.session.simulated() {
                 p.start_door_demo();
-                let (mut widest, mut tallest) = (0i32, 0i32);
-                for t in mcview::player::DoorDemo::ALL_WORDS {
-                    l.status.set_text_content(Some(t));
-                    widest = widest.max(l.status.offset_width());
-                    tallest = tallest.max(l.status.offset_height());
-                }
-                if widest > 0 {
-                    let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
-                    let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
-                }
+                let words: Vec<String> = mcview::player::DoorDemo::ALL_WORDS.iter().map(|t| badge_words(t)).collect();
+                fit_badge(&l.status, &words);
                 l.shown_status = String::from("\u{0}");
             }
             l.overlays.setup(&p);
+            // the output strip under the time badge, however tall it is
+            l.overlays.set_strip_top(8.0 + l.label.offset_height() as f64 + 6.0);
             // the contents button: shown with containers, gold while every container is labelled
             let has = mcview::labels::has_containers(&p.session);
             let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
             let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
+            // the flip button says what it is (the pages' "Try it" names it), unless a phone's bar
+            // also holds the contents button (no room for the word)
+            if l.narrow && has {
+                l.flip.set_inner_html(&icon(ICON_LEVER));
+            } else {
+                l.flip.set_inner_html(&format!("{}<span style=\"margin-left:4px;font-size:14px\">Flip</span>", icon(ICON_LEVER)));
+            }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
                 on(&t, "pointerdown", move |e: PointerEvent| {
@@ -770,10 +822,11 @@ fn camera_fits(cam: &mcview::camera::Camera, s: &mcview::session::Session, look:
 fn demo_text(p: &Player, phase: Option<&str>) -> String {
     let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
     let kind = p.session.design.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
-    match phase {
+    let words = match phase {
         Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
         None => "demo: the test sequence".to_string(),
-    }
+    };
+    badge_words(&words)
 }
 
 /// The badge's text for a player: why it stopped, the demo's phase, the door demo's step, else
@@ -782,7 +835,7 @@ fn status_for(p: &Player, base: &str) -> String {
     match () {
         _ if p.session.halted.is_some() => format!("not simulated after {}", p.session.halted.as_deref().unwrap_or_default().split(':').next().unwrap_or("this tick")),
         _ if p.session.demo.is_some() => demo_text(p, p.phase()),
-        _ if p.door_demo.is_some() => p.door_demo.map(|d| d.words()).unwrap_or_default().to_string(),
+        _ if p.door_demo.is_some() => badge_words(p.door_demo.map(|d| d.words()).unwrap_or_default()),
         _ => base.to_string(),
     }
 }
@@ -888,7 +941,7 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 Ok(()) => need_ready = true,
                 Err(e) => log(&e),
             }
-            l.label.set_text_content(Some(&p.label()));
+            l.label.set_text_content(Some(&time_text(p, l.narrow)));
             if crate::debug() {
                 // for `mctas web layout`: nothing may move while the counter runs
                 let r = |e: &HtmlElement| {
@@ -992,7 +1045,7 @@ impl Live {
     /// the 3D view, then the tags, labels and badges where the page lays them out. False: stop
     /// (cancelled, or nothing to draw with).
     fn rec_frame(&mut self, atlas: &mcview::atlas::Atlas, v: &crate::View, k: u32) -> bool {
-        let Live { rec, gpu, overlays, label, status, base_status, record, .. } = self;
+        let Live { rec, gpu, overlays, label, status, base_status, record, narrow, .. } = self;
         let Some(r) = rec.as_mut() else { return false };
         let Some(g) = gpu.as_mut() else { return false };
         if r.cancel {
@@ -1007,7 +1060,7 @@ impl Live {
             return false;
         }
         overlays.update(&r.player, atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
-        label.set_text_content(Some(&r.player.label()));
+        label.set_text_content(Some(&time_text(&r.player, *narrow)));
         let st = status_for(&r.player, base_status);
         status.set_text_content(Some(&st));
         let _ = status.style().set_property("visibility", if st.is_empty() { "hidden" } else { "visible" });
