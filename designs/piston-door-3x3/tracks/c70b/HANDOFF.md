@@ -1,5 +1,21 @@
 # HANDOFF: track c70b, 2026-10-20 (newest first)
 
+## 7. macrosat -> mechmut bridge (coordinator 11:15Z)
+- `door mechmut <dump or folder>` reads clockinfra's `door macrosat` dumps (explore/clockinfra
+  tracks/macrosat/sat/; clk-misc's strict SATs will land in explore/d67 tracks/d67/macrosat/):
+  rest layout = seed, macrosat's actions = first schedule (QC off for macrosat seeds), the dump's
+  own export pair judged at load (redsim, d67's `feeds --strict`, w86's extent; CANDIDATE line),
+  then `--repair --add --validate --rank-unfed`. Survivors (island start 0 + strict clean) go to
+  w86 (checker) -> pockets3 / clk-misc (wiring).
+- families' model holds 32 pistons; QC is per mechanism (families::with_qc_off); mechsynth's
+  plans feed a piston above a retracted one through its above cell (+ glass) for qc-off mechs.
+- Results: the 18 old non-strict SATs give nothing (smaller/msat/r0, r2, q2: m86-a WORKS but
+  fails strict and leaves 8x6; the 7x7s break in redsim). Waiting for clockinfra's `--physics
+  --max-pistons 14` sweep (sat/phys14/, with exports): run
+  `door mechmut <phys14 folder> --cap 2000000 --bfs-cap 1000000 --threads 8 --rounds 2 --beam 10
+  --repair --validate --rank-unfed --out msat/p14.tsv --ideal-out msat/p14` and read the
+  CANDIDATE lines + the TSV (strict_fail 0 and island_start 0 first).
+
 ## 6. Wirable smaller doors (coordinator 2026-10-20 04:00Z: NEW families built for wirability)
 - Bars on every solve (families + mechmut): `--max-actions K` (pulses / level toggles per piston
   per edge), `--extra-actions B` (actions beyond one per piston, per edge), `--pareto N` (64 makes
