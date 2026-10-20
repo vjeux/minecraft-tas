@@ -252,7 +252,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     let b = base(&c.kind);
     match b {
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
-        "tnt-duper" => return "It runs by itself: watch the lit TNT drop out of the machine each cycle while the TNT block lands back in place.".to_string(),
+        "tnt-duper" => {
+            // (the try-it matches the card: a launcher throws its TNT, critique)
+            return if c.axis.contains("launched") {
+                "It runs by itself: watch it throw a lit TNT away each cycle while its TNT block stays in place.".to_string()
+            } else {
+                "It runs by itself: watch a lit TNT come out of the machine each cycle while its TNT block stays in place.".to_string()
+            };
+        }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
@@ -487,7 +494,7 @@ pub fn clock(b: &Build) -> (String, String, String) {
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
+        if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { "A beat that runs only while the sun is up: lamps or machines that should work by day and rest at night." } else { "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself." }.to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }

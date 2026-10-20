@@ -145,7 +145,8 @@ pub fn thousands(n: u32) -> String {
 /// What the label of one entry says next to its icon: `1,344`; one box `12/27`; several `×3`.
 pub fn entry_text(e: &Entry) -> String {
     match e {
-        Entry::Items { count, .. } => thousands(*count),
+        // how many of the icon's item (critique: a bare "27" read as stacks or items)
+        Entry::Items { count, .. } => format!("×{}", thousands(*count)),
         Entry::Boxes { n: 1, used, slots, .. } => format!("{used}/{slots}"),
         Entry::Boxes { n, .. } => format!("×{n}"),
     }
