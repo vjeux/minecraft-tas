@@ -57,7 +57,7 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
     }
     let tnt = matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered));
     if tnt && c.explodes() {
-        return sim_tnt(c, &cc, &actions, s, &probes, margin, KICK_DEFAULT, crate::Ground::Grass, false);
+        return sim_tnt(c, &cc, &actions, s, &probes, margin, KICK_DEFAULT, &[], crate::Ground::Grass, false);
     }
     match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
         Ok(d) => {
@@ -92,11 +92,20 @@ pub fn tnt_kick_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64, ground:
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
     let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
-    sim_tnt(c, &cc, &actions, s, &probes, margin, kick, ground, removal)
+    sim_tnt(c, &cc, &actions, s, &probes, margin, kick, &[], ground, removal)
+}
+
+/// [`tnt_kick_trace`] with the k-th primed TNT kicked by `kicks[k]` (each TNT its own random
+/// angle; `kick` past the end), the strict run.
+pub fn tnt_kicks_trace(c: &Circuit, s: &Schedule, margin: i32, kick: f64, kicks: &[f64], ground: crate::Ground) -> std::result::Result<Trace, String> {
+    let actions = c.actions(s);
+    let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let cc = c.with_consumers().map_err(|e| format!("{e:#}"))?;
+    sim_tnt(c, &cc, &actions, s, &probes, margin, kick, kicks, ground, false)
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], margin: i32, kick: f64, ground: crate::Ground, removal: bool) -> std::result::Result<Trace, String> {
+fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Schedule, probes: &[Pos], margin: i32, kick: f64, kicks: &[f64], ground: crate::Ground, removal: bool) -> std::result::Result<Trace, String> {
     let (lo, hi) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
     // the strict run (no removal) grows its ground until no burning TNT ever leaves it (a TNT
     // past the ground's edge would fall into a void a real world does not have; coordinator)
@@ -106,7 +115,7 @@ fn sim_tnt(c: &Circuit, cc: &Circuit, actions: &[(u32, clock::Action)], s: &Sche
         let to = [hi[0] + r + 2, hi[1] + 16, hi[2] + r + 2];
         let o = clock::sim::TntOptions {
             kick,
-            kicks: Vec::new(),
+            kicks: kicks.to_vec(),
             max_rolls: true,
             out_of_range: if removal { OUT_OF_RANGE } else { f64::INFINITY },
             design_box: (lo, hi),

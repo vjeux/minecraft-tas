@@ -94,6 +94,18 @@ enum Cmd {
         #[arg(long)]
         follow: Option<f64>,
     },
+    /// One strict redsim judge run of a TNT duper (explosions, no removal): at --drop air blocks
+    /// above --ground, every TNT kicked by --kick; prints the verdict and its table.
+    Judge {
+        design: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        drop: i32,
+        #[arg(long, default_value_t = 0.0)]
+        kick: f64,
+        /// grass or obsidian
+        #[arg(long, default_value = "grass")]
+        ground: String,
+    },
     /// The hard evidence of survival (circuit::robust::tnt_blasts): every explosion on redsim with
     /// no out-of-range removal (each TNT flies on until it explodes), at --kicks kick angles, rays at
     /// their largest roll; once in the void (the judge's sandbox) and once on an obsidian floor one
@@ -297,6 +309,22 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
+        Cmd::Judge { design, drop, kick, ground } => {
+            let mut c = circuit::Circuit::load(&design)?;
+            c.drop = drop;
+            let g = if ground == "obsidian" { circuit::Ground::Obsidian } else { circuit::Ground::Grass };
+            let o = circuit::verify::Options { margin: 3, ..Default::default() };
+            let rep = circuit::verify::sim(&circuit::Circuit::load(&design)?, &o)?;
+            match circuit::robust::judge_kick(&c, &rep.schedule, kick, 3, g) {
+                Ok(out) => {
+                    for l in &out.table {
+                        println!("  {l}");
+                    }
+                    println!("{} {}: {}", if out.pass { "PASS" } else { "FAIL" }, c.name(), if out.pass { out.metrics_text() } else { out.why.clone() });
+                }
+                Err(e) => println!("FAIL {}: {e}", c.name()),
+            }
+        }
         Cmd::Blasts { designs, kicks, drop, ticks } => {
             for d in &designs {
                 let mut c = circuit::Circuit::load(d)?;
@@ -327,8 +355,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::Robust { designs, samples, workers } => {
             for d in &designs {
                 let c = circuit::Circuit::load(d)?;
-                match circuit::robust::tnt_robust(&c, samples, workers) {
-                    Ok(r) => println!("ROBUST: {}: {r}", c.name()),
+                // at the design's safe drop height (the screen finds it, the full sweep confirms it)
+                let _ = samples;
+                match circuit::robust::safe_drop(&c, workers) {
+                    Ok((h, r)) => println!("ROBUST: {} ({}): {r}", c.name(), circuit::robust::drop_words(h)),
                     Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
