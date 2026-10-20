@@ -156,6 +156,9 @@ impl Census {
         let tr = self.trace_cells(blocks, be, spec).ok()?;
         let mut out = Vec::new();
         for (i, p) in tr.cells.iter().enumerate() {
+            if !Self::readable(blocks, *p) {
+                continue;
+            }
             if let Some(s) = spec.judge(tr.rest[i], &tr.changes[i], &tr.samples[i]) {
                 out.push((*p, s));
             }
@@ -291,6 +294,15 @@ impl Census {
     fn best(&self, blocks: &[(BlockPos, Block)], outs: &[(BlockPos, u32)]) -> (BlockPos, u32) {
         let occupied: HashSet<BlockPos> = blocks.iter().map(|(p, _)| *p).collect();
         *outs.iter().min_by_key(|(p, s)| (occupied.contains(p), *s, *p)).unwrap()
+    }
+
+    /// Can the judge read this cell as an output: air (it puts a lamp there) or a block that
+    /// drives a signal itself (dust, a diode, a torch, an observer)?
+    fn readable(blocks: &[(BlockPos, Block)], p: BlockPos) -> bool {
+        match blocks.iter().find(|(q, _)| *q == p) {
+            None => true,
+            Some((_, b)) => matches!(b, Block::Wire { .. } | Block::Repeater { .. } | Block::Comparator { .. } | Block::Torch { .. } | Block::WallTorch { .. } | Block::Observer { .. }),
+        }
     }
 
     /// The type key: the blocks with the input cells marked, smallest over rotations and mirrors.
