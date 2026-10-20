@@ -99,6 +99,9 @@ pub struct Session {
     pub picture: Option<(Pos, Pos)>,
     /// The judge's consumer lamps placed in a circuit's air output cells (they show the output).
     pub consumers: Vec<Pos>,
+    /// The clock judge's lamp in a clock's empty output cell (`clock::sim::judge_lamp`): the OUT
+    /// signal there is the power delivered into the cell, not the lamp's own lit state.
+    pub judge_lamp: Option<Pos>,
     /// Where each falling block (by entity id) was before the tick just run: drawn between there
     /// and where it is (redsim keeps no previous position for them).
     prev_falling: Vec<(u32, [f64; 3])>,
@@ -373,11 +376,11 @@ impl Session {
                 }
             }
         }
-        // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in the declared
-        // output cell when the design leaves it empty, placed after the design's blocks (what
-        // `clock::sim::parse_blocks` does; circuits are built through it too); not a block of the
-        // design. A shulker design's output holds the judge's chest instead.
-        let judge_lamp = design.ports.get("output").map(|(p, _)| *p).filter(|p| !design.blocks.contains_key(p) && !shulker);
+        // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in a clock's
+        // declared output cell when the design leaves it empty, placed after the design's blocks
+        // (what `clock::sim::parse_blocks` does); not a block of the design. Clocks only: a
+        // design with a `circuit:` kind or an input port keeps its judge's consumers.
+        let judge_lamp = design.ports.get("output").map(|(p, _)| *p).filter(|p| !design.blocks.contains_key(p) && !design.meta.contains_key("circuit") && !design.ports.keys().any(|k| k.starts_with("input")));
         if let Some(op) = judge_lamp
             && let Ok(b) = Block::parse(JUDGE_LAMP)
         {
@@ -415,6 +418,7 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers,
+            judge_lamp,
             prev_falling: Vec::new(),
             halted: None,
             shulker: None,
@@ -862,6 +866,11 @@ impl Session {
         let b = self.world.get(bp(o));
         if matches!(b, Block::Air) {
             return false;
+        }
+        // the clock judge's lamp: the power delivered into its cell (what dust or a repeater
+        // there would get; the lamp's own 4 gt off-delay is the lamp's, not the clock's)
+        if self.judge_lamp == Some(o) {
+            return self.world.best_neighbor_signal(bp(o)) > 0;
         }
         powered_by_state(&b.to_string()).unwrap_or_else(|| self.world.has_neighbor_signal(bp(o)))
     }
@@ -1468,6 +1477,7 @@ impl Session {
             releases: Vec::new(),
             picture: None,
             consumers: Vec::new(),
+            judge_lamp: self.judge_lamp,
             prev_falling: Vec::new(),
             halted: None,
             shulker: self.shulker_initial.clone(),

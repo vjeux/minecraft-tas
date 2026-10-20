@@ -769,7 +769,9 @@ mod tests {
         let d = Design::parse("name: g\ncircuit: gate and\nport input.b: 2 0 0\nport input.a: 0 0 0\nport output: 1 1 0\npalette:\n  S minecraft:stone\nlayer 0:\n  .S.\n").unwrap();
         let v = inputs(&d);
         assert_eq!(v.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(), vec!["a", "b"]);
-        assert!(matches!(v[0].how, InputHow::Block { .. }));
+        // R7: driven by the judge's repeater from outside, the first direction out of the build
+        assert!(v.iter().all(|i| i.how == InputHow::Driven { dir: [0, 0, -1], through: false }), "{v:?}");
+        assert_eq!(driver_cells(v[0].pos, [0, 0, -1]), ([0, 0, -1], [0, -1, -1], [0, 0, -2]));
         assert_eq!(outputs(&d), vec![("OUT".to_string(), [1, 1, 0])]);
     }
 }
