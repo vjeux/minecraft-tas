@@ -504,8 +504,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         }
         let mut host: BTreeMap<usize, usize> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone(), rows[i].kinds.split('+').filter(|k| !k.is_empty()).map(String::from).collect())).collect();
-            for (k, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
+            // as `mctas circuit catalog` folds (palette alone is never a distinction)
+            let items: Vec<(usize, i64, String)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone())).collect();
+            let robust: Vec<bool> = g.iter().map(|&i| circuit::archive::is_robust(&rows[i])).collect();
+            for (k, h) in clock::catalog::fold_hosts_robust(&items, &robust, |a, b| circuit::archive::beats_on_variation(&rows[g[a]], &rows[g[b]])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[k], g[h]);
                 }
@@ -630,6 +632,7 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
     let mut builds = archived(&root, &mut notes, keep_hidden);
+    fold_same_builds(&root, &mut builds);
     apply_catalog(&root, &mut builds, &mut notes);
     builds.sort_by(|a, b| {
         // study (in the studies' order), kind, then the kind's main number, then blocks: every
@@ -668,6 +671,50 @@ fn read_catalog(root: &Path) -> BTreeMap<String, (String, String)> {
             Some((stem(name), (get(gi).to_string(), if get(vi).is_empty() { String::new() } else { stem(get(vi)) })))
         })
         .collect()
+}
+
+/// The same STRUCTURE archived under two kinds is one build listed twice (the copper bulb T
+/// flip-flop is `tff-bulb` and `counter2-bulb`; the two-bulb chain is `counter4-bulb2` and, read
+/// as a divider, `counter2-bulb2`). Each one gets `same_build` (the others' ids: the page says so
+/// instead of letting a reader think they are two machines), and within ONE tunable group only the
+/// member whose value the structure really counts to stays a version, so a picker never offers two
+/// versions for the same value (critique C27).
+fn fold_same_builds(root: &Path, builds: &mut [Build]) {
+    // the structure: every cell with its block state, plus the port cells (the same blocks with
+    // other ports is another machine)
+    let key_of = |b: &Build| -> Option<String> {
+        b.circuit.as_ref()?;
+        let d = Design::load(&root.join(repo_path_rel(b))).ok()?;
+        let blocks: Vec<String> = d.clock.design.blocks.iter().map(|(p, s)| format!("{p:?}={s}")).collect();
+        let ports: Vec<String> = d.inputs.iter().map(|i| format!("i{:?}", i.pos)).chain(d.outputs.iter().map(|o| format!("o{:?}", o.pos))).collect();
+        Some(format!("{}|{}", blocks.join(";"), ports.join(";")))
+    };
+    let mut same: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(k) = key_of(b) {
+            same.entry(k).or_default().push(i);
+        }
+    }
+    for (_k, twins) in same {
+        if twins.len() < 2 {
+            continue;
+        }
+        let facts: Vec<(String, String)> = twins
+            .iter()
+            .map(|&j| {
+                let c = builds[j].circuit.as_ref();
+                (c.map(|c| c.kind.clone()).unwrap_or_default(), c.map(|c| format!("circuits/{}/{}", c.study, builds[j].name)).unwrap_or_default())
+            })
+            .collect();
+        for (n, &i) in twins.iter().enumerate() {
+            // the same structure under the SAME kind is a duplicate for `archive --dedupe`, not a
+            // second machine: only another kind is worth saying
+            let others: Vec<String> = facts.iter().enumerate().filter(|(m, (k, _))| *m != n && *k != facts[n].0).map(|(_, (_, id))| id.clone()).collect();
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.same_build = others;
+            }
+        }
+    }
 }
 
 /// The catalog's folds on the archived circuits: equivalent layouts (same kind, value, block count
@@ -715,6 +762,25 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
         }
     }
     for (_group, members) in groups {
+        // two members that are the SAME build (one structure, two kinds) are one version: keep the
+        // one whose value the structure counts to, so the picker never offers two chips for one
+        // value (critique C27: `counter2-bulb2` is `counter4-bulb2` read as a divider)
+        let id_of = |i: usize| builds[i].circuit.as_ref().map(|c| format!("circuits/{}/{}", c.study, builds[i].name)).unwrap_or_default();
+        let value_of = |i: usize| builds[i].circuit.as_ref().and_then(|c| c.value).unwrap_or(i64::MIN);
+        let dropped: Vec<usize> = members
+            .iter()
+            .copied()
+            .filter(|&i| {
+                let twins = builds[i].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default();
+                members.iter().any(|&j| j != i && twins.contains(&id_of(j)) && (value_of(j), builds[j].name.clone()) > (value_of(i), builds[i].name.clone()))
+            })
+            .collect();
+        for &i in &dropped {
+            if let Some(c) = builds[i].circuit.as_mut() {
+                c.tunable.clear();
+            }
+        }
+        let members: Vec<usize> = members.into_iter().filter(|i| !dropped.contains(i)).collect();
         if members.len() < 2 {
             if let Some(c) = builds[members[0]].circuit.as_mut() {
                 c.tunable.clear();
@@ -823,7 +889,8 @@ fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
     let rep_count = varies(&|x| x.repeaters.len().to_string());
     // the delays differ beyond the count: two members with as many repeaters, other delays
     let rep_delays = feats.iter().enumerate().any(|(i, a)| feats[i + 1..].iter().any(|b| a.repeaters.len() == b.repeaters.len() && a.repeaters != b.repeaters)) || (!rep_count && varies(&|x| format!("{:?}", x.repeaters)));
-    let cmp = varies(&|x| format!("{}/{}", x.subtract, x.comparators));
+    let cmp_modes = feats.iter().enumerate().any(|(i, a)| feats[i + 1..].iter().any(|b| a.comparators == b.comparators && a.subtract != b.subtract));
+    let cmp_count = varies(&|x| x.comparators.to_string());
     let length = varies(&|x| x.blocks.to_string());
     let mut aspects: Vec<&str> = Vec::new();
     if device {
@@ -835,8 +902,11 @@ fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
     if rep_count {
         aspects.push("the length of the repeater line");
     }
-    if cmp {
+    if cmp_modes {
         aspects.push("the comparator modes");
+    }
+    if cmp_count {
+        aspects.push("the number of stages");
     }
     if aspects.is_empty() && length {
         aspects.push("the length");
@@ -858,8 +928,11 @@ fn variant_differences(feats: &[VariantFeatures]) -> (String, Vec<String>) {
             if rep_count || rep_delays {
                 parts.push(if x.repeaters.is_empty() { "no repeater".to_string() } else { format!("delays {}", x.repeaters.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("+")) });
             }
-            if cmp {
+            if cmp_modes {
                 parts.push(if x.subtract == 0 { "compare".to_string() } else { format!("{} subtract", x.subtract) });
+            }
+            if cmp_count {
+                parts.push(format!("{} stage{}", x.comparators, if x.comparators == 1 { "" } else { "s" }));
             }
             if parts.is_empty() {
                 parts.push(format!("{} blocks", x.blocks));
@@ -1071,6 +1144,14 @@ mod tests {
         assert_eq!(l[2], "delays 4+4+4");
         let (t, _) = variant_differences(&[f("redstone block", &[2], 5), f("redstone block", &[4], 5)]);
         assert_eq!(t, "the repeater delays");
+        // a chain's versions differ in how many stages they have, not in the comparator modes
+        let g = |comparators: usize, subtract: usize, blocks: usize| VariantFeatures { device: "redstone block".into(), comparators, subtract, blocks, ..Default::default() };
+        let (t, l) = variant_differences(&[g(1, 0, 3), g(2, 0, 6), g(3, 0, 9)]);
+        assert_eq!(t, "the number of stages");
+        assert_eq!(l, vec!["1 stage", "2 stages", "3 stages"]);
+        // as many comparators, other modes: that IS the comparator modes
+        let (t, _) = variant_differences(&[g(2, 0, 6), g(2, 1, 6)]);
+        assert_eq!(t, "the comparator modes");
     }
 
     #[test]

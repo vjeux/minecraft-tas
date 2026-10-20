@@ -88,9 +88,18 @@ pub enum SiteCmd {
         interval: u64,
         /// With --page: press the buttons with these labels, in order, once the view is ready (a
         /// viewer's input button: `INP` flips a shulker machine's start lever; `1×` then `2×` then
-        /// `5×` sets the speed to 20×).
+        /// `5×` sets the speed to 20×); with --full, also `css:<selector>` (any element).
         #[arg(long)]
         click: Vec<String>,
+        /// With --page: read each page like a visitor instead of filming its 3D view: screenshots
+        /// from the top, one window-full at a time (at most --frames), once the page settled
+        /// (--interval ms after its first view is ready); prints its height and whatever makes it
+        /// wider than the window.
+        #[arg(long)]
+        full: bool,
+        /// With --page: only this window (`phone` or `desktop`).
+        #[arg(long)]
+        only: Option<String>,
     },
 }
 
@@ -194,10 +203,13 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             Ok(())
         }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
             if !page.is_empty() {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");
+                }
+                if full {
+                    return webkit::look(&dir, url.as_deref(), &page, frames, interval, &click, only.as_deref());
                 }
                 return webkit::film(&dir, url.as_deref(), &page, frames, interval, &click);
             }

@@ -106,9 +106,12 @@ flung out of range. The 13b's own TNT was pushed back onto its frame and chain-p
 SLIME-FREE survivable: open (honey cannot fling; a dropped TNT spawns level with the frame top and
 the kick drifts it over a neighbour frame block within 2 ticks).
 
-Next (coordinator 12:02Z, vjeux "pass every possible random number"): the redsim judge sweeps
-every critical kick angle and evaluates every explosion at the maximum ray factor (clk-misc's
-pieces landed on explore/clk-misc c27cccd68), then spot-checks in the game.
+Next (coordinator 12:02Z, vjeux "pass every possible random number"): DONE for the kick:
+`circuit verify` judges every TNT duper on redsim at every kick angle (4096-point sweep, every
+change bisected to 1e-12, rays at their largest roll); all five archived designs are robust over
+every kick (one piece each: the outcome never changes with the kick), and the old triggered 13b
+fails for kicks in [0.1667, 0.6250) (blown up), which is what the game showed. Per-spawn kicks
+(different TNT, different kicks) are the next step.
 
 ## Results so far (2026-10-20, explore/tnt; explosions OFF, kept for the record)
 

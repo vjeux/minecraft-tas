@@ -62,10 +62,14 @@ pub fn tick(w: &mut World, i: usize) {
         s.fuse
     };
     if fuse <= 0 {
+        // discard, then (server side) explode: `level.explode(this, .., getX(), getY(0.0625),
+        // getZ(), 4.0F, false, TNT)` (getY(0.0625) = y + bbHeight (0.98F) * 0.0625), unless the
+        // caller removes primed TNT before they explode (the TNT judge)
         w.entities.list[i].removed = true;
-        if !w.remove_primed && !w.errors.iter().any(|e| e.starts_with("explosion")) {
-            let p = w.entities.list[i].pos;
-            w.errors.push(format!("explosion not modeled: a primed TNT explodes at ({:.2}, {:.2}, {:.2})", p.x, p.y, p.z));
+        if !w.remove_primed {
+            let (p, id) = (w.entities.list[i].pos, w.entities.list[i].id);
+            let center = Vec3::new(p.x, p.y + HEIGHT as f64 * 0.0625, p.z);
+            crate::explosion::explode(w, Some(id), center, crate::explosion::TNT_POWER);
         }
     } else {
         entity::fluid_push::update_fluid_interaction(w, i);

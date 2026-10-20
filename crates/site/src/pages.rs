@@ -526,6 +526,10 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         if let Some(h) = &c.layout_of {
             s.push_str(&row("Another layout of", &format!("{} (the same kind, value, block count and block kinds)", link_build(site, h, prefix))));
         }
+        if !c.same_build.is_empty() {
+            let links: Vec<String> = c.same_build.iter().map(|o| link_build(site, o, prefix)).collect();
+            s.push_str(&row("The same build is also", &format!("{} (the same blocks and ports, judged under another kind)", links.join(", "))));
+        }
         if !c.card.is_empty() {
             if let Some(cd) = site.cards.iter().find(|x| x.id == c.card) {
                 s.push_str(&row("Extendable family", &format!("<a href=\"{prefix}{}\">{}</a> ({}: one design for every n, all generated)", esc(&cd.page), esc(&cd.title), esc(&cd.heading))));

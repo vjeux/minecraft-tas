@@ -19,6 +19,7 @@ pub mod bud;
 pub mod check;
 pub mod fly;
 pub mod pulsemult;
+pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;
@@ -340,7 +341,8 @@ pub struct Circuit {
     /// The judge's chests of a shulker loader or unloader (`port items[.k]`, `port boxes[.k]`,
     /// `port reject`), in name order; its `port output[.k]` cells are judge chests too.
     pub stores: Vec<Store>,
-    /// `tile: dx dy dz [copies]` (shulker kinds): the design repeats every (dx, dy, dz) blocks.
+    /// `tile: dx dy dz [copies]` (shulker and study-11 kinds): the design repeats every (dx, dy,
+    /// dz) blocks.
     pub tile: Option<Tile>,
     /// A BUD switch's target cells (`port target[.<name>]: x y z [state-a state-b]`), where the
     /// judge performs its block updates.
@@ -349,12 +351,66 @@ pub struct Circuit {
     pub bud_claims: Vec<String>,
 }
 
-/// A shulker design's `tile:` header: the judge builds `copies` (default 3) side by side along
-/// `step`, each copy with its own judge chests, and judges each copy (badge `tileable`).
+/// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
+/// ([`tiled`]) and judges each copy on its own: a shulker loader with its own judge chests (badge
+/// `tileable`), a study-11 kind against its own input, the copies' stimuli shifted
+/// ([`pulsemult::TILE_SHIFTS`]: 7 gt apart, then in phase; metric `tile`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Tile {
     pub step: Pos,
     pub copies: u32,
+}
+
+/// A tiled design ([`Tile`]): `copies` copies along the step, copy k's ports renamed `<port>.t<k>`
+/// (copy 0 keeps its names), as one circuit the runner judges copy by copy. Copies that overlap,
+/// or a port landing on another copy, are refused.
+pub fn tiled(c: &Circuit) -> Result<Circuit> {
+    let t = c.tile.ok_or_else(|| anyhow!("{}: no `tile:` header", c.name()))?;
+    let base = c.clock.design.clone();
+    let mut d = base.clone();
+    d.meta.remove("tile");
+    d.meta.insert("tiled".into(), t.copies.to_string());
+    for k in 1..t.copies as i32 {
+        let off = [t.step[0] * k, t.step[1] * k, t.step[2] * k];
+        let sh = |p: &Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
+        for (p, s) in &base.blocks {
+            let q = sh(p);
+            if let Some(o) = d.blocks.get(&q) {
+                bail!("tile: copy {k} puts {} on {} at {q:?} (the copies overlap)", clock::short(s), clock::short(o));
+            }
+            d.blocks.insert(q, s.clone());
+        }
+        for (p, s) in &base.block_entities {
+            d.block_entities.insert(sh(p), s.clone());
+        }
+        for e in &base.entities {
+            let mut e2 = e.clone();
+            for i in 0..3 {
+                e2.pos[i] += off[i] as f64;
+            }
+            d.entities.push(e2);
+        }
+        for (name, p) in &base.ports {
+            let q = sh(p);
+            // a port on the design's own block (a BUD's reset input) sits on its copy's block
+            let own = base.blocks.contains_key(p);
+            if (d.blocks.contains_key(&q) && !own) || d.ports.values().any(|x| *x == q) {
+                bail!("tile: copy {k}'s port {name} at {q:?} lands on the other copies");
+            }
+            let renamed = format!("{name}.t{k}");
+            if let Some(args) = base.meta.get(&format!("port {name}")) {
+                d.meta.insert(format!("port {renamed}"), args.clone());
+            }
+            d.ports.insert(renamed, q);
+        }
+    }
+    // copy 0's ports must not land on the other copies' blocks either
+    for (name, p) in &base.ports {
+        if !base.blocks.contains_key(p) && d.blocks.contains_key(p) {
+            bail!("tile: port {name} at {p:?} is covered by another copy");
+        }
+    }
+    Circuit::from_design(d)
 }
 
 /// A judge chest of a shulker loader or unloader ([`shulker`]): placed by the judge on an air cell
@@ -487,6 +543,8 @@ impl Circuit {
                 Kind::Gate(_) if names.len() == 1 || names.len() == 2 => {}
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
                 _ if names.len() == 1 => {}
+                // a tiled run ([`tiled`]) of a study-11 design: one input per copy
+                _ if k.study() == "pulsemult" && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
                 _ => bail!("{}: needs exactly one input (port input:), has {}", k.name(), names.len()),
             },
         }
@@ -523,8 +581,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() {
-            bail!("tile: only shulker loaders and unloaders and BUD switches are tiled");
+        if self.tile.is_some() && !k.is_shulker() && k.study() != "pulsemult" {
+            bail!("tile: only shulker loaders and unloaders, BUD switches and the study-11 kinds are tiled");
         }
         Ok(())
     }
