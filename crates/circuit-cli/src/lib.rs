@@ -135,6 +135,11 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Track tnt's commands (crates/circuit-tnt).
+    Tnt {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -270,6 +275,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Gates { args } => circuit_gates::run(args)?,
         CircuitCmd::Pext { args } => circuit_pext::run(args)?,
         CircuitCmd::Fly { args } => circuit_fly::run(args)?,
+        CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
     }
     Ok(())
 }
