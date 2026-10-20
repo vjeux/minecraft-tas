@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:47Z from designs/circuits/tracks/pulse/k4/pulse-dual-observers-qc-L2-1.txt by mctas circuit archive
-# CIRCUIT: pulse-dual-observers-qc-L2-1 dual-edge L 2 gt rising / 1 gt falling, delay 3 gt rising / 4 gt falling, min-pulse 6 gt, 4 blocks, 1x3x3, robust
+# CIRCUIT: pulse-dual-observers-qc-L2-1 dual-edge L 2 gt rising / 1 gt falling, delay 2 gt rising / 3 gt falling, min-pulse 6 gt, 4 blocks, 1x3x3, robust
 name: pulse-dual-observers-qc-L2-1
 # 2 gt after the rising edge, 1 gt after the falling edge (4-block census): the 1 gt falling-edge design with its note block replaced by a second observer. Rising edge: the observer watching the normal piston's head fires into the cell the sticky piston's head fills (2 gt). Falling edge: it fires as the pulled-back observer lands in that cell, which quasi-powers the sticky piston: it pushes the observer away the next tick (1 gt).
 circuit: dual-edge

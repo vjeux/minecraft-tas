@@ -779,7 +779,7 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             format!("the output is tagged <span class=\"tag-out\">{}</span>: the orange glass marker next to it <b>glows while the output is on</b>", esc(&outs.join(", ")))
         };
         s.push_str(&format!(
-            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; {shows} (the strip under the tick counter shows its last 40 gt). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>"
+            "<p>Inputs are tagged in <span class=\"tag-in\">lime</span>; {shows} (the output strip by the demo badge shows its last 40 game ticks, 2 seconds). Drag to look around, pinch or scroll to zoom, step one game tick at a time with the step button.</p>"
         ));
     }
     s
@@ -895,6 +895,26 @@ fn study11_try(c: &Circuit) -> String {
 /// Study 11: the judge's phase labels in words, for the view's demo badge and the timing diagram
 /// (`clock 40` -> `clock, a pulse every 40 gt`); other kinds keep theirs.
 pub fn phase_label(kind: &str, label: &str) -> String {
+    phase_label_min(kind, label, None)
+}
+
+/// [`phase_label`] knowing the shortest input the design handles: the pulse circuits' sweep
+/// (`pulse 2`, `pulse 3` ... `pulse 60`) reads `a 2-tick input: too short, ignored` below it
+/// (critique: the sculk filter's demo played 2-tick inputs it ignores, with no word about it).
+pub fn phase_label_min(kind: &str, label: &str, min_pulse: Option<u32>) -> String {
+    if matches!(base(kind), "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender") {
+        let mut w = label.split_whitespace();
+        if let (Some("pulse"), Some(n), None) = (w.next(), w.next().and_then(|n| n.parse::<u32>().ok()), w.next()) {
+            return match min_pulse {
+                Some(m) if n < m => format!("a {n}-tick input: too short, ignored"),
+                _ => format!("a {n}-tick input"),
+            };
+        }
+    }
+    phase_label_any(kind, label)
+}
+
+fn phase_label_any(kind: &str, label: &str) -> String {
     // a BUD's judge: `place 1 t`, `state 2b t`, `setup t`, `probe 3 place`, `rearm place 6 2`
     if base(kind) == "bud" {
         return bud_phase(label);
@@ -1004,7 +1024,7 @@ pub const STUDIES: [(&str, &str, &str); 11] = [
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every press. The variations builds need (a precise spawn point, bursts, movable, tileable...) are in the variations table.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every press. What builds need from them (a precise spawn point, bursts, movable, tileable...) is in the variations table.",
     ),
     (
         "bud",
@@ -1262,14 +1282,16 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a label every 5, 10, 20, 50, 100... gt (at least 60 px apart)
+    // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
+    // once on the first step (critique: "5 gt, 10 gt, 15 gt")
     let step = [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000);
     let mut t = 0u32;
     let ya = height - 6.0;
     while (t as f64) <= ticks {
         // (a label that would run past the right edge is left out)
-        if t == 0 || x(t as f64) + 34.0 <= width {
-            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{}</text>", x(t as f64), if t == 0 { "0".to_string() } else { format!("{t} gt") }));
+        let label = if t == 0 { "0".to_string() } else if t == step { format!("{t} ticks") } else { t.to_string() };
+        if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
+            s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }
         t += step;
     }
@@ -1288,6 +1310,9 @@ mod tests {
 
     #[test]
     fn unsimulated_reasons_read_plainly() {
+        // a pulse circuit's sweep says which inputs are too short for the design
+        assert_eq!(phase_label_min("dual-edge", "pulse 2", Some(20)), "a 2-tick input: too short, ignored");
+        assert_eq!(phase_label_min("dual-edge", "pulse 20", Some(20)), "a 20-tick input");
         assert_eq!(phase_label("bud", "place 1 t"), "place #1");
         assert_eq!(phase_label("bud", "state 2b t"), "change back #2");
         assert_eq!(phase_label("bud", "rearm place 6 t"), "2 changes 6 gt apart");

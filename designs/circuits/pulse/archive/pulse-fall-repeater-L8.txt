@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:28Z from designs/circuits/tracks/pulse/repeater/pulse-fall-repeater-L8.txt by mctas circuit archive
-# CIRCUIT: pulse-fall-repeater-L8 falling-edge L 8 gt, delay 13 gt, min-pulse 6 gt, 4 blocks, 3x2x2, robust
+# CIRCUIT: pulse-fall-repeater-L8 falling-edge L 8 gt, delay 12 gt, min-pulse 6 gt, 4 blocks, 3x2x2, robust
 name: pulse-fall-repeater-L8
 circuit: falling-edge
 group: pulse-fall-repeater

@@ -45,7 +45,7 @@ pub fn headline(b: &Build) -> String {
     // the big text over a picture or a loading view: in words, like the card's title (critique:
     // "N = 2 gt" badges over thumbnails whose card says "2-tick delay")
     if let Some(c) = &b.clock {
-        return format!("every {} ticks", c.period);
+        return format!("every {} ticks", c.every());
     }
     if let Some(c) = &b.circuit {
         let (main, _) = circuit_props(c);
@@ -70,7 +70,7 @@ pub fn subline(b: &Build) -> String {
             s
         }
         "clock" => {
-            let p = b.clock.as_ref().map(|c| gt_time(c.period)).unwrap_or_default();
+            let p = b.clock.as_ref().map(|c| gt_time(c.every())).unwrap_or_default();
             format!("{p} · {} · {}", blocks_word(b.blocks), b.group.replace('+', " + "))
         }
         _ => match &b.circuit {
@@ -148,7 +148,7 @@ pub fn badges(b: &Build) -> Vec<String> {
         let m = |k: &str| c.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str()).unwrap_or("");
         let badges: Vec<&str> = m("badges").split('+').filter(|s| !s.is_empty()).collect();
         for x in badges.iter().take(4) {
-            v.push(x.to_string());
+            v.push(badge_words(x));
         }
         if badges.len() > 4 {
             v.push(format!("+{} more", badges.len() - 4));
@@ -253,10 +253,27 @@ pub fn value_words(kind: &str, axis: &str) -> String {
     }
 }
 
+/// A machine's badge in words (`tileable(9)` -> `tiles every 9 blocks`, `tileable(1)` -> `tiles
+/// side by side`): the critique asked for words over `tileable(9)`.
+pub fn badge_words(badge: &str) -> String {
+    match badge.split_once('(') {
+        Some(("tileable", n)) => match n.trim_end_matches(')') {
+            "1" => "tiles side by side".to_string(),
+            n => format!("tiles every {n} blocks"),
+        },
+        _ => badge.to_string(),
+    }
+}
+
 /// A tunable group's range as a card's headline (`every 17th to 576th pulse`, `on for 12 to 36
 /// ticks · restarts on every press`, `reach 2 to 4`), from its span (`L 12-36 gt, 5 values`);
 /// None for a design that is no group's card or whose span is no range.
 fn group_range(c: &crate::Circuit) -> Option<String> {
+    // one machine timed with several kinds of items (critique: three cards for 1-, 16- and
+    // 64-stack items): one card that works with any of them
+    if c.kind.starts_with("shulker-") && !c.span.is_empty() {
+        return Some("works with any stack size".to_string());
+    }
     let (range, _) = c.span.split_once(", ")?;
     let (lo, hi) = range.split_whitespace().find_map(|w| {
         let (a, b) = w.split_once('-')?;
@@ -271,8 +288,8 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
-        "pulse-limiter" => format!("at most {ticks}"),
-        "pulse-extender" => format!("at least {ticks}"),
+        "pulse-limiter" => format!("cuts pulses to {ticks}"),
+        "pulse-extender" => format!("stretches pulses to {ticks}"),
         "delay" => format!("{lo}- to {hi}-tick delay"),
         "monostable" => format!("on for {ticks}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
         "off-delay" => format!("stays on {ticks} after"),
@@ -380,23 +397,48 @@ pub fn search_aliases(b: &Build) -> &'static str {
 
 /// The community's seamless tiers in words (properties.rs `seamless`: QUART = closed, nothing of
 /// the machine shows on one side; SEMI = that and open; FULL = both sides, closed and open; SUPER
-/// = FULL and every tick of the motion).
+/// = FULL and every tick of the motion), short enough for a chip.
 pub fn seamless_words(tier: &str) -> String {
     match tier {
-        "SUPER" => "hidden from both sides, even while moving".to_string(),
-        "FULL" => "hidden from both sides, closed and open".to_string(),
-        "SEMI" => "hidden from one side, closed and open".to_string(),
-        "QUART" => "hidden from one side when closed".to_string(),
+        "SUPER" => "machine hidden even while moving".to_string(),
+        "FULL" => "machine hidden from both sides".to_string(),
+        "SEMI" => "machine hidden from one side".to_string(),
+        "QUART" => "machine hidden when closed".to_string(),
         "" => String::new(),
         other => format!("{} seamless", other.to_lowercase()),
     }
 }
 
-/// A board a door leads, in words (`solid` -> `smallest solid door`).
+/// A board a door leads, in words (`solid` -> `smallest solid door`, `sculk, not rotation-safe`
+/// -> `smallest sculk door that only works facing one way`, `fastest open (solid only)` ->
+/// `fastest solid door to open`).
 pub fn lead_words(board: &str) -> String {
-    match board {
-        "solid" | "sculk" | "gravity" | "entity" => format!("smallest {board} door"),
-        other => format!("#1: {other}"),
+    let (base, one_way) = match board.strip_suffix(", not rotation-safe") {
+        Some(b) => (b, true),
+        None => (board, false),
+    };
+    let tail = if one_way { " that only works facing one way" } else { "" };
+    if let Some(rest) = base.strip_prefix("fastest ") {
+        let (what, scope) = rest.split_once(" (").map(|(w, s)| (w, s.trim_end_matches(')'))).unwrap_or((rest, ""));
+        let what = match what {
+            "open" => "to open",
+            "close" => "to close",
+            "open + close" => "to open and close",
+            other => other,
+        };
+        let kind = if scope == "solid only" { "solid door" } else { "door" };
+        return format!("fastest {kind} {what}{tail}");
+    }
+    match base {
+        "solid" | "sculk" | "gravity" | "entity" => format!("smallest {base} door{tail}"),
+        "slime-free" => format!("smallest door with no slime{tail}"),
+        "flat" => format!("smallest 1-block-thick door{tail}"),
+        "flat, no slime or honey" => format!("smallest 1-block-thick door with no slime{tail}"),
+        "seamless" => format!("smallest hidden door{tail}"),
+        "seamless, flat, no slime or honey" => format!("smallest hidden 1-block-thick door{tail}"),
+        "wall" => format!("smallest door in a 3-thick wall{tail}"),
+        "ground" => format!("smallest door with nothing below it{tail}"),
+        other => format!("best: {other}{tail}"),
     }
 }
 
@@ -500,7 +542,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "rising-edge" | "falling-edge" | "dual-edge" => (format!("{}-tick pulse", num(cm(c, "L"))), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
         "pulse-limiter" => (format!("at most {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
         "pulse-extender" => (format!("at least {l}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")])),
-        "tff" => (human_blocks(&c.axis), sub(&[("reacts in {}", "latency"), ("follows presses {} apart", "min-period")])),
+        "tff" => (said("reacts in {}", "latency").unwrap_or_default(), sub(&[("follows presses {} apart", "min-period")])),
         "delay" => (format!("{}-tick delay", if cm(c, "N").is_empty() { num(c.axis.trim_start_matches("N = ")) } else { num(cm(c, "N")) }), sub(&[("needs an input of at least {}", "min-pulse"), ("keeps gaps of {}", "min-gap")])),
         "gate" => {
             let f = if cm(c, "function").is_empty() { k1 } else { cm(c, "function") };
@@ -540,13 +582,18 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "shulker-loader" | "shulker-unloader" => {
             // what the card is best at leads (critique: cards with the same numbers differed only
-            // by their badges); the items it handles are in its badges, not the headline (a
-            // "16-stack items" card carried the "unstackable" badge)
+            // by their badges); the items it is timed with go in the second line (critique: "first
+            // box after 11 min" with nothing saying 64-stack items take 1728 to fill a box)
             let rate = cm(c, "items/s");
             let first = cm(c, "first box").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("first box after {}", crate::real_time(g)));
-            let lead = if c.lead.is_empty() { String::new() } else { format!("{} · ", c.lead) };
-            let _ = k1;
-            (if rate.is_empty() { lead.trim_end_matches(" · ").to_string() } else { format!("{lead}{rate} items a second") }, first.into_iter().collect())
+            let lead = if c.lead.is_empty() { String::new() } else { format!("{} · ", badge_words(&c.lead)) };
+            let stack = c.axis.split_whitespace().find_map(|w| w.strip_suffix("-stack")).unwrap_or(k1);
+            let items = match stack {
+                "" => None,
+                "1" => Some("timed with unstackable items".to_string()),
+                n => Some(format!("timed with {n}-stack items")),
+            };
+            (if rate.is_empty() { lead.trim_end_matches(" · ").to_string() } else { format!("{lead}{rate} items a second") }, items.into_iter().chain(first).collect())
         }
         "bud" => {
             let d: Vec<&str> = cm(c, "detects").split_whitespace().map(|k| match k {
@@ -609,12 +656,14 @@ pub fn props(b: &Build) -> Props {
         }
         "clock" => {
             let c = b.clock.as_ref();
-            let period = c.map(|c| format!("every {} ({})", if c.period == 1 { "tick".to_string() } else { format!("{} ticks", c.period) }, crate::real_time(c.period))).unwrap_or_default();
-            let pulse = c.and_then(|c| match c.edges {
-                0 => None,
-                1 if c.on > 0 => Some(format!("on for {} of {} ticks", c.on, c.period)),
-                1 => None,
-                e => Some(format!("{e} pulses a cycle")),
+            let period = c.map(|c| format!("every {} ({})", if c.every() == 1 { "tick".to_string() } else { format!("{} ticks", c.every()) }, crate::real_time(c.every()))).unwrap_or_default();
+            // an output that pulses several times evenly in a cycle: its pulses, and the cycle
+            let pulse = c.and_then(|c| match (c.pulse_every, c.edges) {
+                (Some(_), e) => Some(format!("{e} pulses in each {}-tick cycle", c.period)),
+                (None, 0) => None,
+                (None, 1) if c.on > 0 => Some(format!("on for {} of {} ticks", c.on, c.period)),
+                (None, 1) => None,
+                (None, e) => Some(format!("{e} pulses a cycle")),
             });
             let made = format!("made of {}", human_blocks(&b.group));
             let sub = [Some(made), pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
@@ -640,6 +689,10 @@ pub fn props(b: &Build) -> Props {
                         chips.push(words.into());
                     }
                 }
+                // the same build archived as another kind too
+                for a in &c.also {
+                    chips.push(format!("also a {}", a.to_lowercase()));
+                }
                 // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side)
                 if let Some(d) = &b.dims {
                     let n: Vec<u32> = d.split('x').filter_map(|v| v.trim().parse().ok()).collect();
@@ -652,7 +705,7 @@ pub fn props(b: &Build) -> Props {
                     }
                 }
                 let badges: Vec<&str> = cm(c, "badges").split('+').filter(|s| !s.is_empty() && *s != c.lead).collect();
-                chips.extend(badges.iter().take(4).map(|s| s.to_string()));
+                chips.extend(badges.iter().take(4).map(|s| badge_words(s)));
                 if badges.len() > 4 {
                     chips.push(format!("+{} more", badges.len() - 4));
                 }
@@ -663,7 +716,7 @@ pub fn props(b: &Build) -> Props {
                 // what it is made of (the blocks that change state) and its box tell siblings apart
                 // (no design names in lists: vjeux 13:11Z; critique: two delay cards read the
                 // same, "2 comparators" vs "a repeater"; fly cards: slime or honey)
-                if !c.family.is_empty() && c.family.split('+').count() <= 3 && !c.kind.starts_with("tff") {
+                if !c.family.is_empty() && c.family.split('+').count() <= 3 {
                     sub.push(format!("made of {}", human_blocks(&c.family)));
                 }
                 if !dims.is_empty() {

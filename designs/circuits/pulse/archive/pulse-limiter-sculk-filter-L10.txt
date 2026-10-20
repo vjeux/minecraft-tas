@@ -1,5 +1,5 @@
 # archived 2026-10-20T13:33Z from designs/circuits/tracks/pulse/wr/pulse-limiter-sculk-filter-L10.txt by mctas circuit archive
-# CIRCUIT: pulse-limiter-sculk-filter-L10 pulse-limiter L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes, 5 blocks, 2x2x4, robust
+# CIRCUIT: pulse-limiter-sculk-filter-L10 pulse-limiter L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes, 5 blocks, 2x2x4, robust
 name: pulse-limiter-sculk-filter-L10
 circuit: pulse-limiter
 # Cuts any input down to exactly 10 ticks (half a second), however long it is held: the input makes

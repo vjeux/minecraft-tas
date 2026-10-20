@@ -255,7 +255,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 if lever { "Flip its start lever (the lime IN button under the view). " } else { "It starts by itself. " }
             );
         }
-        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; watch the lamp marked OUT.".to_string(),
+        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
         _ => {}
     }
     if !c.unmodeled.is_empty() {
@@ -272,17 +272,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         (_, 1) => format!("Hold {} under the view for a long press, tap it for a short one", names[0]),
         _ => format!("Use the {} buttons under the view to drive the inputs", list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "and")),
     };
-    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the lamp marked OUT lights while the output is on" };
+    // the viewer draws the output as a box tagged OUT that turns red while powered (webrender
+    // 1742c0308)
+    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the box marked OUT turns red while the output is on" };
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
-        "burst" => format!("each tap gives exactly {} flashes of OUT", number(&c.kind)),
+        "burst" => format!("each tap turns OUT red exactly {} times", number(&c.kind)),
         "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: press the speed button until it shows 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
-        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT lit for a while; tapping again while it is lit changes nothing".to_string(),
-        "monostable" => "a tap keeps OUT lit for a while; tap again while it is lit and it stays lit longer".to_string(),
-        "off-delay" => "turn it on, then off: OUT stays lit a while after".to_string(),
-        "on-delay" => "a quick tap does nothing; hold it and OUT lights".to_string(),
-        "pulse-train" => "turn it on and OUT keeps flashing until you turn it off".to_string(),
+        "monostable" if c.kind.contains("non-retriggerable") => "a tap keeps OUT red for a while; tapping again while it is red changes nothing".to_string(),
+        "monostable" => "a tap keeps OUT red for a while; tap again while it is red and it stays red longer".to_string(),
+        "off-delay" => "turn it on, then off: OUT stays red a while after".to_string(),
+        "on-delay" => "a quick tap does nothing; hold it and OUT turns red".to_string(),
+        "pulse-train" => "turn it on and OUT keeps flashing red until you turn it off".to_string(),
         "tff" | "tff-reset" => "each tap flips OUT on or off".to_string(),
         _ => String::new(),
     };
@@ -335,7 +337,10 @@ pub fn warning(b: &Build) -> Option<String> {
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
         if proof && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
-            return Some("Uses a sculk sensor tuned so footsteps and other noises don't trigger it.".to_string());
+            return Some(format!(
+                "Uses a sculk sensor tuned so footsteps and other noises don't trigger it{}.",
+                if b.kinds.iter().any(|k| k == "chest") { ": the items in its chest set the one sound it listens to" } else { "" }
+            ));
         }
     }
     let robustness = match (&b.circuit, &b.clock) {
@@ -351,6 +356,59 @@ pub fn warning(b: &Build) -> Option<String> {
         return Some("Depends on where it is built: it does not work at every spot in the world, so test it where you build it.".to_string());
     }
     None
+}
+
+/// What a build needs to work where you build it, for its opening lines (critique, real-world
+/// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
+/// height above the ground (`safe drop`), the items its containers start with (the design's
+/// `nbt:` lines), water, open sky.
+pub fn needs(b: &Build, design: &str) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Some(c) = &b.circuit {
+        if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
+            match drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()) {
+                Some(0) => v.push("Works standing on the ground.".to_string()),
+                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT lands under it and blows it up.")),
+                None => {}
+            }
+        }
+    }
+    // the items its containers start with, summed per item
+    let mut items: Vec<(String, u64)> = Vec::new();
+    for line in design.lines().filter_map(|l| l.trim_start().strip_prefix("nbt:")) {
+        for part in line.split("id:\"").skip(1) {
+            let id = part.split('"').next().unwrap_or("").trim_start_matches("minecraft:").replace('_', " ");
+            let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|c| c.parse::<u64>().ok()).unwrap_or(1);
+            match items.iter_mut().find(|(i, _)| *i == id) {
+                Some(e) => e.1 += count,
+                None => items.push((id, count)),
+            }
+        }
+    }
+    if !items.is_empty() {
+        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
+        v.push(format!("Comes loaded with {} in its containers: the download includes them; building it by hand, put them in first.", list.join(" and ")));
+    }
+    if b.kinds.iter().any(|k| k == "water") {
+        v.push("Needs water where the view shows it.".to_string());
+    }
+    if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
+        v.push("Needs open sky above its daylight sensor.".to_string());
+    }
+    v
+}
+
+/// `1111` -> `1,111`.
+fn thousands(n: u64) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
 }
 
 /// A door's plain lines: (what it does, why you would build it, how to try it).
@@ -377,11 +435,13 @@ pub fn door(b: &Build) -> (String, String, String) {
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
 pub fn clock(b: &Build) -> (String, String, String) {
     let c = b.clock.as_ref();
-    let period = c.map(|c| ticks(&format!("{} gt", c.period))).unwrap_or_default();
+    let period = c.map(|c| ticks(&format!("{} gt", c.every()))).unwrap_or_default();
+    // an output that pulses several times in one cycle of its parts says both
+    let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
     (
-        format!("Its output pulses by itself every {period}, forever.{start}"),
+        format!("Its output pulses by itself every {period}{cycle}, forever.{start}"),
         "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself.".to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
@@ -397,7 +457,7 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         ),
         // the item counters: what sets the count (critique: "nothing says HOW to load the items")
         (Some(c), _) if !c.layout_key.is_empty() && base(&c.kind) == "counter" => format!(
-            "{} Its count is the number of items in its dropper: load another number of items (stone here) to make it react on that count.",
+            "{} Its count is the number of items in its droppers: they pass the items one way per pulse, and the numbers over them show how many each holds. Load another number of items (stone here) to make it react on that count.",
             try_it(c, has_viewer)
         ),
         (Some(c), _) => try_it(c, has_viewer),
@@ -452,6 +512,18 @@ mod tests {
 
     fn circuit(kind: &str, metrics: &[(&str, &str)]) -> Circuit {
         Circuit { kind: kind.into(), metrics: metrics.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), ..Default::default() }
+    }
+
+    #[test]
+    fn needs_say_what_the_build_needs() {
+        // a TNT duper's safe height, and the items its containers start with
+        let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
+        let design = "nbt: 2 0 3 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:64},{Slot:1b,id:\"minecraft:cobblestone\",count:1047}]}";
+        let v = needs(&b, design);
+        assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT lands under it and blows it up.");
+        assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
+        let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
+        assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
     }
 
     #[test]

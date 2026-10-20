@@ -73,10 +73,16 @@ header.top {
      picture on the left, the properties on the right, about 6 cards a screen */
   .grid { grid-template-columns: 1fr; gap: 10px; }
   .grid > .card { flex-direction: row; align-items: stretch; }
-  .grid > .card > .thumb { flex: 0 0 40%; width: 40%; max-width: 168px; aspect-ratio: 4 / 3; align-self: center; }
+  /* the picture fills the card's height (critique: white strips above and below it when the
+     text is taller) */
+  .grid > .card > .thumb { flex: 0 0 40%; width: 40%; max-width: 168px; aspect-ratio: auto; align-self: stretch; min-height: 104px; }
   .grid > .card > .meta { flex: 1; min-width: 0; padding: 7px 10px; }
 }
 .nowrap { white-space: nowrap; }
+p.needs { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--card); font-size: 14px; }
+.scroll-x { overflow-x: auto; max-width: 100%; }
+.phone-only { display: none; }
+@media (max-width: 640px) { .phone-only { display: block; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .intro { margin: 2px 0 14px; font-size: 14px; }
 footer nav.foot { margin-bottom: 6px; }
@@ -117,7 +123,9 @@ h1.formula { font-size: 40px; font-variant-numeric: tabular-nums; }
 .filters .range { display: flex; gap: 6px; align-items: center; }
 .filters .range input { width: 50%; }
 .filters .range-label { font-size: 13px; margin: 6px 0 2px; }
-.filters .chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 220px; overflow: auto; }
+/* (no scroll box of its own: the panel scrolls once, critique C28 found three nested ones cutting
+   rows in half; the block kinds have their own filter box) */
+.filters .chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .filters label.check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
 .filters .reset { margin-top: 14px; width: 100%; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }

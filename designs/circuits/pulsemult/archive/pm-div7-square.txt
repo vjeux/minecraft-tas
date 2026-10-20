@@ -1,5 +1,5 @@
-# archived 2026-10-20T10:31Z from designs/circuits/pulsemult/tracks/pulsemult/pm-div7-square.txt by mctas circuit archive
-# CIRCUIT: pm-div7-square divider 7 N 7, duty 50%, output square, latency 37 gt, min-period 20 gt, 23 blocks, 7x3x3, robust
+# archived 2026-10-20T16:51Z from designs/circuits/pulsemult/tracks/pulsemult/r7/pm-div7-square.txt by mctas circuit archive
+# CIRCUIT: pm-div7-square divider 7 N 7, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build, 25 blocks, 7x5x3, robust
 name: pm-div7-square
 circuit: divider 7
 group: pm-square-divider
@@ -25,6 +25,15 @@ palette:
   W minecraft:waxed_copper_bulb[lit=false,powered=false]
   d minecraft:dropper[facing=north,triggered=false]
   h minecraft:hopper[enabled=true,facing=east]
+  r minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+layer -3:
+  .
+  ...S
+  .
+layer -2:
+  .
+  ...r
+  .
 layer -1:
   .
   ...OS

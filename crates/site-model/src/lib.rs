@@ -146,8 +146,12 @@ pub struct Door {
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ClockInfo {
-    /// Period in game ticks (20 gt = 1 s).
+    /// Period in game ticks (20 gt = 1 s): the whole state's cycle.
     pub period: u32,
+    /// The output's own period when it pulses several times, evenly, per cycle (clockinfra's
+    /// gaps: N equal gaps g): what a builder means by the clock's time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pulse_every: Option<u32>,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
@@ -188,6 +192,13 @@ pub struct ClockInfo {
     pub instance: bool,
 }
 
+impl ClockInfo {
+    /// How often its output pulses: the output's own period, else the whole cycle.
+    pub fn every(&self) -> u32 {
+        self.pulse_every.unwrap_or(self.period)
+    }
+}
+
 fn is_false(b: &bool) -> bool {
     !*b
 }
@@ -212,6 +223,10 @@ pub struct Circuit {
     /// fastest, then smallest): its card leads with it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lead: String,
+    /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
+    /// rising-edge detector): its card says it is also one of those.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<String>,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -292,6 +307,10 @@ pub struct Circuit {
     /// only.
     #[serde(skip)]
     pub stimulus: String,
+    /// A strength input's values over the judge's test (`<frame> <input> <value>; ...`, the hex
+    /// kinds), for the viewer's demo (`data-levels`). Pages only.
+    #[serde(skip)]
+    pub levels: String,
     #[serde(skip)]
     pub phases: String,
     /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
@@ -543,6 +562,7 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("variant", "variant of a smaller design", "door,clock,circuit"),
     ("census", "found by the census, not the smallest of its period", "clock"),
     ("twin", "the same numbers as another clock shown", "clock"),
+    ("kind-twin", "the same build as a design of another kind", "circuit"),
     ("tunable", "several versions of one mechanism", "circuit"),
     ("layout", "another layout of a shown design", "circuit"),
     ("composite", "several clocks in one", "clock"),
@@ -927,7 +947,7 @@ impl Site {
         for b in &self.builds {
             if let Some(c) = &b.clock {
                 if c.host.is_none() && !c.instance {
-                    *count.entry(c.period).or_default() += 1;
+                    *count.entry(c.every()).or_default() += 1;
                 }
             }
         }
@@ -961,8 +981,8 @@ impl Site {
                     name: &b.name,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
-                    period: b.clock.as_ref().map(|c| c.period as i64),
-                    main: b.clock.as_ref().map(|c| c.period as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
+                    period: b.clock.as_ref().map(|c| c.every() as i64),
+                    main: b.clock.as_ref().map(|c| c.every() as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
                     open: b.door.as_ref().and_then(|d| d.open).map(|v| v as i64),
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
@@ -1054,6 +1074,10 @@ impl Site {
                 return false;
             }
             if !q.variants && v.variant {
+                return false;
+            }
+            // a build listed under two kinds shows once, unless its own kind is picked
+            if !q.variants && q.groups.is_empty() && v.flags.iter().any(|f| f == "kind-twin") {
                 return false;
             }
             if skip != Skip::Groups && !q.groups.is_empty() && !q.groups.contains(v.group) {

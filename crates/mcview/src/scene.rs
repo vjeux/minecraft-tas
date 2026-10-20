@@ -240,6 +240,16 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 /// extender's travel, its ports, inputs and marker, its entities); not its bounding box (a
 /// sparse build would come out small).
 pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
+    points(s, look, true)
+}
+
+/// [`view_points`] of a still (a thumbnail): what the build occupies now and as placed, without
+/// the travel ahead (a long extender's path, where redsim's run takes its entities).
+pub fn still_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
+    points(s, look, false)
+}
+
+fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     let mut cells: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
     for b in s.render_blocks(0.0) {
         cells.insert(b.cell);
@@ -256,9 +266,10 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
         boxes.push(b);
     }
     // a design that travels (a piston extender's payload): its whole swept path (without the
-    // corridor's free cells); a flying machine is followed instead
+    // corridor's free cells; a still: not); a flying machine is followed instead
     let flies = s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine"));
-    if s.corridor.is_some()
+    if moving
+        && s.corridor.is_some()
         && !flies
         && let Some((b, _)) = crate::session::travel_box(&s.design, &s.mode)
     {
@@ -279,7 +290,7 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
     let mut ent_pos: Vec<[f32; 3]> = ents.iter().map(|e| e.pos).chain(s.design.entities.iter().map(|e| [e.pos[0] as f32, e.pos[1] as f32, e.pos[2] as f32])).collect();
     // a design with entities or TNT: where they go in redsim's run (a launched TNT's flight, a
     // cart's loop), within VIEW_REACH blocks of the build (one flung far away leaves the view)
-    if !s.design.entities.is_empty() || crate::session::is_tnt_design(&s.design) {
+    if moving && (!s.design.entities.is_empty() || crate::session::is_tnt_design(&s.design)) {
         let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
         let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
         let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH);
@@ -298,9 +309,10 @@ pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
         if (0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
             let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
             let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
-            let c = [(lo[0] + hi[0]) / 2.0, lo[1], (lo[2] + hi[2]) / 2.0];
+            // around the build's middle, up and down alike (it sits mid-frame, not low)
+            let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
             for k in 0..8 {
-                pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { 0.0 } else { 2.0 * hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
+                pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { -hy } else { hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
             }
         }
     }
@@ -409,7 +421,17 @@ fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f
 /// (and click) every lever and button from: a door's lever is often behind the build from the
 /// pictures' side.
 pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32)) -> Camera {
-    let pts = view_points(s, look);
+    camera_showing_inputs_of(atlas, s, look, aspect, window, &view_points(s, look))
+}
+
+/// A thumbnail's camera: [`camera_showing_inputs`] of the still ([`still_points`]) in
+/// [`THUMB_WINDOW`].
+pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Camera {
+    camera_showing_inputs_of(atlas, s, look, aspect, THUMB_WINDOW, &still_points(s, look))
+}
+
+fn camera_showing_inputs_of(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
+    let pts = pts.to_vec();
     let base = view_camera_at(s, look, &pts, aspect, CAM_DIR, window);
     if s.inputs.is_empty() || !s.simulated() {
         return base;
@@ -452,13 +474,13 @@ mod tests {
     use super::*;
     use crate::session::Options;
 
-    /// An empty input cell (a gate's A and B) counts as seen when a ray reaches it before any
-    /// block: the camera then starts on the side both inputs can be tapped from (gate-imply-ba's
-    /// A hides behind its OUT lamp from the pictures' side).
+    /// An input whose centre hides behind another block from the pictures' side (here A behind
+    /// the judge's lamp in the output cell in front of it) makes the camera start on a side every
+    /// input's centre can be tapped from.
     #[test]
     fn empty_input_cells_are_tappable() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-imply-ba-bump-4b.txt")).unwrap();
-        let s = Session::new(&text, &Options::default()).unwrap();
+        let text = "name: t\ncircuit: gate and\nport input.a: 0 1 0\nport input.b: 1 1 0\nport output: 0 1 1\npalette:\n  S minecraft:stone\nlayer 0:\n  SS\n  S.\n";
+        let s = Session::new(text, &Options::default()).unwrap();
         let atlas = crate::atlas::Atlas::build();
         let look = viewer_look(&s);
         let aspect = 1217.0 / 480.0;

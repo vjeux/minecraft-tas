@@ -23,26 +23,36 @@ The headline variation is the SIGNAL-input gate: both inputs are redstone signal
 3. A glitch-free IMPLY at 3-4 blocks (the archived 3b torch version reports `glitches 2`).
 4. Tileable rows once a function is at its bar: measure the pitch with `tile:` rather than claiming it.
 
-## R7 (real input devices, on main 2026-10-20): EIGHT archived gates are now invalid
+## R7 (real input devices, on main 2026-10-20): FIFTEEN archived gates were invalid, and are out
 
-Re-judged every gate under R7, where the judge drives an input with a repeater pointing into the cell instead of placing a redstone block in it. These FAIL and must be replaced before any of them counts as a record:
+Re-judged every gate under R7, where the judge drives an input with a repeater pointing into the cell instead of placing a redstone block in it. Fifteen of the twenty-three failed and are removed from the archive (a design that fails the judge cannot sit in it claiming a record):
 
-| design | what the judge now measures |
+| design | what the judge measured |
 |---|---|
 | gate-xor-ring-14b | behaves as OR |
 | gate-xnor-ring-16b | behaves as NOR |
-| gate-and-5b | the output is false (truth table 0000) |
-| gate-nimply-cmp-2b | the output is a (0011) |
-| gate-nimply-ba-cmp-2b | the output is b (0101) |
-| gate-nor-bump-4b | the output is true (1111) |
-| gate-nor-torch-3b | the output is not steady at rest |
-| gate-imply-torch-3b | the output is not steady at rest |
+| gate-and-5b | always false (0000) |
+| gate-nimply-cmp-2b / -ba-cmp-2b | passes a / passes b through |
+| gate-nor-bump-4b, gate-not-bump-4b, gate-imply-bump-4b, gate-imply-ba-bump-4b, gate-nand-bump-8b | always true |
+| gate-nimply-bump-4b / -ba-bump-4b | behave as OR |
+| gate-nor-torch-3b, gate-imply-torch-3b, gate-imply-ba-torch-3b | the output is not steady at rest |
 
-Survive R7, with their tile pitches measured: gate-or-2b (2), gate-not-torch-3b (3), gate-nand-torch-6b (4). Both delay cards survive too (pitch 1).
+What survives, with the tile pitches I measured: gate-or-2b (pitch 2), gate-or-lever-1b, gate-not-torch-3b (3), gate-not-lever-2b, gate-nor-lever-2b, gate-nand-torch-6b (4), plus the two rebuilt below. Both delay cards survive too (pitch 1).
 
-The cause, read from the game's source and confirmed in the game. A comparator's or repeater's SIDE input is `DiodeBlock.getAlternateSignal` -> `SignalGetter.getControlInputSignal`, which returns a value only for a redstone block, redstone dust, or a signal source (a diode). A plain block, however strongly powered, gives 0. A redstone block placed IN the input cell satisfied that; the R7 repeater driving the judge's smooth stone there does not. The same rule breaks the dust-ring XOR/XNOR, whose ends read power that a placed block supplied.
+THE RULE, from the game's source and confirmed by the judge: a comparator's or repeater's SIDE input is `DiodeBlock.getAlternateSignal` -> `SignalGetter.getControlInputSignal`, which answers only for a redstone block, redstone dust or a diode. A plain block, however strongly powered, gives 0. Every removed design read its input through a plain block that a placed redstone block used to be: the whole "bump" family is that trick, and the dust rings read ring power the placed block supplied.
 
-So every gate whose input feeds a comparator side, or a dust ring, needs the input cell to hold DUST that the design owns (counted, with its support stone). My first attempt at that for NIMPLY (comparator + dust at the side cell, 4 blocks) still measures `the output is a`, so the side still reads 0: the next step is to dump what the judge actually places at that cell (`MCTAS_INPUT_DEVICE=block` reproduces the old pass, so the difference is isolated) before rebuilding the family. That is the first task of the next round, ahead of XOR/XNOR, since a record that only exists with a block input is not a record.
+A design's own dust AT the input cell does not fix it (measured: the judge drives it correctly, `probe-side`, yet a comparator beside it still reads 0). What works is giving the design its own REPEATER at the input cell, whose output feeds a dust that feeds the comparator's side: the judge drives a receiving repeater at its back, and the dust is then a real signal source.
+
+Rebuilt and archived that way: gate-nimply-r7-6b and gate-nimply-ba-r7-6b, 6 blocks, latency 4 gt, robust. The same shape rebuilds AND (two subtract comparators, the second's side fed by the first's dust) and NAND; XOR and XNOR need a different mechanism entirely, since the dust ring is gone.
+
+## Priorities (rewritten after R7, updated as they are done)
+
+Done: AND 7b (torch), NOR 3b, IMPLY and IMPLY-BA 4b, NIMPLY and NIMPLY-BA 6b, XOR 32b — all with real signal inputs, all judged robust.
+
+1. XNOR: the XOR core plus one inverter. The torch must hang on a block the XOR's output dust powers, and in the current 5x5 footprint every neighbour of that block is a floor stone carrying a dust; run the output dust one cell out into free space first, then invert there.
+2. Shrink the XOR below 32 blocks. 16 of the 32 are floor stones, so a layout sharing floor lands near 24. The two detours are not optional: each input must reach the far comparator's side at full strength, which is what the repeaters restore.
+3. NAND (6b, torch) and AND (7b) both survived or were rebuilt and look at the bar.
+4. Re-measure the tile pitches for the rebuilt gates.
 
 - `instant` (latency 0 gt) means the output cell changes in the same tick as the input, which only dust-to-dust and the power-bump tricks do; everything through a torch or comparator costs 2 gt.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
@@ -54,3 +64,6 @@ So every gate whose input feeds a comparator side, or a dust ring, needs the inp
 - A comparator's or repeater's side input reads ONLY a redstone block, dust, or a diode (`getControlInputSignal`): a powered plain block gives 0. This is the R7 breakage above.
 - A lever input powers its own block, so a lever-input gate can be one block smaller than the same gate driven by a signal. Two different variations, not one record.
 - The judge demands the output drive something (`check::update_less`): a dust redirected without a power change does not count as an output.
+- A comparator's or repeater's `facing` is the direction it READS (its back); its output goes the opposite way. Getting this backwards silently gives a dead gate, and cost me several builds.
+- A dust input at a driven cell works (clk-rt's driver is right): what fails is dust that does not POINT into its reader. Dust only connects to a neighbour it points at, so a comparator's side sees 0 unless the dust's shape bends into it.
+- An exact comparator gate needs both inputs to arrive at the SAME strength: a detour costs 1 per cell, so the detoured branch must pass through a repeater, which restores 15. Without it the gate degrades to OR.

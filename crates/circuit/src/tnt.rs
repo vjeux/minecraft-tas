@@ -23,6 +23,9 @@ use crate::{Circuit, Kind, Pos};
 /// Ticks a self-running duper runs after its kick: 8 periods of up to 110 gt fit in the second
 /// half (a slow duper whose period exceeds a fuse keeps one TNT alive at a time: the PRECISE one).
 pub const RUN: u32 = 1800;
+/// The smallest gap between a triggered duper's pulses with explosions on: a TNT's fuse (80 gt)
+/// and some (the previous pulse's TNT has exploded before the next pulse).
+pub const TRIGGER_GAP: u32 = 100;
 /// Periods a self-running duper must repeat for.
 pub const CYCLES: usize = 8;
 /// Pulses and pulse length of the triggered stimulus.
@@ -388,15 +391,51 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
             v.push("dropped: every TNT falls straight down out of range".to_string());
         }
     }
+    // DROPPED on the ground (the judge's ground, a drop under the machine): every TNT goes off
+    // below the machine, within 8 blocks of its box sideways (the pile at the bottom scatters a
+    // few blocks; a launched TNT lands 12+ away) and 3+ blocks under it
+    if ended.len() >= 8
+        && let Some((lo, hi)) = c.clock.design.bounds()
+    {
+        let below = ended.iter().all(|q| {
+            let p = q.end.unwrap().0;
+            let side = |i: usize| (lo[i] as f64 - p[i]).max(p[i] - (hi[i] as f64 + 1.0)).max(0.0);
+            side(0).max(side(2)) <= 8.0 && p[1] <= lo[1] as f64 - 3.0
+        });
+        if below && !v.iter().any(|f| f.starts_with("dropped:")) {
+            v.push("dropped: every TNT goes off below the machine".to_string());
+        }
+    }
     v.join("; ")
 }
 
 /// The PRECISE variation (the real game only: each TNT followed to fuse 1): every TNT of the
-/// periodic region that reached fuse 1 is at the same point then, bit for bit (8 or more).
+/// periodic region that reached fuse 1 is at the same point then, bit for bit (8 or more); `in
+/// mid-air` (the PRECISE AIR BURST, vjeux 16:23Z "explode at the exact same spot in the air") when
+/// that point has air under it and no water around it (it explodes flying, not resting).
 fn precise_flag(t: &Trace, start: usize) -> String {
-    let ends: Vec<[f64; 3]> = t.primed.iter().filter(|q| q.frame as usize >= start).filter_map(|q| q.end.map(|e| e.0)).collect();
+    let ended: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).filter(|q| q.end.is_some()).collect();
+    let ends: Vec<[f64; 3]> = ended.iter().map(|q| q.end.unwrap().0).collect();
     if ends.len() >= 8 && ends.iter().all(|e| e.iter().zip(&ends[0]).all(|(a, b)| a.to_bits() == b.to_bits())) {
-        format!("precise: {} TNT at one point at fuse 1", ends.len())
+        // the cells around its feet at its last frame: air under it, no fluid where it is
+        let cell = |f: usize, p: [i32; 3]| -> Option<&str> {
+            let frame = t.cells.get(f)?;
+            frame.binary_search_by_key(&p, |(q, _)| *q).ok().map(|i| t.names[frame[i].1 as usize].as_str())
+        };
+        let airborne = ended.iter().all(|q| {
+            let p = q.end.unwrap().0;
+            let (x, z) = (p[0].floor() as i32, p[2].floor() as i32);
+            let feet = (p[1] - 0.01).floor() as i32;
+            let f = (q.end_frame as usize).min(t.cells.len().saturating_sub(1));
+            let below = cell(f, [x, feet, z]);
+            let here = cell(f, [x, feet + 1, z]);
+            below.is_none() && here.is_none_or(|s| !s.contains("water") && !s.contains("bubble"))
+        });
+        if airborne {
+            format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len())
+        } else {
+            format!("precise: {} TNT at one point at fuse 1", ends.len())
+        }
     } else {
         String::new()
     }
