@@ -671,6 +671,12 @@ impl Worker {
         Ok(())
     }
 
+    /// Every connected client's game mode (`creative`, `spectator`, ...) and, with `op`, operator
+    /// status (a client mod pasting with commands needs both).
+    pub fn viewer_mode(&mut self, mode: &str, op: bool) -> Result<u32> {
+        Ok(self.call(json!({"op": "viewer_mode", "mode": mode, "operator": op}))?["changed"].as_u64().unwrap_or(0) as u32)
+    }
+
     /// How many chunks around a viewer the sandbox's level sends (2 by default: a viewer sees a
     /// 5x5-chunk area; chunks outside the sandbox are empty).
     pub fn view_distance(&mut self, sandbox: u32, chunks: u32) -> Result<()> {
