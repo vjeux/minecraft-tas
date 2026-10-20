@@ -270,6 +270,11 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
     if !p.is_empty() {
         v.push(p);
     }
+    // SLIME-FREE: no slime block in the design (a honey frame, or none)
+    if !c.clock.design.blocks.values().any(|s| s.starts_with("minecraft:slime_block")) {
+        let honey = c.clock.design.blocks.values().any(|s| s.starts_with("minecraft:honey_block"));
+        v.push(if honey { "slime-free: a honey frame".to_string() } else { "slime-free".to_string() });
+    }
     // LAUNCHED: every TNT of the periodic region reaches 0.4+ blocks per gt sideways; its launch
     // motion (the largest), averaged, with the spread (the random kick shows on the cross axis)
     let ps: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).collect();
