@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-imply-3b.txt by mctas circuit archive
-# CIRCUIT: gate-imply-3b gate imply function imply, latency 0 gt, class instant, 3 blocks, 2x2x1, robust
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-imply-3b gate imply: update-less output: out is off from frame 80 without a block update (a lamp in its cell stays lit), it drives nothing
 # IMPLY gate a -> b, instant (track gates): a dust on a stone, powered by a redstone block east of
 # it, is a straight line pointing west into the output cell (NOT a); input a (north of the dust)
 # bends it into a corner; input b touches the output cell (OR b). Dust redirection: 0 gt.

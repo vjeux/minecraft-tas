@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:48Z from designs/circuits/gates/tracks/gates/gate-not-3b.txt by mctas circuit archive
-# CIRCUIT: gate-not-3b gate not function not, latency 0 gt, class instant, 3 blocks, 2x2x1, robust
+# update-less (2026-10-20T01:37Z, mctas circuit archive --rejudge): FAIL: gate-not-3b gate not: update-less output: out is off from frame 40 without a block update (a lamp in its cell stays lit), it drives nothing
 # NOT gate, instant (track gates): a dust on a stone, powered by a redstone block east of it, is a
 # straight line pointing west into the output cell; the input (south of the dust) bends it into a
 # corner that no longer points west. Dust redirection: 0 gt.

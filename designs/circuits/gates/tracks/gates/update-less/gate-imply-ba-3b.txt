@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-imply-ba-3b.txt by mctas circuit archive
-# CIRCUIT: gate-imply-ba-3b gate imply-ba function imply-ba, latency 0 gt, class instant, 3 blocks, 2x2x1, robust
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-imply-ba-3b gate imply-ba: update-less output: out is off from frame 40 without a block update (a lamp in its cell stays lit), it drives nothing
 # IMPLY gate b -> a, instant (track gates): the mirror of gate-imply-3b (inputs swapped): a dust
 # pointing into the output cell from a redstone block (NOT b), bent away by input b; input a touches
 # the output cell (OR a). 0 gt.

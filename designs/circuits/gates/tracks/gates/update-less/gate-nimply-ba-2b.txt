@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:49Z from designs/circuits/gates/tracks/gates/gate-nimply-ba-2b.txt by mctas circuit archive
-# CIRCUIT: gate-nimply-ba-2b gate nimply-ba function nimply-ba, latency 0 gt, class instant, 2 blocks, 1x2x1, robust
+# update-less (2026-10-20T01:38Z, mctas circuit archive --rejudge): FAIL: gate-nimply-ba-2b gate nimply-ba: update-less output: out turns on at frame 140 without a block update (a lamp in its cell stays unlit), it drives nothing
 # NIMPLY gate b AND NOT a, instant (track gates): the mirror of gate-nimply-2b (inputs swapped): one
 # dust on a stone; input b alone makes it a line pointing into the output cell, input a bends it
 # into a corner. Dust redirection: 0 gt.

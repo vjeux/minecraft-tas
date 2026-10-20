@@ -1,5 +1,4 @@
-# archived 2026-10-19T23:48Z from designs/circuits/gates/tracks/gates/gate-nor-3b.txt by mctas circuit archive
-# CIRCUIT: gate-nor-3b gate nor function nor, latency 0 gt, class instant, 3 blocks, 1x2x2, robust
+# update-less (2026-10-20T01:37Z, mctas circuit archive --rejudge): FAIL: gate-nor-3b gate nor: update-less output: out is off from frame 40 without a block update (a lamp in its cell stays lit), it drives nothing
 # NOR gate, instant (track gates): a dust on a stone, powered by a redstone block south of it, is a
 # straight line pointing north into the output cell; either input (west, east) bends it into a
 # corner or a T that no longer points north. Dust redirection: 0 gt.

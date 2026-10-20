@@ -1,5 +1,4 @@
-# archived 2026-10-20T00:10Z from designs/circuits/delay/tracks/delay/delay-piston-1.txt by mctas circuit archive
-# CIRCUIT: delay-piston-1 delay N 1 gt, min-pulse 3 gt, min-gap 3 gt, 4 blocks, 3x2x2, robust
+# update-less (2026-10-20T01:29Z, mctas circuit archive --rejudge): FAIL: delay-piston-1 delay: update-less output: out turns on at frame 84 without a block update (a lamp in its cell stays unlit), it drives nothing
 # Delay line N = 1 gt (track delay): a dust between the input (west) and the output cell (east),
 # bent at rest by a redstone block south of it (which powers it but makes it point north-south).
 # The input powers a sticky piston that pushes that block east, next to the output cell: the block
