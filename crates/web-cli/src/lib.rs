@@ -769,6 +769,11 @@ fn circuit_attrs(d: &Path) -> String {
     if !events.is_empty() {
         out.push_str(&format!(" data-events=\"{}\"", html_escape(&events)));
     }
+    // a strength input's values (the hex kinds: the judge's chest fills)
+    if !s.levels.is_empty() {
+        let levels: Vec<String> = s.levels.iter().filter_map(|(t, i, v)| names.get(*i).map(|n| format!("{t} {n} {v}"))).collect();
+        out.push_str(&format!(" data-levels=\"{}\"", html_escape(&levels.join("; "))));
+    }
     out.push_str(&format!(" data-phases=\"{}\"", html_escape(&phases.join("; "))));
     out
 }
@@ -1097,11 +1102,21 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     let trace = match circuit::run::sim_trace(&c, &s, 3) {
         Ok(t) => t,
         Err(why) => {
-            // redsim cannot run it (a block it does not model): the viewer must say so too
-            return match mcview::Session::new(text, &mcview::Options::default()) {
-                Ok(v) if !v.simulated() => Ok(None),
-                _ => Err(format!("circuit sim: {why}")),
-            };
+            // redsim cannot run it (a block or a random draw it does not model): the viewer must
+            // say so too: shown as built, or stopping where redsim stops under the judge's
+            // stimulus (vjeux: only what redsim simulates)
+            let mut v = mcview::Session::new(text, &mcview::Options::default())?;
+            if !v.simulated() {
+                return Ok(None);
+            }
+            v.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
+            for _ in 0..=s.ticks {
+                if let Some(h) = &v.halted {
+                    return Ok(Some(format!("{} not simulated after {h} (circuit sim: {why})", kind.name())));
+                }
+                v.step();
+            }
+            return Err(format!("circuit sim: {why}; the viewer runs on"));
         }
     };
     let (from, to) = circuit::run::watch_box(&c, 3);
@@ -1110,7 +1125,7 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
     if !session.simulated() {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
-    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s) });
+    session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
     let frames = trace.cells.len();
     for (f, cells) in trace.cells.iter().enumerate() {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();

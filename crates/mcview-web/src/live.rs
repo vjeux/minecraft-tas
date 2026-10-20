@@ -501,7 +501,7 @@ pub fn load(app: &mut App, id: u32) {
             }
             // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
             // actions at cells (data-events: a BUD switch's target and footprint probes)
-            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some()) {
+            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 let mut demo = match &v.stimulus {
                     Some(st) if !names.is_empty() => match mcview::circuit::parse_stimulus(st, &names, 40) {
@@ -516,13 +516,26 @@ pub fn load(app: &mut App, id: u32) {
                 if let Some(ev) = &v.events {
                     match mcview::circuit::parse_events(ev) {
                         Ok(events) if !events.is_empty() => {
-                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new() });
+                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new(), levels: Vec::new() });
                             let last = events.iter().map(|(t, _, _)| *t).max().unwrap_or(0);
                             d.ticks = d.ticks.max(last + 40);
                             d.events = events;
                         }
                         Ok(_) => {}
                         Err(e) => log(&format!("data-events: {e}")),
+                    }
+                }
+                // a strength input's values (data-levels: the judge's chest fills)
+                if let Some(lv) = &v.levels {
+                    match mcview::circuit::parse_levels(lv, &names) {
+                        Ok(levels) if !levels.is_empty() => {
+                            let d = demo.get_or_insert_with(|| mcview::circuit::Schedule { edges: vec![Vec::new(); names.len()], ticks: 0, events: Vec::new(), levels: Vec::new() });
+                            let last = levels.iter().map(|(t, _, _)| *t).max().unwrap_or(0);
+                            d.ticks = d.ticks.max(last + 40);
+                            d.levels = levels;
+                        }
+                        Ok(_) => {}
+                        Err(e) => log(&format!("data-levels: {e}")),
                     }
                 }
                 if let Some(d) = demo {

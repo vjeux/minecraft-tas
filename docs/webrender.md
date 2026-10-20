@@ -98,6 +98,14 @@ each build's page.
   updates only, flags 2), `update` (`updateNeighborsAt` the cell, nothing changes). `web check`
   replays the BUD switches' events through this parser frame by frame against `circuit sim`.
   Cyan tags name a BUD switch's TARGET cells.
+* `data-levels="<frame> <input> <value>; ..."` (frames like `data-stimulus`, inputs by name,
+  values 0..15): a strength input's values (`port input.a: x y z strength`, the judge's hex
+  kinds, `circuit::stimulus::Schedule::levels`), replayed in the auto-demo like the judge: the
+  input's chest placed again (its state unchanged), then its contents set to the value's fill
+  (`circuit::strength_items`: the fewest cobblestone whose comparator signal is the value). A
+  tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
+  sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
+  not model) must stop at the same tick in the viewer (`not simulated after tick N`).
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and

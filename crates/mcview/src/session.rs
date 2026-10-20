@@ -701,10 +701,27 @@ impl Session {
                     self.world.use_block(bp(ci.pos));
                 }
             }
+            crate::circuit::InputHow::Strength { .. } => {
+                self.set_strength(i, if on { 15 } else { 0 });
+            }
         }
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
+    /// again (its state unchanged), then its contents set to the value's fill
+    /// ([`crate::circuit::strength_items`]).
+    fn set_strength(&mut self, i: usize, value: u8) {
+        let Some(crate::circuit::InputHow::Strength { chest }) = self.circuit_inputs.get(i).map(|c| c.how.clone()) else { return };
+        let pos = bp(self.circuit_inputs[i].pos);
+        self.world.set_block(pos, chest, flags::ALL);
+        if let Err(e) = redsim::redstone::container::apply_block_entities(&mut self.world, [(pos, crate::circuit::strength_items(value).as_str())]) {
+            self.world.errors.push(format!("strength input: {e}"));
+        }
+        self.input_on[i] = value > 0;
+        self.last_input = Some(self.tick);
     }
 
     /// A short pulse on input `i`: on now, off `len` ticks later (a tap on a pulse input).
@@ -735,6 +752,14 @@ impl Session {
                 for &(at, on) in e {
                     if at == t {
                         self.set_input(i, on);
+                    }
+                }
+            }
+            // the judge's strength values (after the edges, like `Circuit::actions`)
+            if self.simulated() {
+                for &(at, i, value) in &d.levels {
+                    if at == t {
+                        self.set_strength(i, value);
                     }
                 }
             }
