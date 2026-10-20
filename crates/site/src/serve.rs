@@ -106,12 +106,51 @@ fn chrome(given: Option<&Path>) -> Result<PathBuf> {
     if let Some(p) = std::env::var_os("CHROME") {
         return Ok(PathBuf::from(p));
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = PathBuf::from(home).join("tools/chrome-headless-shell-linux64/chrome-headless-shell");
-    if p.is_file() {
-        return Ok(p);
+    for p in [chrome_cache_dir().join("chrome-headless-shell-linux64/chrome-headless-shell"), PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("tools/chrome-headless-shell-linux64/chrome-headless-shell")] {
+        if p.is_file() {
+            return Ok(p);
+        }
     }
-    bail!("no headless Chrome: pass --chrome, set CHROME, or unpack Chrome for Testing's chrome-headless-shell-linux64.zip into ~/tools")
+    bail!("no headless Chrome: run `mctas site chrome` (downloads Chrome for Testing's chrome-headless-shell into ~/.cache/mctas), pass --chrome, or set CHROME")
+}
+
+/// Where `mctas site chrome` puts the headless Chrome.
+fn chrome_cache_dir() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/mctas")
+}
+
+/// Download Chrome for Testing's chrome-headless-shell (linux64, the stable channel) into
+/// ~/.cache/mctas, for `site smoke` and `site publish`. Returns the binary.
+pub fn install_chrome() -> Result<PathBuf> {
+    let dir = chrome_cache_dir();
+    std::fs::create_dir_all(&dir)?;
+    let json = Command::new("curl").args(["-fsSL", "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"]).output().context("running curl")?;
+    if !json.status.success() {
+        bail!("downloading the Chrome for Testing index failed: {}", String::from_utf8_lossy(&json.stderr).trim());
+    }
+    let v: serde_json::Value = serde_json::from_slice(&json.stdout).context("the Chrome for Testing index")?;
+    let url = v["channels"]["Stable"]["downloads"]["chrome-headless-shell"]
+        .as_array()
+        .and_then(|a| a.iter().find(|d| d["platform"] == "linux64"))
+        .and_then(|d| d["url"].as_str())
+        .context("no linux64 chrome-headless-shell in the Chrome for Testing index")?
+        .to_string();
+    let zip = dir.join("chrome-headless-shell-linux64.zip");
+    println!("downloading {url}");
+    let st = Command::new("curl").args(["-fsSL", "-o"]).arg(&zip).arg(&url).status().context("running curl")?;
+    if !st.success() {
+        bail!("downloading {url} failed");
+    }
+    let _ = std::fs::remove_dir_all(dir.join("chrome-headless-shell-linux64"));
+    let st = Command::new("unzip").args(["-q", "-o"]).arg(&zip).arg("-d").arg(&dir).status().context("running unzip")?;
+    if !st.success() {
+        bail!("unzipping {} failed", zip.display());
+    }
+    let _ = std::fs::remove_file(&zip);
+    let bin = dir.join("chrome-headless-shell-linux64/chrome-headless-shell");
+    let o = Command::new(&bin).arg("--version").output().with_context(|| format!("running {}", bin.display()))?;
+    println!("{}: {}", bin.display(), String::from_utf8_lossy(&o.stdout).trim());
+    Ok(bin)
 }
 
 /// The DOM of `url` after its scripts ran (`--dump-dom` with a virtual time budget).
