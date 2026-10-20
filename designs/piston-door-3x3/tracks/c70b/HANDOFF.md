@@ -22,8 +22,9 @@
   --lever-held, ranked by redsim, inside firings, door connect, never-fed, weak feeds, unfed,
   pistons, events; exports FULL designs + ideal plans); fullmech --check --export / --keep-stone;
   families' Wire.weak.
-- Running at handoff time: 6x7 search from the inside = 1 variants (smaller/mm/6x7-in2*), aiming at 0
-  piston actions inside the door square.
+- 6x7 wirability (finished): inside firings bottom out at 1, unfed receivers at (0,1) + (1,-2), and
+  the pistons pulse 3-9 times per edge from 1-2-cell pockets: the a3s family is not wirable by
+  repair; a 6x7 with ~1-2 actions per piston per edge needs a new family (smaller/NOTES.md).
 - Wiring status: everything with pockets3 (the wiring service); satwire cores so far: 6x7 mm01
   (1,-2), mm02/03 (3,-1), mm05 (2,2); 9x6 m69g-12 W' (3,-1); m69T variants need lever-faithful plans
   (the macro model refuses a held piston that extends late).
@@ -37,4 +38,4 @@
 ## 1. Parked: t7b in 8 rows (partials/t7b8.md), c070x (partials/c070x.md)
 
 ## Running processes
-- smaller/mm/6x7-in2 (door mechmut, 10 threads) if still running; nothing else.
+- None (every c70b search has finished).
