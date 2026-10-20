@@ -2245,7 +2245,7 @@ mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-drop-16b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-clocked-22b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
@@ -2265,14 +2265,15 @@ mod tests {
 
     /// vjeux 17:53Z: "Please don't put a fake ground if the tnt goes through it". A TNT duper
     /// stands on its judge's ground, real blocks of its world: grass over two dirt over bedrock,
-    /// its top the archived safe drop under the design (tnt-launch-15b: a few blocks), the judge's
-    /// reach around it; its TNT land and explode on it (craters: ground cells that changed), and
-    /// what is drawn of it is the world's every tick. A clock has no ground at all.
+    /// its top the archived safe drop under the design (tnt-clocked-22b, the TNT study's one
+    /// duper since 2026-10-20: 0 blocks, right under it), the judge's reach around it; its TNT
+    /// land and explode on it (craters: ground cells that changed), and what is drawn of it is the
+    /// world's every tick. A clock has no ground at all.
     #[test]
     fn tnt_dupers_stand_on_their_judges_ground() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-launch-15b.txt")).unwrap();
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-clocked-22b.txt")).unwrap();
         let drop = safe_drop(&text);
-        assert!(drop > 0, "tnt-launch-15b needs a drop");
+        assert_eq!(drop, 0, "tnt-clocked-22b stands on the ground");
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let f = s.floor.clone().expect("a TNT duper's ground");
