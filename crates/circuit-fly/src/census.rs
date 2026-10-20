@@ -61,7 +61,7 @@ struct Palette {
     feeds: Vec<bool>,
 }
 
-fn turn_block(b: Block) -> Option<Block> {
+pub(crate) fn turn_block(b: Block) -> Option<Block> {
     Some(match b {
         Block::Observer { facing, powered } => Block::Observer { facing: facing.clockwise(), powered },
         Block::Piston { sticky, facing, extended } => Block::Piston { sticky, facing: facing.clockwise(), extended },
@@ -174,7 +174,7 @@ fn rest(b: Block) -> Option<Block> {
 
 /// Run one candidate with one kick (cells touching the origin's three low faces); Some when it
 /// flies.
-fn run(cells: &[(Pos, Block)], kick: Kick, o: &CensusOptions) -> Option<(u32, Pos, u32)> {
+pub(crate) fn run(cells: &[(Pos, Block)], kick: Kick, o: &CensusOptions) -> Option<(u32, Pos, u32)> {
     let m = o.margin;
     let dims = [0, 1, 2].map(|i| cells.iter().map(|(p, _)| p[i]).max().unwrap_or(0) + 1);
     let min = BlockPos::new(-m, -m, -m);
@@ -294,7 +294,7 @@ fn run(cells: &[(Pos, Block)], kick: Kick, o: &CensusOptions) -> Option<(u32, Po
     Some((st.period, st.d, first))
 }
 
-fn corner(ps: impl Iterator<Item = Pos>) -> Pos {
+pub(crate) fn corner(ps: impl Iterator<Item = Pos>) -> Pos {
     let mut lo = [i32::MAX; 3];
     for p in ps {
         for i in 0..3 {

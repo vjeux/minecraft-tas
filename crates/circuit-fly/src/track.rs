@@ -127,7 +127,7 @@ impl Recorder {
                 continue;
             }
             if let Some(st) = self.stops.get(&p)
-                && st == s
+                && (st == s || clock::canon::structural(st) == clock::canon::structural(s))
             {
                 continue;
             }
