@@ -162,6 +162,13 @@
   can't come back east), so the door column next to it sends 3 blocks to 2 frame cells and the center column the
   same: one middle block goes up 2 and one goes down 2, i.e. both sides need a 2-cell vertical path (6x9 has the
   rows for two elevators; 6x8 has one, so the other needs a ring-resting pusher like W).
+- **Sculk 6x8 from s1: blocked** (pockets3 + w86, satwire --sound-cells in the sealed cells: UNSAT, core close
+  (0,4); the bottom-left trio is fine with a sensor). The column next to the static wall needs its ceiling/floor
+  slide pushed from the box-edge corner, and in every row split that corner pusher's only free neighbour is a
+  box-edge cell it SHARES with the column's own final puller ((-1,4): (0,4) + (-1,3); or (-1,-2): (0,-2) +
+  (-1,-1)). A sensor there powers both with one long pulse, but they act at different times (a slide push, then a
+  pull). The lever on the static's front face gives the corner pusher only a level, and the slide needs a
+  mid-sequence push. So: no 6x8 door in this family, solid or sculk.
 
 ## Lessons (6-tall)
 - The frame row with NO machine row behind it must stay static: a block that enters it can only come back
