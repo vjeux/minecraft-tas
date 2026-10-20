@@ -353,6 +353,31 @@ pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
     start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
 }
 
+/// [`drive`]'s loop for a world set up another way: placed like the judge places it in the box
+/// `from`..=`to`, then `config` (e.g. `redsim::explosion::explode_on`), then for t in 0..=ticks:
+/// the inputs due at t, `frame(t, world)`, one tick. Runs every tick even after a problem between
+/// ticks (a drop, an error: the first one is returned with its tick, like [`drive`]'s `stopped`);
+/// `Err` when redsim does not model the design.
+pub fn drive_custom(c: &Clock, from: Pos, to: Pos, ticks: u32, config: impl FnOnce(&mut World), mut frame: impl FnMut(u32, &World)) -> Result<Option<(u32, String)>, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    let mut s = start_box(c, &blocks, from, to).map_err(|(_, why)| why)?;
+    config(&mut s.world);
+    let mut first: Option<(u32, String)> = None;
+    for t in 0..=ticks {
+        if let Err((_, why)) = between_ticks(&mut s, t)
+            && first.is_none()
+        {
+            first = Some((t, why));
+        }
+        frame(t, &s.world);
+        if t < ticks {
+            s.world.tick();
+        }
+    }
+    Ok(first)
+}
+
 /// The design's blocks that cannot stand where they are once placed like the judge places them:
 /// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
 /// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
