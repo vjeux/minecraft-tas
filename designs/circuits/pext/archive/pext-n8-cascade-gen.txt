@@ -1,0 +1,43 @@
+# archived 2026-10-20T00:52Z from designs/circuits/pext/work/n8-cascade-gen.txt by mctas circuit archive
+# CIRCUIT: pext-n8-cascade-gen piston-extender 8 N 8, extend 106 gt, retract 120 gt, 85 blocks, 24x5x4, robust
+name: pext-n8-cascade-gen
+circuit: piston-extender 8
+travel: 1 0 0
+port input: 22 3 3 lever
+port payload: 16 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:observer[facing=up]
+  C minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O.O.O.O.O.O.O
+  .
+  .
+  .
+layer 1:
+  sSsSsSsSsSsSsSsG
+  .
+  .
+  .
+layer 2:
+  B
+  ..AAA.A.AAA.A.AA..A..A
+  ..BBB.B.BBB.B.BB..B..B
+  .....................C
+layer 3:
+  A
+  A
+  ooBoBoBoBoBoBooooooooA
+  .....................L
+layer 4:
+  .
+  .
+  ..oOoOoOoOoOoO
+  .

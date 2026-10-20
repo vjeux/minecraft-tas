@@ -1,0 +1,41 @@
+name: pext-n7-cascade-gen
+circuit: piston-extender 7
+travel: 1 0 0
+port input: 19 3 3 lever
+port payload: 14 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:observer[facing=up]
+  C minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  .O.O.O.O.O.O
+  .
+  .
+  .
+layer 1:
+  sSsSsSsSsSsSsG
+  .
+  .
+  .
+layer 2:
+  B
+  ..AAA.A.AAA.A..A..A
+  ..BBB.B.BBB.B..B..B
+  ..................C
+layer 3:
+  A
+  A
+  ooBoBoBoBoBoooooooA
+  ..................L
+layer 4:
+  .
+  .
+  ..oOoOoOoOoO
+  .
