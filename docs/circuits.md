@@ -94,9 +94,13 @@ kick) before the first input.
     nothing on the falling edge; `falling-edge`: the same after the falling edge; `dual-edge`: one
     pulse after each edge (L and delay per edge when they differ);
   * `pulse-limiter`: one pulse from the rising edge, length L for every input >= L (shorter inputs
-    may pass shorter); L must be shorter than the longest input;
+    may pass shorter); L must be shorter than the longest input, and at least two inputs longer
+    than L must come out exactly L (one would not tell a limiter from a delay line that shortens
+    every pulse by a fixed amount; a longer gap or a `stimulus:` hint adds longer inputs);
   * `pulse-extender`: one pulse from the rising edge, length L for every input shorter than L and
-    never shorter than L; at least one input shorter than L must be handled.
+    never shorter than L; at least two inputs shorter than L (every tested one when fewer exist,
+    as for L 2) must come out exactly L inside the handled inputs (from the min-pulse up), so a
+    stretcher that adds a fixed amount to every pulse fails.
   * `min-pulse`: the shortest input from which every longer one is handled (at least the 3 longest
     must be).
 * **tff**: 8 pulses of 4 gt (A), then two each of 10, 3, 2 and 1 gt (B), then trains of 6 pulses

@@ -532,11 +532,13 @@ fn checks() -> Vec<Check> {
     s.extend(circ.iter().map(|(f, _)| format!("{CIRC}/{f}.txt")));
     s.push("designs/circuits/selftest/dust-or-claimed-and.txt".into());
     s.push("designs/circuits/selftest/floating-not.txt".into());
+    s.push("designs/circuits/selftest/shortening-delay-line.txt".into());
+    s.push("designs/circuits/selftest/plus4-stretcher.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND and a floating dust refused",
+        what: "`circuit sim` (redsim) on the 12 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter and a +4 gt stretcher claiming pulse-extender refused",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -549,7 +551,9 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-dust-or-claimed-and gate and: claims and but behaves as or")?;
             has(&o[0], "FAIL: cal-floating-not gate not: redstone_wire")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim and a floating dust refused"))
+            has(&o[0], "FAIL: cal-shortening-delay-line pulse-limiter: limiting not witnessed")?;
+            has(&o[0], "FAIL: cal-plus4-stretcher pulse-extender: never extends")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line and a stretcher refused"))
         }),
     });
     v.push(Check {
