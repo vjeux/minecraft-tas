@@ -1,13 +1,13 @@
-# archived 2026-10-20T07:55Z from designs/circuits/tracks/bud/bud-torch-lamp.txt by mctas circuit archive
-# CIRCUIT: bud-torch-lamp bud detects place remove, latency 2 gt place / 6 gt remove, pulse 2 gt, re-arm 2 gt, footprint 1 cell, 3 blocks, 2x2x1, robust
+# archived 2026-10-20T09:24Z from designs/circuits/tracks/bud/bud-torch-lamp.txt by mctas circuit archive
+# CIRCUIT: bud-torch-lamp bud detects place remove, latency 2 gt place / 6 gt remove, pulse 2 gt, re-arm 8 gt, footprint 1 cell, 3 blocks, 2x2x1, robust
 name: bud-torch-lamp
 circuit: bud
 group: torch-presence
 group title: Torch presence detector
 group note: a redstone torch under the target powers a solid block placed there; that block powers a follower beside it (a dropper or a lamp) that an observer watches; only the target cell senses (footprint 1)
 # The torch presence detector with a lamp as the follower: silent, and the lamp lights at once
-# but goes out 4 gt after the block is removed, so a removal is seen 6 gt late, and a removal 2 gt
-# after a placement still gives its own pulse (re-arm 2 gt). Only the target cell senses.
+# but goes out 4 gt after the block is removed, so a removal is seen 6 gt late, and a block placed
+# again within those 4 gt finds the lamp still lit (re-arm 8 gt). Only the target cell senses.
 origin: -1 0 0
 port target: 0 0 0
 port output: -1 -2 0

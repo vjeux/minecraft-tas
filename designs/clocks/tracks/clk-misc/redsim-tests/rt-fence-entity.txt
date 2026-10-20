@@ -1,0 +1,23 @@
+name: rt-fence-entity
+# redsim test scene (not a clock): entities and fences' 1.5 block tall collision boxes: an armor stand
+# and an item fall onto fence posts (they land at y 2.5), a boat thrown along +x on stone hits a fence
+# post (its side), and a boat thrown along -x slides into a fence with an arm toward it.
+entity: minecraft:armor_stand 1.5 4.0 0.5
+entity: minecraft:item 3.5 4.0 0.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:32767s,Age:-32768s}
+entity: minecraft:oak_boat 6.0 1.0 2.5 {Motion:[0.4d,0.0d,0.0d]}
+entity: minecraft:oak_boat 6.0 1.0 4.5 {Motion:[-0.4d,0.0d,0.0d]}
+palette:
+  S minecraft:stone
+  F minecraft:oak_fence
+layer 0:
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+  SSSSSSSSSSSS
+layer 1:
+  .F.F........
+  ............
+  .........F..
+  ............
+  .FF.........

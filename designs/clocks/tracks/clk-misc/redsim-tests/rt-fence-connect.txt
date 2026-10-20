@@ -1,0 +1,28 @@
+name: rt-fence-connect
+# redsim test scene (not a clock): oak fences beside a stone (a sturdy face: connects), a pumpkin and
+# oak leaves (exceptions: no), a nether brick fence (the other family: no), another oak fence (yes),
+# a fence gate facing north (connects east and west) and one facing east (no), a stone above a fence
+# (vertical: no change), nether brick fences side by side (yes). Player placement (every block set
+# with updates, in file order): each placement shape-updates the fences already standing beside it
+# (FenceBlock.updateShape / connectsTo).
+placement: player
+palette:
+  S minecraft:stone
+  F minecraft:oak_fence
+  N minecraft:nether_brick_fence
+  P minecraft:pumpkin
+  L minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  G minecraft:oak_fence_gate[facing=north,in_wall=false,open=false,powered=false]
+  g minecraft:oak_fence_gate[facing=east,in_wall=false,open=false,powered=false]
+layer 0:
+  SSSSSSSSSSSSSS
+  SSSSSSSSSSSSSS
+  SSSSSSSSSSSSSS
+layer 1:
+  SFPFLFNFGFgF.S
+  ..............
+  NN.FF.F.SF.F..
+layer 2:
+  ..............
+  ..............
+  ......S.......

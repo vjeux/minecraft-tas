@@ -191,9 +191,9 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
 }
 
 /// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
-/// newest, as [`read_rows`] reads them) and one caption per file (the last), written back when
-/// anything repeats.
-fn tidy(dir: &Path, rows: &[Row]) -> Result<()> {
+/// newest, as [`read_rows`] reads them; `rows` without the `stale` ones) and one caption per file
+/// (the last; none for a stale file), written back when anything changes.
+fn tidy(dir: &Path, rows: &[Row], stale: &[String]) -> Result<()> {
     let text = std::fs::read_to_string(dir.join(VERDICTS)).unwrap_or_default();
     if text.lines().skip(1).filter(|l| !l.trim().is_empty()).count() != rows.len() {
         write_rows(dir, rows)?;
@@ -209,7 +209,9 @@ fn tidy(dir: &Path, rows: &[Row]) -> Result<()> {
             last.insert(f.to_string(), c.to_string());
         }
     }
-    if order.len() != caps.lines().skip(1).filter(|l| l.contains('\t')).count() {
+    let n = order.len();
+    order.retain(|f| !stale.contains(f));
+    if order.len() != n || n != caps.lines().skip(1).filter(|l| l.contains('\t')).count() {
         let mut out = String::from("file\tcaption\n");
         for f in &order {
             out.push_str(&format!("{f}\t{}\n", last[f]));
@@ -371,7 +373,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
-        Kind::Bud => format!("detects {}", m("detects")),
+        Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
@@ -719,7 +721,14 @@ pub fn dedupe(root: &Path) -> Result<Vec<String>> {
         if rows.is_empty() {
             continue;
         }
-        tidy(&dir, &rows)?;
+        // a row whose design file is gone (removed on one side of a merge, brought back by a
+        // union of the TSVs): out, with its caption
+        let stale: Vec<String> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.clone()).collect();
+        for f in &stale {
+            lines.push(format!("REMOVED {study}/{f}: a verdict row without its design file (stale)"));
+        }
+        rows.retain(|r| !stale.contains(&r.file));
+        tidy(&dir, &rows, &stale)?;
         rows.sort_by(|a, b| (&a.archived, &a.file).cmp(&(&b.archived, &b.file)));
         let mut kept: BTreeMap<(String, String), String> = BTreeMap::new();
         let mut gone: Vec<(String, String, String)> = Vec::new();
@@ -962,6 +971,10 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
+        let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();
+        if !stale.is_empty() {
+            bail!("{study}: verdict rows without their design file: {} (a removal undone by a merge of the TSVs? `mctas circuit archive --dedupe` drops them)", stale.join(", "));
+        }
         let caps = read_captions(&dir);
         let aliases = read_aliases(&dir);
         // extendable families (bases with `extend` headers) and their judged members: one card

@@ -102,7 +102,7 @@ pub fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Ve
 /// `BlockStateBase.hasLargeCollisionShape`: a collision shape leaving the cell, or no shape
 /// cache (dynamic shapes).
 fn has_large_collision_shape(s: &Block) -> bool {
-    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. })
+    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. } | Block::Fence { .. })
 }
 
 /// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
@@ -155,13 +155,16 @@ pub fn block_collisions(w: &World, bb: Aabb) -> Vec<(BlockPos, Vec<Aabb>)> {
 }
 
 /// `Level.getEntityCollisions(source, box)`: the boxes of the entities `source` collides with
-/// (boats: `canVehicleCollide`; other kinds: entities that `canBeCollidedWith` it, i.e. boats).
+/// (`canCollideWith`: boats and minecarts use `AbstractBoat.canVehicleCollide` = the other
+/// `canBeCollidedWith` (boats) or `isPushable` (boats, minecarts); every other kind takes the entities
+/// that `canBeCollidedWith` it, i.e. boats).
 pub fn entity_collisions(w: &World, i: usize, bb: Aabb) -> Vec<Vec<Aabb>> {
     if w.entities.list.len() < 2 || bb.x_size() * bb.y_size() * bb.z_size() < 1.0e-7 {
         return Vec::new();
     }
     let query = bb.inflate(1.0e-7, 1.0e-7, 1.0e-7);
-    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)))
+    let vehicle = matches!(w.entities.list[i].kind, super::EntityKind::Boat(_) | super::EntityKind::Minecart(_));
+    w.get_entities(query, |e| matches!(e.kind, super::EntityKind::Boat(_)) || (vehicle && super::minecart::is_pushable(e)))
         .into_iter()
         .filter(|&j| j != i)
         .map(|j| vec![w.entities.list[j].bb])
@@ -274,8 +277,8 @@ pub fn get_on_pos(w: &World, e: &Entity, offset: f32) -> BlockPos {
             return p;
         }
         let below = w.get(p);
-        // fences and walls are not modeled; fence gates keep the support
-        if matches!(below, Block::FenceGate { .. }) {
+        // walls are not modeled; fence gates keep the support, fences only for offset <= 0.5
+        if matches!(below, Block::FenceGate { .. }) || (offset <= 0.5 && matches!(below, Block::Fence { .. })) {
             return p;
         }
         return BlockPos::new(p.x, mth::floor(e.pos.y - offset as f64), p.z);

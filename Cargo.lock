@@ -379,6 +379,7 @@ dependencies = [
  "clap",
  "clock",
  "mctas",
+ "redsim",
  "serde_json",
 ]
 

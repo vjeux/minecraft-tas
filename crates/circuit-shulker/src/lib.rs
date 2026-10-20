@@ -1,9 +1,11 @@
 //! Contraption study 8, track shulker: shulker loaders and unloaders (docs/circuits.md, the
 //! variations in designs/circuits/shulker/VARIATIONS.md). `mctas circuit shulker <command> ...`
 //! dispatches here. The judge itself (kinds `shulker-loader` / `shulker-unloader`, the badges) is
-//! in crates/circuit/src/shulker.rs; this crate holds the searches, judged in the game (redsim
-//! does not model shulker boxes yet).
+//! in crates/circuit/src/shulker.rs; this crate holds the searches, judged in the game, the
+//! real-game traces and their redsim replay (`compare`: redsim models shulker boxes, chests, the
+//! dispenser's box placement and the piston-broken drop as the bridge seeds it).
 
+pub mod compare;
 pub mod shrink;
 pub mod trace;
 
@@ -33,6 +35,11 @@ enum Cmd {
         /// box-starved, drop-free, tileable, 16-stack, unstackable); `always-on` is kept anyway.
         #[arg(long, default_value = "")]
         badges: String,
+        /// Every removal must also keep the plain scenario's items/s (64-stack, rotation 0) at or
+        /// above this. Without it a speed design loses a feed line: the badges still pass at a
+        /// lower rate.
+        #[arg(long)]
+        min_rate: Option<f64>,
         #[arg(long, default_value_t = 8)]
         workers: usize,
         #[arg(long, default_value = "26.3")]
@@ -61,19 +68,30 @@ enum Cmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
+    /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
+    /// the frame, the judge's visit; drops from the trace's seed): redsim's shulker gate. One line
+    /// per trace (OK, the first divergence, UNMODELED).
+    Compare {
+        traces: Vec<PathBuf>,
+        /// Differences shown at the first diverging tick.
+        #[arg(long, default_value_t = 6)]
+        max: usize,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit shulker".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
-        Cmd::Shrink { design, out, badges, workers, version, margin } => {
+        Cmd::Shrink { design, out, badges, min_rate, workers, version, margin } => {
             let keep: Vec<String> = badges.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
             });
-            shrink::shrink(&design, &out, &keep, workers, &version, margin)
+            shrink::shrink(&design, &out, &keep, min_rate, workers, &version, margin)
         }
         Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
+        Cmd::Compare { traces, max } => compare::compare(&traces, max),
     }
 }
