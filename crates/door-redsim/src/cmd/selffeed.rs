@@ -107,10 +107,14 @@ pub struct InterleaveArgs {
     /// pulse it less often.
     #[arg(long)]
     cost: Vec<String>,
+    /// A small pocket: the input cells it feeds and the ticks it can make in the whole train,
+    /// `x,y,z+x,y,z[+...]=k` (repeatable); any subset of them fires together as one tick.
+    #[arg(long)]
+    pocket: Vec<String>,
 }
 
 pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
-    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost } = args;
+    let InterleaveArgs { schedule, extra_offsets, cycles, gap, out, out_dir, threads, between_ticks, split, search, weight, groups, pairs, merge, cost, pocket } = args;
     crate::ideal::cli_phase(between_ticks);
     let parse_pos = |c: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -121,6 +125,12 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
     for c in &cost {
         let (p, k) = c.split_once('=').ok_or_else(|| anyhow::anyhow!("--cost x,y,z=k"))?;
         costs.push((parse_pos(p)?, k.trim().parse::<usize>()?));
+    }
+    let mut pockets = Vec::new();
+    for c in &pocket {
+        let (cells, k) = c.split_once('=').ok_or_else(|| anyhow::anyhow!("--pocket x,y,z+x,y,z=k"))?;
+        let set: Vec<[i32; 3]> = cells.split('+').map(parse_pos).collect::<Result<_>>()?;
+        pockets.push((set, k.trim().parse::<usize>()?));
     }
     let mut sets = Vec::new();
     for m in &merge {
@@ -133,7 +143,7 @@ pub fn cmd_interleave(args: InterleaveArgs) -> Result<()> {
         sets.push(set);
     }
     let quiet = schedule.len() > 1;
-    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs };
+    let o = crate::interleave::Options { extra_offsets, cycles, gap, out, split, search, weight, quiet, groups, pairs, merge: sets, cost: costs, pockets };
     if quiet {
         return crate::interleave::batch(&schedule, &o, out_dir.as_deref(), threads);
     }

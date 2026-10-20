@@ -215,11 +215,19 @@ fn compact_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, trai
     }
 }
 
+/// Per-move pocket budgets for `--search`: the pocket a move fires from (if any) and how many
+/// moves each pocket may fire in the whole train.
+struct Limits {
+    pocket_of: Vec<Option<usize>>,
+    budgets: Vec<usize>,
+}
+
 /// `--search`: weighted A* over pairs of idle worlds (the closed door opening, the open door
 /// closing) with ANY input cell pulsed (2 gt) on both at once, from (rest, open) to (open, rest):
 /// a train not tied to the plan's own steps. Returns the cells pulsed, in order (or the pairs
 /// searched and the best distance reached: cells off the two targets).
-fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, moves: &[Step], costs: &[usize], cap: usize, weight: usize) -> (Option<Vec<Step>>, usize, usize) {
+#[allow(clippy::too_many_arguments)]
+fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, moves: &[Step], costs: &[usize], limits: &Limits, cap: usize, weight: usize) -> (Option<Vec<Step>>, usize, usize) {
     use std::collections::{BinaryHeap, HashSet};
     use std::hash::{Hash, Hasher};
     let target_open = sim.sparse(wopen);
@@ -231,25 +239,27 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
         n += mb.keys().filter(|i| !ma.contains_key(i)).count();
         n
     };
-    let key = |a: &Sparse, b: &Sparse| {
+    let key = |a: &Sparse, b: &Sparse, used: &[u8]| {
         let mut h = std::collections::hash_map::DefaultHasher::new();
         a.hash(&mut h);
         0xffff_ffffu32.hash(&mut h);
         b.hash(&mut h);
+        used.hash(&mut h);
         h.finish()
     };
     let mut seen: HashSet<u64> = HashSet::new();
-    // (open-edge world, close-edge world, parent, move, steps)
+    // (open-edge world, close-edge world, parent, move, steps, moves fired per pocket)
     let (sa0, sb0) = (sim.sparse(starts.0), sim.sparse(starts.1));
-    let mut nodes: Vec<(Sparse, Sparse, Option<usize>, usize, usize)> = vec![(sa0.clone(), sb0.clone(), None, 0, 0)];
+    let used0 = vec![0u8; limits.budgets.len()];
+    let mut nodes: Vec<(Sparse, Sparse, Option<usize>, usize, usize, Vec<u8>)> = vec![(sa0.clone(), sb0.clone(), None, 0, 0, used0.clone())];
     let h0 = diff(&sa0, &target_open) + diff(&sb0, &target_rest);
     let mut heap = BinaryHeap::new();
     heap.push((std::cmp::Reverse(h0 * weight), 0usize));
-    seen.insert(key(&sa0, &sb0));
+    seen.insert(key(&sa0, &sb0, &used0));
     let mut best = h0;
     let mut best_id = 0usize;
     while let Some((_, id)) = heap.pop() {
-        let (a, b, _, _, g) = nodes[id].clone();
+        let (a, b, _, _, g, used) = nodes[id].clone();
         if a == target_open && b == target_rest {
             let mut out = Vec::new();
             let mut c = id;
@@ -265,9 +275,16 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
         }
         let (wa, wb) = (sim.rebuild(&a), sim.rebuild(&b));
         for (mi, st) in moves.iter().enumerate() {
+            let mut used2 = used.clone();
+            if let Some(Some(p)) = limits.pocket_of.get(mi) {
+                if used2[*p] as usize >= limits.budgets[*p] {
+                    continue;
+                }
+                used2[*p] += 1;
+            }
             let (Ok(a2), Ok(b2)) = (sim.apply(&wa, st), sim.apply(&wb, st)) else { continue };
             let (sa, sb) = (sim.sparse(&a2), sim.sparse(&b2));
-            let k = key(&sa, &sb);
+            let k = key(&sa, &sb, &used2);
             if !seen.insert(k) {
                 continue;
             }
@@ -277,7 +294,7 @@ fn search_pairs(sim: &Sim, starts: (&World, &World), w0: &World, wopen: &World, 
             }
             best = best.min(h2);
             let g2 = g + costs.get(mi).copied().unwrap_or(1);
-            nodes.push((sa, sb, Some(id), mi, g2));
+            nodes.push((sa, sb, Some(id), mi, g2, used2));
             heap.push((std::cmp::Reverse(g2 + h2 * weight), nodes.len() - 1));
         }
     }
@@ -327,6 +344,8 @@ pub struct Options {
     pub merge: Vec<Vec<Pos>>,
     /// Search cost of a move pulsing these cells (default 1): trains that use them less.
     pub cost: Vec<(Pos, usize)>,
+    /// Pockets: input cells one small pocket feeds and how many ticks it can make in the train.
+    pub pockets: Vec<(Vec<Pos>, usize)>,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -500,20 +519,37 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
         // (several inputs with their own relative timing)
         let rbs = || Some("minecraft:redstone_block".to_string());
         let mut moves: Vec<Step> = Vec::new();
+        let mut pocket_of: Vec<Option<usize>> = Vec::new();
         for set in &o.merge {
             let mut evs: Vec<(u32, Pos, Option<String>)> = set.iter().map(|c| (0, *c, rbs())).collect();
             evs.extend(set.iter().map(|c| (2, *c, None)));
             moves.push(Step { evs });
+            pocket_of.push(None);
         }
-        for &c in &cells {
-            if !o.merge.iter().any(|s| s.contains(&c)) {
-                moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)] });
+        // `--pocket`: the inputs a small pocket feeds fire at most `budget` times in the whole
+        // train; any subset of them may fire together (one tick of that pocket)
+        for (pi, (set, _)) in o.pockets.iter().enumerate() {
+            let set: Vec<Pos> = set.iter().copied().filter(|c| cells.contains(c)).collect();
+            for mask in 1u32..(1 << set.len()) {
+                let sub: Vec<Pos> = (0..set.len()).filter(|i| mask >> i & 1 == 1).map(|i| set[i]).collect();
+                let mut evs: Vec<(u32, Pos, Option<String>)> = sub.iter().map(|c| (0, *c, rbs())).collect();
+                evs.extend(sub.iter().map(|c| (2, *c, None)));
+                moves.push(Step { evs });
+                pocket_of.push(Some(pi));
             }
         }
+        for &c in &cells {
+            if !o.merge.iter().any(|s| s.contains(&c)) && !o.pockets.iter().any(|(s, _)| s.contains(&c)) {
+                moves.push(Step { evs: vec![(0, c, rbs()), (2, c, None)] });
+                pocket_of.push(None);
+            }
+        }
+        let in_pocket = |c: &Pos| o.pockets.iter().any(|(s, _)| s.contains(c));
         if o.groups {
             for st in steps(&open_ev, false).into_iter().chain(steps(&close_ev, false)) {
-                if !moves.contains(&st) && !st.evs.iter().any(|e| lever.iter().any(|l| l.0 == e.1)) {
+                if !moves.contains(&st) && !st.evs.iter().any(|e| lever.iter().any(|l| l.0 == e.1) || in_pocket(&e.1)) {
                     moves.push(st);
+                    pocket_of.push(None);
                 }
             }
         }
@@ -522,14 +558,19 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             for i in 0..cells.len() {
                 for j in i + 1..cells.len() {
                     let (a, b) = (cells[i], cells[j]);
+                    if in_pocket(&a) || in_pocket(&b) {
+                        continue;
+                    }
                     let rb = || Some("minecraft:redstone_block".to_string());
                     moves.push(Step { evs: vec![(0, a, rb()), (0, b, rb()), (2, a, None), (2, b, None)] });
+                    pocket_of.push(None);
                 }
             }
         }
         // a move's cost: 1, or the largest `--cost` of the cells it pulses
         let costs: Vec<usize> = moves.iter().map(|m| m.evs.iter().filter_map(|e| o.cost.iter().find(|(c, _)| *c == e.1).map(|(_, k)| *k)).max().unwrap_or(1)).collect();
-        let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, cap, o.weight);
+        let limits = Limits { pocket_of, budgets: o.pockets.iter().map(|(_, b)| *b).collect() };
+        let (found, n, best) = search_pairs(&sim, (&a0, &b0), &w0, &wopen, &moves, &costs, &limits, cap, o.weight);
         return match found {
             None => Ok(format!("NO train within {n} world pairs (best: {best} cells off the targets)")),
             Some(train) => timed_train(&d, s.phase, &text, path, &train, &fixed, n, o, out),
