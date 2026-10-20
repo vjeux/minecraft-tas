@@ -274,6 +274,68 @@ pub struct Options {
     pub weight: usize,
 }
 
+/// Write a plan file: a header comment, the source plan's `design` line, its phase, the events.
+fn write_plan(out: &Path, header: &str, text: &str, phase: crate::ideal::PlanPhase, all: &mut [(bool, u32, Pos, Option<String>)]) -> Result<()> {
+    let mut lines = vec![format!("# {header}")];
+    if let Some(l) = text.lines().find(|l| l.trim_start().starts_with("design ")) {
+        lines.push(l.to_string());
+    }
+    lines.push(format!("phase {}", if phase == crate::ideal::PlanPhase::Between { "between" } else { "tile" }));
+    all.sort_by_key(|e| (!e.0, e.1));
+    for (open, t, p, st) in all.iter() {
+        let ph = if *open { "open" } else { "close" };
+        lines.push(match st {
+            Some(b) => format!("{ph} {t} set {} {} {} {b}", p[0], p[1], p[2]),
+            None => format!("{ph} {t} clear {} {} {}", p[0], p[1], p[2]),
+        });
+    }
+    std::fs::write(out, lines.join("\n") + "\n")?;
+    println!("wrote {}", out.display());
+    Ok(())
+}
+
+/// A train found by `--search`: judge it timed (one 2 gt pulse every `spacing` ticks, the same on
+/// both edges), compact it on both edges together, print each input's ticks, write it.
+fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: &str, path: &Path, train: &[Pos], n: usize, o: &Options) -> Result<()> {
+    let shown: Vec<String> = train.iter().map(|c| format!("{},{},{}", c[0], c[1], c[2])).collect();
+    println!("TRAIN of {} single pulses for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
+    let offsets = crate::ideal::offsets(o.extra_offsets);
+    for spacing in [4u32, 6, 8, 10, 12] {
+        let mut times: Vec<u32> = (0..train.len() as u32).map(|k| k * spacing).collect();
+        let (plan, _) = train_plan(d, phase, train, &times);
+        if let Err(e) = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
+            println!("timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>());
+            continue;
+        }
+        println!("WORKS timed every {spacing} gt ({} positions x {} cycles)", offsets.len(), o.cycles);
+        compact_train(d, phase, train, &mut times, o.cycles);
+        let (plan, mut all) = train_plan(d, phase, train, &times);
+        let shown: Vec<String> = train.iter().zip(&times).map(|(c, t)| format!("t{t}:{},{},{}", c[0], c[1], c[2])).collect();
+        println!("compacted (both edges together): {}", shown.join(" "));
+        match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
+            Ok((a, b)) => println!("WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last pulse t{}", offsets.len(), o.cycles, times.iter().max().unwrap_or(&0)),
+            Err(e) => {
+                println!("compacted train fails at the full positions ({e}); keeping every {spacing} gt");
+                times = (0..train.len() as u32).map(|k| k * spacing).collect();
+                all = train_plan(d, phase, train, &times).1;
+            }
+        }
+        let mut per_cell: BTreeMap<Pos, Vec<u32>> = BTreeMap::new();
+        for (c, t) in train.iter().zip(&times) {
+            per_cell.entry(*c).or_default().push(*t);
+        }
+        for (c, ts) in &per_cell {
+            println!("  input {c:?}: pulses at {ts:?} on both edges");
+        }
+        if let Some(out) = &o.out {
+            let header = format!("door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len());
+            write_plan(out, &header, text, phase, &mut all)?;
+        }
+        return Ok(());
+    }
+    Ok(())
+}
+
 pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
@@ -313,60 +375,7 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
         let (found, n, best) = search_pairs(&sim, &w0, &wopen, &cells, cap, o.weight);
         match found {
             None => println!("NO train within {n} world pairs (best: {best} cells off the targets)"),
-            Some(train) => {
-                let shown: Vec<String> = train.iter().map(|c| format!("{},{},{}", c[0], c[1], c[2])).collect();
-                println!("TRAIN of {} single pulses for both edges ({n} pairs searched): {}", train.len(), shown.join(" "));
-                // judge it timed: one 2 gt pulse every `spacing` ticks, the same on both edges
-                let offsets = crate::ideal::offsets(o.extra_offsets);
-                for spacing in [4u32, 6, 8, 10, 12] {
-                    let mut times: Vec<u32> = (0..train.len() as u32).map(|k| k * spacing).collect();
-                    let (plan, _) = train_plan(&d, s.phase, &train, &times);
-                    match ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
-                        Ok((a, b)) => {
-                            println!("WORKS timed every {spacing} gt ({} positions x {} cycles): open {a} / close {b}", offsets.len(), o.cycles);
-                            compact_train(&d, s.phase, &train, &mut times, o.cycles);
-                            let (plan, mut all) = train_plan(&d, s.phase, &train, &times);
-                            let res = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false);
-                            let shown: Vec<String> = train.iter().zip(&times).map(|(c, t)| format!("t{t}:{},{},{}", c[0], c[1], c[2])).collect();
-                            println!("compacted (both edges together): {}", shown.join(" "));
-                            match res {
-                                Ok((a, b)) => println!("WORKS compacted ({} positions x {} cycles): open {a} / close {b}, last pulse t{}", offsets.len(), o.cycles, times.iter().max().unwrap_or(&0)),
-                                Err(e) => {
-                                    println!("compacted train fails at the full positions ({e}); keeping every {spacing} gt");
-                                    times = (0..train.len() as u32).map(|k| k * spacing).collect();
-                                    all = train_plan(&d, s.phase, &train, &times).1;
-                                }
-                            }
-                            let mut per_cell: BTreeMap<Pos, Vec<u32>> = BTreeMap::new();
-                            for (c, t) in train.iter().zip(&times) {
-                                per_cell.entry(*c).or_default().push(*t);
-                            }
-                            for (c, ts) in &per_cell {
-                                println!("  input {c:?}: pulses at {ts:?} on both edges");
-                            }
-                            if let Some(out) = &o.out {
-                                let mut lines = vec![format!("# door interleave --search {}: ONE train of {} pulses, the same events on both lever edges (found every {spacing} gt, then compacted on both edges together)", path.display(), train.len())];
-                                if let Some(l) = text.lines().find(|l| l.trim_start().starts_with("design ")) {
-                                    lines.push(l.to_string());
-                                }
-                                lines.push(format!("phase {}", if s.phase == crate::ideal::PlanPhase::Between { "between" } else { "tile" }));
-                                all.sort_by_key(|e| (!e.0, e.1));
-                                for (open, t, p, st) in &all {
-                                    let ph = if *open { "open" } else { "close" };
-                                    lines.push(match st {
-                                        Some(b) => format!("{ph} {t} set {} {} {} {b}", p[0], p[1], p[2]),
-                                        None => format!("{ph} {t} clear {} {} {}", p[0], p[1], p[2]),
-                                    });
-                                }
-                                std::fs::write(out, lines.join("\n") + "\n")?;
-                                println!("wrote {}", out.display());
-                            }
-                            break;
-                        }
-                        Err(e) => println!("timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>()),
-                    }
-                }
-            }
+            Some(train) => timed_train(&d, s.phase, &text, path, &train, n, o)?,
         }
         return Ok(());
     }
@@ -469,21 +478,8 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
         Err(e) => println!("the merged plan FAILS when timed with a {} gt gap: {e}", o.gap),
     }
     if let Some(out) = &o.out {
-        let mut lines = vec![format!("# door interleave {}: one train for both edges: {}", path.display(), labels.join(" "))];
-        if let Some(l) = text.lines().find(|l| l.trim_start().starts_with("design ")) {
-            lines.push(l.to_string());
-        }
-        lines.push(format!("phase {}", if s.phase == crate::ideal::PlanPhase::Between { "between" } else { "tile" }));
-        all.sort_by_key(|e| (!e.0, e.1));
-        for (open, t, p, st) in &all {
-            let ph = if *open { "open" } else { "close" };
-            lines.push(match st {
-                Some(b) => format!("{ph} {t} set {} {} {} {b}", p[0], p[1], p[2]),
-                None => format!("{ph} {t} clear {} {} {}", p[0], p[1], p[2]),
-            });
-        }
-        std::fs::write(out, lines.join("\n") + "\n")?;
-        println!("wrote {}", out.display());
+        let header = format!("door interleave {}: one train for both edges: {}", path.display(), labels.join(" "));
+        write_plan(out, &header, &text, s.phase, &mut all)?;
     }
     Ok(())
 }
