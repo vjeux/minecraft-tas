@@ -289,6 +289,65 @@ fn rect(g: &GameAssets, name: &str) -> Option<[u32; 4]> {
     g.tex.get(name).map(|t| t.rect)
 }
 
+/// `ChestModel.createSingleBodyLayer` (closed), texture 64 x 64, in block pixels (y up).
+fn chest() -> Vec<EPart> {
+    vec![
+        part(vec![cube(0.0, 19.0, [1.0, 0.0, 1.0], [14.0, 10.0, 14.0])], [0.0; 3], [0.0; 3]),
+        part(vec![cube(0.0, 0.0, [1.0, 0.0, 0.0], [14.0, 5.0, 14.0])], [0.0, 9.0, 1.0], [0.0; 3]),
+        part(vec![cube(0.0, 0.0, [7.0, -2.0, 14.0], [2.0, 4.0, 1.0])], [0.0, 9.0, 1.0], [0.0; 3]),
+    ]
+}
+
+/// `ShulkerModel.createBoxLayer` (closed: the lid at 24, not turned), texture 64 x 64.
+fn shulker() -> Vec<EPart> {
+    vec![
+        part(vec![cube(0.0, 0.0, [-8.0, -16.0, -8.0], [16.0, 12.0, 16.0])], [0.0, 24.0, 0.0], [0.0; 3]),
+        part(vec![cube(0.0, 28.0, [-8.0, -8.0, -8.0], [16.0, 8.0, 16.0])], [0.0, 24.0, 0.0], [0.0; 3]),
+    ]
+}
+
+/// A chest or shulker box at `cell` drawn like the game's block-entity renderers
+/// (`ChestRenderer`: turned about the cell's centre by its facing; `ShulkerBoxRenderer`: turned
+/// by `Direction.getRotation`, flipped, 0.9995 scale), with the game's entity textures. None:
+/// not one of them, or its texture is not packed.
+pub fn block_entity_triangles(g: &GameAssets, state: &str, cell: [i32; 3]) -> Option<Vec<Vertex>> {
+    let name = state.split('[').next()?.trim().trim_start_matches("minecraft:");
+    let facing = state.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()).unwrap_or("");
+    let (tw, th) = (g.width as f32, g.height as f32);
+    let base = M::id().translate([cell[0] as f32, cell[1] as f32, cell[2] as f32]);
+    let mut out = Vec::new();
+    if name == "chest" {
+        let r = rect(g, "entity/chest/normal")?;
+        // Direction.toYRot
+        let yrot: f32 = match facing {
+            "south" => 0.0,
+            "west" => 90.0,
+            "east" => 270.0,
+            _ => 180.0,
+        };
+        let m = base.translate([0.5, 0.0, 0.5]).rot(1, (-yrot).to_radians()).translate([-0.5, 0.0, -0.5]);
+        emit(&mut out, &chest(), &m, [64.0, 64.0], r, tw, th);
+        return Some(out);
+    }
+    if name.ends_with("shulker_box") {
+        let colour = name.trim_end_matches("shulker_box").trim_end_matches('_');
+        let r = if colour.is_empty() { rect(g, "entity/shulker/shulker") } else { rect(g, &format!("entity/shulker/shulker_{colour}")).or_else(|| rect(g, "entity/shulker/shulker")) }?;
+        // Direction.getRotation
+        let turn = match facing {
+            "down" => M::id().rot(0, PI),
+            "north" => M::id().rot(0, PI / 2.0).rot(2, PI),
+            "south" => M::id().rot(0, PI / 2.0),
+            "west" => M::id().rot(0, PI / 2.0).rot(2, PI / 2.0),
+            "east" => M::id().rot(0, PI / 2.0).rot(2, -PI / 2.0),
+            _ => M::id(),
+        };
+        let m = base.translate([0.5, 0.5, 0.5]).scale([0.9995, 0.9995, 0.9995]).mul(&turn).scale([1.0, -1.0, -1.0]).translate([0.0, -1.0, 0.0]);
+        emit(&mut out, &shulker(), &m, [64.0, 64.0], r, tw, th);
+        return Some(out);
+    }
+    None
+}
+
 /// The triangles of an entity drawn like the game (None: not one of the game's models the viewer
 /// has, or its texture is not loaded: the viewer's own stand-in is drawn).
 pub fn entity_triangles(g: &GameAssets, kind: &str, pos: [f32; 3], yaw: f32, pitch: f32) -> Option<Vec<Vertex>> {
