@@ -172,7 +172,7 @@ fn entities_of(w: &World) -> Vec<TraceEntity> {
                 motion: [0.0, f.vy, 0.0],
                 yaw: 0.0,
                 pitch: 0.0,
-                net_id: None,
+                net_id: Some(f.id as i32),
             },
         )
     }));
@@ -199,6 +199,13 @@ fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String
         }
         if g.yaw.to_bits() != r.yaw.to_bits() || g.pitch.to_bits() != r.pitch.to_bits() {
             out.push(format!("{} {i} rotation: game ({}, {}), redsim ({}, {})", short(&g.kind), g.yaw, g.pitch, r.yaw, r.pitch));
+        }
+        // the bridge numbers each sandbox's entities from 0 in the order they enter (the game's
+        // tick order; `(tickCount + id) % 4` paces an item at rest): redsim's ids must agree
+        if let (Some(a), Some(b)) = (g.net_id, r.net_id)
+            && a != b
+        {
+            out.push(format!("{} {i} network id: game {a}, redsim {b}", short(&g.kind)));
         }
     }
 }
@@ -244,17 +251,6 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     }
     if let Err(e) = summon(&mut w, &c) {
         return Ok(Outcome::Unmodeled(e));
-    }
-    // the game's network ids (some logic reads them: ItemEntity's 1-in-4 move at rest), from the
-    // first frame, in the summon order (falling blocks carry no network id here)
-    if let Some((_, ents)) = trace.frames.first() {
-        let mut k = 0;
-        for te in ents.iter().filter(|te| te.kind != "minecraft:falling_block") {
-            if let (Some(n), Some(e)) = (te.net_id, w.entities.list.get_mut(k)) {
-                e.network_id = n;
-            }
-            k += 1;
-        }
     }
     let mut actions = c.actions();
     let mut cache: HashMap<String, String> = HashMap::new();

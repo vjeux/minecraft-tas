@@ -893,6 +893,15 @@ judges that depend on drops vary the seed (the shulker judge seeds each build fr
 and runs 64 more seeds after the builds). Two runs with the same seed give the same exact trace;
 traces without such drops are unchanged.
 
+**Entity ids**: every entity that enters a sandbox (summoned, spawned by the game, falling
+blocks, primed TNT, drops) gets the id `base + n` (`Entity.setId` in `onCreated`, before it is
+tracked), n counting from 0 in the order they enter (reset with the sandbox), base =
+`0x40000000 + ((sandbox id & 1023) << 20)`, a multiple of 4. Vanilla takes ids from one
+server-wide counter, so `(tickCount + getId()) % 4` (an item entity at rest moves 1 tick in 4)
+depended on everything the JVM had spawned before; now it depends on n only, ids grow with the
+entity tick list's order, and redsim's ids (from 0, falling blocks sharing the counter) are the
+same numbers: the protocol reports n as `net_id`, and `redsim-fuzz trace-compare` checks it.
+
 ## 12. redsim: the exact model (track redmodel)
 
 `crates/redsim` is a pure-Rust, dependency-free tick-level copy of the 26.3 code paths above,

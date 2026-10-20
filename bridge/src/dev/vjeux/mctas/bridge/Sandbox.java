@@ -136,6 +136,21 @@ final class Sandbox {
     private boolean ticking;
     /** Item entities the game dropped through {@code Block.popResource} in this sandbox so far. */
     private long dropIndex;
+    /** Entities that entered this sandbox so far (see {@link #entityIdBase}). */
+    private int entityCount;
+
+    /**
+     * The id of this sandbox's first entity: every entity that enters the sandbox (summoned,
+     * spawned by the game, falling blocks, primed TNT, drops) gets {@code base + n}, n counting
+     * from 0 in the order they enter (reset with the sandbox), in place of vanilla's server-wide
+     * counter. The base is a multiple of 4 ({@code (tickCount + getId()) % 4} paces an item's
+     * moves at rest), per sandbox (ids stay unique per level), so ids are deterministic and grow
+     * with insertion order (the entity tick list's order) as redsim's do from 0; the protocol
+     * reports n as {@code net_id}.
+     */
+    int entityIdBase() {
+        return 0x40000000 + ((this.id & 0x3FF) << 20);
+    }
 
     @SuppressWarnings("unchecked")
     private void installDropSeeder(PersistentEntitySectionManager<?> manager) {
@@ -148,7 +163,9 @@ final class Sandbox {
     }
 
     /**
-     * Determinism for drops (the shulker study's loaders break boxes with pistons). Vanilla's
+     * Determinism for entities: every entity that enters the sandbox gets its id from the
+     * sandbox ({@link #entityIdBase}); and drops (the shulker study's loaders break boxes with
+     * pistons). Vanilla's
      * {@code new ItemEntity(level, x, y, z, stack)} draws its yaw and its drift from the entity's
      * own random, which {@code RandomSource.create()} seeds from {@code System.nanoTime()}: the
      * same build in the same seeded sandbox drifts differently on every run. An item entity the
@@ -172,6 +189,8 @@ final class Sandbox {
 
         @Override
         public void onCreated(Entity e) {
+            // deterministic ids for every entity, before it is tracked (the level's id lookup)
+            e.setId(entityIdBase() + entityCount++);
             if (ticking && e instanceof ItemEntity item && fromPopResource()) {
                 // popResource put it at the cell's center + [-0.25, 0.25) on each axis (y minus
                 // half the item's height); recover the cell, then draw everything from the
@@ -612,6 +631,7 @@ final class Sandbox {
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
         this.dropIndex = 0;
+        this.entityCount = 0;
     }
 
     void drop(SimServer server) {

@@ -105,7 +105,8 @@ pub fn scenario_item(stack: u32) -> (&'static str, u32) {
 }
 
 /// The `Items` of a container chest written as SNBT for `merge_block_entity`.
-fn items_snbt(stacks: &[Stack]) -> String {
+/// The `{Items:[..]}` SNBT the judge merges into a chest: the stacks in slots 0.. in order.
+pub fn items_snbt(stacks: &[Stack]) -> String {
     let v: Vec<String> = stacks.iter().enumerate().map(|(i, s)| s.snbt(i, true)).collect();
     format!("{{Items:[{}]}}", v.join(","))
 }
@@ -406,7 +407,7 @@ impl Scenario {
     /// The box supply: plain boxes, or (badge `colours`) red, blue, a named plain box, then plain;
     /// a loader's are empty (badge `top-up`: the first three already hold 10 stacks and a half,
     /// 1 item, 26 stacks), an unloader's full.
-    fn supply(&self) -> Vec<Stack> {
+    pub fn supply(&self) -> Vec<Stack> {
         let n = if self.loader { self.boxes + self.spare } else { self.boxes };
         (0..n)
             .map(|k| {

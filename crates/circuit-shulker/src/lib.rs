@@ -1,9 +1,11 @@
 //! Contraption study 8, track shulker: shulker loaders and unloaders (docs/circuits.md, the
 //! variations in designs/circuits/shulker/VARIATIONS.md). `mctas circuit shulker <command> ...`
 //! dispatches here. The judge itself (kinds `shulker-loader` / `shulker-unloader`, the badges) is
-//! in crates/circuit/src/shulker.rs; this crate holds the searches, judged in the game (redsim
-//! does not model shulker boxes yet).
+//! in crates/circuit/src/shulker.rs; this crate holds the searches, judged in the game, the
+//! real-game traces and their redsim replay (`compare`: redsim models shulker boxes, chests, the
+//! dispenser's box placement and the piston-broken drop as the bridge seeds it).
 
+pub mod compare;
 pub mod shrink;
 pub mod trace;
 
@@ -61,6 +63,16 @@ enum Cmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
+    /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
+    /// the frame, the judge's visit; drops from the trace's seed): redsim's shulker gate. One line
+    /// per trace (OK, the first divergence, UNMODELED).
+    Compare {
+        traces: Vec<PathBuf>,
+        /// Differences shown at the first diverging tick.
+        #[arg(long, default_value_t = 6)]
+        max: usize,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -75,5 +87,6 @@ pub fn run(args: Vec<String>) -> Result<()> {
             shrink::shrink(&design, &out, &keep, workers, &version, margin)
         }
         Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
+        Cmd::Compare { traces, max } => compare::compare(&traces, max),
     }
 }

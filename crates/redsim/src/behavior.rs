@@ -65,6 +65,8 @@ pub fn full_cube(s: &Block) -> bool {
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
+        // ---- shulker study (clk-rt): a closed shulker box's dynamic shape is the full block ----
+        Block::ShulkerBox { .. } => true,
         _ => false,
     }
 }
@@ -119,6 +121,8 @@ pub fn conductor_of(s: &Block) -> bool {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        // ---- shulker study (clk-rt): the default predicate, isCollisionShapeFullBlock (closed) ----
+        Block::ShulkerBox { .. } => true,
         _ => false,
     }
 }
@@ -189,6 +193,10 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::DaylightDetector { .. } => face == Dir::Down,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
+        // ---- shulker study (clk-rt): a closed box supports with the full block; a chest's
+        // bottom (1..15 px) covers the center column only ----
+        Block::ShulkerBox { .. } => true,
+        Block::Chest { .. } => face == Dir::Down && support == Support::Center,
         _ => false,
     }
 }
@@ -282,6 +290,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::RespawnAnchor { .. }
             | Block::Sculk { .. }
     ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
+        || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -305,6 +314,8 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
+        // ---- shulker study (clk-rt) ----
+        Block::ShulkerBox { .. } | Block::Chest { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -355,6 +366,9 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         // ---- entity-reacting blocks (clk-misc) ----
         // (wall banners: NORMAL, but a block entity makes them immovable)
         Block::Plate { .. } | Block::Tripwire { .. } | Block::TripwireHook { .. } | Block::Lantern { .. } | Block::BigDripleaf { .. } => PushReaction::Popped,
+        // ---- shulker study (clk-rt): shulkerBoxProperties' PushReaction.POPPED (a chest stays
+        // NORMAL: its block entity makes it immovable) ----
+        Block::ShulkerBox { .. } => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -379,6 +393,7 @@ pub fn has_block_entity(s: &Block) -> bool {
         s,
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
     ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
+        || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -504,6 +519,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         },
         // ---- TNT dupers (track tnt): dead coral fans have no collision ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => vec![],
+        // ---- shulker study (clk-rt): ChestBlock.SHAPE = column(14, 0, 14) ----
+        Block::Chest { .. } => vec![[1, 15, 0, 14, 1, 15]],
         _ => vec![FULL],
     }
 }
@@ -673,6 +690,8 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         // Containers.updateNeighboursAfterDestroy
         Block::ChiseledBookshelf { .. } => w.update_neighbour_for_output_signal(p, Kind::ChiseledBookshelf),
         Block::Jukebox { .. } => w.update_neighbour_for_output_signal(p, Kind::Jukebox),
+        // ---- shulker study (clk-rt): Containers.updateNeighboursAfterDestroy ----
+        Block::ShulkerBox { .. } | Block::Chest { .. } => w.update_neighbour_for_output_signal(p, s.kind()),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }

@@ -316,7 +316,17 @@ kick) before the first input.
   badge at 4 rotations, then verifies the result. `circuit archive --remove <study>/<file>` takes a
   design another one dominates out of the archive. `mctas circuit shulker trace <designs>
   [--exact] [--stack N]` records real-game traces for the viewer
-  (designs/circuits/shulker/traces/README.md).
+  (designs/circuits/shulker/traces/README.md); `mctas circuit shulker compare <exact traces>`
+  replays them in redsim (the judge's run: the chests, the settle, the supply, the lever, then
+  each gt a tick, the frame and the judge's visit; drops from the trace's seed), every cell and
+  entity compared every tick. redsim models shulker boxes (27-slot block entities, comparators,
+  hoppers in and out, never a box into a box), single chests, a dispenser placing a box (the
+  clicked face: its facing over air, else up) and a piston destroying one into the item entity
+  the bridge spawns (`redsim::rng::Drop`, docs/mechanics.md "Drops and the bridge's seeds"), the
+  box's contents carried as the stack's payload; a dispenser whose filled slots all hold the
+  same stack picks the first (every pick gives the same world). 10 of the 12 archived designs'
+  traces are tick-identical; a dropper choosing among different stacks (the level random) and a
+  minecart pushing entities are not modeled. The judge itself stays in the game.
 * **bud** (study 10, [crate::bud](../crates/circuit/src/bud.rs), the variations and why:
   [designs/circuits/bud/VARIATIONS.md](../designs/circuits/bud/VARIATIONS.md)): no input; one or
   more `port target[.<name>]: x y z [<state-a> <state-b>]` cells, AIR in the design (default states
