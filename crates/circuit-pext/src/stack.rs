@@ -37,15 +37,38 @@ pub struct StackOptions {
     pub hops: usize,
     /// Which interleavable train to use (0 = the one with the fewest pulses).
     pub pick: usize,
+    /// Use the canonical train T_N (rounds N..1 of P_k..P_N) instead of enumerating trains (the
+    /// enumeration explodes past N = 4).
+    pub canonical: bool,
+    /// Use the shortest single-cell schedule (`trains::cell_schedule`): any N, the fewest pulses.
+    pub cells: bool,
+}
+
+/// The canonical pulse-toggle train T_n: rounds k = n-1..0 of pistons k..n-1.
+pub fn canonical_train(n: usize) -> Vec<usize> {
+    let mut t = Vec::new();
+    for k in (0..n).rev() {
+        t.extend(k..n);
+    }
+    t
 }
 
 pub fn generate(o: &StackOptions) -> Result<(Design, Vec<String>)> {
     let n = o.n;
     let ni = n as i32;
-    let all = trains::trains(n, o.max_train);
-    let mut found: Vec<(Vec<usize>, Vec<(i32, bool, bool)>)> = all.iter().filter_map(|(t, _)| trains::interleave(n, t).map(|p| (t.clone(), p))).collect();
-    found.sort_by_key(|(t, p)| (p.len(), t.len(), t.clone()));
-    let (train, plan) = found.get(o.pick).cloned().ok_or_else(|| anyhow!("no interleavable train for n = {n} up to {} pulses", o.max_train))?;
+    let (train, plan) = if o.cells {
+        let cells = trains::cell_schedule(n, 200).ok_or_else(|| anyhow!("no single-cell schedule for n = {n}"))?;
+        (Vec::new(), cells.into_iter().map(|c| (c, true, true)).collect::<Vec<_>>())
+    } else if o.canonical {
+        let t = canonical_train(n);
+        let p = trains::interleave(n, &t).ok_or_else(|| anyhow!("the canonical train for n = {n} has no interleaved delivery"))?;
+        (t, p)
+    } else {
+        let all = trains::trains(n, o.max_train);
+        let mut found: Vec<(Vec<usize>, Vec<(i32, bool, bool)>)> = all.iter().filter_map(|(t, _)| trains::interleave(n, t).map(|p| (t.clone(), p))).collect();
+        found.sort_by_key(|(t, p)| (p.len(), t.len(), t.clone()));
+        found.get(o.pick).cloned().ok_or_else(|| anyhow!("no interleavable train for n = {n} up to {} pulses", o.max_train))?
+    };
     let mut log = vec![format!(
         "train {}: {} pulses",
         train.iter().map(|&k| (b'A' + k as u8) as char).collect::<String>(),

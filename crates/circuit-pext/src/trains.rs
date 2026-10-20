@@ -294,6 +294,77 @@ pub fn report_bfs(n: usize, shift: i32, max: usize) -> Result<()> {
     Ok(())
 }
 
+/// The most general static schedule: a sequence of single-cell pulses, each firing on BOTH edges
+/// (whatever piston stands on that cell on each edge acts; an empty cell or the payload does
+/// nothing). Breadth-first over the pair (on-edge state, off-edge state) from (rest, all-spat) to
+/// (all-spat, rest). Returns the cells (abstract positions) in order.
+pub fn cell_schedule(n: usize, max: usize) -> Option<Vec<i32>> {
+    use std::collections::{HashMap, VecDeque};
+    let rest: State = (1..=n as i32).collect();
+    let ext: State = (1..=n as i32).map(|i| 2 * i).collect();
+    let fire = |s: &State, c: i32| -> State {
+        if c == 0 {
+            return pulse(s, 0).unwrap_or_else(|| s.clone());
+        }
+        match s.iter().position(|&x| x == c) {
+            Some(i) if i + 1 < n => pulse(s, i + 1).unwrap_or_else(|| s.clone()),
+            _ => s.clone(),
+        }
+    };
+    let start = (rest.clone(), ext.clone());
+    let goal = (ext.clone(), rest.clone());
+    let mut prev: HashMap<(State, State), ((State, State), i32)> = HashMap::new();
+    let mut depth: HashMap<(State, State), usize> = HashMap::new();
+    depth.insert(start.clone(), 0);
+    let mut q = VecDeque::new();
+    q.push_back(start);
+    let bound = 2 * n as i32;
+    while let Some(cur) = q.pop_front() {
+        if cur == goal {
+            let mut out = Vec::new();
+            let mut c = cur;
+            while let Some((p, cell)) = prev.get(&c) {
+                out.push(*cell);
+                c = p.clone();
+            }
+            out.reverse();
+            return Some(out);
+        }
+        let d = depth[&cur];
+        if d >= max {
+            continue;
+        }
+        for c in 0..bound {
+            let a = fire(&cur.0, c);
+            let b = fire(&cur.1, c);
+            if a == cur.0 && b == cur.1 {
+                continue;
+            }
+            if a.iter().chain(b.iter()).any(|&x| x > bound) {
+                continue;
+            }
+            let next = (a, b);
+            if !depth.contains_key(&next) {
+                depth.insert(next.clone(), d + 1);
+                prev.insert(next.clone(), (cur.clone(), c));
+                q.push_back(next);
+            }
+        }
+    }
+    None
+}
+
+pub fn report_cells(n: usize, max: usize) -> Result<()> {
+    match cell_schedule(n, max) {
+        None => println!("no single-cell schedule for n = {n} up to {max} pulses"),
+        Some(cells) => {
+            let s: Vec<String> = cells.iter().map(|c| format!("x{c}")).collect();
+            println!("shortest single-cell schedule for n = {n}: {} pulses: {}", cells.len(), s.join(" "));
+        }
+    }
+    Ok(())
+}
+
 /// Interleaved delivery (the cascade's trick for a plain stack): every static pulse fires on both
 /// edges at the same time, but the on-edge's steps and the off-edge's steps may come at DIFFERENT
 /// times: a pulse at cell c is the on-edge's next step when the on-edge's acting piston stands at

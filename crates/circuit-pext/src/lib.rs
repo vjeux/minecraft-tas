@@ -142,6 +142,12 @@ enum Cmd {
         hops: usize,
         #[arg(long, default_value_t = 0)]
         pick: usize,
+        /// Use the canonical train T_N instead of enumerating trains.
+        #[arg(long)]
+        canonical: bool,
+        /// Use the shortest single-cell schedule (any N, fewest pulses).
+        #[arg(long)]
+        cells: bool,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -174,6 +180,9 @@ enum Cmd {
         /// Interleaved delivery: the two edges' steps at different times (see trains::interleave).
         #[arg(long)]
         interleave: bool,
+        /// The shortest single-cell static schedule (see trains::cell_schedule).
+        #[arg(long)]
+        cells: bool,
     },
     /// Greedy shrink on redsim: remove blocks, or swap one for a palette state and remove
     /// another, while the extender keeps working; writes each step to --out.
@@ -309,8 +318,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Stack { n, max_train, hops, pick, out } => {
-            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick })?;
+        Cmd::Stack { n, max_train, hops, pick, canonical, cells, out } => {
+            let (d, log) = stack::generate(&stack::StackOptions { n, max_train, hops, pick, canonical, cells })?;
             for l in &log {
                 println!("  {l}");
             }
@@ -359,8 +368,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
             Ok(())
         }
-        Cmd::Trains { n, max, show, shift, bfs, interleave } => {
-            if interleave {
+        Cmd::Trains { n, max, show, shift, bfs, interleave, cells } => {
+            if cells {
+                trains::report_cells(n, max)
+            } else if interleave {
                 trains::report_interleave(n, max, show)
             } else if bfs {
                 trains::report_bfs(n, shift, max)
