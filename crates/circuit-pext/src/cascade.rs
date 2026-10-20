@@ -53,7 +53,7 @@ pub fn generate(o: &CascadeOptions) -> Result<(Design, Vec<String>)> {
     }
     let ni = n as i32;
     let mut b: BTreeMap<Pos, String> = BTreeMap::new();
-    let mut put = |b: &mut BTreeMap<Pos, String>, p: Pos, s: String| -> Result<()> {
+    let put = |b: &mut BTreeMap<Pos, String>, p: Pos, s: String| -> Result<()> {
         if let Some(old) = b.insert(p, s.clone()) {
             bail!("generator collision at {p:?}: {old} vs {s}");
         }
