@@ -221,6 +221,13 @@ kick) before the first input.
 * **tnt-duper-triggered** (one input): 6 pulses of 4 gt spaced by the gap; nothing may spawn before
   the first pulse, each pulse's window must spawn the same k >= 1 primed TNT and end with every TNT
   block standing. `per pulse`, `latency` (the pulse's start to its first spawn), `gap`.
+* **tnt-duper with `port input:`** (the lever on/off variation): windows of 300 gt with the input
+  off, on, off, on; it must dupe periodically (the same period in both run windows, TNT intact) in
+  exactly one input state and spawn nothing in the other from 40 gt after the switch. `runs input
+  on|off`, `stop` (the switch to the last TNT), `start` (the switch to the first); the axis reads
+  `<rate> switchable`. In the game run, a burning TNT touching a pressure plate, tripwire or
+  detector rail fails the run (it would react in the game, not on redsim), and a TNT whose fuse is
+  missing from its saved data is a judge error.
 * **shulker-loader [64|16|1]** and **shulker-unloader [64|16|1]** (study 8, track shulker,
   crates/circuit/src/shulker.rs; the variations and how each is measured:
   designs/circuits/shulker/VARIATIONS.md). The number is the scenario item's max stack:

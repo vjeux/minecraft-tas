@@ -153,7 +153,22 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
                     tnt_index.insert(e.uuid.clone(), primed.len());
                     primed.push(crate::trace::Primed { frame: next, pos: e.pos, motion: Some(e.motion), end: None });
                 }
-                let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok()).unwrap_or(80);
+                let fuse = e.state.split("fuse: ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit() && c != '-').next()).and_then(|s| s.parse::<i32>().ok());
+                let Some(fuse) = fuse else {
+                    return Err(anyhow!("a primed TNT's fuse is not in its saved data ({}): the bridge's entity data changed", e.state));
+                };
+                // the burning TNT is a real entity in the game only (redsim records primes): an
+                // entity-reacting block it touches would see it in the game and not on redsim
+                let bb = e.bbox;
+                if let Some(frame) = cells.last() {
+                    let hit = frame.iter().find(|(p, s)| {
+                        (s.contains("pressure_plate") || s.contains("tripwire") || s.contains("detector_rail"))
+                            && (0..3).all(|i| (p[i] as f64) < bb[i + 3] && (p[i] as f64 + 1.0) > bb[i])
+                    });
+                    if let Some((p, s)) = hit {
+                        return Ok(Err(format!("frame {next}: a primed TNT touches {} at {p:?} (entity-reacting blocks see burning TNT in the game, not on redsim)", clock::short(s))));
+                    }
+                }
                 if fuse <= 1 {
                     if let Some(&k) = tnt_index.get(&e.uuid) {
                         primed[k].end = Some((e.pos, e.motion));

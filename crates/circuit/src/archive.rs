@@ -326,6 +326,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
         Kind::TntDuper => m("rate"),
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
     }
