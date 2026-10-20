@@ -1,0 +1,12 @@
+name: base-latched
+# Base for `bud census --base`: the latched QC BUD with its arming redstone block fixed (no reset
+# input): the census adds blocks looking for an automatic reset that never jams.
+port target: 0 0 0
+origin: 1 0 0
+palette:
+  P minecraft:sticky_piston[extended=false,facing=east]
+  R minecraft:redstone_block
+layer 0:
+  PR
+layer 1:
+  .R

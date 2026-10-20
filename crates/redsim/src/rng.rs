@@ -73,6 +73,54 @@ impl LegacyRandom {
     pub fn next_double_between(&mut self, min: f64, max: f64) -> f64 {
         if min >= max { min } else { self.next_double() * (max - min) + min }
     }
+
+    // ---- the level random's mirror (clk-misc) ----
+    /// The internal 48-bit state (`LegacyRandomSource.seed`): what the bridge's `random_state`
+    /// returns.
+    pub fn state(&self) -> i64 {
+        self.seed
+    }
+
+    /// `BitRandomSource.nextLong`: `((long) next(32) << 32) + next(32)`.
+    pub fn next_long(&mut self) -> i64 {
+        let upper = self.next(32) as i64;
+        let lower = self.next(32) as i64;
+        (upper << 32).wrapping_add(lower)
+    }
+
+    /// `RandomSource.triangle(mean, spread)` (doubles): `mean + spread * (nextDouble() - nextDouble())`.
+    pub fn triangle(&mut self, mean: f64, spread: f64) -> f64 {
+        let a = self.next_double();
+        let b = self.next_double();
+        mean + spread * (a - b)
+    }
+}
+
+/// How many LCG steps (`next(bits)` calls) lead from internal state `a` to `b`, within `max`.
+pub fn lcg_steps(a: i64, b: i64, max: u32) -> Option<u32> {
+    let mut s = a;
+    for k in 0..=max {
+        if s == b {
+            return Some(k);
+        }
+        s = s.wrapping_mul(MULTIPLIER).wrapping_add(0xB) & MASK;
+    }
+    None
+}
+
+/// A trace check of the level random (`rng` of an exact trace frame against the mirror's
+/// state): `None` when equal, else the difference with the draw distance when it is small (which
+/// side made extra `next()` calls).
+pub fn state_diff(game: i64, ours: i64) -> Option<String> {
+    if game == ours {
+        return None;
+    }
+    let why = match (lcg_steps(ours, game, 4096), lcg_steps(game, ours, 4096)) {
+        (Some(k), _) => format!("redsim made {k} fewer next() calls"),
+        (_, Some(k)) => format!("redsim made {k} more next() calls"),
+        _ => "not within 4096 next() calls".to_string(),
+    };
+    Some(format!("level random: game {game}, redsim {ours} ({why})"))
 }
 
 /// A drop as the bridge places it (`Sandbox.DropSeeder`): where, its yaw, its motion.
