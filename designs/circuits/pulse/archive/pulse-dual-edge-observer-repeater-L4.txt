@@ -2,6 +2,8 @@
 # CIRCUIT: pulse-dual-edge-observer-repeater-L4 dual-edge L 4 gt, delay 6 gt, min-pulse 8 gt, tileable every 1 (1 0 0), 3 blocks, 1x2x2, robust
 name: pulse-dual-edge-observer-repeater-L4
 circuit: dual-edge
+group: pulse-dual-edge-observer-repeater
+group title: pulse on both edges: an observer and a repeater
 tile: 1 0 0
 port input: 0 1 2
 port output: 0 1 0
