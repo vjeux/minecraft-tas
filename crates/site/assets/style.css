@@ -80,6 +80,8 @@ header.top {
   .grid > .card > .meta { flex: 1; min-width: 0; padding: 7px 10px; }
 }
 .nowrap { white-space: nowrap; }
+/* the search's cards that only mention its words, under their own line (a full-width row of the grid) */
+.grid > p.also { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); font-weight: 600; }
 /* a wide table inside its scroll frame keeps its columns and scrolls (critique: the variations
    table's last column was cut, links wrapped one word per line) */
 .scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
