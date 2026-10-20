@@ -446,6 +446,13 @@ impl Worker {
         Ok(())
     }
 
+    /// Save, unload and load again every chunk of a sandbox without ticking it (a player walking
+    /// away and back, a server restart): `Sandbox.reload`.
+    pub fn reload(&mut self, sandbox: u32) -> Result<()> {
+        self.call(json!({"op": "reload", "sandbox": sandbox}))?;
+        Ok(())
+    }
+
     /// Destroy a sandbox (prefer [`Worker::clear`] to reuse one).
     pub fn drop_sandbox(&mut self, sandbox: u32) -> Result<()> {
         self.call(json!({"op": "drop", "sandbox": sandbox}))?;

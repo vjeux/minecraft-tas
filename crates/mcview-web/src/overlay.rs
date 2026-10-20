@@ -1,16 +1,20 @@
 //! The live viewer's HTML overlays: a circuit's tags (its inputs IN, A, B... in lime, outputs in
-//! orange, a shulker design's ITEMS / BOXES chests, a BUD switch's TARGET), ONE compact label per
-//! container with what it holds (an icon and a count per kind: `[cobblestone] 1,344`, a shulker
-//! box `12/27`, at most two kinds and `+n`), and the outputs' recent history. Placed every frame
-//! by projecting their points with the player's camera, then laid out so that nothing overlaps:
-//! a tag or label that would cover another goes higher (or aside) with a leader line back to its
-//! cell; a label with no free spot is left out.
+//! orange, a shulker design's ITEMS / BOXES chests, a BUD switch's TARGET; a shulker design's
+//! same-kind chests that stand together share one tag), what the containers hold (an icon and a
+//! count per kind: `[cobblestone] 1,344`, a shulker box `12/27`, at most two kinds and `+n`), and
+//! the outputs' recent history.
+//!
+//! By default only what tells the story is labelled: the port chests (their contents inside
+//! their tag) and the shulker boxes being filled or emptied. Any other container gets its label
+//! when tapped (a tap again hides it); the bar's contents button labels them all. Placed every
+//! frame by projecting their points with the player's camera, then laid out so that nothing
+//! overlaps and no leader line crosses a tag or label (`mcview::labels::Layout`).
 
 use crate::document;
 use mcview::atlas::Atlas;
-use mcview::labels::{self, Entry, Key, Rect, spot};
+use mcview::labels::{self, Entry, Key, Layout, Rect};
 use mcview::player::{HISTORY, Player};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wasm_bindgen::{Clamped, JsCast};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement};
 
@@ -21,18 +25,22 @@ struct Label {
     size: (f64, f64),
 }
 
-/// A tag (a port's name over its cell); a container there (a judge's chest) shows its contents
-/// inside the tag, after the name: one pill per chest.
+/// A tag (a port's name over its cells); the containers there (judge's chests) show their
+/// contents inside the tag, after the name: one pill per port or group of ports.
 struct Tag {
     el: HtmlElement,
-    /// The world point it hangs at.
+    /// The world point it hangs at (over its cells' middle).
     point: [f32; 3],
-    /// Its cell (the container whose contents it shows).
-    cell: [i32; 3],
+    /// Its cells (the containers whose contents it shows).
+    cells: Vec<[i32; 3]>,
     contents: HtmlElement,
     content: String,
     /// Its size, measured again when its contents change.
     size: (f64, f64),
+    /// Its colour, and the output cell it names (its text red while that output is powered).
+    colour: String,
+    out: Option<[i32; 3]>,
+    lit: bool,
 }
 
 pub struct Overlays {
@@ -47,8 +55,13 @@ pub struct Overlays {
     /// `icons_of` (rebuilt when the item atlas arrives).
     icons: HashMap<String, Option<String>>,
     icons_of: (usize, bool),
-    /// Container contents shown (the bar's toggle).
-    pub containers_on: bool,
+    /// Every container labelled (the bar's contents button), not only the story's.
+    pub show_all: bool,
+    /// Containers labelled because they were tapped.
+    pinned: HashSet<Key>,
+    /// Where each container (besides the port chests) was on the last frame, for taps: its key,
+    /// its box on the view, its distance.
+    hits: Vec<(Key, Rect, f32)>,
     history: Option<(HtmlCanvasElement, CanvasRenderingContext2d)>,
 }
 
@@ -113,7 +126,19 @@ impl Overlays {
             let ctx = c.get_context("2d").ok()??.dyn_into::<CanvasRenderingContext2d>().ok()?;
             Some((c, ctx))
         })();
-        Overlays { layer, leaders, tags: Vec::new(), input_tags: Vec::new(), labels: HashMap::new(), icons: HashMap::new(), icons_of: (0, false), containers_on: true, history: None }
+        Overlays {
+            layer,
+            leaders,
+            tags: Vec::new(),
+            input_tags: Vec::new(),
+            labels: HashMap::new(),
+            icons: HashMap::new(),
+            icons_of: (0, false),
+            show_all: false,
+            pinned: HashSet::new(),
+            hits: Vec::new(),
+            history: None,
+        }
     }
 
     /// The tags and the history strip of a (new) player.
@@ -125,17 +150,23 @@ impl Overlays {
             l.el.remove();
         }
         self.input_tags.clear();
-        let make = |layer: &HtmlElement, text: &str, color: &str, cell: [i32; 3]| -> Tag {
+        self.pinned.clear();
+        self.hits.clear();
+        let make = |layer: &HtmlElement, text: &str, color: &str, cells: Vec<[i32; 3]>| -> Tag {
             let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
             let _ = el.append_child(&span("", text));
             let contents = span("display:none;align-items:center;gap:2px;color:#fff;font:600 10px/14px system-ui,sans-serif;letter-spacing:0", "");
             let _ = el.append_child(&contents);
             let _ = layer.append_child(&el);
-            Tag { el, point: [cell[0] as f32 + 0.5, cell[1] as f32 + 1.05, cell[2] as f32 + 0.5], cell, contents, content: String::new(), size: (0.0, 0.0) }
+            // over the middle of its cells, at the top one's height
+            let n = cells.len().max(1) as f32;
+            let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+            let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name: String = ci.name.to_uppercase().chars().take(3).collect();
-            let t = make(&self.layer, &name, "#a6f05a", ci.pos);
+            let t = make(&self.layer, &name, "#a6f05a", vec![ci.pos]);
             // pressing the tag presses its input (a tap or a hold)
             let s = t.el.style();
             let _ = s.set_property("pointer-events", "auto");
@@ -144,26 +175,53 @@ impl Overlays {
             self.input_tags.push((i, t.el.clone()));
             self.tags.push(t);
         }
-        // a circuit's other ports: its outputs, a shulker design's chests, a BUD switch's target
-        for (label, pos, colour) in mcview::circuit::port_tags(&p.session.design) {
-            let t = make(&self.layer, &label, colour, pos);
+        // a circuit's other ports: its outputs, a shulker design's chests (same-kind neighbours
+        // share one tag), a BUD switch's target
+        for g in mcview::circuit::port_groups(&p.session.design) {
+            let t = make(&self.layer, &g.label, g.colour, g.cells);
             self.tags.push(t);
+        }
+        // a clock's output: the circuits' OUT box and tag (vjeux: instead of the orange glass)
+        let clock_out = !p.session.design.meta.contains_key("circuit") && !p.session.mode.is_door();
+        if clock_out && let Some(o) = p.session.outputs.first() {
+            let t = make(&self.layer, "OUT", "#ffb04a", vec![*o]);
+            self.tags.push(t);
+        }
+        // the tags naming an output turn red while it is powered
+        for t in self.tags.iter_mut() {
+            t.out = t.cells.iter().copied().find(|c| p.session.outputs.contains(c));
         }
         if let Some((c, _)) = self.history.take() {
             c.remove();
         }
-        if !p.session.circuit_inputs.is_empty() && !p.history.is_empty() {
+        if (!p.session.circuit_inputs.is_empty() || clock_out && p.session.simulated()) && !p.history.is_empty() {
             let c: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
             let rows = p.history.len() as u32;
             c.set_width(HISTORY as u32 * 3);
             c.set_height(rows * 8 + (rows - 1) * 2);
             let _ = c.set_attribute("style", &format!("position:absolute;right:8px;top:34px;width:{}px;height:{}px;border-radius:3px;background:rgba(0,0,0,0.45);image-rendering:pixelated", HISTORY * 3, rows * 8 + (rows - 1) * 2));
-            c.set_title("the output, on (orange) or off, over the last 40 game ticks");
+            c.set_title("the output: powered (red) or not, over the last 40 game ticks");
             let _ = self.layer.append_child(&c);
             if let Some(ctx) = c.get_context("2d").ok().flatten().and_then(|x| x.dyn_into::<CanvasRenderingContext2d>().ok()) {
                 self.history = Some((c, ctx));
             }
         }
+    }
+
+    /// A tap at (x, y) CSS px on the view: the container there (a block under the tap: `picked`,
+    /// or a cart or chest boat) shows or hides its label. False: no container there.
+    pub fn toggle_pin_at(&mut self, x: f64, y: f64, picked: Option<[i32; 3]>) -> bool {
+        let hit = self
+            .hits
+            .iter()
+            .filter(|(k, r, _)| x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1 && matches!(k, Key::Entity(_)) || matches!(k, Key::Block(c) if Some(*c) == picked))
+            .min_by(|a, b| a.2.total_cmp(&b.2))
+            .map(|(k, _, _)| *k);
+        let Some(k) = hit else { return false };
+        if !self.pinned.remove(&k) {
+            self.pinned.insert(k);
+        }
+        true
     }
 
     /// An item's icon as a data URL (cached; None: no texture for it).
@@ -246,12 +304,20 @@ impl Overlays {
             }
             Some(((x as f64 + 1.0) / 2.0 * w, (1.0 - y as f64) / 2.0 * h))
         };
-        let mut placed: Vec<Rect> = Vec::new();
-        let mut leaders: Vec<((f64, f64), Rect)> = Vec::new();
+        // a cell's box on the view (None: not wholly in view)
+        let cell_box = |c: [i32; 3]| -> Option<Rect> {
+            let mut b = Rect { x0: f64::MAX, y0: f64::MAX, x1: f64::MIN, y1: f64::MIN };
+            for k in 0..8 {
+                let (x, y) = project([c[0] as f32 + (k & 1) as f32, c[1] as f32 + ((k >> 1) & 1) as f32, c[2] as f32 + ((k >> 2) & 1) as f32])?;
+                b = Rect { x0: b.x0.min(x), y0: b.y0.min(y), x1: b.x1.max(x), y1: b.y1.max(y) };
+            }
+            Some(b)
+        };
+        let mut layout = Layout::default();
         // the history strip stays clear
         if let Some((c, _)) = &self.history {
             let (cw, ch) = (c.offset_width() as f64, c.offset_height() as f64);
-            placed.push(Rect { x0: w - 8.0 - cw, y0: 34.0, x1: w - 8.0, y1: 34.0 + ch });
+            layout.obstacles.push(Rect { x0: w - 8.0 - cw, y0: 34.0, x1: w - 8.0, y1: 34.0 + ch });
         }
         // what the containers hold (nearest first)
         let game = game_of(atlas);
@@ -259,71 +325,76 @@ impl Overlays {
             self.icons.clear();
             self.icons_of = game;
         }
-        let mut now = if self.containers_on { labels::summaries(&p.session, p.partial) } else { Vec::new() };
+        let mut now = labels::summaries(&p.session, p.partial);
         let dist = |a: [f32; 3]| (a[0] - eye[0]).powi(2) + (a[1] - eye[1]).powi(2) + (a[2] - eye[2]).powi(2);
         now.sort_by(|a, b| dist(a.anchor).total_cmp(&dist(b.anchor)).then(a.key.cmp(&b.key)));
-        // the tags first, always shown (at their cell when no free spot is left); a container
-        // under a tag (a judge's chest) shows its contents in the tag
+        // the tags first, always shown (at their point when no free spot is left); the
+        // containers under a tag (port chests) show their contents in the tag
         let view = Rect { x0: 0.0, y0: 0.0, x1: w, y1: h };
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
-            let cell = self.tags[i].cell;
-            let held = now.iter().find(|s| s.key == Key::Block(cell));
-            let content = match held {
-                Some(s) => format!("{:?}{:?}", s.entries, self.icons_of),
-                None => String::new(),
-            };
-            if let Some(s) = held {
-                in_tags.push(s.key);
-            }
+            let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
+            in_tags.extend(held.iter().map(|s| s.key));
+            let entries = labels::merge(held.iter().map(|s| s.entries.as_slice()));
+            let content = if entries.is_empty() { String::new() } else { format!("{entries:?}{:?}", self.icons_of) };
             if self.tags[i].content != content || self.tags[i].size.0 <= 0.0 {
                 let contents = self.tags[i].contents.clone();
-                match held {
-                    Some(s) => {
-                        let entries = s.entries.clone();
-                        self.fill_label(atlas, &contents, &entries);
-                        let _ = contents.style().set_property("display", "inline-flex");
-                    }
-                    None => {
-                        contents.set_inner_html("");
-                        let _ = contents.style().set_property("display", "none");
-                    }
+                if entries.is_empty() {
+                    contents.set_inner_html("");
+                    let _ = contents.style().set_property("display", "none");
+                } else {
+                    self.fill_label(atlas, &contents, &entries);
+                    let _ = contents.style().set_property("display", "inline-flex");
                 }
-                let t = &mut self.tags[i];
-                t.content = content;
-                t.size = measure(&t.el);
+                let tg = &mut self.tags[i];
+                tg.content = content;
+                tg.size = measure(&tg.el);
             }
-            let t = &self.tags[i];
-            let Some((ax, ay)) = project(t.point) else {
-                hide(&t.el);
+            let tg = &self.tags[i];
+            let Some((ax, ay)) = project(tg.point) else {
+                hide(&tg.el);
                 continue;
             };
-            let (wt, ht) = t.size;
-            let (rect, moved) = spot(&placed, &view, ax, ay, wt, ht, 5).unwrap_or((Rect { x0: ax - wt / 2.0, y0: ay - 2.0 - ht, x1: ax + wt / 2.0, y1: ay - 2.0 }, false));
-            show_at(&t.el, &rect);
-            placed.push(rect);
-            if moved {
-                leaders.push(((ax, ay), rect));
+            // an output's tag: red while it is powered
+            let lit = tg.out.is_some_and(|o| p.session.output_powered(o));
+            if lit != tg.lit {
+                let _ = tg.el.style().set_property("color", if lit { "#ff5a4f" } else { &tg.colour });
+                self.tags[i].lit = lit;
             }
-        }
-        // the other containers' labels; clear of the badges (top), the bar (bottom), and every
-        // outlined cell (the ports and inputs: a label never covers one)
-        now.retain(|s| !in_tags.contains(&s.key));
-        for c in p.look.outlines.iter().copied().chain(p.look.port_outlines.iter().map(|(c, _)| *c)) {
-            let corners: Vec<(f64, f64)> = (0..8)
-                .filter_map(|k| project([c[0] as f32 + (k & 1) as f32, c[1] as f32 + ((k >> 1) & 1) as f32, c[2] as f32 + ((k >> 2) & 1) as f32]))
-                .collect();
-            if corners.len() == 8 {
-                let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-                for (x, y) in corners {
-                    x0 = x0.min(x);
-                    y0 = y0.min(y);
-                    x1 = x1.max(x);
-                    y1 = y1.max(y);
+            let tg = &self.tags[i];
+            let (wt, ht) = tg.size;
+            let rect = match layout.place(&view, ax, ay, wt, ht, 5) {
+                Some((rect, _)) => rect,
+                None => {
+                    let rect = Rect { x0: ax - wt / 2.0, y0: ay - 2.0 - ht, x1: ax + wt / 2.0, y1: ay - 2.0 };
+                    layout.texts.push(rect);
+                    rect
                 }
-                placed.push(Rect { x0, y0, x1, y1 });
+            };
+            show_at(&tg.el, &rect);
+        }
+        // the outlined cells: no label covers one
+        for c in p.look.outlines.iter().copied().chain(p.look.port_outlines.iter().map(|(c, _)| *c)) {
+            if let Some(b) = cell_box(c) {
+                layout.obstacles.push(b);
             }
         }
+        // where each other container is, for taps
+        self.hits.clear();
+        for s in now.iter().filter(|s| !in_tags.contains(&s.key)) {
+            let rect = match s.key {
+                Key::Block(c) => cell_box(c),
+                Key::Entity(_) => project([s.anchor[0], s.anchor[1] - 0.4, s.anchor[2]]).map(|(x, y)| Rect { x0: x - 16.0, y0: y - 14.0, x1: x + 16.0, y1: y + 14.0 }),
+            };
+            if let Some(rect) = rect {
+                self.hits.push((s.key, rect, dist(s.anchor)));
+            }
+        }
+        // the story's labels (the shulker boxes being filled or emptied), the tapped ones, or
+        // all of them; clear of the badges (top) and the bar (bottom)
+        let pinned = &self.pinned;
+        let show_all = self.show_all;
+        now.retain(|s| !in_tags.contains(&s.key) && (show_all || s.shulker_box || pinned.contains(&s.key)));
         let keep: Vec<Key> = now.iter().map(|s| s.key).collect();
         self.labels.retain(|k, l| {
             let k = keep.contains(k);
@@ -349,19 +420,12 @@ impl Overlays {
                 l.size = size;
             }
             let l = &self.labels[&s.key];
-            let at = project(s.anchor).and_then(|(ax, ay)| spot(&placed, &safe, ax, ay, l.size.0, l.size.1, 6).map(|(r, moved)| ((ax, ay), r, moved)));
-            match at {
-                Some((a, rect, moved)) => {
-                    show_at(&l.el, &rect);
-                    placed.push(rect);
-                    if moved {
-                        leaders.push((a, rect));
-                    }
-                }
+            match project(s.anchor).and_then(|(ax, ay)| layout.place(&safe, ax, ay, l.size.0, l.size.1, 6)) {
+                Some((rect, _)) => show_at(&l.el, &rect),
                 None => hide(&l.el),
             }
         }
-        self.draw_leaders(&leaders, w, h);
+        self.draw_leaders(&layout.lines, w, h);
         // the outputs' history
         if let Some((c, ctx)) = &self.history {
             let (cw, ch) = (c.width() as f64, c.height() as f64);
@@ -370,7 +434,7 @@ impl Overlays {
                 let y = row as f64 * 10.0;
                 let pad = HISTORY - hist.len().min(HISTORY);
                 for (k, on) in hist.iter().enumerate() {
-                    ctx.set_fill_style_str(if *on { "#ffab3d" } else { "#3a3a3a" });
+                    ctx.set_fill_style_str(if *on { "#ff5a4f" } else { "#3a3a3a" });
                     ctx.fill_rect(((pad + k) * 3) as f64, y + if *on { 0.0 } else { 5.0 }, 2.0, if *on { 8.0 } else { 3.0 });
                 }
             }
@@ -378,7 +442,7 @@ impl Overlays {
     }
 
     /// A thin line from each moved tag or label down to its cell, with a dot there.
-    fn draw_leaders(&self, leaders: &[((f64, f64), Rect)], w: f64, h: f64) {
+    fn draw_leaders(&self, lines: &[((f64, f64), (f64, f64))], w: f64, h: f64) {
         let Some((c, ctx)) = &self.leaders else { return };
         let dpr = crate::window().device_pixel_ratio().clamp(1.0, 3.0);
         let (pw, ph) = ((w * dpr).round().max(1.0) as u32, (h * dpr).round().max(1.0) as u32);
@@ -387,16 +451,13 @@ impl Overlays {
             c.set_height(ph);
         }
         ctx.clear_rect(0.0, 0.0, pw as f64, ph as f64);
-        if leaders.is_empty() {
+        if lines.is_empty() {
             return;
         }
         ctx.set_line_width(dpr);
         ctx.set_stroke_style_str("rgba(255,255,255,0.8)");
         ctx.set_fill_style_str("rgba(255,255,255,0.9)");
-        for ((ax, ay), r) in leaders {
-            // to the nearest point of the box's edge facing the cell
-            let x = ax.clamp(r.x0 + 3.0, r.x1 - 3.0);
-            let y = if *ay >= r.y1 { r.y1 } else if *ay <= r.y0 { r.y0 } else { ay.clamp(r.y0, r.y1) };
+        for ((ax, ay), (x, y)) in lines {
             ctx.begin_path();
             ctx.move_to(ax * dpr, ay * dpr);
             ctx.line_to(x * dpr, y * dpr);

@@ -90,6 +90,8 @@ pub struct SimReport {
     /// Every cell non-air at any tick of the run (warmup and one period) and the design's box.
     pub swept: (Pos, Pos),
     pub start: String,
+    /// The cells an entity occupied during the period (never usable as the output).
+    pub occupied: Vec<Pos>,
     /// A clock holding a sculk sensor: whether ambient game events leave its output alone
     /// ([`crate::vibration::sim_property`]; a property, never a failure).
     pub vibration: Option<crate::vibration::Property>,
@@ -110,6 +112,7 @@ impl SimReport {
             blocks: c.blocks(),
             swept: c.bounds(),
             start: c.start_label(),
+            occupied: Vec::new(),
             vibration: None,
         }
     }
@@ -205,6 +208,16 @@ struct Started {
 }
 
 /// Every block of the clock as a redsim state, or the names redsim does not model.
+/// The block the judge puts in a clock's output cell (vjeux 2026-10-20: the judge reads a lamp
+/// there, as a builder would attach one).
+pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
+
+/// The cell of the judge's lamp: the declared output when the design leaves it empty (an air
+/// output cell). Not a block of the design: never counted, never in the family or the box.
+pub fn judge_lamp(c: &Clock) -> Option<Pos> {
+    c.output.filter(|op| !c.design.blocks.contains_key(op))
+}
+
 pub fn parse_blocks(c: &Clock) -> Result<Vec<(BlockPos, Block)>, String> {
     let mut out = Vec::new();
     let mut bad: Vec<String> = Vec::new();
@@ -217,6 +230,11 @@ pub fn parse_blocks(c: &Clock) -> Result<Vec<(BlockPos, Block)>, String> {
                 }
             }
         }
+    }
+    if let Some(op) = judge_lamp(c)
+        && let Ok(b) = Block::parse(JUDGE_LAMP)
+    {
+        out.push((bp(op), b));
     }
     if let Some(Kick::Place { state, .. }) = &c.kick
         && let Err(e) = Block::parse(state)
@@ -360,6 +378,31 @@ pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
     start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
 }
 
+/// [`drive`]'s loop for a world set up another way: placed like the judge places it in the box
+/// `from`..=`to`, then `config` (e.g. `redsim::explosion::explode_on`), then for t in 0..=ticks:
+/// the inputs due at t, `frame(t, world)`, one tick. Runs every tick even after a problem between
+/// ticks (a drop, an error: the first one is returned with its tick, like [`drive`]'s `stopped`);
+/// `Err` when redsim does not model the design.
+pub fn drive_custom(c: &Clock, from: Pos, to: Pos, ticks: u32, config: impl FnOnce(&mut World), mut frame: impl FnMut(u32, &World)) -> Result<Option<(u32, String)>, String> {
+    let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
+    blocks.sort_by_key(|(p, _)| *p);
+    let mut s = start_box(c, &blocks, from, to).map_err(|(_, why)| why)?;
+    config(&mut s.world);
+    let mut first: Option<(u32, String)> = None;
+    for t in 0..=ticks {
+        if let Err((_, why)) = between_ticks(&mut s, t)
+            && first.is_none()
+        {
+            first = Some((t, why));
+        }
+        frame(t, &s.world);
+        if t < ticks {
+            s.world.tick();
+        }
+    }
+    Ok(first)
+}
+
 /// The design's blocks that cannot stand where they are once placed like the judge places them:
 /// the ones the placement removed (a floating dust loses its shape update) and the ones redsim's
 /// `canSurvive` rejects (a floating lever, torch or repeater, which the raw placement keeps but a
@@ -442,6 +485,146 @@ pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos]
         }
     }
     Ok(out)
+}
+
+/// Why a declared output cell is not where a builder can take the signal (vjeux / coordinator,
+/// 2026-10-20), or None: it must be AIR (only the judge's lamp lives there; `first` is its block at
+/// the start of the period: the entered check covers the rest of the cycle), on the swept box's
+/// boundary or one cell outside it with a face to free space, and not above tripwire, rails or
+/// water (`below`: the states under it during the period).
+pub fn placement_problem<'a>(op: Pos, swept: (Pos, Pos), first: &str, mut below: impl Iterator<Item = &'a str>) -> Option<String> {
+    let name = mctas::blockstate::block_name(first);
+    if !(name.ends_with("air")) {
+        return Some(format!("the output cell {op:?} holds {}: it must be an AIR cell where the signal arrives (a lamp, dust or repeater put there gets it)", crate::short(first)));
+    }
+    let (slo, shi) = swept;
+    let inside = |q: Pos| (0..3).all(|k| q[k] >= slo[k] && q[k] <= shi[k]);
+    let dirs = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    let free = dirs.iter().any(|d| !inside([op[0] + d[0], op[1] + d[1], op[2] + d[2]]));
+    let near = inside(op) || dirs.iter().any(|d| inside([op[0] + d[0], op[1] + d[1], op[2] + d[2]]));
+    if !free || !near {
+        return Some(format!("the output cell {op:?} is not on the build's exterior: it must sit on the boundary of the swept box {slo:?}..{shi:?} or one cell outside it, with a face to free space"));
+    }
+    if let Some(s) = below.find(|s| s.contains("tripwire") || s.contains("rail") || s.contains("water")) {
+        return Some(format!("the output cell {op:?} sits on {}: not a place to take a signal", crate::short(s)));
+    }
+    None
+}
+
+/// Where a builder can take a clock's signal (vjeux / coordinator, 2026-10-20): an AIR cell free all
+/// cycle (no block moved into or through it, no entity), on the swept box's boundary or one cell
+/// outside it with a face to free space, not above tripwire, rails or water, whose received power
+/// rises at evenly spaced ticks. Ranked: its pulses every `period` gt first (the clock's own
+/// period), then the longest even period, the longest on-time, the lowest, the fewest changing
+/// neighbours, a side over a top over a bottom position, then the position. The run: `ticks` gt
+/// (warmup + period at least), its period read from tick `w`.
+pub fn exterior_outputs(c: &Clock, w: u32, period: u32, swept: (Pos, Pos), occupied: &[Pos]) -> Vec<(Pos, CellWave)> {
+    let (slo, shi) = swept;
+    let inside = |q: Pos| (0..3).all(|k| q[k] >= slo[k] && q[k] <= shi[k]);
+    let mut cand: Vec<Pos> = Vec::new();
+    for x in slo[0] - 1..=shi[0] + 1 {
+        for y in slo[1] - 1..=shi[1] + 1 {
+            for z in slo[2] - 1..=shi[2] + 1 {
+                let q = [x, y, z];
+                // a face to free space: a neighbour outside the swept box
+                let free = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].iter().any(|d: &[i32; 3]| !inside([q[0] + d[0], q[1] + d[1], q[2] + d[2]]));
+                // adjacent to the build: one cell outside the box counts only next to a face
+                let near = inside(q) || [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].iter().any(|d: &[i32; 3]| inside([q[0] + d[0], q[1] + d[1], q[2] + d[2]]));
+                if free && near && !occupied.contains(&q) {
+                    cand.push(q);
+                }
+            }
+        }
+    }
+    let (lo, hi) = c.bounds();
+    let (from, to) = ([lo[0].min(slo[0]) - 4, lo[1].min(slo[1]) - 4, lo[2].min(slo[2]) - 4], [hi[0].max(shi[0]) + 4, hi[1].max(shi[1]) + 4, hi[2].max(shi[2]) + 4]);
+    let Ok(d) = drive(c, &[], w + period, &cand, from, to) else { return Vec::new() };
+    if d.stopped.is_some() || d.cells.len() <= (w + period) as usize {
+        return Vec::new();
+    }
+    // every cell a block ever stands in, the cells whose state changes in the period, and the
+    // cells holding tripwire / rails / water at any tick
+    let mut filled: std::collections::HashSet<Pos> = std::collections::HashSet::new();
+    let mut bad_floor: std::collections::HashSet<Pos> = std::collections::HashSet::new();
+    for frame in &d.cells {
+        for (p, s) in frame {
+            filled.insert(*p);
+            if s.contains("tripwire") || s.contains("rail") || s.contains("water") {
+                bad_floor.insert(*p);
+            }
+        }
+    }
+    let mut changing: std::collections::HashSet<Pos> = std::collections::HashSet::new();
+    {
+        let at = |t: usize| -> std::collections::HashMap<Pos, &String> { d.cells[t].iter().map(|(p, s)| (*p, s)).collect() };
+        let base = at(w as usize);
+        for t in w as usize + 1..(w + period) as usize {
+            let now = at(t);
+            for (p, s) in &now {
+                if base.get(p) != Some(s) {
+                    changing.insert(*p);
+                }
+            }
+            for p in base.keys() {
+                if !now.contains_key(p) {
+                    changing.insert(*p);
+                }
+            }
+        }
+    }
+    let mut out: Vec<((bool, u32, u32, i32, usize, u8, Pos), Pos, CellWave)> = Vec::new();
+    for (i, q) in cand.iter().enumerate() {
+        if filled.contains(q) || bad_floor.contains(&[q[0], q[1] - 1, q[2]]) {
+            continue;
+        }
+        let seq: Vec<bool> = (w..w + period).map(|t| d.signals[t as usize][i] > 0).collect();
+        let gaps = wave::rise_gaps(&seq);
+        let Some(&g0) = gaps.first() else { continue };
+        if gaps.iter().any(|&g| g != g0) {
+            continue;
+        }
+        let (on, edges, widths) = wave::bool_wave(&seq);
+        let moving = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].iter().filter(|dd: &&[i32; 3]| changing.contains(&[q[0] + dd[0], q[1] + dd[1], q[2] + dd[2]])).count();
+        // side over top over bottom: where its free face looks
+        let side = if [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].iter().any(|dd: &[i32; 3]| !inside([q[0] + dd[0], q[1] + dd[1], q[2] + dd[2]])) && q[1] >= slo[1] && q[1] <= shi[1] {
+            0
+        } else if q[1] > shi[1] || !inside([q[0], q[1] + 1, q[2]]) {
+            1
+        } else {
+            2
+        };
+        let key = (g0 != period, u32::MAX - g0, u32::MAX - on, q[1], moving, side, *q);
+        let cw = CellWave { pos: *q, states: Vec::new(), kinds: Vec::new(), on, edges, widths, gaps };
+        out.push((key, *q, cw));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out.into_iter().map(|(_, q, w)| (q, w)).collect()
+}
+
+/// [`exterior_outputs`] confirmed with the judge's lamp in redsim, best first (at most `want`):
+/// each candidate becomes the clock's `port output` (the judge's lamp goes there) and must give a
+/// CLOCK of the same period as `free` (the clock with no output port: the lamp changes nothing),
+/// passing the output rules, with the lamp lighting at evenly spaced ticks.
+pub fn lamp_outputs(free: &Clock, want: usize) -> Vec<(Pos, SimReport)> {
+    let base = simulate(free, &SimOptions::default());
+    if base.verdict != Verdict::Clock {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for (q, _) in exterior_outputs(free, base.state_warmup, base.period, base.swept, &base.occupied).into_iter().take(40) {
+        let mut d = free.design.clone();
+        d.ports.insert("output".into(), q);
+        let Ok(v) = Clock::from_design(d) else { continue };
+        let r = simulate(&v, &SimOptions::default());
+        let even = r.output.as_ref().is_some_and(|o| !o.wave.gaps.is_empty() && o.wave.irregular().is_none());
+        if r.verdict == Verdict::Clock && r.period == base.period && even {
+            out.push((q, r));
+            if out.len() >= want {
+                break;
+            }
+        }
+    }
+    out
 }
 
 /// TNT dupers with explosions on (track tnt, all-randoms judge): how [`drive_tnt`] runs them.
@@ -663,6 +846,16 @@ pub fn activity(c: &Clock, o: &SimOptions) -> Option<(u32, u32, Vec<(u32, u32)>)
 /// with entities.
 pub const ENTITY_HORIZON: u32 = 4000;
 const ENTITY_MIN_PERIODS: usize = 3;
+/// A design with item entities runs past their lifetime (`ItemEntity.tick`: age >= 6000 discards
+/// it): a clock must run forever (vjeux 2026-10-20, kit-bouncer-item-p887-16b: "items despawn
+/// after 5 minutes"), so its period must still hold over the second half of 12000 gt.
+pub const ITEM_HORIZON: u32 = 12_000;
+
+/// The horizon of a design's entity run: [`ITEM_HORIZON`] with item entities, else
+/// [`ENTITY_HORIZON`].
+pub fn entity_horizon(c: &Clock) -> u32 {
+    if c.design.entities.iter().any(|e| e.kind.contains("item")) { ITEM_HORIZON } else { ENTITY_HORIZON }
+}
 
 /// (warmup, period) of a design with entities by the real-game judge's rule: the block frames
 /// (every cell of the world box: block state + block-entity extras; entities left out) over
@@ -679,8 +872,9 @@ fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, 
         .flat_map(|y| (0..size[2]).flat_map(move |z| (0..size[0]).map(move |x| BlockPos::new(wmin.x + x, wmin.y + y, wmin.z + z))))
         .collect();
     let mut ids: HashMap<u128, u64> = HashMap::new();
-    let mut frames: Vec<u64> = Vec::with_capacity(ENTITY_HORIZON as usize + 1);
-    for t in 0..=ENTITY_HORIZON {
+    let horizon = entity_horizon(c);
+    let mut frames: Vec<u64> = Vec::with_capacity(horizon as usize + 1);
+    for t in 0..=horizon {
         between_ticks(&mut s, t)?;
         use std::hash::Hash;
         let mut h = H128 { a: 0xcbf29ce484222325, b: 0x84222325cbf29ce4 };
@@ -692,11 +886,11 @@ fn entity_clock_period(c: &Clock, blocks: &[(BlockPos, Block)], o: &SimOptions, 
         let d = ((h.a as u128) << 64) | h.b as u128;
         let n = ids.len() as u64;
         frames.push(*ids.entry(d).or_insert(n));
-        if t < ENTITY_HORIZON {
+        if t < horizon {
             s.world.tick();
         }
     }
-    Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).filter(|(w, _)| *w <= ENTITY_HORIZON as usize / 2).map(|(w, p)| (w as u32, p as u32)))
+    Ok(wave::detect_period(&frames, end as usize, ENTITY_MIN_PERIODS).filter(|(w, _)| *w <= horizon as usize / 2).map(|(w, p)| (w as u32, p as u32)))
 }
 
 /// A quick screen for entity-kit candidates (`clock kit`): run `ticks` gt; false when the design
@@ -764,7 +958,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     } else {
         match entity_clock_period(c, &blocks, o, end) {
             Ok(Some(wp)) => Some(wp),
-            Ok(None) => return SimReport::fail(c, Verdict::NoRepeat, format!("not periodic for 3 periods over the second half of {ENTITY_HORIZON} gt (the judge's rule for designs with entities)")),
+            Ok(None) => return SimReport::fail(c, Verdict::NoRepeat, format!("not periodic for 3 periods over the second half of {} gt (the judge's rule for designs with entities; items despawn at 6000 gt)", entity_horizon(c))),
             Err((v, why)) => return SimReport::fail(c, v, why),
         }
     };
@@ -809,6 +1003,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let mut out_level: Vec<i32> = Vec::with_capacity(p as usize);
     let mut key_w = Vec::new();
     let out_pos = c.output;
+    let lamp = judge_lamp(c);
+    // the declared output cell's first block in the period, and how it was entered if it was
+    let mut out_first: Option<String> = None;
+    let mut out_entered: Option<String> = None;
+    let mut ent_cells: std::collections::HashSet<Pos> = std::collections::HashSet::new();
     // a digest of the full cell states after every tick (block state + comparator strength +
     // container contents): the clock's warmup and period
     let mut frames: Vec<u128> = Vec::with_capacity((w0 + p + 1) as usize);
@@ -817,7 +1016,9 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             return SimReport::fail(c, v, why);
         }
         for (q, _) in s.world.blocks() {
-            crate::grow(&mut slo, &mut shi, q.arr());
+            if Some(q.arr()) != lamp {
+                crate::grow(&mut slo, &mut shi, q.arr());
+            }
         }
         {
             use std::hash::Hash;
@@ -845,9 +1046,38 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             if let Some(op) = out_pos {
                 let st = s.world.get(bp(op));
                 let level = s.world.best_neighbor_signal(bp(op));
-                let on = if self_reporting(&st.to_string()) { wave::active(&st.to_string()) } else { level > 0 };
+                // at the judge's lamp: the power delivered into the cell (what dust or a repeater
+                // there would get; coordinator 2026-10-20: the lamp's 4 gt off-delay is the
+                // lamp's limit, not the clock's)
+                let on = if lamp.is_none() && self_reporting(&st.to_string()) { wave::active(&st.to_string()) } else { level > 0 };
                 out_seq.push(on);
                 out_level.push(level);
+                // the output cell stays free all cycle (vjeux 2026-10-20): the same block in it
+                // every tick, never a moving block or a head, no entity in it
+                if out_entered.is_none() {
+                    let text = st.to_string();
+                    let name = mctas::blockstate::block_name(&text).to_string();
+                    let first = out_first.get_or_insert_with(|| name.clone()).clone();
+                    if name.contains("moving_piston") || name.contains("piston_head") || name != first {
+                        out_entered = Some(format!("{} at tick {t}", crate::short(&text)));
+                    }
+                    let cell = (op[0] as f64, op[1] as f64, op[2] as f64);
+                    if let Some(e) = s.world.entities.list.iter().find(|e| {
+                        !e.removed && e.bb.max_x > cell.0 && e.bb.min_x < cell.0 + 1.0 && e.bb.max_y > cell.1 && e.bb.min_y < cell.1 + 1.0 && e.bb.max_z > cell.2 && e.bb.min_z < cell.2 + 1.0
+                    }) {
+                        out_entered = Some(format!("{:?} entity at tick {t}", e.kind));
+                    }
+                }
+            }
+            // the cells an entity occupies during the period (never the output: see above)
+            for e in s.world.entities.list.iter().filter(|e| !e.removed) {
+                for x in e.bb.min_x.floor() as i32..=(e.bb.max_x - 1e-9).floor() as i32 {
+                    for y in e.bb.min_y.floor() as i32..=(e.bb.max_y - 1e-9).floor() as i32 {
+                        for z in e.bb.min_z.floor() as i32..=(e.bb.max_z - 1e-9).floor() as i32 {
+                            ent_cells.insert([x, y, z]);
+                        }
+                    }
+                }
             }
         }
         if t == w0 + p {
@@ -872,7 +1102,15 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let refs: Vec<Vec<&str>> = period_states[..full_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
     out_seq.truncate(full_p);
     out_level.truncate(full_p);
-    let mut analysis = wave::analyze(&cells, &refs);
+    // the judge's lamp is no part of the clock: left out of its cells and family
+    let mut analysis = match lamp.and_then(|l| cells.iter().position(|q| *q == l)) {
+        Some(li) => {
+            let cells2: Vec<Pos> = cells.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, q)| *q).collect();
+            let refs2: Vec<Vec<&str>> = refs.iter().map(|v| v.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, s)| *s).collect()).collect();
+            wave::analyze(&cells2, &refs2)
+        }
+        None => wave::analyze(&cells, &refs),
+    };
     // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
     // join the family, as in the real-game judge (`detector_rail+minecart`)
     for e in &c.design.entities {
@@ -895,6 +1133,11 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         blocks: c.blocks(),
         swept: (slo, shi),
         start: c.start_label(),
+        occupied: {
+            let mut v: Vec<Pos> = ent_cells.iter().copied().collect();
+            v.sort();
+            v
+        },
         vibration: None,
     };
     if rep.analysis.cells.is_empty() {
@@ -914,13 +1157,14 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let (output, out_period) = match out_pos {
         Some(op) => {
             let (on, edges, widths) = wave::bool_wave(&out_seq);
+            let gaps = wave::rise_gaps(&out_seq);
             let states = rep.analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
             // a component reports its own state; a plain block or air: the power it receives
             let own = if states.is_empty() { wave::cyclic_period(&out_level) } else { cell_period(op) };
-            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths, gaps } }), own)
         }
         None => {
-            let best = rep.analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));
+            let best = rep.analysis.cells.iter().filter(|w| w.tappable() && !ent_cells.contains(&w.pos)).max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos)));
             match best {
                 Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),
                 None => (None, full_p),
@@ -928,6 +1172,27 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         }
     };
     rep.output = output;
+    // the output cell stays free all cycle (vjeux 2026-10-20, clk-misc-leaf-p10-4b: "not okay to
+    // have the out slot have something pushed into it during the cycle")
+    if let Some(how) = out_entered {
+        rep.verdict = Verdict::Invalid;
+        rep.why = format!("the output cell {:?} is entered during the cycle ({how}): it must hold the same block all cycle, nothing moved into or through it, no entity in it (`clock retap` moves the output to a free cell that pulses evenly)", out_pos.unwrap_or([0, 0, 0]));
+        return rep;
+    }
+    // ... and where a builder can take the signal: an exterior air cell (vjeux 2026-10-20)
+    if let Some(op) = out_pos {
+        let design_block = if lamp.is_some() { "minecraft:air".to_string() } else { c.design.blocks.get(&op).cloned().unwrap_or_else(|| "minecraft:air".into()) };
+        let first = &design_block;
+        let below: Vec<&str> = match cells.iter().position(|q| *q == [op[0], op[1] - 1, op[2]]) {
+            Some(i) => period_states.iter().map(|v| v[i].as_str()).collect(),
+            None => Vec::new(),
+        };
+        if let Some(why) = placement_problem(op, rep.swept, first, below.into_iter()) {
+            rep.verdict = Verdict::Invalid;
+            rep.why = format!("{why} (`clock retap` moves the output to the best exterior cell)");
+            return rep;
+        }
+    }
     // Composite (coordinator's ruling 2026-10-19): the output repeats faster than the whole
     // structure AND the changing cells split into independent groups (sub-clocks side by side).
     // One mechanism whose output fires twice per cycle (an observer watching both strokes of a

@@ -582,6 +582,11 @@ pub struct Options {
     pub island_budget: usize,
     /// Smooth-stone statics become stone (the written plan gets its own design copy).
     pub stone: bool,
+    /// With `islands`: cells the lever sits on or in (a plan without lever events): islands next
+    /// to them start at t0 of both edges.
+    pub lever_cells: Vec<Pos>,
+    /// `--search` also offers overlapping pulse pairs: b starting d gt after a, for these d.
+    pub pair_offsets: Vec<u32>,
 }
 
 /// Several plans at once (in parallel), one summary line each; `out_dir` gets
@@ -888,6 +893,14 @@ fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos
         }
         islands.push(cells);
     }
+    // the lever's own cell is a started region too: it feeds the pistons next to it (direct, or
+    // quasi-connected), on both edges from t0
+    for c in lever_cells {
+        if !island_of.contains_key(c) {
+            island_of.insert(*c, islands.len());
+            islands.push(vec![*c]);
+        }
+    }
     let bit = |id: usize| if id < 64 { 1u64 << id } else { 0 };
     // islands next to a cell
     let touching = |p: Pos| -> u64 { nbrs(p).into_iter().filter_map(|q| island_of.get(&q)).fold(0u64, |m, id| m | bit(*id)) };
@@ -922,7 +935,7 @@ fn build_islands(d: &mctas::design::Design, occ: &std::collections::BTreeSet<Pos
     }
     let watch: Vec<(Pos, u64)> = seen_by.into_iter().collect();
     let woken_by = |changed: &std::collections::BTreeSet<u32>| -> u64 { watch.iter().filter(|(p, _)| sim.index(*p).is_some_and(|i| changed.contains(&i))).fold(0u64, |m, (_, b)| m | b) };
-    let lever_islands = lever_cells.iter().fold(0u64, |m, c| m | touching(*c));
+    let lever_islands = lever_cells.iter().fold(0u64, |m, c| m | touching(*c) | island_of.get(c).map_or(0, |id| bit(*id)));
     let start = [lever_islands | woken_by(flips.0), lever_islands | woken_by(flips.1)];
     let budget: Vec<u8> = islands.iter().map(|c| if per_cell == 0 { 255 } else { (per_cell * c.len()).min(254) as u8 }).collect();
     let isl = Islands { feeders, watch, start, budget };
@@ -1166,6 +1179,22 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
                 }
             }
         }
+        if !o.pair_offsets.is_empty() {
+            // overlapping pulses: b starts d gt after a, before the build goes idle (a push and a
+            // pull that only work while the other piston is still moving)
+            for &a in &cells {
+                for &b in &cells {
+                    if a == b || in_pocket(&a) || in_pocket(&b) {
+                        continue;
+                    }
+                    for &d in &o.pair_offsets {
+                        let rb = || Some("minecraft:redstone_block".to_string());
+                        moves.push(Step::new(vec![(0, a, rb()), (2, a, None), (d, b, rb()), (d + 2, b, None)]));
+                        pocket_of.push(None);
+                    }
+                }
+            }
+        }
         if o.levels {
             // an input switched on (and left on until a later move switches it off): holds
             for &c in &cells {
@@ -1215,7 +1244,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
             let (_, occ_close) = run_timed(&wopen, &uses, &close_ev, &sim)?;
             let mut occ = occ_open.clone();
             occ.extend(occ_close);
-            let lever_cells: Vec<Pos> = lever.iter().map(|l| l.0).chain(uses.iter().copied()).collect();
+            let lever_cells: Vec<Pos> = lever.iter().map(|l| l.0).chain(uses.iter().copied()).chain(o.lever_cells.iter().copied()).collect();
             // cells the plan drives (its inputs) are not part of the door's box
             let inputs: Vec<Pos> = open_ev.iter().chain(close_ev.iter()).map(|e| e.1).chain(lever_cells.iter().copied()).collect();
             let isl = build_islands(&d, &occ, &lever_cells, &inputs, &moves, &sim, (&ch_open, &ch_close), o.island_budget);

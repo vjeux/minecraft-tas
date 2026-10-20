@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 11] = [
+pub const STUDIES: [(&str, &str); 12] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -31,6 +31,7 @@ pub const STUDIES: [(&str, &str); 11] = [
     ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
+    ("compute", "Computational redstone"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -190,8 +191,13 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
             return true;
         }
     }
-    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none").map(String::from).collect()).unwrap_or_default() };
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none" && !x.starts_with("tileable(")).map(String::from).collect()).unwrap_or_default() };
     if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    // `tileable(N)`: copies every N blocks; a denser pitch (or tileable at all) is better
+    let pitch = |r: &Row| get(r, "badges ").and_then(|s| s.split('+').find_map(|x| x.strip_prefix("tileable(").and_then(|v| v.trim_end_matches(')').parse::<u32>().ok())));
+    if pitch(b).is_some_and(|pb| pitch(a).is_none_or(|pa| pb < pa)) {
         return true;
     }
     matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
@@ -421,6 +427,7 @@ pub fn type_key(c: &Circuit) -> String {
             crate::InputHow::Block { on, .. } => id(on),
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+            crate::InputHow::Strength { .. } => "strength".to_string(),
         };
         d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
@@ -480,6 +487,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::OffDelay => format!("off L = {}", m("L")),
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
+        Kind::Compute(..) => kind.name(),
     }
 }
 
