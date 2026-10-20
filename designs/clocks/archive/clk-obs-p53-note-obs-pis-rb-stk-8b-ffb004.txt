@@ -1,0 +1,23 @@
+# archived 2026-10-20T01:38Z from designs/clocks/tracks/clk-obs/families9/p53-note-obs-pis-rb-stk-8b-ffb004.txt by mctas clock archive
+# CLOCK: clk-obs-p53-note-obs-pis-rb-stk-8b-ffb004 period 53 gt (2.65 s), on 24/53, edges 12, warmup 3, family note_block+observer+piston+redstone_block+sticky_piston, 8 blocks, 3x2x3, robust
+name: clk-obs-p53-note-obs-pis-rb-stk-8b-ffb004
+# clk-obs grow: P=53 (redsim), family note_block+observer+piston+redstone_block+sticky_piston, kick last 0 0 2, swept volume 18.
+origin: 0 0 0
+port output: 1 0 0
+port start: 0 0 2 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:redstone_block
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:note_block[instrument=harp,note=0,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=west]
+layer 0:
+  AF
+  BD
+  CG
+layer 1:
+  ..
+  D.
+  E.
