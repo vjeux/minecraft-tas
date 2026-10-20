@@ -423,7 +423,8 @@ fn archived(root: &Path, notes: &mut Vec<String>) -> Vec<Build> {
         for g in groups.values() {
             // as `mctas circuit catalog` folds (palette alone is never a distinction)
             let items: Vec<(usize, i64, String)> = g.iter().map(|&i| (rows[i].blocks, rows[i].volume, rows[i].file.clone())).collect();
-            for (k, h) in clock::catalog::fold_hosts_by(&items, |a, b| circuit::archive::beats_on_variation(&rows[g[a]], &rows[g[b]])).into_iter().enumerate() {
+            let robust: Vec<bool> = g.iter().map(|&i| circuit::archive::is_robust(&rows[i])).collect();
+            for (k, h) in clock::catalog::fold_hosts_robust(&items, &robust, |a, b| circuit::archive::beats_on_variation(&rows[g[a]], &rows[g[b]])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[k], g[h]);
                 }

@@ -8,7 +8,13 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
+| [fly-down-6b-10gt-572d63](archive/fly-down-6b-10gt-572d63.txt) | 6 | - |
+| [fly-down-6b-10gt-711a4b](archive/fly-down-6b-10gt-711a4b.txt) | 6 | - |
+| [fly-down-6b-10gt-882fc3](archive/fly-down-6b-10gt-882fc3.txt) | 6 | - |
+| [fly-down-6b-10gt-ae5894](archive/fly-down-6b-10gt-ae5894.txt) | 6 | - |
 | [fly-down-6b-10gt-0dba6a](archive/fly-down-6b-10gt-0dba6a.txt) | 6 | - |
+| [fly-down-6b-10gt-711a4b-c774d9](archive/fly-down-6b-10gt-711a4b-c774d9.txt) | 6 | - |
+| [fly-down-6b-10gt-8136e6](archive/fly-down-6b-10gt-8136e6.txt) | 6 | - |
 | [fly-down-6b-10gt-926773](archive/fly-down-6b-10gt-926773.txt) | 6 | - |
 | [fly-down-6b-10gt-cae51d](archive/fly-down-6b-10gt-cae51d.txt) | 6 | honey_block |
 | [fly-down-6b-10gt-cbc0e3](archive/fly-down-6b-10gt-cbc0e3.txt) | 6 | - |
@@ -34,11 +40,11 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [fly-horizontal-6b-10gt-a94576](archive/fly-horizontal-6b-10gt-a94576.txt) | 6 | - |
 | [fly-horizontal-6b-10gt-d0adfc](archive/fly-horizontal-6b-10gt-d0adfc.txt) | 6 | - |
 
-**[fly-down-6b-10gt-882fc3](archive/fly-down-6b-10gt-882fc3.txt)** (flying-machine, 10 gt/block; 6 blocks: observer, piston, slime_block, sticky_piston):
+**[fly-horizontal-6b-10gt-01ce95](archive/fly-horizontal-6b-10gt-01ce95.txt)** (flying-machine, 10 gt/block; 6 blocks: observer, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [fly-d1](archive/fly-d1.txt) | 7 | - |
+| [fly-d1](archive/fly-d1.txt) | 7 | piston |
 
 **[fly-up-6b-9gt-151e3e](archive/fly-up-6b-9gt-151e3e.txt)** (flying-machine, 9 gt/block; 6 blocks: observer, piston, redstone_block, slime_block, sticky_piston):
 

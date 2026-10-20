@@ -4,11 +4,11 @@
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
 
-**[pulse-fall-pistons-observer-L2-mp2](archive/pulse-fall-pistons-observer-L2-mp2.txt)** (falling-edge, L = 2 gt; 3 blocks: observer, sticky_piston):
+**[pulse-falling-edge-pistons-observer-L2](archive/pulse-falling-edge-pistons-observer-L2.txt)** (falling-edge, L = 2 gt; 3 blocks: observer, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pulse-falling-edge-pistons-observer-L2](archive/pulse-falling-edge-pistons-observer-L2.txt) | 3 | - |
+| [pulse-fall-pistons-observer-L2-mp2](archive/pulse-fall-pistons-observer-L2-mp2.txt) | 3 | - |
 
 **[pulse-rise-bulb-L2](archive/pulse-rise-bulb-L2.txt)** (rising-edge, L = 2 gt; 4 blocks: comparator, copper_bulb, observer, stone):
 

@@ -172,8 +172,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         let shown: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).filter(|r| is_instance(r).is_none()).collect();
         // as `mctas clock catalog` folds (palette alone is never a distinction)
         let items: Vec<(usize, i64, String)> = shown.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
-        let kinds: Vec<BTreeSet<String>> = shown.iter().map(|r| kinds_of(&r.file)).collect();
-        for (i, h) in catalog::fold_hosts_by(&items, |a, b| catalog::clock_beats(shown[a], shown[b], &kinds[a], &kinds[b])).into_iter().enumerate() {
+        let robust: Vec<bool> = shown.iter().map(|r| r.robustness == "robust").collect();
+        for (i, h) in catalog::fold_hosts_robust(&items, &robust, |a, b| catalog::clock_beats(shown[a], shown[b])).into_iter().enumerate() {
             if let Some(h) = h {
                 folded.insert(shown[i].file.clone(), shown[h].file.clone());
             }

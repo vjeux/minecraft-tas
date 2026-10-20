@@ -322,15 +322,28 @@ pub fn fold_hosts(items: &[(usize, i64, String, BTreeSet<String>)]) -> Vec<Optio
 
 /// The dominance fold, palette-free (vjeux 2026-10-20: "palette alone is never a distinction"):
 /// `items[i]` = (blocks, volume, name); `beats(i, j)`: item i does better than item j on a variation
-/// (a metric or a property such as flat or slime-free). Item i folds under the smallest item j
-/// (blocks, then volume, then name) with fewer blocks, or as many and `beats(j, i)`, that it does
-/// not beat (`!beats(i, j)`): whatever their block kinds. `None` when none.
+/// a builder would choose on (a speed, a reach, a class, flat, tileable...). Item i folds under the
+/// smallest item j (blocks, then volume, then name) with fewer blocks, or as many and `beats(j, i)`,
+/// that it does not beat (`!beats(i, j)`): whatever their block kinds. `None` when none.
 pub fn fold_hosts_by(items: &[(usize, i64, String)], beats: impl Fn(usize, usize) -> bool) -> Vec<Option<usize>> {
+    fold_hosts_robust(items, &vec![true; items.len()], beats)
+}
+
+/// [`fold_hosts_by`] where a design that is not robust (`robust[i]` false: it fails in some
+/// position or rotation) is never shown when a robust one has its value (coordinator 2026-10-20):
+/// it folds under the smallest robust item, whatever their sizes and metrics; a robust item never
+/// folds under one that is not. Items with no robust peer fold among themselves.
+pub fn fold_hosts_robust(items: &[(usize, i64, String)], robust: &[bool], beats: impl Fn(usize, usize) -> bool) -> Vec<Option<usize>> {
+    let key = |x: usize| (items[x].0, items[x].1, &items[x].2);
+    let any_robust = robust.iter().any(|r| *r);
     let direct: Vec<Option<usize>> = (0..items.len())
         .map(|i| {
+            if !robust[i] && any_robust {
+                return (0..items.len()).filter(|&j| robust[j]).min_by(|&x, &y| key(x).cmp(&key(y)));
+            }
             (0..items.len())
-                .filter(|&j| j != i && (items[j].0 < items[i].0 || (items[j].0 == items[i].0 && beats(j, i))) && !beats(i, j))
-                .min_by(|&x, &y| (items[x].0, items[x].1, &items[x].2).cmp(&(items[y].0, items[y].1, &items[y].2)))
+                .filter(|&j| j != i && robust[j] == robust[i] && (items[j].0 < items[i].0 || (items[j].0 == items[i].0 && beats(j, i))) && !beats(i, j))
+                .min_by(|&x, &y| key(x).cmp(&key(y)))
         })
         .collect();
     // a host folded in turn (one with as many blocks, beaten by another): the chain's end, which
@@ -350,22 +363,15 @@ pub fn fold_hosts_by(items: &[(usize, i64, String)], beats: impl Fn(usize, usize
         .collect()
 }
 
-/// Whether clock `b` does better than clock `a` of the same period on a variation, which keeps it
-/// out of `a`'s fold whatever their block kinds: another on-time or pulse pattern (another
-/// clock, not a worse one), a shorter warmup, another way to start (a kick, a self-start...),
-/// robust where `a` depends on its position, a lower box, or slime-free where `a` is not.
-pub fn clock_beats(b: &Row, a: &Row, kinds_b: &BTreeSet<String>, kinds_a: &BTreeSet<String>) -> bool {
-    let height = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()).unwrap_or(i32::MAX);
-    let start = |r: &Row| r.start.split(':').next().unwrap_or("").trim().to_string();
-    let slimy = |k: &BTreeSet<String>| k.contains("slime_block") || k.contains("honey_block");
-    b.on != a.on
-        || b.edges != a.edges
-        || b.pulses != a.pulses
-        || b.warmup < a.warmup
-        || start(b) != start(a)
-        || (b.robustness == "robust" && a.robustness != "robust")
-        || height(b) < height(a)
-        || (!slimy(kinds_b) && slimy(kinds_a))
+/// Whether clock `b` does better than clock `a` of the same period on a variation a builder would
+/// choose on, which keeps it out of `a`'s fold whatever their block kinds (coordinator 2026-10-20):
+/// another on-time (pulse length) or pulse pattern (pulses per period), or flat (one block high)
+/// where `a` is not. Not distinctions: the materials (slime-free...), the start, the warmup, a
+/// lower box that is not flat; a clock that is not robust folds under a robust one
+/// ([`fold_hosts_robust`]).
+pub fn clock_beats(b: &Row, a: &Row) -> bool {
+    let flat = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()) == Some(1);
+    b.on != a.on || b.edges != a.edges || b.pulses != a.pulses || (flat(b) && !flat(a))
 }
 
 /// `clock archive --dedupe`: keep ONE archived design per type (the earliest archived: the first
@@ -644,16 +650,16 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     };
     // the dominance fold (vjeux: "the left one is strictly smaller than the right one"; 2026-10-20:
     // "palette alone is never a distinction"): within a period, a clock folds under a smaller clock
-    // it does not beat on any variation ([`fold_hosts_by`], [`clock_beats`]): whatever their block
-    // kinds; folded clocks show as one line of variants under their host (the archive keeps them
-    // all)
+    // it does not beat on a variation a builder chooses on ([`fold_hosts_robust`], [`clock_beats`]:
+    // on-time, pulses per period, flat), whatever their block kinds; a clock that is not robust
+    // folds under a robust one of its period; folded clocks show as one line of variants under
+    // their host (the archive keeps them all)
     let mut folded: BTreeMap<String, String> = BTreeMap::new();
-    let none = BTreeSet::new();
     for p in &periods {
         let shown: Vec<&Row> = by_type.iter().filter(|((pp, _), _)| pp == p).map(|(_, r)| r).filter(|r| is_instance(r).is_none()).collect();
         let items: Vec<(usize, i64, String)> = shown.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
-        let kinds = |i: usize| kinds_of.get(&shown[i].file).unwrap_or(&none);
-        for (i, h) in fold_hosts_by(&items, |i, j| clock_beats(shown[i], shown[j], kinds(i), kinds(j))).into_iter().enumerate() {
+        let robust: Vec<bool> = shown.iter().map(|r| r.robustness == "robust").collect();
+        for (i, h) in fold_hosts_robust(&items, &robust, |i, j| clock_beats(shown[i], shown[j])).into_iter().enumerate() {
             if let Some(h) = h {
                 folded.insert(shown[i].file.clone(), shown[h].file.clone());
             }
@@ -758,7 +764,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     // never split) and the composite page.
     let mut md = String::new();
     md.push_str(&format!(
-        "# Clock catalog\n\n{} clock types ({} periods, {} families) pictured in the real game at the most active moment of their period, plus {} variants (larger clocks of a period no better than a smaller one on any variation: the same on-time and pulses, start, robustness, no lower box, no shorter warmup, slime-free only if it is; whatever their block kinds: [listed apart](gallery/variants.md)); **orange glass = where the output signal is** (placed only for the picture); click a picture for its design. Generated by `mctas clock catalog` ([docs/clocks.md](../../docs/clocks.md); the period x family matrix: [coverage.md](coverage.md)).\n",
+        "# Clock catalog\n\n{} clock types ({} periods, {} families) pictured in the real game at the most active moment of their period, plus {} variants (larger clocks of a period with the same on-time and pulses per period as a smaller one, flat only if it is, whatever their block kinds; a clock that is not robust folds under a robust one: [listed apart](gallery/variants.md)); **orange glass = where the output signal is** (placed only for the picture); click a picture for its design. Generated by `mctas clock catalog` ([docs/clocks.md](../../docs/clocks.md); the period x family matrix: [coverage.md](coverage.md)).\n",
         by_type.len() - folded.len(),
         periods.len(),
         families.len(),
@@ -1031,7 +1037,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         md.push_str(&format!("| composite (beat) clocks | {} | [composite](gallery/composite.md) |\n", composite.len()));
     }
     if !folded.is_empty() {
-        md.push_str(&format!("\nVariants: larger clocks of the same period no better than a smaller one on any variation, whatever their block kinds ({}): [list](gallery/variants.md).\n", folded.len()));
+        md.push_str(&format!("\nVariants: larger clocks of the same period with the same on-time and pulses as a smaller one (flat only if it is), whatever their block kinds, and clocks that are not robust ({}): [list](gallery/variants.md).\n", folded.len()));
     }
     for (k, pg) in pages.iter().enumerate() {
         let (lo, hi) = range(pg);
@@ -1044,7 +1050,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         }
         let n: usize = pg.iter().map(|i| sections[*i].2).sum();
         let mut page = format!(
-            "# Clocks: {} ({n} clock types)\n\n{nav}\n\nOrange glass = where the output signal is (placed only for the picture); click a picture for its design. Larger clocks of a period no better than a smaller one on any variation (whatever their block kinds) are listed on [variants](variants.md). Generated by `mctas clock catalog`.\n",
+            "# Clocks: {} ({n} clock types)\n\n{nav}\n\nOrange glass = where the output signal is (placed only for the picture); click a picture for its design. Larger clocks of a period with the same on-time and pulses as a smaller one (whatever their block kinds), and clocks that are not robust, are listed on [variants](variants.md). Generated by `mctas clock catalog`.\n",
             span(lo, hi)
         );
         for i in pg {
@@ -1055,7 +1061,7 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
     }
     if !variants_md.is_empty() {
         let page = format!(
-            "# Clock variants\n\n[catalog index](../CATALOG.md)\n\nA variant is a clock with the same period as a smaller clock (its host: fewer blocks, or as many and better on a variation) that it beats on no variation (the same on-time, pulses, start and robustness, no lower box, no shorter warmup, slime-free only if the host is), whatever its block kinds (palette alone is no distinction); the galleries show only the hosts. {} variants of {} hosts, by period. Generated by `mctas clock catalog`.\n{variants_md}\n[catalog index](../CATALOG.md)\n",
+            "# Clock variants\n\n[catalog index](../CATALOG.md)\n\nA variant is a clock with the same period as a smaller clock (its host: fewer blocks, or as many and better on a variation) with the same on-time and pulses per period, flat only if the host is, whatever its block kinds (palette alone is no distinction; materials, start, warmup and box height are not either); a clock that is not robust folds under a robust one of its period; the galleries show only the hosts. {} variants of {} hosts, by period. Generated by `mctas clock catalog`.\n{variants_md}\n[catalog index](../CATALOG.md)\n",
             folded.len(),
             folded.values().collect::<BTreeSet<_>>().len()
         );
@@ -1177,6 +1183,11 @@ mod tests {
         // "other-pulse" beats "small" (another pulse shape); "small" beats "same-size-worse"
         let beats = |i: usize, j: usize| matches!((i, j), (2, _) | (0, 3));
         assert_eq!(fold_hosts_by(&items, beats), vec![None, Some(0), None, Some(0)]);
+        // a clock that is not robust folds under a robust one, however small and good it is; a
+        // robust one never folds under it
+        let robust = vec![true, true, true, false];
+        let items2 = vec![(5, 5, "robust-big".to_string()), (6, 6, "robust-bigger".to_string()), (7, 7, "robust-other".to_string()), (2, 2, "tiny-fragile".to_string())];
+        assert_eq!(fold_hosts_robust(&items2, &robust, |i, j| matches!((i, j), (2, _) | (3, _))), vec![None, Some(0), None, Some(0)]);
     }
 
     /// A union merge repeated a file's rows: dedupe collapses them and never removes a file as a

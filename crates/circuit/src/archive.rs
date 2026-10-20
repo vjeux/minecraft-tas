@@ -146,16 +146,17 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
 }
 
 /// Whether design `b` keeps its own card over `a` (same kind and axis value): `b` does better than
-/// `a` on one of its kind's VARIATION metrics or has a variation property `a` lacks. The dominance
-/// fold folds a design under any other with no more blocks that it does not beat this way:
-/// whatever its block palette (vjeux 2026-10-20: palette alone is never a distinction).
+/// `a` on a variation a builder would choose on (coordinator 2026-10-20). The dominance fold folds
+/// a design under any other with no more blocks that it does not beat this way, whatever its
+/// block palette (vjeux 2026-10-20: palette alone is never a distinction), and a design that is
+/// not robust under a robust one ([`clock::catalog::fold_hosts_robust`]).
 /// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
 /// (lag, fewer). BUD switches: `latency`, `re-arm`, `footprint` (lower) and no `jams`. TNT dupers:
-/// precise, survivable, launched, dropped, stationary, slime-free. Every other kind
-/// ([`beats_generic`]): a lower latency / delay / min-pulse / min-period / re-arm / extend /
-/// retract..., a higher speed, a different value of a metric with no better direction (an edge, a
-/// class, an output shape, a pulse length), no glitches where `a` has some, or flat, tileable or
-/// slime-free where `a` is not.
+/// precise, survivable, launched, dropped, stationary. Every other kind ([`beats_generic`]): a
+/// lower latency / delay / min-pulse / min-period / re-arm / extend / retract..., a higher speed,
+/// a different value of a metric with no better direction (an edge, a class, an output shape, a
+/// pulse length), no glitches where `a` has some, flat or tileable where `a` is not. Never a
+/// distinction: the materials (slime-free...), a lower box that is not flat.
 pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
     let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
@@ -169,10 +170,11 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
         return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
     }
     // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
-    // under its own explosions) keeps its own card over a smaller one that is not
+    // under its own explosions) keeps its own card over a smaller one that is not (slime-free is a
+    // material restriction, no distinction: coordinator 2026-10-20)
     if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
         let has = |r: &Row, k: &str| r.summary.contains(k);
-        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:", "slime-free"].iter().any(|k| has(b, k) && !has(a, k));
+        return ["(precise", "survives its own", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
     }
     if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
         return beats_generic(b, a);
@@ -189,16 +191,20 @@ pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
     matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
 }
 
-/// What two designs of one kind and value must share to be equivalent layouts: their metrics, flat
-/// or not, slime-free or not (their block kinds may differ: palette alone is no distinction).
+/// What two designs of one kind and value must share to be equivalent layouts: their metrics and
+/// flat or not (their block kinds may differ: palette alone is no distinction).
 pub fn variation_signature(r: &Row) -> String {
     let flat = r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()).is_some_and(|h| h <= 2);
-    let slimy = r.kinds.split('+').any(|k| k == "slime_block" || k == "honey_block");
-    format!("{}|flat {flat}|slime {slimy}", r.metrics)
+    format!("{}|flat {flat}", r.metrics)
+}
+
+/// Whether a design passed in every build (else it folds under a robust one of its value).
+pub fn is_robust(r: &Row) -> bool {
+    r.robustness == "robust"
 }
 
 /// Metrics where less is better (a speed, a reach of input lengths or clocks, a footprint).
-const LOWER_BETTER: [&str; 13] = ["latency", "delay", "min-pulse", "min-gap", "min-period", "re-arm", "repeat", "extend", "retract", "setup", "hold", "stop", "warmup"];
+const LOWER_BETTER: [&str; 12] = ["latency", "delay", "min-pulse", "min-gap", "min-period", "re-arm", "repeat", "extend", "retract", "setup", "hold", "stop"];
 /// Metrics where more is better.
 const HIGHER_BETTER: [&str; 1] = ["speed"];
 /// Metrics present only when something goes wrong.
@@ -246,8 +252,7 @@ pub fn beats_generic(b: &Row, a: &Row) -> bool {
     }
     let height = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok());
     let flat = |r: &Row| height(r).is_some_and(|h| h <= 2);
-    let slimy = |r: &Row| r.kinds.split('+').any(|k| k == "slime_block" || k == "honey_block");
-    (flat(b) && !flat(a)) || (!slimy(b) && slimy(a))
+    flat(b) && !flat(a)
 }
 
 /// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
@@ -1092,7 +1097,8 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let mut host: BTreeMap<String, String> = BTreeMap::new();
         for g in groups.values() {
             let items: Vec<(usize, i64, String)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
-            for (i, h) in clock::catalog::fold_hosts_by(&items, |i, j| beats_on_variation(g[i], g[j])).into_iter().enumerate() {
+            let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
+            for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(g[i], g[j])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
@@ -1134,7 +1140,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             by_axis.entry(axis_key(&r.axis)).or_default().push(r);
         }
         let mut md = format!(
-            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (no fewer blocks and no better on any variation metric or property than a design with the same value, whatever their block kinds: [variants](variants.md)), {} other layouts (same kind, value, size, metrics, flat and slime-free as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
+            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (no fewer blocks and no better on a variation a builder would choose on than a design with the same value, whatever their block kinds, or not robust where it is: [variants](variants.md)), {} other layouts (same kind, value, size, metrics and flatness as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
             rows.len(),
             shown.len(),
             host.len(),
@@ -1216,7 +1222,8 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             let mut folded = 0usize;
             for v in g.values() {
                 let items: Vec<(usize, i64, String)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
-                folded += clock::catalog::fold_hosts_by(&items, |i, j| beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
+                let robust: Vec<bool> = v.iter().map(|r| is_robust(r)).collect();
+                folded += clock::catalog::fold_hosts_robust(&items, &robust, |i, j| beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
             }
             rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
         };
