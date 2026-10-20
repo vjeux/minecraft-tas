@@ -5,6 +5,7 @@
 //! `census` enumerates small structures with an input cell and keeps the best of each (kind, L).
 
 pub mod family;
+pub mod items;
 pub mod screen;
 pub mod stamp;
 pub mod unarchive;
@@ -32,6 +33,9 @@ enum Cmd {
     Unarchive(unarchive::UnarchiveArgs),
     /// Put a tunable group's `group:` header on designs (the catalog shows a group as one card)
     StampGroup(stamp::StampArgs),
+    /// An item timer's variants for other item counts (its nbt `count:`, its name's `-L<n>` and
+    /// its "This one holds ..." line; L = per x items + add)
+    Items(items::ItemsArgs),
     /// One input pulse tick by tick on redsim: every block that changes and the output level
     Trace(TraceArgs),
     /// Each design's densest tiling on redsim: per axis, the smallest pitch at which 3 copies side
@@ -75,6 +79,7 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::Family(a) => family::run(a),
         Cmd::Unarchive(a) => unarchive::run(a),
         Cmd::StampGroup(a) => stamp::run(a),
+        Cmd::Items(a) => items::run(a),
         Cmd::Trace(a) => {
             let c = screen::Circuit::load(&a.design)?;
             screen::trace(&c, a.w, a.ticks).ok_or_else(|| anyhow::anyhow!("empty design"))

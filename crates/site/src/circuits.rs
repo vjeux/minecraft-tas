@@ -138,6 +138,8 @@ fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Ve
 struct Details {
     devices: Vec<String>,
     stimulus: String,
+    /// `data-levels`: a strength input's values (the hex kinds).
+    levels: String,
     phases: String,
     wave: Option<site_model::Wave>,
     table: Vec<String>,
@@ -209,7 +211,7 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
     site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
-fn details(c: &Design) -> Details {
+fn details(c: &Design, min_pulse: Option<u32>) -> Details {
     let devices: Vec<String> = c
         .inputs
         .iter()
@@ -228,7 +230,7 @@ fn details(c: &Design) -> Details {
     // lamp shows the output, else the orange marker does
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
+    let mut d = Details { devices, stimulus: String::new(), levels: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {
@@ -240,9 +242,13 @@ fn details(c: &Design) -> Details {
     // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
     // demo badge and the timing diagram
     let kind_name = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
-    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label(&kind_name, l))).collect();
+    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label_min(&kind_name, l, min_pulse))).collect();
     if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
         d.stimulus = r.schedule.text(&names);
+    }
+    // a strength input's values (the hex kinds: the judge's chest fills), webrender's data-levels
+    if !r.schedule.levels.is_empty() {
+        d.levels = r.schedule.levels.iter().filter_map(|(t, i, v)| names.get(*i).map(|n| format!("{t} {n} {v}"))).collect::<Vec<_>>().join("; ");
     }
     d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
     // the judge's actions at the BUD's target and probe cells, in the design's coordinates
@@ -539,7 +545,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
         let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
             let loaded = parse(&dir.join(&r.file));
             let t_sim = std::time::Instant::now();
-            let mut det = loaded.as_ref().map(|(c, _)| details(c));
+            // the shortest input the design handles (`min-pulse 20 gt`): the demo marks shorter ones
+            let min_pulse = r.metrics.split(", ").find_map(|m| m.strip_prefix("min-pulse ")).and_then(|v| v.split_whitespace().next()?.parse::<u32>().ok());
+            let mut det = loaded.as_ref().map(|(c, _)| details(c, min_pulse));
             let mut raw = None;
             if let Some(d) = det.as_mut() {
                 let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
@@ -625,6 +633,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     archived: r.archived.clone(),
                     devices: det.as_ref().map(|d| d.devices.clone()).unwrap_or_default(),
                     stimulus: det.as_ref().map(|d| d.stimulus.clone()).unwrap_or_default(),
+                    levels: det.as_ref().map(|d| d.levels.clone()).unwrap_or_default(),
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
