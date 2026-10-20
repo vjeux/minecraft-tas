@@ -1,0 +1,22 @@
+# archived 2026-10-20T00:04Z from designs/circuits/tracks/fly/vertical/fly-up-7b-9gt-ff426b.txt by mctas circuit archive
+# CIRCUIT: fly-up-7b-9gt-ff426b flying-machine speed 9 gt/block, period 9 gt, 1 cell(s), latency 2 gt, 7 blocks, 2x4x1, robust
+# flies up: piston facing forward + sticky piston facing back; observers watching back + back; 3 slime
+name: fly-up-7b-9gt-ff426b
+circuit: flying-machine
+distance: 16
+travel: 0 1 0
+port start: -1 -2 0 minecraft:stone 1
+origin: -1 0 0
+palette:
+  O minecraft:observer[facing=down]
+  P minecraft:piston[facing=up]
+  S minecraft:slime_block
+  s minecraft:sticky_piston[facing=down]
+layer -1:
+  O
+layer 0:
+  SP
+layer 1:
+  SO
+layer 2:
+  sS

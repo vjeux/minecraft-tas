@@ -8,6 +8,7 @@
 pub mod census;
 pub mod ident;
 pub mod machine;
+pub mod orient;
 pub mod prep;
 pub mod report;
 pub mod sim;
@@ -123,6 +124,14 @@ enum Cmd {
         #[arg(long)]
         out_dir: PathBuf,
     },
+    /// Every one of the 24 orientations of each design on redsim (tilted to fly up or down,
+    /// rolled about the travel axis): one line per orientation that flies; `--out-dir` writes the
+    /// first design of each new class (up, down, horizontal) found.
+    Orient {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -203,6 +212,33 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 let (name, out) = prep::prep(&m, &text);
                 std::fs::write(out_dir.join(format!("{name}.txt")), out)?;
                 println!("{} -> {name}", p.display());
+            }
+        }
+        Cmd::Orient { designs, out_dir } => {
+            for p in &designs {
+                let m = machine::Machine::load(p)?;
+                let base = class_of(&sim::simulate(&m, &sim::SimOptions { distance: 16, ..Default::default() }));
+                let mut written: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+                written.insert(base.clone());
+                for o in orient::orient(&m) {
+                    let class = class_of(&o.report);
+                    if !matches!(o.report.verdict, report::Verdict::Flies | report::Verdict::Shuttles) {
+                        continue;
+                    }
+                    println!("{} o{}: {} {}", m.name(), o.index, class, o.report.speed_text());
+                    if let Some(dir) = &out_dir
+                        && written.insert(class.clone())
+                    {
+                        std::fs::create_dir_all(dir)?;
+                        let mut mm = o.machine.clone();
+                        mm.clock.design.name = format!("{}-o{}", m.name(), o.index);
+                        mm.travel = o.report.direction();
+                        if let Some(t) = mm.travel {
+                            mm.clock.design.meta.insert("travel".into(), format!("{} {} {}", t[0], t[1], t[2]));
+                        }
+                        std::fs::write(dir.join(format!("{}.txt", mm.name())), mm.to_text())?;
+                    }
+                }
             }
         }
     }
