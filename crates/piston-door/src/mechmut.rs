@@ -53,6 +53,9 @@ pub struct Var {
     pub maxp: usize,
     /// Pocket load x10 (families' wiring analysis): the worst free region's forced actions per cell.
     pub load: usize,
+    /// Island start (families' wiring analysis): firings without a started feed region, best
+    /// lever region (0 = every region can start).
+    pub start: usize,
     /// d67's `door feeds` on the redsim-working plan: (firings with no option, one-cell
     /// conflicts, firings with only flagged options).
     pub feeds: (usize, usize, usize),
@@ -77,7 +80,7 @@ impl Var {
             // d67's feed table (no option, one-cell conflicts, only flagged options), the pocket
             // load and the most actions of one piston on one edge
             let (fn_, fc, fw) = self.feeds;
-            return vec![self.missing, real_bad, self.unfed, fn_, fc, conn, fw, self.load, self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons];
+            return vec![self.missing, real_bad, self.unfed, self.start, fn_, fc, conn, fw, self.load, self.maxp, self.inside, self.never, self.weak, cr, self.events, self.pistons];
         }
         vec![self.missing, real_bad, self.inside, conn, self.never, self.weak, self.unfed, self.load, self.pistons, cr, self.events]
     }
@@ -98,6 +101,9 @@ pub static OUTSIDE_ONLY: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 pub static RANK_UNFED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--max-unfed N`: reject variants with more unfed receivers (after the lever allowance).
 pub static MAX_UNFED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(usize::MAX);
+/// `--connect-cap N`: state cap of the `door connect` check per variant (default 100k; d67's
+/// island argument shows u2-7x7 unwirable where 100k leaves it undecided).
+pub static CONNECT_CAP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(100_000);
 
 fn redsim_works(m: &Mech, rest: &St, sol: &fam::Sol) -> Option<crate::ideal::Schedule> {
     crate::mechsynth::CORRIDOR_INPUTS.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -349,7 +355,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     crate::mechsynth::SEAMLESS.store(true, std::sync::atomic::Ordering::Relaxed);
     crate::mechsynth::SEAMLESS_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
     let msol = crate::mechsynth::Solution { open: fam::ms_seq(&map, &open_e), close: fam::ms_seq(&map, &close_e), sym: None, states: 0 };
-    let conn = crate::connect::check(&wld, &msol, [bx.x0, bx.y0], [bx.x0 + bx.w - 1, bx.y0 + bx.h - 1], 100_000);
+    let conn = crate::connect::check(&wld, &msol, [bx.x0, bx.y0], [bx.x0 + bx.w - 1, bx.y0 + bx.h - 1], CONNECT_CAP.load(std::sync::atomic::Ordering::Relaxed));
     let connect = if conn.ok { "WIRABLE".to_string() } else { format!("no: {}", conn.report.lines().last().unwrap_or("").trim()) };
     // pistons no region the lever can wake ever feeds (connect's best failure; 0 when WIRABLE)
     let never = if conn.ok {
@@ -382,6 +388,7 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
         inside,
         weak: w.weak,
         load: w.load,
+        start: w.start,
         feeds,
         maxp,
         unfed_at,
@@ -509,7 +516,7 @@ pub struct Opts {
 /// first among equal growth).
 fn partial(bx: Bx, p: &[Pc], missing: usize) -> Var {
     let pistons = p.iter().filter(|q| matches!(q.k, K::Piston { .. })).count();
-    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
+    Var { bx, pieces: p.to_vec(), missing, unfed: usize::MAX / 2, class: 'X', pistons, open: String::new(), close: String::new(), events: p.len(), door_ring: 0, replayed: false, connect: "-".into(), never: usize::MAX / 2, real: None, inside: usize::MAX / 2, weak: usize::MAX / 2, maxp: usize::MAX / 2, load: usize::MAX / 2, start: usize::MAX / 2, feeds: (usize::MAX / 2, usize::MAX / 2, usize::MAX / 2), unfed_at: String::new(), so: Vec::new(), sc: Vec::new() }
 }
 
 /// `--add` growth measure: 3x3 cells still filled in the best state reachable from rest (plain
@@ -672,14 +679,14 @@ pub fn export(v: &Var, dir: &Path, tag: &str) -> Result<()> {
 pub fn run(input: &Path, o: &Opts, out: Option<&Path>, ideal_dir: Option<&Path>) -> Result<()> {
     let seeds = parse_lines(&std::fs::read_to_string(input).with_context(|| format!("{}", input.display()))?)?;
     let kept = search(&seeds, o);
-    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\n");
+    let mut tsv = String::from("redsim\tinside\tweak\tconnect\tnever_fed\tunfed\tclass\tpistons\tevents\tdoor_ring\treplayed\tmechanism\topen\tclose\tunfed_at\tmax_actions\tpocket_load_x10\tfeeds_none\tfeeds_conflicts\tfeeds_weak\tisland_start\n");
     for v in &kept {
         let rs = match v.real {
             Some(true) => "WORKS",
             Some(false) => "BROKEN",
             None => "-",
         };
-        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.1, v.feeds.2));
+        tsv.push_str(&format!("{rs}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", v.inside, v.weak, v.connect, v.never, v.unfed, v.class, v.pistons, v.events, v.door_ring, v.replayed, v.line(), v.open, v.close, v.unfed_at, v.maxp, v.load, v.feeds.0, v.feeds.1, v.feeds.2, v.start));
     }
     match out {
         Some(p) => std::fs::write(p, &tsv)?,

@@ -2200,6 +2200,9 @@ pub struct Wire {
     pub weak: usize,
     /// Pocket load x10: the worst free region's actions (receivers only it can feed) per cell.
     pub load: usize,
+    /// Island start: the fewest firings without a started feed region over the lever regions
+    /// (0 = every free region can start from the lever's).
+    pub start: usize,
     pub why: String,
 }
 
@@ -2473,12 +2476,59 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
         }
         (0..nr).map(|r| per[r] as usize * 10 / sizes[r].max(1)).max().unwrap_or(0)
     };
+    // island start (clk-misc / pockets3): pistons don't conduct, so a free region can only act
+    // after it saw a change next to it caused by a region already acting (or, at t0, if it holds
+    // the lever). Per lever region L and per edge, replay the events: a firing needs a started
+    // feed region; after it, every region next to a changed cell starts. start = the fewest
+    // firings without a started feed over the choices of L (0 = every region can start)
+    let start = {
+        let kidx: HashMap<(usize, usize), usize> = keys.iter().enumerate().map(|(k, &key)| (key, k)).collect();
+        let mut best = usize::MAX;
+        for lever in 0..nr.max(1) {
+            let mut bad = 0usize;
+            for (start_st, seq) in [(rest, &seq_o), (&o, &seq_c)] {
+                let mut started = vec![false; nr.max(1)];
+                started[lever] = true;
+                let mut c = start_st.clone();
+                for e in seq.iter() {
+                    let id = e.id as usize;
+                    let p = c.pp[id] as usize;
+                    if let Some(&k) = kidx.get(&(id, p))
+                        && !feeds[k].iter().any(|&r| started[r])
+                    {
+                        bad += 1;
+                    }
+                    let Out::Ok(nx) = m.apply(&c, *e) else { continue };
+                    let mut changed: Vec<usize> = (0..n).filter(|&i| nx.g[i] != c.g[i]).collect();
+                    if e.act == Act::P {
+                        changed.push(p);
+                        let (_, f) = m.info[id];
+                        if let Some(h) = m.step(p, f) {
+                            changed.push(h);
+                        }
+                    }
+                    for &i in &changed {
+                        for d in 0..4u8 {
+                            if let Some(j) = m.step(i, d)
+                                && free[j]
+                            {
+                                started[reg[j]] = true;
+                            }
+                        }
+                    }
+                    c = nx;
+                }
+            }
+            best = best.min(bad);
+        }
+        if nr == 0 { 0 } else { best }
+    };
     if !why.is_empty() {
-        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, load, why: why.join("; ") };
+        return Wire { class: 'X', regions: sorted, forced: 0, riders, weak, load, start, why: why.join("; ") };
     }
     // one region feeding everything?
     if (0..nr).any(|r| used.iter().all(|&k| feeds[k].contains(&r))) {
-        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, load, why: "one region feeds every piston".into() };
+        return Wire { class: 'A', regions: sorted, forced: 1, riders, weak, load, start, why: "one region feeds every piston".into() };
     }
     // forced regions: the only region of some receiver
     let mut forced: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -2535,7 +2585,7 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
         }
     }
     let (class, w) = best.unwrap_or(('X', "no region".into()));
-    Wire { class, regions: sorted, forced: forced.len(), riders, weak, load, why: w }
+    Wire { class, regions: sorted, forced: forced.len(), riders, weak, load, start, why: w }
 }
 
 fn wireability(m: &Mech, rest: &St, sol: &Sol) -> (usize, usize) {
