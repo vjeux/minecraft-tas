@@ -1,0 +1,47 @@
+# archived 2026-10-20T00:46Z from designs/circuits/pext/work/n5-cascade-v1.txt by mctas circuit archive
+# CIRCUIT: pext-n5-cascade-v1 piston-extender 5 N 5, extend 64 gt, retract 72 gt, 52 blocks, 16x5x4, robust
+# N=5 CASCADE extender (wired, first version): units [slime + sticky piston + observer under the
+# slime] in a line (A, B, C, D, E, payload); a moved unit fires its own piston 2 gt after landing.
+# The round starts all come from ONE westward observer spine off the lever, each cell's pulser
+# (above-beside the line, quasi-connectivity) fired 4 gt after the spine passes: x13 t6, x10 t12,
+# x9 t14, x7 t22, x5 t30, x4 t32, x3 t34, A t40. Each pulse serves a round on one edge and is
+# harmless on the other (x7 is D's round on the on-edge and C's round on the off-edge); rounds
+# overlap (cascade waves 4-6 gt apart never meet). Two 4 gt detours (over x8, behind x6) space them.
+name: pext-n5-cascade-v1
+circuit: piston-extender 5
+travel: 1 0 0
+port input: 13 3 3 lever
+port payload: 10 1 0
+palette:
+  L minecraft:lever[face=floor,facing=north]
+  K minecraft:stone
+  A minecraft:sticky_piston[facing=east]
+  S minecraft:slime_block
+  P minecraft:sticky_piston[facing=east]
+  O minecraft:observer[facing=down]
+  G minecraft:gold_block
+  U minecraft:observer[facing=up]
+  E minecraft:observer[facing=east]
+  s minecraft:observer[facing=south]
+  N minecraft:observer[facing=north]
+  W minecraft:observer[facing=west]
+layer 0:
+  ..O.O.O.O
+layer 1:
+  .ASPSPSPSPG
+  .s
+  UW
+layer 2:
+  .
+  ...sss.s.ss..s
+  U.UWUU.U.UU..U
+  .............K
+layer 3:
+  .
+  .
+  EEEEEs.U.EEEEs
+  .....EEN.....L
+layer 4:
+  .
+  .
+  .......EEO
