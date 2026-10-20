@@ -19,7 +19,9 @@
     stations, round trip 98 gt over 6 positions, robust; calibration cal-two-way-machine).
   * payload: family fly-payload-e2cf52 (base fly-payload-n1): the 6-block engine carrying n =
     1..18 blocks, 6 + n blocks, 10 gt/block (9 per part: the 12-block push limit); members
-    fly-payload-9-15b, fly-payload-18-24b.
+    fly-payload-9-15b, fly-payload-18-24b. Family fly-train-e2cf52 (base fly-train-n1): the engine
+    pulling n trailers (each a move of its own: no size limit), 5 + 3n blocks, 10 gt/block, judged
+    up to n = 16 (53 blocks).
 * Judge support written here (crates/circuit, reviewed by clockinfra): `port station[.<name>]`
   (return-station blocks: counted, left out of the tracked machine shape), the steady state
   preferring an in-place run that outlasts the moving runs (two-way), flying-machine family cards
@@ -49,4 +51,5 @@ engines, station pairs composed; `--reversible-only`).
   1 gt instead of 2); the k = 6 census with redstone blocks (results in NOTES).
 * Two-way with fewer blocks: stations for the other reversible engines (02a7fb, 67f769, 73cdd4,
   873917, 91737e, 964ac6), k <= 3.
-* Payload reach beyond 18: a 3-part engine (each part <= 12 blocks).
+* Payload: trailers that carry their own payload columns (9 per intermediate trailer); a train
+  behind the 9 gt engine.
