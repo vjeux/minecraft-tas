@@ -399,13 +399,23 @@ pub struct AnnealOptions {
     pub slack: i32,
     /// The starting temperature (energy units: 10 per block; 0 = greedy).
     pub temp: f64,
+    /// A target face (axis 0/1/2, plane coordinate): the energy is 1000 per block left on it.
+    pub face: Option<(usize, i32)>,
     pub out_dir: Option<std::path::PathBuf>,
 }
 
 /// The objective (smaller is better): (volume, energy). The energy rewards emptying a face of
 /// the box (a face emptied is a layer saved): 100 x the sum over the faces of sqrt(blocks on the
 /// face), so a block taken off a nearly empty face counts most, plus 10 per block.
-fn objective(d: &Design, inputs: &[Pos], s: &Score) -> (i64, i64) {
+fn objective(d: &Design, inputs: &[Pos], s: &Score, face: Option<(usize, i32)>) -> (i64, i64) {
+    // a target face (axis, plane): 1000 per block left on it, 10 per block
+    if let Some((axis, plane)) = face {
+        let n = d.blocks.keys().filter(|p| !inputs.contains(p) && p[axis] == plane).count();
+        return (s.volume, 1000 * n as i64 + 10 * s.blocks as i64);
+    }
+    // a soft volume (face plane coordinate i32::MIN): 1000 per cell of the box in the energy, so
+    // the annealing may grow the box for a while to rearrange it
+    let soft = face.is_none() && SOFT_VOLUME.load(Ordering::Relaxed);
     let (lo, hi) = box_of(d, inputs);
     let mut e = 0.0f64;
     for axis in 0..3 {
@@ -417,7 +427,16 @@ fn objective(d: &Design, inputs: &[Pos], s: &Score) -> (i64, i64) {
             e += (n as f64).sqrt();
         }
     }
-    (s.volume, (100.0 * e).round() as i64 + 10 * s.blocks as i64)
+    let e = (100.0 * e).round() as i64 + 10 * s.blocks as i64;
+    if soft { (0, 1000 * s.volume + e) } else { (s.volume, e) }
+}
+
+/// `anneal --soft-volume`: the volume is part of the energy instead of a hard bound.
+static SOFT_VOLUME: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Set the soft-volume mode of [`objective`].
+pub fn set_soft_volume(on: bool) {
+    SOFT_VOLUME.store(on, Ordering::Relaxed);
 }
 
 /// One random edit of a design (`None` when the move does not apply).
@@ -527,7 +546,7 @@ pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
     let inputs: Vec<Pos> = c0.inputs.iter().map(|i| i.pos).collect();
     let mut cur = c0.clock.design.clone();
     let mut cur_s = score_of(&c0, t.min_rate + o.tol);
-    let mut cur_obj = objective(&cur, &inputs, &cur_s);
+    let mut cur_obj = objective(&cur, &inputs, &cur_s, o.face);
     let mut best = (cur_s.clone(), cur.clone());
     println!(
         "{}: {} blocks, {}x{}x{} = {}, objective {:?}, required: {} (rate >= {:.2})",
@@ -578,7 +597,7 @@ pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
                     }
                     let Some(c) = circuit_of(&d) else { continue };
                     if let Some(sc) = judge(&c, &t) {
-                        let obj = objective(&d, &inputs, &sc);
+                        let obj = objective(&d, &inputs, &sc, o.face);
                         results.lock().unwrap().push((obj, sc, d));
                     }
                 });
@@ -652,8 +671,43 @@ pub fn grade(c: &Circuit, t: &Target) -> i64 {
             Err(_) => return -1_000_000,
         }
     };
-    let Ok(log) = rs::run(c, sc, rs::RunOpts { cap: Some(t.screen_cap), ..Default::default() }) else { return -1_000_000 };
-    let mut g = -1000 * loose.len() as i64;
+    let mut boxes: std::collections::HashMap<(i32, i32, i32), (u64, bool)> = std::collections::HashMap::new();
+    let (mut placed, mut done_boxes, mut broke_ok, mut broke_bad) = (0i64, 0i64, 0i64, 0i64);
+    let loader = sc.loader;
+    let stack = sc.stack;
+    let mut hook = |_t: u32, w: &redsim::world::World| {
+        let mut now: std::collections::HashMap<(i32, i32, i32), (u64, bool)> = std::collections::HashMap::new();
+        for (p, be) in &w.containers.map {
+            if redsim::redstone::shulker::box_item_of(&w.get(*p)).is_none() {
+                continue;
+            }
+            let items: u64 = be.slots.iter().flatten().map(|s| s.count as u64).sum();
+            let full = be.slots.len() == 27 && be.slots.iter().all(|s| s.is_some_and(|s| s.count as u32 == stack));
+            now.insert((p.x, p.y, p.z), (items, full));
+        }
+        for (p, (items, full)) in &now {
+            match boxes.get(p) {
+                None => placed += 1,
+                Some((pi, pf)) => {
+                    if (loader && *full && !*pf) || (!loader && *items == 0 && *pi > 0) {
+                        done_boxes += 1;
+                    }
+                }
+            }
+        }
+        for (p, (items, full)) in &boxes {
+            if !now.contains_key(p) {
+                if (loader && *full) || (!loader && *items == 0) {
+                    broke_ok += 1;
+                } else {
+                    broke_bad += 1;
+                }
+            }
+        }
+        boxes = now;
+    };
+    let Ok(log) = rs::run_with(c, sc, rs::RunOpts { cap: Some(t.screen_cap), ..Default::default() }, Some(&mut hook)) else { return -1_000_000 };
+    let mut g = -1000 * loose.len() as i64 + 1000 * placed.min(4) + 1000 * done_boxes.min(3) + 2000 * broke_ok.min(3) - 3000 * broke_bad;
     for d in &log.deliveries {
         if !d.stack.is_box() {
             g -= 2000;
@@ -712,7 +766,7 @@ pub fn repair(path: &Path, o: &RepairOptions) -> Result<Vec<(Score, Design)>> {
         d.blocks.iter().all(|(p, s)| base_blocks.get(p) == Some(s) || near_focus(p)) && base_blocks.iter().all(|(p, s)| d.blocks.get(p) == Some(s) || near_focus(p))
     };
     println!("{}: cut to {lo:?}..{hi:?} ({} blocks removed), grade {cur_g}", c0.name(), cut.len());
-    let ao = AnnealOptions { steps: o.steps, batch: o.batch, threads: o.threads, palette: o.palette.clone(), tol: o.tol, seed: o.seed, moves: o.moves, move_ports: false, slack: 0, temp: o.temp, out_dir: None };
+    let ao = AnnealOptions { steps: o.steps, batch: o.batch, threads: o.threads, palette: o.palette.clone(), tol: o.tol, seed: o.seed, moves: o.moves, move_ports: false, slack: 0, temp: o.temp, face: None, out_dir: None };
     let mut rng = Rng::new(o.seed);
     let mut finds: Vec<(Score, Design)> = Vec::new();
     let t0 = std::time::Instant::now();
