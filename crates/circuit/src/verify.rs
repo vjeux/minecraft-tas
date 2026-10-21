@@ -314,6 +314,12 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
         (out, _) => out,
     };
+    // a randomizer: more seeds (salts), their counts pooled for the uniformity test
+    // (crate::random::screen)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
+        (out, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
@@ -701,6 +707,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // a randomizer: every build's presses pooled, the outputs' counts tested for uniformity
+    // (crate::random::pool_report)
+    if rep.pass
+        && o.stimulus.is_none()
+        && let Some(Kind::Randomizer(n)) = &kind
+    {
+        crate::random::pool_report(&mut rep, *n);
+    }
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
     if rep.pass
         && kind.is_some()

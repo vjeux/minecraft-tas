@@ -695,6 +695,24 @@ kick) before the first input.
   signal 3 reaches its neighbour's lock, which drains its recipe, then sorts junk: `jam`); an empty
   drain hopper under a down-facing filter (drains the recipe); a recipe the threshold does not
   match (keeps items).
+* **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
+  2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
+  the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
+  seeded from its watch box and a salt, and redsim mirrors that random draw for draw, so the
+  screen and the game see the same outcomes (`circuit trace-compare` is IDENTICAL on the
+  calibration rand2-token). Ports: one input, pressed for real (a button of the design is pressed
+  and holds for its own time, any other input is held on 30 then 20 gt, alternately), and N
+  outputs, each the design's repeater or comparator facing out of its box (the TAP a builder takes
+  the signal from). Stimulus: 24 presses per output (at least 48), each window the press, the
+  recovery gap and a varying wait (0, 7, 3, 13, 1, 22, 5, 9 gt: several paces). Each window:
+  exactly one output turns on, once, no other comes on; style `pulse` (all off again by the
+  window's end) or `hold` (the chosen output stays on until a press changes it; exactly one on at
+  every window's end), the same for every press; every output wins at least once. Metrics: style,
+  latency (the slowest press to its output), pulse (the shortest, pulse style), presses.
+  Uniformity: the counts of every build pooled (the judge's 16 builds, each its own seed; the
+  screen's 8 salts) and tested against equal shares with a chi-square test at p = 0.001; the
+  result rides in the verdict's flag (`uniform: chi2 X (limit Y) over P presses in R runs,
+  counts ...`). Item parts are judged by ITEM INTRUSION like every kind (seal hopper tops).
 
 ### Real use (the audit of 2026-10-21)
 
