@@ -70,6 +70,10 @@ pub(crate) struct View {
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
     pub tick: Option<u32>,
+    /// `data-still`: the still frame a thumbnail shows, found at build time by the site through
+    /// `mcview::tools::still_attr` (`Session::still_attr`): one run to its tick instead of the
+    /// period search. Absent or unreadable: the viewer finds it (`Session::go_to_still`).
+    pub still: Option<String>,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
     /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
@@ -642,6 +646,7 @@ impl App {
         v.src = src;
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
+        v.still = el.get_attribute("data-still").filter(|s| !s.trim().is_empty());
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
         v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
@@ -737,6 +742,7 @@ impl App {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            still: el.get_attribute("data-still").filter(|s| !s.trim().is_empty()),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
             events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
@@ -999,13 +1005,19 @@ impl App {
         }
         let picture = (|| -> Result<(), String> {
             let mut s = Session::new(text, &Options::default())?;
-            match v.tick {
-                Some(t) => {
-                    s.find_auto_output(20_000);
+            match (v.tick, v.still.as_deref()) {
+                (Some(t), _) => {
+                    s.find_auto_output(mcview::session::STILL_HORIZON);
                     s.run(t)
                 }
-                None => {
-                    s.go_to_still(20_000);
+                // found at build time: one run to it (an attribute it cannot read: found here)
+                (None, Some(a)) => {
+                    if s.go_to_still_from(a).is_err() {
+                        s.go_to_still(mcview::session::STILL_HORIZON);
+                    }
+                }
+                (None, None) => {
+                    s.go_to_still(mcview::session::STILL_HORIZON);
                 }
             }
             let mut look = scene::viewer_look(&s);

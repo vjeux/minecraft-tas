@@ -24,6 +24,16 @@ each build's page.
   `data-autoplay` (a full viewer starts playing). (`data-trace`, a real-game recording, is no
   longer played, vjeux 2026-10-20: the view shows only what redsim simulates exactly; a design
   redsim cannot run is shown as built with `not simulated: <reason>`.)
+* `data-still` (thumbnails): the still frame found ahead, `mcview::tools::still_attr(text)` at
+  build time (`mctas web still <designs>` prints it): `<tick>`, then ` out=x,y,z` (the clock
+  judge's output it adds when the design declares none) and ` box=x0,y0,z0,x1,y1,z1` (the picture
+  box). The browser then runs one pass to the tick instead of searching the clock's period again:
+  the same picture, pixel for pixel (`data_still_replays_the_still_frame`; a page of four long
+  clocks with and without it screenshots identical), in 116 / 32 / 9 / 7 ms instead of 3620 /
+  1934 / 14 / 1405 ms (desktop Chromium; natively the search averages 21 ms over the clock
+  archive, the slowest 2.5 s, the replay 0.1 ms). It depends on the viewer's code: the site keys
+  it on the design text and mcview's code. Absent or unreadable, the viewer searches itself;
+  `data-tick` wins over it.
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
@@ -525,6 +535,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium, each brought on screen in turn until it ran `--min-ticks` (a viewer plays only on screen); fails if any viewer, bar, counter or badge box moved (relative to the viewer) |
+| `mctas web still <designs...>` | each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still frame found ahead), one `<path>\t<attribute>` line each (`-`: the design does not load in the viewer) |
 | `mctas web perf <url> [--engine webkit --dir site/] [--window 375,812 --scale 3 --cpu 4] [--load 20 --scroll 8 --speed 2500]` | a page on a phone profile: DOMContentLoaded, load, first cards, first 3D view, the first screen's views all drawn, long tasks and frames over 50 ms; then a scroll at `--speed` px/s: its frame times, the views drawn meanwhile (and how many already off screen), how long the views on screen when it stops take; with `?mcview-debug` each thumbnail's time. Chromium (the CPU slowed `--cpu` times, touch, an iPhone user agent) or WebKitGTK (`--engine webkit`: the site's WebKit rig, `url` a page path in `--dir`) |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |

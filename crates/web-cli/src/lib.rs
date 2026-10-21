@@ -190,6 +190,10 @@ pub enum WebCmd {
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
+    /// Each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still
+    /// frame the viewer would search for, found ahead; the site puts it on its thumbnails), one
+    /// `<path>\t<attribute>` line per design (`-` when the design does not load in the viewer).
+    Still { designs: Vec<PathBuf> },
     /// A page on a phone profile in headless Chromium (CSS window size, device scale, touch, an
     /// iPhone user agent, the CPU slowed `--cpu` times): the time to its cards and to its first
     /// screen of 3D views drawn, long tasks and slow frames; then a scroll at `--speed` px/s for
@@ -547,6 +551,13 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             Some(u) => crate::cdp::cmd_luma(&u, &window, min, &browser),
             None => cmd_luma_native(&designs, min),
         },
+        WebCmd::Still { designs } => {
+            for p in designs {
+                let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
+                println!("{}\t{}", p.display(), mcview::tools::still_attr(&text).unwrap_or_else(|| "-".into()));
+            }
+            Ok(())
+        }
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {

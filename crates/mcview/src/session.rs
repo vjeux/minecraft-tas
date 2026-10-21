@@ -147,6 +147,10 @@ pub const GROUND_REACH: i32 = 24;
 pub const MAX_GROUND_REACH: i32 = 96;
 pub const GROUND_PROBE: u32 = 600;
 
+/// How far a thumbnail's still frame search ([`Session::go_to_still`]) looks for a clock's
+/// period (ticks): the viewer's and the site's build-time `data-still` alike.
+pub const STILL_HORIZON: u32 = 20_000;
+
 /// A TNT duper with its explosions (`Circuit::explodes`): it stands on its judge's ground.
 pub fn ground_duper(d: &Design) -> bool {
     let kind = d.meta.get("circuit").and_then(|c| c.split_whitespace().next().map(str::to_string)).unwrap_or_default();
@@ -2141,6 +2145,60 @@ impl Session {
         target
     }
 
+    /// What [`Session::go_to_still`] finds, as a thumbnail's `data-still` attribute carries it
+    /// (the site computes it at build time: the browser then runs one pass to the tick instead
+    /// of finding the period again, most of a long clock's thumbnail time on a phone):
+    /// `<tick>`, then ` out=x,y,z` (the clock judge's output it adds when the design declares
+    /// none) and ` box=x0,y0,z0,x1,y1,z1` (the picture box). Leaves the session at the still.
+    pub fn still_attr(&mut self, horizon: u32) -> String {
+        let had = self.outputs.len();
+        let t = self.go_to_still(horizon);
+        let mut a = t.to_string();
+        if let Some(o) = self.outputs.get(had) {
+            a += &format!(" out={},{},{}", o[0], o[1], o[2]);
+        }
+        if let Some((lo, hi)) = self.picture {
+            a += &format!(" box={},{},{},{},{},{}", lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]);
+        }
+        a
+    }
+
+    /// [`Session::go_to_still`] from its [`Session::still_attr`] answer: the output and picture
+    /// box set, one run to the tick. An attribute it cannot read changes nothing (Err).
+    pub fn go_to_still_from(&mut self, attr: &str) -> Result<u32, String> {
+        let nums = |v: &str, n: usize| -> Result<Vec<i32>, String> {
+            let v: Vec<i32> = v.split(',').map(|x| x.trim().parse::<i32>().map_err(|_| format!("data-still: {x}?"))).collect::<Result<_, _>>()?;
+            if v.len() == n { Ok(v) } else { Err(format!("data-still: {n} numbers wanted, {v:?}")) }
+        };
+        let mut it = attr.split_whitespace();
+        let tick: u32 = it.next().and_then(|t| t.parse().ok()).ok_or_else(|| format!("data-still: no tick in {attr:?}"))?;
+        let (mut out, mut picture) = (None, None);
+        for w in it {
+            if let Some(v) = w.strip_prefix("out=") {
+                let v = nums(v, 3)?;
+                out = Some([v[0], v[1], v[2]]);
+            } else if let Some(v) = w.strip_prefix("box=") {
+                let v = nums(v, 6)?;
+                picture = Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]));
+            } else {
+                return Err(format!("data-still: {w}?"));
+            }
+        }
+        if let Some(o) = out
+            && self.outputs.is_empty()
+        {
+            self.outputs.push(o);
+        }
+        if picture.is_some() {
+            self.picture = picture;
+        }
+        self.reset();
+        while self.tick < tick && self.halted.is_none() {
+            self.step();
+        }
+        Ok(tick)
+    }
+
     /// A clock's picture box, like `clock shot`: the judge's swept box (`clock::sim`: the design's
     /// box with its kick cell, grown by every cell occupied over the state warmup and one state
     /// period), and for an elongated clock (its longest side over 16 blocks and over 5x the next) a
@@ -2438,6 +2496,45 @@ mod tests {
             assert_eq!(frames.len(), 2 * n, "{name}: {frames:?}");
             s.drawn_matches_simulation().unwrap();
         }
+    }
+
+    /// The site's build-time `data-still` (coordinator: long pages on a phone; a thumbnail's
+    /// period search was most of its time): replaying it lands on the very still frame the
+    /// viewer's own search finds — tick, output, picture box, blocks and entities — over a sample
+    /// of the clock archive (clocks with no declared output, elongated ones), circuits and a door.
+    #[test]
+    fn data_still_replays_the_still_frame() {
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs");
+        let list = |dir: &str| -> Vec<std::path::PathBuf> {
+            let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(format!("{root}/{dir}")).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+            v.sort();
+            v
+        };
+        let clocks = list("clocks/archive");
+        let mut files: Vec<std::path::PathBuf> = clocks.iter().step_by(97).cloned().collect();
+        files.extend(list("circuits/gates/archive").into_iter().take(3));
+        files.extend(list("piston-door-3x3/archive").into_iter().take(2));
+        let (mut outs, mut boxes) = (0, 0);
+        for f in &files {
+            let text = std::fs::read_to_string(f).unwrap();
+            let Ok(mut a) = Session::new(&text, &Options::default()) else { continue };
+            let attr = a.still_attr(STILL_HORIZON);
+            outs += attr.contains(" out=") as usize;
+            boxes += attr.contains(" box=") as usize;
+            let mut b = Session::new(&text, &Options::default()).unwrap();
+            assert_eq!(b.go_to_still_from(&attr), Ok(a.tick), "{}: {attr}", f.display());
+            assert_eq!((b.tick, &b.outputs, b.picture), (a.tick, &a.outputs, a.picture), "{}: {attr}", f.display());
+            assert!(b.render_blocks(0.0) == a.render_blocks(0.0), "{}: blocks differ at {attr}", f.display());
+            assert_eq!(format!("{:?}", b.entities(0.0)), format!("{:?}", a.entities(0.0)), "{}", f.display());
+        }
+        // the sample covers both extras (a clock judged by its own output; an elongated clock's
+        // window)
+        assert!(outs > 0 && boxes > 0, "{outs} with out=, {boxes} with box= among {}", files.len());
+        // an attribute it cannot read changes nothing
+        let mut s = Session::new(&std::fs::read_to_string(&clocks[0]).unwrap(), &Options::default()).unwrap();
+        let t = s.tick;
+        assert!(s.go_to_still_from("12 out=1,2").is_err() && s.go_to_still_from("x").is_err() && s.go_to_still_from("5 tilt=3").is_err());
+        assert_eq!(s.tick, t);
     }
 
     #[test]
