@@ -671,8 +671,11 @@ input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is d
 calibrated sensor at (-2,-2) plus a wool shield); every other input is 0 of 5.8k-1.9M. Also both
 9x6 mechanisms, w86's m69g and c70b's m69g-12 (above). **Open**: long horizons; mechanisms outside
 the generators; s69 with its corner re-designed (macrosat `--free` overnight); the trio7 family's
-two loaded corners (macrosat `--free` over trio7's bottom row and left columns under the real-block
-rules, still running at the deadline).
+two loaded corners. With trio7's bottom row (-2..2,-2), (-2,-1) and (0,-1) freed, macrosat is UNSAT
+at h16 under every rule (exact observer island start, component kinds with observer timing and
+supports, level holds, physics, observers, lever flips; clockinfra, 14:55Z), so no redesign of that
+cut is wirable within 16 steps per edge. The h20 twin and the left-column cuts were still solving
+at the deadline.
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
