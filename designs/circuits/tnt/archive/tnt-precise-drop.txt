@@ -1,5 +1,5 @@
-# archived 2026-10-21T04:10Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-240-41b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 21 gt, safe drop 4 blocks, stands 23 blocks above the ground (stand: in the design), 41 blocks, 6x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 10.0 blocks below the machine, 13.0 blocks above the ground; launched at (-0.0020, 0.1568, -1.0000) blocks/gt, spread (0.0390, 0.0000, 0.0000); dropped: every TNT falls straight down, 13.1+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
+# archived 2026-10-21T15:52Z from /tmp/mat/circuits-judged/tnt-precise-drop.txt by mctas circuit archive
+# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 21 gt, safe drop 4 blocks, stands 23 blocks above the ground (stand: in the design), 41 blocks, 6x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 10.0 blocks below the machine, 13.0 blocks above the ground; launched at (0.0040, 0.1568, -1.0000) blocks/gt, spread (0.0386, 0.0000, 0.0000); dropped: every TNT falls straight down, 13.1+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
 # Precise drop, 41 blocks in a 6x5x8 box (240), 30 TNT/min: every TNT falls straight down from one
 # point and explodes at one point in mid-air 10.0 blocks under the machine, 13.0 blocks above the ground
 # it stands 23 blocks over. clk-rt's minimum-volume search (explore/timer 3670274e4,
@@ -9,6 +9,7 @@
 # one TNT. The TNT flies into fence posts over a water channel, the current pins it against an
 # observer on an iron trapdoor, and the next TNT's push, carried by observers and a delay-4 repeater,
 # opens the trapdoor.
+# material (clk-rt 2026-10-21, `circuit material`): 1 obsidian -> stone (the same kind, axis and metrics on its judge); obsidian at 5 -2 2 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there)
 name: tnt-precise-drop
 circuit: tnt-duper
 stand: 23
@@ -44,7 +45,7 @@ layer -4:
   .
   .
   .
-  .G
+  .N
   .
 layer -3:
   .

@@ -1,5 +1,6 @@
 # verified WORKS by door leaderboard: 39 blocks, category sculk
 # archived 2026-10-19 20:23Z from origin/explore/c77:designs/piston-door-3x3/tracks/c77/runs/s2reloc/e78st38-s2-fill-39b-12.txt (repo at 7c5e37c16)
+# material (clk-rt 2026-10-21, `door material`): 1 obsidian -> stone (the door passes with the same ticks); no obsidian left
 name: e78st38-s2-fill-39b-12
 note: door fill of designs/piston-door-3x3/tracks/c77/e78s/e78st38-s2.txt: (2,-3) calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false] (3,-3) dropper[facing=down,triggered=false] (4,-3) calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
 port door: 0 0 0
@@ -10,10 +11,9 @@ palette:
   B minecraft:observer[facing=west,powered=false]
   C minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
   D minecraft:dropper[facing=down,triggered=false]
-  E minecraft:obsidian
-  F minecraft:sticky_piston[extended=false,facing=west]
-  G minecraft:sticky_piston[extended=true,facing=down]
-  H minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
   L minecraft:lever[face=floor,facing=east,powered=true]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=up]
@@ -27,16 +27,16 @@ layer -3:
 layer -2:
   ..BsOO
 layer -1:
-  EAH..F
+  GAG..E
 layer 0:
-  S.HHH.F
+  S.GGG.E
 layer 1:
-  S.HHH.F
+  S.GGG.E
 layer 2:
-  HHHHHHH
+  GGGGGGG
 layer 3:
   RopppBR
 layer 4:
-  ..GGG
+  ..FFF
 layer 5:
   ...L
