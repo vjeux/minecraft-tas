@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 
 pub const STYLE: &str = include_str!("../assets/style.css");
 pub const FAVICON: &str = include_str!("../assets/favicon.svg");
+/// Pages vjeux deleted (2026-10-20 13:35Z: "I asked to remove the things from the header, it's
+/// not to put them back in the footer. Delete these pages altogether"): the door boards, the
+/// extendable families' index, the list of everything and the about page. `mctas site smoke`
+/// fails if one is written or linked.
+pub const DELETED_PAGES: [&str; 4] = ["boards.html", "families/index.html", "all.html", "about.html"];
 
 /// The repository commit (HEAD), or `unknown`.
 pub fn commit(repo: &Path) -> String {
@@ -90,6 +95,76 @@ pub fn files_from_ref(repo: &Path, r: &str, folder: &str, to: &Path) -> Result<u
     Ok(n)
 }
 
+/// One card per mechanism: doors (the coordinator's decision (b): "near-identical variants become
+/// one card") with the same category, box and open/close times, and clocks (critique C46:
+/// identical pairs on the Clocks tab) with the same period, blocks, parts and output fold under
+/// one twin (a door: its `host`, listed on the twin's page; a clock: the `twin` flag, hidden from
+/// the default lists like the variants, listed among the twin's same-period clocks). A record
+/// (a door leading a board, a family's base) is never folded. Returns (doors, clocks) folded.
+fn fold_twins(builds: &mut [Build]) -> (usize, usize) {
+    let mut doors: BTreeMap<(String, String, Option<u32>, Option<u32>, String, Vec<String>), Vec<usize>> = BTreeMap::new();
+    let mut clocks: BTreeMap<(u32, u32, String, u32, u32), Vec<usize>> = BTreeMap::new();
+    // what a builder picks a door by besides its numbers: a door with one of these never hides
+    // under one without it
+    const DOOR_PROPS: [&str; 7] = ["slime-free", "flat", "rotation-safe", "hallway", "eligible", "wall", "ground"];
+    for (i, b) in builds.iter().enumerate() {
+        if let Some(d) = &b.door {
+            if d.host.is_none() {
+                let props: Vec<String> = DOOR_PROPS.iter().filter(|p| b.flags.iter().any(|f| f == *p)).map(|p| p.to_string()).collect();
+                doors.entry((b.group.clone(), b.dims.clone().unwrap_or_default(), d.open, d.close, d.seamless.clone(), props)).or_default().push(i);
+            }
+        }
+        if let Some(c) = &b.clock {
+            if c.host.is_none() && !c.instance && c.card.is_none() && !b.flags.iter().any(|f| f == "census" || f == "variant") {
+                clocks.entry((c.period, b.blocks, b.group.clone(), c.on, c.edges)).or_default().push(i);
+            }
+        }
+    }
+    let mut folded = (0, 0);
+    for mut same in doors.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| {
+            let b = &builds[i];
+            (b.door.as_ref().is_none_or(|d| d.leads.is_empty()), b.blocks, b.volume, b.name.clone())
+        });
+        let rep = same[0];
+        let rep_id = builds[rep].id.clone();
+        for &i in &same[1..] {
+            if builds[i].door.as_ref().is_some_and(|d| !d.leads.is_empty()) {
+                continue;
+            }
+            let id = builds[i].id.clone();
+            if let Some(d) = builds[i].door.as_mut() {
+                d.host = Some(rep_id.clone());
+            }
+            builds[i].flags.push("variant".into());
+            if let Some(d) = builds[rep].door.as_mut() {
+                d.variants.push(id);
+            }
+            folded.0 += 1;
+        }
+    }
+    for mut same in clocks.into_values().filter(|v| v.len() > 1) {
+        same.sort_by_key(|&i| (builds[i].name.starts_with("census-"), builds[i].volume, builds[i].name.clone()));
+        for &i in &same[1..] {
+            builds[i].flags.push("twin".into());
+            folded.1 += 1;
+        }
+    }
+    folded
+}
+
+/// A clock family member built at build time (its design under designs/clocks/members/, not in
+/// the repository).
+pub fn is_member(b: &Build) -> bool {
+    b.design.starts_with("designs/clocks/members/")
+}
+
+/// A build's design text: a member's from the output folder, else the repository's.
+fn read_design(b: &Build, repo: &Path, out: &Path) -> Result<String> {
+    let path = if is_member(b) { out.join(&b.design) } else { repo.join(repo_design_path(b)) };
+    std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))
+}
+
 /// The repository path of a build's design file.
 pub fn repo_design_path(b: &Build) -> String {
     match b.kind.as_str() {
@@ -113,48 +188,79 @@ fn usage_note(b: &Build) -> String {
     match (&b.door, &b.clock, &b.circuit) {
         (Some(_), _, _) => "Flip the lever to open the door, again to close it.".into(),
         (_, Some(c), _) => match c.start.strip_prefix("kick: last ") {
-            Some(cell) => format!("Kicked clock: after pasting, break and re-place the block at {cell} (relative to the design's origin) to start it."),
-            None if c.start.starts_with("self") => "Self-starting clock.".into(),
+            Some(cell) => format!("To start it after pasting, break and re-place the block at {cell} (from the design's origin)."),
+            None if c.start.starts_with("self") => "It starts by itself once pasted.".into(),
             None => format!("Start: {}.", c.start),
         },
-        (_, _, Some(c)) => format!("{}: inputs {}, outputs {}.", c.kind, c.inputs.join(", "), c.outputs.join(", ")),
+        // what it does and its connections, in words (critique C31: "flying-machine: inputs ,
+        // outputs ." printed empty lists)
+        (_, _, Some(c)) => {
+            let mut s = crate::plain::one_liner(c);
+            let names = |v: &[String]| v.iter().map(|n| n.to_uppercase()).collect::<Vec<_>>().join(", ");
+            match (c.inputs.is_empty(), c.outputs.is_empty()) {
+                (false, false) => s.push_str(&format!(" Input {}, output {}.", names(&c.inputs), names(&c.outputs))),
+                (false, true) => s.push_str(&format!(" Input {}.", names(&c.inputs))),
+                (true, false) => s.push_str(&format!(" Output {}.", names(&c.outputs))),
+                (true, true) => {}
+            }
+            s
+        }
         _ => String::new(),
     }
 }
 
+/// `2026-10-19 20:07Z` (a build's archive time) in Unix milliseconds: a litematic's creation time.
+/// The archive's, not the build's clock: an unchanged design writes the same file, so a deploy
+/// sends only what changed (every build re-sent all 4417 schematics, each stamped with its `now`).
+fn archived_ms(s: &str) -> Option<i64> {
+    let s = s.trim().trim_end_matches('Z');
+    let (date, time) = s.split_once([' ', 'T']).unwrap_or((s, "00:00"));
+    let mut d = date.split('-').map(|x| x.parse::<i64>().ok());
+    let (y, m, dd) = (d.next()??, d.next()??, d.next()??);
+    let mut t = time.split(':').map(|x| x.parse::<i64>().ok());
+    let (h, mi) = (t.next().flatten().unwrap_or(0), t.next().flatten().unwrap_or(0));
+    // days from the civil date (Howard Hinnant's days_from_civil)
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + dd - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    Some(((days * 24 + h) * 60 + mi) * 60_000)
+}
+
 /// Write `<design>.litematic` next to every build's and every member's design in the site.
 fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
-    let time = litematic::now_ms();
+    // (a build without an archive time: the archive's newest, as stable)
+    let newest = site.builds.iter().filter_map(|b| archived_ms(&b.archived)).max().unwrap_or(0);
     let mut n = 0;
     for b in &site.builds {
-        let path = repo_design_path(b);
-        let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
+        let time = archived_ms(&b.archived).unwrap_or(newest);
+        let path = if is_member(b) { b.design.clone() } else { repo_design_path(b) };
+        let text = read_design(b, repo, out)?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
-        let desc = [b.caption.as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
         write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
         n += 1;
     }
     // members: the generated ones (a member that is its family's archived base design shares that
-    // build's file, already written)
+    // build's file, already written); listed under their period on the clock card's page
+    let clock_page = site.builds.iter().find(|b| b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty())).map(|b| b.page.clone()).unwrap_or_default();
     let build_designs: std::collections::BTreeSet<&str> = site.builds.iter().map(|b| b.design.as_str()).collect();
     for m in site.members.iter().filter(|m| !m.design.is_empty() && !build_designs.contains(m.design.as_str())) {
         let text = std::fs::read_to_string(out.join(&m.design)).with_context(|| format!("reading {}", m.design))?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {}", m.design))?;
-        let fam = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family));
         let desc = format!(
-            "{} n = {}: period {} gt ({}), {} blocks ({}). {}REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/families/{}.html",
-            m.family,
-            m.n,
+            "A clock pulsing every {} gt ({}), {} blocks ({}), extended from a tested design (n = {}). REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{clock_page}#p{}",
             m.period,
             site_model::real_time(m.period),
             m.blocks,
             site_model::status_label(&m.status),
-            fam.map(|f| format!("Extend: {}. ", f.rule)).unwrap_or_default(),
-            m.card
+            m.n,
+            m.period
         );
         let name = format!("{}-n{}", m.family, m.n);
-        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
+        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, newest)).with_context(|| format!("{}: litematic", m.design))?;
         write_bytes(&out.join(litematic_path(&m.design)), &bytes)?;
         n += 1;
     }
@@ -181,26 +287,86 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     if !a.release.is_empty() && release_assets.is_empty() {
         eprintln!("warning: no assets in release {} (gh): no video links", a.release);
     }
-    let (door_builds, uncached) = doors::export(&repo, &doors::DoorOptions { release_assets, release_tag: a.release.clone() })?;
+    let (door_builds, uncached, not_ours) = doors::export(&repo, &doors::DoorOptions { release_assets, release_tag: a.release.clone() })?;
     if !uncached.is_empty() {
         eprintln!("{} archived doors have no cached verdict from main's judge yet (left out): {}", uncached.len(), uncached.join(", "));
     }
-    copy_files(&repo.join(doors::ARCHIVE), &out.join("designs/doors"), Some("txt"))?;
+    if !not_ours.is_empty() {
+        let by_prov = repo.join(doors::ARCHIVE).join(doors::PROVENANCE).exists();
+        let conflicts: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("CONFLICT")).map(|(s, _)| s).collect();
+        let unlisted: Vec<&String> = not_ours.iter().filter(|(_, why)| why.starts_with("not listed")).map(|(s, _)| s).collect();
+        eprintln!(
+            "{} archived doors left out as community work ({}; only our own designs are published)",
+            not_ours.len(),
+            if by_prov { "by provenance.tsv + the seed rule" } else { "no provenance.tsv yet: by the seed rule (community*, c79*, closed-b-fill*, satwire-c79*, satwire-63b*, c88*, fills of community designs)" }
+        );
+        if !conflicts.is_empty() {
+            eprintln!(
+                "  WARNING: {} doors marked ours in provenance.tsv match the seed rule and stay out (e.g. {}): fix provenance.tsv or the seed rule (site/src/doors.rs COMMUNITY_PREFIXES)",
+                conflicts.len(),
+                conflicts.iter().take(3).map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
+        if !unlisted.is_empty() {
+            eprintln!("  WARNING: {} archived doors are not in provenance.tsv and stay out until listed: {}", unlisted.len(), unlisted.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+        }
+    }
+    // (the design files are copied after the one-per-kind selection: only published builds')
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
-    // the clocks
-    let members_dir = (!a.no_members).then(|| out.join("designs/clocks/members"));
-    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir, sim_horizon: a.sim_horizon, threads: a.threads })?;
-    copy_files(&repo.join(clocks::ARCHIVE), &out.join("designs/clocks"), Some("txt"))?;
-    eprintln!(
-        "clocks: {} builds, {} extendable cards, {} members ({} judged, {} simulated, {} formula) ({:.1}s)",
-        ce.builds.len(),
-        ce.cards.len(),
-        ce.members.len(),
-        ce.members.iter().filter(|m| m.status == site_model::STATUS_JUDGED).count(),
-        ce.members.iter().filter(|m| m.status == site_model::STATUS_REDSIM).count(),
-        ce.members.iter().filter(|m| m.status == site_model::STATUS_FORMULA).count(),
-        t0.elapsed().as_secs_f64()
-    );
+    // the clocks (no family pages: vjeux 00:33Z; but every clock that makes a period, family
+    // members at their extension included, is listed under that period: 00:43Z, only the
+    // members a judge verified, in the game or simulated to exactly their period), and the
+    // circuits beside them (independent: their simulations run at the same time as the clock
+    // members', a cold build's two long passes overlapping)
+    let (ce, circuits_out) = std::thread::scope(|s| {
+        let circ = s.spawn(|| {
+            let t = std::time::Instant::now();
+            circuits::export(&repo).map(|r| (r, t.elapsed().as_secs_f64()))
+        });
+        let t = std::time::Instant::now();
+        let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads }).map(|r| (r, t.elapsed().as_secs_f64()));
+        (ce, circ.join().map_err(|_| anyhow::anyhow!("the circuits export panicked")))
+    });
+    let (ce, clock_s) = ce?;
+    let ((circuit_builds, cnotes), circuit_s) = circuits_out??;
+    eprintln!("clocks: {} builds ({clock_s:.1}s)", ce.builds.len());
+    let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
+    // each family's words and steps for its clocks' pages: its kind of clock, how one step extends
+    // it, the n of its base, what one step adds (critique: an extended clock said only "a longer
+    // version of <id>"; critique 41f1ec62a: the hopper clock's page never said its range)
+    let fam_words: BTreeMap<String, site_model::Extend> = ce
+        .cards
+        .iter()
+        .flat_map(|c| {
+            c.families.iter().map(move |f| {
+                let ext = site_model::Extend {
+                    base: f.build.clone(),
+                    title: c.title.clone(),
+                    rule: f.rule.clone(),
+                    base_n: f.base,
+                    dt: f.period.eval(f.base + 1) - f.period.eval(f.base),
+                    db: f.blocks.eval(f.base + 1) - f.blocks.eval(f.base),
+                    hi: 0,
+                };
+                (f.id.clone(), ext)
+            })
+        })
+        .collect();
+    let mut clock_members: Vec<Member> = Vec::new();
+    let mut dropped_members = 0;
+    for mut m in ce.members {
+        let verified = m.status == site_model::STATUS_JUDGED || m.status == site_model::STATUS_REDSIM;
+        let generated = m.build.is_none() && m.design.starts_with("designs/clocks/members/");
+        if verified && generated {
+            m.base = base_of.get(&(m.card.clone(), m.family.clone())).cloned().unwrap_or_default();
+            clock_members.push(m);
+        } else if generated {
+            // (an unverified member's design is not published)
+            let _ = std::fs::remove_file(out.join(&m.design));
+            dropped_members += 1;
+        }
+    }
+    eprintln!("  note: clock family members: {} verified listed under their periods, {dropped_members} not verified left out", clock_members.len());
     for n in &ce.notes {
         eprintln!("  note: {n}");
     }
@@ -208,28 +374,146 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
         eprintln!("clock traces: {n} real-game recordings");
     }
-    // the circuits
-    let (circuit_builds, cnotes) = circuits::export(&repo)?;
-    for b in &circuit_builds {
-        let to = out.join(&b.design);
-        if let Some(p) = to.parent() {
-            std::fs::create_dir_all(p)?;
-        }
-        std::fs::copy(repo.join(circuits::repo_path(b)), &to).with_context(|| format!("copying {}", circuits::repo_path(b)))?;
-    }
-    eprintln!("circuits: {} builds ({:.1}s)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    // the circuits (exported beside the clocks, above)
+    eprintln!("circuits: {} builds ({circuit_s:.1}s, beside the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
     let mut builds = door_builds;
     builds.extend(ce.builds);
     builds.extend(circuit_builds);
-    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards: ce.cards, members: ce.members };
+    // one card per mechanism (the coordinator's decision (b), critique C46): doors and clocks
+    // whose cards would read the same fold under one
+    let (fd, fc) = fold_twins(&mut builds);
+    eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
+    // no extendable families: no family pages; the verified clock members only, listed under
+    // their periods (vjeux 00:33Z, 00:43Z)
+    let mut cards: Vec<site_model::Card> = Vec::new();
+    let mut members: Vec<Member> = clock_members;
+    // (and nothing says "comes in every size" any more)
+    for b in &mut builds {
+        b.flags.retain(|f| f != "extendable");
+    }
+    // one world-best design per kind (vjeux 21:47Z): one door card with every board's record;
+    // every clock a card, grouped by period (01:24Z)
+    for n in crate::kinds::select_doors(&mut builds).into_iter().chain(crate::kinds::select_clocks(&mut builds, &mut cards, &mut members)) {
+        eprintln!("  note: {n}");
+    }
+    // the verified clock members are clocks of their own: a card, a page with its 3D view (vjeux
+    // 01:24Z: "members get real pages again, just not family pages")
+    let ids: BTreeMap<String, usize> = builds.iter().enumerate().map(|(i, b)| (b.id.clone(), i)).collect();
+    let extra: Vec<Build> = members.iter().filter_map(|m| ids.get(&m.base).map(|&i| crate::kinds::member_build(m, &builds[i]))).collect();
+    eprintln!("  note: {} verified clock family members as clocks of their own", extra.len());
+    builds.extend(extra);
+    members.clear();
+    // every extended clock (a generated member or an archived one) and every family's base design
+    // names its family: its base, its kind of clock, the rule, what a step adds and the slowest of
+    // the family on the site; an extended clock's base must be on the site (no dead link, nothing
+    // dropped silently: a missing base fails the build)
+    let ids: std::collections::BTreeSet<String> = builds.iter().map(|b| b.id.clone()).collect();
+    let mut slowest: BTreeMap<String, u32> = BTreeMap::new();
+    for b in &builds {
+        if let Some((f, p)) = b.clock.as_ref().and_then(|c| c.family.clone().map(|f| (f, c.every()))) {
+            let e = slowest.entry(f).or_insert(0);
+            *e = (*e).max(p);
+        }
+    }
+    for b in builds.iter_mut() {
+        let extended = b.flags.iter().any(|f| f == "extended");
+        let id = b.id.clone();
+        let Some(c) = b.clock.as_mut() else { continue };
+        let Some(fam) = c.family.clone() else { continue };
+        let Some(words) = fam_words.get(&fam) else {
+            if extended {
+                bail!("{id}: an extended clock without its family's words");
+            }
+            continue;
+        };
+        if extended && !ids.contains(&words.base) {
+            bail!("{id}: its base design {} is not on the site", words.base);
+        }
+        if extended || words.base == id {
+            c.extend = Some(site_model::Extend { hi: slowest.get(&fam).copied().unwrap_or(0), ..words.clone() });
+        }
+    }
+    // what a lamp on each clock's output does (critique a417977c3), from the same run of the 3D
+    // view's session as its chart (cached: src/cache.rs), every clock in parallel
+    let jobs: Vec<(usize, String)> = builds
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b.clock.is_some())
+        .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
+        .collect();
+    let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));
+    let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
+    for (i, r) in checks {
+        match r {
+            Some(crate::simulate::Lamp::Fast(v, gap)) => {
+                match v.as_str() {
+                    "stays lit" => stays += 1,
+                    "relit" => relit.push(format!("{} (off {gap} gt)", builds[i].name)),
+                    _ => misses += 1,
+                }
+                if let Some(c) = builds[i].clock.as_mut() {
+                    c.lamp = v;
+                    c.lamp_gap = gap;
+                }
+            }
+            Some(crate::simulate::Lamp::Follows(_)) => follows += 1,
+            Some(crate::simulate::Lamp::Unexplained(gap)) => unexplained.push(format!("{} (off {gap} gt)", builds[i].name)),
+            Some(crate::simulate::Lamp::Entered) => entered.push(builds[i].name.clone()),
+            None => {}
+        }
+    }
+    eprintln!(
+        "  note: lamp check (a lamp in the output cell, simulated): {stays} clocks too fast for it (it stays lit), {misses} where it misses pulses, {follows} it follows; {} where it stays lit though off more than 4 gt, relit within the tick ({}); {} where it misses pulses for no reason we name (no claim made: {}); {} whose output cell blocks move through (no claim made, no chart: {})",
+        relit.len(),
+        relit.join(", "),
+        unexplained.len(),
+        unexplained.join(", "),
+        entered.len(),
+        entered.join(", ")
+    );
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
+    // every thumbnail's still frame (webrender's data-still: the viewer's own still-frame search,
+    // run here once per design, every design in parallel, cached with the viewer's code; in the
+    // browser a long clock's thumbnail took 3.6 s to find it, 0.1 s to play to it)
+    let t_still = std::time::Instant::now();
+    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let stills: Vec<(usize, Option<String>)> = crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || mcview::tools::still_attr(text))));
+    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
+    for (i, s) in stills {
+        builds[i].still = s;
+    }
+    eprintln!("  note: thumbnail still frames: {found} of {} designs ({:.1}s)", texts.len(), t_still.elapsed().as_secs_f64());
+    // only the published builds' design files (the others stay in the repository): doors,
+    // clocks and circuits alike (a member's was generated in place)
+    for b in builds.iter().filter(|b| !is_member(b)) {
+        let to = out.join(&b.design);
+        if let Some(p) = to.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        let from = repo.join(repo_design_path(b));
+        std::fs::copy(&from, &to).with_context(|| format!("copying {}", from.display()))?;
+    }
+    let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();
     for b in &mut slim.builds {
         if let Some(d) = &mut b.door {
             d.props.clear();
+        }
+        // an extended clock's caption is its base design's, word for word, and its family's
+        // details are for its page: the index's data leaves them out (1.1 MB of its 5.5 MB; the
+        // Clocks tab: the coordinator 06:07Z); it is still found by what it is made of
+        if b.flags.iter().any(|f| f == "extended") {
+            b.caption.clear();
+        }
+        if let Some(c) = &mut b.clock {
+            c.extend = None;
         }
     }
     write(&out.join("data/site.json"), &serde_json::to_string(&slim)?)?;
@@ -276,36 +560,48 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             }
         }
     };
-    let scripts = Scripts { viewer, app: false };
+    let scripts = Scripts { viewer, app: false, ui: app };
     // pages
     write(&out.join("style.css"), STYLE)?;
     write(&out.join("favicon.svg"), FAVICON)?;
+    // cache-busting: the pages load every bundle, the CSS and the data by a content hash
+    pages::set_versions(pages::Versions {
+        css: pages::bytes_hash(STYLE.as_bytes()),
+        viewer_js: pages::file_hash(&out.join("viewer/mcview.js")),
+        viewer_wasm: pages::file_hash(&out.join("viewer/mcview_bg.wasm")),
+        ui_js: pages::file_hash(&out.join(format!("pkg/{}.js", web::UI_NAME))),
+        ui_wasm: pages::file_hash(&out.join(format!("pkg/{}_bg.wasm", web::UI_NAME))),
+        data: pages::file_hash(&out.join("data/site.json")),
+    });
     // GitHub Pages: serve every file as is (no Jekyll)
     write(&out.join(".nojekyll"), "")?;
-    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app }))?;
-    write(&out.join("all.html"), &pages::all_page(&site, scripts))?;
-    write(&out.join("boards.html"), &pages::boards_page(&site, scripts))?;
-    write(&out.join("about.html"), &pages::about_page(&site, scripts))?;
+    write(&out.join("index.html"), &pages::index_page(&site, Scripts { viewer, app, ui: app }))?;
     write(&out.join("404.html"), &pages::not_found_page(&site))?;
+    // pages vjeux deleted (13:35Z: "Delete these pages altogether"): never written, and gone from
+    // an output folder an earlier build left them in
+    for gone in DELETED_PAGES {
+        let _ = std::fs::remove_file(out.join(gone));
+    }
     // Litematica schematics of every build and every generated family member (a design that
     // cannot be exported fails the build: nothing is dropped silently)
     let n = write_litematics(&site, &repo, out)?;
     eprintln!("litematic: {n} schematics ({:.1}s)", t0.elapsed().as_secs_f64());
     for b in &site.builds {
-        let repo_path = repo_design_path(b);
-        let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
+        // (a member's design is the generated one; it has no repository file to link)
+        let repo_path = if is_member(b) { String::new() } else { repo_design_path(b) };
+        let text = read_design(b, &repo, out).unwrap_or_default();
         write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
     }
-    // the obvious per-kind URLs resolve (/doors/, /clocks/, /circuits/)
-    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock"), ("circuits", "Circuits", "circuit")] {
+    // the obvious per-kind URLs resolve (/doors/, /clocks/); /circuits/ is the studies' overview
+    for (folder, title, kind) in [("doors", "Doors", "door"), ("clocks", "Clocks", "clock")] {
         write(&out.join(folder).join("index.html"), &pages::redirect_page(&site, "../", title, &format!("kind={kind}")))?;
     }
-    let mut subs: Vec<(String, String)> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| (sub.to_string(), b.group.clone()))).collect();
+    write(&out.join("circuits/index.html"), &pages::circuits_index(&site, scripts))?;
+    let mut subs: Vec<String> = site.builds.iter().filter_map(|b| b.page.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(sub, _)| sub.to_string())).collect();
     subs.sort();
-    subs.dedup_by(|a, b| a.0 == b.0);
-    for (sub, _) in &subs {
-        let frag = if sub == "calibration" { "kind=circuit&is=calibration".to_string() } else { format!("kind=circuit&q={sub}") };
-        write(&out.join("circuits").join(sub).join("index.html"), &pages::redirect_page(&site, "../../", &format!("Circuits: {sub}"), &frag))?;
+    subs.dedup();
+    for sub in &subs {
+        write(&out.join("circuits").join(sub).join("index.html"), &pages::study_page(&site, sub, scripts))?;
     }
     let mut by_card: BTreeMap<String, Vec<&Member>> = BTreeMap::new();
     for m in &site.members {
@@ -315,7 +611,6 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let ms = by_card.get(&c.id).cloned().unwrap_or_default();
         write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
     }
-    write(&out.join("families/index.html"), &pages::families_index(&site, &by_card, scripts))?;
     eprintln!(
         "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
         out.display(),
@@ -326,5 +621,22 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         if app { "yes" } else { "no" },
         t0.elapsed().as_secs_f64()
     );
+    // the simulations reused and computed (src/cache.rs), and the cache kept from growing
+    eprintln!("{}", crate::cache::report());
+    crate::cache::prune();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::archived_ms;
+
+    #[test]
+    fn an_archive_time_is_a_fixed_instant() {
+        assert_eq!(archived_ms("1970-01-01 00:00Z"), Some(0));
+        // (date -u -d '2026-10-19 20:07' +%s; a leap day)
+        assert_eq!(archived_ms("2026-10-19 20:07Z"), Some(1_792_440_420_000));
+        assert_eq!(archived_ms("2024-02-29T23:59Z"), Some(1_709_251_140_000));
+        assert_eq!(archived_ms(""), None);
+    }
 }

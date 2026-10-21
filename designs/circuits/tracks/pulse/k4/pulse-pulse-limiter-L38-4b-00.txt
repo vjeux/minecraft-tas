@@ -1,0 +1,14 @@
+name: pulse-pulse-limiter-L38-4b-00
+# Pulse census (clk-obs pulse prototype on redsim, k = 4 + input): pulse-limiter L=38 delay=3 min-pulse=1.
+circuit: pulse-limiter
+origin: 0 0 0
+port output: 1 0 2
+port input: 0 1 1
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:note_block[instrument=harp,note=0,powered=false]
+  C minecraft:redstone_block
+layer 0:
+  A.
+  BA
+  .C

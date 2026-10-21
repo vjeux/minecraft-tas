@@ -129,8 +129,10 @@ Solvers vs generators: the macro solver (`families::solve`) and the exact solver
 is a generator bound, not a solver bound.
 
 Wiring-feasibility models on known doors (the audit runs both on each door's own mechanism in the
-door's own build box): `door connect` says WIRABLE for c79 and for all 68 flat archived doors with a
-macro solution; `door topology` says `strict` (wirable) for all of them too. Neither excludes a
+door's own build box): `door connect` says WIRABLE for c79 and for all 1396 flat archived doors with
+a macro solution (2026-10-20, d67: before the lever could hang OUTSIDE the box on a never-moved
+piston's back face, the lever-held top trio of e78s-56b-43 / t7b / pockets-63b-43 and -44 was NOT
+wirable: 6 of 16 sampled doors; `door topology` said `strict` (wirable) for the 68 of main dfe893a. Neither excludes a
 known door; but `families --check` prints "topology: no" for c79 because it runs the heuristic in
 the MECHANISM's own bounding box (no free cell for wiring): a misleading label, not a bound.
 

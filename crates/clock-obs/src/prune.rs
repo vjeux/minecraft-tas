@@ -13,7 +13,11 @@ use std::path::PathBuf;
 pub struct PruneArgs {
     /// `members` output: <file>\t<family>\t<n>\t<P> per line
     #[arg(long)]
-    pub members: PathBuf,
+    pub members: Option<PathBuf>,
+    /// Instead: remove the verdict and caption rows (with the prefix) whose design file is gone
+    /// (rows a union merge brought back after their instance was removed)
+    #[arg(long)]
+    pub orphans: bool,
     /// The archive folder
     #[arg(long, default_value = "designs/clocks/archive")]
     pub dir: PathBuf,
@@ -36,7 +40,24 @@ pub fn run(a: PruneArgs) -> Result<()> {
     let captions_path = a.dir.join("captions.tsv");
     let verdicts = std::fs::read_to_string(&verdicts_path).context("verdicts-v1.tsv")?;
     let captions = std::fs::read_to_string(&captions_path).context("captions.tsv")?;
-    let members: Vec<(String, u32)> = std::fs::read_to_string(&a.members)?
+    if a.orphans {
+        // a row is an orphan when its file (first column of captions, second of verdicts) has
+        // the prefix and does not exist
+        let gone = |f: &str| f.starts_with(&a.prefix) && !a.dir.join(f).exists();
+        let mut n = 0usize;
+        let keep_v: Vec<&str> = verdicts.lines().filter(|l| !l.split('\t').nth(1).is_some_and(|f| gone(f))).collect();
+        let keep_c: Vec<&str> = captions.lines().filter(|l| !l.split('\t').next().is_some_and(|f| gone(f))).collect();
+        n += verdicts.lines().count() - keep_v.len();
+        n += captions.lines().count() - keep_c.len();
+        println!("orphan rows: verdicts {} -> {}, captions {} -> {} ({n} removed)", verdicts.lines().count(), keep_v.len(), captions.lines().count(), keep_c.len());
+        if !a.dry_run {
+            std::fs::write(&verdicts_path, keep_v.join("\n") + "\n")?;
+            std::fs::write(&captions_path, keep_c.join("\n") + "\n")?;
+        }
+        return Ok(());
+    }
+    let Some(members_path) = &a.members else { anyhow::bail!("prune needs --members (or --orphans)") };
+    let members: Vec<(String, u32)> = std::fs::read_to_string(members_path)?
         .lines()
         .filter_map(|l| {
             let v: Vec<&str> = l.split('\t').collect();

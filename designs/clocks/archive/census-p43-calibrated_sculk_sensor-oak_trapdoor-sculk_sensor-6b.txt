@@ -4,6 +4,8 @@
 name: census-p43-calibrated_sculk_sensor-oak_trapdoor-sculk_sensor-6b
 census: box 3x1x2 k<=6 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];0,0,1=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false];1,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,1=observer[facing=east,powered=false];2,0,0=oak_trapdoor[facing=east,half=bottom,open=false,powered=false,waterlogged=false];2,0,1=dispenser[facing=down,triggered=false])
 port start: 2 0 1 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 1 -1 0
 origin: 0 0 0
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

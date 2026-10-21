@@ -3,7 +3,8 @@
 # A calibrated sculk sensor, then observer in line, dispenser, 2 from the sensor (travel time)
 name: clk-sculk-chaind-p28-1
 # how: chain cal line reps [], observer in line, dispenser (travel 2)
-port output: 0 1 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 0 0
 port start: 3 1 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

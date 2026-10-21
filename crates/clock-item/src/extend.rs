@@ -47,6 +47,10 @@ pub fn dropring_with(w: i32, one_dropper: bool, delays: &[u8], second: (i32, i32
     let mut d = drop_ring_delayed(w, 1, mask, true, delays, &items)?;
     let tag: String = delays.iter().map(|x| x.to_string()).collect();
     d.name = format!("dropring{w}x{depth}{}{}", if one_dropper { "-1d" } else { "-2d" }, if tag.is_empty() { String::new() } else { format!("-r{tag}") });
+    // the judged output: the air cell under the fired dropper, which the comparator line
+    // strongly powers (what `clock retap` picks; the comparator's own cell is not a valid
+    // output, and retapping every member made the site's cold build twice as slow)
+    d.ports.insert("output".into(), [1, 0, depth - 1]);
     Some(d)
 }
 
@@ -115,7 +119,10 @@ pub fn latch(stones: u32) -> Option<Design> {
         slot += 1;
     }
     d.block_entities.insert([0, 1, 0], format!("{{Items:[{}]}}", stacks.join(",")));
-    d.ports.insert("output".into(), [0, 3, -1]);
+    // the judged output: the air cell under the stone (1,1,-2) that the comparator (1,1,-1)
+    // strongly powers (what `clock retap` picks for the archived base, for every n: the layout
+    // does not depend on the item count); the comparator cell (0,3,-1) is not a valid output
+    d.ports.insert("output".into(), [1, 0, -2]);
     Some(d)
 }
 
@@ -188,7 +195,7 @@ pub fn cards() -> Vec<Card> {
         ("clk-item-dropring-1d-r24", "dropring --one --delays 24 --n {n} --out {out}", 53, 18),
     ];
     for (id, args, p0, b0) in drops {
-        v.push(Card { id, args, p0, dp: 14, b0, db: 2, n_lo: 0, n_hi: 30, redsim: true, rule: "widen the dropper ring by one column (2 hoppers)", caption: DROP_CAPTION });
+        v.push(Card { id, args, p0, dp: 14, b0, db: 2, n_lo: 0, n_hi: 30, redsim: true, rule: "make the dropper ring one column longer (2 more hoppers)", caption: DROP_CAPTION });
     }
     v
 }

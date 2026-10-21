@@ -31,7 +31,44 @@ use redsim::{Block, BlockPos, World};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const WIDTHS: [u32; 12] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40];
+/// The judge's input pulse lengths (docs/circuits.md), plus 60 and 80 gt: two inputs longer than a
+/// limiter's L up to 58 (the judge adds them for long limiters: adaptive lengths)
+pub const WIDTHS: [u32; 14] = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 40, 60, 80];
+
+/// The input lengths tried: the judge's (R7: a real input makes no pulse under 2 gt, so 1 gt is
+/// dropped unless `MCTAS_INPUT_DEVICE=block` brings back the old placement).
+pub fn widths() -> Vec<u32> {
+    WIDTHS.iter().copied().filter(|w| circuit::input_device_block() || *w >= 2).collect()
+}
+
+/// R7, the judge's input device: the judge's smooth stone in the input cell, powered by a delay-1
+/// repeater on the first side (north, south, west, east) whose repeater, support and switch cells
+/// lie outside the structure's box (then nothing of the design touches them), the switch a
+/// redstone block placed 2 gt before each edge. `None`: no such side, the judge refuses the
+/// structure (its fallback through the build's air cells is not tried here).
+#[derive(Clone, Copy, Debug)]
+pub struct Driver {
+    pub rep: BlockPos,
+    pub sup: BlockPos,
+    pub switch: BlockPos,
+    pub facing: &'static str,
+}
+
+pub fn driver(input: BlockPos, lo: BlockPos, hi: BlockPos) -> Option<Driver> {
+    let inside = |p: BlockPos| p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y && p.z >= lo.z && p.z <= hi.z;
+    let bp = |p: [i32; 3]| BlockPos::new(p[0], p[1], p[2]);
+    circuit::DRIVE_DIRS.iter().find_map(|d| {
+        let (r, sup, sw) = circuit::driver_cells([input.x, input.y, input.z], *d);
+        let (r, sup, sw) = (bp(r), bp(sup), bp(sw));
+        let facing = match d {
+            [0, 0, -1] => "north",
+            [0, 0, 1] => "south",
+            [-1, 0, 0] => "west",
+            _ => "east",
+        };
+        (![r, sup, sw].iter().any(|q| inside(*q))).then_some(Driver { rep: r, sup, switch: sw, facing })
+    })
+}
 
 /// A pulse-circuit design: the clock-format blocks, the input cell, an optional output cell.
 #[derive(Clone, Debug)]
@@ -133,7 +170,9 @@ fn pulses_of(levels: &[i32]) -> Vec<Pulse> {
 }
 
 /// Run the stimulus. None when the design does not settle, keeps state, or touches the margin.
-pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
+/// Print one input pulse of `wd` gt tick by tick: every block that changes (redsim) and the output
+/// level (for captions: how a design works).
+pub fn trace(c: &Circuit, wd: u32, ticks: u32) -> Option<()> {
     let margin = 3;
     let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();
     all.push(c.input);
@@ -143,6 +182,57 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
     let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
     let mut w = World::new(min, size);
     w.place_like_judge(&c.blocks);
+    w.run_until_idle(400);
+    let out = c.output;
+    let show = |w: &World| out.map(|o| level_at(w, o)).unwrap_or(-1);
+    let mut prev: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+    println!("rest: output {}; blocks: {}", show(&w), prev.iter().map(|(p, b)| format!("{p:?}={b}")).collect::<Vec<_>>().join(" "));
+    w.set_block(c.input, Block::RedstoneBlock, flags::ALL);
+    for t in 0..ticks {
+        if t == wd {
+            w.set_block(c.input, Block::Air, flags::ALL);
+        }
+        w.tick();
+        let now: std::collections::BTreeMap<(i32, i32, i32), String> = w.blocks().into_iter().map(|(p, b)| ((p.x, p.y, p.z), format!("{b:?}"))).collect();
+        let mut changes: Vec<String> = Vec::new();
+        for (p, b) in &now {
+            if prev.get(p) != Some(b) {
+                changes.push(format!("{p:?} {} -> {b}", prev.get(p).cloned().unwrap_or_else(|| "air".into())));
+            }
+        }
+        for p in prev.keys() {
+            if !now.contains_key(p) {
+                changes.push(format!("{p:?} {} -> air", prev[p]));
+            }
+        }
+        println!("t{:>3} in={} out={:>2} {}", t + 1, u8::from(t < wd), show(&w), changes.join("; "));
+        prev = now;
+    }
+    Some(())
+}
+
+pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
+    let margin = 3;
+    let mut all: Vec<BlockPos> = c.blocks.iter().map(|(p, _)| *p).collect();
+    all.push(c.input);
+    let lo = BlockPos::new(all.iter().map(|p| p.x).min()?, all.iter().map(|p| p.y).min()?, all.iter().map(|p| p.z).min()?);
+    let hi = BlockPos::new(all.iter().map(|p| p.x).max()?, all.iter().map(|p| p.y).max()?, all.iter().map(|p| p.z).max()?);
+    let min = lo.offset(-margin, -margin, -margin);
+    let size = [hi.x - lo.x + 1 + 2 * margin, hi.y - lo.y + 1 + 2 * margin, hi.z - lo.z + 1 + 2 * margin];
+    // R7: the judge's stone, repeater and support placed with the design (refused: no side out)
+    let drv = if circuit::input_device_block() { None } else { Some(driver(c.input, lo, hi)?) };
+    let mut placed = c.blocks.clone();
+    if let Some(d) = drv {
+        let stone = Block::parse(circuit::DRIVEN_STONE).ok()?;
+        if !placed.iter().any(|(p, _)| *p == c.input) {
+            placed.push((c.input, stone));
+        }
+        placed.push((d.rep, Block::parse(&format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", d.facing)).ok()?));
+        placed.push((d.sup, stone));
+    }
+    let judge_cells: Vec<BlockPos> = drv.map(|d| vec![d.rep, d.sup, d.switch]).unwrap_or_default();
+    let mut w = World::new(min, size);
+    w.place_like_judge(&placed);
     if w.run_until_idle(400) >= 400 && !w.idle() {
         return None;
     }
@@ -156,7 +246,7 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
                     for z in lo.z - 1..=hi.z + 1 {
                         let p = BlockPos::new(x, y, z);
                         let near_input = (c.input.x - x).abs() + (c.input.y - y).abs() + (c.input.z - z).abs() <= 1;
-                        if !near_input && all.iter().any(|q| (q.x - x).abs() + (q.y - y).abs() + (q.z - z).abs() <= 1) {
+                        if !near_input && !judge_cells.contains(&p) && all.iter().any(|q| (q.x - x).abs() + (q.y - y).abs() + (q.z - z).abs() <= 1) {
                             v.push(p);
                         }
                     }
@@ -166,22 +256,40 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
         }
     };
     let rest: Vec<i32> = cells.iter().map(|p| level_at(&w, *p)).collect();
+    // the block kind each candidate cell holds at rest: a cell whose block moves out (or gets a
+    // block moved in, which would push the judge's lamp away) is no output (the judge's
+    // `output_entered`); its record is poisoned below so it never classifies
+    let rest_kind: Vec<std::mem::Discriminant<Block>> = cells.iter().map(|p| std::mem::discriminant(&w.get(*p))).collect();
     let snapshot = w.blocks();
+    let input_block = w.get(c.input);
     // one input pulse of `wd` gt: the recorded deviations from rest, None when the design does
-    // not come back to rest (kept state, runaway)
-    fn run_pulse(w: &mut World, input: BlockPos, cells: &[BlockPos], rest: &[i32], snapshot: &[(BlockPos, Block)], wd: u32) -> Option<Vec<Vec<i32>>> {
+    // not come back to rest (kept state, runaway) or moves the input cell's block (R7: a design
+    // never moves it). R7: the switch goes in 2 gt before each edge (the repeater's delay), so the
+    // stone's power changes during the edge's tick, as from any redstone line.
+    let run_pulse = |w: &mut World, input: BlockPos, cells: &[BlockPos], rest: &[i32], wd: u32| -> Option<Vec<Vec<i32>>> {
         let mut rec: Vec<Vec<i32>> = vec![Vec::new(); cells.len()];
-        w.set_block(input, Block::RedstoneBlock, flags::ALL);
+        let sw_cell = drv.map(|d| d.switch).unwrap_or(input);
+        // redsim: the repeater answers the switch in the third tick after it is written between
+        // ticks (as the judge's delay metric counts), so two unrecorded ticks lead each edge
+        let lead: u32 = if drv.is_some() { 2 } else { 0 };
+        w.set_block(sw_cell, Block::RedstoneBlock, flags::ALL);
+        for _ in 0..lead {
+            w.tick();
+        }
         let mut t = 0u32;
         let mut quiet = 0u32;
         loop {
-            if t == wd {
-                w.set_block(input, Block::Air, flags::ALL);
+            if t + lead == wd {
+                w.set_block(sw_cell, Block::Air, flags::ALL);
             }
             w.tick();
             t += 1;
             for (i, p) in cells.iter().enumerate() {
-                rec[i].push(level_at(w, *p) - rest[i]);
+                let moved = std::mem::discriminant(&w.get(*p)) != rest_kind[i];
+                rec[i].push(if moved { -1000 } else { level_at(w, *p) - rest[i] });
+            }
+            if drv.is_some() && w.get(input) != input_block {
+                return None;
             }
             if t > wd {
                 let at_rest = cells.iter().enumerate().all(|(i, p)| level_at(w, *p) == rest[i]);
@@ -196,17 +304,17 @@ pub fn respond(c: &Circuit, widths: &[u32]) -> Option<Responses> {
         }
         // the judge checks the outputs only (back off, idle): an inner toggle (a copper bulb that
         // flips on every rising edge) is allowed as long as every pulse is answered the same way
-        let _ = snapshot;
         Some(rec)
-    }
+    };
+    let _ = snapshot;
     // a quick probe with the longest input: an inert design (no cell ever moves) is dropped here
-    let probe = run_pulse(&mut w, c.input, &cells, &rest, &snapshot, widths.iter().copied().max().unwrap_or(40))?;
+    let probe = run_pulse(&mut w, c.input, &cells, &rest, widths.iter().copied().max().unwrap_or(40))?;
     if probe.iter().all(|r| r.iter().all(|l| *l == 0)) {
         return None;
     }
     let mut pulses: Vec<Vec<Vec<Pulse>>> = vec![Vec::new(); cells.len()];
     for &wd in widths {
-        let rec = run_pulse(&mut w, c.input, &cells, &rest, &snapshot, wd)?;
+        let rec = run_pulse(&mut w, c.input, &cells, &rest, wd)?;
         for i in 0..cells.len() {
             if rec[i].iter().any(|l| *l < 0) {
                 pulses[i].push(vec![Pulse { start: -1, len: 0, level: -1 }]); // inverted: not handled
@@ -259,15 +367,19 @@ fn kinds_from(per_w: &[Vec<Pulse>], widths: &[u32]) -> Vec<String> {
         if s_const {
             let wmax = widths.iter().copied().max().unwrap_or(0);
             for big_l in 1..wmax {
-                // limiter: L for every input >= L (shorter inputs pass shorter, up to L)
-                if widths.iter().any(|w| *w > big_l) && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
+                // limiter: L for every input >= L (shorter inputs pass shorter, up to L); limiting
+                // witnessed by two inputs longer than L (the judge's rule since clockinfra 8b52997d8)
+                let longer = widths.iter().filter(|w| **w > big_l).count();
+                if longer >= 2 && l.iter().zip(widths).all(|(x, w)| if *w >= big_l { *x == big_l } else { *x <= big_l }) {
                     out.push(format!("pulse-limiter L={big_l} delay={}", s[0]));
                     break;
                 }
             }
             for big_l in 2..=wmax + 20 {
-                // extender: L for every input shorter than L, never shorter than L
-                if widths.iter().any(|w| *w < big_l) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
+                // extender: L for every input shorter than L, never shorter than L; witnessed by two
+                // inputs shorter than L (or every tested one when fewer exist)
+                let shorter = widths.iter().filter(|w| **w < big_l).count();
+                if shorter >= 1 && (shorter >= 2 || big_l <= 2) && l.iter().zip(widths).all(|(x, w)| if *w < big_l { *x == big_l } else { *x >= big_l }) {
                     out.push(format!("pulse-extender L={big_l} delay={}", s[0]));
                     break;
                 }
@@ -442,6 +554,159 @@ pub struct PulseCensusArgs {
     pub out_dir: Option<PathBuf>,
     #[arg(long, default_value_t = 0)]
     pub threads: usize,
+    /// A base design (file) the census adds `--k` blocks to, in the empty cells of its box grown
+    /// by 1; it keeps the base's input and, when the base names one, its output cell
+    #[arg(long)]
+    pub base: Option<PathBuf>,
+}
+
+/// The census's findings: gallery group -> [(rank, canonical key, design, kind)].
+type Found = std::sync::Mutex<BTreeMap<String, Vec<((u32, i32), u128, Circuit, String)>>>;
+
+/// Judge one candidate: every clean pulse behavior at its output cells, kept (the `keep` best per
+/// group, by min-pulse then delay) when the design also stands.
+fn record(found: &Found, c: &Circuit, ws: &[u32], keep: usize) {
+    let Some(r) = respond(c, ws) else { return };
+    let mut kinds: Vec<(String, BlockPos)> = Vec::new();
+    for (i, p) in r.cells.iter().enumerate() {
+        for k in classify_all(&r.pulses[i], ws) {
+            if !kinds.iter().any(|(q, _)| *q == k) {
+                kinds.push((k, *p));
+            }
+        }
+    }
+    if kinds.is_empty() || !stands(c) {
+        return;
+    }
+    let in_marker = Block::parse("minecraft:glass").unwrap();
+    let out_marker = Block::parse("minecraft:honey_block").unwrap();
+    let mut f = found.lock().unwrap();
+    for (k, out) in kinds {
+        let mut keyed = c.blocks.clone();
+        keyed.push((c.input, in_marker));
+        keyed.push((out, out_marker));
+        let key = clock_obs::census::canon_hash(&keyed);
+        let (group, rank) = group_rank(&k);
+        let e = f.entry(group).or_default();
+        if !e.iter().any(|(_, q, _, _)| *q == key) {
+            e.push((rank, key, Circuit { output: Some(out), ..c.clone() }, k.clone()));
+            e.sort_by_key(|x| (x.0, x.1));
+            e.truncate(keep);
+        }
+    }
+}
+
+/// Print the census table and write each kept design to `out_dir`.
+fn report(found: BTreeMap<String, Vec<((u32, i32), u128, Circuit, String)>>, k: usize, out_dir: &Option<PathBuf>) -> Result<()> {
+    if let Some(d) = out_dir {
+        std::fs::create_dir_all(d)?;
+    }
+    println!("| kind, L | designs | best (min-pulse, delay) | example |\n|---|---|---|---|");
+    for (g, v) in &found {
+        let slug = g.replace(' ', "-").replace('/', "_").replace('+', "p").replace('=', "");
+        let mut names = Vec::new();
+        for (i, (_, _, c, kd)) in v.iter().enumerate() {
+            let name = format!("pulse-{slug}-{k}b-{i:02}");
+            if let Some(d) = out_dir {
+                let cc = Circuit { name: name.clone(), ..c.clone() };
+                let kind = kd.split_whitespace().next().unwrap_or("delay");
+                let mut text = cc.to_text(&format!("Pulse census (clk-obs pulse prototype on redsim, k = {k} + input): {kd}."));
+                text = text.replacen("\norigin:", &format!("\ncircuit: {kind}\norigin:"), 1);
+                std::fs::write(d.join(format!("{name}.txt")), text)?;
+            }
+            names.push(name);
+        }
+        println!("| {g} | {} | {} | {} |", v.len(), v.first().map(|x| x.3.clone()).unwrap_or_default(), names.first().cloned().unwrap_or_default());
+    }
+    Ok(())
+}
+
+/// `--base`: every way to add `k` blocks of the palette to the base's empty cells (its box grown
+/// by 1, never the input cell, the output cell or the judge's driver cells).
+fn census_base(a: &PulseCensusArgs, path: &std::path::Path) -> Result<()> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let base = Circuit::load(path)?;
+    let pal = pulse_palette(&a.palette)?;
+    let ws = widths();
+    let mut all: Vec<BlockPos> = base.blocks.iter().map(|(p, _)| *p).collect();
+    all.push(base.input);
+    all.extend(base.output);
+    let lo = BlockPos::new(all.iter().map(|p| p.x).min().unwrap_or(0) - 1, all.iter().map(|p| p.y).min().unwrap_or(0) - 1, all.iter().map(|p| p.z).min().unwrap_or(0) - 1);
+    let hi = BlockPos::new(all.iter().map(|p| p.x).max().unwrap_or(0) + 1, all.iter().map(|p| p.y).max().unwrap_or(0) + 1, all.iter().map(|p| p.z).max().unwrap_or(0) + 1);
+    let mut cells: Vec<BlockPos> = Vec::new();
+    for x in lo.x..=hi.x {
+        for y in lo.y..=hi.y {
+            for z in lo.z..=hi.z {
+                let p = BlockPos::new(x, y, z);
+                if !all.contains(&p) {
+                    cells.push(p);
+                }
+            }
+        }
+    }
+    // k-subsets of the cells, in lexicographic order
+    let mut combos: Vec<Vec<usize>> = Vec::new();
+    let mut cur: Vec<usize> = (0..a.k).collect();
+    while a.k > 0 && a.k <= cells.len() {
+        combos.push(cur.clone());
+        let mut i = a.k;
+        while i > 0 && cur[i - 1] == cells.len() - a.k + i - 1 {
+            i -= 1;
+        }
+        if i == 0 {
+            break;
+        }
+        cur[i - 1] += 1;
+        for j in i..a.k {
+            cur[j] = cur[j - 1] + 1;
+        }
+    }
+    let units: Vec<(usize, usize)> = (0..combos.len()).flat_map(|c| (0..pal.len()).map(move |b| (c, b))).collect();
+    let threads = if a.threads > 0 { a.threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
+    eprintln!("pulse census: base {} + k={} in {} cells ({} sets), palette {} states, {} units, {threads} threads", base.name, a.k, cells.len(), combos.len(), pal.len(), units.len());
+    let next = AtomicUsize::new(0);
+    let sims = AtomicUsize::new(0);
+    let found: Found = std::sync::Mutex::new(BTreeMap::new());
+    let t0 = std::time::Instant::now();
+    std::thread::scope(|sc| {
+        for _ in 0..threads {
+            sc.spawn(|| loop {
+                let u = next.fetch_add(1, Ordering::Relaxed);
+                if u >= units.len() {
+                    break;
+                }
+                if u % 2000 == 0 {
+                    eprintln!("  unit {u}/{} ({:.0}s, {} sims)", units.len(), t0.elapsed().as_secs_f64(), sims.load(Ordering::Relaxed));
+                }
+                let (ci, b0) = units[u];
+                let set = &combos[ci];
+                let mut idx = vec![0usize; set.len()];
+                idx[0] = b0;
+                loop {
+                    let mut blocks = base.blocks.clone();
+                    blocks.extend(set.iter().zip(&idx).map(|(c, i)| (cells[*c], pal[*i])));
+                    clock_obs::census::fix_instruments(&mut blocks);
+                    sims.fetch_add(1, Ordering::Relaxed);
+                    record(&found, &Circuit { name: String::new(), blocks, input: base.input, output: base.output }, &ws, a.keep);
+                    let mut j = 1;
+                    while j < idx.len() {
+                        idx[j] += 1;
+                        if idx[j] < pal.len() {
+                            break;
+                        }
+                        idx[j] = 0;
+                        j += 1;
+                    }
+                    if j >= idx.len() {
+                        break;
+                    }
+                }
+            });
+        }
+    });
+    let found = found.into_inner().unwrap();
+    eprintln!("pulse census done: {} sims in {:.0}s, {} kinds", sims.load(Ordering::Relaxed), t0.elapsed().as_secs_f64(), found.len());
+    report(found, base.blocks.len() + a.k, &a.out_dir)
 }
 
 /// The pulse palette: the clock census shorthands plus redstone components.
@@ -451,6 +716,8 @@ pub fn pulse_palette(spec: &str) -> Result<Vec<Block>> {
         let hd = ["north", "east", "south", "west"];
         match name {
             "dust" => v.push(Block::parse("minecraft:redstone_wire").map_err(|e| anyhow::anyhow!("{e}"))?),
+            // a dust placed alone is a cross (it powers its four sides); the bare state is a dot
+            "dustx" => v.push(Block::parse("minecraft:redstone_wire[east=side,north=side,south=side,west=side]").map_err(|e| anyhow::anyhow!("{e}"))?),
             "repeater" => {
                 for f in hd {
                     for d in 1..=4 {
@@ -501,9 +768,12 @@ pub fn stands(c: &Circuit) -> bool {
 }
 
 pub fn census(a: PulseCensusArgs) -> Result<()> {
-    use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    if let Some(b) = &a.base {
+        return census_base(&a, b);
+    }
     let pal = pulse_palette(&a.palette)?;
+    let ws = widths();
     let shapes = clock_obs::census::shape_classes(a.k + 1);
     // work units: (shape, input cell index, first block state)
     let mut units: Vec<(usize, usize, usize)> = Vec::new();
@@ -518,10 +788,7 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
     eprintln!("pulse census: k={} (+ input), {} shapes, palette {} states, {} units, {threads} threads", a.k, shapes.len(), pal.len(), units.len());
     let next = AtomicUsize::new(0);
     let sims = AtomicUsize::new(0);
-    // kind -> [(canonical key, circuit)]
-    let found: Mutex<BTreeMap<String, Vec<((u32, i32), u128, Circuit, String)>>> = Mutex::new(BTreeMap::new());
-    let in_marker = Block::parse("minecraft:glass").unwrap();
-    let out_marker = Block::parse("minecraft:honey_block").unwrap();
+    let found: Found = std::sync::Mutex::new(BTreeMap::new());
     let t0 = std::time::Instant::now();
     std::thread::scope(|sc| {
         for _ in 0..threads {
@@ -543,34 +810,8 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
                 loop {
                     let mut blocks: Vec<(BlockPos, Block)> = cells.iter().zip(&idx).map(|(p, i)| (*p, pal[*i])).collect();
                     clock_obs::census::fix_instruments(&mut blocks);
-                    let c = Circuit { name: String::new(), blocks, input, output: None };
                     sims.fetch_add(1, Ordering::Relaxed);
-                    if let Some(r) = respond(&c, &WIDTHS) {
-                        let mut kinds: Vec<(String, BlockPos)> = Vec::new();
-                        for (i, p) in r.cells.iter().enumerate() {
-                            for k in classify_all(&r.pulses[i], &WIDTHS) {
-                                if !kinds.iter().any(|(q, _)| *q == k) {
-                                    kinds.push((k, *p));
-                                }
-                            }
-                        }
-                        if !kinds.is_empty() && stands(&c) {
-                            let mut f = found.lock().unwrap();
-                            for (k, out) in kinds {
-                                let mut keyed = c.blocks.clone();
-                                keyed.push((c.input, in_marker));
-                                keyed.push((out, out_marker));
-                                let key = clock_obs::census::canon_hash(&keyed);
-                                let (group, rank) = group_rank(&k);
-                                let e = f.entry(group).or_default();
-                                if !e.iter().any(|(_, q, _, _)| *q == key) {
-                                    e.push((rank, key, Circuit { output: Some(out), ..c.clone() }, k.clone()));
-                                    e.sort_by_key(|x| (x.0, x.1));
-                                    e.truncate(a.keep);
-                                }
-                            }
-                        }
-                    }
+                    record(&found, &Circuit { name: String::new(), blocks, input, output: None }, &ws, a.keep);
                     // next assignment of cells 1..n
                     let mut j = 1;
                     loop {
@@ -593,27 +834,7 @@ pub fn census(a: PulseCensusArgs) -> Result<()> {
     });
     let found = found.into_inner().unwrap();
     eprintln!("pulse census done: {} sims in {:.0}s, {} kinds", sims.load(Ordering::Relaxed), t0.elapsed().as_secs_f64(), found.len());
-    if let Some(d) = &a.out_dir {
-        std::fs::create_dir_all(d)?;
-    }
-    println!("| kind, L | designs | best (min-pulse, delay) | example |\n|---|---|---|---|");
-    for (g, v) in &found {
-        let slug = g.replace(' ', "-").replace('/', "_").replace('+', "p").replace('=', "");
-        let mut names = Vec::new();
-        for (i, (_, _, c, k)) in v.iter().enumerate() {
-            let name = format!("pulse-{slug}-{}b-{i:02}", a.k);
-            if let Some(d) = &a.out_dir {
-                let cc = Circuit { name: name.clone(), ..c.clone() };
-                let kind = k.split_whitespace().next().unwrap_or("delay");
-                let mut text = cc.to_text(&format!("Pulse census (clk-obs pulse prototype on redsim, k = {} + input): {k}.", a.k));
-                text = text.replacen("\norigin:", &format!("\ncircuit: {kind}\norigin:"), 1);
-                std::fs::write(d.join(format!("{name}.txt")), text)?;
-            }
-            names.push(name);
-        }
-        println!("| {g} | {} | {} | {} |", v.len(), v.first().map(|x| x.3.clone()).unwrap_or_default(), names.first().cloned().unwrap_or_default());
-    }
-    Ok(())
+    report(found, a.k, &a.out_dir)
 }
 
 /// The gallery group of a classified kind (`<kind> L=<L>`) and its rank inside the group
@@ -628,19 +849,20 @@ pub fn group_rank(k: &str) -> (String, (u32, i32)) {
 }
 
 pub fn run(a: PulseArgs) -> Result<()> {
+    let ws = widths();
     for f in clock_obs::pick::files_of(&a.designs)? {
         let c = Circuit::load(&f)?;
-        let Some(r) = respond(&c, &WIDTHS) else {
-            println!("{}: NOT A PULSE CIRCUIT (does not settle, keeps state, or runs away)", f.display());
+        let Some(r) = respond(&c, &ws) else {
+            println!("{}: NOT A PULSE CIRCUIT (does not settle, keeps state, runs away, or has no side for the judge's input repeater)", f.display());
             continue;
         };
         let mut kinds: BTreeMap<String, Vec<BlockPos>> = BTreeMap::new();
         for (i, p) in r.cells.iter().enumerate() {
-            for k in classify_all(&r.pulses[i], &WIDTHS) {
+            for k in classify_all(&r.pulses[i], &ws) {
                 kinds.entry(k).or_default().push(*p);
             }
             if a.verbose && r.pulses[i].iter().any(|v| !v.is_empty()) {
-                let s: Vec<String> = r.pulses[i].iter().zip(WIDTHS).map(|(v, w)| format!("w{w}:{}", v.iter().map(|q| format!("{}+{}", q.start, q.len)).collect::<Vec<_>>().join(","))).collect();
+                let s: Vec<String> = r.pulses[i].iter().zip(&ws).map(|(v, w)| format!("w{w}:{}", v.iter().map(|q| format!("{}+{}", q.start, q.len)).collect::<Vec<_>>().join(","))).collect();
                 println!("  {p}: {}", s.join(" "));
             }
         }

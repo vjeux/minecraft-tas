@@ -1,0 +1,4 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/c70b67/mm02-oc.ideal: 17 input cells off the plane ([(0, -2), (0, 4), (1, -2), (4, 3), (3, 3), (2, 4), (3, 2), (4, 1), (4, 0), (2, 3), (3, -2), (3, 1), (2, 0), (3, -1), (1, 2), (2, 1), (2, 2)]), 66 / 72 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/c70b67/mm02-oc.txt: 23 blocks in the box, screen 9/79
+seed screen 79/79 with 17 inputs assisted
+Error: at most 64 plan groups (69)

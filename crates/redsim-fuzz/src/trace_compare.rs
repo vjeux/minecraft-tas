@@ -27,6 +27,8 @@ pub struct TraceEntity {
     pub motion: [f64; 3],
     pub yaw: f32,
     pub pitch: f32,
+    /// The game's network id (`getId()`), when the trace has it (`net_id`).
+    pub net_id: Option<i32>,
 }
 
 /// A parsed exact trace.
@@ -39,6 +41,20 @@ pub struct Trace {
     pub to: [i32; 3],
     /// Per tick: the cells that changed (all non-air cells at t = 0), and every entity.
     pub frames: Vec<(Vec<([i32; 3], String)>, Vec<TraceEntity>)>,
+    /// The sandbox seed and forced chunk box `[minX, minZ, maxX, maxZ]` (header `seed`,
+    /// `chunks`): with both, redsim mirrors the level random (`World::mirror_level_random`).
+    pub seed: Option<i64>,
+    pub chunks: Option<[i32; 4]>,
+    /// The sandbox's `randomTickSpeed` game rule (header `random_tick_speed`, default 3): each
+    /// forced chunk draws that many `nextInt(48)` per tick (a grass scene recorded at 0 has no
+    /// random ticks, which redsim does not model).
+    pub random_tick_speed: u32,
+    /// A test scene's extra inputs (header `actions`, `trace-export --action`): (tick, `use` or
+    /// `use_entity`, cell), replayed after the design's own inputs of that tick.
+    pub actions: Vec<(u32, String, [i32; 3])>,
+    /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
+    /// with `random_state`), checked against the mirror every frame.
+    pub rng: Vec<Option<i64>>,
 }
 
 fn f3(v: &serde_json::Value) -> Option<[f64; 3]> {
@@ -64,6 +80,17 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         from: i3(&bx[0]).context("header: box")?,
         to: i3(&bx[1]).context("header: box")?,
         frames: Vec::new(),
+        seed: h["seed"].as_i64(),
+        chunks: h["chunks"].as_array().and_then(|a| {
+            let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        }),
+        random_tick_speed: h["random_tick_speed"].as_u64().unwrap_or(3) as u32,
+        actions: h["actions"]
+            .as_array()
+            .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?))).collect())
+            .unwrap_or_default(),
+        rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
         let v: serde_json::Value = serde_json::from_str(line).with_context(|| format!("line {}", i + 2))?;
@@ -83,9 +110,11 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
                 motion,
                 yaw: e["yaw"].as_f64().unwrap_or(0.0) as f32,
                 pitch: e["pitch"].as_f64().unwrap_or(0.0) as f32,
+                net_id: e["net_id"].as_i64().map(|n| n as i32),
             });
         }
         t.frames.push((blocks, ents));
+        t.rng.push(v["rng"].as_i64());
     }
     Ok(t)
 }
@@ -119,59 +148,62 @@ pub enum Outcome {
 }
 
 /// The design's entities as redsim entities (`Sandbox.summon`: created at their position, at
-/// rest, in the design's order, once the blocks stand); an error names what is missing.
+/// rest, in the design's order, once the blocks stand; `redsim::entity::spawn`, the clock sim's
+/// path too); an error names what is missing.
 fn summon(w: &mut World, c: &Clock) -> Result<(), String> {
-    use redsim::entity::{EntityKind, Vec3};
     for e in &c.design.entities {
-        let kind = match e.kind.trim_start_matches("minecraft:") {
-            "oak_boat" => EntityKind::Boat(redsim::entity::boat::BoatState::default()),
-            "oak_chest_boat" => EntityKind::Boat(redsim::entity::boat::BoatState { chest: true, ..Default::default() }),
-            "minecart" => EntityKind::Minecart(Default::default()),
-            "armor_stand" => EntityKind::ArmorStand(Default::default()),
-            k => return Err(format!("entity {k} is not modeled by redsim")),
-        };
-        if let Some(n) = &e.nbt {
-            // test scenes: `{Motion:[x d, y d, z d]}` only
-            let m = parse_motion(n).ok_or_else(|| format!("entity {} with data ({n}): only {{Motion:[..]}} is modeled", e.kind))?;
-            let id = w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
-            let idx = w.entities.list.iter().position(|x| x.id == id).unwrap();
-            w.entities.list[idx].delta_movement = Vec3::new(m[0], m[1], m[2]);
-            continue;
-        }
-        w.entities.add(kind, Vec3::new(e.pos[0], e.pos[1], e.pos[2]), 0.0);
+        // spawn names any data it does not model (Motion, Rotation; items' and containers' own)
+        redsim::entity::spawn(w, &e.kind, e.pos, e.nbt.as_deref())?;
     }
     Ok(())
-}
-
-/// `{Motion:[0.5d,0.0d,-0.25d]}` -> the three doubles.
-fn parse_motion(s: &str) -> Option<[f64; 3]> {
-    let inner = s.trim().strip_prefix('{')?.strip_suffix('}')?.trim();
-    let list = inner.strip_prefix("Motion:")?.trim().strip_prefix('[')?.strip_suffix(']')?;
-    let v: Vec<f64> = list.split(',').map(|t| t.trim().trim_end_matches(['d', 'D']).parse::<f64>()).collect::<Result<_, _>>().ok()?;
-    if v.len() == 3 { Some([v[0], v[1], v[2]]) } else { None }
 }
 
 /// The live entities of redsim's world, in tick order.
 fn entities_of(w: &World) -> Vec<TraceEntity> {
     use redsim::entity::EntityKind;
-    w.entities
+    // every entity in id (spawn) order: falling blocks ([`redsim::gravity`]) share the id counter
+    let mut out: Vec<(u32, TraceEntity)> = w
+        .entities
         .list
         .iter()
         .filter(|e| !e.removed)
-        .map(|e| TraceEntity {
-            id: e.id as u64,
-            kind: match &e.kind {
-                EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
-                EntityKind::Minecart(_) => "minecraft:minecart".to_string(),
-                EntityKind::Item(_) => "minecraft:item".to_string(),
-                EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
-            },
-            pos: [e.pos.x, e.pos.y, e.pos.z],
-            motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
-            yaw: e.y_rot,
-            pitch: e.x_rot,
+        .map(|e| {
+            (
+                e.id,
+                TraceEntity {
+                    id: e.id as u64,
+                    kind: match &e.kind {
+                        EntityKind::Boat(b) => if b.chest { "minecraft:oak_chest_boat" } else { "minecraft:oak_boat" }.to_string(),
+                        EntityKind::Minecart(m) => if m.hopper { "minecraft:hopper_minecart" } else { "minecraft:minecart" }.to_string(),
+                        EntityKind::Item(_) => "minecraft:item".to_string(),
+                        EntityKind::ArmorStand(_) => "minecraft:armor_stand".to_string(),
+                        EntityKind::PrimedTnt(_) => "minecraft:tnt".to_string(),
+                    },
+                    pos: [e.pos.x, e.pos.y, e.pos.z],
+                    motion: [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z],
+                    yaw: e.y_rot,
+                    pitch: e.x_rot,
+                    net_id: Some(e.network_id),
+                },
+            )
         })
-        .collect()
+        .collect();
+    out.extend(w.gravity.entities.iter().filter(|f| !f.removed).map(|f| {
+        (
+            f.id,
+            TraceEntity {
+                id: f.id as u64,
+                kind: "minecraft:falling_block".to_string(),
+                pos: [f.x, f.y, f.z],
+                motion: [f.vx, f.vy, f.vz],
+                yaw: 0.0,
+                pitch: 0.0,
+                net_id: Some(f.id as i32),
+            },
+        )
+    }));
+    out.sort_by_key(|(id, _)| *id);
+    out.into_iter().map(|(_, e)| e).collect()
 }
 
 fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String>) {
@@ -193,6 +225,13 @@ fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String
         }
         if g.yaw.to_bits() != r.yaw.to_bits() || g.pitch.to_bits() != r.pitch.to_bits() {
             out.push(format!("{} {i} rotation: game ({}, {}), redsim ({}, {})", short(&g.kind), g.yaw, g.pitch, r.yaw, r.pitch));
+        }
+        // the bridge numbers each sandbox's entities from 0 in the order they enter (the game's
+        // tick order; `(tickCount + id) % 4` paces an item at rest): redsim's ids must agree
+        if let (Some(a), Some(b)) = (g.net_id, r.net_id)
+            && a != b
+        {
+            out.push(format!("{} {i} network id: game {a}, redsim {b}", short(&g.kind)));
         }
     }
 }
@@ -218,6 +257,17 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let (from, to) = (trace.from, trace.to);
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(bp(from), size);
+    // TNT entities (their kick replaced: each new one takes the game's state when first seen)
+    w.tnt_kick = Some(0.0);
+    // the level random, mirrored from the sandbox's seed and forced chunks (before placement:
+    // placement can draw, e.g. a powered door's sound), and the bridge's seeded drops (popResource
+    // items: `rng::Drop` from the same seed)
+    if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
+        w.mirror_level_random(seed, chunks);
+        // the sandbox's randomTickSpeed rule (3 unless the trace says otherwise)
+        w.chunk_draws = w.chunk_draws / 3 * trace.random_tick_speed;
+        w.drop_seed = Some(seed);
+    }
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
     match c.placement {
@@ -238,8 +288,28 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         return Ok(Outcome::Unmodeled(e));
     }
     let mut actions = c.actions();
+    // a test scene's extra inputs (header `actions`), after the design's own at the same tick
+    for (t, kind, pos) in &trace.actions {
+        let a = match kind.as_str() {
+            "use" => Action::Use { pos: *pos },
+            "use_entity" => Action::UseEntity { pos: *pos },
+            other => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
+        };
+        actions.push((*t, a));
+    }
+    actions.sort_by_key(|(t, _)| *t);
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
+    // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
+    // from level.random); the trace's TNT entities are compared as spawns (new ids per tick, by
+    // the cell they stand in) with redsim's primes of that tick, and left out of the entity check
+    let mut tnt_seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut sim_tnt_seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    let mut primed_seen = 0usize;
+    let mut chain_seen = 0usize;
+    // redsim's level-random draws per frame (the last few, for a drift report)
+    let mut sim_rng: Vec<(usize, String)> = Vec::new();
+    let mut sim_rng_prev: Option<i64> = None;
     for (t, (changes, ents)) in trace.frames.iter().enumerate() {
         // the exporter's order: the inputs due at t, then (t > 0) one tick, then the frame
         while actions.first().is_some_and(|(at, _)| *at as usize == t) {
@@ -252,6 +322,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                         redsim::redstone::container::apply_block_entities(&mut w, [(bp(pos), n.as_str())]).map_err(|e| anyhow::anyhow!("nbt: {e}"))?;
                     }
                 }
+                Action::UseEntity { pos } => {
+                    if !redsim::entity::frame::use_frame(&mut w, bp(pos)) {
+                        return Ok(Outcome::Unmodeled(format!("no single item frame at {pos:?} to turn")));
+                    }
+                }
                 Action::Use { pos } => {
                     if !w.use_block(bp(pos)) {
                         return Ok(Outcome::Unmodeled(format!("a right-click on {} is not modeled", w.get(bp(pos)))));
@@ -259,6 +334,17 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
                 Action::Clear { pos } => {
                     w.set_block(bp(pos), Block::Air, flags::ALL);
+                }
+                Action::ShapeSet { pos, state } => {
+                    let b = Block::parse(&state).map_err(|e| anyhow::anyhow!(e))?;
+                    w.set_block(bp(pos), b, flags::CLIENTS);
+                }
+                Action::Update { pos } => {
+                    let src = w.get(bp(pos)).kind();
+                    w.update_neighbors_at(bp(pos), src);
+                }
+                Action::GameEvent { pos, event } => {
+                    w.game_event(event, bp(pos));
                 }
             }
         }
@@ -286,7 +372,77 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             }
         }
         let mut ed = Vec::new();
-        entity_diffs(ents, &entities_of(&w), &mut ed);
+        // (a TNT is first seen one tick after it spawned and may already have been pushed one
+        // cell by the machine: counts per tick must match, cells within 1)
+        let is_tnt = |e: &&TraceEntity| e.kind.trim_start_matches("minecraft:") == "tnt";
+        let new_game: Vec<&TraceEntity> = ents.iter().filter(is_tnt).filter(|e| tnt_seen.insert(e.id)).collect();
+        let mut game_spawns: Vec<[i32; 3]> = new_game.iter().map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+        let mut sim_spawns: Vec<[i32; 3]> = w.primed[primed_seen..].iter().chain(&w.chain_primed[chain_seen..]).map(|(_, p)| [p.x, p.y, p.z]).collect();
+        primed_seen = w.primed.len();
+        chain_seen = w.chain_primed.len();
+        game_spawns.sort();
+        sim_spawns.sort();
+        let near = |a: &[i32; 3], b: &[i32; 3]| (0..3).all(|i| (a[i] - b[i]).abs() <= 1);
+        if game_spawns.len() != sim_spawns.len() || !game_spawns.iter().all(|g| sim_spawns.iter().any(|s| near(g, s))) {
+            ed.push(format!("primed TNT: game {game_spawns:?}, redsim {sim_spawns:?}"));
+        }
+        // redsim's TNT entities (World::tnt_kick): without the level random the game's random kick
+        // is unknown, so each new TNT takes the game's state at its first sighting; from then on it
+        // is compared bit for bit (with the level random mirrored, the kick is the game's own:
+        // nothing is injected)
+        let new_sim: Vec<usize> = (0..w.entities.list.len()).filter(|&k| matches!(w.entities.list[k].kind, redsim::entity::EntityKind::PrimedTnt(_)) && !w.entities.list[k].removed && sim_tnt_seen.insert(w.entities.list[k].id)).collect();
+        if w.level_random.is_none() {
+            for (g, &k) in new_game.iter().zip(&new_sim) {
+                let e = &mut w.entities.list[k];
+                e.set_pos(redsim::entity::Vec3::new(g.pos[0], g.pos[1], g.pos[2]));
+                e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
+            }
+        }
+        // item frames (redsim::entity::frame: static comparator inputs, World::frames): left out of
+        // the moving-entity check, compared by their cells (their rotations show through the
+        // comparators reading them, in the block frames)
+        let frame_cells: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = ents.iter().filter(|e| e.kind == "minecraft:item_frame").map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+            v.sort();
+            v
+        };
+        let sim_frames: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = w.frames.iter().map(|f| [f.pos.x, f.pos.y, f.pos.z]).collect();
+            v.sort();
+            v
+        };
+        if frame_cells != sim_frames {
+            ed.push(format!("item frames: game in cells {frame_cells:?}, redsim {sim_frames:?}"));
+        }
+        let moving: Vec<TraceEntity> = ents.iter().filter(|e| e.kind != "minecraft:item_frame").cloned().collect();
+        entity_diffs(&moving, &entities_of(&w), &mut ed);
+        // the level random after this frame (exact traces with `rng`): a drift shows on the tick
+        // it starts, not later through behavior; with it, the draws of the last frames on both
+        // sides and redsim's explosions so far
+        if let (Some(game), Some(r)) = (trace.rng.get(t).copied().flatten(), w.level_random.as_ref()) {
+            if let Some(d) = redsim::rng::state_diff(game, r.state()) {
+                ed.push(d);
+                let draws = |a: Option<i64>, b: i64| a.and_then(|a| redsim::rng::lcg_steps(a, b, 100_000)).map(|k| k.to_string()).unwrap_or("?".into());
+                let lo = t.saturating_sub(6);
+                let game_draws: Vec<String> = (lo.max(1)..=t).map(|k| format!("t{k}: {}", draws(trace.rng.get(k - 1).copied().flatten(), trace.rng.get(k).copied().flatten().unwrap_or(0)))).collect();
+                ed.push(format!("game draws per frame: {}", game_draws.join(", ")));
+                let sim_draws: Vec<String> = sim_rng.iter().filter(|(k, _)| *k >= lo.max(1)).map(|(k, n)| format!("t{k}: {n}")).collect();
+                ed.push(format!("redsim draws per frame: {}, then {} at t{t}", sim_draws.join(", "), draws(sim_rng_prev, r.state())));
+                for b in &w.explosions {
+                    ed.push(format!("redsim explosion at game time {} center ({:.4}, {:.4}, {:.4}): {} positions, {} destroyed {:?}", b.time, b.center.x, b.center.y, b.center.z, b.positions, b.destroyed.len(), b.destroyed.iter().take(6).map(|(p, s)| format!("{p} {s}")).collect::<Vec<_>>()));
+                }
+            }
+        }
+        if let Some(r) = w.level_random.as_ref() {
+            let s = r.state();
+            if let Some(prev) = sim_rng_prev {
+                sim_rng.push((t, redsim::rng::lcg_steps(prev, s, 100_000).map(|k| k.to_string()).unwrap_or("?".into())));
+                if sim_rng.len() > 8 {
+                    sim_rng.remove(0);
+                }
+            }
+            sim_rng_prev = Some(s);
+        }
         n_diff += ed.len();
         for d in ed {
             if diffs.len() < max_diffs {
@@ -295,6 +451,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         }
         if n_diff > 0 {
             let shown = diffs.len();
+            if let Some(e) = w.errors.first() {
+                diffs.push(format!("(redsim's model note this tick: {e})"));
+            }
             return Ok(Outcome::Diverges { tick: t, diffs, more: n_diff - shown });
         }
         if let Some(e) = w.errors.first() {

@@ -1,0 +1,4 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/c70b67/mm04-oc.ideal: 15 input cells off the plane ([(0, -2), (0, 4), (1, -2), (2, 3), (3, 1), (4, 3), (3, 3), (3, 2), (2, 4), (4, 1), (4, 0), (3, -2), (2, 0), (2, 1), (2, 2)]), 56 / 94 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/c70b67/mm04-oc.txt: 22 blocks in the box, screen 9/79
+seed screen 77/79 with 15 inputs assisted
+Error: the seed must screen perfect with its assisted inputs

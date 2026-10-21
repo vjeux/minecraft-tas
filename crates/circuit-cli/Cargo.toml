@@ -13,9 +13,15 @@ mctas = { path = "../mctas" }
 clock = { path = "../clock" }
 circuit = { path = "../circuit" }
 circuit-pulse = { path = "../circuit-pulse" }
+circuit-bud = { path = "../circuit-bud" }
 circuit-tff = { path = "../circuit-tff" }
 circuit-memory = { path = "../circuit-memory" }
 circuit-delay = { path = "../circuit-delay" }
 circuit-gates = { path = "../circuit-gates" }
 circuit-pext = { path = "../circuit-pext" }
+circuit-arith = { path = "../circuit-arith" }
 circuit-fly = { path = "../circuit-fly" }
+circuit-shulker = { path = "../circuit-shulker" }
+circuit-tnt = { path = "../circuit-tnt" }
+circuit-pulsemult = { path = "../circuit-pulsemult" }
+circuit-timer = { path = "../circuit-timer" }

@@ -30,11 +30,19 @@ pub struct VerifyOptions {
     /// JVM workers (capped by MCTAS_MAX_WORKERS).
     pub workers: usize,
     pub version: String,
+    /// Save, unload and load again the sandbox's chunks mid-run, after the warmup and 2 periods
+    /// (coordinator 2026-10-20: a clock must survive a chunk reload): it must run at the same
+    /// state period afterwards (a short glitch right after the reload is allowed).
+    pub reload: bool,
+    /// The tick of that reload (set by `verify_in_pool` from redsim's warmup and period).
+    pub reload_at: Option<u32>,
+    /// The state period the clock must keep across the reload (redsim's).
+    pub reload_period: Option<u32>,
 }
 
 impl Default for VerifyOptions {
     fn default() -> Self {
-        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string() }
+        VerifyOptions { positions: 4, rotations: true, horizon: 4000, margin: 3, min_periods: 3, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), reload: false, reload_at: None, reload_period: None }
     }
 }
 
@@ -47,6 +55,9 @@ pub struct RunOk {
     pub output: Option<Output>,
     /// Width x height x depth of every cell non-air during the run (and the design's box).
     pub dims: [i32; 3],
+    /// A clock holding a sculk sensor: whether ambient game events leave its output alone in this
+    /// build ([`crate::vibration::game_property`]; a property, never a failure).
+    pub vibration: Option<crate::vibration::Property>,
 }
 
 impl RunOk {
@@ -77,6 +88,8 @@ pub struct VerifyReport {
     /// `robust`, `position-dependent` or `rotation-dependent` (a clock), else why it fails.
     pub robustness: String,
     pub verdict: Verdict,
+    /// The tick of the chunk reload (`VerifyOptions::reload`), when there was one.
+    pub reload_at: Option<u32>,
 }
 
 impl VerifyReport {
@@ -156,7 +169,11 @@ pub fn rotated(w: &mut Worker, c: &Clock, turns: u8) -> Result<Clock> {
 
 /// Place a clock like the judge (the kick's inputs are applied by [`apply`] at their ticks).
 pub fn place(w: &mut Worker, sb: u32, c: &Clock) -> Result<()> {
-    let blocks = c.design.block_list();
+    let mut blocks = c.design.block_list();
+    // the judge's lamp in an air output cell (vjeux 2026-10-20)
+    if let Some(op) = crate::sim::judge_lamp(c) {
+        blocks.push((op, crate::sim::JUDGE_LAMP.to_string()));
+    }
     let last = c.withheld();
     let kept: Vec<(Pos, String)> = blocks.iter().filter(|(p, _)| Some(*p) != last).cloned().collect();
     let merge = |w: &mut Worker| -> Result<()> {
@@ -229,8 +246,20 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         Action::Use { pos } => {
             w.use_block(sb, *pos)?;
         }
+        Action::UseEntity { pos } => {
+            w.use_entity(sb, *pos)?;
+        }
         Action::Clear { pos } => {
             w.set_blocks(sb, &[(*pos, "minecraft:air".to_string())], PlaceMode::Update)?;
+        }
+        Action::ShapeSet { pos, state } => {
+            w.set_blocks(sb, &[(*pos, state.clone())], PlaceMode::Shape)?;
+        }
+        Action::Update { pos } => {
+            w.update(sb, &[*pos], "neighbors")?;
+        }
+        Action::GameEvent { pos, event } => {
+            w.game_event_at(sb, event, &[*pos], true)?;
         }
     }
     Ok(())
@@ -261,6 +290,8 @@ struct Frames {
     from: Pos,
     to: Pos,
     size: [i32; 3],
+    /// The judge's lamp (not the design's: left out of the swept box).
+    lamp: Option<Pos>,
 }
 
 impl Frames {
@@ -288,7 +319,9 @@ impl Frames {
                 if (0..3).any(|i| p[i] == self.from[i] || p[i] == self.to[i]) {
                     return Some(format!("tick {t}: {} at {p:?} reached the edge of the watched box (margin {margin}): rerun with a larger --margin", crate::short(s)));
                 }
-                crate::grow(&mut self.slo, &mut self.shi, p);
+                if Some(p) != self.lamp {
+                    crate::grow(&mut self.slo, &mut self.shi, p);
+                }
             }
             // the full cell state (block state + comparator strength + container contents)
             // decides the period, exactly like clock sim
@@ -314,7 +347,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let probes: Vec<Pos> = c.output.into_iter().collect();
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let (slo, shi) = c.bounds();
-    let mut fr = Frames { int: Interner::default(), ids: Vec::new(), sparse: Vec::new(), slo, shi, from, to, size };
+    let mut fr = Frames { int: Interner::default(), ids: Vec::new(), sparse: Vec::new(), slo, shi, from, to, size, lamp: crate::sim::judge_lamp(c) };
     // Frame t = the state after t ticks, with the kick's inputs due at t applied (frame 0: right
     // after placement and the inputs due at 0): exactly what `clock sim` records.
     let mut signals: Vec<Vec<u8>> = Vec::new();
@@ -346,6 +379,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
             signals.push(sg);
         }
         let next = actions.first().map(|(at, _)| *at).unwrap_or(o.horizon).min(o.horizon).min(t + seg);
+        // stop at the reload tick
+        let next = match o.reload_at {
+            Some(r) if r > t => next.min(r),
+            _ => next,
+        };
         if next <= t {
             break;
         }
@@ -361,6 +399,9 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         }
         signals.extend(st.signals);
         t = next;
+        if o.reload_at == Some(t) {
+            w.reload(sb)?;
+        }
         if t >= o.horizon && actions.is_empty() {
             break;
         }
@@ -372,8 +413,23 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let (slo, shi) = (fr.slo, fr.shi);
     let end = c.free_from() as usize;
     let Some((w0, p)) = wave::detect_period(&fr.ids, end, o.min_periods) else {
-        return Ok(Err(format!("not periodic for {} periods within {} gt", o.min_periods, o.horizon)));
+        return Ok(Err(format!("not periodic for {} periods within {} gt{}", o.min_periods, o.horizon, if o.reload_at.is_some() { " (with a chunk reload)" } else { "" })));
     };
+    // a chunk reload: the clock must keep working, i.e. run at the same state period afterwards; a
+    // short glitch right after it (lost block events, a phase shift) is fine, as for a builder
+    if let Some(r) = o.reload_at
+        && (w0 + p) as u32 > r
+    {
+        let want = o.reload_period.unwrap_or(p as u32);
+        if p as u32 != want || w0 as u32 > r + 2 * want + 40 {
+            return Ok(Err(format!("does not survive a chunk reload at tick {r}: it runs at period {p} gt only from tick {w0} (period {want} gt before the reload)")));
+        }
+    }
+    // designs with entities: the period must hold over at least the second half of the horizon
+    // (`sim::entity_clock_period`: a drifting entity can show a short pattern near the end)
+    if !c.design.entities.is_empty() && w0 > fr.ids.len() / 2 {
+        return Ok(Err(format!("not periodic over the second half of {} gt (period {p} only from {w0}: an entity that never repeats)", o.horizon)));
+    }
     // the cells: every cell non-air at some tick of one period, and the output cell; their states
     // over that period (index t - w0)
     let mut idxs: std::collections::BTreeSet<u32> = (w0..w0 + p).flat_map(|t| fr.sparse[t].iter().map(|(i, _)| *i)).collect();
@@ -396,7 +452,15 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         .collect();
     let int = &fr.int;
     let states: Vec<Vec<&str>> = per_frame.iter().map(|v| v.iter().map(|id| int.name(*id)).collect()).collect();
-    let mut analysis = wave::analyze(&cells, &states);
+    // the judge's lamp is no part of the clock: left out of its cells and family
+    let mut analysis = match fr.lamp.and_then(|l| cells.iter().position(|q| *q == l)) {
+        Some(li) => {
+            let cells2: Vec<Pos> = cells.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, q)| *q).collect();
+            let states2: Vec<Vec<&str>> = states.iter().map(|v| v.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, s)| *s).collect()).collect();
+            wave::analyze(&cells2, &states2)
+        }
+        None => wave::analyze(&cells, &states),
+    };
     // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
     // join the family (`detector_rail+minecart`)
     for e in &c.design.entities {
@@ -418,22 +482,39 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let (output, output_period) = match c.output {
         Some(op) => {
             let idx = cells.iter().position(|q| *q == op).ok_or_else(|| anyhow!("output outside the box"))?;
+            // the output cell stays free all cycle (vjeux 2026-10-20): the same block every tick,
+            // never a moving block or a head (entities in it: redsim checks)
+            let first = mctas::blockstate::block_name(wave::block_part(int.name(per_frame[0][idx]))).to_string();
+            for t in w0..w0 + p {
+                let s = int.name(per_frame[t - w0][idx]);
+                let name = mctas::blockstate::block_name(wave::block_part(s));
+                if name != first || name.contains("moving_piston") || name.contains("piston_head") {
+                    return Ok(Err(format!("the output cell {op:?} is entered during the cycle ({} at tick {t}): it must hold the same block all cycle, nothing moved into or through it", short(s))));
+                }
+            }
+            // where a builder can take the signal: an exterior air cell, not above tripwire, rails
+            // or water (vjeux 2026-10-20)
+            let design_block = if fr.lamp.is_some() { "minecraft:air".to_string() } else { c.design.blocks.get(&op).cloned().unwrap_or_else(|| "minecraft:air".into()) };
+            let below = [op[0], op[1] - 1, op[2]];
+            let bi = fr.index(below);
+            let below_states: Vec<&str> = (w0..w0 + p).filter_map(|t| fr.sparse[t].iter().find(|(i, _)| *i == bi).map(|(_, id)| int.name(*id))).collect();
+            if let Some(why) = crate::sim::placement_problem(op, (slo, shi), &design_block, below_states.into_iter()) {
+                return Ok(Err(why));
+            }
             let seq: Vec<bool> = (w0..w0 + p)
                 .map(|t| {
                     let s = wave::block_part(int.name(per_frame[t - w0][idx]));
-                    if wave::family_name(s).is_some() { wave::active(s) } else { signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0) > 0 }
+                    if fr.lamp.is_none() && wave::family_name(s).is_some() { wave::active(s) } else { signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0) > 0 }
                 })
                 .collect();
             let levels: Vec<u8> = (w0..w0 + p).map(|t| signals.get(t).and_then(|v| v.first()).copied().unwrap_or(0)).collect();
             let (on, edges, widths) = wave::bool_wave(&seq);
+            let gaps = wave::rise_gaps(&seq);
             let states = analysis.cells.iter().find(|w| w.pos == op).map(|w| w.states.clone()).unwrap_or_default();
             let own = if states.is_empty() { wave::cyclic_period(&levels) } else { cell_period(op) };
-            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths } }), own)
+            (Some(Output { pos: op, auto: false, wave: CellWave { pos: op, states, kinds: Vec::new(), on, edges, widths, gaps } }), own)
         }
-        None => match analysis.cells.iter().max_by(|a, b| (cell_period(a.pos), a.edges, a.on).cmp(&(cell_period(b.pos), b.edges, b.on)).then(b.pos.cmp(&a.pos))) {
-            Some(w) => (Some(Output { pos: w.pos, auto: true, wave: w.clone() }), cell_period(w.pos)),
-            None => (None, p),
-        },
+        None => return Ok(Err("no output cell: a clock needs an exterior air cell where the judge's lamp gets evenly spaced pulses (declare `port output`; `clock sim --exterior` finds the best one)".into())),
     };
     let groups = wave::spatial_groups(&analysis.cells.iter().map(|w| w.pos).collect::<Vec<_>>(), &wave::sensors_of(&c.design.blocks));
     if output_period < p && output_period > 1 && groups > 1 {
@@ -441,7 +522,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
         return Ok(Err(format!("COMPOSITE: the output {pos:?} repeats every {output_period} gt but the whole structure every {p} gt, and its changing cells form {groups} independent groups (sub-clocks side by side)")));
     }
     let dims = [shi[0] - slo[0] + 1, shi[1] - slo[1] + 1, shi[2] - slo[2] + 1];
-    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims }))
+    // a sculk clock: the ambient property in this build (two more runs in fresh sandboxes; the
+    // events skip the swept box seen here)
+    let vibration = if crate::vibration::has_sculk(&c.design) { crate::vibration::game_property(w, c, o.margin, w0 as u32, p as u32, (slo, shi), output.as_ref().map(|o| o.pos))? } else { None };
+    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims, vibration }))
 }
 
 fn probe_now(w: &mut Worker, sb: u32, probes: &[Pos]) -> Result<Vec<u8>> {
@@ -473,14 +557,32 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
     let mut o = o.clone();
     if r.verdict == Verdict::Clock {
-        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
-        o.horizon = o.horizon.max(need.min(20_000));
+        // the judge's periods of the whole state (the state can repeat slower than the output)
+        let sp = r.period.max(r.state_period);
+        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * sp + 100;
+        // designs with entities must also repeat over the second half of the horizon; with item
+        // entities, past their 6000 gt lifetime (a clock runs forever)
+        let need = if c.design.entities.is_empty() { need } else { need.max(2 * r.warmup.max(r.state_warmup) + 100).max(crate::sim::entity_horizon(c)) };
+        // the horizon scales with the period (vjeux 2026-10-20, root cause of 2 refusals: a
+        // 20 000 gt cap left the P6926 jukebox carousel "still" during its third song and the
+        // P10816 div-fade6-x5 short of 3 periods); 100 000 gt (83 min) at most
+        o.horizon = o.horizon.max(need.min(100_000));
+        if o.reload {
+            // the chunk reload after the warmup and 2 periods, then room for a short glitch and
+            // the judge's periods again
+            let at = r.warmup.max(r.state_warmup) + 2 * sp + 1;
+            o.reload_at = Some(at);
+            o.reload_period = Some(r.state_period);
+            o.horizon = o.horizon.max((at + (o.min_periods as u32 + 3) * sp + 140).min(100_000));
+        }
     }
     let o = &o;
     if fixed.output.is_none() {
-        if let (Verdict::Clock, Some(out)) = (r.verdict, r.output) {
-            fixed.design.ports.insert("output".into(), out.pos);
-            fixed.output = Some(out.pos);
+        // no declared output: the best exterior air cell where the judge's lamp gets evenly spaced
+        // pulses (vjeux / coordinator, 2026-10-20), redsim's pick
+        if let Some((q, _)) = crate::sim::lamp_outputs(&fixed, 1).into_iter().next() {
+            fixed.design.ports.insert("output".into(), q);
+            fixed.output = Some(q);
         }
     }
     let c = &fixed;
@@ -496,7 +598,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         runs.push(Run { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock };
+    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock, reload_at: o.reload_at };
     let ok: Vec<&Run> = rep.runs.iter().filter(|r| r.result.is_ok()).collect();
     if ok.is_empty() {
         rep.verdict = Verdict::Invalid;

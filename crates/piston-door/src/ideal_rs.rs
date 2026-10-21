@@ -49,8 +49,38 @@ impl ExtentAcc {
     }
 }
 
+/// What a run prints of its first cycle at its first position: every block change per tick
+/// (`--trace`) and/or the door plane drawn after every tick of a window (`--planes lo..hi`, open
+/// and close; ticks count from each flip like the plan's).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Trace {
+    pub changes: bool,
+    pub planes: Option<(u32, u32)>,
+}
+
+impl From<bool> for Trace {
+    fn from(changes: bool) -> Self {
+        Trace { changes, planes: None }
+    }
+}
+
+/// The door plane (z = the door's) of the watch box as sheet glyphs, rows top down, labeled in
+/// design coordinates (`off` = the run's world offset).
+fn plane_rows(w: &World, wlo: Pos, whi: Pos, z: i32, off: Pos) -> Vec<String> {
+    let mut rows = Vec::new();
+    for y in (wlo[1]..=whi[1]).rev() {
+        let mut line = format!("{:>3} ", y - off[1]);
+        for x in wlo[0]..=whi[0] {
+            line.push(crate::sheet::glyph_of(&w.get(BlockPos::new(x, y, z))));
+        }
+        rows.push(line);
+    }
+    rows.push(format!("    x from {}", wlo[0] - off[0]));
+    rows
+}
+
 /// One run at one position. Ok((worst open ticks, worst close ticks)).
-fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: bool, mut ext: Option<&mut ExtentAcc>) -> std::result::Result<(u32, u32), String> {
+fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], close_ev: &[Ev], cycles: u32, trace: Trace, mut ext: Option<&mut ExtentAcc>) -> std::result::Result<(u32, u32), String> {
     let blocks: Vec<(Pos, Block)> = blocks.iter().map(|(p, b)| (add(*p, off), *b)).collect();
     let spec = spec.translated(off);
     let (mut w, (wlo, whi), idle) = cs::place_and_settle(&blocks, &spec, 400);
@@ -80,10 +110,21 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
             let phase = if open { "open" } else { "close" };
             let mut ok: Vec<bool> = Vec::new();
             let flag = |w: &World| if open { cs::open_ok_world(w, &walk_bp) } else { door_bp.iter().zip(closed_door.iter()).all(|(p, s)| w.get(*p) == *s) };
-            let mut prev = if trace && cycle == 0 { Some(Snap::take(&w, wlo, whi)) } else { None };
-            if prev.is_some() {
+            let mut prev = if trace.changes && cycle == 0 { Some(Snap::take(&w, wlo, whi)) } else { None };
+            if prev.is_some() || (trace.planes.is_some() && cycle == 0) {
                 println!("== {phase} (cycle {cycle})");
             }
+            let planes = if cycle == 0 { trace.planes } else { None };
+            let draw = |w: &World, t: u32| {
+                if let Some((lo, hi)) = planes
+                    && (lo..=hi).contains(&t)
+                {
+                    println!("-- {phase} t{t}");
+                    for r in plane_rows(w, wlo, whi, spec.door[2], off) {
+                        println!("{r}");
+                    }
+                }
+            };
             let mut show = |w: &World, label: String, prev: &mut Option<Snap>| {
                 if let Some(p) = prev.as_mut() {
                     let now = Snap::take(w, wlo, whi);
@@ -129,6 +170,7 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
                     e.add_snap(&Snap::take(&w, wlo, whi), off);
                 }
                 show(&w, format!("t{t}"), &mut prev);
+                draw(&w, t);
             }
             let mut tt = t;
             let (n, idle) = cs::step_until_idle(&mut w, 300, |w| {
@@ -138,6 +180,7 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
                     e.add_snap(&Snap::take(w, wlo, whi), off);
                 }
                 show(w, format!("t{tt}"), &mut prev);
+                draw(w, tt);
             });
             if !w.errors.is_empty() {
                 return Err(format!("model: {}", w.errors.join("; ")));
@@ -178,12 +221,13 @@ fn run_at(blocks: &[(Pos, Block)], spec: &DoorSpec, off: Pos, open_ev: &[Ev], cl
 pub type Edit = (Pos, Option<String>);
 
 /// Run a schedule with these variables at every offset.
-pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+pub fn run(s: &Schedule, vars: &BTreeMap<String, i64>, offsets: &[Pos], cycles: u32, trace: impl Into<Trace>) -> std::result::Result<(u32, u32), String> {
     run_edited(s, vars, &[], offsets, cycles, trace)
 }
 
 /// `run` on the schedule's design with some cells replaced first (in memory, no JVM).
-pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: bool) -> std::result::Result<(u32, u32), String> {
+pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], offsets: &[Pos], cycles: u32, trace: impl Into<Trace>) -> std::result::Result<(u32, u32), String> {
+    let trace = trace.into();
     let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
     let d = &d;
     let door = *d.ports.get("door").ok_or("design has no door port")?;
@@ -201,7 +245,7 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
     }
     let mut worst = (0u32, 0u32);
     for (oi, off) in offsets.iter().enumerate() {
-        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, trace && oi == 0, None).map_err(|e| format!("at offset {off:?}: {e}"))?;
+        let (o, c) = run_at(&blocks, &spec, *off, &open_ev, &close_ev, cycles, if oi == 0 { trace } else { Trace::default() }, None).map_err(|e| format!("at offset {off:?}: {e}"))?;
         worst = (worst.0.max(o), worst.1.max(c));
     }
     Ok(worst)
@@ -227,7 +271,7 @@ pub fn extent(s: &Schedule, vars: &BTreeMap<String, i64>) -> std::result::Result
     // the lever (the judge's volume leaves it out), whether the plan uses it or not
     acc.skip.extend(d.ports.get("lever").copied());
     acc.skip.extend(d.blocks.iter().filter(|(_, st)| st.trim_start_matches("minecraft:").starts_with("lever")).map(|(p, _)| *p));
-    run_at(&blocks, &spec, [0, 0, 0], &open_ev, &close_ev, 1, false, Some(&mut acc))?;
+    run_at(&blocks, &spec, [0, 0, 0], &open_ev, &close_ev, 1, Trace::default(), Some(&mut acc))?;
     acc.lohi.ok_or_else(|| "nothing in the door plane".to_string())
 }
 
@@ -475,6 +519,7 @@ pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: 
         let is_piston = |p: Pos| d.blocks.get(&p).is_some_and(|b| b.contains("piston[") && !b.contains("moving_piston") && !b.contains("piston_head"));
         let mut kept: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
         let mut lines = vec![format!("# door ideal-rs --offplane-dir {}: in-plane inputs below row {} moved behind the pistons they feed", path.display(), door[1] + below), design_line];
+        lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
         for (open, ph) in [(true, "open"), (false, "close")] {
             for (t, q, st) in s.events_of(open, &vars)? {
                 let mut targets = vec![q];
@@ -513,14 +558,15 @@ pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: 
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: bool, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: Trace, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>, without: &[[i32; 3]]) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
         let (k, v) = kv.split_once('=').context("--set name=value")?;
         overrides.insert(k.to_string(), v.parse::<i64>()?);
     }
-    let s = Schedule::parse_with(&text, &overrides)?;
+    let mut s = Schedule::parse_with(&text, &overrides)?;
+    s.without(without);
     let vars = s.vars().clone();
     let offsets = crate::ideal::offsets(extra_offsets);
     if let Some(max_tick) = holds {
@@ -638,7 +684,7 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
             jobs.push((l.join(" "), c.clone(), edits.clone()));
         }
     }
-    let results = cs::par_map(&jobs, threads, |(_, c, e)| run_edited(&s, c, e, &offsets, cycles, trace && jobs.len() == 1));
+    let results = cs::par_map(&jobs, threads, |(_, c, e)| run_edited(&s, c, e, &offsets, cycles, if jobs.len() == 1 { trace } else { Trace::default() }));
     let mut n_ok = 0usize;
     for ((label, _, _), r) in jobs.iter().zip(results) {
         match r {
@@ -790,6 +836,9 @@ pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32
         Err(_) => (ev, groups, o1, c1),
     };
     let mut lines = vec![format!("# door ideal-rs --compact {}: every input group pulled as early as it goes (others fixed, 2 passes);", path.display()), format!("# open {o1} / close {c1} (was {o0} / {c0}); windows: the group's own shifts that keep it working"), design_line];
+    // keep the plan's input phase: without it the written plan is read in the default phase and
+    // replays at different ticks than the ones just measured
+    lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
     for g in &groups {
         let ds: Vec<i64> = (-24..=24).filter(|d| *d != 0).collect();
         let res = cs::par_map(&ds, threads, |&d| shifted(&ev, g, d).is_some_and(|e2| works(&e2).is_ok()));
@@ -810,18 +859,95 @@ pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32
         lines.push(format!("# {} t{t} {:?} {what}: window [{lo:+}, {hi:+}]", if g.phase == 0 { "open " } else { "close" }, q));
     }
     for (phase, evs) in ev.iter().enumerate() {
-        let mut evs = evs.clone();
-        evs.sort_by_key(|x| x.0);
-        for (t, q, st) in &evs {
-            let ph = if phase == 0 { "open" } else { "close" };
-            lines.push(match st.as_deref() {
-                Some("@use") => format!("{ph} {t} use {} {} {}", q[0], q[1], q[2]),
-                Some(b) => format!("{ph} {t} set {} {} {} {b}", q[0], q[1], q[2]),
-                None => format!("{ph} {t} clear {} {} {}", q[0], q[1], q[2]),
-            });
-        }
+        lines.extend(event_lines(phase, evs));
     }
     std::fs::write(out, lines.join("\n") + "\n")?;
     println!("wrote {} (last input t{}, open {o1} / close {c1})", out.display(), span(&ev));
+    Ok(())
+}
+
+/// One phase's events as plan lines (`open|close <t> set|clear|use x y z [block]`), by tick.
+fn event_lines(phase: usize, evs: &[Ev]) -> Vec<String> {
+    let mut evs = evs.to_vec();
+    evs.sort_by_key(|x| x.0);
+    let ph = if phase == 0 { "open" } else { "close" };
+    evs.iter()
+        .map(|(t, q, st)| match st.as_deref() {
+            Some("@use") => format!("{ph} {t} use {} {} {}", q[0], q[1], q[2]),
+            Some(b) => format!("{ph} {t} set {} {} {} {b}", q[0], q[1], q[2]),
+            None => format!("{ph} {t} clear {} {} {}", q[0], q[1], q[2]),
+        })
+        .collect()
+}
+
+/// `door prune-plan`: drop every input PULSE (a `set` and its `clear`) the plan does not need,
+/// greedily, latest pulse first, each drop kept only while the plan with all drops so far still
+/// works (screened at the 4 default positions, then confirmed at `extra_offsets`). Lone level edges,
+/// lever uses and the `keep` cells stay. A pulse the plan works without ALONE (`door shuttle`
+/// lists those) often cannot go together with the others; this finds a set that can. Fewer pulses
+/// = lighter wiring areas for pockets / satwire.
+pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], only: &[Pos], exhaustive: bool, threads: usize, extra_offsets: u32, cycles: u32) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let s = Schedule::parse(&text)?;
+    let vars = s.vars().clone();
+    let (screen, full) = (crate::ideal::offsets(0), crate::ideal::offsets(extra_offsets));
+    let design_line = text.lines().find(|l| l.trim_start().starts_with("design ")).context("no design line")?.trim().to_string();
+    let ev: [Vec<Ev>; 2] = [s.events_of(true, &vars)?, s.events_of(false, &vars)?];
+    let works = |e: &[Vec<Ev>; 2], offs: &[[i32; 3]]| run(&schedule_of(s.design(), e), &BTreeMap::new(), offs, cycles, false);
+    let (o0, c0) = works(&ev, &full).map_err(|e| anyhow::anyhow!("the plan itself is BROKEN: {e}"))?;
+    let groups = plan_groups(&ev);
+    // `only` (when given) restricts the drops to one area's input cells: the greedy order then
+    // spends no drop elsewhere that would block one there
+    let cand = |p: &Pos| !keep.contains(p) && (only.is_empty() || only.contains(p));
+    let mut order: Vec<usize> = (0..groups.len()).filter(|&gi| groups[gi].evi.len() == 2 && cand(&ev[groups[gi].phase][groups[gi].evi[0]].1)).collect();
+    order.sort_by_key(|&gi| std::cmp::Reverse(ev[groups[gi].phase][groups[gi].evi[0]].0));
+    let without = |rm: &[usize]| -> [Vec<Ev>; 2] {
+        let gone = |phase: usize, i: usize| rm.iter().any(|&gi| groups[gi].phase == phase && groups[gi].evi.contains(&i));
+        [0, 1].map(|phase| ev[phase].iter().enumerate().filter(|(i, _)| !gone(phase, *i)).map(|(_, e)| e.clone()).collect())
+    };
+    println!("{}: {} pulses can be tried (of {} input groups), open {o0} / close {c0}", path.display(), order.len(), groups.len());
+    let mut removed: Vec<usize> = Vec::new();
+    if exhaustive {
+        // every subset of the candidates, largest first (each size screened in parallel at the 4
+        // default positions, the first hit confirmed at the full set)
+        anyhow::ensure!(order.len() <= 16, "--exhaustive takes at most 16 candidate pulses ({}): narrow with --only", order.len());
+        let n = order.len();
+        'size: for k in (1..=n).rev() {
+            let subsets: Vec<Vec<usize>> = (0u32..1 << n).filter(|m| m.count_ones() as usize == k).map(|m| (0..n).filter(|i| m >> i & 1 == 1).map(|i| order[i]).collect()).collect();
+            let ok = cs::par_map(&subsets, threads, |sub| works(&without(sub), &screen).is_ok());
+            for (sub, _) in subsets.iter().zip(ok.iter()).filter(|(_, ok)| **ok) {
+                if works(&without(sub), &full).is_ok() {
+                    removed = sub.clone();
+                    break 'size;
+                }
+            }
+        }
+        for &gi in &removed {
+            let g = &groups[gi];
+            let (t, q, _) = &ev[g.phase][g.evi[0]];
+            println!("  dropped {} t{t} {q:?} ({} gt)", if g.phase == 0 { "open " } else { "close" }, ev[g.phase][g.evi[1]].0 - t);
+        }
+    }
+    for gi in if exhaustive { Vec::new() } else { order } {
+        let mut trial = removed.clone();
+        trial.push(gi);
+        let e2 = without(&trial);
+        if works(&e2, &screen).is_ok() && works(&e2, &full).is_ok() {
+            let g = &groups[gi];
+            let (t, q, _) = &ev[g.phase][g.evi[0]];
+            println!("  dropped {} t{t} {q:?} ({} gt)", if g.phase == 0 { "open " } else { "close" }, ev[g.phase][g.evi[1]].0 - t);
+            removed = trial;
+        }
+    }
+    let ev = without(&removed);
+    let (o1, c1) = works(&ev, &full).map_err(|e| anyhow::anyhow!("pruned plan BROKEN (bug): {e}"))?;
+    let how = if exhaustive { "largest working subset" } else { "greedy, latest first" };
+    let mut lines = vec![format!("# door prune-plan {}: {} pulses dropped ({how}); open {o1} / close {c1} (was {o0} / {c0})", path.display(), removed.len()), design_line];
+    lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
+    for (phase, evs) in ev.iter().enumerate() {
+        lines.extend(event_lines(phase, evs));
+    }
+    std::fs::write(out, lines.join("\n") + "\n")?;
+    println!("{} pulses dropped; wrote {} (open {o1} / close {c1}, {} positions x {cycles} cycles)", removed.len(), out.display(), full.len());
     Ok(())
 }

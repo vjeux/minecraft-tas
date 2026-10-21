@@ -1,0 +1,20 @@
+name: rt-item-despawn
+# redsim test scene (not a clock): kit-dripleaf-item-p4-8b with an item a player could drop (age 0,
+# pickup delay 0: no infinite lifetime). The leaf clock runs on the item until the item reaches age
+# 6000 and despawns (ItemEntity.tick: age++, discard at 6000); then the leaf stays down and the clock
+# dies, 5 minutes in.
+port output: -1 1 0
+entity: minecraft:item 0.5 1.9375 0.5 {Item:{id:"minecraft:stone",count:1}}
+origin: -2 0 0
+palette:
+  B minecraft:big_dripleaf[facing=north,tilt=none]
+  D minecraft:dirt
+  O minecraft:observer[facing=east]
+  R minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+  S minecraft:stone
+layer -1:
+  .S
+layer 0:
+  SRD
+layer 1:
+  ROB

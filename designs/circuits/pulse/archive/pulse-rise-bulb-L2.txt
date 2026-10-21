@@ -1,20 +1,17 @@
-# archived 2026-10-20T00:39Z from designs/circuits/tracks/pulse/bulb/pulse-rise-bulb-L2.txt by mctas circuit archive
-# CIRCUIT: pulse-rise-bulb-L2 rising-edge L 2 gt, delay 4 gt, min-pulse 1 gt, 4 blocks, 3x2x1, robust
+# archived 2026-10-20T14:14Z from /tmp/clkobs-runs/tiled/pulse-rise-bulb-L2-self-tile1.txt by mctas circuit archive
+# CIRCUIT: pulse-rise-bulb-L2 rising-edge L 2 gt, delay 4 gt, min-pulse 2 gt (the shortest a real input makes), tileable every 1 (0 0 1), 4 blocks, 3x2x1, robust
 name: pulse-rise-bulb-L2
 circuit: rising-edge
-# The input lights or darkens a copper bulb on every rising edge (a bulb toggles only on rising
-# edges of its power, even 1 gt ones); a comparator reads the bulb, so its output changes once per
-# rising edge and never on a falling one; an observer watching the comparator turns each change
-# into a 2 gt pulse.
-origin: 0 0 0
+tile: 0 0 1
 port input: 0 1 0
-port output: 4 1 0
+port output: 3 1 0
+origin: 1 0 0
 palette:
-  S minecraft:stone
-  B minecraft:waxed_copper_bulb[lit=false,powered=false]
   C minecraft:comparator[facing=west,mode=compare,powered=false]
   O minecraft:observer[facing=west,powered=false]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
 layer 0:
-  ..S..
+  .S
 layer 1:
-  .BCO.
+  WCO

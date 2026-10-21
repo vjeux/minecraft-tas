@@ -61,6 +61,9 @@ pub struct GrowOptions {
     /// Only cells face-adjacent (Manhattan distance <= near) to a base block other than the
     /// input, when set.
     pub near: Option<i32>,
+    /// Only cells within this Manhattan distance of one of these cells, when set (`pext lns
+    /// --local`: grow back near the removed blocks).
+    pub focus: Option<(Vec<Pos>, i32)>,
 }
 
 #[derive(Clone, Debug)]
@@ -119,7 +122,7 @@ fn screen_ok(prep: &Option<Prepared>) -> bool {
     prep.as_ref().is_some_and(|p| rs::judge(p, &Params::screen(), false).0.works())
 }
 
-fn combos(n: usize, k: usize) -> Vec<Vec<usize>> {
+pub fn combos(n: usize, k: usize) -> Vec<Vec<usize>> {
     fn rec(n: usize, k: usize, start: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
         if cur.len() == k {
             out.push(cur.clone());
@@ -153,6 +156,11 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
                     if !close {
                         continue;
                     }
+                }
+                if let Some((fs, fd)) = &o.focus
+                    && !fs.iter().any(|q| (q[0] - c[0]).abs() + (q[1] - c[1]).abs() + (q[2] - c[2]).abs() <= *fd)
+                {
+                    continue;
                 }
                 cells.push(c);
             }
@@ -255,6 +263,17 @@ pub fn find_design(p: &Pext, f: &Find, name: &str) -> mctas::design::Design {
 pub struct MinOptions {
     pub palette: Vec<String>,
     pub threads: usize,
+    /// Only place new blocks in this z plane (keeps a flat design flat).
+    pub plane_z: Option<i32>,
+    /// Save the current best here after every step (a long run that is stopped keeps its progress).
+    pub checkpoint: Option<std::path::PathBuf>,
+}
+
+fn checkpoint(o: &MinOptions, d: &mctas::design::Design) {
+    if let Some(p) = &o.checkpoint {
+        let _ = d.save(p);
+        eprintln!("  step: {} blocks (saved {})", d.blocks.len(), p.display());
+    }
 }
 
 /// Greedy shrink: remove any block (not the input or payload) while it still works; then try
@@ -265,9 +284,14 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
     let mut out = Vec::new();
     loop {
         let prep = Prepared::new(&cur, 2).map_err(|e| anyhow::anyhow!("not modeled: {e}"))?;
-        if !rs::judge(&prep, &Params::default(), false).0.works() {
+        let base_report = rs::judge(&prep, &Params::default(), false).0;
+        if !base_report.works() {
             bail!("{} does not work on redsim", cur.name());
         }
+        // the quick screen must outlast this design's own phases (a long extender would fail a
+        // fixed 120 gt screen and hide every candidate)
+        let longest = base_report.cycles.iter().map(|c| c.settle.max(c.retract)).max().unwrap_or(0);
+        let screen = Params { max_phase: Params::screen().max_phase.max(2 * longest + 20), ..Params::screen() };
         let positions: Vec<Pos> = cur.design.blocks.keys().copied().filter(|q| *q != cur.input && *q != cur.payload).collect();
         // 1. a single removal
         let removal = positions.iter().find_map(|q| {
@@ -280,6 +304,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
         if let Some(np) = removal {
             cur = np;
             out.push(cur.design.clone());
+            checkpoint(o, &cur.design);
             continue;
         }
         // 2. a substitution plus a removal; 3. a block placed in an empty cell next to the design
@@ -292,7 +317,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             for z in lo[2] - 1..=hi[2] + 1 {
                 for x in lo[0] - 1..=hi[0] + 1 {
                     let c = [x, y, z];
-                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) {
+                    if !cur.design.blocks.contains_key(&c) && !path.contains(&c) && o.plane_z.is_none_or(|pz| pz == z) {
                         empties.push(c);
                     }
                 }
@@ -344,7 +369,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
                         }
                         let Ok(np) = Pext::from_design(d) else { continue };
                         let Ok(pr) = Prepared::new(&np, 2) else { continue };
-                        if screen_ok(&Some(pr.clone())) && rs::judge(&pr, &Params::default(), false).0.works() {
+                        if rs::judge(&pr, &screen, false).0.works() && rs::judge(&pr, &Params::default(), false).0.works() {
                             let mut h = hit.lock().unwrap();
                             if h.as_ref().is_none_or(|(hi, _)| i < *hi) {
                                 *h = Some((i, np));
@@ -358,6 +383,7 @@ pub fn minimize(p: &Pext, o: &MinOptions) -> Result<Vec<mctas::design::Design>> 
             Some((_, np)) => {
                 cur = np;
                 out.push(cur.design.clone());
+                checkpoint(o, &cur.design);
             }
             None => break,
         }

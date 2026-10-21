@@ -1,0 +1,23 @@
+# archived 2026-10-20T00:34Z from designs/clocks/tracks/clk-obs/families9/p280-bulb-obs-stk-9b-ce6ddd.txt by mctas clock archive
+# CLOCK: clk-obs-p280-bulb-obs-stk-9b-ce6ddd period 280 gt (14 s), on 128/280, edges 64, warmup 12, family copper_bulb+observer+sticky_piston, 9 blocks, 4x2x3, robust
+name: clk-obs-p280-bulb-obs-stk-9b-ce6ddd
+# clk-obs grow: P=280 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 24.
+origin: 0 0 0
+port output: 0 1 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:redstone_lamp[lit=false]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  AC.
+  B..
+  AF.
+layer 1:
+  C.G
+  D..
+  E..

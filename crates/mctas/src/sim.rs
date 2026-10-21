@@ -26,6 +26,8 @@ pub enum PlaceMode {
     Raw,
     /// Like a player placing it: neighbor and shape updates, `onPlace` runs.
     Update,
+    /// Shape updates only (flags 2: no block update to the neighbors), like a crop growing.
+    Shape,
 }
 
 impl PlaceMode {
@@ -33,6 +35,7 @@ impl PlaceMode {
         match self {
             PlaceMode::Raw => "raw",
             PlaceMode::Update => "update",
+            PlaceMode::Shape => "shape",
         }
     }
 }
@@ -260,6 +263,9 @@ pub struct EntityInfo {
     pub kind: String,
     pub pos: [f64; 3],
     pub uuid: String,
+    /// `Entity.getId()`: the server's network id (a counter; some ticks read it).
+    #[serde(default)]
+    pub net_id: i64,
     #[serde(default)]
     pub motion: [f64; 3],
     #[serde(default)]
@@ -440,10 +446,25 @@ impl Worker {
         Ok(())
     }
 
+    /// Save, unload and load again every chunk of a sandbox without ticking it (a player walking
+    /// away and back, a server restart): `Sandbox.reload`.
+    pub fn reload(&mut self, sandbox: u32) -> Result<()> {
+        self.call(json!({"op": "reload", "sandbox": sandbox}))?;
+        Ok(())
+    }
+
     /// Destroy a sandbox (prefer [`Worker::clear`] to reuse one).
     pub fn drop_sandbox(&mut self, sandbox: u32) -> Result<()> {
         self.call(json!({"op": "drop", "sandbox": sandbox}))?;
         Ok(())
+    }
+
+    /// The sandbox's level random state (`LegacyRandomSource.seed`, the 48-bit LCG state), read
+    /// without advancing it: redsim's level-random mirror is checked against it (trace-export's
+    /// "rng").
+    pub fn random_state(&mut self, sandbox: u32) -> Result<i64> {
+        let v = self.call(json!({"op": "random_state", "sandbox": sandbox}))?;
+        v["seed"].as_i64().context("random_state: no seed")
     }
 
     /// Write blocks. Returns how many positions changed.
@@ -543,6 +564,13 @@ impl Worker {
     /// Right-click a block (levers and buttons are toggled/pressed directly).
     pub fn use_block(&mut self, sandbox: u32, pos: Pos) -> Result<String> {
         let v = self.call(json!({"op": "use", "sandbox": sandbox, "pos": pos}))?;
+        Ok(v["result"].as_str().unwrap_or_default().to_string())
+    }
+
+    /// Right-click the item frame in a block cell with an empty hand: its item turns one step
+    /// (the comparators reading it update, as for a player). Exactly one frame must be there.
+    pub fn use_entity(&mut self, sandbox: u32, pos: Pos) -> Result<String> {
+        let v = self.call(json!({"op": "use_entity", "sandbox": sandbox, "pos": pos}))?;
         Ok(v["result"].as_str().unwrap_or_default().to_string())
     }
 
@@ -657,6 +685,13 @@ impl Worker {
         Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
     }
 
+    /// [`Worker::game_event`] at each cell's CENTER when `center` (where `Level.gameEvent(.., BlockPos)`
+    /// posts a block's own events: a lever's `block_activate`), else at its bottom center.
+    pub fn game_event_at(&mut self, sandbox: u32, event: &str, positions: &[Pos], center: bool) -> Result<u32> {
+        let v = self.call(json!({"op": "gameevent", "sandbox": sandbox, "event": event, "positions": positions, "at": if center { "center" } else { "feet" }}))?;
+        Ok(v["emitted"].as_u64().unwrap_or(0) as u32)
+    }
+
     /// Number of connected game clients.
     pub fn viewers(&mut self) -> Result<u32> {
         Ok(self.call(json!({"op": "viewers"}))?["count"].as_u64().unwrap_or(0) as u32)
@@ -666,6 +701,12 @@ impl Worker {
     pub fn camera(&mut self, sandbox: u32, pos: [f64; 3], yaw: f32, pitch: f32) -> Result<()> {
         self.call(json!({"op": "camera", "sandbox": sandbox, "pos": pos, "yaw": yaw, "pitch": pitch}))?;
         Ok(())
+    }
+
+    /// Every connected client's game mode (`creative`, `spectator`, ...) and, with `op`, operator
+    /// status (a client mod pasting with commands needs both).
+    pub fn viewer_mode(&mut self, mode: &str, op: bool) -> Result<u32> {
+        Ok(self.call(json!({"op": "viewer_mode", "mode": mode, "operator": op}))?["changed"].as_u64().unwrap_or(0) as u32)
     }
 
     /// How many chunks around a viewer the sandbox's level sends (2 by default: a viewer sees a

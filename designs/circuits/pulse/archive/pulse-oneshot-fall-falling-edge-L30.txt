@@ -1,8 +1,11 @@
 # archived 2026-10-20T00:15Z from designs/circuits/tracks/pulse/oneshot-fall/pulse-oneshot-fall-falling-edge-L30.txt by mctas circuit archive
-# CIRCUIT: pulse-oneshot-fall-falling-edge-L30 falling-edge L 30 gt, delay 7 gt, min-pulse 6 gt, 21 blocks, 4x2x5, robust
+# CIRCUIT: pulse-oneshot-fall-falling-edge-L30 falling-edge L 30 gt, delay 6 gt, min-pulse 6 gt, 21 blocks, 4x2x5, robust
 name: pulse-oneshot-fall-falling-edge-L30
 # One-shot (falling-edge, L = 30 gt): a sticky piston pushes an observer away and pulls it back on the falling edge, where its back faces a copper bulb: it fires on landing and lights the bulb; a comparator reads the bulb into a U of repeaters that comes back into the bulb and turns it off after the loop's delay (a bulb toggles only on rising edges of its power, so the loop's own falling edge does nothing). Generator: mctas circuit pulse family oneshot-mode --mode fall --kind falling-edge --l-range 30..30.
 circuit: falling-edge
+group: pulse-oneshot-fall
+group title: falling-edge bulb one-shot
+group note: the observer lights a copper bulb when pulled back, a repeater U turns it off; L set by the repeater delays and the U's length
 origin: -1 0 0
 port input: -1 1 0
 port output: 2 1 1

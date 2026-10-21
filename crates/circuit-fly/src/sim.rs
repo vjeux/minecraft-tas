@@ -108,6 +108,9 @@ pub fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Res
                 let b = Block::parse(&state).map_err(|e| format!("kick block not modeled: {e}"))?;
                 w.set_block(bp(pos), b, flags::ALL);
             }
+            Action::UseEntity { .. } => {
+                return Err("an item frame (an entity) is not modeled".to_string());
+            }
             Action::Use { pos } => {
                 if !w.use_block(bp(pos)) {
                     return Err(format!("a right-click on {} is not modeled", w.get(bp(pos))));
@@ -115,6 +118,17 @@ pub fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Res
             }
             Action::Clear { pos } => {
                 w.set_block(bp(pos), Block::Air, flags::ALL);
+            }
+            Action::ShapeSet { pos, state } => {
+                let b = Block::parse(&state).map_err(|e| format!("kick block not modeled: {e}"))?;
+                w.set_block(bp(pos), b, flags::CLIENTS);
+            }
+            Action::Update { pos } => {
+                let src = w.get(bp(pos)).kind();
+                w.update_neighbors_at(bp(pos), src);
+            }
+            Action::GameEvent { pos, event } => {
+                w.game_event(event, bp(pos));
             }
         }
     }

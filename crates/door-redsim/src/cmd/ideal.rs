@@ -28,6 +28,82 @@ pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
 }
 
 #[derive(clap::Args)]
+pub struct PrunePlanArgs {
+    /// The `door ideal` plan.
+    schedule: PathBuf,
+    /// Write the pruned plan here.
+    #[arg(long)]
+    out: PathBuf,
+    /// Never drop a pulse of this input cell, `x,y,z` (repeatable).
+    #[arg(long, allow_hyphen_values = true)]
+    keep: Vec<String>,
+    /// Drop pulses of these input cells only, `x,y,z` (repeatable): one area's load.
+    #[arg(long, allow_hyphen_values = true)]
+    only: Vec<String>,
+    /// Try every subset of the candidate pulses (at most 16; narrow with --only), largest first,
+    /// instead of the greedy pass: the most pulses that can go together.
+    #[arg(long)]
+    exhaustive: bool,
+    #[arg(long, default_value_t = 24)]
+    threads: usize,
+    /// Extra pseudo-random positions every drop is confirmed at (screened at the 4 default ones).
+    #[arg(long, default_value_t = 28)]
+    extra_offsets: u32,
+    #[arg(long, default_value_t = 2)]
+    cycles: u32,
+}
+
+/// `door prune-plan`: drop the input pulses a plan works without, together.
+pub fn cmd_prune_plan(args: PrunePlanArgs) -> Result<()> {
+    let PrunePlanArgs { schedule, out, keep, only, exhaustive, threads, extra_offsets, cycles } = args;
+    let cells = |list: &[String]| -> Result<Vec<[i32; 3]>> {
+        let mut out = Vec::new();
+        for k in list {
+            let v: Vec<i32> = k.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "x,y,z expected: {k}");
+            out.push([v[0], v[1], v[2]]);
+        }
+        Ok(out)
+    };
+    crate::ideal_rs::prune(&schedule, &out, &cells(&keep)?, &cells(&only)?, exhaustive, threads, extra_offsets, cycles)
+}
+
+#[derive(clap::Args)]
+pub struct ShiftPlanArgs {
+    /// The `door ideal` plan.
+    schedule: PathBuf,
+    /// Move every event of this input cell, `x,y,z=k` (k ticks, may be negative) or
+    /// `x,y,z=@name` (a variable, `let name = 0`, for `ideal-rs --sweep name=lo..hi`); repeatable.
+    #[arg(long, allow_hyphen_values = true)]
+    shift: Vec<String>,
+    /// Move every event of the other cells: a number of ticks or `@name`.
+    #[arg(long, default_value = "0", allow_hyphen_values = true)]
+    rest: String,
+    /// Write the shifted plan here (default: stdout).
+    #[arg(long)]
+    out: Option<PathBuf>,
+}
+
+/// `door shift-plan`: re-time a plan (one area's inputs later than the lever's, say).
+pub fn cmd_shift_plan(args: ShiftPlanArgs) -> Result<()> {
+    let ShiftPlanArgs { schedule, shift, rest, out } = args;
+    let mut shifts = Vec::new();
+    for s in &shift {
+        let (c, k) = s.split_once('=').ok_or_else(|| anyhow::anyhow!("--shift x,y,z=k: {s}"))?;
+        let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--shift x,y,z=k: {s}");
+        shifts.push(([v[0], v[1], v[2]], k.trim().to_string()));
+    }
+    let text = std::fs::read_to_string(&schedule)?;
+    let shifted = crate::ideal::Schedule::shift_text(&text, &shifts, rest.trim())?;
+    match out {
+        Some(p) => std::fs::write(p, shifted)?,
+        None => print!("{shifted}"),
+    }
+    Ok(())
+}
+
+#[derive(clap::Args)]
 pub struct SheetArgs {
     #[arg(required = true, num_args = 1..)]
     files: Vec<PathBuf>,
@@ -85,6 +161,11 @@ pub struct IdealRsArgs {
     /// volume will be once the inputs are real wiring inside that box.
     #[arg(long)]
     extent: bool,
+    /// Draw the door plane after every tick in `LO..HI` (open and close, ticks after each
+    /// flip) of the first cycle at the first position: where carried pistons sit and what
+    /// touches them when they fire.
+    #[arg(long, value_name = "LO..HI")]
+    planes: Option<String>,
     #[arg(long, default_value_t = 16)]
     threads: usize,
     /// Block variants, `x,y[,z]=state|state|...` (repeatable: every combination, times the
@@ -121,10 +202,22 @@ pub struct IdealRsArgs {
     offplane_dir: Option<PathBuf>,
     #[arg(long, default_value_t = 0)]
     offplane_below: i32,
+    /// Drop every plan event at this input cell, `x,y,z` (repeatable): that input left to the
+    /// design's own blocks (with `--vary`, a screen of real fillings), the others ideal.
+    #[arg(long)]
+    without: Vec<String>,
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, without } = args;
+    let without: Vec<[i32; 3]> = without
+        .iter()
+        .map(|c| {
+            let v: Vec<i32> = c.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "--without x,y,z, got {c:?}");
+            Ok([v[0], v[1], v[2]])
+        })
+        .collect::<Result<_>>()?;
     if extent {
         crate::ideal::cli_phase(between_ticks);
         for path in &schedule {
@@ -140,6 +233,14 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         return Ok(());
     }
+    let planes = match planes {
+        Some(r) => {
+            let (lo, hi) = r.split_once("..").ok_or_else(|| anyhow::anyhow!("--planes LO..HI"))?;
+            Some((lo.parse::<u32>()?, hi.parse::<u32>()?))
+        }
+        None => None,
+    };
+    let trace = crate::ideal_rs::Trace { changes: trace, planes };
     match { crate::ideal::cli_phase(between_ticks); (compact_dir, holds_rank) } {
         _ if offplane_dir.is_some() => crate::ideal_rs::offplane_dir(&schedule, offplane_dir.as_deref().unwrap(), offplane_below)?,
         (_, Some(max_tick)) => crate::ideal_rs::holds_rank(&schedule, extra_offsets, cycles, threads, max_tick)?,
@@ -154,7 +255,7 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         (None, None) => {
             anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir or --holds-rank)");
-            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
+            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds, &without)?;
         }
     }
     Ok(())

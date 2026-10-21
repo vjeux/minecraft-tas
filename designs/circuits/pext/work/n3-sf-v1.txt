@@ -1,0 +1,52 @@
+name: pext-n3-sf-v1
+circuit: piston-extender 3
+travel: 1 0 0
+port input: -2 1 0 lever
+port payload: 4 1 0
+origin: -2 0 -2
+palette:
+  A minecraft:observer[facing=north]
+  B minecraft:observer[facing=south]
+  C minecraft:observer[facing=up]
+  D minecraft:observer[facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down]
+  S minecraft:sticky_piston[facing=east]
+  o minecraft:observer[facing=east]
+  s minecraft:stone
+layer -1:
+  .
+  ........B
+  ...BDDDDD
+  ...B
+  ...C
+  .
+layer 0:
+  .......C
+  .......AO
+  s.....OA
+  .......A
+  ...C...A
+  .
+layer 1:
+  .BDDDDDD
+  .B.A..AAO
+  LDDSSSG
+  ...BBB
+  ...BoooO
+  ...oA
+layer 2:
+  .
+  ........O
+  ....CCoC
+  .
+  .
+  .
+layer 3:
+  .
+  .....oooO
+  ....oA.B
+  ....ADDD
+  .
+  .

@@ -1,0 +1,25 @@
+# archived 2026-10-20T17:26Z from designs/circuits/tracks/bud/wr/bud-torch-lamp.txt by mctas circuit archive
+# CIRCUIT: bud-torch-lamp bud detects place remove, latency 2 gt place / 6 gt remove, pulse 2 gt, re-arm 8 gt, footprint 1 cell, tileable every 1 (0 0 1), 3 blocks, 2x2x1, robust
+name: bud-torch-lamp
+circuit: bud
+# The one-cell presence detector, silent: a lamp replaces the dropper (3 blocks), and copies stand
+# side by side every block. A torch under the target powers any solid block placed there, which
+# lights the lamp beside it at once, and the observer watching the lamp fires; the lamp goes out 4
+# ticks after the block is removed, so a removal is seen 6 ticks late, and a block placed again
+# within those 4 ticks finds the lamp still lit (re-arm 8 ticks). Only the target cell senses; the
+# output is the observer's own pulse.
+group: torch-presence
+group note: a redstone torch under the target powers a solid block placed there; that block powers a follower beside it (a dropper or a lamp) that an observer watches; only the target cell senses (footprint 1)
+group title: Torch presence detector
+tile: 0 0 1
+port output: -1 -1 0
+port target: 0 0 0
+origin: -1 0 0
+palette:
+  O minecraft:observer[facing=up,powered=false]
+  R minecraft:redstone_lamp[lit=false]
+  r minecraft:redstone_wall_torch[facing=east,lit=true]
+layer -1:
+  Or
+layer 0:
+  R

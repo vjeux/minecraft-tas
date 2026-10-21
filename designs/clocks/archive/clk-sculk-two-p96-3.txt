@@ -1,9 +1,10 @@
 # archived 2026-10-19T21:21Z from /tmp/gen/arch2/two-p96-3.txt by mctas clock archive
-# CLOCK: clk-sculk-two-p96-3 period 96 gt (4.8 s), on 60/96, edges 2, warmup 2, family calibrated_sculk_sensor+dispenser+observer+sculk_sensor, 6 blocks, 2x5x1, robust
+# CLOCK: clk-sculk-two-p96-3 period 96 gt (4.8 s), on 30/96, edges 3, warmup 2, family calibrated_sculk_sensor+dispenser+observer+sculk_sensor, 6 blocks, 2x5x1, robust
 # A calibrated sculk sensor watched by a chain of 2 observer(s) (each watching the previous); the last observer powers a stone and an empty dispenser (fires 4 gt after a rising edge) beside the stone, 4 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sculk sensor beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-two-p96-3
 # how: obs cal k=2 path 0,1,0 0,2,0 stone at the output, emitter dispenser beside it (travel 4) + sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false] at 1,0,0
-port output: 1 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 1 4 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

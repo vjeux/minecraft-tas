@@ -1,0 +1,42 @@
+# Pushes a block out three cells from a one-block-wide wall, 16 blocks: a line of three sticky
+# pistons with a slime block between each pair; each piston fires itself whenever it is moved (an
+# observer rides on the slime behind it), and the observers above the line, run by a chain from the
+# lever, start each wave of pushes (out) or grabs (back).
+# How it works: going out, the middle piston pushes the front piston and the block, the front piston
+# pushes the block on, then the back piston starts a second wave (back, middle, front); coming back the
+# waves are front; middle, front; back, middle, front, each piston grabbing what the one in front left
+# behind. The back and middle waves start with observers two above the line that power their piston
+# through the cell above it. The front piston's observer rides ON TOP of its slime, facing up: when the
+# lever goes off, the sticky piston under the lever pulls back right above it, the riding observer sees
+# it and fires, and the front piston starts the way back with no starter of its own. The lever hangs on
+# the side of the chain's first observer. Found by `mctas circuit pext lns --free-lever` (remove 3
+# blocks, the lever included, grow 2 back: 19 -> 18 -> 17 -> 16); game: robust (16 builds), redsim
+# agrees.
+name: pext-n3-flat-cascade16
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 6 4 0 lever
+port payload: 6 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=up]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[facing=east]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .O
+layer 1:
+  sSDSDG
+layer 2:
+  ..CA
+layer 3:
+  B.B..s
+layer 4:
+  Co.PoL

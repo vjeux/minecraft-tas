@@ -19,6 +19,66 @@ pub struct Trace {
     pub cells: Vec<Vec<(Pos, u32)>>,
     /// The run ended early on purpose: a flying machine reached the far end of its corridor.
     pub ended: Option<String>,
+    /// Primed TNT spawned during the run (TNT dupers; the judge removes each one before it can
+    /// explode), in spawn order.
+    pub primed: Vec<Primed>,
+    /// TNT dupers judged with explosions (the default; real game only): how many primed TNT
+    /// exploded during the run, and the frame of each explosion.
+    pub exploded: u32,
+    pub explosions: Vec<u32>,
+    /// Burning TNT removed 16+ blocks from the design (harmless to it: `run::OUT_OF_RANGE`).
+    pub out_of_range: u32,
+    /// Every explosion (explosions on): where it went off and whether it was any use as a TNT
+    /// (the TNT judge's rule: none may go off in a fluid or where it would destroy nothing).
+    pub blasts: Vec<BlastUse>,
+}
+
+/// One explosion of a TNT duper's run: its frame, its center (the real game: the TNT's last
+/// sighting, at fuse 1, plus its last move), whether a fluid fills its cell (water, lava, a
+/// waterlogged block: it destroys nothing) and the blocks it would destroy on open ground
+/// (`redsim::explosion::open_ground`, its weakest rolls).
+#[derive(Clone, Debug, Default)]
+pub struct BlastUse {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub in_fluid: bool,
+    pub open_ground: usize,
+}
+
+impl BlastUse {
+    /// The judge's verdict on it: `None` when it is a useful explosion, else why not.
+    pub fn useless(&self) -> Option<String> {
+        let at = format!("frame {} at ({:.1}, {:.1}, {:.1})", self.frame, self.pos[0], self.pos[1], self.pos[2]);
+        if self.in_fluid {
+            Some(format!("a TNT explodes in a fluid ({at}): it destroys nothing, a duper whose TNT explodes in water is useless"))
+        } else if self.open_ground == 0 {
+            Some(format!("a TNT explodes where it would destroy nothing even on open ground ({at}: fluid all around it)"))
+        } else {
+            None
+        }
+    }
+}
+
+/// One primed TNT: the frame it first appears in, and where it is and how it moves there (the
+/// real game: one tick after it spawned; redsim: its spawn point, no motion).
+#[derive(Clone, Debug, Default)]
+pub struct Primed {
+    pub frame: u32,
+    pub pos: [f64; 3],
+    pub motion: Option<[f64; 3]>,
+    /// The real game: its position and motion at fuse 1, the tick before it would explode (the
+    /// judge removes it there); `None` when the run ended first, and on redsim.
+    pub end: Option<([f64; 3], [f64; 3])>,
+    /// The real game: its motion when its horizontal speed was largest, if that reached 0.4
+    /// blocks per gt (a launch: the LAUNCHED direction).
+    pub launch: Option<[f64; 3]>,
+    /// The real game: the last frame its position changed (at rest since then).
+    pub moved: u32,
+    pub last_pos: [f64; 3],
+    /// The frame `end` was recorded at.
+    pub end_frame: u32,
+    /// The real game, explosions on: its position and motion when it was removed out of range.
+    pub gone: Option<([f64; 3], [f64; 3])>,
 }
 
 impl Trace {
@@ -27,13 +87,33 @@ impl Trace {
         let mut names: Vec<String> = Vec::new();
         let mut ids: HashMap<String, u32> = HashMap::new();
         let mut t = Trace { inputs: vec![Vec::with_capacity(cells.len()); c.inputs.len()], levels: vec![Vec::with_capacity(cells.len()); c.outputs.len()], ..Default::default() };
+        // the judge's input devices (R7: a driven input's repeater, its support and its switch)
+        // are not the circuit's: read for the input's state, then left out of the recorded cells
+        let judge: Vec<Pos> = c
+            .inputs
+            .iter()
+            .filter_map(|i| match i.how {
+                InputHow::Driven { dir, .. } => {
+                    let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+                    Some([r, sup, sw])
+                }
+                _ => None,
+            })
+            .flatten()
+            .collect();
         for (f, frame) in cells.into_iter().enumerate() {
             let get = |p: Pos| frame.binary_search_by_key(&p, |(q, _)| *q).ok().map(|i| frame[i].1.as_str());
             for (k, inp) in c.inputs.iter().enumerate() {
                 let s = get(inp.pos);
                 let on = match &inp.how {
+                    // an active-low input (on-state air: the pulse removes the rest block) reads on
+                    // while its cell is empty
+                    InputHow::Block { on, .. } if mctas::blockstate::is_air(on) => s.is_none_or(|s| state_matches(s, on)),
                     InputHow::Block { on, .. } => s.is_some_and(|s| state_matches(s, on)),
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
+                    // the judge's repeater powering the input stone
+                    InputHow::Driven { dir, .. } => get(crate::driver_cells(inp.pos, *dir).0).is_some_and(|s| s.contains("powered=true")),
+                    InputHow::Strength { .. } | InputHow::Frame { .. } => false,
                 };
                 t.inputs[k].push(on);
             }
@@ -43,6 +123,7 @@ impl Trace {
             }
             let v: Vec<(Pos, u32)> = frame
                 .into_iter()
+                .filter(|(p, _)| !judge.contains(p))
                 .map(|(p, s)| {
                     let id = match ids.get(&s) {
                         Some(id) => *id,
@@ -100,6 +181,11 @@ impl Trace {
         }
         out
     }
+}
+
+/// Whether a recorded state is a lit redstone lamp (the judge's consumer, [`crate::CONSUMER`]).
+pub fn lamp_lit(state: Option<&str>) -> bool {
+    state.is_some_and(|s| s.starts_with("minecraft:redstone_lamp") && s.contains("lit=true"))
 }
 
 /// The level of an output cell holding `state` (`None`: air) with `best` the best signal its

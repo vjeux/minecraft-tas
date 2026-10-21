@@ -19,7 +19,7 @@ pub struct Outcome {
 }
 
 impl Outcome {
-    fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
+    pub(crate) fn fail(why: impl Into<String>, table: Vec<String>) -> Outcome {
         Outcome { pass: false, why: why.into(), metrics: Vec::new(), table }
     }
 
@@ -69,6 +69,24 @@ fn start(c: &Circuit) -> u32 {
 
 /// The stimulus `kind` is judged with.
 pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    let mut s = stimulus_kind(c, kind, z);
+    // R7: a driven input (the judge's repeater) makes no pulse or gap under 2 gt
+    if c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        s.drop_short(2);
+    }
+    s
+}
+
+fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    if *kind == Kind::Bud {
+        return crate::bud::stimulus(c, z);
+    }
+    if let Kind::Compute(spec) = kind {
+        return crate::compute::stimulus(c, *spec, z);
+    }
+    if let Kind::Lock(n) = kind {
+        return crate::lock::stimulus(c, *n, z);
+    }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
     let gap = z.gap.max(20);
@@ -168,6 +186,9 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 t += p + gap;
             }
         }
+        Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => {
+            t = crate::seq::stimulus(kind, &mut s, t, gap, button);
+        }
         Kind::PistonExtender(_) => {
             for k in 0..3 {
                 if button {
@@ -184,7 +205,29 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::FlyingMachine => {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
+            // an on/off switch (a lever input, vjeux 2026-10-21 on the two-way machine: "Can you
+            // add an on/off switch?"): off at rest, so the first flight must end docked; then
+            // on/off cycles, each off edge at another moment of the round trip ([`flying_switch`])
+            if let Some(i) = c.inputs.iter().position(|inp| inp.how == crate::InputHow::Lever) {
+                let d = c.distance.unwrap_or(16);
+                for k in 0..4u32 {
+                    let run = 40 * d + 120 + 23 * k;
+                    s.set(i, t, true);
+                    s.phase(t, t + run, format!("run {}", k + 1));
+                    t += run;
+                    s.set(i, t, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock {}", k + 1));
+                    t += 40 * d + 200;
+                }
+            }
         }
+        Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
+        // judged by crate::shulker's own runner (judge chests), not by a stimulus
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) => {}
+        Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
+        Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
+        Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
+        Kind::Lock(_) => unreachable!("the lock stimulus is crate::lock::stimulus"),
     }
     s.ticks = t;
     s
@@ -196,6 +239,41 @@ fn state_name(st: usize, n: usize) -> String {
 
 /// Judge a run of `kind`'s stimulus.
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    let mut out = check_kind(c, kind, s, t);
+    real_inputs(c, &mut out.metrics);
+    out
+}
+
+/// R7 (real input devices): a driven input's repeater cannot pulse or pause for less than 2 gt (it
+/// stretches a 1 gt pulse to 2 gt and swallows a 1 gt gap), so a measured minimum below that came
+/// from a stretched input: it is reported as the shortest a real input makes. A driven input fed
+/// through the build's own air cells (no side of it leads straight out) says so.
+fn real_inputs(c: &Circuit, metrics: &mut Vec<(String, String)>) {
+    if !c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        return;
+    }
+    for (k, v) in metrics.iter_mut() {
+        let floor = match k.as_str() {
+            "min-pulse" | "min-gap" => 2,
+            "min-period" => 4,
+            _ => continue,
+        };
+        if v.strip_suffix(" gt").and_then(|x| x.trim().parse::<u32>().ok()).is_some_and(|n| n <= floor) {
+            *v = format!("{floor} gt (the shortest a real input makes)");
+        }
+    }
+    if c.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { through: true, .. })) && !metrics.is_empty() {
+        metrics.push(("input".into(), "fed through the build".into()));
+    }
+}
+
+fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
+    if let Some((name, p, id)) = c.passive_output() {
+        return Outcome::fail(format!("output {name} at {p:?} holds {id}, which drives nothing by itself: leave the output cell air (the judge puts a lamp there) or put a consumer there"), Vec::new());
+    }
+    if let Some(why) = update_less(c, t) {
+        return Outcome::fail(why, Vec::new());
+    }
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
@@ -203,9 +281,58 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Tff => tff(c, s, t),
         Kind::RsLatch | Kind::DLatch => latch(c, kind, s, t),
         Kind::Counter(n) => counter(c, *n, s, t),
+        Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
+        Kind::FlyingMachine if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => flying_switch(c, s, t),
         Kind::FlyingMachine => flying(c, t),
+        Kind::Bud => crate::bud::check(c, s, t),
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
+        Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
+        Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
+            Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
+            Kind::TntDuper => crate::tnt::check_duper(c, s, t),
+            _ => crate::tnt::check_triggered(c, s, t),
+        }),
+        Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
+        Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
+        Kind::Lock(n) => crate::lock::check(c, *n, s, t),
     }
+}
+
+/// A circuit must drive something: the judge's lamp in each air output cell
+/// ([`crate::CONSUMER`]) must follow the output, from the first frame the circuit may be driven:
+/// lit whenever the output is on, and unlit within 5 gt after the output turns off (a lamp turns off
+/// 4 gt after the block update that tells it; a later flash while the output stays off, from a
+/// state inside one tick, is a glitch, not a stale lamp). An output that changes without a block
+/// update (a dust redirected without a power change) leaves the lamp stale: why it fails.
+pub fn update_less(c: &Circuit, t: &Trace) -> Option<String> {
+    let from = (start(c) as usize).min(t.frames());
+    for p in c.watched_lamps() {
+        let Some(k) = c.outputs.iter().position(|o| o.pos == p) else {
+            continue;
+        };
+        let name = &c.outputs[k].name;
+        // the frame the output turned off, and whether the lamp has gone off since
+        let mut fell: Option<(usize, bool)> = None;
+        for f in from..t.frames() {
+            let on = t.on(k, f);
+            let lit = crate::trace::lamp_lit(t.state(f, p));
+            if on {
+                if !lit {
+                    return Some(format!("update-less output: {name} turns on at frame {f} without a block update (a lamp in its cell stays unlit), it drives nothing"));
+                }
+                fell = None;
+                continue;
+            }
+            let (at, gone) = fell.unwrap_or((f, false));
+            let gone = gone || !lit;
+            if !gone && f >= at + 5 {
+                return Some(format!("update-less output: {name} is off from frame {at} without a block update (a lamp in its cell stays lit), it drives nothing"));
+            }
+            fell = Some((at, gone));
+        }
+    }
+    None
 }
 
 /// A flying machine (track fly's tracker, [`crate::fly`]): a steady motion along `travel` (frame
@@ -261,6 +388,81 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
         Some(st) if st.periods >= 2 => Outcome::fail(format!("oscillates in place (period {} gt): a clock, not a machine", st.period), table),
         _ => Outcome::fail(if first_change.is_none() { "never moves".to_string() } else { "no steady motion (it breaks, stops, or never repeats its shape)".to_string() }, table),
     }
+}
+
+/// A two-way flying machine with an on/off lever ([`stimulus`]: off at rest, then four on/off
+/// cycles). Off: it must end DOCKED — nothing changes for the last 100 gt of the phase, the
+/// machine intact, at the same place every time (the station that obeys the switch). On: it must
+/// leave the dock, fly at least 3 cells away and come back to within a cell of the dock (a real
+/// round trip, not a twitch). Metrics: the round trip, how long after the off edge it stands still
+/// at the latest, how long after the on edge it moves at the latest.
+fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let kick = match &c.clock.kick {
+        Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
+        _ => None,
+    };
+    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
+    for f in 0..t.frames() {
+        r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    if let Some(e) = &t.ended {
+        table.push(e.clone());
+        return Outcome::fail(format!("the run ended early: {e}"), table);
+    }
+    let along = |p: &Pos| p[0] * travel[0] + p[1] * travel[1] + p[2] * travel[2];
+    let same = |a: usize, b: usize| r.canon[a] == r.canon[b] && r.corner[a] == r.corner[b];
+    const HOLD: usize = 100;
+    let (mut dock, mut stop_max, mut start_max, mut trip) = (None::<Pos>, 0usize, 0usize, None::<usize>);
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(r.canon.len()));
+        if to <= from + HOLD {
+            return Outcome::fail(format!("{label}: too short to judge"), table);
+        }
+        let last = to - 1;
+        if label == "flight" || label.starts_with("dock") {
+            if !(to - HOLD..to).all(|f| same(f, last)) {
+                return Outcome::fail(format!("{label}: still moving {HOLD} gt before the phase ends: the switch did not stop it"), table);
+            }
+            let Some(pos) = r.shifts[last] else {
+                return Outcome::fail(format!("{label}: stopped, but the machine is not intact"), table);
+            };
+            match dock {
+                Some(p) if p != pos => return Outcome::fail(format!("{label}: docks at {pos:?}, earlier at {p:?}: it must always stop at the switch station"), table),
+                _ => dock = Some(pos),
+            }
+            let still = (from..to).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
+            if label != "flight" {
+                stop_max = stop_max.max(still - from);
+            }
+            table.push(format!("{label}: docked at {pos:?} from frame {still} ({} gt after the phase starts)", still - from));
+        } else if label.starts_with("run") {
+            let Some(first) = (from..to).find(|&f| !same(f, from - 1)) else {
+                return Outcome::fail(format!("{label}: never moves after the switch turns on"), table);
+            };
+            start_max = start_max.max(first - from);
+            let home = dock.map(|p| along(&p)).unwrap_or(0);
+            let ps: Vec<(usize, i32)> = (from..to).filter_map(|f| r.shifts[f].map(|p| (f, (along(&p) - home).abs()))).collect();
+            let far = ps.iter().map(|(_, x)| *x).max().unwrap_or(0);
+            let back = ps.iter().position(|(_, x)| *x == far).is_some_and(|i| ps[i..].iter().any(|(_, x)| *x <= 1));
+            if far < 3 || !back {
+                return Outcome::fail(format!("{label}: does not shuttle (it flies {far} cells from the dock{})", if back { "" } else { " and never comes back" }), table);
+            }
+            // the round trip: the smallest period over which a whole window of the run repeats
+            if trip.is_none() {
+                let a = first + 40;
+                trip = (8..(to - a) / 2).find(|&p| (a..a + p).all(|f| same(f, f + p)));
+            }
+            table.push(format!("{label}: moves {} gt after the switch turns on, flies {far} cells and comes back", first - from));
+        }
+    }
+    let mut metrics = Vec::new();
+    if let Some(p) = trip {
+        metrics.push(("two-way".into(), format!("round trip {p} gt")));
+    }
+    metrics.push(("switch".into(), format!("docks within {stop_max} gt, restarts within {start_max} gt")));
+    Outcome { pass: true, why: String::new(), metrics, table }
 }
 
 /// A piston extender: per cycle, the payload stands at p0 + N * travel (placed, nothing moving)
@@ -323,7 +525,7 @@ fn pext(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
 }
 
 /// The main output: `q` when there is one, else the first.
-fn main_output(c: &Circuit) -> usize {
+pub(crate) fn main_output(c: &Circuit) -> usize {
     c.outputs.iter().position(|o| o.name == "q").unwrap_or(0)
 }
 
@@ -371,6 +573,12 @@ fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         ));
         rows.push((len, os, back));
     }
+    // off at rest and back off at the end of EVERY gap (docs/circuits.md), handled input or not: a
+    // short input that leaves the output on would hold it on until the next input
+    if let Some((len, _, _)) = rows.iter().find(|r| !r.2) {
+        let len = *len;
+        return Outcome::fail(format!("latches: after a {len} gt input the output is still on at the end of its gap (the output must be back off after every input, handled or not)"), table);
+    }
     let n = rows.len();
     let last = &rows[n - 1];
     // each row's verdict against the reference (the longest input, or the kind's rule)
@@ -411,21 +619,54 @@ fn pulse(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
                 return Outcome::fail(format!("never limits: the longest input pulse ({} gt) comes out {l} gt long", last.0), table);
             }
             let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len >= l { os[0].2 == l } else { os[0].2 <= l }).collect();
+            // limiting is witnessed by two input lengths above L coming out exactly L (one would
+            // not tell a limiter from a delay line that shortens every pulse by a fixed amount)
+            let above = rows.iter().zip(&ok).filter(|((len, _, _), o)| **o && *len > l).count();
+            if above < 2 {
+                return Outcome::fail(
+                    format!("limiting not witnessed: {above} input pulse(s) longer than L ({l} gt) come out L long, want 2 (a delay line that shortens pulses looks the same; a longer gap or a `stimulus:` hint adds longer inputs)"),
+                    table,
+                );
+            }
             finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
         }
         _ => {
-            // a pulse extender
+            // a pulse extender: L is the output of the shortest inputs; a candidate L (each one-pulse
+            // output, shortest input first) holds when two input lengths shorter than L come out
+            // exactly L INSIDE the handled suffix (an input below the min-pulse shows no extension,
+            // and one length alone would not tell an extender from a stretcher that adds a fixed
+            // amount to every pulse when the stimulus has no other length between them)
             if last.1.len() != 1 || last.1[0].0 < 0 {
                 return Outcome::fail(format!("the longest input pulse ({} gt) gives {} output pulse(s): want 1 from its rising edge", last.0, last.1.len()), table);
             }
             let d = last.1[0].0;
-            let Some(l) = rows.iter().find(|(_, os, back)| *back && os.len() == 1 && os[0].0 == d).map(|(_, os, _)| os[0].2) else {
+            let candidates: Vec<usize> = rows.iter().filter(|(_, os, back)| *back && os.len() == 1 && os[0].0 == d).map(|(_, os, _)| os[0].2).collect();
+            if candidates.is_empty() {
                 return Outcome::fail("no input pulse comes out as one pulse", table);
-            };
-            let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len < l { os[0].2 == l } else { os[0].2 >= l }).collect();
-            if !rows.iter().zip(&ok).any(|((len, _, _), o)| *o && *len < l) {
-                return Outcome::fail(format!("never extends: no input pulse shorter than its output ({l} gt) is handled"), table);
             }
+            let verdict = |l: usize| -> (Vec<bool>, bool) {
+                let ok: Vec<bool> = rows.iter().map(|(len, os, back)| *back && os.len() == 1 && os[0].0 == d && if *len < l { os[0].2 == l } else { os[0].2 >= l }).collect();
+                let n = ok.len();
+                let k0 = (0..=n).rev().take_while(|&k| k == n || ok[k]).last().unwrap_or(n);
+                // two witnesses, or every tested length below L when fewer exist (L 2: only 1 gt)
+                let below = rows.iter().filter(|r| r.0 < l).count();
+                let extends = below > 0 && (k0..n).filter(|&k| rows[k].0 < l).count() >= below.min(2);
+                (ok, extends)
+            };
+            let Some((l, ok)) = candidates.iter().find_map(|&l| {
+                let (ok, extends) = verdict(l);
+                extends.then_some((l, ok))
+            }) else {
+                let l = candidates[0];
+                let (ok, _) = verdict(l);
+                let mut table = table;
+                for (k, line) in table.iter_mut().enumerate() {
+                    if k < ok.len() && !ok[k] {
+                        line.push_str("  <- not handled");
+                    }
+                }
+                return Outcome::fail(format!("never extends: no two input pulses shorter than its output come out exactly that long among the handled inputs (from the shortest input: L {l} gt)"), table);
+            };
             finish(c, lens, ok, table, |m| vec![("L".into(), gt(l as i64)), ("delay".into(), gt(d)), ("min-pulse".into(), gt(m as i64))])
         }
     }
@@ -512,7 +753,7 @@ fn delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
 
 /// For each phase of a steady-state test: the value at its end, the frame of its last change
 /// (`None`: no change), and the number of changes.
-fn settle(out: &[bool], from: usize, to: usize) -> (bool, Option<usize>, usize) {
+pub(crate) fn settle(out: &[bool], from: usize, to: usize) -> (bool, Option<usize>, usize) {
     let mut last = None;
     let mut changes = 0;
     for i in from.max(1)..to {

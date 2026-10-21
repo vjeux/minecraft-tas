@@ -13,7 +13,8 @@ extend generator: mctas clock misc crafter-loop --n {n} --out {out}
 extend n: 0..20
 extend period: 91 + 28n
 extend rule: add 2 hoppers: the hopper loop one column longer
-port output: -2 0 -1
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -2 0 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -3 0 -1
 port start: 0 1 0 minecraft:redstone_block 2
 nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:slime_block",count:1}]}
 origin: -2 0 -1

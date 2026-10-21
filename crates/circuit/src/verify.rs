@@ -7,8 +7,8 @@ use crate::run;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
 use crate::{Circuit, Kind, Pos};
-use anyhow::{Context, Result, anyhow};
-use mctas::sim::{Pool, WorkerConfig};
+use anyhow::{Context, Result, anyhow, bail};
+use mctas::sim::{Pool, Worker, WorkerConfig};
 
 /// Knobs of [`sim`] and [`verify`].
 #[derive(Clone, Debug)]
@@ -32,15 +32,21 @@ impl Default for Options {
 }
 
 /// The checkers' test spacing: the time the circuit takes to come back to rest after every input
-/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt;
-/// `None` when redsim does not model it or it never rests.
+/// turns on (held until rest, at most 1000 gt) and after they turn off (on redsim), plus 10 gt,
+/// longer when an event of the kind's own stimulus (run spaced by 1000 gt) takes longer to settle
+/// (then that settling + 10 gt); `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
+    // a slow circuit (a long item timer: its items move one per 8 gt each way) needs a longer
+    // hold to come to rest: 1000 gt, then 4000, then 16000
+    [1000u32, 4000, 16000].into_iter().find_map(|hold| sizing_with(c, margin, hold))
+}
+
+fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
     }
     let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    let hold = 1000u32;
     let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
     // every input on and held: the time to rest
     let mut s = Schedule::new(n);
@@ -64,18 +70,45 @@ pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
     if r_off + 10 >= hold {
         return None;
     }
-    Some(r_on.max(r_off) + 10)
+    // the kind's own stimulus, spaced by `hold`: the longest settling after any input change (a
+    // slow path the all-on / all-off pair never takes, such as a crafter's nine ingots coming back
+    // one by one through a hopper after the reverse craft)
+    let mut r_stim = 0;
+    if let Some(kind) = &c.kind {
+        let long = check::stimulus(c, kind, &Sizing { gap: hold });
+        let t = run::sim_trace(c, &long, margin).ok()?;
+        let frames = t.cells.len();
+        let changes: Vec<usize> = (1..frames).filter(|&f| t.inputs.iter().any(|i| i[f] != i[f - 1])).collect();
+        for (k, &f) in changes.iter().enumerate() {
+            // the window up to the frame before the next input change (or the end)
+            let end = changes.get(k + 1).map(|&g| g - 1).unwrap_or(frames - 1);
+            let settle = last_change(&t, f as u32, end as u32);
+            if end - f >= hold as usize && settle + 10 >= hold {
+                return None;
+            }
+            r_stim = r_stim.max(settle);
+        }
+    }
+    // kept when every event of the kind's own stimulus settles within it; else the longest
+    // settling + 10 gt
+    let gap = r_on.max(r_off) + 10;
+    Some(if r_stim > gap { r_stim + 10 } else { gap })
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
-fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
+pub fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     if let Some(st) = o.stimulus.as_ref().or(if c.kind.is_none() { c.stimulus.as_ref() } else { None }) {
         return Ok((crate::stimulus::parse(st, &names, 100)?, None));
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
-    Ok((check::stimulus(c, &kind, &Sizing { gap }), Some(kind)))
+    // a triggered TNT duper with explosions: pulses at least a fuse apart (its last TNT has gone
+    // off before the next pulse), so the gap is the duper's, not the TNT pile's
+    let gap = if c.explodes() && o.gap.is_none() { gap.max(crate::tnt::TRIGGER_GAP) } else { gap };
+    let mut s = check::stimulus(c, &kind, &Sizing { gap });
+    let _ = &mut s;
+    Ok((s, Some(kind)))
 }
 
 /// Result of [`sim`].
@@ -90,7 +123,7 @@ impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
         match (&self.trace, &self.outcome, &self.kind) {
-            (Err(e), _, Some(k)) if e.contains("no support") => format!("FAIL: {} {}: {e}", c.name(), k.name()),
+            (Err(e), _, Some(k)) if e.contains("no support") || e.starts_with("blown up") || c.input_refused.as_deref() == Some(e.as_str()) => format!("FAIL: {} {}: {e}", c.name(), k.name()),
             (Err(e), _, _) => format!("UNMODELED: {}: {e}", c.name()),
             (Ok(_), None, _) => format!("RUN: {} ({} frames)", c.name(), self.schedule.ticks + 1),
             (Ok(t), Some(out), Some(k)) => line(c, k, out, dims(c, t), "redsim"),
@@ -99,15 +132,216 @@ impl SimReport {
     }
 }
 
+/// The exact gate of a redsim model (clk-item, item frames; any kind): the kind's stimulus on the
+/// base build (rotation 0, no offset) in redsim and in the game, EVERY cell of the watched box
+/// compared at every frame (full states: block state + comparator strength + container contents).
+/// `Ok(Ok(frames))` when identical, `Ok(Err(first divergence))` otherwise.
+pub fn trace_compare(c: &Circuit, o: &Options) -> Result<std::result::Result<usize, String>> {
+    let (schedule, _) = schedule(c, o)?;
+    let sim = match run::sim_trace(c, &schedule, o.margin) {
+        Ok(t) => t,
+        Err(why) => return Ok(Err(format!("redsim does not run it: {why}"))),
+    };
+    let pool = spawn_pool(&Options { workers: 1, positions: 1, rotations: false, ..o.clone() })?;
+    let game = pool.map(vec![()], |w, _, _| {
+        let rc = c.rotated(w, 0)?;
+        run::game_trace(w, &rc, &schedule, o.margin)
+    });
+    let game = match game.into_iter().next() {
+        Some(Ok(Ok(t))) => t,
+        Some(Ok(Err(why))) => return Ok(Err(format!("the game run fails: {why}"))),
+        Some(Err(e)) => return Err(e),
+        None => bail!("no game run"),
+    };
+    let frames = sim.frames().min(game.frames());
+    for f in 0..frames {
+        let cells = |t: &Trace| -> std::collections::BTreeMap<Pos, String> { t.cells[f].iter().map(|(p, i)| (*p, t.names[*i as usize].clone())).collect() };
+        let (a, b) = (cells(&game), cells(&sim));
+        if a != b {
+            let keys: std::collections::BTreeSet<&Pos> = a.keys().chain(b.keys()).collect();
+            let diffs: Vec<String> = keys
+                .into_iter()
+                .filter(|p| a.get(*p) != b.get(*p))
+                .take(4)
+                .map(|p| format!("{p:?} game {} / redsim {}", a.get(p).map(|s| s.as_str()).unwrap_or("air"), b.get(p).map(|s| s.as_str()).unwrap_or("air")))
+                .collect();
+            return Ok(Err(format!("frame {f} of {frames}: {}", diffs.join("; "))));
+        }
+    }
+    if sim.frames() != game.frames() {
+        return Ok(Err(format!("{} frames in the game, {} in redsim", game.frames(), sim.frames())));
+    }
+    Ok(Ok(frames))
+}
+
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let schedule = Schedule::new(c.inputs.len());
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err(why.clone()), outcome: c.kind.as_ref().map(|_| Outcome::fail(why.clone(), Vec::new())) });
+    }
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
+    // kicks; `circuit verify` sweeps every kick)
+    let mut cd = c.clone();
+    let mut drop_fail: Option<String> = None;
+    let mut safe = 0;
+    if c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        match crate::robust::safe_drop_screen(c, workers) {
+            Ok(h) => {
+                safe = h;
+                cd.drop = h.max(crate::robust::declared_stand(c));
+            }
+            Err(why) => drop_fail = Some(why),
+        }
+    }
+    let c = &cd;
     let trace = run::sim_trace(c, &schedule, o.margin);
     let outcome = match (&trace, &kind) {
-        (Ok(t), Some(k)) => Some(check::check(c, k, &schedule, t)),
+        (Ok(_), Some(_)) if drop_fail.is_some() => Some(Outcome::fail(drop_fail.clone().unwrap_or_default(), Vec::new())),
+        (Ok(t), Some(k)) => {
+            let mut out = check::check(c, k, &schedule, t);
+            if out.pass && c.explodes() && o.stimulus.is_none() {
+                out.metrics.extend(crate::robust::drop_metrics(c, safe));
+                // this run kicks every TNT the same way: PRECISE must hold over kicks
+                // (crate::robust::precise_over_kicks: each TNT its own kick)
+                if out.why.contains("precise:") {
+                    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+                    if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+                        out.why = crate::robust::strip_precise(&out.why);
+                        out.table.push(format!("not precise over kicks: {why}"));
+                    }
+                }
+            }
+            let out = match lamp_part(c, &schedule, o.margin, t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            // R7: the judge's input stones are never moved
+            let out = match c.input_entered(t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            // and an output's block stays put
+            let out = match c.output_entered(t) {
+                Some(why) if out.pass => Outcome::fail(why, out.table),
+                _ => out,
+            };
+            Some(if out.pass && tiles(c, k) { tiled_sim(c, k, &schedule, o.margin, &out) } else { out })
+        }
         _ => None,
     };
+    // a BUD's `tile:` claim: the copies side by side (crate::bud::tile_check)
+    let outcome = match (outcome, c.tile) {
+        (Some(out), Some(tl)) if out.pass && kind == Some(Kind::Bud) && o.stimulus.is_none() => {
+            Some(crate::bud::tile_check(c, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| Ok(run::sim_trace(tc, ts, o.margin)))?)
+        }
+        (out, _) => out,
+    };
+    // a sculk design: the device and ambient runs (crate::vibration)
+    let outcome = match (outcome, &kind, &trace) {
+        (Some(out), Some(k), Ok(qt)) if out.pass && c.has_sculk() && o.stimulus.is_none() => Some(crate::vibration::check(c, k, &out, &schedule, qt, |vc, vs| Ok(run::sim_trace(vc, vs, o.margin)))?),
+        (out, _, _) => out,
+    };
+    // a study 12 bit slice: its stacks of 2..4 copies judged as the N-bit kind
+    let outcome = match (outcome, &kind, c.slice) {
+        (Some(out), Some(Kind::Compute(spec)), Some(_)) if out.pass && o.stimulus.is_none() => {
+            let margin = o.margin;
+            let gap0 = crate::compute::gap_of(&schedule);
+            Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
+        }
+        (out, _, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
+}
+
+/// A design with a `tile:` header whose copies are judged too ([`tiled_check`]): study 11, and
+/// the sequential kinds builders tile into registers and counter rows (T flip-flops, latches,
+/// D flip-flops, shift cells, counters). The check itself is generic - every copy must pass its
+/// kind's own check and measure what the design measures alone.
+fn tiles(c: &Circuit, k: &Kind) -> bool {
+    // study 11's tile check (crate::pulsemult::check_tiled) judges each copy with the kind's own
+    // checker: study 1's pulse circuits and the sequential kinds tile the same way
+    c.tile.is_some() && matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates")
+}
+
+/// The tiled runs of a study-11 design on redsim ([`crate::pulsemult::check_tiled`]): the copies
+/// driven 7 gt apart, then in phase ([`crate::pulsemult::TILE_SHIFTS`]); the first failure fails.
+fn tiled_sim(c: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome) -> Outcome {
+    let tc = match crate::tiled(c) {
+        Ok(tc) => tc,
+        Err(e) => return Outcome::fail(format!("{e}"), alone.table.clone()),
+    };
+    let label = c.tile.map(|t| crate::bud::tile_label(t.step)).unwrap_or_default();
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(c, &tc, s, shift);
+        out = match run::sim_trace(&tc, &ts, margin) {
+            Ok(t) => crate::pulsemult::check_tiled(c, k, &tc, s, &t, alone, shift, &label),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
+    }
+    out
+}
+
+/// The tiled runs of a study-11 design in one build of the game (`rc`: the build's circuit).
+fn tiled_check(w: &mut Worker, rc: &Circuit, k: &Kind, s: &Schedule, margin: i32, alone: &Outcome, label: &str) -> Result<Outcome> {
+    let tc = match crate::tiled(rc) {
+        Ok(tc) => tc,
+        Err(e) => return Ok(Outcome::fail(format!("{e}"), alone.table.clone())),
+    };
+    let mut out = alone.clone();
+    for shift in crate::pulsemult::TILE_SHIFTS {
+        let ts = crate::pulsemult::tiled_schedule(rc, &tc, s, shift);
+        out = match run::game_trace(w, &tc, &ts, margin)? {
+            Ok(t) => crate::pulsemult::check_tiled(rc, k, &tc, s, &t, alone, shift, label),
+            Err(e) => Outcome::fail(format!("tile: {e}"), alone.table.clone()),
+        };
+        if !out.pass {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+/// The judge's consumer lamps observe the outputs, never take part in the circuit (clockinfra
+/// 2026-10-20): run again on redsim with every consumer cell left as AIR; every output in such a
+/// cell must see the same signal in every frame, else the lamp closes a loop or feeds a block (it
+/// is a conductor) and the design would not run with another consumer.
+pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option<String> {
+    let cells = c.consumer_cells();
+    if cells.is_empty() {
+        return None;
+    }
+    let bare = run::sim_trace_with(c, s, margin, false).ok()?;
+    for (k, o) in c.outputs.iter().enumerate() {
+        if !cells.contains(&o.pos) {
+            continue;
+        }
+        let (a, b) = (with.levels.get(k)?, bare.levels.get(k)?);
+        if let Some(f) = (0..a.len().min(b.len())).find(|&f| a[f] != b[f]) {
+            return Some(format!(
+                "the judge's lamp is part of the circuit: with output {} left as air its signal differs from frame {f} ({} with the lamp, {} without)",
+                o.name, a[f], b[f]
+            ));
+        }
+    }
+    None
 }
 
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
@@ -118,11 +352,28 @@ pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
     }
-    let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    let mut ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers are not the circuit's
+    ins.extend(c.consumer_cells());
+    // nor are the judge's input devices (R7): a driven input's repeater, support and switch
+    for i in &c.inputs {
+        if let crate::InputHow::Driven { dir, .. } = i.how {
+            let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+            ins.extend([r, sup, sw]);
+        }
+    }
+    // nor are the blocks the BUD judge places at the targets and around the design (its probe
+    // block there; the design's own blocks moving through those cells count)
+    let mut probes: Vec<Pos> = Vec::new();
+    let probe_id = c.targets.first().map(|t| t.a.split('[').next().unwrap_or("").to_string()).unwrap_or_default();
+    if c.kind == Some(Kind::Bud) {
+        ins.extend(c.targets.iter().map(|t| t.pos));
+        probes = c.probe_cells();
+    }
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
     for f in &t.cells {
-        for (p, _) in f.iter().filter(|(p, _)| !ins.contains(p)) {
+        for (p, _) in f.iter().filter(|(p, s)| !ins.contains(p) && !(probes.contains(p) && t.names[*s as usize].split('[').next() == Some(probe_id.as_str()))) {
             for i in 0..3 {
                 lo[i] = lo[i].min(p[i]);
                 hi[i] = hi[i].max(p[i]);
@@ -203,6 +454,8 @@ impl VerifyReport {
 /// a copper bulb; piston heads and moving blocks are their piston's), `+`-joined.
 pub fn family(c: &Circuit, t: &Trace) -> String {
     let mut ins: std::collections::BTreeSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    // the judge's consumers (lamps in air output cells) are not the circuit's
+    ins.extend(c.consumer_cells());
     // a temporary kick block's cell is the judge's, not the design's
     if let Some(clock::Kick::Place { pos, .. }) = &c.clock.kick {
         ins.insert(*pos);
@@ -256,27 +509,142 @@ pub fn spawn_pool(o: &Options) -> Result<Pool> {
 
 /// [`verify`] with existing workers.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
+    // R7: an input the judge cannot drive like a real build refuses the design
+    if let Some(why) = &c.input_refused {
+        let builds = vec![Build { turns: 0, offset: [0, 0, 0], result: Err(why.clone()) }];
+        return Ok(verdict(VerifyReport { name: c.name().to_string(), kind: c.kind.clone(), blocks: c.blocks(), schedule: Schedule::new(c.inputs.len()), builds, verdict: String::new(), pass: false, note: String::new() }));
+    }
+    if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
+        return crate::shulker::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        return crate::sorter::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
+    // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
+    // vjeux 13:31Z), then every build stands that high above the grass ground
+    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+    let mut c = c.clone();
+    let mut safe = 0;
+    if c.explodes() && o.stimulus.is_none() {
+        match crate::robust::safe_drop(&c, workers) {
+            Ok((h, _)) => {
+                safe = h;
+                c.drop = h.max(crate::robust::declared_stand(&c));
+            }
+            Err(why) => {
+                return Ok(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds: Vec::new(), verdict: why, pass: false, note: String::new() });
+            }
+        }
+    }
+    let c = &c;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
-        let rc = c.rotated(w, t)?.translated(off)?;
-        let r = run::game_trace(w, &rc, &schedule, o.margin)?;
-        Ok(r.map(|tr| {
-            let out = match &kind {
-                Some(k) => check::check(&rc, k, &schedule, &tr),
-                None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
-            };
-            BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }
-        }))
+        let mut rc = c.rotated(w, t)?.translated(off)?;
+        rc.drop = c.drop;
+        let tr = match run::game_trace(w, &rc, &schedule, o.margin)? {
+            Ok(tr) => tr,
+            Err(why) => return Ok(Err(why)),
+        };
+        let mut out = match &kind {
+            Some(k) => check::check(&rc, k, &schedule, &tr),
+            None => Outcome { pass: true, why: String::new(), metrics: Vec::new(), table: tr.strip(&rc, 0, tr.frames()) },
+        };
+        // R7: the judge's input stones are never moved
+        if out.pass
+            && kind.is_some()
+            && let Some(why) = rc.input_entered(&tr)
+        {
+            out = Outcome::fail(why, out.table);
+        }
+        // and an output's block stays put
+        if out.pass
+            && kind.is_some()
+            && let Some(why) = rc.output_entered(&tr)
+        {
+            out = Outcome::fail(why, out.table);
+        }
+        if out.pass && rc.explodes() && o.stimulus.is_none() {
+            out.metrics.extend(crate::robust::drop_metrics(&rc, safe));
+        }
+        // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
+        // the metric names the design's own step (the same in every build)
+        if out.pass
+            && kind == Some(Kind::Bud)
+            && o.stimulus.is_none()
+            && let Some(tl) = c.tile
+        {
+            out = crate::bud::tile_check(&rc, &out, crate::bud::gap_of(&schedule), &crate::bud::tile_label(tl.step), |tc, ts| run::game_trace(w, tc, ts, o.margin))?;
+        }
+        // a study 12 bit slice: its stacks of 2..4 copies in this build (holds sized on redsim)
+        if out.pass
+            && o.stimulus.is_none()
+            && let (Some(Kind::Compute(spec)), Some(_)) = (&kind, rc.slice)
+        {
+            let gap0 = crate::compute::gap_of(&schedule);
+            out = crate::compute::slice_check(&rc, *spec, &out, |sc| sizing(sc, o.margin).unwrap_or(gap0).max(gap0), |sc, ss| run::game_trace(w, sc, ss, o.margin))?;
+        }
+        // a tiled study-11 design: its copies side by side, each judged on its own (the metric
+        // names the design's own step, the same in every build)
+        if out.pass
+            && let Some(k) = &kind
+            && tiles(&rc, k)
+            && let Some(tl) = c.tile
+        {
+            out = tiled_check(w, &rc, k, &schedule, o.margin, &out, &crate::bud::tile_label(tl.step))?;
+        }
+        // a sculk design: the device and ambient runs in this build (crate::vibration)
+        if out.pass
+            && rc.has_sculk()
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
+        }
+        Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
     let mut builds = Vec::new();
     for ((t, off), r) in jobs.into_iter().zip(results) {
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), kind, blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() };
+    // PRECISE (a game run samples one kick per TNT, about 30): it must hold over kicks
+    // (crate::robust::precise_over_kicks, on redsim, tick-identical with the game for TNT; a sliver
+    // of kick angles landing elsewhere is missed by a game run most of the time)
+    let claims_precise = builds.iter().any(|b| b.result.as_ref().is_ok_and(|r| r.outcome.pass && r.outcome.why.contains("precise:")));
+    if claims_precise && c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+            for b in builds.iter_mut() {
+                if let Ok(r) = b.result.as_mut() {
+                    r.outcome.why = crate::robust::strip_precise(&r.outcome.why);
+                    r.outcome.table.push(format!("not precise over kicks (redsim): {why}"));
+                }
+            }
+        }
+    }
+    let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
+    if rep.pass
+        && kind.is_some()
+        && let Ok(t) = run::sim_trace(c, &schedule, o.margin)
+        && let Some(why) = lamp_part(c, &schedule, o.margin, &t)
+    {
+        rep.pass = false;
+        rep.verdict = why;
+    }
+    // TNT dupers (explosions on): every kick angle on both grounds was swept on redsim at the safe
+    // drop height before the builds (crate::robust::safe_drop; vjeux: "pass every possible random
+    // number")
+    Ok(rep)
+}
+
+/// The verdict of a report's builds: no passing build fails it; builds that disagree (other
+/// metrics, or failing) make it position- or rotation-dependent (allowed, flagged, as for clocks;
+/// the failing builds are listed in `note`), else `robust`.
+pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     let ok_count = rep.builds.iter().filter(|b| b.result.as_ref().is_ok_and(|b| b.outcome.pass)).count();
     if ok_count == 0 {
         let b = &rep.builds[0];
@@ -284,7 +652,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             Ok(b) => b.outcome.why.clone(),
             Err(e) => e.clone(),
         };
-        return Ok(rep);
+        return rep;
     }
     // as for clocks: builds that disagree (other metrics, or failing) make the circuit position-
     // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`)
@@ -315,7 +683,10 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
+    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+        // no build fails but they disagree: name the first build whose metrics differ
+        rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
     rep.pass = true;
-    Ok(rep)
+    rep
 }

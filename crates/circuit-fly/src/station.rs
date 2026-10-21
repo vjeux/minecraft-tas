@@ -17,6 +17,56 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+/// The machine kicked from its other end: a 2 gt redstone block next to the sticky piston that
+/// faces against `travel` (the first free side cell touching no other piston), `travel` reversed.
+/// None when it has no such piston or no free cell for the kick.
+pub fn reversed(m: &Machine) -> Option<Machine> {
+    reversed_all(m).into_iter().next()
+}
+
+/// Every way to kick the machine from its other end: a 2 gt redstone block in each free side cell
+/// of the back-facing sticky piston (cells touching another piston last).
+pub fn reversed_all(m: &Machine) -> Vec<Machine> {
+    let Some(t) = m.travel else {
+        return Vec::new();
+    };
+    let back = [-t[0], -t[1], -t[2]];
+    let face = |d: Pos| match d {
+        [-1, 0, 0] => "west",
+        [1, 0, 0] => "east",
+        [0, -1, 0] => "down",
+        [0, 1, 0] => "up",
+        [0, 0, -1] => "north",
+        _ => "south",
+    };
+    let want = format!("facing={}", face(back));
+    let blocks = &m.design().blocks;
+    let pistons: Vec<Pos> = blocks.iter().filter(|(_, s)| s.contains("piston[") && !s.contains("piston_head")).map(|(p, _)| *p).collect();
+    let Some(s) = blocks.iter().find(|(_, st)| st.starts_with("minecraft:sticky_piston[") && st.contains(&want) && !st.contains("extended=true")).map(|(p, _)| *p) else {
+        return Vec::new();
+    };
+    let sides: [Pos; 6] = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
+    let near = |a: Pos, b: Pos| (0..3).map(|i| (a[i] - b[i]).abs()).sum::<i32>() == 1;
+    let mut cells: Vec<Pos> = sides.iter().map(|d| add(s, *d)).filter(|c| *c != add(s, back) && !blocks.contains_key(c) && !m.stops.iter().any(|(q, _)| q == c)).collect();
+    cells.sort_by_key(|c| pistons.iter().any(|p| *p != s && near(*p, *c)));
+    let mut out = Vec::new();
+    for cell in cells {
+        let mut d = m.design().clone();
+        d.name = format!("rev-{}", m.name());
+        d.ports.insert("start".into(), cell);
+        d.meta.insert("port start".into(), "minecraft:redstone_block 2".into());
+        d.meta.insert("travel".into(), format!("{} {} {}", back[0], back[1], back[2]));
+        let mut mm = m.clone();
+        let Ok(c) = clock::Clock::from_design(d) else {
+            continue;
+        };
+        mm.clock = c;
+        mm.travel = Some(back);
+        out.push(mm);
+    }
+    out
+}
+
 #[derive(Clone, Debug)]
 pub struct StationOptions {
     pub approach: i32,
@@ -94,6 +144,9 @@ struct Engine {
     /// A temporary kick block stands this many gt.
     kick_ticks: u32,
     travel: Pos,
+    /// The box the machine is looked for in each tick (set by the search: its path, the way
+    /// back and one cell around).
+    scan: (Pos, Pos),
 }
 
 fn engine(m: &Machine) -> Result<Engine> {
@@ -110,7 +163,7 @@ fn engine(m: &Machine) -> Result<Engine> {
     if m.clock.kick_at != 0 {
         bail!("station search: the kick must start at tick 0");
     }
-    Ok(Engine { cells, kick, kick_block, kick_ticks, travel })
+    Ok(Engine { cells, kick, kick_block, kick_ticks, travel, scan: ([0; 3], [0; 3]) })
 }
 
 /// Run the machine toward a station; Some((tick at the wall, tick back)) when it comes back.
@@ -158,13 +211,14 @@ fn run(e: &Engine, station: &[(Pos, Block)], o: &StationOptions, lo: Pos, hi: Po
             }
             return None;
         }
-        // the machine: every non-air cell that is not a station block in its own state (a
-        // station block that changed state stays out: observers firing, repeaters, dust)
+        // the machine: every non-air cell of the scan box (its path and one cell around: all
+        // motion is along the travel) that is not a station block in its own state (a station
+        // block that changed state stays out: observers firing, repeaters, dust)
         shape.clear();
         let mut moving = false;
-        for y in lo[1]..=hi[1] {
-            for z in lo[2]..=hi[2] {
-                for x in lo[0]..=hi[0] {
+        for y in e.scan.0[1]..=e.scan.1[1] {
+            for z in e.scan.0[2]..=e.scan.1[2] {
+                for x in e.scan.0[0]..=e.scan.1[0] {
                     let b = w.get(BlockPos::new(x, y, z));
                     if b.is_air() {
                         continue;
@@ -226,7 +280,7 @@ fn corner(ps: impl Iterator<Item = Pos>) -> Pos {
 
 /// The search.
 pub fn search(m: &Machine, o: &StationOptions) -> Result<Vec<Station>> {
-    let e = engine(m)?;
+    let mut e = engine(m)?;
     let mut pal: Vec<Block> = Vec::new();
     for s in &o.palette {
         let b = Block::parse(s).map_err(|er| anyhow::anyhow!("{er}"))?;
@@ -273,6 +327,11 @@ pub fn search(m: &Machine, o: &StationOptions) -> Result<Vec<Station>> {
             lo[i] -= o.back + 2;
         }
     }
+    // the scan box: the path (and the way back) with one cell around
+    let plo = corner(path.iter().copied());
+    let phi = [0, 1, 2].map(|i| path.iter().map(|p| p[i]).max().unwrap());
+    e.scan = ([0, 1, 2].map(|i| plo[i] - 1 - if t[i] > 0 { o.back + 1 } else { 0 }), [0, 1, 2].map(|i| phi[i] + 1 + if t[i] < 0 { o.back + 1 } else { 0 }));
+    let e = e;
     eprintln!("station search: {} wall cells, {} region cells, palette {}, k <= {}", walls.len(), region.len(), pal.len(), o.k);
     // jobs: (wall, first station cell index, its state) + the k = 0 wall alone
     let mut jobs: Vec<(Pos, Option<(usize, usize)>)> = Vec::new();

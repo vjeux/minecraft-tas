@@ -1,0 +1,28 @@
+# archived 2026-10-20T02:03Z from designs/clocks/tracks/clk-obs/families9/p6-bulb-note-obs-pis-rb-stk-7b-06072b.txt by mctas clock archive
+# CLOCK: clk-obs-p6-bulb-note-obs-pis-rb-stk-7b-06072b period 6 gt (0.3 s), on 2/6, edges 1, warmup 13, family copper_bulb+note_block+observer+piston+redstone_block+sticky_piston, 7 blocks, 1x5x2, robust
+name: clk-obs-p6-bulb-note-obs-pis-rb-stk-7b-06072b
+# clk-obs grow: P=6 (redsim), family note_block+observer+piston+redstone_block+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 10.
+origin: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 2 0
+port start: 0 0 0 last
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=down]
+  C minecraft:waxed_copper_bulb[lit=false,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  G minecraft:piston[extended=false,facing=down]
+layer -1:
+  A
+  .
+layer 0:
+  B
+  C
+layer 1:
+  D
+  E
+layer 2:
+  F
+  G

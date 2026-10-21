@@ -1,0 +1,25 @@
+# archived 2026-10-20T02:16Z from designs/clocks/tracks/clk-obs/families9/p80-note-obs-stk-8b-53e0db.txt by mctas clock archive
+# CLOCK: clk-obs-p80-note-obs-stk-8b-53e0db period 80 gt (4 s), on 36/80, edges 18, warmup 5, family note_block+observer+sticky_piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p80-note-obs-stk-8b-53e0db
+# clk-obs grow: P=80 (redsim), family note_block+observer+sticky_piston+stone, kick last 0 0 2, swept volume 12.
+origin: 0 0 0
+port output: 0 1 1
+port start: 0 0 2 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:stone
+layer 0:
+  A
+  B
+  C
+layer 1:
+  C
+  D
+  E
+layer 2:
+  B
+  D
+  .

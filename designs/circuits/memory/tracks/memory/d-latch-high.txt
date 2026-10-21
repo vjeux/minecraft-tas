@@ -1,6 +1,7 @@
-# D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt.
+# D latch, enable high, 5 blocks (track memory): repeater M carries d to q; comparator C in subtract mode points into M's side, with a redstone block behind it (15) and the enable input at its side, so C gives 15 - e: M is locked (holds q) while e is off and follows d while e is on. Latency 4 gt. A stack of them tiles with NO gap (`tile: 0 2 0`): a register column costs 5 blocks per bit.
 name: d-latch-high
 circuit: d-latch
+tile: 0 2 0
 port input.d: -1 1 2
 port input.e: -1 1 1
 port output: 1 1 2

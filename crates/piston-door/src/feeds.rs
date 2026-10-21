@@ -304,6 +304,12 @@ pub fn analyze_schedule_full(s: &Schedule, label: &str, bx: Option<(i32, i32, i3
     let regions: BTreeMap<char, usize> = region.values().map(|(l, n)| (*l, *n)).collect();
     out.push(format!("# door feeds {label} (box x {x0}..{x1}, y {y0}..{y1}; {} firings)", firings.len()));
     out.push(format!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" ")));
+    // each region's cells: an area's load (how many distinct ticks it must make, from how many
+    // cells) needs the cells themselves, not only their count (clk-item, 805d13559)
+    for l in regions.keys() {
+        let cells: Vec<String> = region.iter().filter(|(_, (rl, _))| rl == l).map(|(c, _)| format!("({},{})", c.0, c.1)).collect();
+        out.push(format!("# region {l}: {}", cells.join(" ")));
+    }
     out.push("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M".to_string());
     out.push("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)".to_string());
     if strict {

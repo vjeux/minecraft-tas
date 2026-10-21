@@ -17,6 +17,60 @@
   crates/door-redsim/src/cmd/fill.rs FillArgs since main's CLI refactor d7c0d3f3).
 
 ## Running on devvm49255 (logs in tracks/pockets/runs/; all killable, nothing else of mine)
+- BOX MOVED (01:40Z): devvm49255's lease ended at 01:49Z; the replacement is devvm59212.cln0.facebook.com (cloned
+  ~/agents/pockets/minecraft-tas from GitHub, built with ~/bin/cargo, JVM cache warmed by one `door verify`: the
+  first selftest on a fresh box fails 3 JVM checks while two checks download Java/the server at once; full selftest
+  35/35 after). Nothing was in flight worth restarting: the 6x7 satwire runs had already answered (UNSAT, one-piston
+  cores) and c70b asked to wait for its next variants (mechmut --outside-only, FULL frames filled).
+- Recipes for designers' sub-56 plans: pockets --box enlarged to hold the plan's inputs outside the volume (they were
+  silently dropped: seed 9/79) + --focus = the volume, --offplane, --between-ticks, --max-ticks 240; satwire
+  --rec-ticks >= open ticks + settle (default 80 recorded c70b's 99-tick opens unfinished: false frame errors);
+  statics must be the door material (smooth-stone statics fail the record frame rule): my svc copies turn them to
+  stone. c70b's 6x9 recipe: `door satwire <plan> --keep-wiring --lever-on --lever='5,1,0' --box=-1,-3,0:4,5,0
+  --full-frame --forbid-ring --update-order --exact-order --dmax 8 --skip 8 --hold auto --free-order --retime
+  --palette block,dust,rep,obs,torch,note,bulb,cmp,lamp,trapdoor,dropper,glass,leaves,upiston,wool --first`.
+- Group masks are u128 now (up to 128 plan groups; c70b's mm02/mm03 have 69).
+- Pockets prints a POCKET LOAD line per pocket (10be184f): forced inputs + distinct pulse ticks; quick report with
+  `--k 1 --only-pockets 99`. The lever port cell is a wiring cell again without --keep-lever (56fb440b). ISLAND START
+  (ad9c171c): per lever pocket, the pockets that can never fire (run it first on any designer plan).
+- Screens since the box move (all satwire UNSAT, one-piston cores, reported to the senders): c70b 6x7-in2
+  (core (0,-2)), d67 q7 (0,-2), c70b t1-r22 7x7 ((-1,4): its lever at (0,5) QC-powers SD (-1,4)/(1,4)), pext's
+  one-trains (w1k2 (1,-2); m69T-mm02 x8: top-left / bottom-left / top-middle), w86 6x8 s1 ((3,3) solid; with
+  sculk in (-1,4) + the bottom-left trio: (0,4) close).
+- Later (01:00-04:15Z): c70b u0-7x7 (core (1,-2)), u2-7x7 ((-2,0); (0,-2) load fixed to 2 ticks), pext u2-train-isl
+  (islands OK with the lever top-left; pockets k=4 2 of 12 real; (-1,-2) fires 9x), d67 u0-s0 with sculk in the
+  bottom-right (everything else ideal: core SU(2,-2)), clockinfra macrosat m86-a 8x6 (core (3,-1); retracted by
+  clockinfra, which now encodes the lever-level / static-conductor / per-region-budget rules). clk-misc's exact
+  lever screen: `door ideal-rs <plan> --vary 'x,y,z=lever[...]'` + `open 0 use` / `close 0 use`.
+- Waiting for: c70b's island-start-0 mechmut variants, macrosat's next exports, pext's budgeted trains.
+- 10-20 19:10-22:00Z: fly's 6x8/6x9 family (q68, q68c/e/f/g, q69h/i/j/m, r69, r69t; svc/flyq68/): satwire cores Pl /
+  Qv / A@(2,-1); satwire can't model fly's carried observer O (drops it as wiring). Island check made per edge with
+  causal attribution (83c5a94c) + --why-islands; --pin-assist inputs count as given (dbc67d5c). q69m passes islands
+  once B1 is free (lever top-right); exhaustive pockets k=4 per area drives almost nothing (pulse shapes). fly's
+  structural result: one-sided 6-wide 54s leave a blind corner (only the lever can start it); fly moved to 7-wide.
+- 10-20 22:00-23:00Z: m69T with fly: the right stack is timing-free (R0 any q, R1+R2 any r in 0..40; R2 must
+  flip at t0-1 as a toggle but not as a level); one lever holds two stack pistons (gadget 1, now in the FEED report);
+  islands: m69T's areas form two groups (top: sealed top-left + top-right via (1,5); bottom: bottom-left +
+  bottom-right via B (0,-3)) with no visible link, for p33/bl3 and fly's bot6/top6 trains (the groups must start
+  within 2 ticks; a crossing takes 3-4); fly stopped on m69T (needs a riding observer: asked clockinfra to put
+  movable/riding observers into macrosat). Island fix e0dbcdd4: flip-time inputs are given only with the lever
+  outside the pockets (before, a pocket lever "held" the stack too: one wrong claim to fly, corrected).
+- 10-20 23:00-02:40Z: SCULK islands (2da69fe6d `--sculk-islands`: a sensor may start any area from the lever flip
+  or a piston vibration within 8, tick + floor(dist) + 1; NECESSARY condition only: no echo/re-arm, clk-item showed
+  real sensors re-fire on the door's own moves, so the pocket screens with `sculk,calibrated,wool` in --fill-palette
+  are the real test). 1e2298232: an OUTSIDE lever gives only LEVELS of pistons beside the lever port or QC-reached
+  (not every flip-time input; set `port lever` to the real spot, e.g. (5,2) on m69T's R2 back, (-3,1) on s69's L1).
+  m69T bot6 (+6 shift, faithful lever stand-in only at (5,2), R0 own level t20, clk-rt's 3 spare drops:
+  svc/pext/m69T-bot6-k6-lvs.ideal WORKS): islands pass with sensors, but satwire (sensors) core R0 (edge memory) and
+  the sealed top-left (5 ticks/edge) + bottom-left (4/edge) drive nothing even with sensors: m69T line closed.
+  Old z1 plans with an input behind R1 QC'd R0 (artifact). Screens with sensors (k=4 exhaustive): q69h top-left
+  nothing; q69c top-left + A fully, bottom-left nothing (also q69c-blp), top-right nothing; q69c-sh0p (shuttle feeds
+  Qv: every piston fed; solid islands: one blind 1-cell corner) top-left fully, B1 o30 only, corner/top-right nothing.
+  s69r (clk-rt riding observer): with sensors the corner starts; the top's t0 pulses (L2, P_T) and the lift's o2
+  still need flip-time sources. mm01z: B (1,-2) unfed, early close pulses. Merged main (door shuttle).
+- 10-21 06:05-06:16Z (coordinator, vjeux's question): new `door layouts --size 7x8x1 [--category]` (a1f30f6a1,
+  layouts.rs; caches only, ~15 s): 444 working 7x8x1 doors use 40 piston layouts = 2 cores (e78: 39 layouts / 361
+  doors, the rest are e78 + 1-2 fill pistons; community 56b: 83 doors), 0 mirror pairs. tracks/pockets/layouts-7x8x1*.md.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):

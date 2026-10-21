@@ -1,0 +1,354 @@
+//! Study 14: combination locks (`circuit: lock N`).
+//!
+//! The player's dials are N item frames holding an item (`port input.d0: x y z frame`, d0..d<N-1>):
+//! a right-click turns a frame's item one step of 8, and a comparator reading the frame through
+//! the block it hangs on gives rotation + 1 (`ItemFrame.getAnalogOutput`). The code is set the
+//! same way, by N code frames (`port input.k0: x y z frame`, one per dial): the lock opens
+//! when every dial shows its code frame's rotation.
+//!
+//! The judge turns the frames like a player: one right-click with an empty hand per step (the
+//! bridge's `use_entity`, `ItemFrame.interact` -> `setRotation(r + 1)`, which updates the
+//! comparators reading it; rewriting the frame's data would not). It tries EVERY combination of
+//! the dials (an odometer, [`STEP`] ticks per combination), then sets a second code by turning
+//! every code frame 3 steps and tries every combination again. The output must be on exactly at
+//! the code and off everywhere else: in each combination it may change once, from what the
+//! previous combination showed to what this one must show, and must have settled before the next
+//! click (no flicker while turning, no false open on the way through).
+
+use crate::check::{Outcome, Sizing};
+use crate::stimulus::Schedule;
+use crate::trace::Trace;
+use crate::{Circuit, InputHow};
+use anyhow::{bail, Result};
+
+/// Ticks each combination is held: the lock must settle within it (2 s: the coordinator's call,
+/// compactness beats speed for a lock; a comparator bus takes about 2 gt per dial).
+pub const STEP: u32 = 40;
+/// Steps each code frame turns to set the second code.
+const RECODE: u8 = 3;
+
+/// The dials' and the code frames' input indices, in digit order.
+fn frames(c: &Circuit, n: u32) -> (Vec<usize>, Vec<usize>) {
+    let find = |p: &str, i: u32| c.inputs.iter().position(|x| x.name == format!("{p}{i}"));
+    let dials = (0..n).filter_map(|i| find("d", i)).collect();
+    let keys = (0..n).filter_map(|i| find("k", i)).collect();
+    (dials, keys)
+}
+
+/// Ports of a `lock N`: dials d0..d<N-1> and code frames k0..k<N-1>, every one a `frame` input,
+/// and one output.
+pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
+    if n == 0 || n > 6 {
+        bail!("lock {n}: 1 to 6 dials (8^N combinations are tried)");
+    }
+    let (dials, keys) = frames(c, n);
+    if dials.len() != n as usize || keys.len() != n as usize || c.inputs.len() != 2 * n as usize {
+        let names: Vec<_> = c.inputs.iter().map(|i| i.name.as_str()).collect();
+        bail!("lock {n}: needs inputs d0..d{} (the dials) and k0..k{} (their code frames), nothing else; has {names:?}", n - 1, n - 1);
+    }
+    for i in &c.inputs {
+        if !matches!(i.how, InputHow::Frame { .. }) {
+            bail!("lock {n}: input {} must be an item frame (`port input.{}: x y z frame`)", i.name, i.name);
+        }
+    }
+    if c.outputs.len() != 1 {
+        bail!("lock {n}: needs exactly one output (on while the lock is open)");
+    }
+    Ok(())
+}
+
+fn rotation(c: &Circuit, i: usize) -> u8 {
+    match c.inputs[i].how {
+        InputHow::Frame { rotation } => rotation,
+        _ => 0,
+    }
+}
+
+fn digits(v: &[u8]) -> String {
+    v.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("")
+}
+
+/// Every combination of the dials (twice: the built code, then a code reset by the code frames).
+/// Each phase is one combination: `dials 3517 code 3517 open` / `... shut`.
+pub fn stimulus(c: &Circuit, n: u32, _z: &Sizing) -> Schedule {
+    let mut s = Schedule::new(c.inputs.len());
+    let (dials, keys) = frames(c, n);
+    let mut rot: Vec<u8> = (0..c.inputs.len()).map(|i| rotation(c, i)).collect();
+    let mut t = c.clock.free_from() + 40;
+    for round in 0..2 {
+        if round == 1 {
+            // the player sets a new code: every code frame turned RECODE steps, one click each
+            for &k in &keys {
+                for _ in 0..RECODE {
+                    rot[k] = (rot[k] + 1) % 8;
+                    s.levels.push((t, k, rot[k]));
+                    t += 4;
+                }
+            }
+            t += 40;
+        }
+        let code: Vec<u8> = keys.iter().map(|&k| rot[k]).collect();
+        let start: Vec<u8> = dials.iter().map(|&d| rot[d]).collect();
+        let total = 8u32.pow(n);
+        for step in 0..total {
+            if step > 0 {
+                // odometer: dial 0 one step; a dial back at its start carries into the next one
+                for (j, &d) in dials.iter().enumerate() {
+                    rot[d] = (rot[d] + 1) % 8;
+                    s.levels.push((t, d, rot[d]));
+                    if rot[d] != start[j] {
+                        break;
+                    }
+                }
+            }
+            let now: Vec<u8> = dials.iter().map(|&d| rot[d]).collect();
+            let open = now == code;
+            s.phase(t, t + STEP, format!("dials {} code {} {}", digits(&now), digits(&code), if open { "open" } else { "shut" }));
+            t += STEP;
+        }
+        t += 20;
+    }
+    s.ticks = t;
+    s
+}
+
+/// The output per combination: settled to its value before the next click, at most one change
+/// in each combination (from the previous combination's value to this one's).
+pub fn check(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
+    let frames = t.frames();
+    let on = |f: usize| f < frames && t.on(0, f);
+    let mut table = Vec::new();
+    let (mut open_lat, mut close_lat, mut tried, mut opened) = (0usize, 0usize, 0usize, 0usize);
+    let mut prev: Option<bool> = None;
+    let mut prev_end = 0u32;
+    for (a, b, label) in &s.phases {
+        let want = label.ends_with(" open");
+        let (a, b) = (*a as usize, (*b as usize).min(frames));
+        if a >= b {
+            return Outcome::fail(format!("the run ended before {label}"), table);
+        }
+        // a phase right after a gap (the code being set) starts from whatever the lock shows
+        let from = if a as u32 == prev_end { prev } else { None };
+        let seq: Vec<bool> = (a..b).map(on).collect();
+        let changes = seq.windows(2).filter(|w| w[0] != w[1]).count();
+        if seq.last() != Some(&want) {
+            table.extend(states(c, t, b - 1));
+            return Outcome::fail(
+                format!("{label}: the output is {} at the end of the combination ({} gt after the click), want {}", onoff(*seq.last().unwrap_or(&false)), b - a, onoff(want)),
+                table,
+            );
+        }
+        let first = seq.first().copied().unwrap_or(false);
+        let flicker = changes > 1 || (changes == 1 && from == Some(want)) || (from.is_some_and(|p| p != first) && first != want);
+        if flicker {
+            let at: Vec<String> = seq.iter().enumerate().filter(|(i, v)| *i == 0 || seq[i - 1] != **v).map(|(i, v)| format!("{} at +{i}", onoff(*v))).collect();
+            return Outcome::fail(format!("{label}: the output flickers while turning ({})", at.join(", ")), table);
+        }
+        // latency: the first frame from which the output stays at its value
+        let lat = seq.iter().rposition(|v| *v != want).map(|i| i + 1).unwrap_or(0);
+        if want && from == Some(false) {
+            open_lat = open_lat.max(lat);
+            opened += 1;
+            table.push(format!("{label} after {lat} gt"));
+        }
+        if !want && from == Some(true) {
+            close_lat = close_lat.max(lat);
+            table.push(format!("{label} after {lat} gt"));
+        }
+        tried += 1;
+        prev = Some(want);
+        prev_end = b as u32;
+    }
+    let codes = s.phases.iter().filter(|p| p.2.ends_with(" open")).count();
+    if opened != codes || codes != 2 {
+        return Outcome::fail(format!("lock {n}: opened at {opened} of {codes} codes (2 codes tried)"), table);
+    }
+    let metrics = vec![
+        ("dials".to_string(), format!("{n}")),
+        ("combinations tried".to_string(), format!("{tried} ({} per code, 2 codes)", 8usize.pow(n))),
+        ("opens within".to_string(), format!("{open_lat} gt")),
+        ("closes within".to_string(), format!("{close_lat} gt")),
+    ];
+    Outcome { pass: true, why: String::new(), metrics, table }
+}
+
+/// One dial of the `lock N` family as cells relative to its main row (z) at component level `h`:
+/// (x, y, z, block letter of `alt_design`'s palette), plus its two frames (cell, code?). With
+/// `mirror` the W row is north of the main row instead of south.
+fn dial_cells(dx: i32, h: i32, z: i32, mirror: bool) -> (Vec<((i32, i32, i32), char)>, [(i32, i32, i32); 2]) {
+    let s = h - 1;
+    let w = if mirror { z - 1 } else { z + 1 };
+    let c = vec![
+        ((dx - 2, h, z), 'S'),
+        ((dx - 1, h, z), 'T'),
+        ((dx, h, z), 'w'),
+        ((dx - 1, s, z), 'S'),
+        ((dx, s, z), 'S'),
+        ((dx + 1, s, z), 'A'),
+        ((dx + 2, s, z), 'b'),
+        ((dx + 2, s - 1, z), 'S'),
+        ((dx - 3, h, w), 'S'),
+        ((dx - 2, h, w), 'T'),
+        ((dx - 1, h, w), 'w'),
+        ((dx, h, w), 'T'),
+        ((dx + 1, h, w), 'S'),
+        ((dx + 2, h, w), 'A'),
+        ((dx - 2, s, w), 'S'),
+        ((dx - 1, s, w), 'S'),
+        ((dx, s, w), 'S'),
+        ((dx + 2, s, w), 'b'),
+        ((dx + 2, s - 1, w), 'S'),
+    ];
+    (c, [(dx - 3, h, z), (dx - 4, h, w)])
+}
+
+/// A lock from dial placements (dx, h, z, mirror): the cells merged (a cell two dials share must be
+/// stone in both), the output torch west of the first dial's bus-end support. `None` on a clash
+/// (two different blocks in a cell, a frame cell taken, two frames in one cell).
+pub fn placed_design(dials: &[(i32, i32, i32, bool)]) -> Option<(String, usize, i64)> {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut frames: Vec<((i32, i32, i32), u8)> = Vec::new();
+    for (i, &(dx, h, z, m)) in dials.iter().enumerate() {
+        let (c, f) = dial_cells(dx, h, z, m);
+        for (p, b) in c {
+            match cells.get(&p) {
+                // two dials may share a stone, or a bus dust ('b': the bus is one OR network)
+                Some(&o) if o != b || (b != 'S' && b != 'b') => return None,
+                _ => {
+                    cells.insert(p, b);
+                }
+            }
+        }
+        frames.push((f[0], 0));
+        frames.push((f[1], codes[i % codes.len()]));
+    }
+    let (dx0, h0, z0, _) = dials[0];
+    let o = (dx0 + 1, h0 - 2, z0);
+    if cells.contains_key(&o) {
+        return None;
+    }
+    cells.insert(o, 'O');
+    for (k, (p, _)) in frames.iter().enumerate() {
+        if cells.contains_key(p) || frames[..k].iter().any(|(q, _)| q == p) {
+            return None;
+        }
+    }
+    let n = dials.len();
+    let lo = |f: fn(&(i32, i32, i32)) -> i32| cells.keys().map(f).min().unwrap_or(0);
+    let hi = |f: fn(&(i32, i32, i32)) -> i32| cells.keys().map(f).max().unwrap_or(0);
+    let (x0, y0, z0b) = (lo(|p| p.0), lo(|p| p.1), lo(|p| p.2));
+    let (x1, y1, z1) = (hi(|p| p.0), hi(|p| p.1), hi(|p| p.2));
+    let volume = ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0b + 1)) as i64;
+    let mut out = format!("name: lock{n}-search\ncircuit: lock {n}\n");
+    for (i, k) in (0..n).zip(frames.chunks(2)) {
+        out += &format!("port input.d{i}: {} {} {} frame\nport input.k{i}: {} {} {} frame\n", k[0].0.0, k[0].0.1, k[0].0.2, k[1].0.0, k[1].0.1, k[1].0.2);
+    }
+    out += &format!("port output: {} {} {}\n", o.0, o.1, o.2);
+    let item = "Item:{id:\"minecraft:arrow\",count:1}";
+    for (p, r) in &frames {
+        // a cell's center is x + 0.5 (-2.5 for x = -3, not "-3.5")
+        out += &format!("entity: minecraft:item_frame {} {} {} {{Facing:4b,{item},ItemRotation:{r}b}}\n", p.0 as f64 + 0.5, p.1 as f64 + 0.5, p.2 as f64 + 0.5);
+    }
+    out += &format!("origin: {x0} 0 {z0b}\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n");
+    for y in y0..=y1 {
+        out += &format!("layer {y}:\n");
+        for z in z0b..=z1 {
+            let row: String = (x0..=x1).map(|x| match cells.get(&(x, y, z)).copied().unwrap_or('.') { 'b' => 'w', c => c }).collect();
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    // blocks as the judge counts them: the cells plus the frames
+    Some((out, cells.len() + frames.len(), volume))
+}
+
+fn onoff(v: bool) -> &'static str {
+    if v { "on" } else { "off" }
+}
+
+/// The `lock N` family (clk-item, study 14): lock3-alt's pattern for any N. Each dial is 2 rows:
+/// T = compare(dial frame, code) in the main row with its dust D1 (a torch on D1's support
+/// catches "too low"), and W = compare(code, D1) beside the code dust (a torch on W's front block
+/// catches "too high"). Both torches feed one dust bus under them. The code comparator K reads its
+/// frame from the west, so all frames hang on the west wall. Odd dials sit one level lower, so a
+/// comparator's side next to another dial faces a plain support block (no spacer rows); the bus
+/// steps down and up diagonally. The output torch hangs on the support under the bus's north end.
+pub fn alt_design(n: u32) -> String {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut ports = Vec::new();
+    let mut ents = Vec::new();
+    for i in 0..n as i32 {
+        let z = 2 * i;
+        let h = if i % 2 == 0 { 3 } else { 2 };
+        let s = h - 1;
+        for (p, c) in [
+            ((-2, h, z), 'S'),
+            ((-1, h, z), 'T'),
+            ((0, h, z), 'w'),
+            ((-1, s, z), 'S'),
+            ((0, s, z), 'S'),
+            ((1, s, z), 'A'),
+            ((2, s, z), 'w'),
+            ((2, s - 1, z), 'S'),
+            ((-3, h, z + 1), 'S'),
+            ((-2, h, z + 1), 'T'),
+            ((-1, h, z + 1), 'w'),
+            ((0, h, z + 1), 'T'),
+            ((1, h, z + 1), 'S'),
+            ((2, h, z + 1), 'A'),
+            ((-2, s, z + 1), 'S'),
+            ((-1, s, z + 1), 'S'),
+            ((0, s, z + 1), 'S'),
+            ((2, s, z + 1), 'w'),
+            ((2, s - 1, z + 1), 'S'),
+        ] {
+            cells.insert(p, c);
+        }
+        ports.push(format!("port input.d{i}: -3 {h} {z} frame"));
+        ports.push(format!("port input.k{i}: -4 {h} {} frame", z + 1));
+        let item = "Item:{id:\"minecraft:arrow\",count:1}";
+        ents.push(format!("entity: minecraft:item_frame -2.5 {h}.5 {z}.5 {{Facing:4b,{item},ItemRotation:0b}}"));
+        ents.push(format!("entity: minecraft:item_frame -3.5 {h}.5 {}.5 {{Facing:4b,{item},ItemRotation:{}b}}", z + 1, codes[i as usize % codes.len()]));
+    }
+    // the output torch on the west face of the support under the bus's north end
+    cells.insert((1, 1, 0), 'O');
+    let (y0, y1) = (cells.keys().map(|p| p.1).min().unwrap_or(0), cells.keys().map(|p| p.1).max().unwrap_or(0));
+    let z1 = 2 * n as i32 - 1;
+    let mut out = format!(
+        "name: lock{n}-alt\n# Combination lock, {n} dial{} (study 14, `mctas circuit lock-gen --n {n}`): two comparators per dial, all frames on the west wall; the same 2-row pattern for any number of dials (21 blocks per dial, plus the output torch).\ncircuit: lock {n}\ngroup: lock-alt\ngroup title: Combination lock (any number of dials)\ngroup note: two comparators per dial (the dial at least the code, the code at least the dial), a torch for each failure on one dust bus; 21 blocks and 2 rows per dial (`mctas circuit lock-gen --n N`)\n",
+        if n == 1 { "" } else { "s" }
+    );
+    for p in &ports {
+        out += &format!("{p}\n");
+    }
+    out += "port output: 1 1 0\n";
+    for e in &ents {
+        out += &format!("{e}\n");
+    }
+    out += &format!("origin: -3 0 0\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n");
+    // `layer N` is relative to the origin, which stays at y = 0 so the labels are the frames' y
+    for y in y0..=y1 {
+        out += &format!("layer {y}:\n");
+        for z in 0..=z1 {
+            let row: String = (-3..=2).map(|x| cells.get(&(x, y, z)).copied().unwrap_or('.')).collect();
+            // an all-air row keeps one '.': the parser skips blank lines (the rows would shift)
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    out
+}
+
+/// The design's redstone components at frame `f` (a failure's evidence: what each comparator
+/// read and gave).
+fn states(c: &Circuit, t: &Trace, f: usize) -> Vec<String> {
+    let mut v = vec![format!("components at frame {f}:")];
+    for p in c.clock.design.blocks.keys() {
+        if let Some(s) = t.state(f, *p).filter(|s| ["comparator", "repeater", "wire", "torch", "lamp"].iter().any(|k| s.contains(k))) {
+            v.push(format!("  {p:?} {}", s.trim_start_matches("minecraft:")));
+        }
+    }
+    v
+}

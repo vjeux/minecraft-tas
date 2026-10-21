@@ -1,0 +1,27 @@
+# archived 2026-10-20T02:03Z from designs/clocks/tracks/clk-obs/families9/p6-bulb-obs-pis-8b-d4d534.txt by mctas clock archive
+# CLOCK: clk-obs-p6-bulb-obs-pis-8b-d4d534 period 6 gt (0.3 s), on 2/6, edges 1, warmup 33, family copper_bulb+observer+piston, 8 blocks, 1x4x3, robust
+name: clk-obs-p6-bulb-obs-pis-8b-d4d534
+# clk-obs grow: P=6 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
+origin: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 2 2
+port start: 0 1 0 last
+palette:
+  A minecraft:piston[extended=false,facing=up]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:piston[extended=false,facing=down]
+  D minecraft:observer[facing=north,powered=false]
+  E minecraft:waxed_copper_bulb[lit=false,powered=false]
+  F minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
+  C
+layer 1:
+  B
+  D
+  E
+layer 2:
+  .
+  D
+  F

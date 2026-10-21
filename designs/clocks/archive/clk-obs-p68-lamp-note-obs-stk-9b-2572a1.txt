@@ -1,0 +1,40 @@
+# archived 2026-10-20T02:01Z from designs/clocks/tracks/clk-obs/families9/p68-lamp-note-obs-stk-9b-2572a1.txt by mctas clock archive
+# CLOCK: clk-obs-p68-lamp-note-obs-stk-9b-2572a1 period 68 gt (3.4 s), on 24/68, edges 12, warmup 12, family note_block+observer+redstone_lamp+sticky_piston, 9 blocks, 1x6x3, robust
+name: clk-obs-p68-lamp-note-obs-stk-9b-2572a1
+# clk-obs grow: P=68 (redsim), family note_block+observer+piston+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 18.
+origin: 0 0 -1
+port output: 0 0 0
+port start: 0 0 0 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:observer[facing=down,powered=false]
+  E minecraft:piston[extended=false,facing=east]
+  F minecraft:redstone_lamp[lit=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+  H minecraft:note_block[instrument=basedrum,note=0,powered=false]
+layer -1:
+  A
+  .
+  .
+layer 0:
+  B
+  C
+  .
+layer 1:
+  .
+  D
+  E
+layer 2:
+  .
+  F
+  G
+layer 3:
+  .
+  .
+  D
+layer 4:
+  .
+  .
+  H

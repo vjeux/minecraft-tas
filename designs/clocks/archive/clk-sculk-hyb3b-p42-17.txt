@@ -3,7 +3,8 @@
 # A plain sculk sensor watched by a chain of 2 observer(s) (each watching the previous); a piston at the last output, 2 from the sensor (travel time): the observers' pulse after the sensor re-arms is heard; plus a sticky piston beside the chain (moves parts of it: the hybrid)
 name: clk-sculk-hyb3b-p42-17
 # how: obs plain k=2 path 1,0,0 1,-1,0 emitter piston-east at the output (travel 2) + sticky_piston[extended=false,facing=west] at 2,-1,0
-port output: 0 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: -1 0 0
 port start: 0 -2 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

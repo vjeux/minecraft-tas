@@ -1,0 +1,27 @@
+# archived 2026-10-20T17:26Z from designs/circuits/tracks/bud/wr/bud-torch-dropper.txt by mctas circuit archive
+# CIRCUIT: bud-torch-dropper bud detects place remove, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, tileable every 1 (0 0 1), 3 blocks, 2x2x1, robust
+name: bud-torch-dropper
+circuit: bud
+# Tells when a block appears or disappears at the target, sensing that one cell only (nothing
+# around it sets it off) and ignoring the target's own changes: 3 blocks, and copies stand side by
+# side every block. A torch under the target powers any solid block placed there, that block powers
+# the dropper beside it, and the observer watching the dropper fires when the dropper's powered
+# flag changes. Detail: the flag is set and cleared by that very update (a flags-2 change); turning
+# the block in place keeps it powered, a change by shape alone or a pure update changes nothing:
+# not detected. The output is the observer's own pulse. Found by `mctas circuit bud census --k 3`;
+# the empty dropper clicks when it fires.
+group: torch-presence
+group note: a redstone torch under the target powers a solid block placed there; that block powers a follower beside it (a dropper or a lamp) that an observer watches; only the target cell senses (footprint 1)
+group title: Torch presence detector
+tile: 0 0 1
+port output: -1 -1 0
+port target: 0 0 0
+origin: -1 0 0
+palette:
+  D minecraft:dropper[facing=up,triggered=false]
+  O minecraft:observer[facing=up,powered=false]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+layer -1:
+  OR
+layer 0:
+  D

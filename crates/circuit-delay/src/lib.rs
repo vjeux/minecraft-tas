@@ -201,6 +201,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ("extend group title", f.gtitle.to_string()),
                 ("extend group period", f.gaxis.to_string()),
                 ("extend group note", f.gnote.to_string()),
+                // a line of repeaters (the base and every member) tiles side by side at pitch 1:
+                // judged in the game for all four bases (2026-10-20); regenerating dropped it once
+                ("tile", if name.starts_with("rep") { "0 0 1".to_string() } else { String::new() }),
             ] {
                 if !v.is_empty() {
                     b.meta.insert(k.to_string(), v);
@@ -358,18 +361,20 @@ pub fn delay_census(sp: &census::Space, max_n: u32, threads: usize) -> std::coll
             if seen.lock().unwrap().get(&r).is_some_and(|s| s.0 <= blocks.len() as u32) {
                 continue;
             }
-            // minimal: removing any free block changes the delay at that output
-            let minimal = (nfixed..blocks.len()).all(|i| {
-                let less: Vec<(harness::Pos, redsim::Block)> = blocks.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, b)| *b).collect();
-                !judge(&less, Some(oi)).iter().any(|&(_, r2, f2)| r2 == r && f2 == f)
-            });
-            if !minimal {
-                continue;
-            }
             // the official judge's redsim screen: every pulse and gap of its stimulus in one run
+            // (and the lamp in the output cell)
             let d = judge::design("candidate", "delay", blocks, &[("input".to_string(), sp.inputs[0])], outs[oi]);
             let Some((true, metrics, _)) = judge::judge_sim(d) else { continue };
             if !metrics.starts_with(&format!("N {r} gt")) {
+                continue;
+            }
+            // minimal: without any one of its free blocks the judge refuses it (or gives another N)
+            let minimal = (nfixed..blocks.len()).all(|i| {
+                let less: Vec<(harness::Pos, redsim::Block)> = blocks.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, b)| *b).collect();
+                let d = judge::design("candidate", "delay", &less, &[("input".to_string(), sp.inputs[0])], outs[oi]);
+                !matches!(judge::judge_sim(d), Some((true, m, _)) if m.starts_with(&format!("N {r} gt")))
+            });
+            if !minimal {
                 continue;
             }
             let num = |key: &str| -> u32 { metrics.split(", ").find_map(|kv| kv.strip_prefix(key)).and_then(|v| v.trim_end_matches(" gt").trim().parse().ok()).unwrap_or(99) };

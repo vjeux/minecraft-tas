@@ -1,0 +1,31 @@
+# archived 2026-10-20T13:32Z from designs/circuits/tracks/pulse/wr/pulse-fall-sculk-L30.txt by mctas circuit archive
+# CIRCUIT: pulse-fall-sculk-L30 falling-edge L 30 gt, delay 8 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no, 4 blocks, 2x1x10, robust
+name: pulse-fall-sculk-L30
+circuit: falling-edge
+# One 30-tick pulse (1.5 seconds) every time the input turns OFF, for quiet builds, in 4 blocks: a
+# trapdoor closes when the input turns off, a first sound sensor that listens only while the input
+# is off hears it and makes a note block play, and a second sensor 7 blocks away hears that note
+# (but not the trapdoor, 9 blocks away, out of its range) and switches on for 30 ticks. It needs a
+# spot where nobody walks or drops items nearby. The smallest 30 gt falling-edge detector; it sees
+# 1-tick inputs.
+# Detail: the calibrated sensor's back touches the input (deaf while it is on, so it hears only
+# block_close); the plain sensor's listener radius is 8, active 30 gt.
+origin: 0 0 0
+port input: 0 0 0
+port output: 1 0 9
+palette:
+  T minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
+  K minecraft:calibrated_sculk_sensor[facing=south,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer 0:
+  .T
+  K.
+  N.
+  ..
+  ..
+  ..
+  ..
+  ..
+  ..
+  S.

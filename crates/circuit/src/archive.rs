@@ -1,8 +1,9 @@
 //! The archive and the catalog of the contraption studies. `mctas circuit archive` judges a design
 //! in the real game and keeps it in `designs/circuits/<study>/archive/` (the design with its judge
 //! line, a row of `verdicts.tsv`, a caption in `captions.tsv`); `mctas circuit catalog` writes, per
-//! study, `CATALOG.md` (by the study's axis, smallest first; a design that only adds block kinds to
-//! a smaller one with the same axis value is a variant, listed on `variants.md`), the index
+//! study, `CATALOG.md` (by the study's axis, smallest first; a design with no fewer blocks than
+//! another with the same axis value and no better on any variation, whatever its block kinds, is a
+//! variant, listed on `variants.md`), the index
 //! `designs/circuits/CATALOG.md`, and the data the website renders: `designs/circuits/catalog.tsv`.
 
 use crate::check::Outcome;
@@ -18,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 7] = [
+pub const STUDIES: [(&str, &str); 14] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -26,6 +27,13 @@ pub const STUDIES: [(&str, &str); 7] = [
     ("memory", "Memory"),
     ("pext", "Piston extenders"),
     ("fly", "Flying machines"),
+    ("shulker", "Shulker loaders and unloaders"),
+    ("tnt", "TNT dupers"),
+    ("bud", "BUD switches"),
+    ("pulsemult", "Pulse multipliers, dividers and monostables"),
+    ("compute", "Computational redstone"),
+    ("sorter", "Item sorters"),
+    ("lock", "Combination locks"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -140,6 +148,213 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Whether design `b` keeps its own card over `a` (same kind and axis value): `b` does better than
+/// `a` on a variation a builder would choose on (coordinator 2026-10-20). The dominance fold folds
+/// a design under any other with no more blocks that it does not beat this way, whatever its
+/// block palette (vjeux 2026-10-20: palette alone is never a distinction), and a design that is
+/// not robust under a robust one ([`clock::catalog::fold_hosts_robust`]).
+/// Shulker kinds: the flow (`items/s`, higher), the badges (one `a` lacks) and `hoppers awake`
+/// (lag, fewer). BUD switches: a denser `tileable` pitch (or tileable where the host is not),
+/// `latency`, `re-arm`, `footprint` (lower) and no `jams`; a `fragile` one never wins. TNT dupers:
+/// precise, launched, dropped, stationary. Every other kind ([`beats_generic`]): a lower latency /
+/// delay / min-pulse / min-period / re-arm / extend / retract..., a higher speed, a denser
+/// `tileable` pitch (or tileable at all), a different value of a metric with no better direction
+/// (an edge, a class, an output shape, a pulse length), no glitches where `a` has some, flat where
+/// `a` is not. Never a distinction: the materials (slime-free...), a lower box that is not flat.
+pub fn beats_on_variation(b: &Row, a: &Row) -> bool {
+    let get = |r: &Row, k: &str| r.metrics.split(", ").find_map(|m| m.strip_prefix(k).map(|v| v.trim().to_string()));
+    let num = |r: &Row, k: &str| get(r, k).and_then(|v| v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()));
+    // a BUD (same detected classes): faster, re-arms sooner, a smaller footprint, or does not jam
+    // where the host does (study 10)
+    if b.kind == "bud" && a.kind == "bud" {
+        if get(b, "fragile ").is_some() {
+            return false;
+        }
+        let less = |k: &str| matches!((num(b, k), num(a, k)), (Some(x), Some(y)) if x < y);
+        // tiles denser (or at all, where the host does not)
+        let tile = |r: &Row| num(r, "tileable every ");
+        if tile(b).is_some_and(|tb| tile(a).is_none_or(|ta| tb < ta)) {
+            return true;
+        }
+        return less("latency ") || less("re-arm ") || less("footprint ") || (get(b, "jams ").is_none() && get(a, "jams ").is_some());
+    }
+    // TNT dupers (study 9): a PRECISE or SURVIVABLE duper (every TNT at one point at fuse 1; intact
+    // under its own explosions) keeps its own card over a smaller one that is not (slime-free is a
+    // material restriction, no distinction: coordinator 2026-10-20)
+    if b.kind.starts_with("tnt-duper") && a.kind.starts_with("tnt-duper") {
+        let has = |r: &Row, k: &str| r.summary.contains(k);
+        return ["(precise", "launched at", "dropped:", "stationary:"].iter().any(|k| has(b, k) && !has(a, k));
+    }
+    if !(b.kind.starts_with("shulker-") && a.kind.starts_with("shulker-")) {
+        return beats_generic(b, a);
+    }
+    if let (Some(fb), Some(fa)) = (num(b, "items/s "), num(a, "items/s ")) {
+        if fb > fa * 1.01 {
+            return true;
+        }
+    }
+    let badges = |r: &Row| -> BTreeSet<String> { get(r, "badges ").map(|s| s.split('+').filter(|x| *x != "none" && !x.starts_with("tileable(")).map(String::from).collect()).unwrap_or_default() };
+    if !badges(b).is_subset(&badges(a)) {
+        return true;
+    }
+    // `tileable(N)`: copies every N blocks; a denser pitch (or tileable at all) is better
+    let pitch = |r: &Row| get(r, "badges ").and_then(|s| s.split('+').find_map(|x| x.strip_prefix("tileable(").and_then(|v| v.trim_end_matches(')').parse::<u32>().ok())));
+    if pitch(b).is_some_and(|pb| pitch(a).is_none_or(|pa| pb < pa)) {
+        return true;
+    }
+    matches!((num(b, "hoppers awake "), num(a, "hoppers awake ")), (Some(hb), Some(ha)) if hb < ha)
+}
+
+/// What two designs of one kind and value must share to be equivalent layouts: their metrics and
+/// flat or not (their block kinds may differ: palette alone is no distinction).
+pub fn variation_signature(r: &Row) -> String {
+    let flat = r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()).is_some_and(|h| h <= 2);
+    format!("{}|flat {flat}", r.metrics)
+}
+
+/// Whether a design passed in every build (else it folds under a robust one of its value).
+pub fn is_robust(r: &Row) -> bool {
+    r.robustness == "robust"
+}
+
+/// A design's input class for the fold: `own levers` / `own buttons` when its inputs are its own
+/// devices, `signal` otherwise (inputs from the rest of a build: the judge's repeater line, R7),
+/// empty for designs without inputs or that do not load.
+pub fn input_class(path: &Path) -> String {
+    let Ok(c) = Circuit::load(path) else { return String::new() };
+    if c.inputs.is_empty() {
+        return String::new();
+    }
+    let mut v: Vec<&str> = c
+        .inputs
+        .iter()
+        .map(|i| match i.how {
+            crate::InputHow::Lever => "own levers",
+            crate::InputHow::Button => "own buttons",
+            _ => "signal",
+        })
+        .collect();
+    v.sort();
+    v.dedup();
+    v.join("+")
+}
+
+/// Metrics where less is better (a speed, a reach of input lengths or clocks, a footprint).
+const LOWER_BETTER: [&str; 12] = ["latency", "delay", "min-pulse", "min-gap", "min-period", "re-arm", "repeat", "extend", "retract", "setup", "hold", "stop"];
+/// Metrics where more is better.
+const HIGHER_BETTER: [&str; 1] = ["speed"];
+/// Metrics present only when something goes wrong.
+const WORSE_IF_PRESENT: [&str; 3] = ["glitches", "jams", "fragile"];
+
+/// [`beats_on_variation`] for the kinds without their own rule: every metric of `b` against `a`'s.
+pub fn beats_generic(b: &Row, a: &Row) -> bool {
+    let parse = |r: &Row| -> BTreeMap<String, String> {
+        r.metrics
+            .split(", ")
+            .filter_map(|m| {
+                let m = m.trim();
+                let (k, v) = m.split_once(' ').unwrap_or((m, ""));
+                (!k.is_empty()).then(|| (k.to_string(), v.trim().to_string()))
+            })
+            .collect()
+    };
+    let (mb, ma) = (parse(b), parse(a));
+    // `over 30 gt` (a period the judge could not bound) reads as just above 30: a lower-is-better
+    // metric's "over N" is worse than any value <= N, so it is no distinct property (it kept
+    // tff-crafter7, which loses every number to tff-bulb, on its own card: critique)
+    let first = |v: &str| {
+        let (over, v) = match v.strip_prefix("over ") {
+            Some(rest) => (0.5, rest),
+            None => (0.0, v),
+        };
+        v.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()).map(|x| x + over)
+    };
+    for (k, vb) in &mb {
+        if WORSE_IF_PRESENT.contains(&k.as_str()) {
+            continue;
+        }
+        let Some(va) = ma.get(k) else { return true };
+        if vb == va {
+            continue;
+        }
+        // `tileable every N (dx dy dz)`: a denser pitch is better
+        if k == "tileable" {
+            let pitch = |v: &str| v.split_whitespace().nth(1).and_then(|x| x.parse::<i32>().ok());
+            match (pitch(vb), pitch(va)) {
+                (Some(x), Some(y)) if x >= y => continue,
+                _ => return true,
+            }
+        }
+        match (first(vb), first(va)) {
+            (Some(x), Some(y)) if LOWER_BETTER.contains(&k.as_str()) => {
+                if x < y {
+                    return true;
+                }
+            }
+            (Some(x), Some(y)) if HIGHER_BETTER.contains(&k.as_str()) => {
+                if x > y {
+                    return true;
+                }
+            }
+            // a class, an edge, an output shape, a pulse length or a range: another behaviour
+            _ => return true,
+        }
+    }
+    if WORSE_IF_PRESENT.iter().any(|k| ma.contains_key(*k) && !mb.contains_key(*k)) {
+        return true;
+    }
+    let height = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok());
+    let flat = |r: &Row| height(r).is_some_and(|h| h <= 2);
+    flat(b) && !flat(a)
+}
+
+/// After a union merge of an archive (both sides' rows kept): one verdict row per file (the
+/// newest, as [`read_rows`] reads them; `rows` without the `stale` ones) and one caption per file
+/// (the last; none for a stale file), written back when anything changes.
+fn tidy(dir: &Path, rows: &[Row], stale: &[String]) -> Result<()> {
+    let text = std::fs::read_to_string(dir.join(VERDICTS)).unwrap_or_default();
+    if text.lines().skip(1).filter(|l| !l.trim().is_empty()).count() != rows.len() {
+        write_rows(dir, rows)?;
+    }
+    let caps = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_default();
+    let mut order: Vec<String> = Vec::new();
+    let mut last: BTreeMap<String, String> = BTreeMap::new();
+    for l in caps.lines().skip(1) {
+        if let Some((f, c)) = l.split_once('\t') {
+            if !last.contains_key(f) {
+                order.push(f.to_string());
+            }
+            last.insert(f.to_string(), c.to_string());
+        }
+    }
+    let n = order.len();
+    order.retain(|f| !stale.contains(f));
+    if order.len() != n || n != caps.lines().skip(1).filter(|l| l.contains('\t')).count() {
+        let mut out = String::from("file\tcaption\n");
+        for f in &order {
+            out.push_str(&format!("{f}\t{}\n", last[f]));
+        }
+        std::fs::write(dir.join(CAPTIONS), out)?;
+    }
+    Ok(())
+}
+
+/// Take a design out of its study's archive (`<study>/<file>`, e.g. a design another one now
+/// dominates): the file, its verdict row and its caption.
+pub fn unarchive(root: &Path, spec: &str) -> Result<String> {
+    let (study, file) = spec.split_once('/').ok_or_else(|| anyhow::anyhow!("--remove {spec}: want <study>/<file>"))?;
+    let dir = archive_dir(root, study);
+    let rows = read_rows(&dir)?;
+    if !rows.iter().any(|r| r.file == file) {
+        anyhow::bail!("--remove {spec}: no such row in {}", dir.join(VERDICTS).display());
+    }
+    write_rows(&dir, &rows.into_iter().filter(|r| r.file != file).collect::<Vec<_>>())?;
+    let caps: String = std::fs::read_to_string(dir.join(CAPTIONS)).unwrap_or_else(|_| "file\tcaption\n".into()).lines().filter(|l| l.split('\t').next() != Some(file)).map(|l| format!("{l}\n")).collect();
+    std::fs::write(dir.join(CAPTIONS), caps)?;
+    let _ = std::fs::remove_file(dir.join(file));
+    Ok(format!("REMOVED {}", dir.join(file).display()))
+}
+
 /// The design the type key is computed on: every swap (sticky pistons -> pistons, inert solids ->
 /// stone: `clock::ident`) whose run on redsim under the kind's stimulus is identical modulo the swap
 /// (every cell's full state at every frame); the circuit itself when redsim does not model it.
@@ -180,6 +395,52 @@ pub fn normalized(c: &Circuit) -> Circuit {
     cur
 }
 
+/// The structure's TUNABLE key: the design with every repeater's delay and every comparator's mode
+/// masked, with its input and output cells marked, up to translation, rotation and mirror image.
+/// Designs that differ only by those settings are one tunable mechanism (vjeux 2026-10-19: "we
+/// don't need 20 variations of the same design"): the catalog shows them as one group card.
+pub fn tunable_key(c: &Circuit) -> String {
+    let mut d = c.clock.design.clone();
+    for st in d.blocks.values_mut() {
+        if st.contains("repeater[") {
+            *st = mask_prop(st, "delay", "1");
+        }
+        if st.contains("comparator[") {
+            *st = mask_prop(st, "mode", "compare");
+        }
+    }
+    for i in &c.inputs {
+        d.blocks.insert(i.pos, "circuit:input".to_string());
+        d.block_entities.remove(&i.pos);
+    }
+    for p in &c.outputs {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:output".into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
+    }
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
+    // a TNT duper judged with explosions off (`explode: off`, analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
+    clock::canon::design_type_key(&d)
+}
+
+/// A TNT duper with explosions turned off (`explode: off`: analysis only).
+fn no_explode(c: &Circuit) -> bool {
+    matches!(c.kind, Some(Kind::TntDuper | Kind::TntDuperTriggered)) && !c.explodes()
+}
+
+/// A block state with one property set to a value (`delay=3` -> `delay=1`).
+fn mask_prop(state: &str, key: &str, value: &str) -> String {
+    let Some(i) = state.find(&format!("{key}=")) else {
+        return state.to_string();
+    };
+    let start = i + key.len() + 1;
+    let end = state[start..].find([',', ']']).map(|j| start + j).unwrap_or(state.len());
+    format!("{}{value}{}", &state[..start], &state[end..])
+}
+
 /// The structure's type key: the [`normalized`] design up to translation, the 4 rotations and the
 /// mirror image (`clock::canon::design_type_key`), with its input cells marked (whatever drives
 /// them: a lever and a redstone-block input are the same circuit) and its output and payload cells
@@ -197,8 +458,12 @@ pub fn type_key(c: &Circuit) -> String {
         };
         let dev = match &i.how {
             crate::InputHow::Block { on, .. } => id(on),
+            // the same type as the plain input it was (type keys stay stable across R7)
+            crate::InputHow::Driven { .. } => id(crate::INPUT_ON),
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
+            crate::InputHow::Strength { .. } => "strength".to_string(),
+            crate::InputHow::Frame { .. } => "frame".to_string(),
         };
         d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
@@ -208,24 +473,62 @@ pub fn type_key(c: &Circuit) -> String {
             d.entities.push(mctas::design::EntitySpec { kind: tag.into(), pos: [p.pos[0] as f64 + 0.5, p.pos[1] as f64, p.pos[2] as f64 + 0.5], nbt: None });
         }
     }
+    // a TNT duper judged with explosions off (analysis only) is its own type
+    if no_explode(c) {
+        d.entities.push(mctas::design::EntitySpec { kind: "circuit:noexplode".into(), pos: [0.5, 0.0, 0.5], nbt: None });
+    }
+    // a BUD's target cells (where the judge acts) are part of its structure
+    for t in &c.targets {
+        d.blocks.insert(t.pos, "circuit:target".to_string());
+    }
     clock::canon::design_type_key(&d)
 }
 
 /// A circuit's value on its study's axis.
 pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
+    let a = axis_base(kind, out, family);
+    // a sculk design that ambient game events disturb is its own class (crate::vibration)
+    if out.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("no")) { format!("{a}, vibration-sensitive") } else { a }
+}
+
+fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
-        Kind::RsLatch | Kind::DLatch => kind.name(),
+        Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
         Kind::Counter(n) => format!("counter {n}"),
+        Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
             if s.is_empty() { "two-way".into() } else { s }
         }
+        Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
+        // the item class: the gallery's rows; speed and size are the columns
+        Kind::ShulkerLoader(s) => format!("load {s}-stack"),
+        Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
+        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
+        Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
+        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
+        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
+        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
+        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
+        Kind::TntDuper => m("rate"),
+        Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
+        Kind::Burst(n) => format!("N = {n}"),
+        Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
+        Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
+        Kind::OffDelay => format!("off L = {}", m("L")),
+        Kind::OnDelay => format!("on T = {}", m("T")),
+        Kind::PulseTrain => format!("P = {}", m("P")),
+        Kind::Compute(..) => kind.name(),
+        // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Lock(n) => format!("{n} dials"),
     }
 }
 
@@ -241,10 +544,14 @@ pub struct Archived {
 pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Circuit::load(path)?;
     let kind = c.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", path.display()))?;
+    if no_explode(&c) {
+        bail!("not archived: {} has `explode: off` (analysis only): a TNT duper is archived only when it survives its own explosions", path.display());
+    }
     let dir = archive_dir(root, kind.study());
     let text = std::fs::read_to_string(path)?;
-    // the same blocks and ports under another kind (a claim) are another entry
-    let hash = format!("{}-{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"));
+    // the same blocks and ports under another kind (a claim) are another entry; so is a TNT duper
+    // judged with explosions on (the SURVIVABLE variation)
+    let hash = format!("{}-{}{}", clock::catalog::content_hash(&c.clock), kind.name().replace(' ', "_"), if no_explode(&c) { "-noexplode" } else { "" });
     let rows = read_rows(&dir)?;
     if let Some(r) = rows.iter().find(|r| r.hash == hash) {
         return Ok(Archived { file: dir.join(&r.file), summary: r.summary.clone(), new: false });
@@ -342,10 +649,14 @@ fn axis_number(a: &str) -> Option<i64> {
     digits.parse().ok()
 }
 
-/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", "")).
+/// An axis value's label and unit (`L = 8 gt` -> ("L", "gt"); `N = 3` -> ("N", ""); a flying
+/// machine's `10 gt/block` -> ("speed", "gt/block")).
 fn axis_label(a: &str) -> (String, String) {
     match a.split_once(" = ") {
         Some((l, v)) => (l.to_string(), v.split_whitespace().nth(1).unwrap_or("").to_string()),
+        None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
+        // a counter's axis is its kind, `counter N`
+        None if a.starts_with("counter ") => ("N".to_string(), String::new()),
         None => (String::new(), String::new()),
     }
 }
@@ -391,9 +702,13 @@ fn read_instances(dir: &Path) -> Vec<Instance> {
 /// Judge the members `ns` of a family, built with its generator, in the game: each must pass with
 /// the formulas' axis value and block count.
 fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind, o: &Options) -> Result<Vec<Instance>> {
+    check_members(pool, path, f, kind, o, &f.judged_ns())
+}
+
+fn check_members(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind, o: &Options, ns: &[i64]) -> Result<Vec<Instance>> {
     let dir = mctas::paths::run_dir().join(format!("circuit-extend-{}", std::process::id()));
     let mut out = Vec::new();
-    for n in f.sample() {
+    for &n in ns {
         let p = f.build(path, n, &dir).with_context(|| format!("extend family {}: building n = {n}", f.id))?;
         let c = Circuit::load(&p)?;
         let rep = verify::verify_in_pool(pool, &c, o)?;
@@ -412,6 +727,341 @@ fn check_family(pool: &Pool, path: &Path, f: &clock::extend::Family, kind: &Kind
 }
 
 pub const ALIASES: &str = "aliases.tsv";
+
+/// The first frame where an output's level differs between a run with the judge's old block
+/// placement (`a`) and one with real input devices (`b`, R7).
+fn first_difference(a: &std::result::Result<crate::trace::Trace, String>, b: &std::result::Result<crate::trace::Trace, String>) -> Option<String> {
+    let (Ok(a), Ok(b)) = (a, b) else { return None };
+    (0..a.frames().min(b.frames())).find(|f| a.levels.iter().zip(&b.levels).any(|(x, y)| x.get(*f) != y.get(*f))).map(|f| {
+        let lv = |t: &crate::trace::Trace| t.levels.iter().map(|l| l.get(f).copied().unwrap_or(0).to_string()).collect::<Vec<_>>().join("/");
+        format!("first difference at frame {f}: output {} with the block placement, {} with the repeater", lv(a), lv(b))
+    })
+}
+
+/// R7's note for a design the current judge refuses (`mctas circuit archive --rejudge`): when it
+/// passes with the judge's old block placement on redsim, `needs the judge's block placement
+/// (R7): <first difference>`, so a removed design explains itself.
+pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
+    crate::set_input_device_block(true);
+    let old = Circuit::load(path);
+    crate::set_input_device_block(false);
+    let new = Circuit::load(path).ok()?;
+    let old = old.ok()?;
+    if !old.inputs.iter().any(|i| matches!(&i.how, crate::InputHow::Block { on, .. } if on == crate::INPUT_ON)) {
+        return None;
+    }
+    let so = crate::verify::sim(&old, o).ok()?;
+    if !so.outcome.as_ref().is_some_and(|x| x.pass) {
+        return None;
+    }
+    let sn = crate::verify::sim(&new, o).ok()?;
+    if sn.outcome.as_ref().is_some_and(|x| x.pass) {
+        return None;
+    }
+    Some(format!("needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input){}", first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()))
+}
+
+/// `mctas circuit r7`: every archived design with a plain input, run in redsim twice: with the
+/// judge's old input placement (a redstone block written into the input cell) and with real input
+/// devices (R7: the judge's stone powered by its repeater). One line per design whose verdict or
+/// metrics change: `PLACEMENT-ONLY` (passes only by the judge's block placement, with the first
+/// frame where an output differs between the two runs), `REFUSED` (no way in for the judge's
+/// repeater), `CHANGED` (passes both ways, other metrics); then a count per study.
+pub fn r7_compare(root: &Path, studies: &[String], o: &Options) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    let load = |path: &Path, block: bool| -> Result<Circuit> {
+        crate::set_input_device_block(block);
+        let c = Circuit::load(path);
+        crate::set_input_device_block(false);
+        c
+    };
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let (mut same, mut skipped, mut changed, mut only, mut refused) = (0, 0, 0, 0, 0);
+        for row in read_rows(&dir)? {
+            let path = dir.join(&row.file);
+            let Ok(old) = load(&path, true) else { continue };
+            if !old.inputs.iter().any(|i| matches!(&i.how, crate::InputHow::Block { on, off } if on == crate::INPUT_ON && mctas::blockstate::is_air(off))) {
+                skipped += 1;
+                continue;
+            }
+            let new = match load(&path, false) {
+                Ok(c) if c.input_refused.is_none() => c,
+                Ok(c) => {
+                    refused += 1;
+                    out.push(format!("REFUSED {study}/{}: {}", row.file, c.input_refused.unwrap_or_default()));
+                    continue;
+                }
+                Err(e) => {
+                    refused += 1;
+                    out.push(format!("REFUSED {study}/{}: {:#}", row.file, e));
+                    continue;
+                }
+            };
+            let (Ok(so), Ok(sn)) = (crate::verify::sim(&old, o), crate::verify::sim(&new, o)) else {
+                skipped += 1;
+                continue;
+            };
+            let (Some(oo), Some(on)) = (&so.outcome, &sn.outcome) else {
+                skipped += 1;
+                continue;
+            };
+            let metrics = |m: &[(String, String)]| m.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+            if oo.pass && !on.pass {
+                // a design whose input feeds a diode's side needs a signal source there (R7
+                // model B): the same design with dust in its input cells
+                let dusted = (|| -> Option<String> {
+                    let mut d = mctas::design::Design::load(&path).ok()?;
+                    for i in &new.inputs {
+                        if !d.blocks.contains_key(&i.pos) {
+                            d.blocks.insert(i.pos, "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into());
+                        }
+                    }
+                    let c = Circuit::from_design(d).ok()?;
+                    let r = crate::verify::sim(&c, o).ok()?;
+                    r.outcome.filter(|x| x.pass).map(|x| metrics(&x.metrics))
+                })();
+                if let Some(m) = dusted {
+                    changed += 1;
+                    out.push(format!("NEEDS-DUST {study}/{}: passes with dust in its input cell (+1 block per input; a diode side reads only a signal source): {m}", row.file));
+                    continue;
+                }
+                only += 1;
+                out.push(format!("PLACEMENT-ONLY {study}/{}: passes only by the judge's block placement: {}{}", row.file, on.why, first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()));
+            } else if oo.pass && on.pass && oo.metrics != on.metrics {
+                changed += 1;
+                out.push(format!("CHANGED {study}/{}: {} -> {}", row.file, metrics(&oo.metrics), metrics(&on.metrics)));
+            } else {
+                same += 1;
+            }
+        }
+        out.push(format!("{study}: {only} pass only by the block placement, {refused} refused, {changed} changed, {same} unchanged, {skipped} without a plain input or a redsim verdict"));
+    }
+    Ok(out)
+}
+
+/// `mctas circuit captions <tsv>`: replace archived designs' captions, one
+/// `<study>/<file><TAB><caption>` per line (`#` lines and blank lines skipped). Each must name an
+/// archived design. Returns one line per caption set.
+pub fn set_captions(root: &Path, tsv: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for line in tsv.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let (spec, cap) = line.split_once('\t').ok_or_else(|| anyhow!("captions: no tab in `{line}`"))?;
+        let (study, file) = spec.split_once('/').ok_or_else(|| anyhow!("captions: `{spec}` is not <study>/<file>"))?;
+        let dir = archive_dir(root, study);
+        if !dir.join(file).exists() {
+            bail!("captions: {} is not archived", dir.join(file).display());
+        }
+        let cp = dir.join(CAPTIONS);
+        let old = if cp.exists() { std::fs::read_to_string(&cp)? } else { "file\tcaption\n".to_string() };
+        let cap = cap.trim().replace(['\t', '\n'], " ");
+        // `+ <sentence>`: insert the sentence after the plain part of the existing caption (before
+        // its " Details:"), or at its end
+        let insert = cap.strip_prefix("+ ").map(str::to_string);
+        let mut found = false;
+        let mut caps = String::new();
+        let mut shown = cap.clone();
+        for l in old.lines() {
+            if l.split('\t').next() == Some(file) {
+                let new = match &insert {
+                    Some(s) => {
+                        let cur = l.split_once('\t').map(|x| x.1).unwrap_or("");
+                        if cur.contains(s.as_str()) {
+                            cur.to_string()
+                        } else if let Some(i) = cur.find(" Details:") {
+                            format!("{} {s}{}", &cur[..i], &cur[i..])
+                        } else {
+                            format!("{cur} {s}")
+                        }
+                    }
+                    None => cap.clone(),
+                };
+                caps.push_str(&format!("{file}\t{new}\n"));
+                shown = new;
+                found = true;
+            } else {
+                caps.push_str(&format!("{l}\n"));
+            }
+        }
+        if !found {
+            if insert.is_some() {
+                bail!("captions: {file} has no caption to insert into");
+            }
+            caps.push_str(&format!("{file}\t{cap}\n"));
+        }
+        std::fs::write(&cp, caps)?;
+        let cap = shown;
+        out.push(format!("{study}/{file}: {}", cap.split(". ").next().unwrap_or(&cap)));
+    }
+    Ok(out)
+}
+
+/// `mctas circuit archive --fill-families`: judge in the game every member of each archived
+/// extendable family that extend.tsv does not list yet (every n of its range up to
+/// `clock::extend::EVERY_MAX` members: no unjudged step between judged ones), in the given studies
+/// (all when empty), and add the passing ones to extend.tsv. A member that fails is reported and
+/// not added (its family keeps its card; fix the generator or the range).
+pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        let mut instances = read_instances(&dir);
+        let mut added = 0;
+        for row in &rows {
+            let path = dir.join(&row.file);
+            let Ok(c) = Circuit::load(&path) else { continue };
+            let (Some(kind), Ok(Some(f))) = (c.kind.clone(), family_of(&c)) else { continue };
+            let have: Vec<i64> = instances.iter().filter(|i| i.family == f.id).map(|i| i.n).collect();
+            let missing: Vec<i64> = f.judged_ns().into_iter().filter(|n| !have.contains(n)).collect();
+            if missing.is_empty() {
+                continue;
+            }
+            match check_members(pool, &path, &f, &kind, o, &missing) {
+                Ok(new) => {
+                    out.push(format!("{study} {}: judged n = {} ({})", f.id, missing.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", "), new.iter().map(|i| i.axis.clone()).collect::<Vec<_>>().join(", ")));
+                    added += new.len();
+                    instances.extend(new);
+                }
+                Err(e) => out.push(format!("{study} {}: FAILED {e:#}", f.id)),
+            }
+        }
+        if added > 0 {
+            instances.sort_by(|a, b| (a.family.as_str(), a.n).cmp(&(b.family.as_str(), b.n)));
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(dir.join(EXTEND_TSV), all)?;
+        }
+    }
+    Ok(out)
+}
+
+/// `mctas circuit archive --rejudge`: judge every archived design again (the current judge, in
+/// the game; family bases with their sampled members) in the given studies (all when empty). A
+/// passing design keeps its row with the new metrics, box, family, robustness and summary (its
+/// `# CIRCUIT:` line rewritten); a failing one leaves the archive (file, verdict row, caption,
+/// its family's extend.tsv rows, aliases it hosts) and is copied back next to the track file it
+/// was archived from, under `update-less/` when it fails for an update-less output (else
+/// `rejudged/`), with a first line saying why.
+pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let rows = read_rows(&dir)?;
+        if rows.is_empty() {
+            continue;
+        }
+        let mut keep: Vec<Row> = Vec::new();
+        let mut removed: Vec<String> = Vec::new();
+        let mut instances = read_instances(&dir);
+        for row in rows {
+            let path = dir.join(&row.file);
+            if !path.exists() {
+                out.push(format!("MISSING {}: no file, row dropped", path.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let c = Circuit::load(&path)?;
+            let Some(kind) = c.kind.clone() else {
+                keep.push(row);
+                continue;
+            };
+            let rep = verify::verify_in_pool(pool, &c, o)?;
+            let fam = family_of(&c)?;
+            let fam_check = match (&fam, rep.pass) {
+                (Some(f), true) => Some(check_family(pool, &path, f, &kind, o)),
+                _ => None,
+            };
+            let failure = if !rep.pass {
+                Some(rep.summary(&c))
+            } else if let Some(Err(e)) = &fam_check {
+                let e = format!("{e:#}");
+                // a generator that could not run is the tool's fault, not the design's: keep it
+                if e.contains("tool error") {
+                    out.push(format!("ERROR (kept) {}: {e}", path.display()));
+                    None
+                } else {
+                    Some(e)
+                }
+            } else {
+                None
+            };
+            let text = std::fs::read_to_string(&path)?;
+            if let Some(why) = failure {
+                // R7: a design that passed only by the judge's block placement says so
+                let why = match r7_note(&path, o) {
+                    Some(n) => format!("{n}: {why}"),
+                    None => why,
+                };
+                // back to the track it came from, with why
+                let from = text.lines().find_map(|l| l.strip_prefix("# archived ").and_then(|r| r.split(" from ").nth(1)).map(|r| r.trim_end_matches(" by mctas circuit archive").to_string()));
+                let sub = if why.contains("update-less output") { "update-less" } else { "rejudged" };
+                let back = match from.as_deref().map(Path::new).and_then(|p| p.parent()) {
+                    Some(d) if d.starts_with(root.join(study).join("tracks")) => d.join(sub),
+                    _ => root.join(study).join("tracks").join(sub),
+                };
+                std::fs::create_dir_all(&back)?;
+                let body: String = text.lines().filter(|l| !l.starts_with("# archived ") && !l.starts_with("# CIRCUIT: ")).map(|l| format!("{l}\n")).collect();
+                let copy = back.join(&row.file);
+                std::fs::write(&copy, format!("# {sub} ({}, mctas circuit archive --rejudge): {why}\n{body}", clock::catalog::now_utc()))?;
+                std::fs::remove_file(&path)?;
+                if let Some(f) = &fam {
+                    instances.retain(|i| i.family != f.id);
+                }
+                out.push(format!("REMOVED {}: {why} (copy: {})", path.display(), copy.display()));
+                removed.push(row.file.clone());
+                continue;
+            }
+            let base = rep.base().ok_or_else(|| anyhow!("no passing build"))?.clone();
+            let summary = rep.summary(&c);
+            let [w, h, d] = base.dims;
+            let new = Row {
+                axis: axis(&kind, &base.outcome, &base.family),
+                metrics: base.outcome.metrics_text(),
+                blocks: c.blocks(),
+                dims: format!("{w}x{h}x{d}"),
+                volume: (w * h * d) as i64,
+                family: base.family.clone(),
+                robustness: if rep.note.is_empty() { rep.verdict.clone() } else { format!("{} ({})", rep.verdict, rep.note) },
+                summary: summary.clone(),
+                ..row.clone()
+            };
+            let changed = new.metrics != row.metrics || new.robustness != row.robustness || new.dims != row.dims;
+            let header_lines: Vec<String> = text.lines().map(|l| if l.starts_with("# CIRCUIT: ") || l.starts_with("# FAIL: ") { format!("# {summary}") } else { l.to_string() }).collect();
+            std::fs::write(&path, header_lines.join("\n") + "\n")?;
+            if let (Some(f), Some(Ok(inst))) = (&fam, fam_check) {
+                instances.retain(|i| i.family != f.id);
+                instances.extend(inst);
+            }
+            out.push(if changed { format!("UPDATED {}: {} (was: {}, {})", path.display(), summary, row.metrics, row.robustness) } else { format!("KEPT {}: {summary}", path.display()) });
+            keep.push(new);
+        }
+        write_rows(&dir, &keep)?;
+        if !removed.is_empty() {
+            let cp = dir.join(CAPTIONS);
+            if cp.exists() {
+                let caps: String = std::fs::read_to_string(&cp)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&cp, caps)?;
+            }
+            let ap = dir.join(ALIASES);
+            if ap.exists() {
+                let al: String = std::fs::read_to_string(&ap)?.lines().filter(|l| !removed.iter().any(|f| l.split('\t').next() == Some(f.as_str()))).map(|l| format!("{l}\n")).collect();
+                std::fs::write(&ap, al)?;
+            }
+        }
+        let ep = dir.join(EXTEND_TSV);
+        if ep.exists() || !instances.is_empty() {
+            let mut all = "family\tn\taxis\tblocks\ttype_key\n".to_string();
+            for i in &instances {
+                all.push_str(&format!("{}\t{}\t{}\t{}\t{}\n", i.family, i.n, i.axis, i.blocks, i.type_key));
+            }
+            std::fs::write(&ep, all)?;
+        }
+    }
+    Ok(out)
+}
 
 /// The aliases of an archive: kept file -> the names of its removed twins (with what they were
 /// built with).
@@ -438,6 +1088,14 @@ pub fn dedupe(root: &Path) -> Result<Vec<String>> {
         if rows.is_empty() {
             continue;
         }
+        // a row whose design file is gone (removed on one side of a merge, brought back by a
+        // union of the TSVs): out, with its caption
+        let stale: Vec<String> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.clone()).collect();
+        for f in &stale {
+            lines.push(format!("REMOVED {study}/{f}: a verdict row without its design file (stale)"));
+        }
+        rows.retain(|r| !stale.contains(&r.file));
+        tidy(&dir, &rows, &stale)?;
         rows.sort_by(|a, b| (&a.archived, &a.file).cmp(&(&b.archived, &b.file)));
         let mut kept: BTreeMap<(String, String), String> = BTreeMap::new();
         let mut gone: Vec<(String, String, String)> = Vec::new();
@@ -515,9 +1173,28 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let f = &fams[c.members[0]].1;
         (f.period.eval(f.n_lo), f.id.clone())
     });
-    let judged = |f: &Family| -> String { instances.iter().filter(|i| i.family == f.id).map(|i| i.n.to_string()).collect::<Vec<_>>().join(", ") };
+    // the judged members by their axis value (`N = 2, 5, 8, 11, 14`), not by step n; a family
+    // whose value does not change with n (a longer flying-machine train: same speed) by n, and a
+    // run of every n as a range
+    let judged = |f: &Family| -> String {
+        let mut v: Vec<(i64, String)> = instances.iter().filter(|i| i.family == f.id).map(|i| (i.n, i.axis.clone())).collect();
+        v.sort();
+        let label = v.first().map(|(_, a)| axis_label(a).0).unwrap_or_default();
+        let nums: Vec<String> = v.iter().map(|(_, a)| a.split_once(" = ").map(|x| x.1.to_string()).unwrap_or_else(|| a.clone())).collect();
+        if nums.is_empty() {
+            return String::new();
+        }
+        let ns: Vec<i64> = v.iter().map(|(n, _)| *n).collect();
+        let every = ns.windows(2).all(|w| w[1] == w[0] + 1);
+        if nums.len() > 1 && nums.iter().all(|x| *x == nums[0]) {
+            let n = if every && ns.len() > 2 { format!("{}..{}", ns[0], ns[ns.len() - 1]) } else { ns.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ") };
+            return format!("n = {n} (every one {label} = {})", nums[0]);
+        }
+        format!("{label} = {}", nums.join(", "))
+    };
+    let judged_n = |f: &Family| -> String { instances.iter().filter(|i| i.family == f.id).map(|i| i.n.to_string()).collect::<Vec<_>>().join(", ") };
     let mut md = String::from(
-        "\n## Extendable families\n\nEach card: the value's formula in n, the size, how to extend it and the n range judged in the game (`mctas circuit archive` judges n = low, low+1, low+2, the middle and the high end); the members are not repeated below.\n",
+        "\n## Extendable families\n\nEach card: the value's formula in n, the size, how to extend it and the members judged in the game, by value (`mctas circuit archive` judges every member of a range of up to 16; `--fill-families` judges the ones an older archive skipped); the members are not repeated below.\n",
     );
     for card in &cards {
         let (r, f, _) = &fams[card.members[0]];
@@ -525,7 +1202,12 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
         let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
         let val = |f: &Family, n: i64| format!("{label} = {}{u}", f.period.eval(n));
         if card.members.len() == 1 {
-            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), f.id, r.file, f.blocks.text(), r.kind));
+            // its human title (`extend group title:`), else its id; its note (why a builder picks it)
+            let title = f.group_title.clone().unwrap_or_else(|| f.id.clone());
+            md.push_str(&format!("\n### {label} = {}{u}\n\n**{}** ([base design](archive/{})) · {} blocks · {}\n\n", f.period.text(), title, r.file, f.blocks.text(), r.kind));
+            if let Some(n) = &f.group_note {
+                md.push_str(&format!("{n}\n\n"));
+            }
             let ns: Vec<i64> = [f.n_lo, f.n_lo + 1].into_iter().filter(|n| *n <= f.n_hi).collect();
             md.push_str(&ns.iter().map(|n| format!("n = {n}: {}, {} blocks", val(f, *n), f.blocks.eval(*n))).collect::<Vec<_>>().join(" · "));
             let j = judged(f);
@@ -536,7 +1218,7 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
                 f.n_hi,
                 val(f, f.n_lo),
                 val(f, f.n_hi),
-                if j.is_empty() { String::new() } else { format!("; judged in the game: n = {j}") }
+                if j.is_empty() { String::new() } else { format!("; judged in the game: {j}") }
             ));
         } else {
             // a group: the general formula when given, else the formulas
@@ -548,22 +1230,148 @@ fn family_cards(fams: &[(Row, clock::extend::Family, BTreeSet<String>)], instanc
                 }
             }
             let heading = fs.iter().find_map(|g| g.group_period.clone()).unwrap_or_else(|| texts.join(" · "));
-            let title = fs.iter().find_map(|g| g.group_title.clone()).or_else(|| card.group.clone()).unwrap_or_else(|| format!("{} (one block swapped: {} versions)", f.id, fs.len()));
-            let note = fs.iter().find_map(|g| g.group_note.clone()).map(|n| format!(" · {n}")).unwrap_or_default();
-            md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged n |\n|---|---|---|---|---|\n", fs.len()));
+            // an explicit group (`extend group:`) takes its title and note from the first member
+            // carrying them; a card of families grouped by their block kinds keeps a member's title
+            // only when they all share it (else each row shows its own) and shows each distinct note
+            let title = if card.group.is_some() {
+                fs.iter().find_map(|g| g.group_title.clone()).or_else(|| card.group.clone()).unwrap_or_default()
+            } else {
+                match &fs[0].group_title {
+                    Some(t) if fs.iter().all(|g| g.group_title.as_ref() == Some(t)) => t.clone(),
+                    _ => format!("{} versions of one layout (one block swapped)", fs.len()),
+                }
+            };
+            let mut notes: Vec<String> = Vec::new();
+            for g in &fs {
+                if let Some(n) = &g.group_note
+                    && !notes.contains(n)
+                    && (card.group.is_none() || notes.is_empty())
+                {
+                    notes.push(n.clone());
+                }
+            }
+            let note = if notes.is_empty() {
+                String::new()
+            } else if card.group.is_some() {
+                format!(" · {}", notes.join(" "))
+            } else {
+                format!("\n\n{}", notes.join(" "))
+            };
+            md.push_str(&format!("\n### {label} = {heading}{u}\n\n**{title}** · {} families{note}\n\n| family | {label} | blocks | n ({label}) | judged in the game |\n|---|---|---|---|---|\n", fs.len()));
             for &i in &card.members {
                 let (mr, mf, _) = &fams[i];
-                md.push_str(&format!("| [{}](archive/{}) | {} | {} | {}..{} ({} .. {}) | {} |\n", mf.id, mr.file, mf.period.text(), mf.blocks.text(), mf.n_lo, mf.n_hi, mf.period.eval(mf.n_lo), mf.period.eval(mf.n_hi), judged(mf)));
+                let name = mf.group_title.clone().filter(|_| card.group.is_none()).unwrap_or_else(|| mf.id.clone());
+                md.push_str(&format!("| [{}](archive/{}) | {} | {} | {}..{} ({} .. {}) | {} |\n", name, mr.file, mf.period.text(), mf.blocks.text(), mf.n_lo, mf.n_hi, mf.period.eval(mf.n_lo), mf.period.eval(mf.n_hi), judged(mf)));
             }
         }
     }
     for (r, f, _) in fams {
         ftsv.push_str(
-            &[study.to_string(), f.id.clone(), f.group.clone().unwrap_or_default(), r.kind.clone(), f.period.text(), f.blocks.text(), f.n_lo.to_string(), f.n_hi.to_string(), format!("{study}/archive/{}", r.file), f.rule.clone(), judged(f)]
+            &[study.to_string(), f.id.clone(), f.group.clone().unwrap_or_default(), r.kind.clone(), f.period.text(), f.blocks.text(), f.n_lo.to_string(), f.n_hi.to_string(), format!("{study}/archive/{}", r.file), f.rule.clone(), judged_n(f), judged(f)]
                 .map(|s| s.replace(['\t', '\n'], " "))
                 .join("\t"),
         );
         ftsv.push('\n');
+    }
+    md
+}
+
+/// A tunable group's name from a member's file: the stem without its trailing value
+/// (`pulse-extender-repeater-L8.txt` -> `pulse-extender-repeater`).
+fn group_label(file: &str) -> String {
+    let stem = file.trim_end_matches(".txt");
+    if let Some((head, tail)) = stem.rsplit_once('-') {
+        let t = tail.trim_start_matches(['L', 'N', 'P', 'n']);
+        if !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()) {
+            return head.to_string();
+        }
+    }
+    stem.to_string()
+}
+
+/// The axis values of a group as a short range: (`4..38`, ` (every 2)`), (`4, 6, 8`, ``).
+fn range_text(vals: &[i64]) -> (String, String) {
+    let mut v: Vec<i64> = vals.to_vec();
+    v.sort();
+    v.dedup();
+    fn gcd(a: i64, b: i64) -> i64 {
+        if b == 0 { a.abs() } else { gcd(b, a % b) }
+    }
+    match v.len() {
+        0 => (String::new(), String::new()),
+        1 => (v[0].to_string(), String::new()),
+        n if n <= 3 => (v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), String::new()),
+        n => {
+            let g = v.windows(2).fold(0, |g, w| gcd(g, w[1] - w[0]));
+            let full = ((v[n - 1] - v[0]) / g.max(1) + 1) as usize;
+            let note = if full == n { format!(" (every {g})") } else { format!(" (step {g}: {n} of {full} values)") };
+            (format!("{}..{}", v[0], v[n - 1]), note)
+        }
+    }
+}
+
+/// The number of family cards on a study page (families of one group share a card).
+fn clock_card_count(fams: &[(Row, clock::extend::Family, BTreeSet<String>)]) -> usize {
+    if fams.is_empty() {
+        return 0;
+    }
+    let items: Vec<clock::catalog::CardItem> = fams
+        .iter()
+        .enumerate()
+        .map(|(i, (r, f, k))| clock::catalog::CardItem { formula: f.period.text(), kinds: k.clone(), size: (f.blocks.eval(f.n_lo), r.volume, i), group: f.group.clone() })
+        .collect();
+    clock::catalog::card_groups(&items).len()
+}
+
+/// The "Tunable groups" section of a study page: one card per group (the value range as the
+/// heading, the two smallest members, a compact table value -> blocks -> design).
+fn tunable_cards(cards: &[(String, String, Vec<&Row>)], circuits: &BTreeMap<String, Circuit>, fams: &[(Row, clock::extend::Family, BTreeSet<String>)]) -> String {
+    if cards.is_empty() {
+        return String::new();
+    }
+    let mut md = String::from(
+        "\n## Tunable groups\n\nEach card: ONE mechanism whose value is set by its repeater delays, its comparator modes or the length of its repeater line, or that comes in variants named by a `group:` header (the same layout with only those settings or parts changed); its members are not repeated below.\n",
+    );
+    for (name, kind, members) in cards {
+        let (label, unit) = axis_label(&members[0].axis);
+        let label = if label.is_empty() { "value".to_string() } else { label };
+        let u = if unit.is_empty() { String::new() } else { format!(" {unit}") };
+        let vals: Vec<i64> = members.iter().filter_map(|r| axis_number(&r.axis)).collect();
+        let meta = |k: &str| members.iter().find_map(|r| circuits.get(&r.file).and_then(|c| c.clock.design.meta.get(k).cloned()));
+        let title = meta("group title").unwrap_or_else(|| name.clone());
+        let note = meta("group note").unwrap_or_else(|| {
+            if members.iter().any(|r| circuits.get(&r.file).is_some_and(|c| c.clock.design.meta.contains_key("group"))) {
+                "set by the repeater delays and the length of the repeater line".to_string()
+            } else {
+                "the same layout, set by its repeater delays / comparator modes".to_string()
+            }
+        });
+        let mut small: Vec<&&Row> = members.iter().collect();
+        small.sort_by(|a, b| (a.blocks, axis_number(&a.axis), a.volume, &a.file).cmp(&(b.blocks, axis_number(&b.axis), b.volume, &b.file)));
+        let smallest: Vec<String> = small.iter().take(2).map(|r| format!("[{}](archive/{}) ({}, {} blocks)", r.file.trim_end_matches(".txt"), r.file, r.axis, r.blocks)).collect();
+        let (core, rnote) = range_text(&vals);
+        // a non-numeric axis (a BUD's detected classes): the members' values themselves
+        let heading = if vals.is_empty() {
+            let mut v: Vec<&str> = members.iter().map(|r| r.axis.as_str()).collect();
+            v.sort();
+            v.dedup();
+            v.join(" / ")
+        } else {
+            format!("{label} = {core}{u}{rnote}")
+        };
+        md.push_str(&format!("\n### {heading}\n\n**{title}** · {kind} · {} designs · {note}. Smallest: {}.\n", members.len(), smallest.join(", ")));
+        let fam: Vec<String> = fams
+            .iter()
+            .filter(|(fr, _, _)| circuits.get(&fr.file).and_then(|c| c.clock.design.meta.get("group")).is_some_and(|g| g == name))
+            .map(|(fr, f, _)| format!("[{}](archive/{}): {label} = {}{u}, {} blocks", f.id, fr.file, f.period.text(), f.blocks.text()))
+            .collect();
+        if !fam.is_empty() {
+            md.push_str(&format!("\nAlso as an extendable family: {}.\n", fam.join("; ")));
+        }
+        md.push_str(&format!("\n| {label} | blocks | design | metrics |\n|---|---|---|---|\n"));
+        for r in members {
+            md.push_str(&format!("| {} | {} | [{}](archive/{}) | {} |\n", axis_number(&r.axis).map(|v| format!("{v}{u}")).unwrap_or_else(|| r.axis.clone()), r.blocks, r.file.trim_end_matches(".txt"), r.file, r.metrics));
+        }
     }
     md
 }
@@ -575,13 +1383,22 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     let mut index = String::from(
         "# Contraption studies\n\nEvery design judged in the real game (`mctas circuit verify`: 4 positions x 4 rotations, [docs/circuits.md](../../docs/circuits.md)), by study; the data the website renders is [catalog.tsv](catalog.tsv). Generated by `mctas circuit catalog`.\n\n| study | designs | shown | variants |\n|---|---|---|---|\n",
     );
-    let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\n");
-    let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\n");
+    let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\tgroup\n");
+    let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\tjudged_values\n");
     for (study, title) in STUDIES {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
+        let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();
+        if !stale.is_empty() {
+            bail!("{study}: verdict rows without their design file: {} (a removal undone by a merge of the TSVs? `mctas circuit archive --dedupe` drops them)", stale.join(", "));
+        }
         let caps = read_captions(&dir);
         let aliases = read_aliases(&dir);
+        // the input class of each design (critique 2026-10-20): inputs that are the design's own
+        // levers or buttons are a different class from signal inputs (the judge's repeater line,
+        // R7), and the two never fold into each other or count as equivalent layouts
+        let class: BTreeMap<String, String> = rows.iter().map(|r| (r.file.clone(), input_class(&dir.join(&r.file)))).collect();
+        let cls = |r: &Row| class.get(&r.file).cloned().unwrap_or_default();
         // extendable families (bases with `extend` headers) and their judged members: one card
         // each (cards of one group share one), the members leave the value tables
         let mut fams: Vec<(Row, clock::extend::Family, BTreeSet<String>)> = Vec::new();
@@ -595,23 +1412,85 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         let instances = read_instances(&dir);
         let member_keys: BTreeSet<&String> = instances.iter().filter(|i| fams.iter().any(|(_, f, _)| f.id == i.family)).map(|i| &i.type_key).collect();
         let in_family = |r: &Row| fams.iter().any(|(fr, _, _)| fr.file == r.file) || member_keys.contains(&r.type_key);
-        // the dominance fold within one kind and axis value: a design with more blocks that only
-        // adds block kinds to a smaller one is its variant
-        let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
+        // TUNABLE GROUPS (vjeux 2026-10-19): designs that are one mechanism with other repeater
+        // delays, comparator modes or a longer U are ONE card: a `group: <name>` header (stamped by
+        // the generators), else the same tunable key (delays and modes masked) and kind
+        let circuits: BTreeMap<String, Circuit> = rows.iter().filter_map(|r| Circuit::load(&dir.join(&r.file)).ok().map(|c| (r.file.clone(), c))).collect();
+        let mut tgroups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
         for r in rows.iter().filter(|r| !in_family(r)) {
-            groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
+            let Some(c) = circuits.get(&r.file) else { continue };
+            let (kind_key, id) = match c.clock.design.meta.get("group") {
+                // an explicit group spans the kind's argument too (`counter N`: one card for
+                // every N of one mechanism)
+                Some(g) => (r.kind.split_whitespace().next().unwrap_or(&r.kind).to_string(), format!("h:{g}")),
+                None => (r.kind.clone(), format!("t:{}", tunable_key(c))),
+            };
+            tgroups.entry((kind_key, id)).or_default().push(r);
+        }
+        tgroups.retain(|_, v| v.len() >= 2);
+        let mut group_of: BTreeMap<String, String> = BTreeMap::new();
+        let mut group_cards: Vec<(String, String, Vec<&Row>)> = Vec::new();
+        for ((kind, id), members) in &mut tgroups {
+            members.sort_by(|a, b| (axis_key(&a.axis), a.blocks, a.volume, &a.file).cmp(&(axis_key(&b.axis), b.blocks, b.volume, &b.file)));
+            let name = match id.strip_prefix("h:") {
+                Some(g) => g.to_string(),
+                None => group_label(&members.iter().min_by_key(|r| (r.blocks, r.volume, r.file.clone())).map(|r| r.file.clone()).unwrap_or_default()),
+            };
+            for m in members.iter() {
+                group_of.insert(m.file.clone(), name.clone());
+            }
+            group_cards.push((name, kind.clone(), members.clone()));
+        }
+        group_cards.sort_by_key(|(n, k, m)| (axis_key(&m[0].axis), k.clone(), n.clone()));
+        let in_group = |r: &Row| group_of.contains_key(&r.file);
+        // the dominance fold within one kind and axis value (vjeux 2026-10-20: palette alone is
+        // never a distinction): a design folds under one with fewer blocks (or as many and better
+        // on a variation) that it does not beat on any variation metric or property
+        // ([`beats_on_variation`]), whatever their block kinds
+        let mut groups: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
+        for r in rows.iter().filter(|r| !in_family(r) && !in_group(r)) {
+            // study 2's axis is the BLOCK FAMILY, which is a palette label, not a capability: with
+            // it in the key every mechanism becomes its own card and nothing ever folds, so a
+            // visitor reads nine T flip-flops that tff-bulb beats on every metric (critique
+            // 2026-10-20). Fold those by kind alone; the variation metrics still protect anything
+            // that wins something real.
+            let axis = if r.kind == "tff" { String::new() } else { r.axis.clone() };
+            groups.entry((r.kind.clone(), axis)).or_default().push(r);
         }
         let mut host: BTreeMap<String, String> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String, BTreeSet<String>)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone(), r.kind_set())).collect();
-            for (i, h) in clock::catalog::fold_hosts(&items).into_iter().enumerate() {
+            let items: Vec<(usize, i64, String)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+            let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
+            for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(g[i]) != cls(g[j]) || beats_on_variation(g[i], g[j])).into_iter().enumerate() {
                 if let Some(h) = h {
                     host.insert(g[i].file.clone(), g[h].file.clone());
                 }
             }
         }
-        let shown: Vec<&Row> = rows.iter().filter(|r| !host.contains_key(&r.file) && !in_family(r)).collect();
+        // EQUIVALENT LAYOUTS: the same kind, value, block count and variation signature (metrics,
+        // flat, slime-free), whatever the block kinds: one shown, the others listed as "also N
+        // other layouts" (catalog.tsv variant_of)
+        let mut layout: BTreeMap<String, String> = BTreeMap::new();
+        let mut layouts_of: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        {
+            let mut eq: BTreeMap<(String, String, usize, String), Vec<&Row>> = BTreeMap::new();
+            for r in rows.iter().filter(|r| !in_family(r) && !in_group(r) && !host.contains_key(&r.file)) {
+                eq.entry((r.kind.clone(), r.axis.clone(), r.blocks, format!("{}|{}", variation_signature(r), cls(r)))).or_default().push(r);
+            }
+            for v in eq.values_mut() {
+                if v.len() < 2 {
+                    continue;
+                }
+                v.sort_by(|a, b| (a.volume, &a.archived, &a.file).cmp(&(b.volume, &b.archived, &b.file)));
+                for o in &v[1..] {
+                    layout.insert(o.file.clone(), v[0].file.clone());
+                    layouts_of.entry(v[0].file.clone()).or_default().push(o.file.clone());
+                }
+            }
+        }
+        let shown: Vec<&Row> = rows.iter().filter(|r| !host.contains_key(&r.file) && !in_family(r) && !in_group(r) && !layout.contains_key(&r.file)).collect();
         let cards_md = family_cards(&fams, &instances, &mut ftsv, study);
+        let groups_md = tunable_cards(&group_cards, &circuits, &fams);
         let sdir = root.join(study);
         if rows.is_empty() {
             index.push_str(&format!("| {title} | 0 | 0 | 0 |\n"));
@@ -624,20 +1503,27 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
             by_axis.entry(axis_key(&r.axis)).or_default().push(r);
         }
         let mut md = format!(
-            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (more blocks that only add block kinds to a smaller design with the same value: [variants](variants.md)){}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
+            "# {title}\n\n{} designs judged in the real game: {} shown, {} variants (no fewer blocks and no better on a variation a builder would choose on than a design with the same value, whatever their block kinds, or not robust where it is: [variants](variants.md)), {} other layouts (same kind, value, size, metrics and flatness as a shown design){}{}. [All studies](../CATALOG.md) · [docs/circuits.md](../../../docs/circuits.md). Generated by `mctas circuit catalog`.\n",
             rows.len(),
             shown.len(),
             host.len(),
-            if fams.is_empty() { String::new() } else { format!(", {} extendable famil{} (their members are on the cards)", fams.len(), if fams.len() == 1 { "y" } else { "ies" }) }
+            layout.len(),
+            if fams.is_empty() { String::new() } else { format!(", {} extendable famil{} (their members are on the cards)", fams.len(), if fams.len() == 1 { "y" } else { "ies" }) },
+            if group_cards.is_empty() { String::new() } else { format!(", {} tunable group{} ({} designs on their cards)", group_cards.len(), if group_cards.len() == 1 { "" } else { "s" }, group_of.len()) }
         );
         md.push_str(&cards_md);
+        md.push_str(&groups_md);
         for ((_, ax), rs) in &mut by_axis {
             rs.sort_by(|a, b| (a.blocks, a.volume, &a.file).cmp(&(b.blocks, b.volume, &b.file)));
             md.push_str(&format!("\n## {ax}\n\n| design | kind | metrics | blocks | box | robustness | how it works |\n|---|---|---|---|---|---|---|\n"));
             for r in rs.iter() {
                 let also = aliases.get(&r.file).map(|v| format!(" (also found as {})", v.join(", "))).unwrap_or_default();
+                let others = layouts_of
+                    .get(&r.file)
+                    .map(|v| format!(" (also {} other layout{}: {})", v.len(), if v.len() == 1 { "" } else { "s" }, v.iter().map(|f| format!("[{}](archive/{f})", f.trim_end_matches(".txt"))).collect::<Vec<_>>().join(", ")))
+                    .unwrap_or_default();
                 md.push_str(&format!(
-                    "| [{}](archive/{}){also} | {} | {} | {} | {} | {} | {} |\n",
+                    "| [{}](archive/{}){also}{others} | {} | {} | {} | {} | {} | {} |\n",
                     r.file.trim_end_matches(".txt"),
                     r.file,
                     r.kind,
@@ -680,20 +1566,76 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
                     r.dims.clone(),
                     r.family.clone(),
                     r.robustness.clone(),
-                    host.get(&r.file).cloned().unwrap_or_default(),
+                    host.get(&r.file).or_else(|| layout.get(&r.file)).cloned().unwrap_or_default(),
                     caps.get(&r.file).cloned().unwrap_or_default(),
+                    group_of.get(&r.file).cloned().unwrap_or_default(),
                 ]
                 .map(|s| s.replace(['\t', '\n'], " "))
                 .join("\t"),
             );
             tsv.push('\n');
         }
+        let cards = shown.len() + group_cards.len() + clock_card_count(&fams);
+        // the card count without tunable groups and layouts (the fold over every non-family row)
+        let before = {
+            let mut g: BTreeMap<(String, String), Vec<&Row>> = BTreeMap::new();
+            for r in rows.iter().filter(|r| !in_family(r)) {
+                g.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
+            }
+            let mut folded = 0usize;
+            for v in g.values() {
+                let items: Vec<(usize, i64, String)> = v.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+                let robust: Vec<bool> = v.iter().map(|r| is_robust(r)).collect();
+                folded += clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(v[i]) != cls(v[j]) || beats_on_variation(v[i], v[j])).into_iter().filter(|h| h.is_some()).count();
+            }
+            rows.iter().filter(|r| !in_family(r)).count() - folded + clock_card_count(&fams)
+        };
         index.push_str(&format!("| [{title}]({study}/CATALOG.md) | {} | {} | {} |\n", rows.len(), shown.len(), host.len()));
-        lines.push(format!("{study}: {} designs, {} shown, {} variants, {} families, {} values", rows.len(), shown.len(), host.len(), fams.len(), by_axis.len()));
+        lines.push(format!(
+            "{study}: {} designs, {} shown, {} variants, {} other layouts, {} families, {} tunable groups ({} designs), {} values; cards {before} -> {cards}",
+            rows.len(),
+            shown.len(),
+            host.len(),
+            layout.len(),
+            fams.len(),
+            group_cards.len(),
+            group_of.len(),
+            by_axis.len()
+        ));
     }
     std::fs::create_dir_all(root)?;
     std::fs::write(root.join("CATALOG.md"), index)?;
     std::fs::write(root.join("catalog.tsv"), tsv)?;
     std::fs::write(root.join("families.tsv"), ftsv)?;
     Ok(lines)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(file: &str, metrics: &str, blocks: usize, dims: &str, kinds: &str) -> Row {
+        Row::parse(&format!("2026-10-20T00:00Z\t{file}\tpiston-extender 5\tN = 5\t{metrics}\t{blocks}\t{dims}\t0\t-\trobust\t{kinds}\t-\t-\t-")).unwrap()
+    }
+
+    /// vjeux 2026-10-20: pext-n5-sf-sweep136 (136 blocks, 230/228 gt) is no better than
+    /// pext-n5-sf105 (105 blocks, 149/147 gt) on anything: it folds although it has no plain piston
+    /// (palette alone is never a distinction); a faster larger design, a flat one, or one with
+    /// another class keeps its card.
+    #[test]
+    fn variation_not_palette() {
+        let small = row("sf105.txt", "N 5, extend 149 gt, retract 147 gt", 105, "9x5x4", "observer+piston+sticky_piston+stone");
+        let sweep = row("sweep136.txt", "N 5, extend 230 gt, retract 228 gt", 136, "9x5x6", "observer+sticky_piston+stone");
+        assert!(!beats_on_variation(&sweep, &small));
+        assert!(beats_on_variation(&small, &sweep));
+        let faster = row("fast.txt", "N 5, extend 140 gt, retract 150 gt", 140, "9x5x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&faster, &small));
+        let flat = row("flat.txt", "N 5, extend 149 gt, retract 147 gt", 120, "9x2x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&flat, &small));
+        let classed = row("class.txt", "N 5, extend 149 gt, retract 147 gt, edge falling", 120, "9x5x4", "observer+sticky_piston+stone");
+        assert!(beats_on_variation(&classed, &small));
+        let items: Vec<(usize, i64, String)> = [&small, &sweep, &faster].iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+        let rows = [&small, &sweep, &faster];
+        assert_eq!(clock::catalog::fold_hosts_by(&items, |i, j| beats_on_variation(rows[i], rows[j])), vec![None, Some(0), None]);
+    }
 }

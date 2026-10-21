@@ -186,6 +186,28 @@ pub fn run_raw_multi(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, InputKin
 /// since frame `early.0`.
 #[allow(clippy::too_many_arguments)]
 pub fn run_raw_multi_early(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, InputKind)], outs: &[BlockPos], bounds: (Pos, Pos), changes: &[Change], frames: u32, margin: i32, early: Option<(u32, u32)>) -> Result<(Vec<Vec<i32>>, Vec<Vec<bool>>), String> {
+    run_raw_read(blocks, inputs, outs.len(), &|w: &World, k: usize| output_level(w, outs[k]), bounds, changes, frames, margin, early)
+}
+
+/// The update-driven reading of an output cell: a redstone lamp placed in the (air) output cell
+/// and its LIT state every frame (a lamp changes only on a block update: on at once, off 4 gt
+/// later), so an output that changes without a block update (a dust redirected without a power
+/// change) is not seen. `Ok(None)` when the output cell holds a design block.
+pub fn lamp_probe(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, InputKind)], out: BlockPos, bounds: (Pos, Pos), changes: &[Change], frames: u32, margin: i32) -> Result<Option<Vec<bool>>, String> {
+    if blocks.iter().any(|(p, _)| *p == out) {
+        return Ok(None);
+    }
+    let mut all = blocks.to_vec();
+    all.push((out, Block::Lamp { lit: false }));
+    let read = |w: &World, _k: usize| -> i32 { matches!(w.get(out), Block::Lamp { lit: true }) as i32 };
+    let (lv, _) = run_raw_read(&all, inputs, 1, &read, bounds, changes, frames, margin, None)?;
+    Ok(Some(lv[0].iter().map(|l| *l > 0).collect()))
+}
+
+/// Run blocks + inputs through the changes, reading `n_out` values per frame with `read`.
+#[allow(clippy::too_many_arguments)]
+pub fn run_raw_read(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, InputKind)], n_out: usize, read: &dyn Fn(&World, usize) -> i32, bounds: (Pos, Pos), changes: &[Change], frames: u32, margin: i32, early: Option<(u32, u32)>) -> Result<(Vec<Vec<i32>>, Vec<Vec<bool>>), String> {
+    let outs_len = n_out;
     let mut all: Vec<(BlockPos, Block)> = blocks.to_vec();
     for (p, k) in inputs {
         if let InputKind::Place { off, .. } = k
@@ -202,7 +224,7 @@ pub fn run_raw_multi_early(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, In
     w.place_updates(&all);
     let mut level_now = vec![false; inputs.len()];
     let mut ins: Vec<Vec<bool>> = vec![Vec::with_capacity(frames as usize); inputs.len()];
-    let mut levels: Vec<Vec<i32>> = vec![Vec::with_capacity(frames as usize); outs.len()];
+    let mut levels: Vec<Vec<i32>> = vec![Vec::with_capacity(frames as usize); outs_len];
     let mut next = 0;
     for t in 0..frames {
         while next < changes.len() && changes[next].at == t {
@@ -230,8 +252,8 @@ pub fn run_raw_multi_early(blocks: &[(BlockPos, Block)], inputs: &[(BlockPos, In
         if let Some((p, b)) = w.drops.first() {
             return Err(format!("frame {t}: {b} at {p} was destroyed with a drop"));
         }
-        for (k, op) in outs.iter().enumerate() {
-            levels[k].push(output_level(&w, *op));
+        for (k, lv) in levels.iter_mut().enumerate() {
+            lv.push(read(&w, k));
         }
         for (k, v) in level_now.iter().enumerate() {
             ins[k].push(*v);

@@ -1,0 +1,18 @@
+name: pulse-dual-two-observers-L3
+# A 3 gt pulse on both edges (4-block census): one observer watches the input cell, the other watches a sticky piston the input moves; the piston's block event runs in the tick after the input changes, so the two observers fire 1 gt apart on each edge, and their two 2 gt pulses (one through a lamp the first observer powers, one from the second observer's back) overlap into one 3 gt pulse at the output.
+circuit: dual-edge
+origin: 0 0 0
+port output: 0 0 2
+port input: 0 1 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:redstone_lamp[lit=false]
+layer 0:
+  A
+  B
+  .
+layer 1:
+  .
+  B
+  C

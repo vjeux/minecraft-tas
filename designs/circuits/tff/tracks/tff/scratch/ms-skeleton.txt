@@ -1,0 +1,19 @@
+# skeleton for the master-slave TFF lock search: master M (1,1,0) -> slave S (2,1,0), S's output stone B (3,1,0) with its torch T (NOT q) running back along dust into M's back; the census fills the locks.
+name: ms-skeleton
+circuit: tff
+port input: 1 1 -3
+port output: 3 1 0
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  m minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:redstone_wall_torch[facing=south,lit=true]
+  h minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+  c minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]
+  e minecraft:redstone_wire[east=none,north=side,power=0,south=none,west=side]
+layer 0:
+  SSS.
+  SSS.
+layer 1:
+  cmmS
+  ehhT

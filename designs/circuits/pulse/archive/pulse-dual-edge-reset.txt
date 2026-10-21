@@ -1,0 +1,48 @@
+# archived 2026-10-20T16:53Z from designs/circuits/tracks/pulse/wr/pulse-dual-edge-reset.txt by mctas circuit archive
+# CIRCUIT: pulse-dual-edge-reset dual-edge L 30 gt, delay 6 gt, min-pulse 40 gt, 33 blocks, 5x2x6, robust
+name: pulse-dual-edge-reset
+# One pulse of 30, 46, 62... ticks every time the input turns on and every time it turns off, for inputs held at least 2 seconds (40 ticks): a copper bulb in the input cell shows each change of the input to an observer, which lights a copper bulb that a loop of repeaters resets; each extra row of repeaters adds 16 ticks. Detail: extendable family dual-edge-reset (n = 0): dual-edge with L = 30 + 16n gt, 33 + 4n blocks. The observer watches the input cell's copper bulb (the input powers it, and its state changes on both edges; since R7 an observer cannot watch the judge's stone there) and fires through a repeater into a copper bulb (locked by a comparator reading the bulb while it is lit); the comparator also feeds a U of delay-4 repeaters into a second bulb, read by a comparator that an observer watches: its back faces the first bulb, so each loop sends one 2 gt reset pulse that turns the bulb off. Extension: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column. Generator: mctas circuit pulse family dual-edge-reset --n N --out FILE.
+circuit: dual-edge
+group: pulse-dual-edge-reset
+extend family: pulse-dual-edge-reset
+extend axis: 30 + 16n
+extend blocks: 33 + 4n
+extend rule: lengthen the repeater U by one row: one more delay-4 repeater (on stone) in each column
+extend n: 0..10
+extend group title: long pulse on both edges: an observer, two copper bulbs and a loop of repeaters
+extend group note: Why a chain of repeaters: it answers both edges of inputs from 2 seconds (40 ticks) at any length; the smaller 13-block hopper version (a copper bulb holding a hopper item timer open) needs inputs about twice as long as its pulse, since an edge that comes while its items are moving cuts the pulse short.
+extend base: 0
+extend generator: mctas circuit pulse family dual-edge-reset --n {n} --out {out}
+origin: 0 0 -3
+port input: 2 1 3
+port output: 3 1 0
+palette:
+  S minecraft:stone
+  V minecraft:observer[facing=south,powered=false]
+  T minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  L minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  K minecraft:comparator[facing=north,mode=compare,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  N minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  M minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire
+  P minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  SSSSS
+  S...S
+  ....S
+  S..SS
+  ..SSS
+  .....
+  .....
+layer 1:
+  WWWWW
+  N...M
+  A...M
+  KOBCW
+  ..TLW
+  ..V..
+  ..P..

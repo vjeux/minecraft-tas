@@ -1,0 +1,22 @@
+name: pm-burst3-bulb
+circuit: burst 3
+port input: 0 1 0
+port output: 7 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+layer 0:
+  .O..S
+  .
+  .
+layer 1:
+  WCBSRB
+  .....oA
+  .....WB

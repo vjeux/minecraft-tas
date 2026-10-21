@@ -1,0 +1,19 @@
+name: bud-fence-observer
+circuit: bud
+tile: 0 2 0
+# A presence detector: a fence beside the target connects to a solid block there (its shape follows
+# its neighbors) and an observer watches the fence. Placing or removing a block at the target
+# changes the connection and fires the observer; turning the block in place, a shape-only change
+# or a pure update leaves the connection as it was. The fence's other two free sides sense too.
+origin: 0 0 0
+port target: 0 1 0
+port output: 1 1 2
+palette:
+  F minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  O minecraft:observer[facing=north,powered=false]
+layer 0:
+  ..
+  ..
+layer 1:
+  .F
+  .O

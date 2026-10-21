@@ -13,8 +13,9 @@ extend group note: W = ring width, depth = 3 + its repeaters, one or two dropper
 extend generator: mctas clock item gen dropring --delays 2 --n {n} --out {out}
 extend n: 0..30
 extend period: 31 + 14n
-extend rule: widen the dropper ring by one column (2 hoppers)
-port output: 1 1 1
+extend rule: make the dropper ring one column longer (2 more hoppers)
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 0 3
 nbt: 1 1 3 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: 0 0 0

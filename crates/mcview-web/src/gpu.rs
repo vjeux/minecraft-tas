@@ -4,6 +4,10 @@ use mcview::atlas::Atlas;
 use mcview::render::{Frame, Renderer};
 use web_sys::HtmlCanvasElement;
 
+/// The browser viewer's render distance in chunks (`Renderer::view_chunks`; the ground reaches
+/// past it: `scene::GROUND_REACH`).
+const VIEW_CHUNKS: f32 = 24.0;
+
 pub struct Gpu {
     pub canvas: HtmlCanvasElement,
     surface: wgpu::Surface<'static>,
@@ -27,7 +31,14 @@ impl Gpu {
         config.format = format;
         config.alpha_mode = caps.alpha_modes.first().copied().unwrap_or(wgpu::CompositeAlphaMode::Auto);
         surface.configure(&device, &config);
-        let r = Renderer::new(device, queue, format, atlas, samples);
+        let mut r = Renderer::new(device, queue, format, atlas, samples);
+        // a player's client with a long render distance: the ground's fogged end at the horizon
+        r.view_chunks = Some(VIEW_CHUNKS);
+        r.void_below = true;
+        // a failed GPU command is reported (else it only leaves the canvas black)
+        r.device.on_uncaptured_error(std::sync::Arc::new(|e: wgpu::Error| {
+            crate::log(&format!("GPU error: {e}"));
+        }));
         Ok(Gpu { canvas, surface, config, r })
     }
 

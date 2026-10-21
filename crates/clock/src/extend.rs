@@ -209,6 +209,12 @@ impl Family {
         v
     }
 
+    /// The n values a circuit family is judged at: every n of its range when it has at most
+    /// `EVERY_MAX` members (no unjudged step between judged ones), else [`Family::sample`].
+    pub fn judged_ns(&self) -> Vec<i64> {
+        if self.n_hi - self.n_lo < EVERY_MAX { (self.n_lo..=self.n_hi).collect() } else { self.sample() }
+    }
+
     /// Build instance n with the generator (argv split on spaces; `{n}` and `{out}` replaced;
     /// `mctas` is this executable). The base n with no generator: the design itself.
     pub fn build(&self, base_path: &Path, n: i64, dir: &Path) -> Result<PathBuf> {
@@ -222,8 +228,17 @@ impl Family {
         let out = dir.join(format!("{}-n{n}.txt", self.id));
         let argv: Vec<String> = self.generator.split_whitespace().map(|a| a.replace("{n}", &n.to_string()).replace("{out}", &out.display().to_string())).collect();
         let (prog, args) = argv.split_first().ok_or_else(|| anyhow!("empty generator"))?;
-        let exe = if prog == "mctas" { std::env::current_exe()? } else { PathBuf::from(prog) };
-        let o = std::process::Command::new(&exe).args(args).output().with_context(|| format!("running {}", self.generator))?;
+        let exe = if prog == "mctas" {
+            let me = std::env::current_exe()?;
+            // a binary rebuilt while this run goes on: /proc/self/exe says "<path> (deleted)"
+            if me.to_string_lossy().ends_with(" (deleted)") {
+                bail!("tool error: this mctas binary was replaced while running ({}); run long jobs from a copy of the binary", me.display());
+            }
+            me
+        } else {
+            PathBuf::from(prog)
+        };
+        let o = std::process::Command::new(&exe).args(args).output().with_context(|| format!("tool error: running {}", self.generator))?;
         if !o.status.success() {
             bail!("generator for n = {n} failed: {}", String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or(""));
         }
@@ -246,6 +261,9 @@ pub struct Instance {
 }
 
 pub const EXTEND_TSV: &str = "extend.tsv";
+
+/// A circuit family with at most this many members is judged at every n ([`Family::judged_ns`]).
+pub const EVERY_MAX: i64 = 16;
 
 pub fn read_instances(archive: &Path) -> Vec<Instance> {
     std::fs::read_to_string(archive.join(EXTEND_TSV))

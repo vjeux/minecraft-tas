@@ -15,8 +15,10 @@
 pub mod boat;
 pub mod cart;
 pub mod crafter;
+pub mod declare;
 pub mod rename;
 pub mod ring;
+pub mod shrink;
 pub mod trace;
 pub mod trace_export;
 pub mod unarchive;
@@ -54,6 +56,10 @@ enum Cmd {
     /// Take archived clocks back out (design, verdict and caption rows, the family's extend rows)
     /// to re-archive a rebuilt version under the same name.
     Unarchive(unarchive::UnarchiveArgs),
+    /// Greedy block removal judged in the real game (redsim screens first when it models the
+    /// clock): drop every block that leaves a robust clock with the same period and output edges;
+    /// prints what each design lost.
+    Shrink(shrink::ShrinkArgs),
     /// Build a design in the real game like `clock verify` and print every entity's position and
     /// motion and the changed cells, tick by tick (boats, minecarts).
     Trace(trace::TraceArgs),
@@ -66,6 +72,10 @@ enum Cmd {
     /// Record real-game traces of archived clocks for the in-browser viewer (JSON Lines, one file
     /// per clock in designs/clocks/traces/; format agreed with webrender).
     TraceExport(trace_export::ExportArgs),
+    /// Give archived clocks with no `port output` one at the cell the judge measures (so `clock
+    /// sim` reads it the same way), judged again in the game; `--write` rewrites those whose line
+    /// is unchanged.
+    DeclareOutput(declare::DeclareArgs),
 }
 
 /// `mctas clock misc <args...>`.
@@ -85,9 +95,11 @@ pub fn run(args: Vec<String>) -> anyhow::Result<()> {
         Cmd::CartLoop(l) => cart::run_loop(l),
         Cmd::Rename(r) => rename::run(r),
         Cmd::Unarchive(u) => unarchive::run(u),
+        Cmd::Shrink(s) => shrink::run(s),
         Cmd::Trace(t) => trace::run(t),
         Cmd::BoatRing(r) => boat::run(r),
         Cmd::BoatLift(l) => boat::run_lift(l),
         Cmd::TraceExport(e) => trace_export::run(e),
+        Cmd::DeclareOutput(d) => declare::run(d),
     }
 }

@@ -1,8 +1,10 @@
 # archived 2026-10-19T15:57Z from designs/clocks/census/3x1x1-k3/designs/census-p6-note_block-observer-3b.txt by mctas clock archive
-# CLOCK: census-p6-note_block-observer-3b period 6 gt, on 2/6, edges 1, warmup 0, family note_block+observer, 3 blocks, 3x1x1, robust
+# CLOCK: census-p6-note_block-observer-3b period 6 gt (0.3 s), on 2/6, edges 1, warmup 2, family note_block+observer, 3 blocks, 3x1x1, robust
 name: census-p6-note_block-observer-3b
 census: box 3x1x1 k<=3 (0,0,0=observer[facing=east,powered=false];1,0,0=observer[facing=west,powered=false];2,0,0=note_block[instrument=harp,note=0,powered=false])
 port start: 0 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 2 -1 0
 origin: 0 0 0
 palette:
   N minecraft:note_block[instrument=harp,note=0,powered=false]

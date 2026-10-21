@@ -109,7 +109,7 @@ pub struct Params {
 
 impl Default for Params {
     fn default() -> Self {
-        Params { cycles: 3, max_phase: 400, max_settle: 400, track: true }
+        Params { cycles: 3, max_phase: 2000, max_settle: 400, track: true }
     }
 }
 

@@ -1,0 +1,32 @@
+name: pext-n9-flat-cascade59
+circuit: piston-extender 9
+travel: 1 0 0
+port input: 25 4 0 lever
+port payload: 18 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=east]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[facing=east]
+  F minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down]
+  P minecraft:piston[extended=false,facing=west]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  .O.O...O...O.O.O
+layer 1:
+  ESESESESESESESESEG
+layer 2:
+  .....B...B
+layer 3:
+  C.C.C.C.C.C.C.C...C..C..C
+layer 4:
+  rAsARARARARAR.oDFAAA.PAAL

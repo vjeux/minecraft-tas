@@ -1,0 +1,13 @@
+name: rt-cart-collide
+# redsim test scene (not a clock): a minecart thrown along +x on an east-west rail runs into a
+# resting minecart (both facing along the rail): AbstractMinecart.push / pushOtherMinecart trade
+# their motion (each keeps 0.2 of its own plus the mean, +-0.05 apart).
+entity: minecraft:minecart 1.5 1.0625 0.5 {Motion:[0.6d,0.0d,0.0d]}
+entity: minecraft:minecart 5.5 1.0625 0.5
+palette:
+  S minecraft:stone
+  r minecraft:rail[shape=east_west]
+layer 0:
+  SSSSSSSSSSSSSSSS
+layer 1:
+  rrrrrrrrrrrrrrrr

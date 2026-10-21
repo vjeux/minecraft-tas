@@ -255,18 +255,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-arith"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "mctas",
+ "redsim",
+ "rustsat",
+ "rustsat-cadical",
+]
+
+[[package]]
+name = "circuit-bud"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+]
+
+[[package]]
 name = "circuit-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "circuit",
+ "circuit-arith",
+ "circuit-bud",
  "circuit-delay",
  "circuit-fly",
  "circuit-gates",
  "circuit-memory",
  "circuit-pext",
  "circuit-pulse",
+ "circuit-pulsemult",
+ "circuit-shulker",
  "circuit-tff",
+ "circuit-timer",
+ "circuit-tnt",
  "clap",
  "clock",
  "mctas",
@@ -343,7 +373,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-pulsemult"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "circuit-memory",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-shulker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+ "serde_json",
+]
+
+[[package]]
 name = "circuit-tff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-timer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "clock",
+ "mctas",
+ "redsim",
+]
+
+[[package]]
+name = "circuit-tnt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1487,6 +1567,7 @@ name = "redsim-fuzz"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
  "clock",
  "mctas",
@@ -1692,9 +1773,12 @@ dependencies = [
  "flate2",
  "litematic",
  "mctas",
+ "mcview",
  "piston-door",
+ "redsim",
  "serde",
  "serde_json",
+ "sha2",
  "site-model",
 ]
 
@@ -2023,6 +2107,7 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "circuit-fly",
  "clap",
  "clock",
@@ -2031,6 +2116,7 @@ dependencies = [
  "mcview",
  "redsim",
  "serde_json",
+ "site",
  "zip",
 ]
 

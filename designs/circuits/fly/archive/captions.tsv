@@ -1,74 +1,14 @@
 file	caption
-fly-horizontal-6b-10gt-01ce95.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching down + down; 2 slime
-fly-horizontal-6b-10gt-02a7fb.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + sideways; 2 slime
-fly-horizontal-6b-10gt-040607.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-horizontal-6b-10gt-13c653.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-horizontal-6b-10gt-170a6b.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-horizontal-6b-10gt-21a800.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; 2 slime
-fly-horizontal-6b-10gt-2e9777.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
-fly-horizontal-6b-10gt-32cc00.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; honey + slime
-fly-horizontal-6b-10gt-3ec62d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-horizontal-6b-10gt-5c3d92.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; honey + slime
-fly-horizontal-6b-10gt-73cdd4.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching up + up; 2 slime
-fly-horizontal-6b-10gt-7daa4d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
-fly-horizontal-6b-10gt-933e46.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; 2 slime
-fly-horizontal-6b-10gt-934fee.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + down; 2 slime
-fly-horizontal-6b-10gt-964ac6.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
-fly-horizontal-6b-10gt-9be54d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + up; 2 slime
-fly-horizontal-6b-10gt-a263fd.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
-fly-horizontal-6b-10gt-a4df86.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
-fly-horizontal-6b-10gt-ab9d7f.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-horizontal-6b-10gt-b2d5cf.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-horizontal-6b-10gt-b6959a.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
-fly-horizontal-6b-10gt-da7cfb.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
-fly-horizontal-6b-10gt-e2cf52.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-horizontal-6b-10gt-e66767.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-horizontal-6b-10gt-f41cea.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-horizontal-6b-10gt-f7b224.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-d1.txt	Derived from the piston rules (docs/mechanics.md section 2): the rear part (normal piston X, two slimes, observer A) pushes the front part (observer B, slime, sticky piston Y) one cell east; Y, fired by B when the front lands, reach-pulls the rear slime row (and X, A) one cell east; A, landing, fires X again.
-fly-down-6b-10gt-572d63.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-711a4b.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-882fc3.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-ae5894.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-0dba6a.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-down-6b-10gt-711a4b-c774d9.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-8136e6.txt	flies down: piston facing forward + sticky piston facing back; observers watching sideways + sideways; 2 slime
-fly-down-6b-10gt-926773.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-down-6b-10gt-cae51d.txt	flies down: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-down-6b-10gt-cbc0e3.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
-fly-down-6b-10gt-df01a4.txt	flies down: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
-fly-down-7b-10gt-aca731.txt	flies down: piston facing forward + sticky piston facing back; observers watching back + back; 3 slime
-fly-horizontal-6b-10gt-964ac6-70baf8.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching sideways + up; 2 slime
-fly-up-6b-10gt-2901e6.txt	flies up: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-up-6b-10gt-ca150a.txt	flies up: piston facing forward + sticky piston facing back; observers watching back + forward; 2 slime
-fly-up-7b-9gt-ff426b.txt	flies up: piston facing forward + sticky piston facing back; observers watching back + back; 3 slime
-fly-down-6b-10gt-304dd9.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; 2 slime
-fly-down-6b-10gt-3a5365.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; honey + slime
-fly-down-6b-10gt-400161.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; 2 slime
-fly-down-6b-10gt-427570.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching back + sideways; 2 slime
-fly-down-6b-10gt-4b41e5.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching forward + sideways; honey + slime
-fly-down-6b-10gt-a14d69.txt	flies down: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
-fly-horizontal-6b-10gt-2d6cb2.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
-fly-horizontal-6b-10gt-30846b.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
-fly-horizontal-6b-10gt-3966e6.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; 2 slime
-fly-horizontal-6b-10gt-399638.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
-fly-horizontal-6b-10gt-3c7ccd.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching forward + up; honey + slime
-fly-horizontal-6b-10gt-5093a3.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + down; 2 slime
-fly-horizontal-6b-10gt-67f769.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching sideways + sideways; 2 slime
-fly-horizontal-6b-10gt-68f70e.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + forward; 2 slime
-fly-horizontal-6b-10gt-7ab2b1.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching sideways + up; 2 slime
-fly-horizontal-6b-10gt-817d65.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
-fly-horizontal-6b-10gt-873917.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + forward; 2 slime
-fly-horizontal-6b-10gt-91737e.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching down + forward; 2 slime
-fly-horizontal-6b-10gt-93668c.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
-fly-horizontal-6b-10gt-96f587.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + up; 2 slime
-fly-horizontal-6b-10gt-9a6f4d.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + sideways; 2 slime
-fly-horizontal-6b-10gt-9f67a3.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching back + up; 2 slime
-fly-horizontal-6b-10gt-a94576.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching down + sideways; 2 slime
-fly-horizontal-6b-10gt-d0adfc.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + up; 2 slime
-fly-horizontal-6b-10gt-ee3111.txt	flies horizontally: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-horizontal-6b-10gt-fe361f.txt	flies horizontally: sticky piston facing back + sticky piston facing forward; observers watching back + forward; honey + slime
-fly-up-6b-10gt-9e15a0.txt	flies up: piston facing forward + sticky piston facing back; observers watching forward + sideways; honey + slime
-fly-payload-9-15b.txt	payload: the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying a column of 8 slime + a gold block on its front slime: 9 blocks is the most a 3-block part can carry (a piston moves at most 12 blocks; 10 never moves)
-fly-payload-18-24b.txt	payload: the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying 18 blocks, 9 on each part (8 slime + a gold block up from the front slime, the same down from the rear slime): the biggest load the engine moves (a 10th block on the rear: the pull fails and the machine breaks)
-fly-two-way-14b.txt	two-way: the reversible 6-block engine (fly-horizontal-6b-10gt-01ce95: two sticky pistons, the one that fires first sets the direction) shuttling between two 4-block return stations: an obsidian wall stops it; an observer watching the cell only the trailing observer enters at the stop fires 2 gt later into a block whose cross dust points into the back of the leading part's sticky piston, which pushes the trailing part back (2 gt pulse: spit) and the engine runs the other way.
+fly-horizontal-6b-10gt-01ce95.txt	Flat flying machine: two halves take turns: one half's piston pushes the other half a block forward, then that half's piston pulls the first half after it; an observer on each half sees the move and fires the next piston, so the machine crawls one block every 10 ticks. Detail: the smallest flying machine (6 blocks; nothing with 5 flies), each half an observer, a slime block and a sticky piston; all slime; also 39 other layouts (observers looking other ways) in tracks/fly/layouts
+fly-down-6b-10gt-a14d69.txt	Flies straight down, one block every 10 ticks, with only observers firing the pistons; it works only when built facing east or west (facing north or south it shakes in place, because of the order the game updates blocks in). Detail: 6 blocks, one honey and one slime; also 3 other layouts in tracks/fly/layouts
+fly-horizontal-6b-10gt-fe361f.txt	Flat flying machine, the same two-halves-taking-turns machine as the slime one, but one half is glued with honey: honey and slime do not stick to each other, so the halves touch without gluing together. Detail: 6 blocks, 10 ticks per block; also 6 other slime + honey layouts in tracks/fly/layouts
+fly-payload-9-15b.txt	Tall flying machine carrying 9 extra blocks stacked on its front half, the most one half can drag along (a piston moves at most 12 blocks). Detail: 8 slime and a gold block in a column up from the front slime; 15 blocks in all, still one block every 10 ticks
+fly-payload-18-24b.txt	Tall flying machine carrying 18 extra blocks, 9 stacked on each half: the biggest load it can move (one more block and the pull fails). Detail: 8 slime and a gold block up from the front slime, the same down from the rear slime; 24 blocks in all
+fly-payload-n1.txt	Tall flying machine (carries cargo): the 6-block machine with a column of extra blocks stacked on its front half; every block rides along at the same speed, up to 9 on each half. Detail: the family carries n = 1 to 18 blocks in 6 + n blocks (a piston moves at most 12 blocks: the 3-block half plus 9); this card carries 1 block
+fly-horizontal-7b-9gt-e75c5f.txt	The fastest flat flying machine, one block every 9 ticks: it works like the 6-block one, but a redstone block riding on the front half switches the rear piston on the instant it lands instead of waiting for an observer. Detail: 7 blocks (the 6-block engine without its rear observer, plus a second slime carrying the redstone block); the pulled piston fires 1 tick after landing instead of 2
+fly-up-6b-9gt-0e4df1.txt	Flies straight up, one block every 9 ticks, like the slime one but with a honey half (honey and slime do not stick to each other, so the halves can touch). Detail: 6 blocks; a redstone block on the honey half fires the pusher as it lands; also 3 other layouts in tracks/fly/layouts
+fly-train-n1.txt	A flying machine that pulls a train of wagons: every wagon has its own piston that pulls the next wagon after it, so the train can be any length and still moves one block every 10 ticks. Detail: 5 + 3n blocks for n wagons (judged up to 16); a sticky piston on the rear slime pulls wagon 1 each cycle
+fly-down-6b-10gt-16348f.txt	Flies straight down, one block every 10 ticks, whichever way it faces: the two halves take turns pulling each other down, and a redstone block riding on one half fires the other piston the moment it lands. Detail: 6 blocks, all slime; the observer-only down flyers work only facing east or west; also 18 other layouts in tracks/fly/layouts
+fly-down-6b-10gt-5bcd27.txt	Flies straight down, one block every 10 ticks, whichever way it faces, glued with honey instead of slime. Detail: 6 blocks; a redstone block riding on one half fires the other piston as it lands; also 1 other layout in tracks/fly/layouts
+fly-up-6b-9gt-151e3e.txt	Flies straight up, one block every 9 ticks: one piston pushes the top half up, the observer on the top half then fires its piston to pull the bottom half after it, and a redstone block on the bottom half fires the first piston again the moment it arrives. Detail: 6 blocks, all slime; the redstone block takes the place of the rear observer and saves a tick
+fly-docking-15b.txt	Flying machine with docking stations, 15 blocks, and an on/off lever: a 6-block flying machine (two sticky pistons, two slime blocks, two observers) shuttles between two docking stations, 98 ticks per round trip. Each station has an obsidian wall that stops the machine and an observer that sees it arrive and fires, 2 ticks later, into a dust behind the leading piston, which pushes the machine back the other way. At the station with the lever, the observer stands on a sticky piston: lever off pulls it aside, so the machine docks there and stays; lever on pushes it back into place, and a moved observer fires, so the docked machine leaves at once and shuttles again.

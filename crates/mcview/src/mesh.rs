@@ -2,7 +2,7 @@
 //! faces against opaque neighbors culled, corners darkened like the game's smooth lighting
 //! (ambient occlusion), faces shaded by direction, translucent faces kept apart for sorting.
 
-use crate::atlas::Atlas;
+use crate::atlas::{Atlas, GAME_LAYER};
 use crate::design::Pos;
 use crate::models::{self, Face, Layer, Model, Part};
 use std::collections::{HashMap, HashSet};
@@ -26,12 +26,17 @@ pub struct Quad {
     pub center: [f32; 3],
 }
 
-/// Something to draw besides blocks: an entity (feet position in blocks, yaw in degrees).
-#[derive(Clone, Debug)]
+/// Something to draw besides blocks: an entity (feet position in blocks, yaw in degrees), with
+/// its pitch (a minecart on a slope), age in ticks (a dropped item's bob and spin) and fuse left
+/// (a primed TNT's flash and swell).
+#[derive(Clone, Debug, Default)]
 pub struct EntityDraw {
     pub kind: String,
     pub pos: [f32; 3],
     pub yaw: f32,
+    pub pitch: f32,
+    pub age: f32,
+    pub fuse: f32,
 }
 
 /// Everything a frame needs.
@@ -107,6 +112,19 @@ fn base_name(state: &str) -> &str {
     state.split('[').next().unwrap_or(state)
 }
 
+/// A block state that gives off light, drawn at full brightness: a lit redstone lamp, torch or
+/// copper bulb, and the always-lit light blocks.
+pub fn lit_emitter(state: &str) -> bool {
+    let name = base_name(state).trim_start_matches("minecraft:");
+    let lit = state.contains("lit=true");
+    match name {
+        "redstone_lamp" | "redstone_torch" | "redstone_wall_torch" | "furnace" | "blast_furnace" | "smoker" => lit,
+        n if n.ends_with("copper_bulb") => lit,
+        "glowstone" | "sea_lantern" | "shroomlight" | "jack_o_lantern" | "lantern" | "soul_lantern" | "torch" | "wall_torch" | "soul_torch" | "soul_wall_torch" | "end_rod" | "beacon" => true,
+        _ => false,
+    }
+}
+
 /// The game's directional shade for a face normal (up 1.0, down 0.5, z 0.8, x 0.6).
 pub fn shade(n: [f32; 3]) -> f32 {
     let y = if n[1] > 0.0 { n[1] * n[1] } else { n[1] * n[1] * 0.5 };
@@ -116,6 +134,9 @@ pub fn shade(n: [f32; 3]) -> f32 {
 /// AO brightness by the number of opaque neighbors around a corner (side, side, corner).
 const AO: [f32; 4] = [1.0, 0.8, 0.65, 0.5];
 
+/// How opaque a ghosted cell's faces are ([`Builder::ghost`]: the judge's test rig).
+pub const GHOST_ALPHA: u8 = 80;
+
 pub struct Builder<'a> {
     pub atlas: &'a Atlas,
     /// Cells holding an opaque full block (not moving).
@@ -124,25 +145,62 @@ pub struct Builder<'a> {
     names: HashMap<Pos, String>,
     /// The ground: every cell below this y counts as an opaque block (culling, AO).
     pub ground: Option<i32>,
+    /// More cells holding an opaque full block, drawn some other way (a TNT duper's intact
+    /// ground around the ground cells drawn as blocks: [`floor`]): they cull and shade like blocks.
+    pub extra_occ: HashSet<Pos>,
+    /// Cells drawn see-through ([`crate::scene::Look::ghost`]): their faces go to the translucent
+    /// pass at [`GHOST_ALPHA`], and they hide nothing (their neighbours keep their faces).
+    pub ghost: HashSet<Pos>,
     cache: HashMap<String, Option<Model>>,
     pub mesh: Mesh,
+    /// A transform for the block model being drawn as part of an entity (a minecart's hopper, a
+    /// dropped block item): its unit cube goes through it.
+    xf: Option<crate::entitymodel::M>,
+    /// The block model being drawn flashes white (a primed TNT: `OverlayTexture`'s white at
+    /// u = 15, 75% white): its solid faces carry the mix in their vertex alpha.
+    white: bool,
 }
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() } }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, extra_occ: HashSet::new(), ghost: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
     }
 
     fn occupied(&self, c: Pos) -> bool {
-        self.occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
+        self.occ.contains(&c) || self.extra_occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
+    }
+
+    /// The cells holding an opaque full cube so far (they occlude and block the sky's light).
+    pub fn opaque_cells(&self) -> &HashSet<Pos> {
+        &self.occ
     }
 
     fn model(&mut self, state: &str) -> Option<Model> {
-        if let Some(m) = self.cache.get(state) {
+        self.model_at(state, None)
+    }
+
+    /// A block's model; at `cell` for a block the game draws as one of several variants picked
+    /// from its position (cached per state, and per cell for those).
+    fn model_at(&mut self, state: &str, cell: Option<Pos>) -> Option<Model> {
+        let positional = cell.is_some() && self.atlas.game.as_ref().is_some_and(|g| g.models.positional(state));
+        let key = if positional { format!("{state}@{:?}", cell) } else { state.to_string() };
+        if let Some(m) = self.cache.get(&key) {
             return m.clone();
         }
-        let m = models::model_for(state, self.atlas);
-        self.cache.insert(state.to_string(), m.clone());
+        let m = models::model_at(state, self.atlas, if positional { cell } else { None });
+        // a lit light source (a lamp, a torch, a copper bulb...) at full brightness, without
+        // the faces' directional shade or corner darkening: the game lights its faces with its
+        // own light (critique: "Lamps never look lit"; the game's models lost the viewer's own
+        // lamps' glow)
+        let m = m.map(|mut m| {
+            if lit_emitter(state) {
+                for p in m.parts.iter_mut() {
+                    *p = p.clone().emissive(true);
+                }
+            }
+            m
+        });
+        self.cache.insert(key, m.clone());
         m
     }
 
@@ -150,19 +208,43 @@ impl<'a> Builder<'a> {
     pub fn blocks(&mut self, items: &[Item]) {
         self.occ.clear();
         self.names.clear();
+        let states: HashMap<Pos, &str> = items.iter().filter(|it| it.offset == [0.0; 3]).map(|it| (it.cell, it.state)).collect();
         for it in items {
             if it.offset == [0.0; 3] {
-                self.names.insert(it.cell, base_name(it.state).to_string());
-                if let Some(m) = self.model(it.state)
+                // water and bubble columns are one fluid: no faces between them
+                let n = match base_name(it.state) {
+                    "minecraft:bubble_column" => "minecraft:water",
+                    n => n,
+                };
+                self.names.insert(it.cell, n.to_string());
+                if let Some(m) = self.model_at(it.state, Some(it.cell))
                     && m.full
                     && m.parts.iter().all(|p| p.layer == Layer::Opaque)
+                    && !self.ghost.contains(&it.cell)
                 {
                     self.occ.insert(it.cell);
                 }
             }
         }
         for it in items {
-            if let Some(m) = self.model(it.state) {
+            // water: the game's sloped surface (corner heights from the neighbouring cells), not
+            // cuboids (their steps showed as lines across a pool)
+            if it.offset == [0.0; 3] && matches!(base_name(it.state), "minecraft:water" | "minecraft:bubble_column") {
+                self.water(it.cell, &states);
+                continue;
+            }
+            // water under water fills its cell (the game's surface is only at the top)
+            let state = if it.offset == [0.0; 3] && base_name(it.state) == "minecraft:water" && self.names.get(&[it.cell[0], it.cell[1] + 1, it.cell[2]]).is_some_and(|n| n == "minecraft:water") {
+                "minecraft:water[level=8]"
+            } else {
+                it.state
+            };
+            // chests and shulker boxes: the game's block-entity models (ChestModel, ShulkerModel)
+            // with its entity textures, once loaded
+            if it.offset == [0.0; 3] && self.block_entity(state, it.cell) {
+                continue;
+            }
+            if let Some(m) = self.model_at(state, Some(it.cell)) {
                 let base = [it.cell[0] as f32 + it.offset[0], it.cell[1] as f32 + it.offset[1], it.cell[2] as f32 + it.offset[2]];
                 let still = it.offset == [0.0; 3];
                 self.add_model(&m, base, if still { Some(it.cell) } else { None }, None);
@@ -170,10 +252,288 @@ impl<'a> Builder<'a> {
         }
     }
 
+    /// A chest or shulker box drawn like the game's block-entity renderers (false: not one, or
+    /// the entity textures are not loaded yet: the viewer's model is drawn).
+    fn block_entity(&mut self, state: &str, cell: Pos) -> bool {
+        let id = base_name(state);
+        if id != "minecraft:chest" && !id.ends_with("shulker_box") {
+            return false;
+        }
+        let Some(g) = self.atlas.game.clone() else { return false };
+        if !g.entities {
+            g.wants_entities.set(true);
+            return false;
+        }
+        match crate::entitymodel::block_entity_triangles(&g, state, cell) {
+            Some(tris) => {
+                for v in &tris {
+                    for k in 0..3 {
+                        self.mesh.lo[k] = self.mesh.lo[k].min(v.pos[k]);
+                        self.mesh.hi[k] = self.mesh.hi[k].max(v.pos[k]);
+                    }
+                }
+                self.mesh.solid.extend_from_slice(&tris);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        if let Some(rest) = e.kind.strip_prefix("frame:") {
+            self.item_frame(e.pos, rest);
+            return;
+        }
+        if let Some(state) = e.kind.strip_prefix("falling:") {
+            // FallingBlockRenderer: the block model, half a block back (the game's or the viewer's)
+            if let Some(m) = self.model(state) {
+                self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, None);
+            }
+            return;
+        }
+        if let Some(state) = e.kind.strip_prefix("primed:") {
+            // TntRenderer: the block model centred on the entity, swelling over the last 10
+            // ticks, flashing white every 5 (the white overlay: 75% white)
+            if let Some(m) = self.model(state) {
+                let (scale, white) = crate::entitymodel::tnt_look(e.fuse);
+                self.xf = Some(crate::entitymodel::M::id().translate([e.pos[0], e.pos[1] + 0.5, e.pos[2]]).scale([scale, scale, scale]).translate([-0.5, -0.5, -0.5]));
+                self.white = white;
+                self.add_model(&m, [0.0; 3], None, None);
+                self.xf = None;
+                self.white = false;
+            }
+            return;
+        }
+        let game = self.atlas.game.clone();
+        if let Some(g) = &game {
+            if !g.entities {
+                // drawn with the viewer's stand-in until the page loads the game's entity textures
+                g.wants_entities.set(true);
+            } else if self.game_entity(g, e) {
+                return;
+            }
+        }
+        // an item entity: a small cube of its block's texture, else of its color
+        if let Some(id) = e.kind.strip_prefix("item:") {
+            let n = id.strip_prefix("minecraft:").unwrap_or(id);
+            let part = match self.atlas.names.get_key_value(n) {
+                Some((tile, _)) => Part::new([-2.0, 0.0, -2.0], [2.0, 4.0, 2.0]).all(tile),
+                None => Part::new([-2.0, 0.0, -2.0], [2.0, 4.0, 2.0]).all("generic").tint(models::name_color(n)),
+            };
+            let m = Model::one(part.nocull());
+            self.add_model(&m, [e.pos[0], e.pos[1] + 0.1, e.pos[2]], None, Some(e.yaw));
+            return;
+        }
         if let Some(m) = models::entity_model(&e.kind) {
-            self.add_model(&m, [e.pos[0] - 0.5, e.pos[1], e.pos[2] - 0.5], None, Some(e.yaw));
+            self.add_model(&m, e.pos, None, Some(e.yaw));
+        }
+    }
+
+    /// An entity drawn like the game: its own model and texture (boats, minecarts with their
+    /// display block, armor stands), a falling block's block model, a dropped item (a block
+    /// item's block model, else its sprite). False when the viewer has nothing for it.
+    /// An item frame (`ItemFrameRenderer`; the session's `frame:<facing>:<turn>:<item>`): the
+    /// game's `item_frame` block model (birch planks around a leather back, built facing north)
+    /// turned to face its way in its cell, then its item at half size against the back, turned
+    /// its turn x 45 degrees about the frame's normal (clockwise seen from the front). Without the
+    /// game's models: the template's shape in the viewer's planks.
+    fn item_frame(&mut self, pos: [f32; 3], rest: &str) {
+        use crate::entitymodel as em;
+        use redsim::Dir;
+        let mut it = rest.splitn(3, ':');
+        let d = it.next().and_then(Dir::from_name).unwrap_or(Dir::South);
+        let turn: u8 = it.next().and_then(|r| r.parse().ok()).unwrap_or(0);
+        let item = it.next().unwrap_or("");
+        // the entity sits 0.46875 back toward its wall; the renderer moves it to the cell's centre
+        let st = d.step();
+        let center = [0, 1, 2].map(|k| pos[k] + st[k] as f32 * 0.46875);
+        let frame = em::item_frame_transform(center, d);
+        let model = self.model("minecraft:item_frame[map=false]").filter(|m| !m.full).unwrap_or_else(|| {
+            let wood = |from: [f32; 3], to: [f32; 3]| Part::new(from, to).all("oak_planks").nocull();
+            Model {
+                parts: vec![
+                    Part::new([3.0, 3.0, 15.5], [13.0, 13.0, 16.0]).face(models::NORTH, "generic").face(models::SOUTH, "generic").tint([110, 70, 45]).nocull(),
+                    wood([2.0, 2.0, 15.0], [14.0, 3.0, 16.0]),
+                    wood([2.0, 13.0, 15.0], [14.0, 14.0, 16.0]),
+                    wood([2.0, 3.0, 15.0], [3.0, 13.0, 16.0]),
+                    wood([13.0, 3.0, 15.0], [14.0, 13.0, 16.0]),
+                ],
+                ..Default::default()
+            }
+        });
+        self.xf = Some(frame.translate([-0.5, -0.5, -0.5]));
+        self.add_model(&model, [0.0; 3], None, None);
+        self.xf = None;
+        if item.is_empty() {
+            return;
+        }
+        let m = em::framed_item_transform(&frame, turn);
+        let game = self.atlas.game.clone();
+        let name = item.strip_prefix("minecraft:").unwrap_or(item);
+        if let Some(g) = &game
+            && g.tex.contains_key(&format!("item/{name}"))
+        {
+            if let Some(tris) = em::sprite_triangles(g, item, &m) {
+                for v in &tris {
+                    for k in 0..3 {
+                        self.mesh.lo[k] = self.mesh.lo[k].min(v.pos[k]);
+                        self.mesh.hi[k] = self.mesh.hi[k].max(v.pos[k]);
+                    }
+                }
+                self.mesh.solid.extend_from_slice(&tris);
+            }
+            return;
+        }
+        if let Some(g) = &game
+            && !g.entities
+        {
+            // the item textures come with the entity textures: the page loads them
+            g.wants_entities.set(true);
+        }
+        // a block item (its block model at the `fixed` display's half size), else a flat square
+        // of the item's colour until the item textures are in
+        if let Some(bm) = self.model(&format!("minecraft:{name}")).filter(|_| game.as_ref().is_some_and(|g| g.models.model(&format!("minecraft:{name}"), None).is_some())) {
+            self.xf = Some(m.translate([0.5, 0.5, 0.0]).scale([0.5, 0.5, 0.5]).translate([-0.5, -0.5, -0.5]));
+            self.add_model(&bm, [0.0; 3], None, None);
+            self.xf = None;
+        } else {
+            let p = Part::new([2.0, 2.0, 0.0], [14.0, 14.0, 0.5]).all("generic").tint(models::name_color(name)).nocull();
+            self.xf = Some(m);
+            self.add_model(&Model::one(p), [0.0; 3], None, None);
+            self.xf = None;
+        }
+    }
+
+    fn game_entity(&mut self, g: &crate::atlas::GameAssets, e: &EntityDraw) -> bool {
+        use crate::entitymodel as em;
+        let push = |b: &mut Self, tris: Vec<Vertex>| {
+            for v in &tris {
+                for k in 0..3 {
+                    b.mesh.lo[k] = b.mesh.lo[k].min(v.pos[k]);
+                    b.mesh.hi[k] = b.mesh.hi[k].max(v.pos[k]);
+                }
+            }
+            b.mesh.solid.extend_from_slice(&tris);
+        };
+        if let Some(id) = e.kind.strip_prefix("item:") {
+            let name = id.strip_prefix("minecraft:").unwrap_or(id);
+            if g.tex.contains_key(&format!("item/{name}")) {
+                if let Some(t) = em::item_sprite_triangles(g, id, e.pos, e.age) {
+                    push(self, t);
+                    return true;
+                }
+            } else if let Some(m) = self.model(&format!("minecraft:{name}")) {
+                self.xf = Some(em::item_block_transform(e.pos, e.age));
+                self.add_model(&m, [0.0; 3], None, None);
+                self.xf = None;
+                return true;
+            }
+            return false;
+        }
+        let Some(tris) = em::entity_triangles(g, &e.kind, e.pos, e.yaw, e.pitch) else { return false };
+        push(self, tris);
+        // a hopper minecart's hopper (display offset 1), a chest minecart's chest...
+        let k = e.kind.strip_prefix("minecraft:").unwrap_or(&e.kind);
+        let display = match k {
+            "hopper_minecart" => Some(("minecraft:hopper[enabled=true,facing=down]", 1)),
+            "chest_minecart" => Some(("minecraft:chest[facing=north,type=single,waterlogged=false]", 8)),
+            "tnt_minecart" => Some(("minecraft:tnt[unstable=false]", 6)),
+            "furnace_minecart" => Some(("minecraft:furnace[facing=north,lit=false]", 6)),
+            _ => None,
+        };
+        if let Some((state, offset)) = display
+            && let Some(m) = self.model(state)
+        {
+            self.xf = Some(em::minecart_block_transform(e.pos, e.yaw, e.pitch, offset));
+            self.add_model(&m, [0.0; 3], None, None);
+            self.xf = None;
+        }
+        true
+    }
+
+    /// A water (or bubble column) cell like the game draws fluids: its surface at each corner the
+    /// average height of the water cells sharing that corner (full when water stands above any
+    /// of them), faces only toward cells that are neither water nor opaque cubes.
+    fn water(&mut self, cell: Pos, states: &HashMap<Pos, &str>) {
+        let is_water = |names: &HashMap<Pos, String>, p: Pos| names.get(&p).is_some_and(|n| n == "minecraft:water");
+        // the own height of a water cell (in blocks): full under water, else the game's amount / 9
+        let level_of = |p: Pos| -> Option<u32> {
+            states.get(&p).map(|s| {
+                if base_name(s) == "minecraft:bubble_column" {
+                    0
+                } else {
+                    s.split("level=").nth(1).and_then(|r| r.split([',', ']']).next()).and_then(|v| v.parse().ok()).unwrap_or(0)
+                }
+            })
+        };
+        let names = &self.names;
+        let height = |p: Pos| -> Option<f32> {
+            if !is_water(names, p) {
+                return None;
+            }
+            if is_water(names, [p[0], p[1] + 1, p[2]]) {
+                return Some(1.0);
+            }
+            let l = level_of(p).unwrap_or(0);
+            Some(if l == 0 || l >= 8 { 8.0 / 9.0 } else { (8 - l) as f32 / 9.0 })
+        };
+        let above = is_water(names, [cell[0], cell[1] + 1, cell[2]]);
+        // corner (dx, dz) in {0,1}: the cells sharing it
+        let corner = |dx: i32, dz: i32| -> f32 {
+            if above {
+                return 1.0;
+            }
+            let (mut sum, mut n) = (0.0f32, 0.0f32);
+            for (ox, oz) in [(dx - 1, dz - 1), (dx, dz - 1), (dx - 1, dz), (dx, dz)] {
+                let q = [cell[0] + ox, cell[1], cell[2] + oz];
+                if let Some(h) = height(q) {
+                    if h >= 1.0 {
+                        return 1.0;
+                    }
+                    sum += h;
+                    n += 1.0;
+                }
+            }
+            if n > 0.0 { sum / n } else { 8.0 / 9.0 }
+        };
+        let h = [corner(0, 0), corner(0, 1), corner(1, 1), corner(1, 0)];
+        let tile = self.atlas.tile("water") as u32;
+        let (x, y, z) = (cell[0] as f32, cell[1] as f32, cell[2] as f32);
+        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
+            let l = shade(n);
+            let c = (255.0 * l).round() as u8;
+            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer: tile, color: [c, c, c, 255] });
+            let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
+            b.mesh.translucent.push(Quad { v, center });
+            for q in pts {
+                for k in 0..3 {
+                    b.mesh.lo[k] = b.mesh.lo[k].min(q[k]);
+                    b.mesh.hi[k] = b.mesh.hi[k].max(q[k]);
+                }
+            }
+        };
+        let open = |b: &Self, q: Pos| !is_water(&b.names, q) && !b.occupied(q);
+        // the surface (seen from above and below)
+        if !above {
+            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0]);
+            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0]);
+        }
+        if open(self, [cell[0], cell[1] - 1, cell[2]]) {
+            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0]);
+        }
+        // sides: north (-z) uses corners 0 (x0,z0) and 3 (x1,z0); south (+z) 1 and 2; west (-x)
+        // 0 and 1; east (+x) 3 and 2
+        let sides: [(Pos, [[f32; 3]; 4], [f32; 2], [f32; 3]); 4] = [
+            ([0, 0, -1], [[x + 1.0, y, z], [x, y, z], [x, y + h[0], z], [x + 1.0, y + h[3], z]], [h[3], h[0]], [0.0, 0.0, -1.0]),
+            ([0, 0, 1], [[x, y, z + 1.0], [x + 1.0, y, z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [h[1], h[2]], [0.0, 0.0, 1.0]),
+            ([-1, 0, 0], [[x, y, z], [x, y, z + 1.0], [x, y + h[1], z + 1.0], [x, y + h[0], z]], [h[0], h[1]], [-1.0, 0.0, 0.0]),
+            ([1, 0, 0], [[x + 1.0, y, z + 1.0], [x + 1.0, y, z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0]], [h[2], h[3]], [1.0, 0.0, 0.0]),
+        ];
+        for (d, pts, top, n) in sides {
+            if open(self, [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]]) {
+                quad(self, pts, [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]], n);
+            }
         }
     }
 
@@ -187,7 +547,7 @@ impl<'a> Builder<'a> {
             self.add_model(&m, base, Some(cell), None);
             return;
         }
-        let t = 0.6;
+        let t = 0.4;
         let (a, b) = (-0.3, 16.3);
         let mut parts = Vec::new();
         for (from, to) in [
@@ -210,6 +570,60 @@ impl<'a> Builder<'a> {
         self.add_model(&m, base, None, None);
     }
 
+    /// An outline box around the cells from `lo` to `hi` (a driven input and its judge devices).
+    pub fn marker_span(&mut self, lo: Pos, hi: Pos, color: [u8; 3]) {
+        let base = [lo[0] as f32, lo[1] as f32, lo[2] as f32];
+        let t = 0.4;
+        let a = [-0.3f32; 3];
+        let b: [f32; 3] = std::array::from_fn(|k| 16.0 * (hi[k] - lo[k] + 1) as f32 + 0.3);
+        let mut parts = Vec::new();
+        // the 12 edges: 4 along each axis
+        for axis in 0..3 {
+            let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+            for (eu, ev) in [(a[u], a[v]), (b[u] - t, a[v]), (a[u], b[v] - t), (b[u] - t, b[v] - t)] {
+                let mut from = [0.0f32; 3];
+                let mut to = [0.0f32; 3];
+                from[axis] = a[axis];
+                to[axis] = b[axis];
+                from[u] = eu;
+                to[u] = eu + t;
+                from[v] = ev;
+                to[v] = ev + t;
+                parts.push(Part::new(from, to).all("white_concrete").tint(color).emissive(true).nocull());
+            }
+        }
+        let m = Model { parts, ..Default::default() };
+        self.add_model(&m, base, None, None);
+    }
+
+    /// A powered output's box filled with translucent red (its outline drawn by [`Builder::marker`]).
+    pub fn out_fill(&mut self, cell: Pos) {
+        let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];
+        let p = Part::new([-0.2, -0.2, -0.2], [16.2, 16.2, 16.2]).all("out_powered").layer(models::Layer::Translucent).emissive(true).nocull();
+        self.add_model(&Model::one(p), base, None, None);
+    }
+
+    /// An explosion's cloud `age` ticks after the blast at `c` (the game client's
+    /// `HugeExplosionSeedParticle`: 8 ticks of large puffs around the blast, white at first, then
+    /// grey): puffs in a fixed pattern spreading out and shrinking over 10 ticks.
+    pub fn explosion(&mut self, c: [f32; 3], age: f32) {
+        const PUFFS: [[f32; 3]; 9] = [[0.0, 0.0, 0.0], [1.0, 0.3, 0.2], [-0.9, -0.2, 0.5], [0.3, 1.0, -0.6], [-0.4, -0.9, -0.3], [0.6, -0.4, 1.0], [-0.5, 0.6, -1.0], [1.1, -0.8, -0.4], [-1.0, 0.9, 0.7]];
+        let k = (age / 10.0).clamp(0.0, 1.0);
+        let spread = 0.6 + 1.8 * k;
+        let size = 1.4 - 0.7 * k;
+        let grey = (250.0 - 110.0 * k) as u8;
+        let colour = if age < 2.0 { [255, 246, 220] } else { [grey, grey, grey] };
+        for (i, o) in PUFFS.iter().enumerate() {
+            if i as f32 > age * 2.0 + 1.0 {
+                continue;
+            }
+            let s16 = size * 16.0;
+            let p = Part::new([0.0; 3], [s16, s16, s16]).all("white_concrete").tint(colour).emissive(true).nocull();
+            let base = [c[0] + o[0] * spread - size / 2.0, c[1] + o[1] * spread - size / 2.0, c[2] + o[2] * spread - size / 2.0];
+            self.add_model(&Model::one(p), base, None, None);
+        }
+    }
+
     fn add_model(&mut self, m: &Model, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {
         for p in &m.parts {
             for (i, f) in p.faces.iter().enumerate() {
@@ -223,16 +637,35 @@ impl<'a> Builder<'a> {
     #[allow(clippy::too_many_arguments)]
     fn add_face(&mut self, m: &Model, p: &Part, i: usize, f: &Face, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {
         let (corners, auto) = face_corners(p.from, p.to, i);
+        let (qx, qy) = p.qrot.unwrap_or((m.xrot, m.yrot));
         let mut pts = corners.map(|c| {
             let c = match p.rot {
-                Some(r) => rotate(c, r.axis, r.angle, r.origin),
+                Some(r) => {
+                    let mut q = rotate(c, r.axis, r.angle, r.origin);
+                    if r.rescale {
+                        // stretched back across the other two axes (the game's rescale)
+                        let k = 1.0 / r.angle.to_radians().cos().abs().max(1e-3);
+                        for a in 0..3 {
+                            if a != r.axis as usize {
+                                q[a] = r.origin[a] + (q[a] - r.origin[a]) * k;
+                            }
+                        }
+                    }
+                    q
+                }
                 None => c,
             };
             let c = [c[0] / 16.0, c[1] / 16.0, c[2] / 16.0];
-            let c = quarter(c, m.xrot, m.yrot);
-            match yaw {
-                // entities: their model is built around x = z = 0.5; the game's yaw turns clockwise
-                Some(y) => rotate(c, 1, -y, [0.5, 0.0, 0.5]),
+            let c = quarter(c, qx, qy);
+            let c = match yaw {
+                // entities: their model is built around x = z = 0 (the entity's position); the
+                // game's yaw turns clockwise
+                Some(y) => rotate(c, 1, -y, [0.0, 0.0, 0.0]),
+                None => c,
+            };
+            // a block model drawn as part of an entity (its unit cube through the transform)
+            match &self.xf {
+                Some(m) => m.point(c),
                 None => c,
             }
         });
@@ -288,11 +721,67 @@ impl<'a> Builder<'a> {
             _ => [1.0; 4],
         };
         let r = f.uv.unwrap_or(auto);
-        let tile = self.atlas.tile(f.tile);
-        let [u0, v0, u1, v1] = self.atlas.uv(tile, r);
-        let base_uv = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]];
-        let uv: [[f32; 2]; 4] = std::array::from_fn(|k| base_uv[(k + f.rot as usize) % 4]);
-        let alpha = 255u8;
+        // uvlock: the texture keeps the world's orientation: each corner's pixel from its final
+        // place on the block, like the automatic UVs of an unturned face
+        let locked: Option<[[f32; 2]; 4]> = if p.uvlock && p.rot.is_none() && (qx, qy) != (0, 0) {
+            let axis = (0..3).find(|&k| n[k].abs() > 0.999);
+            axis.map(|a| {
+                pts.map(|q| {
+                    let (x, y, z) = (q[0] * 16.0, q[1] * 16.0, q[2] * 16.0);
+                    match (a, n[a] > 0.0) {
+                        (1, true) => [x, z],
+                        (1, false) => [x, 16.0 - z],
+                        (2, false) => [16.0 - x, 16.0 - y],
+                        (2, true) => [x, 16.0 - y],
+                        (0, false) => [z, 16.0 - y],
+                        _ => [16.0 - z, 16.0 - y],
+                    }
+                })
+            })
+        } else {
+            None
+        };
+        // the game's own texture (a game model's face): its place in the game texture
+        let game = self.atlas.game.as_ref().and_then(|g| g.tex.get(f.tile).map(|t| (t.rect, g.width as f32, g.height as f32)));
+        let (layer, uv): (u32, [[f32; 2]; 4]) = match game {
+            Some((rect, w, h)) => {
+                let s = rect[2] as f32 / 16.0;
+                let (x0, y0) = (rect[0] as f32, rect[1] as f32);
+                let (x1, y1) = (x0 + rect[2] as f32, y0 + rect[3] as f32);
+                // inside the sprite by a sliver: nearest sampling never reads the neighbour
+                let map = |px: [f32; 2]| -> [f32; 2] { [((x0 + px[0] * s).clamp(x0 + 0.02, x1 - 0.02)) / w, ((y0 + px[1] * s).clamp(y0 + 0.02, y1 - 0.02)) / h] };
+                let uv = match locked {
+                    Some(l) => l.map(map),
+                    None => {
+                        let base_px = [[r[0], r[1]], [r[0], r[3]], [r[2], r[3]], [r[2], r[1]]];
+                        std::array::from_fn(|k| map(base_px[(k + f.rot as usize) % 4]))
+                    }
+                };
+                (GAME_LAYER, uv)
+            }
+            None => {
+                let tile = self.atlas.tile(f.tile);
+                let uv = match locked {
+                    Some(l) => l.map(|px| [px[0] / 16.0, px[1] / 16.0]),
+                    None => {
+                        let [u0, v0, u1, v1] = self.atlas.uv(tile, r);
+                        let base_uv = [[u0, v0], [u0, v1], [u1, v1], [u1, v0]];
+                        std::array::from_fn(|k| base_uv[(k + f.rot as usize) % 4])
+                    }
+                };
+                (tile as u32, uv)
+            }
+        };
+        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha);
+        // a ghosted cell's faces: see-through, in the translucent pass
+        let ghost = cell.is_some_and(|c| self.ghost.contains(&c));
+        let alpha = if ghost {
+            GHOST_ALPHA
+        } else if self.white && p.layer != Layer::Translucent {
+            64u8
+        } else {
+            255u8
+        };
         for q in pts.iter_mut() {
             *q = [q[0] + base[0], q[1] + base[1], q[2] + base[2]];
             for k in 0..3 {
@@ -303,9 +792,13 @@ impl<'a> Builder<'a> {
         let v: [Vertex; 4] = std::array::from_fn(|k| {
             let l = sh * ao[k];
             let c = |t: u8| (t as f32 * l).round().clamp(0.0, 255.0) as u8;
-            Vertex { pos: pts[k], uv: uv[k], layer: tile as u32, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
+            Vertex { pos: pts[k], uv: uv[k], layer, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
         });
         match p.layer {
+            _ if ghost => {
+                let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
+                self.mesh.translucent.push(Quad { v, center });
+            }
             Layer::Translucent => {
                 let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
                 self.mesh.translucent.push(Quad { v, center });
@@ -345,7 +838,64 @@ impl Mesh {
 }
 
 /// The ground: a grass plane under the build (top face at `y`), `r` blocks around its box.
-pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<Vertex> {
+/// Which of 4 equally weighted blockstate variants the game draws at a block (grass blocks' 4
+/// turns): `random.setSeed(Mth.getSeed(pos))` then `random.nextInt(4)` with the game's
+/// `LegacyRandomSource` (java.util.Random's generator).
+pub fn variant_of_4(x: i32, y: i32, z: i32) -> u32 {
+    // Mth.getSeed: `x * 3129871` is an int product, widened
+    let mut seed: i64 = (x.wrapping_mul(3129871) as i64) ^ (z as i64).wrapping_mul(116129781) ^ (y as i64);
+    seed = seed.wrapping_mul(seed).wrapping_mul(42317861).wrapping_add(seed.wrapping_mul(11));
+    let seed = seed >> 16;
+    const MASK: i64 = (1 << 48) - 1;
+    let mut s = (seed ^ 0x5DEECE66D) & MASK;
+    s = (s.wrapping_mul(0x5DEECE66D).wrapping_add(0xB)) & MASK;
+    let next31 = (s >> (48 - 31)) as i32 as i64;
+    // nextInt(bound) for a power of two: (bound * next(31)) >> 31
+    ((4 * next31) >> 31) as u32
+}
+
+/// The game's brightness for a light level (`LightTexture`: the overworld curve
+/// `f / (4 - 3f)` of `f = level / 15`, then the default brightness setting, 0.5, halfway to
+/// `1 - (1 - b)^4`).
+pub fn light_brightness(level: f32) -> f32 {
+    let f = (level / 15.0).clamp(0.0, 1.0);
+    let b = f / (4.0 - 3.0 * f);
+    let bright = 1.0 - (1.0 - b).powi(4);
+    b + (bright - b) * 0.5
+}
+
+/// The sky light in the air layer just above the grass (the one between the grass and the build:
+/// the floor is one block under the lowest cell), from the opaque cells `occ` at `ly` and above:
+/// a column under one gets the light of its neighbours less one (the game's light propagation
+/// within the layer), the others 15. Only the covered cells are returned.
+fn layer_sky_light(occ: &HashSet<Pos>, ly: i32) -> HashMap<(i32, i32), u8> {
+    let covered: HashSet<(i32, i32)> = occ.iter().filter(|c| c[1] >= ly).map(|c| (c[0], c[2])).collect();
+    let mut light: HashMap<(i32, i32), u8> = covered.iter().map(|c| (*c, 0u8)).collect();
+    let level = |l: &HashMap<(i32, i32), u8>, c: (i32, i32)| -> u8 { if covered.contains(&c) { l.get(&c).copied().unwrap_or(0) } else { 15 } };
+    // relax until stable (at most 15 rounds: light falls by one per block)
+    for _ in 0..15 {
+        let mut changed = false;
+        let cells: Vec<(i32, i32)> = light.keys().copied().collect();
+        for c in cells {
+            // a cell holding an opaque block at this layer passes no light
+            if occ.contains(&[c.0, ly, c.1]) {
+                continue;
+            }
+            let best = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| (c.0 + dx, c.1 + dz)).filter(|n| !occ.contains(&[n.0, ly, n.1])).map(|n| level(&light, n)).max().unwrap_or(0);
+            let v = best.saturating_sub(1);
+            if v > light[&c] {
+                light.insert(c, v);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    light
+}
+
+pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &HashSet<Pos>) -> Vec<Vertex> {
     // a one-block-thick layer of grass blocks: the grass tile repeated once per block on top,
     // dirt under it and grass-block sides around it (seen from below or from the edge too)
     let top = atlas.tile("grass_top") as u32;
@@ -363,12 +913,58 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
     let mut out = Vec::new();
     let mut quad = |v: [Vertex; 4]| out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
     let c = lum(1.0);
-    quad([
-        Vertex { pos: [x0, y, z0], uv: [x0, z0], layer: top, color: c },
-        Vertex { pos: [x0, y, z1], uv: [x0, z1], layer: top, color: c },
-        Vertex { pos: [x1, y, z1], uv: [x1, z1], layer: top, color: c },
-        Vertex { pos: [x1, y, z0], uv: [x1, z0], layer: top, color: c },
-    ]);
+    // one quad per grass block near the build: the game turns each block's model by a random
+    // quarter (its blockstate's 4 variants, picked from the block's position), so the top texture
+    // lines up with the real game's pixel for pixel; farther out (small on screen) a few large
+    // quads with the texture repeated
+    let gy = (y - 1.0).floor() as i32;
+    let (ix0, ix1, iz0, iz1) = (x0 as i32, x1 as i32, z0 as i32, z1 as i32);
+    let near = 24;
+    let (nx0, nx1, nz0, nz1) = ((lo[0].floor() as i32 - near).max(ix0), (hi[0].ceil() as i32 + near).min(ix1), (lo[2].floor() as i32 - near).max(iz0), (hi[2].ceil() as i32 + near).min(iz1));
+    // the game's smooth lighting of a grass top: each corner at the mean sky light of the four air
+    // cells around it, over the grass (darker under the build: its contact shadow)
+    let light = layer_sky_light(occ, gy + 1);
+    let corner = |cx: i32, cz: i32| -> [u8; 4] {
+        let mut sum = 0.0;
+        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
+            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
+        }
+        lum(light_brightness(sum / 4.0))
+    };
+    for bz in nz0..nz1 {
+        for bx in nx0..nx1 {
+            let k = variant_of_4(bx, gy, bz);
+            // the texture coordinate of a corner (local dx, dz): the corner turned back by k
+            // quarters (the game's y rotation turns clockwise seen from above)
+            let uv = |dx: f32, dz: f32| -> [f32; 2] {
+                let (mut px, mut pz) = (dx - 0.5, dz - 0.5);
+                for _ in 0..k {
+                    (px, pz) = (pz, -px);
+                }
+                [px + 0.5, pz + 0.5]
+            };
+            let (fx, fz) = (bx as f32, bz as f32);
+            quad([
+                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: corner(bx, bz) },
+                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: corner(bx, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: corner(bx + 1, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: corner(bx + 1, bz) },
+            ]);
+        }
+    }
+    // the far grass around the near square: four strips, the texture repeated (world coordinates)
+    let (nx0, nx1, nz0, nz1) = (nx0 as f32, nx1 as f32, nz0 as f32, nz1 as f32);
+    for (a, b) in [([x0, z0], [x1, nz0]), ([x0, nz1], [x1, z1]), ([x0, nz0], [nx0, nz1]), ([nx1, nz0], [x1, nz1])] {
+        if b[0] <= a[0] || b[1] <= a[1] {
+            continue;
+        }
+        quad([
+            Vertex { pos: [a[0], y, a[1]], uv: [a[0], a[1]], layer: top, color: c },
+            Vertex { pos: [a[0], y, b[1]], uv: [a[0], b[1]], layer: top, color: c },
+            Vertex { pos: [b[0], y, b[1]], uv: [b[0], b[1]], layer: top, color: c },
+            Vertex { pos: [b[0], y, a[1]], uv: [b[0], a[1]], layer: top, color: c },
+        ]);
+    }
     let c = lum(0.5);
     quad([
         Vertex { pos: [x0, yb, z0], uv: [x0, z0], layer: dirt, color: c },
@@ -402,5 +998,154 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32) -> Vec<
         Vertex { pos: [x1, yb, z1], uv: [z1, 1.0], layer: side, color: cx },
         Vertex { pos: [x1, yb, z0], uv: [z0, 1.0], layer: side, color: cx },
     ]);
+    out
+}
+
+/// A TNT duper's ground as it stands (`Session::floor`: real blocks of the world, `lo..=hi`, its
+/// top layer at `hi[1]`), every cell but those in `skip` (drawn as blocks: around a crater): the
+/// grass tops (one quad per block near the build `near`, with the game's turned variants and
+/// smooth sky light like [`ground`]; farther, runs of blocks with the texture repeated), each
+/// layer's side at the ground's edge (`sides`: tile names, top layer first) and the bedrock's
+/// underside. `occ`: the build's opaque cells (the light over the grass).
+pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos>, near: (Pos, Pos), occ: &HashSet<Pos>) -> Vec<Vertex> {
+    let top = atlas.tile("grass_top") as u32;
+    let bottom = atlas.tile("bedrock") as u32;
+    let lum = |s: f32| {
+        let c = (255.0 * s).round() as u8;
+        [c, c, c, 255]
+    };
+    let mut out = Vec::new();
+    let mut quad = |v: [Vertex; 4]| out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
+    let gy = hi[1];
+    let y = gy as f32 + 1.0;
+    let r = 24;
+    let (nx0, nx1, nz0, nz1) = ((near.0[0] - r).max(lo[0]), (near.1[0] + r).min(hi[0]), (near.0[2] - r).max(lo[2]), (near.1[2] + r).min(hi[2]));
+    let is_near = |x: i32, z: i32| x >= nx0 && x <= nx1 && z >= nz0 && z <= nz1;
+    let light = layer_sky_light(occ, gy + 1);
+    let corner = |cx: i32, cz: i32| -> [u8; 4] {
+        let mut sum = 0.0;
+        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
+            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
+        }
+        lum(light_brightness(sum / 4.0))
+    };
+    let c = lum(1.0);
+    for bz in lo[2]..=hi[2] {
+        let mut run: Option<i32> = None;
+        for bx in lo[0]..=hi[0] + 1 {
+            let far_top = bx <= hi[0] && !is_near(bx, bz) && !skip.contains(&[bx, gy, bz]);
+            if far_top {
+                run.get_or_insert(bx);
+            } else if let Some(a) = run.take() {
+                // a run of far grass tops: the texture repeated (world coordinates)
+                let (a, b, fz) = (a as f32, bx as f32, bz as f32);
+                quad([
+                    Vertex { pos: [a, y, fz], uv: [a, fz], layer: top, color: c },
+                    Vertex { pos: [a, y, fz + 1.0], uv: [a, fz + 1.0], layer: top, color: c },
+                    Vertex { pos: [b, y, fz + 1.0], uv: [b, fz + 1.0], layer: top, color: c },
+                    Vertex { pos: [b, y, fz], uv: [b, fz], layer: top, color: c },
+                ]);
+            }
+            if bx > hi[0] || !is_near(bx, bz) || skip.contains(&[bx, gy, bz]) {
+                continue;
+            }
+            // a near grass top: the block's turned variant, its corners' sky light
+            let k = variant_of_4(bx, gy, bz);
+            let uv = |dx: f32, dz: f32| -> [f32; 2] {
+                let (mut px, mut pz) = (dx - 0.5, dz - 0.5);
+                for _ in 0..k {
+                    (px, pz) = (pz, -px);
+                }
+                [px + 0.5, pz + 0.5]
+            };
+            let (fx, fz) = (bx as f32, bz as f32);
+            quad([
+                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: corner(bx, bz) },
+                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: corner(bx, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: corner(bx + 1, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: corner(bx + 1, bz) },
+            ]);
+        }
+    }
+    // the sides at the edge, layer by layer, in runs of cells not drawn as blocks
+    let (cz, cx) = (lum(0.8), lum(0.6));
+    for gyl in lo[1]..=hi[1] {
+        let tile = atlas.tile(sides.get((hi[1] - gyl) as usize).copied().unwrap_or("dirt")) as u32;
+        let (yt, yb) = (gyl as f32 + 1.0, gyl as f32);
+        // along x: the north (z = lo) and south (z = hi) faces
+        for (zc, north) in [(lo[2], true), (hi[2], false)] {
+            let mut run: Option<i32> = None;
+            for x in lo[0]..=hi[0] + 1 {
+                if x <= hi[0] && !skip.contains(&[x, gyl, zc]) {
+                    run.get_or_insert(x);
+                } else if let Some(a) = run.take() {
+                    let (x0, x1) = (a as f32, x as f32);
+                    if north {
+                        let z = zc as f32;
+                        quad([
+                            Vertex { pos: [x0, yt, z], uv: [x0, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yt, z], uv: [x1, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yb, z], uv: [x1, 1.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yb, z], uv: [x0, 1.0], layer: tile, color: cz },
+                        ]);
+                    } else {
+                        let z = zc as f32 + 1.0;
+                        quad([
+                            Vertex { pos: [x1, yt, z], uv: [x1, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yt, z], uv: [x0, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yb, z], uv: [x0, 1.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yb, z], uv: [x1, 1.0], layer: tile, color: cz },
+                        ]);
+                    }
+                }
+            }
+        }
+        // along z: the west (x = lo) and east (x = hi) faces
+        for (xc, west) in [(lo[0], true), (hi[0], false)] {
+            let mut run: Option<i32> = None;
+            for z in lo[2]..=hi[2] + 1 {
+                if z <= hi[2] && !skip.contains(&[xc, gyl, z]) {
+                    run.get_or_insert(z);
+                } else if let Some(a) = run.take() {
+                    let (z0, z1) = (a as f32, z as f32);
+                    if west {
+                        let x = xc as f32;
+                        quad([
+                            Vertex { pos: [x, yt, z1], uv: [z1, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yt, z0], uv: [z0, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z0], uv: [z0, 1.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z1], uv: [z1, 1.0], layer: tile, color: cx },
+                        ]);
+                    } else {
+                        let x = xc as f32 + 1.0;
+                        quad([
+                            Vertex { pos: [x, yt, z0], uv: [z0, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yt, z1], uv: [z1, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z1], uv: [z1, 1.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z0], uv: [z0, 1.0], layer: tile, color: cx },
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+    // the bedrock's underside, in runs
+    let (yb, c) = (lo[1] as f32, lum(0.5));
+    for bz in lo[2]..=hi[2] {
+        let mut run: Option<i32> = None;
+        for bx in lo[0]..=hi[0] + 1 {
+            if bx <= hi[0] && !skip.contains(&[bx, lo[1], bz]) {
+                run.get_or_insert(bx);
+            } else if let Some(a) = run.take() {
+                let (x0, x1, z0, z1) = (a as f32, bx as f32, bz as f32, bz as f32 + 1.0);
+                quad([
+                    Vertex { pos: [x0, yb, z0], uv: [x0, z0], layer: bottom, color: c },
+                    Vertex { pos: [x1, yb, z0], uv: [x1, z0], layer: bottom, color: c },
+                    Vertex { pos: [x1, yb, z1], uv: [x1, z1], layer: bottom, color: c },
+                    Vertex { pos: [x0, yb, z1], uv: [x0, z1], layer: bottom, color: c },
+                ]);
+            }
+        }
+    }
     out
 }

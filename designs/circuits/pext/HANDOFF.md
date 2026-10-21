@@ -1,40 +1,35 @@
 # pext HANDOFF (study 6, piston extenders) — track pext, branch explore/pext
 
 ## State (all archived with `mctas circuit archive`, robust 16/16 in the game)
-| N | design | blocks | extend/retract gt | family |
-|---|---|---|---|---|
-| 1 | pext-n1-sticky | 2 | 3/3 | sticky piston + lever |
-| 2 | pext-n2-sand6 (+ -button) | 6 | 7/12 | GRAVITY: sand payload, travel up, flat, slime-free |
-| 2 | pext-n2-rider7-flat / -3d (+ stone/oak button) | 7 | 9/9 | slime rider (A held pushes a frame, B rides it) |
-| 2 | pext-n2-sf7-1/2/3 (+ -button) | 7 | 7/12 | slime-free (pulsed A, input-held B, carried observer) |
-| 2 | pext-n2-sf8-flat | 8 | 7/12 | slime-free, flat |
-| 3 | pext-n3-cascade22 (+ -v1 26) | 22 | 27/31 | CASCADE |
-| 3 | pext-n3-rider24 (+ -v1 31) | 24 | 25/25 | one-frame rider (inner train C B C) |
-| 4 | pext-n4-cascade33 (+ -v1 40) | 33 | 41/53 | cascade |
-| 5 | pext-n5-cascade46 (+ -v1 52) | 46 | 55/59 | cascade |
-| 6/7/8 | pext-n6-cascade47, n7-cascade58, n8-cascade66 | 47/58/66 | 67/85, 79/99, 87/109 | cascade, minimized |
-| any | pext-cascade-r2/r0/r1 (group pext-cascade) | 12N-7-2floor((N-1)/3) | 14N-6 / 16N-8 | EXTENDABLE cascade family cards, generator below |
+| N | slime/honey (smallest first) | slime-free | one button |
+|---|---|---|---|
+| 1 | | n1-sticky (2) | |
+| 2 | rider7 flat/3D (7), rider 8, flat-cascade11 | sand6 (6, gravity), sf7-1/2/3 (7), sf8-flat (8) | sand6, rider7, sf7 buttons; flat-cascade11-button |
+| 3 | flat-cascade19 (19, 27/27 gt), cascade22, rider24 | sf38 (38), sf43 | flat-cascade19-obutton (oak) |
+| 4 | flat-cascade26, cascade30/33 | sf60 (60, 49/47), sf-sweep96 | |
+| 5 | flat-cascade33, cascade38/46 | sf105 (105, 149/147), sf-sweep136 | |
+| 6 | flat-cascade39, cascade47 | sf151 (151, 149/147), sf-sweep192 | |
+| 7 | flat-cascade48, cascade58 | sf-sweep254 | |
+| 8..12 | flat-cascade54/61/69/76/82, cascade66 | sf-sweep356 (N=8) | |
+| any | family cards pext-cascade-r2/r0/r1 (12N-7-2floor((N-1)/3)) and pext-cascade-flat-r2/r0/r1 (10N-5-floor((N-1)/3)); extend 14N-6, retract 16N-8 | | |
 
 ## Tools (crates/circuit-pext, `mctas circuit pext ...`)
-* `sim`, `trace`, `verify` (real game, 4 positions x 4 rotations), `grow` (exhaustive k-block
-  additions), `minimize` (removals, substitution+removal, place-in-empty+2 removals: it found most
-  of the small designs and shrinks the generated cascades by ~25%).
-* `cascade --n N` (or `--base B --step 3 --n k --family ID --group G` for family bases with the
-  `extend` headers): the generator; `trains` (pulse-toggle trains, static-cell delivery, `--bfs`);
-  `drop <files>` (remove archived entries a family card covers).
-* Exploration-only `ideal:` header (scripted writes per phase) to validate mechanisms before wiring.
+* `sim`, `trace`, `verify` (real game, 4 positions x 4 rotations, the judge's rules incl. "once
+  extended the payload stays"), `grow` (exhaustive k-block additions), `minimize` (removals,
+  substitution+removal, place-in-empty+2 removals, `--plane-z`; its quick screen scales with the
+  design): run on generator output it gave most of the bests.
+* Generators: `cascade [--flat] [--family/--group]` (any N), `stack --cells` (slime-free, any N up
+  to 7 so far), `spine` (observer chain along a path). Schedules: `trains` (pulse-toggle trains,
+  `--bfs`, `--interleave`, `--cells`). `drop` removes archived entries a family card covers.
+  Exploration-only `ideal:` header (scripted writes per phase).
 * Shared-judge fix for review: a607f735 (circuit archive judged family members against the base's
-  kind; piston-extender N / counter N members all read the base N).
+  kind; piston-extender N members all read the base N).
 
 ## Mechanisms and lessons: designs/circuits/pext/NOTES.md
-Pulse-toggle trains (`B A B`, `C B C A B C`), frames cannot nest, the one-frame rider's push-limit
-ceiling (N=4), gravity's QC limit (N=2 only), the cascade (a moved unit fires itself; only round
-starts are addressed; pulsers diagonal to slime cells; a pulse may serve different rounds on the
-two edges; rounds may overlap: 6 gt on-edge, 4 gt off-edge spacing).
 
 ## Next ideas
-* Slime-free N=3 (train AACBACBC is fully deliverable by static cells: see `trains --bfs`).
-* One-button cascade (the button's release = the off edge: should work as is, untested).
-* Smaller cascades: a generator using repeaters for the spine delays (the minimizer's trick),
-  shared trigger columns; flat cascades (spine and pulsers in one plane?).
-* N=3 below 22: minimize from other seeds; a sand cascade is impossible (QC of the top piston).
+* Reassigned 2026-10-20 04:46Z to the smaller-door campaign (schedules + spine routing for doors).
+* Slime-free N >= 9: a better spine router (more room per target, or two spines); minimize the
+  slime-free N=7/8 (slow: long phases; `minimize` now checkpoints to --out after every step).
+* Smaller N=2: grow found nothing <= 5 blocks on the sand base (k <= 3, near 2).
+* Flat slime-free N >= 3 (the stack router in one plane: top/bottom/QC slots only).

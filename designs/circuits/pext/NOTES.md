@@ -65,3 +65,65 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   each step's static delivery (single cell, both cells at once, staggered); `--bfs` searches the
   shortest fully deliverable train: N=3 plain has one (AACBACBC), N=3 rider and N>=4 none, which
   is why the cascade (only round starts addressed) plus edge-delayed sources is the way past N=3.
+* Generator `pext cascade --n N` (any N; family cards pext-cascade-r2/r0/r1): one westward
+  observer spine at y=3 behind the line, each pulse cell's pulser fired 4 gt after the spine passes
+  it, +4 gt towers where a round must wait (gap >= 6 gt between round starts of one edge). The lamp
+  is not needed: a static pulse may serve different rounds on the two edges (x7 = D's round on the
+  on-edge, C's round on the off-edge), and rounds overlap (cascade waves 6 gt apart never meet).
+  Blocks 12N - 7 - 2 floor((N-1)/3), extend 14N - 6, retract 16N - 8.
+* FLAT (`--flat`, 1 wide, family cards pext-cascade-flat-*): the pulser of cell x sits two above the
+  line at (x, 3, 0) facing up and powers the piston through the air cell above it (QC: its update
+  reaches the piston through that cell); it watches the spine node right above it. One observer per
+  pulse instead of two: blocks 10N - 5 - floor((N-1)/3). Minimized in the plane (`minimize
+  --plane-z 0`) these are the smallest designs for every N >= 3 (N=3 19 blocks ... N=8 54).
+* Judge rule (learned the hard way): once extended, the payload must STAY while the input is on;
+  a design whose payload reaches the target, leaves and comes back fails (circuit archive refused a
+  20-block N=3 that did; pext sim/verify/minimize check it now).
+
+## Slime-free N=3: pext-n3-sf43
+* Plain stack A B C + payload; the train A A C B A C B C (the BFS result) with every step from fixed
+  pulsers (A three times, x4/x5 and x2/x3 pairs staggered 2 gt: the late pulse finds a piston whose
+  base is still a moving block, so its pull fails), 12 pulsers on one observer spine that sweeps the
+  line five times (rails behind, in front, below, above; `pext spine` builds a chain along a path),
+  62 blocks, minimized to 43 without slime in the palette.
+
+## Slime-free stacks for any N: `pext trains --cells` + `pext stack --cells`
+* The most general static schedule: a sequence of SINGLE-CELL pulses, each firing on both edges
+  (whatever piston stands on that cell acts, on each edge). Breadth-first over the pair (on-edge
+  state, off-edge state) finds the shortest for every N, a clean sweep pattern (abstract cells, A =
+  x0): N=2 `x2 x0 x1 x2`; N=3 `x4 x2 x0 x3 x1 x2 x4`; N=4 12 pulses; N=5 17; N=6 24; N=7 31.
+* `pext stack --cells` places one observer pulser per pulse beside its cell (sides, top, bottom, two
+  quasi-connectivity slots above-beside, A's back) and routes one spine from the lever through the
+  watched cells in order (BFS over (cell, entry direction): an observer emits STRAIGHT THROUGH, so
+  at a turn its back points ahead, never into the line or the cell above it; future targets keep
+  their neighbours free). Generated: N=4 96, N=5 136, N=6 214, N=7 276 blocks; minimized: N=3 38,
+  N=4 60. N=8 boxes the router in (one cell needs 5 pulsers there).
+  With each cell's preferred sides alternating with its parity (fewer crowded bands): N=6 192, N=7
+  254, N=8 356 (N=9 still boxes in); minimized N=5 105.
+* `pext trains --interleave` (the cascade's per-edge reuse for a fixed train) also works but needs
+  more pulses (16 for N=4).
+
+## World-record push (10-20): `pext topo`, `pext lns` (targets and status: [WR.md](WR.md))
+* `pext topo` sweeps N=2 1-wide topologies (the second piston and the payload at 11 placements, k
+  grown blocks within 2 cells, `--free-lever` lets the lever go anywhere): no 6-block design; at 7
+  only the rider and its mirror (slime or honey frame), 9/9 gt.
+* `pext lns` removes every r-subset of a design's blocks and grows back at most r-1 (one subset per
+  worker, `--keep-y` keeps the line). From cascade19: 18 blocks. Nothing smaller from 18 (in the
+  plane, in 3D, with the `core` palette, removing line blocks too), from 26 (N=4, r=3 and r=4), 33
+  (N=5), 39 (N=6). `--free-lever` lets the lever move too (removable, regrown anywhere, never
+  counted): from 18 it finds 46 designs of 17 blocks (the lever hangs on the chain's first observer
+  and the sticky piston under it shoves the front piston's starter aside and back), and from 17, 24
+  designs of 16: the front unit's observer rides ON TOP of its slime facing up and fires when that
+  sticky piston pulls back above it, so the front piston needs no starter. Archived
+  pext-n3-flat-cascade16 (28/34 gt); 17 and 18 removed (dominated). From 16 nothing smaller (remove
+  3 or 4, grow 2).
+* `--free-lever --repeat` on the rest of the flat family: N=4 26 -> 23 (35/47 gt), N=5 33 -> 31, N=6
+  39 -> 38 -> 37 (59/75 gt; the last step needs remove 3, grow 2), N=7 48 -> 46, N=8 54 -> 53, N=9
+  61 -> 59 (remove 2, grow 1 runs in seconds); N=10..12 nothing with remove 2. Each record archived,
+  the old one removed. N=7 from 46 with remove 3, grow 2: nothing smaller (109 min).
+* `--local d` grows back only within d of the removed cells: from 18 (N=3) it finds the same 46
+  designs of 17 in 32 s instead of 261 s; the deep passes on N=8..12 use it.
+* Dead ends (redsim traces): a staircase of riders and a single frame carrying both stage pistons
+  (`frame3`) fail on simultaneous triggers: one push moves every carried observer, they all fire 2 gt
+  later, the block event order lets one piston act and the other fail, and an observer moved while
+  powered lands powered and never fires again.

@@ -1,0 +1,24 @@
+# archived 2026-10-20T01:44Z from designs/clocks/tracks/clk-obs/families9/p56-obs-stk-7b-fe8fba.txt by mctas clock archive
+# CLOCK: clk-obs-p56-obs-stk-7b-fe8fba period 56 gt (2.8 s), on 24/56, edges 12, warmup 7, family observer+sticky_piston, 7 blocks, 1x3x4, robust
+name: clk-obs-p56-obs-stk-7b-fe8fba
+# clk-obs grow: P=56 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 1 1, swept volume 12.
+origin: 0 0 0
+port output: 0 1 2
+port start: 0 1 1 last
+palette:
+  A minecraft:note_block[instrument=harp,note=0,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:note_block[instrument=bass,note=0,powered=false]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer 0:
+  A
+  B
+  .
+  B
+layer 1:
+  C
+  D
+  E
+  F

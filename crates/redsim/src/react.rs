@@ -63,6 +63,7 @@ pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bo
         Block::Plate { .. } => plate::entity_inside(w, s, p),
         Block::Tripwire { .. } => tripwire::entity_inside(w, s, p),
         Block::DetectorRail { .. } => crate::rails::detector::entity_inside(w, s, p),
+        Block::BigDripleaf { .. } => dripleaf::entity_inside(w, i, s, p),
         // BubbleColumnBlock.entityInside: above the column's top (nothing with a collision shape
         // or a fluid above) the entity is launched, inside it is pushed
         Block::BubbleColumn { drag } => {
@@ -91,6 +92,13 @@ fn on_above_bubble_column(w: &mut World, i: usize, drag: bool) {
     let m = e.delta_movement;
     let yd = if drag { crate::entity::vec3::jmax(-0.9, m.y - 0.03) } else { crate::entity::vec3::jmin(1.8, m.y + 0.1) };
     e.delta_movement = crate::entity::Vec3::new(m.x, yd, m.z);
+    // sendBubbleColumnParticles: 2 x (splash + bubble) at random spots in the cell, drawn from
+    // the level random (8 nextDouble)
+    if let Some(r) = w.rng() {
+        for _ in 0..8 {
+            r.next_double();
+        }
+    }
 }
 
 /// `Entity.onInsideBubbleColumn` (`handleOnInsideBubbleColumn`; the fall distance is reset).
@@ -345,6 +353,116 @@ pub mod tripwire {
     }
 }
 
+// ------------------------------------------------------------------------ big dripleaf
+
+pub mod dripleaf {
+    use super::*;
+
+    /// `DELAY_UNTIL_NEXT_TILT_STATE` (none: no tick).
+    fn delay(tilt: u8) -> Option<i32> {
+        match tilt {
+            1 | 2 => Some(10),
+            3 => Some(100),
+            _ => None,
+        }
+    }
+
+    fn tilt_of(s: &Block) -> u8 {
+        match *s {
+            Block::BigDripleaf { tilt, .. } => tilt,
+            _ => 0,
+        }
+    }
+
+    /// `canSurvive`: on a dripleaf, a stem or `#supports_big_dripleaf` (dirt, clay, mud among the
+    /// modeled blocks).
+    pub fn can_survive(w: &World, p: BlockPos) -> bool {
+        use crate::block::Simple;
+        matches!(w.get(p.below()), Block::BigDripleaf { .. } | Block::Simple(Simple::Dirt) | Block::Simple(Simple::Clay) | Block::Simple(Simple::Mud))
+    }
+
+    /// `updateShape`.
+    pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, ns: &Block) -> Block {
+        if d == Dir::Down && !can_survive(w, p) {
+            return Block::Air;
+        }
+        crate::fluid::waterlogged_update_shape(w, &s, p);
+        if d == Dir::Up && matches!(ns, Block::BigDripleaf { .. }) {
+            w.errors.push("a big dripleaf turning into a stem is not modeled".into());
+        }
+        s
+    }
+
+    /// `setTilt`: flags 2, a vibration for partial and full.
+    fn set_tilt(w: &mut World, s: Block, p: BlockPos, tilt: u8) {
+        let Block::BigDripleaf { facing, tilt: prev, waterlogged } = s else { return };
+        w.set_block(p, Block::BigDripleaf { facing, tilt, waterlogged }, flags::CLIENTS);
+        if tilt >= 2 && tilt != prev {
+            w.game_event("block_change", p);
+        }
+    }
+
+    /// `setTiltAndScheduleTick` (a tilt sound draws its pitch from the level random:
+    /// `Mth.randomBetween(level.getRandom(), 0.8, 1.2)`, after the write, before the tick).
+    fn set_tilt_and_schedule(w: &mut World, s: Block, p: BlockPos, tilt: u8, sound: bool) {
+        set_tilt(w, s, p, tilt);
+        if sound {
+            w.draw_sound_pitch();
+        }
+        if let Some(d) = delay(tilt) {
+            w.schedule_tick(p, Kind::BigDripleaf, d, Priority::Normal);
+        }
+    }
+
+    /// `resetTilt`: tilt 0, and the tilt-up sound (a level-random pitch) when it was tilted.
+    fn reset_tilt(w: &mut World, s: Block, p: BlockPos) {
+        set_tilt(w, s, p, 0);
+        if tilt_of(&s) != 0 {
+            w.draw_sound_pitch();
+        }
+    }
+
+    /// `entityInside`: an entity standing on the leaf (`canEntityTilt`: on the ground, above
+    /// 11/16) tilts it, unless powered.
+    pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos) {
+        let e = &w.entities.list[i];
+        let can_tilt = e.on_ground && e.pos.y > (p.y as f32 + 0.6875f32) as f64;
+        if tilt_of(&s) == 0 && can_tilt && !w.has_neighbor_signal(p) {
+            set_tilt_and_schedule(w, s, p, 1, false);
+        }
+    }
+
+    /// `tick`.
+    pub fn tick(w: &mut World, s: Block, p: BlockPos) {
+        if w.has_neighbor_signal(p) {
+            reset_tilt(w, s, p);
+            return;
+        }
+        match tilt_of(&s) {
+            1 => set_tilt_and_schedule(w, s, p, 2, true),
+            2 => set_tilt_and_schedule(w, s, p, 3, true),
+            3 => reset_tilt(w, s, p),
+            _ => {}
+        }
+    }
+
+    /// `neighborChanged`: power resets the tilt.
+    pub fn neighbor_changed(w: &mut World, s: Block, p: BlockPos) {
+        if w.has_neighbor_signal(p) {
+            reset_tilt(w, s, p);
+        }
+    }
+
+    /// `getCollisionShape`: the leaf (none when fully tilted).
+    pub fn collision_boxes(s: &Block) -> Vec<crate::behavior::Box16> {
+        match tilt_of(s) {
+            0 | 1 => vec![[0, 16, 11, 15, 0, 16]],
+            2 => vec![[0, 16, 11, 13, 0, 16]],
+            _ => vec![],
+        }
+    }
+}
+
 // ------------------------------------------------------------------------ tripwire hooks
 
 pub mod hook {
@@ -409,7 +527,8 @@ pub mod hook {
         w.update_neighbors_at(p.rel(front), Kind::TripwireHook);
     }
 
-    /// `emitState`: the game events (the sounds are not modeled).
+    /// `emitState`: the game events (the sounds: fixed pitches, except the detach sound's
+    /// level-random one).
     fn emit_state(w: &mut World, p: BlockPos, attached: bool, powered: bool, was_attached: bool, was_powered: bool) {
         if powered && !was_powered {
             w.game_event("block_activate", p);
@@ -418,6 +537,7 @@ pub mod hook {
         } else if attached && !was_attached {
             w.game_event("block_attach", p);
         } else if !attached && was_attached {
+            w.draw_sound_pitch();
             w.game_event("block_detach", p);
         }
     }

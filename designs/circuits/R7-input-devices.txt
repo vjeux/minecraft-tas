@@ -1,0 +1,160 @@
+CHANGED pulse/pulse-limiter-u-L10.txt: L 10 gt, delay 2 gt, min-pulse 2 gt -> L 10 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L12.txt: L 12 gt, delay 2 gt, min-pulse 2 gt -> L 12 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L14.txt: L 14 gt, delay 2 gt, min-pulse 2 gt -> L 14 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L18.txt: L 18 gt, delay 2 gt, min-pulse 2 gt -> L 18 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L20.txt: L 20 gt, delay 2 gt, min-pulse 2 gt -> L 20 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L22.txt: L 22 gt, delay 2 gt, min-pulse 2 gt -> L 22 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L24.txt: L 24 gt, delay 2 gt, min-pulse 2 gt -> L 24 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L26.txt: L 26 gt, delay 2 gt, min-pulse 2 gt -> L 26 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L28.txt: L 28 gt, delay 2 gt, min-pulse 2 gt -> L 28 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L30.txt: L 30 gt, delay 2 gt, min-pulse 2 gt -> L 30 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L34.txt: L 34 gt, delay 2 gt, min-pulse 2 gt -> L 34 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L36.txt: L 36 gt, delay 2 gt, min-pulse 2 gt -> L 36 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L38.txt: L 38 gt, delay 2 gt, min-pulse 2 gt -> L 38 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L4.txt: L 4 gt, delay 2 gt, min-pulse 2 gt -> L 4 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L6.txt: L 6 gt, delay 2 gt, min-pulse 2 gt -> L 6 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-limiter-u-L8.txt: L 8 gt, delay 2 gt, min-pulse 2 gt -> L 8 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L10.txt: L 10 gt, delay 7 gt, min-pulse 4 gt -> L 10 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L12.txt: L 12 gt, delay 7 gt, min-pulse 4 gt -> L 12 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L14.txt: L 14 gt, delay 7 gt, min-pulse 4 gt -> L 14 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L16.txt: L 16 gt, delay 7 gt, min-pulse 4 gt -> L 16 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L20.txt: L 20 gt, delay 7 gt, min-pulse 4 gt -> L 20 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L22.txt: L 22 gt, delay 7 gt, min-pulse 4 gt -> L 22 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L24.txt: L 24 gt, delay 7 gt, min-pulse 4 gt -> L 24 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L26.txt: L 26 gt, delay 7 gt, min-pulse 4 gt -> L 26 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L28.txt: L 28 gt, delay 7 gt, min-pulse 4 gt -> L 28 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L30.txt: L 30 gt, delay 7 gt, min-pulse 4 gt -> L 30 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L32.txt: L 32 gt, delay 7 gt, min-pulse 4 gt -> L 32 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L36.txt: L 36 gt, delay 7 gt, min-pulse 4 gt -> L 36 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L38.txt: L 38 gt, delay 7 gt, min-pulse 4 gt -> L 38 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-pulse-extender-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L10.txt: L 10 gt, delay 7 gt, min-pulse 4 gt -> L 10 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L12.txt: L 12 gt, delay 7 gt, min-pulse 4 gt -> L 12 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L14.txt: L 14 gt, delay 7 gt, min-pulse 4 gt -> L 14 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L16.txt: L 16 gt, delay 7 gt, min-pulse 4 gt -> L 16 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L20.txt: L 20 gt, delay 7 gt, min-pulse 4 gt -> L 20 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L22.txt: L 22 gt, delay 7 gt, min-pulse 4 gt -> L 22 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L24.txt: L 24 gt, delay 7 gt, min-pulse 4 gt -> L 24 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L26.txt: L 26 gt, delay 7 gt, min-pulse 4 gt -> L 26 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L28.txt: L 28 gt, delay 7 gt, min-pulse 4 gt -> L 28 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L30.txt: L 30 gt, delay 7 gt, min-pulse 4 gt -> L 30 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L32.txt: L 32 gt, delay 7 gt, min-pulse 4 gt -> L 32 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L36.txt: L 36 gt, delay 7 gt, min-pulse 4 gt -> L 36 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L38.txt: L 38 gt, delay 7 gt, min-pulse 4 gt -> L 38 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L6.txt: L 6 gt, delay 7 gt, min-pulse 4 gt -> L 6 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-rising-edge-L8.txt: L 8 gt, delay 7 gt, min-pulse 4 gt -> L 8 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L10.txt: L 10 gt, delay 7 gt, min-pulse 6 gt -> L 10 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L12.txt: L 12 gt, delay 7 gt, min-pulse 6 gt -> L 12 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L14.txt: L 14 gt, delay 7 gt, min-pulse 6 gt -> L 14 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L16.txt: L 16 gt, delay 7 gt, min-pulse 6 gt -> L 16 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L20.txt: L 20 gt, delay 7 gt, min-pulse 6 gt -> L 20 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L22.txt: L 22 gt, delay 7 gt, min-pulse 6 gt -> L 22 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L24.txt: L 24 gt, delay 7 gt, min-pulse 6 gt -> L 24 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L26.txt: L 26 gt, delay 7 gt, min-pulse 6 gt -> L 26 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L28.txt: L 28 gt, delay 7 gt, min-pulse 6 gt -> L 28 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L30.txt: L 30 gt, delay 7 gt, min-pulse 6 gt -> L 30 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L32.txt: L 32 gt, delay 7 gt, min-pulse 6 gt -> L 32 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L36.txt: L 36 gt, delay 7 gt, min-pulse 6 gt -> L 36 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L38.txt: L 38 gt, delay 7 gt, min-pulse 6 gt -> L 38 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L40.txt: L 40 gt, delay 7 gt, min-pulse 6 gt -> L 40 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L6.txt: L 6 gt, delay 7 gt, min-pulse 6 gt -> L 6 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-fall-falling-edge-L8.txt: L 8 gt, delay 7 gt, min-pulse 6 gt -> L 8 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-limiter-u4.txt: L 16 gt, delay 2 gt, min-pulse 2 gt -> L 16 gt, delay 2 gt, min-pulse 3 gt
+CHANGED pulse/pulse-oneshot-ext.txt: L 18 gt, delay 7 gt, min-pulse 4 gt -> L 18 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-fall.txt: L 18 gt, delay 7 gt, min-pulse 6 gt -> L 18 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-oneshot-rise.txt: L 18 gt, delay 7 gt, min-pulse 4 gt -> L 18 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-fall-repeater-L4.txt: L 4 gt, delay 9 gt, min-pulse 6 gt -> L 4 gt, delay 8 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-repeater-L6.txt: L 6 gt, delay 11 gt, min-pulse 6 gt -> L 6 gt, delay 10 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-repeater-L8.txt: L 8 gt, delay 13 gt, min-pulse 6 gt -> L 8 gt, delay 12 gt, min-pulse 6 gt
+CHANGED pulse/pulse-rise-repeater-L4.txt: L 4 gt, delay 9 gt, min-pulse 4 gt -> L 4 gt, delay 8 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-repeater-L6.txt: L 6 gt, delay 11 gt, min-pulse 4 gt -> L 6 gt, delay 10 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-repeater-L8.txt: L 8 gt, delay 13 gt, min-pulse 4 gt -> L 8 gt, delay 12 gt, min-pulse 4 gt
+CHANGED pulse/pulse-oneshot-bulb-rise.txt: L 18 gt, delay 6 gt, min-pulse 1 gt -> L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulse/pulse-oneshot-bulb-ext.txt: L 18 gt, delay 6 gt, min-pulse 1 gt -> L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulse/pulse-dual-observers-qc-L2-1.txt: L 2 gt rising / 1 gt falling, delay 3 gt rising / 4 gt falling, min-pulse 6 gt -> L 2 gt rising / 1 gt falling, delay 2 gt rising / 3 gt falling, min-pulse 6 gt
+CHANGED pulse/pulse-extender-sculk-cal-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-extender-sculk-filter-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes
+CHANGED pulse/pulse-extender-sculk-L30.txt: L 30 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 30 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-fall-sculk-filter-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes
+CHANGED pulse/pulse-fall-sculk-L30.txt: L 30 gt, delay 8 gt, min-pulse 1 gt, vibration-proof no -> L 30 gt, delay 8 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no
+CHANGED pulse/pulse-fall-trapdoor-cal-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no
+CHANGED pulse/pulse-limiter-sculk-cal-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-limiter-sculk-filter-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes
+CHANGED pulse/pulse-limiter-sculk-L30.txt: L 30 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 30 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-rise-sculk-cal-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-rise-sculk-filter-L10.txt: L 10 gt, delay 1 gt, min-pulse 1 gt, vibration-proof yes -> L 10 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof yes
+CHANGED pulse/pulse-rise-sculk-L30.txt: L 30 gt, delay 1 gt, min-pulse 1 gt, vibration-proof no (input from afar) -> L 30 gt, delay 1 gt, min-pulse 2 gt (the shortest a real input makes), vibration-proof no (input from afar)
+CHANGED pulse/pulse-extender-hopper-oneshot-L128.txt: L 128 gt, delay 7 gt, min-pulse 4 gt -> L 128 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L16.txt: L 16 gt, delay 7 gt, min-pulse 4 gt -> L 16 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L256.txt: L 256 gt, delay 7 gt, min-pulse 4 gt -> L 256 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L32.txt: L 32 gt, delay 7 gt, min-pulse 4 gt -> L 32 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L64.txt: L 64 gt, delay 7 gt, min-pulse 4 gt -> L 64 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L8.txt: L 8 gt, delay 7 gt, min-pulse 4 gt -> L 8 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L128.txt: L 128 gt, delay 7 gt, min-pulse 4 gt -> L 128 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L16.txt: L 16 gt, delay 7 gt, min-pulse 4 gt -> L 16 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L256.txt: L 256 gt, delay 7 gt, min-pulse 4 gt -> L 256 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L32.txt: L 32 gt, delay 7 gt, min-pulse 4 gt -> L 32 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L64.txt: L 64 gt, delay 7 gt, min-pulse 4 gt -> L 64 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L8.txt: L 8 gt, delay 7 gt, min-pulse 4 gt -> L 8 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L128.txt: L 128 gt, delay 7 gt, min-pulse 6 gt -> L 128 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L16.txt: L 16 gt, delay 7 gt, min-pulse 6 gt -> L 16 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L256.txt: L 256 gt, delay 7 gt, min-pulse 6 gt -> L 256 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L32.txt: L 32 gt, delay 7 gt, min-pulse 6 gt -> L 32 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L64.txt: L 64 gt, delay 7 gt, min-pulse 6 gt -> L 64 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L8.txt: L 8 gt, delay 7 gt, min-pulse 6 gt -> L 8 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L24.txt: L 24 gt, delay 7 gt, min-pulse 4 gt -> L 24 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L24.txt: L 24 gt, delay 7 gt, min-pulse 6 gt -> L 24 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L24.txt: L 24 gt, delay 7 gt, min-pulse 4 gt -> L 24 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-extender-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
+CHANGED pulse/pulse-fall-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 6 gt -> L 40 gt, delay 6 gt, min-pulse 6 gt
+CHANGED pulse/pulse-rise-hopper-oneshot-L40.txt: L 40 gt, delay 7 gt, min-pulse 4 gt -> L 40 gt, delay 6 gt, min-pulse 4 gt
+pulse: 0 pass only by the block placement, 0 refused, 111 changed, 16 unchanged, 7 without a plain input or a redsim verdict
+CHANGED tff/tff-observer-piston.txt: latency 11 gt, edge rising, min-pulse 3 gt, min-period 10 gt -> latency 10 gt, edge rising, min-pulse 3 gt, min-period 10 gt
+CHANGED tff/tff-snowdisp-dust.txt: latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt -> latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes)
+CHANGED tff/tff-snowdisp.txt: latency 6 gt, edge rising, min-pulse 1 gt, min-period 4 gt -> latency 6 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 4 gt (the shortest a real input makes)
+CHANGED tff/tff-dropring.txt: latency 13 gt, edge rising, min-pulse 1 gt, min-period 12 gt -> latency 13 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 12 gt
+CHANGED tff/tff-crafter.txt: latency 21 gt, edge rising, min-pulse 1 gt, min-period over 30 gt -> latency 21 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period over 30 gt
+CHANGED tff/tff-piston-slime.txt: latency 5 gt, edge rising, min-pulse 1 gt, min-period 5 gt -> latency 4 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period 5 gt
+CHANGED tff/tff-observer-pistonline.txt: latency 5 gt, edge rising, min-pulse 4 gt, min-period 8 gt -> latency 4 gt, edge rising, min-pulse 4 gt, min-period 8 gt
+CHANGED tff/tff-observer-flat.txt: latency 7 gt, edge falling, min-pulse 3 gt, min-period 10 gt -> latency 6 gt, edge falling, min-pulse 3 gt, min-period 10 gt
+CHANGED tff/tff-crafter7.txt: latency 21 gt, edge rising, min-pulse 1 gt, min-period over 30 gt -> latency 21 gt, edge rising, min-pulse 2 gt (the shortest a real input makes), min-period over 30 gt
+tff: 0 pass only by the block placement, 0 refused, 9 changed, 1 unchanged, 0 without a plain input or a redsim verdict
+CHANGED delay/delay-qc-0.txt: N 1 gt, min-pulse 3 gt, min-gap 3 gt -> N 0 gt, min-pulse 4 gt, min-gap 3 gt
+delay: 0 pass only by the block placement, 0 refused, 1 changed, 6 unchanged, 0 without a plain input or a redsim verdict
+gates: 0 pass only by the block placement, 0 refused, 0 changed, 3 unchanged, 5 without a plain input or a redsim verdict
+CHANGED memory/tffr-dropring.txt: latency 13 gt, reset 6 gt, min-pulse 1 gt -> latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED memory/counter19-items.txt: N 19, output toggles every 19 pulses -> N 19, output toggles every 19 pulses, input fed through the build
+CHANGED memory/counter23-items.txt: N 23, output toggles every 23 pulses -> N 23, output toggles every 23 pulses, input fed through the build
+CHANGED memory/counter25-items.txt: N 25, output toggles every 25 pulses -> N 25, output toggles every 25 pulses, input fed through the build
+CHANGED memory/counter38-items.txt: N 38, output toggles every 38 pulses -> N 38, output toggles every 38 pulses, input fed through the build
+CHANGED memory/counter39-items.txt: N 39, output toggles every 39 pulses -> N 39, output toggles every 39 pulses, input fed through the build
+CHANGED memory/counter17-items.txt: N 17, output toggles every 17 pulses -> N 17, output toggles every 17 pulses, input fed through the build
+CHANGED memory/counter34-items.txt: N 34, output toggles every 34 pulses -> N 34, output toggles every 34 pulses, input fed through the build
+memory: 0 pass only by the block placement, 0 refused, 8 changed, 20 unchanged, 2 without a plain input or a redsim verdict
+pext: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 59 without a plain input or a redsim verdict
+fly: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 13 without a plain input or a redsim verdict
+shulker: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 18 without a plain input or a redsim verdict
+tnt: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 7 without a plain input or a redsim verdict
+bud: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 12 without a plain input or a redsim verdict
+CHANGED pulsemult/pm-burst2-bulb.txt: N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 1 gt, retrigger mixed, repeat 12 gt -> N 2, pulse 2 gt, period 6 gt, latency 12 gt, span 20 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 12 gt
+CHANGED pulsemult/pm-burst3-bulb.txt: N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt -> N 3, pulse 2 gt, period 6 gt, latency 12 gt, span 26 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt
+CHANGED pulsemult/pm-burst4-taps.txt: N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 20 gt -> N 4, pulse 2 gt, period 4-6 gt, latency 6 gt, span 24 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 20 gt
+CHANGED pulsemult/mono-retrig-ring-L12.txt: L 12 gt, delay 4 gt, retrigger retriggerable, re-arm 16 gt, min-pulse 1 gt -> L 12 gt, delay 4 gt, retrigger retriggerable, re-arm 16 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-retrig-ring-L16.txt: L 16 gt, delay 4 gt, retrigger retriggerable, re-arm 20 gt, min-pulse 1 gt -> L 16 gt, delay 4 gt, retrigger retriggerable, re-arm 20 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-retrig-ring-L20.txt: L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 1 gt -> L 20 gt, delay 4 gt, retrigger retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-retrig-ring-L32.txt: L 32 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 1 gt -> L 32 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-retrig-ring-L36.txt: L 36 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 1 gt -> L 36 gt, delay 4 gt, retrigger retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/off-delay-2stage-k1.txt: L 108 gt, latency 6 gt, min-pulse 2 gt -> L 108 gt, latency 6 gt, min-pulse 3 gt
+CHANGED pulsemult/mono-retrig-2stage-k1.txt: L 116 gt, delay 10 gt, retrigger retriggerable, re-arm 120 gt, min-pulse 1 gt -> L 116 gt, delay 10 gt, retrigger retriggerable, re-arm 120 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-ring-L14.txt: L 14 gt, delay 12 gt, retrigger non-retriggerable, re-arm 20 gt, min-pulse 1 gt -> L 14 gt, delay 12 gt, retrigger non-retriggerable, re-arm 20 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-ring-L18.txt: L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 1 gt -> L 18 gt, delay 12 gt, retrigger non-retriggerable, re-arm 24 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-ring-L22.txt: L 22 gt, delay 12 gt, retrigger non-retriggerable, re-arm 32 gt, min-pulse 1 gt -> L 22 gt, delay 12 gt, retrigger non-retriggerable, re-arm 32 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-ring-L34.txt: L 34 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 1 gt -> L 34 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-ring-L38.txt: L 38 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 1 gt -> L 38 gt, delay 12 gt, retrigger non-retriggerable, re-arm 40 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/mono-nonretrig-2stage-k1.txt: L 118 gt, delay 20 gt, retrigger non-retriggerable, re-arm 160 gt, min-pulse 1 gt -> L 118 gt, delay 20 gt, retrigger non-retriggerable, re-arm 160 gt, min-pulse 2 gt (the shortest a real input makes)
+CHANGED pulsemult/pm-train-observers.txt: P 4 gt, pulse 2 gt, latency 3 gt, stop 5 gt -> P 4 gt, pulse 2 gt, latency 2 gt, stop 4 gt
+CHANGED pulsemult/pm-burst2-chase.txt: N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 1 gt, retrigger mixed, repeat 8 gt -> N 2, pulse 2 gt, period 4 gt, latency 10 gt, span 16 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 8 gt
+CHANGED pulsemult/pm-burst3-chase.txt: N 3, pulse 2 gt, period 4 gt, latency 14 gt, span 24 gt, min-pulse 1 gt, retrigger mixed, repeat 16 gt -> N 3, pulse 2 gt, period 4 gt, latency 14 gt, span 24 gt, min-pulse 2 gt (the shortest a real input makes), retrigger mixed, repeat 16 gt
+pulsemult: 0 pass only by the block placement, 0 refused, 19 changed, 15 unchanged, 0 without a plain input or a redsim verdict
+compute: 0 pass only by the block placement, 0 refused, 0 changed, 0 unchanged, 0 without a plain input or a redsim verdict

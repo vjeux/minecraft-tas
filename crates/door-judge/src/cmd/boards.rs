@@ -196,3 +196,37 @@ pub fn cmd_leaderboard(version: &str, args: LeaderboardArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(clap::Args)]
+pub struct LayoutsArgs {
+    /// Volume dims of the doors to count (`7x8x1`; `7x8` means `7x8x1`).
+    #[arg(long, default_value = "7x8x1")]
+    size: String,
+    /// Only this category (solid, slime, sculk...; default: every category).
+    #[arg(long)]
+    category: Option<String>,
+    /// Ref prefix scanned besides HEAD and --base (the leaderboard's).
+    #[arg(long, default_value = "refs/remotes/origin/explore/")]
+    refs: String,
+    /// Also scan this ref ("" = none).
+    #[arg(long, default_value = "origin/main")]
+    base: String,
+    /// The leaderboard's cache folder (verdicts-v5.tsv, properties-v1.tsv).
+    #[arg(long, default_value = "designs/piston-door-3x3/archive")]
+    cache_dir: PathBuf,
+    /// Write the report here too.
+    #[arg(long)]
+    out: Option<PathBuf>,
+}
+
+pub fn cmd_layouts(args: LayoutsArgs) -> Result<()> {
+    let LayoutsArgs { size, category, refs, base, cache_dir, out } = args;
+    let size = if size.matches('x').count() == 1 { format!("{size}x1") } else { size };
+    let o = crate::layouts::Options { repo: std::path::Path::new("."), refs: &refs, base: &base, cache_dir: &cache_dir, size: &size, category: category.as_deref() };
+    let report = crate::layouts::report(&o)?;
+    print!("{report}");
+    if let Some(p) = out {
+        std::fs::write(p, &report)?;
+    }
+    Ok(())
+}

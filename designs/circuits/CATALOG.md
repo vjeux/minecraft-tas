@@ -4,10 +4,17 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 
 | study | designs | shown | variants |
 |---|---|---|---|
-| [Pulse circuits](pulse/CATALOG.md) | 93 | 82 | 5 |
-| [T flip-flops](tff/CATALOG.md) | 7 | 7 | 0 |
-| [Delay lines](delay/CATALOG.md) | 12 | 2 | 0 |
-| [Logic gates](gates/CATALOG.md) | 13 | 12 | 1 |
-| [Memory](memory/CATALOG.md) | 32 | 27 | 5 |
-| [Piston extenders](pext/CATALOG.md) | 32 | 22 | 7 |
-| [Flying machines](fly/CATALOG.md) | 73 | 69 | 4 |
+| [Pulse circuits](pulse/CATALOG.md) | 136 | 24 | 0 |
+| [T flip-flops](tff/CATALOG.md) | 1 | 1 | 0 |
+| [Delay lines](delay/CATALOG.md) | 8 | 0 | 0 |
+| [Logic gates](gates/CATALOG.md) | 11 | 7 | 0 |
+| [Memory](memory/CATALOG.md) | 49 | 6 | 0 |
+| [Piston extenders](pext/CATALOG.md) | 59 | 17 | 21 |
+| [Flying machines](fly/CATALOG.md) | 13 | 4 | 3 |
+| [Shulker loaders and unloaders](shulker/CATALOG.md) | 24 | 20 | 4 |
+| [TNT dupers](tnt/CATALOG.md) | 4 | 4 | 0 |
+| [BUD switches](bud/CATALOG.md) | 12 | 10 | 0 |
+| [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 41 | 9 | 0 |
+| Computational redstone | 0 | 0 | 0 |
+| [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
+| [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |

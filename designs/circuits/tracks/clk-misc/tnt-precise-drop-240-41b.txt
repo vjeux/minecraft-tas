@@ -1,0 +1,82 @@
+# Precise drop, 41 blocks in a 6x5x8 box (240), 30 TNT/min: every TNT falls straight down from one
+# point and explodes at one point in mid-air 10.0 blocks under the machine, 13.0 blocks above the ground
+# it stands 23 blocks over. clk-rt's minimum-volume search (explore/timer 3670274e4,
+# designs/circuits/tracks/clk-rt/tnt-precise-drop-240-41b.txt): the 240-volume version with 3 fewer
+# blocks. A 7-block catalog P40 clock, folded between the engine and the channel, moves its redstone
+# block in front of a repeater for 6 ticks every 40 and the torch under the engine piston goes dark:
+# one TNT. The TNT flies into fence posts over a water channel, the current pins it against an
+# observer on an iron trapdoor, and the next TNT's push, carried by observers and a delay-4 repeater,
+# opens the trapdoor.
+name: tnt-precise-drop
+circuit: tnt-duper
+stand: 23
+port start: 2 -1 3 last
+origin: 2 0 -4
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wall_torch[facing=east,lit=true]
+  I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  K minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  L minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=north]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  .
+  .
+  .
+  .
+  .
+  .
+  .G
+  .
+layer -3:
+  .
+  ...NIN
+  .
+  .
+  .
+  .
+  RKNH
+  M
+layer -2:
+  ...OO
+  ..OW.E
+  ...AC
+  .
+  .
+  s.SSS
+  B.MGS
+  r...S
+layer -1:
+  .
+  .....L
+  .....N
+  .....C
+  ...T.C
+  ..D..F
+  C..JR
+  o...S
+layer 0:
+  .
+  .
+  .
+  .
+  .
+  .
+  ...SS
+  ....S

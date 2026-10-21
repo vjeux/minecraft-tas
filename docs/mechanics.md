@@ -443,6 +443,32 @@ track notes).
   taps land inside the sensor's 40 gt dead time. **Calibrated sensor -> observer = 3 taps 10 gt apart**
   (T+2, T+12, T+22): an odd count for a pull-type piston (pull/push/pull on open, push/pull/push on
   close), and its window can hold another piston meanwhile (the 63's B through dust -> wool).
+* **On a door still moving after the re-arm, read the sensor with an observer rather than letting it
+  hold a piston** (clk-item, q69h / q69c, 6x9 doors that move 57-83 gt): a calibrated sensor (range 16)
+  hears every piston of a 6x9 box, a plain one (range 8) all but the far corners (the box's diagonal is
+  9.4), and a piston's extend / retract is the same game event as the
+  lever's on / off (`BLOCK_ACTIVATE` 10 / `BLOCK_DEACTIVATE` 9, `VibrationSystem`), so no frequency
+  filter separates the lever from the door. A sensor powering a piston directly re-holds it on every
+  echo wake: q69h's Qr (calibrated, woke t2, again t29 and t57), q69c's (0,4,1) (plain, woke t5, again
+  t49 from a piston 2.2 blocks away whose line crosses only free cells, so a wool DOOR did not help)
+  and q69c's A were all broken. (One direct drive does work: q69h's W, with a calibrated sensor at
+  (-2,-2) next to the cell the slime drags W into, plus a wool shield at (0,-2); redsim 32 x 3 and the
+  game. So measure, do not assume.) An observer watching the sensor instead turns every phase change of
+  every echo cycle into one more 2 gt tap, which is harmless for a piston that tolerates extra pulses:
+  q69c's A (sensor (3,-3), observer (3,-2) facing down) and (1,-1,1) (sensor (0,-3), observer (0,-2))
+  both WORK at 32 positions x 3 cycles and in the game. The observer may write into a WOOL block that
+  is both the wire (it QC-arms the target through the target's quasi cell) and a shield: with stone
+  in that cell (3,-1) the same filling fails. `ideal-rs --holds` models one hold and no echo, so its
+  windows are optimistic: check a sensor input with a real sensor block in redsim.
+* **A block riding a slime structure is a free once-per-edge trigger** (clk-item, q69c's P_T): a stone
+  set on top of the slime column is dragged on every slime move, and an observer watching its rest
+  cell fires on each, on both edges, with no input of its own (observer (0,5) facing west watching
+  the stone at (-1,5), QC into P_T at (1,4) through (1,5)). The cell the stone is dragged into must
+  stay empty.
+* **A lever arms the pistons two cells below its block** (clk-item, q69h): the block a lever hangs on
+  is strongly powered, so it QC-arms a piston whose quasi cell touches it. A lever on the right wall's
+  back face at (3,1,1) extends q69h's K at (3,-1) (quasi cell (3,0)) the moment it turns on, while
+  (3,2,1) arms nothing there; q69c, whose corner piston sits at the top, takes (3,1,1) fine.
 * **Glass under a wire dust** (m79s s88h/s88i): a stone under a dust is strongly powered and QC-arms
   any piston whose quasi cell it touches; glass carries the dust without powering anything.
 
@@ -772,6 +798,16 @@ behaves identically in the official server.**
   hold it up.
 * A falling block that lands on a moving piston (or anywhere it cannot be placed) breaks into an
   item. `Sandbox.idle()` waits for falling blocks to land, so the judge sees that item.
+* `door redsim-verify` on the 12 archived gravity doors: g7-g10 PASS; the other 8 (g1-67b,
+  g1-69b, g3-60b, g4-51b, g6-49b, sf1-66b, sf1-68b, sf3-64b) fail only the "nothing in front of
+  or behind the door" rule (2026-10-18 16:40Z: their lever port `1 0 -2` stands in front), which
+  today's `door verify` applies too; their archived verdicts predate it. With
+  `--legacy-walkway` (both judges skip that rule) all 8 PASS in redsim at 32 positions with the
+  real judge's open/close ticks (`--judge`: 0 disagreements; clk-misc's diagnosis, 2026-10-20).
+  So redsim's falling-block model agrees with the game on all 12.
+* In redsim, falling blocks take their ids from the counter every entity shares and tick with the
+  other entities in spawn order (`entity::tick_phase`); they do not run `applyEffectsFromBlocks`
+  (plates, tripwires and bubble columns do not see them).
 * Gadget `designs/gadgets/sand-drop-tower`: a 3-piston tower lowers/lifts a sand column 3 cells
   (the slime chain lets the bottom piston pull both upper pistons down). Used by door g4.
 * An isolated redstone dust is a dot and powers nothing sideways; written as a cross
@@ -841,6 +877,59 @@ basin: 6000 cases, 0 mismatches, 2026-10-19).
 * A full source above soul sand (up) or magma (down) schedules a 20 gt block tick that turns the
   water column above into a bubble column (flags 2, cell by cell up the sources); a column whose
   support goes away turns back into water 5 gt after its shape update.
+
+## TNT and dead coral fans (`TntBlock`, `BaseCoralFanBlock`, `PistonBaseBlock.moveBlocks`) — redsim (track tnt)
+
+Modeled in `crates/redsim/src/tnt.rs` (study 9, TNT dupers: designs/circuits/tnt/VARIATIONS.md),
+checked by `redsim-fuzz fuzz --palette core,piston:6,simple:6,tnt:4,coral:4` (12000 cases, 0
+mismatches) and the exact trace of the real-game dupe tnt-c1.
+
+* A TNT primes on placement (a different old block) or any neighbor update while it has a neighbor
+  signal, then is removed (`removeBlock`, flags 3). It is not a conductor. In redsim a prime is a
+  record (`World::primed`: tick, cell), not an entity (the `PrimedTnt`'s kick draws from
+  `level.random`); a primed TNT reaching its explosion tick is an UNMODELED note unless the caller
+  removes primed TNT first (the TNT judge does).
+* Dead coral fans are pushable (slime drags them), have no collision and drop nothing; a floor fan
+  pops on a DOWN shape update without a sturdy top below, a wall fan on the update from its back.
+* The dupe: `moveBlocks` copies every pushed state first and blanks the sources last. A fan
+  riding the structure pops when the cell under it turns `moving_piston` (the flag-324 write
+  updates shapes before the block entity exists) and updates a TNT still at its source; if the
+  TNT is powered then, it primes while its moving copy lands. A TNT can never rest next to power,
+  so the power must appear inside the push: a dust whose connections change (it computes them on
+  the fly) is the source every duper found so far uses.
+
+## Drops and the bridge's seeds (`Block.popResource`, `ItemEntity`) — shulker study
+
+A piston breaking a shulker box (push reaction DESTROY) drops it with its contents through
+`Block.popResource(level, pos, stack)` (Block.java 409): the item entity's position is the cell
+center plus `Mth.nextDouble(level.random, -0.25, 0.25)` on each axis (x, y, z in that order; y
+minus half the item's height, 0.125). Those three draws come from the level random, which the
+bridge seeds per sandbox (`Sandbox.create`, `clear`). But the 5-argument
+`new ItemEntity(level, x, y, z, stack)` (ItemEntity.java 62) then draws from the ENTITY's own
+random: the yaw (`nextFloat() * 360`, in the type constructor) and the drift
+(`setDeltaMovement(nextDouble() * 0.2 - 0.1, 0.2, nextDouble() * 0.2 - 0.1)`). Vanilla seeds that
+random with `RandomSupport.generateUniqueSeed()` (a static uniquifier ^ `System.nanoTime()`), so
+the same build in the same seeded sandbox drifts differently on every run.
+
+**What the bridge does differently from vanilla**: an `ItemEntity` that enters a sandbox during
+its tick (`Sandbox.tick`) through `Block.popResource(Level, BlockPos, ItemStack)` (seen on the
+call stack; `popResourceFromFace`, dispensers and summoned design entities are left alone) gets
+its own random reseeded to `sandbox seed ^ (0x6d63746173 + n)`, n = the n-th such drop of the
+sandbox (from 0, reset with the sandbox), and the constructor's draws redone in the same order
+(yaw, then the x and z drift), before it is tracked or ticked (`LevelCallback.onCreated`, the
+level entity manager's callbacks wrapped). The same distribution, now one sample per seed:
+judges that depend on drops vary the seed (the shulker judge seeds each build from its position
+and runs 64 more seeds after the builds). Two runs with the same seed give the same exact trace;
+traces without such drops are unchanged.
+
+**Entity ids**: every entity that enters a sandbox (summoned, spawned by the game, falling
+blocks, primed TNT, drops) gets the id `base + n` (`Entity.setId` in `onCreated`, before it is
+tracked), n counting from 0 in the order they enter (reset with the sandbox), base =
+`0x40000000 + ((sandbox id & 1023) << 20)`, a multiple of 4. Vanilla takes ids from one
+server-wide counter, so `(tickCount + getId()) % 4` (an item entity at rest moves 1 tick in 4)
+depended on everything the JVM had spawned before; now it depends on n only, ids grow with the
+entity tick list's order, and redsim's ids (from 0, falling blocks sharing the counter) are the
+same numbers: the protocol reports n as `net_id`, and `redsim-fuzz trace-compare` checks it.
 
 ## 12. redsim: the exact model (track redmodel)
 

@@ -6,3 +6,5 @@ pub mod fill;
 pub mod fuzz;
 pub mod ideal;
 pub mod judge;
+pub mod selffeed;
+pub mod shuttle;

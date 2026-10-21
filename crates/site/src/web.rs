@@ -122,9 +122,8 @@ pub fn check_copied_ui(repo: &Path, pkg: &Path, from: &str) -> Result<()> {
             "the UI from {from} was built from other sources ({}) than this checkout's web/site + crates/site-model ({want}): rebuild it (drop --pkg/--pkg-ref; needs `rustup target add wasm32-unknown-unknown` and wasm-bindgen-cli)",
             s.trim()
         ),
-        Err(_) => {
-            eprintln!("warning: the UI from {from} has no SOURCE fingerprint (built before the check): assuming it matches the checkout");
-            Ok(())
-        }
+        Err(_) => bail!(
+            "the UI from {from} has no SOURCE fingerprint (built before the check, so possibly from older sources): rebuild it (drop --pkg/--pkg-ref; needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version 0.2.129`)"
+        ),
     }
 }

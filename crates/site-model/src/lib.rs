@@ -76,6 +76,12 @@ pub struct Build {
     /// entities and fluids redsim does not model), path from the site root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trace: Option<String>,
+    /// The thumbnail's still frame, found at build time by the viewer's own search
+    /// (`mcview::tools::still_attr`: `<tick>[ out=x,y,z][ box=...]`, webrender's contract): the
+    /// browser runs one pass to that tick instead of searching (a long clock deep in the Clocks
+    /// tab: 3.6 s -> 0.1 s on a desktop). None: the viewer searches, as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub still: Option<String>,
     /// An interim picture (absolute URL: a clock's real-game picture, a door's board GIF) shown
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,13 +147,35 @@ pub struct Door {
     /// The design it is a fill variant of (repository path).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub fill_of: String,
+    /// The one door card (vjeux 21:47Z): how many board records its page's table holds (0 on
+    /// every other door).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub records: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ClockInfo {
-    /// Period in game ticks (20 gt = 1 s).
+    /// Period in game ticks (20 gt = 1 s): the whole state's cycle.
     pub period: u32,
+    /// The output's own period when it pulses several times, evenly, per cycle (clockinfra's
+    /// gaps: N equal gaps g): what a builder means by the clock's time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pulse_every: Option<u32>,
+    /// What a chunk reload mid-run does to it (clockinfra's `reload` column: `ok`, `glitch then
+    /// resumes`, `stops`, `changes period to P gt`, `fails: why`, each maybe `in K of N builds`;
+    /// empty: not checked).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reload: String,
+    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
+    /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
+    /// other clock.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind_range: String,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
@@ -161,16 +189,16 @@ pub struct ClockInfo {
     #[serde(default)]
     pub start: String,
     /// Its mirror image is a different type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub chiral: bool,
     /// Other archived names of the same type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     /// Build id of the smaller clock of its period whose block kinds it only adds to (a variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// Build ids of its variants.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<String>,
     /// The extendable family it is the base design or a member of: card id, family id, n.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -180,12 +208,56 @@ pub struct ClockInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub n: Option<i64>,
     /// A beat clock (sub-clocks side by side, marked `# composite`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub composite: bool,
     /// An archived design that is a member of an extendable family other than its base design
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
     #[serde(default, skip_serializing_if = "is_false")]
     pub instance: bool,
+    /// Its extendable family, for a base design and its longer versions alike (vjeux 01:24Z:
+    /// longer versions are clocks of their own; critique 41f1ec62a: the hopper clock's page never
+    /// said one design makes any period from 1 s to 4 min 15 s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend: Option<Extend>,
+    /// What a redstone lamp on its output does, simulated with one there (critique a417977c3: a
+    /// lamp goes dark only after more than 4 gt without power): `stays lit` (never dark while the
+    /// output pulses), `relit` (stays lit though the output is off longer: relit within the tick)
+    /// or `misses pulses` (lights fewer times than the output rises); empty when it follows every
+    /// pulse or was not simulated. `lamp_gap`: the output's shortest off-gap, in gt.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lamp: String,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub lamp_gap: u32,
+}
+
+/// A clock's extendable family, in words and numbers.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Extend {
+    /// The tested base design's build id.
+    pub base: String,
+    /// The name of its kind of clock (`dropper ring`), may be empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// How one step extends it (`one more stone in the first hopper (same blocks; ...)`).
+    pub rule: String,
+    /// The n of the base design.
+    pub base_n: i64,
+    /// What one step adds: ticks, blocks.
+    pub dt: i64,
+    pub db: i64,
+    /// The slowest of the family on the site, in gt.
+    pub hi: u32,
+}
+
+fn is_zero_u32(n: &u32) -> bool {
+    *n == 0
+}
+
+impl ClockInfo {
+    /// How often its output pulses: the output's own period, else the whole cycle.
+    pub fn every(&self) -> u32 {
+        self.pulse_every.unwrap_or(self.period)
+    }
 }
 
 fn is_false(b: &bool) -> bool {
@@ -199,6 +271,34 @@ fn is_false(b: &bool) -> bool {
 pub struct Circuit {
     /// The study (`pulse`, `tff`, `delay`, `gates`, `memory`, `pext`, `fly`).
     pub study: String,
+    /// Where it sorts among circuits: its study's place (pulse shapers first), the basics of a
+    /// study last (the gates with their own levers, the sand elevators).
+    #[serde(default)]
+    pub order: u32,
+    /// Its place within its kind (0 = the first shown design of the kind): the Circuits tab opens
+    /// on the first of every kind, then the second... (critique C40: it opened on six cards of
+    /// one kind).
+    #[serde(default)]
+    pub rank: u32,
+    /// The variation a machine is the best design for (a shulker loader's badge where it is the
+    /// fastest, then smallest): its card leads with it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lead: String,
+    /// Why this design is the one on the site (vjeux 21:47Z: one per kind; critique: "cards don't
+    /// say why they're the best"): `smallest of 14 tested`, `tiles side by side, 1 block wide`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub claim: String,
+    /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
+    /// rising-edge detector): its card says it is also one of those.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also: Vec<String>,
+    /// What a machine carries or pulls, in words (a flying machine of the payload family with n
+    /// extra blocks: `carries 9 extra blocks`; of the train family: `pulls 2 trailers`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub feature: String,
+    /// A group card's sizes when its members differ (`3 to 15 blocks`): its title says them.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub span_blocks: String,
     /// The kind as its `circuit:` line writes it (`rising-edge`, `gate xor`, `counter 4`).
     #[serde(default)]
     pub kind: String,
@@ -227,9 +327,180 @@ pub struct Circuit {
     /// to (a variant, as `mctas circuit catalog` folds them).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
+    /// Build id of the shown design this one is an equivalent layout of (same kind, value, block
+    /// count and block kinds: "also N other layouts" on that design's page).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_of: Option<String>,
+    /// A machine's travel direction in words (`horizontal`, `up`, `down`: its `travel:` header),
+    /// part of a flying machine's place on its study's axis.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub direction: String,
+    /// Other archived designs that are the SAME build under another kind (the same blocks and
+    /// ports: the copper bulb T flip-flop is both `tff-bulb` and `counter2-bulb`), by build id.
+    /// Pages only.
+    #[serde(skip)]
+    pub same_build: Vec<String>,
+    /// The tunable group it belongs to (one mechanism with other repeater delays, comparator modes
+    /// or a longer line: the catalog's `group` column), and on the group's shown design (the
+    /// smallest) the group's span (`L 6-40 gt, 16 values`); the other members are hidden by
+    /// default and come back through the value search (`L 12`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tunable: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub span: String,
+    /// The group's title and note (`group title:` / `group note:` headers). Pages only.
+    #[serde(skip)]
+    pub group_title: String,
+    #[serde(skip)]
+    pub group_note: String,
+    /// What the group's members differ in (`the input device`, `the repeater delays`...), and
+    /// this member's own value of it (`stone button`, `delays 4+4+2`), computed from the members'
+    /// designs. Pages only.
+    #[serde(skip)]
+    pub group_differs: String,
+    #[serde(skip)]
+    pub variant_label: String,
+    /// The extendable family card it is a base design of (`families/<card>.html`); a card with
+    /// several families shows its first base only (`card_member` on the others: hidden like a
+    /// tunable group's members).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub card: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub card_member: bool,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
+    /// How each input is driven (parallel to `inputs`): `redstone block`, `lever`, `button`, or
+    /// the custom on-state. Pages only (not exported).
+    #[serde(skip)]
+    pub devices: Vec<String>,
+    /// Each input's button as the 3D view labels it (parallel to `inputs`; webrender's
+    /// `mcview::circuit::input_label`: "A", "CLK", a lock's "Dial 1"): a page names the buttons a
+    /// visitor sees (critique 058332315: "D0 … K2" where the view says "Dial 1 … Code 3"). Pages
+    /// only (not exported).
+    #[serde(skip)]
+    pub input_labels: Vec<String>,
+    /// The judge's stimulus as the design format's `stimulus:` text (per input its edges), for
+    /// the viewer's demo (`data-stimulus`), and its labeled phases (`from-to label; ...`). Pages
+    /// only.
+    #[serde(skip)]
+    pub stimulus: String,
+    /// A strength input's values over the judge's test (`<frame> <input> <value>; ...`, the hex
+    /// kinds), for the viewer's demo (`data-levels`). Pages only.
+    #[serde(skip)]
+    pub levels: String,
+    #[serde(skip)]
+    pub phases: String,
+    /// The judge's test run on redsim, drawn as a timing diagram on the build page. Pages only.
+    #[serde(skip)]
+    pub wave: Option<Wave>,
+    /// The checker's report, one line per test (`pulse 4: out 2 gt after 5 gt`). Pages only.
+    #[serde(skip)]
+    pub table: Vec<String>,
+    /// Every output cell holds the judge's lamp in the 3D view (`circuit::Circuit::consumer_cells`:
+    /// air output cells), so the lamp shows the output; else the orange marker does. Pages only.
+    #[serde(skip)]
+    pub output_lamp: bool,
+    /// The judge's other actions (the BUD kind's block updates at its target and probe cells),
+    /// for the viewer's demo (`data-events`): `<frame> <op> <x> <y> <z> [<state>]; ...` with op
+    /// `place` (with updates), `clear`, `shape` (shape updates only) or `update` (a pure block
+    /// update around the cell), positions in the design's coordinates. Pages only.
+    #[serde(skip)]
+    pub events: String,
+    /// Why the browser's simulator cannot run this design (`block "oak_fence" is not modeled`),
+    /// empty when it can: the 3D view then shows it as built (the viewer's own session decides,
+    /// `mcview::session::Session::unsimulated`). Pages only.
+    #[serde(skip)]
+    pub unmodeled: String,
+    /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
+    /// the boxes it sends out. Pages only.
+    #[serde(skip)]
+    pub view_run: Option<ViewRun>,
+    /// The design file has `extend` headers: the base design of an extendable family (one more
+    /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
+    #[serde(skip)]
+    pub extends: bool,
+    /// An extendable family's values from its base design's headers (`extend axis: 30 + 16n`,
+    /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
+    /// A port above or below the design's own layers: its input or output stacks over it in use
+    /// (no "lies flat" chip then).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ports_off_layers: bool,
+    /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
+    /// only.
+    #[serde(skip)]
+    pub counter_on: Option<(u32, u32)>,
+    /// The design's blocks without their contents (the verdict's type key, NBT stripped): designs
+    /// that are one build with other items preloaded share it. Site build only.
+    #[serde(skip)]
+    pub layout_key: String,
+}
+
+/// A machine run like its 3D view runs it ([`Circuit::view_run`]).
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct ViewRun {
+    /// Game ticks run (from the end of the judge's setup).
+    pub ticks: u32,
+    /// Boxes sent out to the OUT chests.
+    pub boxes: u32,
+    /// The tick the first box arrived.
+    pub first: Option<u32>,
+    /// Game ticks per box after the first.
+    pub cycle: Option<f64>,
+    /// The item the view's endless chests supply (`iron_shovel`...).
+    pub item: String,
+    /// Items that reached a filter's reject chests.
+    pub rejected: u32,
+    /// OUT chests (a machine with two lines delivers into two).
+    pub lines: u32,
+}
+
+/// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
+/// (Serializable for the build's simulation cache; never in site.json.)
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Wave {
+    /// Frames 0..ticks.
+    pub ticks: u32,
+    pub rows: Vec<WaveRow>,
+    /// The checker's labeled spans: (from, to, label).
+    pub phases: Vec<(u32, u32, String)>,
+}
+
+/// One signal of a [`Wave`]: an input (on/off), an output (its level 0..15), or a position track
+/// (`scale` > 0: a piston extender's payload, 0 = home .. N = extended; a flying machine's
+/// displacement along its travel), as runs of equal value: (from frame, value); or the judge's
+/// actions at a BUD's target (`marks`: frame, `place` / `clear` / `shape` / `update`).
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct WaveRow {
+    pub name: String,
+    pub input: bool,
+    pub steps: Vec<(u32, u8)>,
+    /// A position track's full scale (0: a signal, 0..15).
+    pub scale: u32,
+    /// The value it must reach (an extender's N), drawn as a dashed line.
+    pub target: Option<u32>,
+    /// A short annotation (`extends in 9 gt, back in 9 gt`).
+    pub note: String,
+    pub marks: Vec<(u32, String)>,
+}
+
+impl WaveRow {
+    /// The runs of a per-frame signal.
+    pub fn from_levels(name: &str, input: bool, levels: &[u8]) -> WaveRow {
+        let mut steps: Vec<(u32, u8)> = Vec::new();
+        for (t, l) in levels.iter().enumerate() {
+            if steps.last().is_none_or(|s| s.1 != *l) {
+                steps.push((t as u32, *l));
+            }
+        }
+        WaveRow { name: name.to_string(), input, steps, ..Default::default() }
+    }
 }
 
 /// A period or block-count formula in n (the clock study's `extend period:`).
@@ -281,6 +552,12 @@ pub struct Card {
     pub note: String,
     /// The card's families, the pictured (simplest) one first.
     pub families: Vec<Family>,
+    /// `circuit` for an extendable circuit family's card (its formula is the study's axis value,
+    /// its members carry their `axis`), empty for a clock card; the circuit's study.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub study: String,
 }
 
 /// One extendable family (a base design with `extend` headers).
@@ -310,6 +587,10 @@ pub struct Family {
 /// One member of an extendable family, generated at build time.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Member {
+    /// Its own numbers from the clock judge's simulation (a generated clock member; None: not
+    /// simulated, or no clock found): its page's, never its base design's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<MemberRun>,
     pub card: String,
     pub family: String,
     pub n: i64,
@@ -332,18 +613,38 @@ pub struct Member {
     /// An interim picture (absolute URL), for the members the catalog pictured.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picture: Option<String>,
+    /// A circuit family's member: its axis value as the study writes it (`N = 26 gt`, `L = 50 gt`,
+    /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub axis: String,
+    /// The archived design it is built from (its family's base build id): with no family pages
+    /// (vjeux 00:33Z), a clock member is listed under its period with its base's words (00:43Z).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
+
+/// A generated clock member's numbers, measured by the clock judge's simulation (redsim): its
+/// visible warm-up, its output's on-ticks and rising edges per period, its pulse widths (`[2, 2]`)
+/// and its pulses' own period when they are even within the cycle.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct MemberRun {
+    pub warmup: u32,
+    pub on: u32,
+    pub edges: u32,
+    pub pulses: String,
+    pub pulse_every: Option<u32>,
+}
 pub const STATUS_REDSIM: &str = "redsim";
 pub const STATUS_FORMULA: &str = "formula";
 
 /// A member's status in words.
 pub fn status_label(s: &str) -> &'static str {
     match s {
-        STATUS_JUDGED => "judged in the game",
-        STATUS_REDSIM => "simulated (redsim), not judged in the game",
-        _ => "formula, not individually judged",
+        STATUS_JUDGED => "tested in the game",
+        STATUS_REDSIM => "simulated",
+        _ => "formula only",
     }
 }
 
@@ -360,19 +661,29 @@ pub const FLAGS: &[(&str, &str, &str)] = &[
     ("frame-full", "full frame when open", "door"),
     ("eligible", "record-eligible", "door"),
     ("record", "took a record", "door"),
-    ("leader", "#1 on a board", "door"),
+    ("leader", "the best door for something (the most compact or the fastest of its kind)", "door"),
     ("video", "has a video", "door"),
     ("buildable", "buildable in survival", "door"),
     ("entities", "uses entities", "door"),
-    ("robust", "robust (any position and rotation)", "clock,circuit"),
-    ("self-starting", "self-starting", "clock"),
-    ("kicked", "needs a start kick", "clock"),
-    ("chiral", "chiral", "clock"),
-    ("extendable", "extendable family", "clock"),
+    ("robust", "works in any direction, anywhere", "clock,circuit"),
+    ("self-starting", "starts by itself", "clock"),
+    ("kicked", "needs one kick to start", "clock"),
+    ("chiral", "mirror image is a different design", "clock"),
+    ("extendable", "comes in every size", "clock,circuit"),
     ("variant", "variant of a smaller design", "door,clock,circuit"),
-    ("composite", "composite (beat)", "clock"),
-    ("calibration", "judge calibration design", "circuit"),
-    ("instant", "instant (0 gt latency)", "circuit"),
+    ("census", "found by the census, not the smallest of its period", "clock"),
+    ("twin", "the same numbers as another clock shown", "clock"),
+    ("kind-twin", "the same build as a design of another kind", "circuit"),
+    ("tunable", "several versions of one mechanism", "circuit"),
+    ("layout", "another layout of a shown design", "circuit"),
+    ("composite", "several clocks in one", "clock"),
+    ("instant", "instant (reacts in the same tick)", "circuit"),
+    ("button", "its own button as the input", "circuit"),
+    ("lever", "its own lever as the input", "circuit"),
+    ("faster", "faster than the smallest of its value", "circuit"),
+    ("mirrored", "its mirror image (A and B swapped) is folded under it", "circuit"),
+    ("cargo", "carries extra blocks along (a flying machine with cargo)", "circuit"),
+    ("there-and-back", "flies there and back between stations", "circuit"),
     ("traced", "real-game replay", "clock"),
 ];
 
@@ -403,9 +714,9 @@ pub fn real_time(gt: u32) -> String {
     if m > 0.0 { format!("{} h {} min", hours, m) } else { format!("{} h", hours) }
 }
 
-/// `20 gt (1 s)`.
+/// `20 ticks (1 s)`: visitor text says ticks, not gt (critique: the search's count line).
 pub fn gt_time(gt: u32) -> String {
-    format!("{gt} gt ({})", real_time(gt))
+    format!("{gt} {} ({})", if gt == 1 { "tick" } else { "ticks" }, real_time(gt))
 }
 
 /// Parse a clock time search: a period in game ticks (`48`, `48 gt`, `48 ticks`), a time
@@ -413,6 +724,61 @@ pub fn gt_time(gt: u32) -> String {
 /// `40..60`, `2-3 s`, `2 s to 3 s`, `< 60 gt`, `>= 1 min`). Returns the inclusive range in gt
 /// (an exact time is the one period it names; a time between two ticks matches nothing).
 pub fn parse_time_query(q: &str) -> Result<(u32, u32), String> {
+    parse_time_range(q)
+}
+
+/// What a circuit value search compares: the study's axis value (any study, or only the studies
+/// whose axis is L, the output pulse length or a timer's hold, N: a delay, a count, a reach, T: an
+/// on-delay's threshold, P: a pulse train's period) or the latency.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ValueField {
+    Axis,
+    L,
+    N,
+    T,
+    P,
+    Latency,
+}
+
+/// Parse a circuit value search: an optional field (`L` = an output pulse length, `N` = a delay
+/// line's delay, a counter's count or an extender's reach, `T` = an on-delay's threshold, `P` = a
+/// pulse train's period, `reach` / `speed` / `delay` = the study's axis value; `latency` / `lat`
+/// = the latency), an optional `=` or `:`, then a number, a time or a range as
+/// [`parse_time_query`] reads them (`L 12`, `N=3`, `T 10`, `12`, `10-20 gt`, `lat 0`).
+pub fn parse_value_query(q: &str) -> Result<(ValueField, u32, u32), String> {
+    let t = q.trim();
+    let lower = t.to_lowercase();
+    let mut field = ValueField::Axis;
+    let mut rest = lower.as_str();
+    for (word, f) in [
+        ("latency", ValueField::Latency),
+        ("lat", ValueField::Latency),
+        ("reach", ValueField::N),
+        ("speed", ValueField::Axis),
+        ("delay", ValueField::N),
+        ("l", ValueField::L),
+        ("n", ValueField::N),
+        ("t", ValueField::T),
+        ("p", ValueField::P),
+    ] {
+        if let Some(r) = rest.strip_prefix(word) {
+            // the word must stand alone: `l 12`, `l=12`, `l12`, not `lever`
+            if r.is_empty() || r.starts_with([' ', '=', ':']) || r.starts_with(|c: char| c.is_ascii_digit()) {
+                field = f;
+                rest = r;
+                break;
+            }
+        }
+    }
+    let rest = rest.trim_start_matches([' ', '=', ':']).trim();
+    if rest.is_empty() {
+        return Err(format!("{t}: which value? (e.g. L 12, N 3, latency 0)"));
+    }
+    let (lo, hi) = parse_time_query(rest)?;
+    Ok((field, lo, hi))
+}
+
+fn parse_time_range(q: &str) -> Result<(u32, u32), String> {
     let s = q.trim().to_lowercase().replace('–', "-").replace('—', "-").replace('≤', "<=").replace('≥', ">=");
     if s.is_empty() {
         return Err("empty".into());
@@ -541,36 +907,62 @@ impl Range {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Sort {
-    /// Fewest blocks, then volume, then name.
+    /// The build's main number, then blocks (vjeux 12:09Z): doors by size, clocks by period,
+    /// circuits by kind, then their value (N, L, P...).
     #[default]
+    Main,
+    /// Fewest blocks, then volume, then name.
     Blocks,
     Volume,
     Period,
     Open,
     Close,
-    /// Most recently archived first.
-    Newest,
-    Name,
 }
 
 impl Sort {
-    pub const ALL: [(Sort, &'static str, &'static str); 7] = [
+    /// The sorts the index offers (vjeux 13:35Z deleted "newest"; names are not shown any more,
+    /// so no sort by name): an old URL's `sort=newest` or `sort=name` falls back to the default.
+    pub const ALL: [(Sort, &'static str, &'static str); 6] = [
+        // (short: the select's longest option set the page's width on a phone, critique blocker)
+        (Sort::Main, "main", "best first"),
         (Sort::Blocks, "blocks", "fewest blocks"),
-        (Sort::Volume, "volume", "smallest volume"),
-        (Sort::Period, "period", "shortest period / smallest value"),
+        (Sort::Volume, "volume", "least space"),
+        (Sort::Period, "period", "shortest period"),
         (Sort::Open, "open", "fastest open"),
         (Sort::Close, "close", "fastest close"),
-        (Sort::Newest, "newest", "newest first"),
-        (Sort::Name, "name", "name"),
     ];
 
     pub fn key(self) -> &'static str {
-        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("blocks")
+        Sort::ALL.iter().find(|s| s.0 == self).map(|s| s.1).unwrap_or("main")
     }
 
     pub fn from_key(k: &str) -> Sort {
         Sort::ALL.iter().find(|s| s.1 == k).map(|s| s.0).unwrap_or_default()
     }
+}
+
+/// A query with the players' words for a piston extender's reach (critique C12: "double piston
+/// extender" found nothing): `double` / `triple` / `quadruple piston extender`, `dpe` / `tpe` /
+/// `qpe` search the piston extenders of that reach.
+pub fn with_synonyms(q: &Query) -> Query {
+    let mut q = q.clone();
+    let lower = q.text.to_lowercase();
+    let words: Vec<&str> = lower.split_whitespace().collect();
+    let reach = |w: &str| match w {
+        "double" | "dpe" => Some(2),
+        "triple" | "tpe" => Some(3),
+        "quadruple" | "qpe" => Some(4),
+        _ => None,
+    };
+    let extender = words.iter().any(|w| *w == "extender" || *w == "dpe" || *w == "tpe" || *w == "qpe");
+    if let Some(n) = words.iter().find_map(|w| reach(w)).filter(|_| extender) {
+        let rest: Vec<&str> = words.iter().copied().filter(|w| reach(w).is_none() && *w != "piston" && *w != "extender").collect();
+        q.text = std::iter::once("piston extender").chain(rest).collect::<Vec<_>>().join(" ");
+        if q.value.trim().is_empty() {
+            q.value = format!("N {n}");
+        }
+    }
+    q
 }
 
 /// What the person asked for. Facets: `groups` (OR), block kinds and flags as include (all
@@ -583,6 +975,10 @@ pub struct Query {
     pub text: String,
     /// The clock time search, as typed ([`parse_time_query`]).
     pub time: String,
+    /// The circuit value search, as typed ([`parse_value_query`]): the study's axis value (`L 12`,
+    /// `N 3`, `12`, `10-20 gt`) or the latency (`latency 0`); it expands the tunable groups to the
+    /// member that hits it.
+    pub value: String,
     pub groups: BTreeSet<String>,
     pub kinds_in: BTreeSet<String>,
     pub kinds_out: BTreeSet<String>,
@@ -629,8 +1025,11 @@ pub struct Facets {
 struct View<'a> {
     kind: &'a str,
     group: &'a str,
+    /// A circuit's [`Circuit::order`] (0 for doors and clocks).
+    order: u32,
+    /// A circuit's [`Circuit::rank`].
+    rank: u32,
     name: &'a str,
-    archived: &'a str,
     blocks: i64,
     volume: Option<i64>,
     period: Option<i64>,
@@ -640,8 +1039,16 @@ struct View<'a> {
     close: Option<i64>,
     kinds: &'a [String],
     flags: &'a [String],
-    text: [&'a str; 3],
+    text: [&'a str; 5],
+    /// A circuit's full kind (`gate xor`): an exact function name ranks it first.
+    function: &'a str,
     variant: bool,
+    /// A tunable group's member other than its shown design (hidden unless a value search hits
+    /// it), and the circuit's latency in gt.
+    member: bool,
+    latency: Option<i64>,
+    /// A circuit axis's letter (`L` for `L = 4 gt`, `N` for `N = 3`), else empty.
+    axis_letter: &'a str,
 }
 
 impl Site {
@@ -657,12 +1064,12 @@ impl Site {
         for b in &self.builds {
             if let Some(c) = &b.clock {
                 if c.host.is_none() && !c.instance {
-                    *count.entry(c.period).or_default() += 1;
+                    *count.entry(c.every()).or_default() += 1;
                 }
             }
         }
         for m in &self.members {
-            if m.build.is_none() {
+            if m.build.is_none() && m.axis.is_empty() {
                 *count.entry(m.period).or_default() += 1;
             }
         }
@@ -674,6 +1081,9 @@ impl Site {
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
+        if !m.base.is_empty() {
+            return index.get(m.base.as_str()).map(|&i| &self.builds[i]);
+        }
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
         index.get(fam.build.as_str()).map(|&i| &self.builds[i])
@@ -686,40 +1096,77 @@ impl Site {
                 Some(View {
                     kind: &b.kind,
                     group: &b.group,
+                    order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: b.circuit.as_ref().map(|c| c.rank).unwrap_or(0),
                     name: &b.name,
-                    archived: &b.archived,
                     blocks: b.blocks as i64,
                     volume: b.volume.map(|v| v as i64),
-                    period: b.clock.as_ref().map(|c| c.period as i64),
-                    main: b.clock.as_ref().map(|c| c.period as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
+                    period: b.clock.as_ref().map(|c| c.every() as i64),
+                    main: b.clock.as_ref().map(|c| c.every() as i64).or_else(|| b.circuit.as_ref().and_then(|c| c.value)),
                     open: b.door.as_ref().and_then(|d| d.open).map(|v| v as i64),
                     close: b.door.as_ref().and_then(|d| d.close).map(|v| v as i64),
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&b.name, &b.caption, &b.group],
-                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()),
+                    text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
+                    function: b.circuit.as_ref().map(|c| c.kind.as_str()).unwrap_or(""),
+                    variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
+                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member) || b.flags.iter().any(|f| f == "size"),
+                    latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
+                    axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
             }
             Hit::Member(i) => {
                 let m = self.members.get(i)?;
                 let b = self.base_of(m, index)?;
+                let circuit = !m.axis.is_empty();
+                // a family whose value never changes (a flying machine growing its payload at one
+                // speed) is no answer to a value search: its members differ by size only
+                let constant = circuit && self.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family)).is_some_and(|f| matches!(f.period, Formula::Linear { b: 0, .. }));
                 Some(View {
-                    kind: "clock",
+                    kind: if circuit { "circuit" } else { "clock" },
                     group: &b.group,
+                    order: b.circuit.as_ref().map(|c| c.order).unwrap_or(0),
+                    rank: u32::MAX,
                     name: &m.family,
-                    archived: &b.archived,
                     blocks: m.blocks as i64,
                     volume: m.volume.map(|v| v as i64),
-                    period: Some(m.period as i64),
-                    main: Some(m.period as i64),
+                    period: (!circuit).then_some(m.period as i64),
+                    main: (!constant).then_some(m.period as i64),
                     open: None,
                     close: None,
                     kinds: &b.kinds,
                     flags: &b.flags,
-                    text: [&m.family, &b.caption, &b.name],
+                    text: [&m.family, &b.caption, &b.name, "", html::search_aliases(b)],
+                    function: "",
                     variant: false,
+                    member: false,
+                    latency: None,
+                    axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                 })
             }
+        }
+    }
+
+    /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
+    /// read as one door and one clock): the door records, every clock (each a card under its
+    /// period: vjeux 01:24Z), the circuit kinds (the shown circuit cards).
+    pub fn holds(&self) -> [usize; 3] {
+        let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
+        let clocks = self.builds.iter().filter(|b| b.clock.is_some()).count();
+        let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
+        [doors, clocks, kinds]
+    }
+
+    /// The distinct periods of the clocks (the Clocks tab's headings).
+    pub fn clock_periods(&self) -> usize {
+        self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect::<BTreeSet<u32>>().len()
+    }
+
+    /// The period a hit's card stands under on the Clocks tab (a clock's), if any.
+    pub fn hit_period(&self, h: Hit) -> Option<u32> {
+        match h {
+            Hit::Build(i) => self.builds.get(i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
+            Hit::Member(i) => self.members.get(i).filter(|m| m.axis.is_empty()).map(|m| m.period),
         }
     }
 
@@ -727,11 +1174,13 @@ impl Site {
     /// clocks of those periods plus every extendable family's members that hit them (an archived
     /// design that is exactly a member shows once, as the member); without one, the builds.
     pub fn run(&self, q: &Query) -> Result<(Vec<Hit>, Facets), String> {
+        let q = &with_synonyms(q);
         let index = self.index();
         let time = if q.time.trim().is_empty() { None } else { Some(parse_time_query(&q.time)?) };
+        let value = if q.value.trim().is_empty() { None } else { Some(parse_value_query(&q.value)?) };
         let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
         let mut cands: Vec<Hit> = (0..self.builds.len()).map(Hit::Build).collect();
-        if time.is_some() {
+        if time.is_some() || value.is_some() {
             // members replace the archived designs they are (same family and n)
             let covered: BTreeSet<&str> = self.members.iter().filter_map(|m| m.build.as_deref()).collect();
             cands.retain(|h| match h {
@@ -750,7 +1199,30 @@ impl Site {
                     _ => return false,
                 }
             }
+            if let Some((field, lo, hi)) = value {
+                if v.kind != "circuit" {
+                    return false;
+                }
+                let x = match field {
+                    ValueField::Axis => v.main,
+                    ValueField::L => v.main.filter(|_| v.axis_letter == "L"),
+                    ValueField::N => v.main.filter(|_| v.axis_letter == "N"),
+                    ValueField::T => v.main.filter(|_| v.axis_letter == "T"),
+                    ValueField::P => v.main.filter(|_| v.axis_letter == "P"),
+                    ValueField::Latency => v.latency,
+                };
+                match x {
+                    Some(p) if p >= lo as i64 && p <= hi as i64 => {}
+                    _ => return false,
+                }
+            } else if !q.variants && v.member && time.is_none() {
+                return false;
+            }
             if !q.variants && v.variant {
+                return false;
+            }
+            // a build listed under two kinds shows once, unless its own kind is picked
+            if !q.variants && q.groups.is_empty() && v.flags.iter().any(|f| f == "kind-twin") {
                 return false;
             }
             if skip != Skip::Groups && !q.groups.is_empty() && !q.groups.contains(v.group) {
@@ -805,19 +1277,89 @@ impl Site {
         }
         let mut hits: Vec<(Hit, &View)> = views.iter().filter(|(_, v)| pass(v, Skip::None)).map(|(h, v)| (*h, v)).collect();
         let big = i64::MAX;
+        // a text search ranks what the words name first (critique C12: "toggle" led with doors):
+        // the kind's words and aliases, then the name, then the rest (captions)
+        let relevance = |v: &View| -> u8 {
+            if words.is_empty() {
+                return 0;
+            }
+            // an exact gate function (`xor`, `xnor gate`) ranks its gates first (critique: "xor"
+            // led with OR and AND, every gate's aliases name every function)
+            let f = v.function.strip_prefix("gate ").unwrap_or("");
+            if !f.is_empty() && words.iter().any(|w| w == f) && words.iter().all(|w| w == f || w == "gate") {
+                return 0;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            if words.iter().all(|w| kind.contains(w.as_str())) {
+                1
+            } else if words.iter().all(|w| v.text[0].to_lowercase().contains(w.as_str())) {
+                2
+            } else {
+                3
+            }
+        };
         hits.sort_by(|(ha, a), (hb, b)| {
+            let rel = relevance(a).cmp(&relevance(b));
+            if rel != std::cmp::Ordering::Equal {
+                return rel;
+            }
             let primary = match q.sort {
+                Sort::Main => {
+                    // doors: the solid ones first (the community's main ranking; sculk doors can
+                    // be set off by footsteps: critique, coordinator 13:54Z), then by size; clocks
+                    // by period; circuits by kind then value; then blocks
+                    let door_rank = |g: &str| match g {
+                        "solid" => "0",
+                        "sculk" => "2",
+                        _ => "1",
+                    };
+                    let key = |v: &View| -> (u8, String, i64) {
+                        match v.kind {
+                            "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
+                            // (the clocks after the circuits on the all-builds list: every clock is
+                            // a card now, 2812 of them, vjeux 01:24Z)
+                            "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            // circuits: the first of every kind, then the second of every kind...
+                            // (critique C40), each round by study (pulse shapers first), the
+                            // basics last
+                            _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
+                        }
+                    };
+                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
+                }
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
-                Sort::Newest => b.archived.cmp(a.archived),
-                Sort::Name => std::cmp::Ordering::Equal,
             };
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
         });
         Ok((hits.into_iter().map(|(h, _)| h).collect(), facets))
+    }
+
+    /// How many of `hits` (in [`Site::run`]'s order for the same query) name what the query's
+    /// words name, the rest only mentioning them (a caption, a name): 0 when nothing names it or
+    /// everything does (critique: "toggle" showed its 4 toggle switches, then doors and clocks
+    /// that only mention the word, with nothing telling them apart).
+    pub fn named_count(&self, q: &Query, hits: &[Hit]) -> usize {
+        let q = with_synonyms(q);
+        let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
+        if words.is_empty() {
+            return 0;
+        }
+        let index: BTreeMap<&str, usize> = self.builds.iter().enumerate().map(|(i, b)| (b.id.as_str(), i)).collect();
+        let named = |h: &Hit| -> bool {
+            let Some(v) = self.view(*h, &index) else { return false };
+            let f = v.function.strip_prefix("gate ").unwrap_or("");
+            if !f.is_empty() && words.iter().any(|w| w == f) && words.iter().all(|w| w == f || w == "gate") {
+                return true;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            words.iter().all(|w| kind.contains(w.as_str()))
+        };
+        let n = hits.iter().take_while(|h| named(h)).count();
+        if n == hits.len() { 0 } else { n }
     }
 }
 
@@ -834,6 +1376,7 @@ impl Query {
         push("kind", &self.kind);
         push("q", &self.text);
         push("time", &self.time);
+        push("value", &self.value);
         let join = |s: &BTreeSet<String>| s.iter().cloned().collect::<Vec<_>>().join(",");
         push("group", &join(&self.groups));
         push("with", &join(&self.kinds_in));
@@ -848,7 +1391,7 @@ impl Query {
         if self.variants {
             push("variants", "1");
         }
-        if self.sort != Sort::Blocks {
+        if self.sort != Sort::Main {
             push("sort", self.sort.key());
         }
         parts.join("&")
@@ -868,6 +1411,7 @@ impl Query {
                 "kind" => q.kind = v,
                 "q" => q.text = v,
                 "time" => q.time = v,
+                "value" => q.value = v,
                 "group" => q.groups = set(&v),
                 "with" => q.kinds_in = set(&v),
                 "without" => q.kinds_out = set(&v),
@@ -959,7 +1503,7 @@ mod tests {
         assert_eq!(real_time(2304), "1 min 55.2 s");
         assert_eq!(real_time(1200), "1 min");
         assert_eq!(real_time(72000 + 6000), "1 h 5 min");
-        assert_eq!(gt_time(8), "8 gt (0.4 s)");
+        assert_eq!(gt_time(8), "8 ticks (0.4 s)");
     }
 
     #[test]
@@ -990,6 +1534,110 @@ mod tests {
         }
     }
 
+    fn circuit(id: &str, kind: &str, value: i64, blocks: u32, tunable: &str, span: &str, latency: Option<&str>) -> Build {
+        Build {
+            id: format!("circuits/pulse/{id}"),
+            kind: "circuit".into(),
+            group: kind.into(),
+            name: id.into(),
+            page: format!("circuits/pulse/{id}.html"),
+            blocks,
+            circuit: Some(Circuit {
+                study: "pulse".into(),
+                kind: kind.into(),
+                axis: format!("L = {value} gt"),
+                value: Some(value),
+                tunable: tunable.into(),
+                span: span.into(),
+                metrics: latency.map(|l| vec![("latency".to_string(), l.to_string())]).unwrap_or_default(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn tunable_groups_fold_and_the_value_search_expands_them() {
+        let mut s = Site { version: DATA_VERSION, ..Default::default() };
+        s.builds = vec![
+            circuit("rise-L6", "rising-edge", 6, 17, "oneshot", "L 6-40 gt, 3 values", None),
+            circuit("rise-L12", "rising-edge", 12, 17, "oneshot", "", None),
+            circuit("rise-L40", "rising-edge", 40, 25, "oneshot", "", None),
+            circuit("obs-L2", "rising-edge", 2, 1, "", "", Some("2 gt")),
+        ];
+        let mut layout = circuit("obs-L2-b", "rising-edge", 2, 1, "", "", Some("2 gt"));
+        layout.circuit.as_mut().unwrap().layout_of = Some("circuits/pulse/obs-L2".into());
+        s.builds.push(layout);
+        fn names_of(s: &Site, q: &Query) -> Vec<String> {
+            s.run(q).unwrap().0.iter().map(|h| match h {
+                Hit::Build(i) => s.builds[*i].name.clone(),
+                Hit::Member(_) => String::new(),
+            }).collect()
+        }
+        let names = |q: &Query| names_of(&s, q);
+        // default: the group's shown design only, no layout
+        assert_eq!(names(&Query { kind: "circuit".into(), ..Default::default() }), vec!["obs-L2", "rise-L6"]);
+        // a value search expands the group to the member that hits it
+        assert_eq!(names(&Query { kind: "circuit".into(), value: "L 12".into(), ..Default::default() }), vec!["rise-L12"]);
+        assert_eq!(names(&Query { value: "10-40".into(), ..Default::default() }), vec!["rise-L12", "rise-L40"]);
+        assert_eq!(names(&Query { value: "latency 2".into(), ..Default::default() }), vec!["obs-L2"]);
+        // variants on: every design
+        assert_eq!(names(&Query { kind: "circuit".into(), variants: true, ..Default::default() }).len(), 5);
+        assert_eq!(parse_value_query("N=3").unwrap(), (ValueField::N, 3, 3));
+        assert_eq!(parse_value_query("12").unwrap(), (ValueField::Axis, 12, 12));
+        assert_eq!(parse_value_query("lat 0").unwrap(), (ValueField::Latency, 0, 0));
+        assert_eq!(parse_value_query("T 10").unwrap(), (ValueField::T, 10, 10));
+        assert_eq!(parse_value_query("p=8").unwrap(), (ValueField::P, 8, 8));
+        assert!(parse_value_query("pulse").is_err());
+        // `N 12` asks for an N axis: the L = 12 member does not answer it
+        assert!(names(&Query { kind: "circuit".into(), value: "N 12".into(), ..Default::default() }).is_empty());
+        assert!(parse_value_query("lever").is_err());
+        let q = Query { kind: "circuit".into(), value: "L 12".into(), ..Default::default() };
+        assert_eq!(Query::from_fragment(&q.to_fragment()), q);
+        // an extendable circuit family's generated members answer the value search; a family
+        // card's second base design stays out of the default grid
+        s.cards.push(Card { id: "rep-line".into(), kind: "circuit".into(), families: vec![Family {
+            id: "rep2".into(),
+            build: "circuits/pulse/obs-L2".into(),
+            period: Formula::Linear { a: 2, b: 8 },
+            period_text: "2 + 8n".into(),
+            blocks: Formula::Linear { a: 1, b: 2 },
+            blocks_text: "1 + 2n".into(),
+            rule: String::new(),
+            n_lo: 0,
+            n_hi: 4,
+            base: 0,
+            judged: vec![0],
+            extra: vec![],
+        }], ..Default::default() });
+        for n in 0..=4i64 {
+            s.members.push(Member {
+                run: None,
+                card: "rep-line".into(),
+                family: "rep2".into(),
+                n,
+                period: (2 + 8 * n) as u32,
+                blocks: (1 + 2 * n) as u32,
+                design: String::new(),
+                dims: None,
+                volume: None,
+                status: STATUS_REDSIM.into(),
+                build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
+                picture: None,
+                axis: format!("N = {} gt", 2 + 8 * n),
+                base: String::new(),
+            });
+        }
+        let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
+        assert_eq!(hits, vec![Hit::Member(3)]);
+        // a clock time search never returns a circuit member
+        assert!(s.run(&Query { time: "26".into(), ..Default::default() }).unwrap().0.is_empty());
+        let mut second = circuit("obs-L4", "rising-edge", 4, 1, "", "", None);
+        second.circuit.as_mut().unwrap().card_member = true;
+        s.builds.push(second);
+        assert!(!names_of(&s, &Query { kind: "circuit".into(), ..Default::default() }).contains(&"obs-L4".to_string()));
+    }
+
     fn site() -> Site {
         let mut ring = clock("obs-ring", 8, 4, "observer", &["observer"], &["robust", "extendable"]);
         ring.clock.as_mut().unwrap().card = Some("obs-ring".into());
@@ -1009,6 +1657,7 @@ mod tests {
         };
         let members = (0..=10)
             .map(|n| Member {
+                run: None,
                 card: "obs-ring".into(),
                 family: "obs-ring".into(),
                 n,
@@ -1020,6 +1669,8 @@ mod tests {
                 status: if n < 3 { STATUS_JUDGED.into() } else { STATUS_FORMULA.into() },
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
+                axis: String::new(),
+                base: String::new(),
             })
             .collect();
         Site {
@@ -1063,8 +1714,10 @@ mod tests {
                 Hit::Member(i) => format!("{}#n{}", s.members[*i].family, s.members[*i].n),
             }).collect()
         };
-        // default: builds, variants hidden, fewest blocks first
-        assert_eq!(ids(&Query::default()), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
+        // default: builds, variants hidden, by the main number (doors by size, clocks by period)
+        assert_eq!(ids(&Query::default()), vec!["doors/fc2-40b", "clocks/obs2", "clocks/obs-ring", "clocks/lamp48"]);
+        // fewest blocks first
+        assert_eq!(ids(&Query { sort: Sort::Blocks, ..Default::default() }), vec!["clocks/obs2", "clocks/obs-ring", "clocks/lamp48", "doors/fc2-40b"]);
         let q = Query { kind: "door".into(), ..Default::default() };
         assert_eq!(ids(&q), vec!["doors/fc2-40b"]);
         let q = Query { kinds_out: ["redstone_lamp".to_string()].into(), kind: "clock".into(), ..Default::default() };
@@ -1085,6 +1738,17 @@ mod tests {
         assert_eq!(f.kinds.get("clock"), Some(&3));
         assert_eq!(f.kinds.get("door"), Some(&1));
         assert_eq!(f.block_kinds.get("slime_block"), Some(&1));
+    }
+
+    #[test]
+    fn players_words_for_extenders() {
+        let q = Query { text: "Double Piston Extender".into(), ..Default::default() };
+        let s = with_synonyms(&q);
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender", "N 2"));
+        let s = with_synonyms(&Query { text: "tpe flat".into(), ..Default::default() });
+        assert_eq!((s.text.as_str(), s.value.as_str()), ("piston extender flat", "N 3"));
+        // "double" alone is not an extender search
+        assert_eq!(with_synonyms(&Query { text: "double".into(), ..Default::default() }).value, "");
     }
 
     #[test]

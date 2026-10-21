@@ -1,0 +1,28 @@
+# archived 2026-10-20T00:53Z from designs/clocks/tracks/clk-obs/families9/p36-bulb-lamp-obs-pis-rb-stk-8b-0ce997.txt by mctas clock archive
+# CLOCK: clk-obs-p36-bulb-lamp-obs-pis-rb-stk-8b-0ce997 period 36 gt (1.8 s), on 22/36, edges 2, warmup 13, family copper_bulb+observer+piston+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 2x3x4, robust
+name: clk-obs-p36-bulb-lamp-obs-pis-rb-stk-8b-0ce997
+# clk-obs grow: P=36 (redsim), family observer+piston+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick self, swept volume 24.
+origin: -1 0 0
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 1 1 0
+palette:
+  A minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:observer[facing=down,powered=false]
+  D minecraft:piston[extended=false,facing=down]
+  E minecraft:redstone_block
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:observer[facing=south,powered=false]
+  H minecraft:redstone_lamp[lit=false]
+layer 0:
+  .B
+  .C
+  ..
+layer 1:
+  .D
+  AE
+  .F
+layer 2:
+  .G
+  .H
+  ..

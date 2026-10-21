@@ -23,6 +23,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -36,6 +37,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
+import net.minecraft.world.level.entity.LevelCallback;
+import net.minecraft.util.RandomSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.storage.PrimaryLevelData;
@@ -119,8 +123,143 @@ final class Sandbox {
             LockSupport.parkNanos(20_000L);
         }
         level.getRandom().setSeed(seed);
-        return new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
+        Sandbox sb = new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
+        sb.installDropSeeder(entityManager);
+        return sb;
     }
+
+    // ---- shulker study (clk-rt): reproducible drops ---------------------------------------------
+
+    private static final Field ENTITY_CALLBACKS = field(PersistentEntitySectionManager.class, "callbacks");
+
+    /** True while {@link #tick} runs the level: an entity that enters now was spawned by the game. */
+    private boolean ticking;
+    /** Item entities the game dropped through {@code Block.popResource} in this sandbox so far. */
+    private long dropIndex;
+    /** Entities that entered this sandbox so far (see {@link #entityIdBase}). */
+    private int entityCount;
+
+    /**
+     * The id of this sandbox's first entity: every entity that enters the sandbox (summoned,
+     * spawned by the game, falling blocks, primed TNT, drops) gets {@code base + n}, n counting
+     * from 0 in the order they enter (reset with the sandbox), in place of vanilla's server-wide
+     * counter. The base is a multiple of 4 ({@code (tickCount + getId()) % 4} paces an item's
+     * moves at rest), per sandbox (ids stay unique per level), so ids are deterministic and grow
+     * with insertion order (the entity tick list's order) as redsim's do from 0; the protocol
+     * reports n as {@code net_id}.
+     */
+    int entityIdBase() {
+        return 0x40000000 + ((this.id & 0x3FF) << 20);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void installDropSeeder(PersistentEntitySectionManager<?> manager) {
+        LevelCallback<Entity> vanilla = (LevelCallback<Entity>) get(ENTITY_CALLBACKS, manager);
+        try {
+            ENTITY_CALLBACKS.set(manager, new DropSeeder(vanilla));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Determinism for entities: every entity that enters the sandbox gets its id from the
+     * sandbox ({@link #entityIdBase}); and drops (the shulker study's loaders break boxes with
+     * pistons). Vanilla's
+     * {@code new ItemEntity(level, x, y, z, stack)} draws its yaw and its drift from the entity's
+     * own random, which {@code RandomSource.create()} seeds from {@code System.nanoTime()}: the
+     * same build in the same seeded sandbox drifts differently on every run. An item entity the
+     * game spawns during a tick through {@code Block.popResource(Level, BlockPos, ItemStack)} (a
+     * block broken with drops) gets its random reseeded to {@code seed ^ (0x6d63746173 + n)} (n:
+     * the n-th such drop of this sandbox, from 0, reset with the sandbox) and ALL its draws redone
+     * from it in vanilla's order: the position's offsets in its cell (popResource's three; the
+     * level random still made its own three draws, so its sequence is vanilla's), the yaw, the x
+     * and z drift (the constructor's). The same distribution, reproducible, and a function of the
+     * seed, the drop's number and its cell only (redsim mirrors it without the level random,
+     * whose draws depend on the sandbox's chunk count). {@code popResourceFromFace} and
+     * dispensers set the motion from the level random afterwards and are left alone, as are
+     * summoned design entities (their own path) and every other entity.
+     */
+    private final class DropSeeder implements LevelCallback<Entity> {
+        private final LevelCallback<Entity> vanilla;
+
+        DropSeeder(LevelCallback<Entity> vanilla) {
+            this.vanilla = vanilla;
+        }
+
+        @Override
+        public void onCreated(Entity e) {
+            // deterministic ids for every entity, before it is tracked (the level's id lookup)
+            e.setId(entityIdBase() + entityCount++);
+            if (ticking && e instanceof ItemEntity item && fromPopResource()) {
+                // popResource put it at the cell's center + [-0.25, 0.25) on each axis (y minus
+                // half the item's height); recover the cell, then draw everything from the
+                // drop's own random: offsets x, y, z (popResource's order), yaw, drift x and z
+                // (the constructor's)
+                double half = item.getBbHeight() / 2.0;
+                BlockPos cell = BlockPos.containing(item.getX(), item.getY() + half, item.getZ());
+                RandomSource r = item.getRandom();
+                r.setSeed(seed ^ (0x6d63746173L + dropIndex++));
+                double x = cell.getX() + 0.5 + Mth.nextDouble(r, -0.25, 0.25);
+                double y = cell.getY() + 0.5 + Mth.nextDouble(r, -0.25, 0.25) - half;
+                double z = cell.getZ() + 0.5 + Mth.nextDouble(r, -0.25, 0.25);
+                item.setPos(x, y, z);
+                item.setYRot(r.nextFloat() * 360.0F);
+                item.setDeltaMovement(r.nextDouble() * 0.2 - 0.1, 0.2, r.nextDouble() * 0.2 - 0.1);
+            }
+            this.vanilla.onCreated(e);
+        }
+
+        @Override
+        public void onDestroyed(Entity e) {
+            this.vanilla.onDestroyed(e);
+        }
+
+        @Override
+        public void onTickingStart(Entity e) {
+            this.vanilla.onTickingStart(e);
+        }
+
+        @Override
+        public void onTickingEnd(Entity e) {
+            this.vanilla.onTickingEnd(e);
+        }
+
+        @Override
+        public void onTrackingStart(Entity e) {
+            this.vanilla.onTrackingStart(e);
+        }
+
+        @Override
+        public void onTrackingEnd(Entity e) {
+            this.vanilla.onTrackingEnd(e);
+        }
+
+        @Override
+        public void onSectionChange(Entity e) {
+            this.vanilla.onSectionChange(e);
+        }
+    }
+
+    /** The entity being added comes from {@code Block.popResource}, not {@code popResourceFromFace}. */
+    private static boolean fromPopResource() {
+        return StackWalker.getInstance().walk(frames -> {
+            boolean pop = false;
+            for (StackWalker.StackFrame f : (Iterable<StackWalker.StackFrame>) frames::iterator) {
+                if (f.getClassName().equals("net.minecraft.world.level.block.Block")) {
+                    if (f.getMethodName().equals("popResourceFromFace")) {
+                        return false;
+                    }
+                    if (f.getMethodName().equals("popResource")) {
+                        pop = true;
+                    }
+                }
+            }
+            return pop;
+        });
+    }
+
+    // ---- end shulker study ----------------------------------------------------------------------
 
     private static boolean entitiesLoaded(ServerLevel level, int minChunkX, int minChunkZ, int maxChunkX, int maxChunkZ) {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
@@ -164,7 +303,12 @@ final class Sandbox {
         for (Entity e : designEntities()) {
             this.prevEntityPos.put(e.getUUID(), e.position());
         }
-        this.level.tick(() -> true);
+        this.ticking = true;
+        try {
+            this.level.tick(() -> true);
+        } finally {
+            this.ticking = false;
+        }
         // A level sends its block changes to players at the START of its next tick, while block
         // events (piston moves) go out at once. A real client never notices (the next tick is
         // 50 ms away), but a client watching a sandbox stepped slowly (tick-by-tick videos) gets a
@@ -200,6 +344,22 @@ final class Sandbox {
 
     long gameTime() {
         return this.level.getGameTime();
+    }
+
+    /**
+     * The level random's internal state ({@code LegacyRandomSource.seed}: the 48-bit LCG state
+     * after setSeed's scramble), read without advancing it: what redsim's level-random mirror is
+     * checked against, tick by tick (trace-export's "rng"). Read-only (clk-misc, 2026-10-20).
+     */
+    long randomState() {
+        Object random = this.level.getRandom();
+        try {
+            Field f = random.getClass().getDeclaredField("seed");
+            f.setAccessible(true);
+            return ((java.util.concurrent.atomic.AtomicLong) f.get(random)).get();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the level random " + random.getClass().getName() + " has no seed field", e);
+        }
     }
 
     int blockEventCount() {
@@ -332,6 +492,24 @@ final class Sandbox {
      * the design, so every run is the same. Mobs are refused (their AI is random). Each carries
      * {@link #DESIGN_TAG}.
      */
+    /**
+     * A block-attached entity (an item frame, a painting) loads its cell from {@code block_pos},
+     * which must lie within 16 blocks of its {@code Pos} (`BlockAttachedEntity.readAdditionalSaveData`),
+     * and its facing is read right after it: give both from the summon position, else the cell is
+     * missing when the facing recomputes its box. Other entities are untouched.
+     */
+    static void attachAt(net.minecraft.nbt.CompoundTag tag, String type, double x, double y, double z) {
+        if (!type.endsWith("item_frame") && !type.endsWith("painting")) {
+            return;
+        }
+        net.minecraft.nbt.ListTag pos = new net.minecraft.nbt.ListTag();
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(x));
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(y));
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(z));
+        tag.put("Pos", pos);
+        tag.putIntArray("block_pos", new int[] {(int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z)});
+    }
+
     List<Entity> summon(com.google.gson.JsonArray specs) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         List<Entity> out = new ArrayList<>();
         // Numbered after the design entities already there (a drive script can summon more).
@@ -347,6 +525,7 @@ final class Sandbox {
                     ? net.minecraft.nbt.TagParser.parseCompoundFully(s.get("nbt").getAsString())
                     : new net.minecraft.nbt.CompoundTag();
             tag.putString("id", type);
+            attachAt(tag, type, x, y, z);
             Entity e = net.minecraft.world.entity.EntityType.loadEntityRecursive(tag, this.level,
                     new net.minecraft.world.entity.EntitySpawnRequest(net.minecraft.world.entity.EntitySpawnReason.COMMAND, false), en -> {
                         en.snapTo(x, y, z, en.getYRot(), en.getXRot());
@@ -366,6 +545,11 @@ final class Sandbox {
             e.addTag(DESIGN_TAG);
             if (!this.level.tryAddFreshEntityWithPassengers(e)) {
                 throw new IllegalArgumentException("could not add " + type + " (duplicate UUID?)");
+            }
+            // a player putting the item in a frame updates the comparators reading it
+            // (`ItemFrame.setItem` -> `updateNeighbourForOutputSignal`); a summon does not
+            if (e instanceof net.minecraft.world.entity.decoration.ItemFrame frame) {
+                this.level.updateNeighbourForOutputSignal(frame.getPos(), net.minecraft.world.level.block.Blocks.AIR);
             }
             out.add(e);
             i++;
@@ -486,6 +670,78 @@ final class Sandbox {
         }
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
+        this.dropIndex = 0;
+        this.entityCount = 0;
+    }
+
+    /**
+     * Save, unload and load again every chunk of the sandbox, without ticking the world: a player
+     * walking away and back, or a server restart (coordinator 2026-10-20: a clock must survive a
+     * chunk reload). What the chunk data keeps (blocks, block entities, scheduled ticks, entities)
+     * comes back; what it does not (pending block events, the order of ticks due together) is lost,
+     * as in the game. The sandbox saves only while this runs.
+     */
+    void reload(SimServer server) {
+        this.level.noSave = false;
+        try {
+            for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+                for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                    this.level.setChunkForced(cx, cz, false);
+                }
+            }
+            PersistentEntitySectionManager<?> entityManager = (PersistentEntitySectionManager<?>) get(ENTITY_MANAGER, this.level);
+            long deadline = System.nanoTime() + 60_000_000_000L;
+            while (anyLoaded()) {
+                server.pumpTasks();
+                this.level.getChunkSource().tick(() -> true, false);
+                this.level.getChunkSource().pollTask();
+                entityManager.tick();
+                if (System.nanoTime() > deadline) {
+                    throw new IllegalStateException("chunks of sandbox " + this.id + " did not unload");
+                }
+                LockSupport.parkNanos(20_000L);
+            }
+            for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+                for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                    this.level.setChunkForced(cx, cz, true);
+                }
+            }
+            deadline = System.nanoTime() + 60_000_000_000L;
+            while (!entitiesLoaded(this.level, this.minChunkX, this.minChunkZ, this.maxChunkX, this.maxChunkZ) || !allChunks()) {
+                server.pumpTasks();
+                this.level.getChunkSource().tick(() -> true, false);
+                this.level.getChunkSource().pollTask();
+                entityManager.tick();
+                if (System.nanoTime() > deadline) {
+                    throw new IllegalStateException("chunks of sandbox " + this.id + " did not load again");
+                }
+                LockSupport.parkNanos(20_000L);
+            }
+        } finally {
+            this.level.noSave = true;
+        }
+    }
+
+    private boolean anyLoaded() {
+        for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+            for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                if (this.level.getChunkSource().hasChunk(cx, cz) || this.level.areEntitiesLoaded(ChunkPos.pack(cx, cz))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean allChunks() {
+        for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
+            for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
+                if (!this.level.getChunkSource().hasChunk(cx, cz)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     void drop(SimServer server) {
@@ -517,6 +773,29 @@ final class Sandbox {
         }
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false);
         InteractionResult result = state.useWithoutItem(this.level, mockPlayer(), hit);
+        return result.toString();
+    }
+
+    /**
+     * Right-click the item frame in this block cell the way a player with an empty hand does: a
+     * frame holding an item turns it one step (`ItemFrame.interact` -> `setRotation(r + 1)`, which
+     * updates the comparators reading it; `/data` would not). Exactly one frame must be there.
+     */
+    String useEntity(BlockPos pos) {
+        List<Entity> found = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos),
+                e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame);
+        if (found.size() != 1) {
+            List<Entity> near = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos).inflate(64),
+                    e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame || e instanceof ItemEntity);
+            StringBuilder where = new StringBuilder();
+            for (Entity n : near) {
+                where.append(" ").append(n.getType().toShortString()).append("@").append(n.blockPosition().toShortString())
+                        .append(" facing ").append(n.getDirection());
+            }
+            throw new IllegalArgumentException("use_entity: " + found.size() + " item frames in " + pos.toShortString() + ", expected 1 (frames and items within 64:" + where + ")");
+        }
+        Entity e = found.get(0);
+        InteractionResult result = e.interact(mockPlayer(), net.minecraft.world.InteractionHand.MAIN_HAND, e.position());
         return result.toString();
     }
 

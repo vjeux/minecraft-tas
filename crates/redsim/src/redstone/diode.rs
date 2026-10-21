@@ -63,9 +63,12 @@ fn input_signal(w: &World, pos: BlockPos, s: &Block) -> i32 {
         } else if input < 15 && bh::is_conductor(w, &ts, tp) {
             let tp2 = tp.rel(d);
             let ts2 = w.get(tp2);
-            // (item frames: entities, not modeled)
-            if bh::has_analog_output(&ts2) {
-                input = bh::analog_output(w, &ts2, tp2, d.opposite());
+            // the frame facing the comparator's way in that cell (exactly one), or the block's
+            // own analog output, the larger (`getItemFrame`, Math.max)
+            let frame = crate::entity::frame::facing_in(w, tp2, d).map(|f| f.analog());
+            let block = bh::has_analog_output(&ts2).then(|| bh::analog_output(w, &ts2, tp2, d.opposite()));
+            if let Some(v) = frame.into_iter().chain(block).max() {
+                input = v;
             }
         }
     }
@@ -173,6 +176,8 @@ pub fn neighbor_changed(w: &mut World, s: Block, pos: BlockPos, _src: Kind, _mov
     if can_survive(w, pos) {
         check_tick_on_neighbor(w, pos, s);
     } else {
+        // dropResources: its loot's stacks pop (level-random draws, seeded items)
+        w.drop_resources(pos, s);
         w.drops.push((pos, s));
         w.remove_block(pos, false);
         for d in Dir::ALL {

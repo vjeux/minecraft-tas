@@ -46,10 +46,16 @@ pub struct RedsimVerifyArgs {
     judge: bool,
     #[arg(long, default_value_t = 8)]
     workers: usize,
+    /// Skip the "nothing in front of or behind the door" rule (2026-10-18 16:40Z) in both judges:
+    /// for designs whose cached verdicts predate it (e.g. the gravity doors' front levers), to
+    /// compare the mechanism models alone.
+    #[arg(long)]
+    legacy_walkway: bool,
 }
 
 pub fn cmd_redsim_verify(version: &str, args: RedsimVerifyArgs) -> Result<()> {
-    let RedsimVerifyArgs { designs, extra_offsets, cycles, judge, workers } = args;
+    let RedsimVerifyArgs { designs, extra_offsets, cycles, judge, workers, legacy_walkway } = args;
+    let empty_walkway = !legacy_walkway;
     let mut offsets = VerifyOptions::default().offsets;
     offsets.extend(crate::extra_offsets(extra_offsets));
     let loaded: Vec<(PathBuf, Design)> = designs.iter().map(|p| Ok((p.clone(), load_design(p)?))).collect::<Result<_>>()?;
@@ -57,14 +63,14 @@ pub fn cmd_redsim_verify(version: &str, args: RedsimVerifyArgs) -> Result<()> {
     let screens: Vec<crate::redsim_screen::Screen> = std::thread::scope(|s| {
         let hs: Vec<_> = loaded
             .chunks(loaded.len().div_ceil(16).max(1))
-            .map(|part| s.spawn(|| part.iter().map(|(_, d)| crate::redsim_screen::screen(d, &offsets, cycles, 400, true)).collect::<Vec<_>>()))
+            .map(|part| s.spawn(|| part.iter().map(|(_, d)| crate::redsim_screen::screen(d, &offsets, cycles, 400, empty_walkway)).collect::<Vec<_>>()))
             .collect();
         hs.into_iter().flat_map(|h| h.join().unwrap()).collect()
     });
     eprintln!("redsim judged {} designs in {:.2}s", loaded.len(), t0.elapsed().as_secs_f64());
     let verdicts: Vec<Option<std::result::Result<(u32, u32), String>>> = if judge {
         let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
-        let opts = VerifyOptions { offsets: offsets.clone(), cycles: cycles as u32, ..Default::default() };
+        let opts = VerifyOptions { offsets: offsets.clone(), cycles: cycles as u32, empty_walkway, ..Default::default() };
         let sbs: Vec<std::sync::Mutex<Option<u32>>> = (0..pool.len()).map(|_| std::sync::Mutex::new(None)).collect();
         pool.map(loaded.iter().map(|(_, d)| d.clone()).collect(), |w, wi, d| {
             let mut s = sbs[wi].lock().unwrap();

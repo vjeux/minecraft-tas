@@ -1,9 +1,10 @@
 # archived 2026-10-19T19:18Z from designs/clocks/tracks/clk-obs/families/p60-obs-rb-stk-7b-cc62fd.txt by mctas clock archive
-# CLOCK: clk-obs-p60-obs-rb-stk-7b-cc62fd period 60 gt (3 s), on 30/60, edges 15, warmup 6, family observer+redstone_block+sticky_piston, 7 blocks, 1x2x4, robust
+# CLOCK: clk-obs-p60-obs-rb-stk-7b-cc62fd period 60 gt (3 s), on 24/60, edges 6, warmup 6, family observer+redstone_block+sticky_piston, 7 blocks, 1x2x4, robust
 name: clk-obs-p60-obs-rb-stk-7b-cc62fd
 # P60: 5 observers, 1 redstone block, 1 sticky piston; changing in place: observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 -1
-port output: 0 1 2
+# port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 2: the old output was uneven, entered during the cycle, or not an exterior air cell)
+port output: 0 -1 0
 port start: 0 0 0 last
 palette:
   A minecraft:observer[facing=up,powered=false]

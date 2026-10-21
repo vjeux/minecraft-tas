@@ -1,8 +1,8 @@
-# archived 2026-10-20T00:24Z from designs/circuits/delay/tracks/delay/families/delay-rep2.txt by mctas circuit archive
-# CIRCUIT: delay-rep2-n0 delay N 2 gt, min-pulse 2 gt, min-gap 2 gt, 2 blocks, 1x2x1, robust
-# Repeater line N = 2 gt (track delay, family delay-rep2: N = 2 + 8n gt, n = 0): a delay-1 repeater
-# then 0 delay-4 repeater(s) in a row on stones, each reading the one before; N = 2 gt per redstone
-# tick of delay
+# archived 2026-10-20T22:10Z from designs/circuits/delay/tracks/delay/delay-rep2-n0.txt by mctas circuit archive
+# CIRCUIT: delay-rep2-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), tileable every 1 (0 0 1), 2 blocks, 1x2x1, robust
+# One repeater set to 1: the signal comes out 2 ticks later. Each repeater adds 2 ticks per notch of
+# its setting, so any even delay is a line of them, 2 blocks (repeater + stone) per started 8 ticks
+# (track delay, family delay-rep2: N = 2 + 8n gt, n = 0)
 name: delay-rep2-n0
 circuit: delay
 extend axis: 2 + 8n
@@ -16,6 +16,7 @@ extend group period: N = 2 x the sum of the delays
 extend group title: repeater line
 extend n: 0..10
 extend rule: add one delay-4 repeater (on its stone) at the end
+tile: 0 0 1
 port input: 0 1 0
 port output: 1 1 0
 origin: 1 0 0

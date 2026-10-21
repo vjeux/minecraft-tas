@@ -15,6 +15,8 @@
 
 mod gpu;
 mod live;
+mod overlay;
+mod record;
 
 use mcview::atlas::Atlas;
 use mcview::render::Frame;
@@ -67,11 +69,25 @@ pub(crate) struct View {
     pub full: bool,
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
-    /// `data-trace`: a real-game recording a live viewer plays (designs redsim does not model).
-    pub trace: Option<String>,
     pub tick: Option<u32>,
+    /// `data-still`: the still frame a thumbnail shows, found at build time by the site through
+    /// `mcview::tools::still_attr` (`Session::still_attr`): one run to its tick instead of the
+    /// period search. Absent or unreadable: the viewer finds it (`Session::go_to_still`).
+    pub still: Option<String>,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
+    /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
+    pub stimulus: Option<String>,
+    /// `data-events`: the judge's actions at cells (a BUD switch's target and footprint probes),
+    /// replayed in the auto-demo.
+    pub events: Option<String>,
+    /// `data-levels`: a strength input's values (`<frame> <input> <value>; ...`: the judge's
+    /// chest fills, the hex circuits), replayed by the auto-demo.
+    pub levels: Option<String>,
+    /// `data-phases`: the checker's phase labels.
+    pub phases: Option<String>,
+    /// `data-input-mode`: `pulse` | `toggle` (default from the circuit kind).
+    pub input_mode: Option<String>,
     pub yaw: Option<f32>,
     pub pitch: Option<f32>,
     /// Canvas size in device pixels.
@@ -115,6 +131,199 @@ pub(crate) struct App {
     ro: ResizeObserver,
     frame_scheduled: bool,
     work_scheduled: bool,
+    /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
+    /// (applied, or unavailable: the hand-drawn tiles stay).
+    textures_pending: bool,
+    /// The game's entity textures were asked for (the first entity drawn without them).
+    entities_requested: bool,
+    /// The page's scrolling: the last scroll position, its time (ms) and the speed (CSS px/s,
+    /// smoothed). A fling past [`FLING`] defers the thumbnails until it slows (the cards fly by:
+    /// drawing them made the scroll stutter).
+    scroll_y: f64,
+    scroll_ts: f64,
+    scroll_v: f64,
+    /// A deferred thumbnail pass is scheduled (after a fling).
+    defer_scheduled: bool,
+}
+
+/// A scroll faster than this (CSS px/s) is a fling: thumbnails wait until it slows or stops.
+const FLING: f64 = 1200.0;
+/// Scrolling stopped this long ago (ms): the speed no longer counts.
+const SCROLL_REST_MS: f64 = 150.0;
+
+/// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
+/// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
+/// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default misode/mcmeta's
+/// block atlas, block definitions and models of the judge's version.
+fn texture_urls() -> Option<[String; 4]> {
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some([format!("{base}/atlas.png"), format!("{base}/data.min.json"), format!("{base}/block_definition.min.json"), format!("{base}/model.min.json")])
+        }
+        _ => Some([mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string(), mcview::gamemodel::DEFS_URL.to_string(), mcview::gamemodel::MODELS_URL.to_string()]),
+    }
+}
+
+/// The game's entity and item atlases (`entities.png`, `entities.min.json`, `items.png`,
+/// `items.min.json` in a `data-mcview-textures` directory; misode/mcmeta's by default), loaded
+/// the first time a page draws an entity.
+fn entity_urls() -> Option<[String; 4]> {
+    use mcview::atlas::vanilla::*;
+    let root = document().document_element()?;
+    match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => None,
+        Some(v) if !v.trim().is_empty() => {
+            let base = v.trim().trim_end_matches('/').to_string();
+            Some([format!("{base}/entities.png"), format!("{base}/entities.min.json"), format!("{base}/items.png"), format!("{base}/items.min.json")])
+        }
+        _ => Some([ENTITY_ATLAS_URL.to_string(), ENTITY_INDEX_URL.to_string(), ITEM_ATLAS_URL.to_string(), ITEM_INDEX_URL.to_string()]),
+    }
+}
+
+/// Load the game's entity and item textures into the game texture (boats, minecarts, armor
+/// stands and dropped items drawn with the viewer's stand-ins until then).
+async fn load_entity_textures() {
+    let Some([ep, ei, ip, ii]) = entity_urls() else { return };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    let (ep, ei, ip, ii) = futures_join4(fetch_cached(&ep), fetch_cached(&ei), fetch_cached(&ip), fetch_cached(&ii)).await;
+    let got = (|| {
+        let (er, ew, eh) = mcview::atlas::vanilla::decode_png(&ep?)?;
+        let (ir, iw, ih) = mcview::atlas::vanilla::decode_png(&ip?)?;
+        Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
+    })();
+    with_app(|a| match got {
+        Ok((er, ew, eh, ei, ir, iw, ih, ii)) => {
+            let mut atlas = (*a.atlas).clone();
+            match atlas.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii)) {
+                Ok(n) => {
+                    if debug() {
+                        log(&format!("the game's entity textures ({n}) and items"));
+                    }
+                    a.set_atlas(atlas);
+                }
+                Err(e) => log(&format!("the game's entity textures: {e} (the viewer's stand-ins)")),
+            }
+        }
+        Err(e) => log(&format!("the game's entity textures unavailable: {e} (the viewer's stand-ins)")),
+    });
+    ensure_frame();
+}
+
+/// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
+/// is unavailable, e.g. on http pages).
+async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
+    use wasm_bindgen_futures::JsFuture;
+    let w = window();
+    let cache: Option<web_sys::Cache> = match w.caches() {
+        Ok(cs) => JsFuture::from(cs.open("mcview-textures-1")).await.ok().map(|c| c.unchecked_into()),
+        Err(_) => None,
+    };
+    let mut resp: Option<web_sys::Response> = None;
+    if let Some(c) = &cache
+        && let Ok(r) = JsFuture::from(c.match_with_str(url)).await
+        && !r.is_undefined()
+    {
+        resp = Some(r.unchecked_into());
+    }
+    let resp = match resp {
+        Some(r) => r,
+        None => {
+            let r: web_sys::Response = JsFuture::from(w.fetch_with_str(url)).await.map_err(|e| format!("fetch {url}: {e:?}"))?.unchecked_into();
+            if !r.ok() {
+                return Err(format!("fetch {url}: HTTP {}", r.status()));
+            }
+            if let Some(c) = &cache
+                && let Ok(copy) = r.clone()
+            {
+                let _ = JsFuture::from(c.put_with_str(url, &copy)).await;
+            }
+            r
+        }
+    };
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
+    Ok(js_sys::Uint8Array::new(&buf).to_vec())
+}
+
+/// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
+async fn load_textures() {
+    let Some([png_url, index_url, defs_url, models_url]) = texture_urls() else {
+        with_app(|a| a.textures_pending = false);
+        ensure_frame();
+        return;
+    };
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    // all four at once
+    let (png, index, defs, models) = futures_join4(fetch_cached(&png_url), fetch_cached(&index_url), fetch_cached(&defs_url), fetch_cached(&models_url)).await;
+    let got = (|| Ok::<_, String>((png?, text(index?)?)))();
+    let game_text = (|| Ok::<_, String>((text(defs?)?, text(models?)?)))();
+    with_app(|a| {
+        let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let t0 = now();
+        match got {
+            Ok((png, index)) => {
+                let mut atlas = (*a.atlas).clone();
+                match mcview::atlas::vanilla::decode_png(&png) {
+                    Ok((rgba, w, h)) => {
+                        match atlas.apply_vanilla(&rgba, w, h, &index) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's textures on {n} tiles ({:.0} ms)", now() - t0));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                        }
+                        // the game's own block models (the viewer's when they cannot be read)
+                        let t1 = now();
+                        match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
+                            Ok(n) => {
+                                if debug() {
+                                    log(&format!("the game's block models ({n} textures, {:.0} ms)", now() - t1));
+                                }
+                            }
+                            Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
+                        }
+                        a.set_atlas(atlas);
+                    }
+                    Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                }
+            }
+            Err(e) => log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)")),
+        }
+        a.textures_pending = false;
+    });
+    ensure_frame();
+}
+
+/// Four futures driven together (no executor crate: a small poll loop over pinned futures).
+async fn futures_join4<A: std::future::Future, B: std::future::Future, C: std::future::Future, D: std::future::Future>(a: A, b: B, c: C, d: D) -> (A::Output, B::Output, C::Output, D::Output) {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::Poll;
+    let (mut a, mut b, mut c, mut d) = (Box::pin(a), Box::pin(b), Box::pin(c), Box::pin(d));
+    let (mut ra, mut rb, mut rc, mut rd) = (None, None, None, None);
+    std::future::poll_fn(move |cx| {
+        if ra.is_none() && let Poll::Ready(v) = Pin::new(&mut a).poll(cx) {
+            ra = Some(v);
+        }
+        if rb.is_none() && let Poll::Ready(v) = Pin::new(&mut b).poll(cx) {
+            rb = Some(v);
+        }
+        if rc.is_none() && let Poll::Ready(v) = Pin::new(&mut c).poll(cx) {
+            rc = Some(v);
+        }
+        if rd.is_none() && let Poll::Ready(v) = Pin::new(&mut d).poll(cx) {
+            rd = Some(v);
+        }
+        if ra.is_some() && rb.is_some() && rc.is_some() && rd.is_some() {
+            Poll::Ready((ra.take().unwrap(), rb.take().unwrap(), rc.take().unwrap(), rd.take().unwrap()))
+        } else {
+            Poll::Pending
+        }
+    })
+    .await
 }
 
 #[wasm_bindgen(start)]
@@ -150,12 +359,77 @@ pub fn start() {
         ro,
         frame_scheduled: false,
         work_scheduled: false,
+        textures_pending: true,
+        entities_requested: false,
+        scroll_y: 0.0,
+        scroll_ts: f64::MIN,
+        scroll_v: 0.0,
+        defer_scheduled: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
+    // the page's scroll speed (any scrolling element: captured on the window), for the fling gate
+    {
+        let cb = Closure::<dyn FnMut(web_sys::Event)>::new(|e: web_sys::Event| {
+            let y = e.target().and_then(|t| t.dyn_into::<Element>().ok()).map(|el| el.scroll_top() as f64).unwrap_or_else(|| window().scroll_y().unwrap_or(0.0));
+            let now = window().performance().map(|p| p.now()).unwrap_or(0.0);
+            with_app(|a| {
+                let dt = now - a.scroll_ts;
+                if dt > 0.0 && dt < 500.0 {
+                    let v = (y - a.scroll_y).abs() / dt * 1000.0;
+                    a.scroll_v = 0.5 * a.scroll_v + 0.5 * v;
+                } else {
+                    a.scroll_v = 0.0;
+                }
+                a.scroll_y = y;
+                a.scroll_ts = now;
+            });
+        });
+        let opts = web_sys::AddEventListenerOptions::new();
+        opts.set_passive(true);
+        opts.set_capture(true);
+        let _ = window().add_event_listener_with_callback_and_add_event_listener_options("scroll", cb.as_ref().unchecked_ref(), &opts);
+        cb.forget();
+    }
+    // the game's textures (hand-drawn tiles if they do not come within a few seconds)
+    wasm_bindgen_futures::spawn_local(load_textures());
+    {
+        let cb = Closure::once_into_js(move || {
+            let late = with_app(|a| std::mem::replace(&mut a.textures_pending, false)).unwrap_or(false);
+            if late {
+                log("the game's textures are slow: drawing with the hand-drawn tiles meanwhile");
+                ensure_frame();
+            }
+        });
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), 4000);
+    }
     // the shared thumbnail context, on a canvas that is never shown
     let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
     canvas.set_width(240);
     canvas.set_height(180);
+    // the shared thumbnail context lost (a GPU reset, too many contexts on iOS): thumbnails wait
+    // and the context is made again once the canvas is restored (drawn pictures stay)
+    {
+        let lost = Closure::<dyn FnMut(web_sys::Event)>::new(|e: web_sys::Event| {
+            e.prevent_default();
+            with_app(|a| a.thumb = ThumbGpu::Pending);
+            log("the thumbnails' WebGL context was lost; waiting for it to come back");
+        });
+        let _ = canvas.add_event_listener_with_callback("webglcontextlost", lost.as_ref().unchecked_ref());
+        lost.forget();
+        let c2 = canvas.clone();
+        let restored = Closure::<dyn FnMut(web_sys::Event)>::new(move |_e: web_sys::Event| {
+            let c3 = c2.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let Some(atlas) = with_app(|a| a.atlas.clone()) else { return };
+                if let Ok(g) = gpu::Gpu::new(c3, &atlas).await {
+                    with_app(|a| a.thumb = ThumbGpu::Ready(g));
+                    ensure_frame();
+                }
+            });
+        });
+        let _ = canvas.add_event_listener_with_callback("webglcontextrestored", restored.as_ref().unchecked_ref());
+        restored.forget();
+    }
     wasm_bindgen_futures::spawn_local(async move {
         let g = gpu::Gpu::new(canvas, &atlas).await;
         with_app(|a| {
@@ -170,20 +444,33 @@ pub fn start() {
         ensure_frame();
     });
     // the page as it is, then whatever is added later
-    scan(&document().document_element().unwrap());
+    let found = scan(&document().document_element().unwrap());
+    with_app(|a| a.register_all(found));
     let mo_cb = Closure::<dyn FnMut(js_sys::Array, MutationObserver)>::new(|records: js_sys::Array, _| {
         let mut removed = false;
+        let mut found: Vec<HtmlElement> = Vec::new();
         for r in records.iter() {
             let r: MutationRecord = r.unchecked_into();
+            if r.type_() == "attributes" {
+                if let Some(t) = r.target()
+                    && let Ok(e) = t.dyn_into::<HtmlElement>()
+                {
+                    with_app(|a| a.src_changed(&e));
+                }
+                continue;
+            }
             let added = r.added_nodes();
             for i in 0..added.length() {
                 if let Some(n) = added.item(i)
                     && let Ok(e) = n.dyn_into::<Element>()
                 {
-                    scan(&e);
+                    found.extend(scan(&e));
                 }
             }
             removed |= r.removed_nodes().length() > 0;
+        }
+        if !found.is_empty() {
+            with_app(|a| a.register_all(found));
         }
         if removed {
             with_app(|a| a.sweep());
@@ -195,6 +482,9 @@ pub fn start() {
     let init = web_sys::MutationObserverInit::new();
     init.set_child_list(true);
     init.set_subtree(true);
+    // a viewer's design swapped in place (the site's variant picker): `data-src` set last
+    init.set_attributes(true);
+    init.set_attribute_filter(&js_sys::Array::of1(&JsValue::from_str("data-src")));
     let _ = mo.observe_with_options(&document().document_element().unwrap(), &init);
     ensure_frame();
 }
@@ -254,8 +544,8 @@ pub unsafe extern "C" fn mcview_frames_digest(ptr: *mut u8, len: usize, ticks: u
     }
 }
 
-/// Register every viewer element in (and including) `root`.
-fn scan(root: &Element) {
+/// The viewer elements in (and including) `root` not registered yet.
+fn scan(root: &Element) -> Vec<HtmlElement> {
     let mut found: Vec<HtmlElement> = Vec::new();
     if root.matches("[data-mcview], .mcview").unwrap_or(false)
         && let Ok(h) = root.clone().dyn_into::<HtmlElement>()
@@ -271,16 +561,29 @@ fn scan(root: &Element) {
             }
         }
     }
-    for el in found {
-        if el.get_attribute("data-mcview-id").is_none() {
-            with_app(|a| a.register(el));
+    found.retain(|el| el.get_attribute("data-mcview-id").is_none());
+    found
+}
+
+/// An entity was drawn without the game's entity textures: load them (once).
+fn maybe_load_entities() {
+    let want = with_app(|a| {
+        let want = !a.entities_requested && a.atlas.game.as_ref().is_some_and(|g| !g.entities && g.wants_entities.get());
+        if want {
+            a.entities_requested = true;
         }
+        want
+    })
+    .unwrap_or(false);
+    if want {
+        wasm_bindgen_futures::spawn_local(load_entity_textures());
     }
 }
 
 /// Make sure the pending work runs: thumbnails in a task (no vsync needed, so they also draw in
 /// background tabs and headless browsers), live viewers in animation frames.
 pub(crate) fn ensure_frame() {
+    maybe_load_entities();
     let work = with_app(|a| !std::mem::replace(&mut a.work_scheduled, true)).unwrap_or(false);
     if work {
         let cb = Closure::once_into_js(move || {
@@ -289,6 +592,7 @@ pub(crate) fn ensure_frame() {
                 a.thumbs()
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }
@@ -303,6 +607,7 @@ pub(crate) fn ensure_frame() {
                 a.live_frames(ts)
             })
             .unwrap_or(false);
+            maybe_load_entities();
             if more {
                 ensure_frame();
             }
@@ -327,14 +632,97 @@ fn attr_f32(el: &Element, k: &str) -> Option<f32> {
 }
 
 impl App {
-    fn register(&mut self, el: HtmlElement) {
+    /// A viewer's `data-src` changed (a design swapped in place): every `data-*` attribute is read
+    /// again; a live viewer loads the new design keeping its camera when `data-keep-camera` is
+    /// set (and its play state and speed), its buttons, tags and overlays rebuilt; a thumbnail is
+    /// drawn again.
+    fn src_changed(&mut self, el: &HtmlElement) {
+        let Some(id) = el.get_attribute("data-mcview-id").and_then(|s| s.parse::<u32>().ok()) else { return };
+        let Some(v) = self.views.get_mut(&id) else { return };
+        let src = el.get_attribute("data-src").filter(|s| !s.is_empty());
+        if src.is_none() || (src == v.src && v.live.as_ref().is_some_and(|l| l.has_player())) {
+            return;
+        }
+        v.src = src;
+        v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
+        v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
+        v.still = el.get_attribute("data-still").filter(|s| !s.trim().is_empty());
+        v.autoplay = el.has_attribute("data-autoplay");
+        v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
+        v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
+        v.levels = el.get_attribute("data-levels").filter(|s| !s.trim().is_empty());
+        v.phases = el.get_attribute("data-phases").filter(|s| !s.trim().is_empty());
+        v.input_mode = el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty());
+        v.yaw = attr_f32(el, "data-yaw");
+        v.pitch = attr_f32(el, "data-pitch");
+        let keep = el.has_attribute("data-keep-camera");
+        if let Some(l) = v.live.as_mut() {
+            l.begin_reload(keep);
+        }
+        let _ = el.class_list().remove_1("mcview-error");
+        v.done = false;
+        if v.full || v.visible {
+            self.queue.push_back(id);
+        }
+    }
+
+    /// New tiles (the game's textures arrived): every context uploads them, every picture is
+    /// drawn again.
+    fn set_atlas(&mut self, atlas: Atlas) {
+        self.atlas = Rc::new(atlas);
+        if let ThumbGpu::Ready(g) = &mut self.thumb {
+            g.r.upload_atlas(&self.atlas);
+        }
+        self.cache.clear();
+        let atlas = self.atlas.clone();
+        let mut again = Vec::new();
+        for (id, v) in self.views.iter_mut() {
+            if let Some(l) = v.live.as_mut() {
+                l.atlas_changed(&atlas);
+            } else if v.done {
+                v.done = false;
+                if v.visible {
+                    again.push(*id);
+                }
+            }
+        }
+        for id in again {
+            if !self.queue.contains(&id) {
+                self.queue.push_back(id);
+            }
+        }
+    }
+
+    /// Register viewer elements: every one's layout read first, then each one set up (a page of
+    /// 60 cards added at once: one layout, not one per card; a read after each card's new canvas
+    /// forced a layout of the whole growing page every time).
+    fn register_all(&mut self, els: Vec<HtmlElement>) {
+        let measured: Vec<(HtmlElement, bool, (u32, u32))> = els
+            .into_iter()
+            .filter(|el| el.get_attribute("data-mcview-id").is_none())
+            .map(|el| {
+                let stat = window().get_computed_style(&el).ok().flatten().and_then(|s| s.get_property_value("position").ok()).is_some_and(|p| p == "static" || p.is_empty());
+                let size = pixel_size(&el);
+                (el, stat, size)
+            })
+            .collect();
+        // (an element met twice in one batch, a node and its parent both added: set up once)
+        for (el, stat, size) in measured {
+            if el.get_attribute("data-mcview-id").is_none() {
+                self.register(el, stat, size);
+            }
+        }
+    }
+
+    /// Set up one viewer element (`stat`: its CSS position is static; `size`: its pixel size).
+    fn register(&mut self, el: HtmlElement, stat: bool, size: (u32, u32)) {
         let id = self.next_id;
         self.next_id += 1;
         let _ = el.set_attribute("data-mcview-id", &id.to_string());
         let mode = el.get_attribute("data-mcview").filter(|m| !m.is_empty()).or_else(|| el.get_attribute("data-mode")).unwrap_or_else(|| "thumb".into());
         let full = matches!(mode.as_str(), "full" | "live");
         // keep the element's own children (a fallback card): the canvas covers them once ready
-        if window().get_computed_style(&el).ok().flatten().and_then(|s| s.get_property_value("position").ok()).is_some_and(|p| p == "static" || p.is_empty()) {
+        if stat {
             let _ = el.style().set_property("position", "relative");
         }
         let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
@@ -347,15 +735,20 @@ impl App {
         let _ = st.set_property("display", "block");
         let _ = st.set_property("visibility", "hidden");
         let _ = el.append_child(&canvas);
-        let (w, h) = pixel_size(&el);
+        let (w, h) = size;
         canvas.set_width(w.max(1));
         canvas.set_height(h.max(1));
         let view = View {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
-            trace: el.get_attribute("data-trace").filter(|s| !s.is_empty()),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            still: el.get_attribute("data-still").filter(|s| !s.trim().is_empty()),
             autoplay: el.has_attribute("data-autoplay"),
+            stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
+            events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
+            levels: el.get_attribute("data-levels").filter(|s| !s.trim().is_empty()),
+            phases: el.get_attribute("data-phases").filter(|s| !s.trim().is_empty()),
+            input_mode: el.get_attribute("data-input-mode").filter(|s| !s.trim().is_empty()),
             yaw: attr_f32(&el, "data-yaw"),
             pitch: attr_f32(&el, "data-pitch"),
             el: el.clone(),
@@ -372,11 +765,13 @@ impl App {
             return;
         }
         self.ro.observe(&el);
+        // every view's visibility is followed: a thumbnail is drawn on screen, a live viewer
+        // only draws and plays there
+        self.io.observe(&el);
         if full {
             self.views.insert(id, view);
             live::start(self, id);
         } else {
-            self.io.observe(&el);
             let click_src = view.src.clone().unwrap_or_default();
             let target = el.clone();
             let cb = Closure::<dyn FnMut(web_sys::Event)>::new(move |_e: web_sys::Event| {
@@ -409,6 +804,14 @@ impl App {
             let Some(id) = App::id_of(&e.target()) else { continue };
             let Some(v) = self.views.get_mut(&id) else { continue };
             v.visible = e.is_intersecting();
+            // a live viewer only draws and plays on screen (`live::frame`): back on screen, it
+            // goes on where it was
+            if v.full {
+                if let Some(l) = v.live.as_mut() {
+                    l.redraw = true;
+                }
+                continue;
+            }
             if v.visible && !v.done && !self.queue.contains(&id) {
                 self.queue.push_back(id);
             }
@@ -465,15 +868,8 @@ impl App {
         self.url_text(&src)
     }
 
-    /// A view's recording (`data-trace`): None while it loads (or when it has none: check
-    /// `View::trace` first).
-    pub(crate) fn trace_of(&mut self, id: u32) -> Option<Result<Rc<str>, String>> {
-        let url = self.views.get(&id)?.trace.clone()?;
-        self.url_text(&url)
-    }
-
     /// The text at a URL (cached), starting its fetch if needed: None while it loads. When it
-    /// arrives, every view using it (as design or recording) is queued again.
+    /// arrives, every view using it is queued again.
     fn url_text(&mut self, url: &str) -> Option<Result<Rc<str>, String>> {
         if let Some(r) = self.texts.get(url) {
             return Some(r.clone());
@@ -485,7 +881,7 @@ impl App {
                 with_app(|a| {
                     a.fetching.remove(&src);
                     a.texts.insert(src.clone(), r);
-                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str()) || v.trace.as_deref() == Some(src.as_str());
+                    let uses = |v: &View| v.src.as_deref() == Some(src.as_str());
                     let waiting: Vec<u32> = a.views.iter().filter(|(_, v)| uses(v) && (!v.done || v.full) && (v.visible || v.full)).map(|(id, _)| *id).collect();
                     for id in waiting {
                         if !a.queue.contains(&id) {
@@ -500,12 +896,37 @@ impl App {
     }
 
     /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
-    /// work is left.
+    /// work is left. Only the thumbnails still on screen (or near it) are drawn: one that left
+    /// before its turn is drawn when it comes back (critique: of 95 drawn during a fling on a
+    /// phone, 83 were already off screen), and none during a fling (`FLING`): they wait until the
+    /// scroll slows or stops (a deferred pass then).
     fn thumbs(&mut self) -> bool {
+        if self.textures_pending {
+            // drawn once, with the game's textures (load_textures or its timeout wakes us)
+            return false;
+        }
         let perf = window().performance();
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
         if debug() && !self.queue.is_empty() {
             log(&format!("work at {t0:.0}: {} queued", self.queue.len()));
+        }
+        // flinging: come back once it has slowed
+        if t0 - self.scroll_ts < SCROLL_REST_MS && self.scroll_v > FLING && self.queue.iter().any(|id| self.views.get(id).is_some_and(|v| !v.full)) {
+            if !self.defer_scheduled {
+                self.defer_scheduled = true;
+                let cb = Closure::once_into_js(move || {
+                    with_app(|a| a.defer_scheduled = false);
+                    ensure_frame();
+                });
+                let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), SCROLL_REST_MS as i32);
+            }
+            // live viewers waiting for their text still load
+            let live: Vec<u32> = self.queue.iter().copied().filter(|id| self.views.get(id).is_some_and(|v| v.full && !v.done)).collect();
+            for id in live {
+                self.queue.retain(|q| *q != id);
+                live::load(self, id);
+            }
+            return false;
         }
         let mut waiting = VecDeque::new();
         while let Some(id) = self.queue.pop_front() {
@@ -519,6 +940,10 @@ impl App {
             }
             if v.full {
                 live::load(self, id);
+                continue;
+            }
+            // left the screen before its turn: drawn when it comes back (`on_intersect`)
+            if !v.visible {
                 continue;
             }
             let el = v.el.clone();
@@ -580,18 +1005,28 @@ impl App {
         }
         let picture = (|| -> Result<(), String> {
             let mut s = Session::new(text, &Options::default())?;
-            match v.tick {
-                Some(t) => {
-                    s.find_auto_output(20_000);
+            match (v.tick, v.still.as_deref()) {
+                (Some(t), _) => {
+                    s.find_auto_output(mcview::session::STILL_HORIZON);
                     s.run(t)
                 }
-                None => {
-                    s.go_to_still(20_000);
+                // found at build time: one run to it (an attribute it cannot read: found here)
+                (None, Some(a)) => {
+                    if s.go_to_still_from(a).is_err() {
+                        s.go_to_still(mcview::session::STILL_HORIZON);
+                    }
+                }
+                (None, None) => {
+                    s.go_to_still(mcview::session::STILL_HORIZON);
                 }
             }
-            let look = scene::default_look(&s);
+            let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
-            let mut cam = scene::camera_showing_inputs(&self.atlas, &s, &look, aspect);
+            // a thumbnail is a picture, nothing to press: no outlines over a small build (the
+            // live viewer has them, with its tags) but a BUD switch's TARGET, and it frames what
+            // it draws
+            scene::thumbnail_look(&s, &mut look);
+            let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     cam.yaw = y.to_radians();

@@ -53,6 +53,31 @@ pub enum DoorCmd {
     /// powered from a free cell; cells must stay free all cycle inside `--box`. Firings with no
     /// option are listed last (cores for static wiring).
     Feeds(cmd::ideal::FeedsArgs),
+    /// Re-time a `door ideal` plan: every event of the listed input cells moved by its shift,
+    /// the others by `--rest` (ticks evaluated and written as numbers); for trying an area that
+    /// starts later than the lever without editing the plan by hand.
+    ShiftPlan(cmd::ideal::ShiftPlanArgs),
+    /// Drop every input pulse a `door ideal` plan does not need (greedy, latest first, each drop
+    /// kept only while the plan with all drops so far still works): lighter wiring areas.
+    PrunePlan(cmd::ideal::PrunePlanArgs),
+    /// Replace a plan's ideal inputs by OBSERVERS watching the mechanism itself (piston-door
+    /// selffeed.rs, track pext): for each input, every observer in a free plane cell that powers
+    /// the same piston (directly, through the cell above it, or through a solid block touching
+    /// either) is judged on redsim with that input removed; greedy rounds keep the fastest that
+    /// works at the full positions. What is left is a smaller plan for the wiring tools.
+    Selffeed(cmd::selffeed::SelffeedArgs),
+    /// ONE pulse train for both lever edges (piston-door interleave.rs, track pext): merge a
+    /// plan's open and close step sequences, a step of one edge firing during the other only where
+    /// it changes nothing there (breadth-first over the steps done on each edge), then judge the
+    /// merged train as a plan with the same events on both edges.
+    Interleave(cmd::selffeed::InterleaveArgs),
+    /// Feed a plan's inputs from a SHUTTLED observer (piston-door shuttle.rs, track clk-rt): a
+    /// sticky piston carries an observer one cell out and back, and the observer fires 2 gt after
+    /// each landing, so pistons with no free neighbour (boxed wiggle pistons, pistons on a drop
+    /// cell) get pulses. Every placement (piston cell and facing, observer facing, free landing
+    /// cell) and per-pulse arrival/return timing is judged on redsim with the target inputs
+    /// removed; `--absorb` then drops other plan pulses the observer's free pulses can give.
+    Shuttle(cmd::shuttle::ShuttleArgs),
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -70,6 +95,11 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RedsimVerify(a) => cmd::judge::cmd_redsim_verify(version, a),
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
         DoorCmd::Feeds(a) => cmd::ideal::cmd_feeds(a),
+        DoorCmd::ShiftPlan(a) => cmd::ideal::cmd_shift_plan(a),
+        DoorCmd::PrunePlan(a) => cmd::ideal::cmd_prune_plan(a),
+        DoorCmd::Selffeed(a) => cmd::selffeed::cmd_selffeed(a),
+        DoorCmd::Interleave(a) => cmd::selffeed::cmd_interleave(a),
+        DoorCmd::Shuttle(a) => cmd::shuttle::cmd_shuttle(a),
         DoorCmd::Pistfuzz(a) => cmd::fuzz::cmd_pistfuzz(version, a),
     }
 }

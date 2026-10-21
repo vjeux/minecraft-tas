@@ -1,0 +1,24 @@
+name: mm04-oc
+port door: 0 0 0
+port lever: 4 4 0
+origin: -1 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:stone
+  S minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .AA.A
+layer -1:
+  .
+layer 0:
+  SCCC.B
+layer 1:
+  SCCCBB
+layer 2:
+  SCCC
+layer 3:
+  ...s.B
+layer 4:
+  .s.s

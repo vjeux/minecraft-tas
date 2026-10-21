@@ -126,8 +126,11 @@ impl Recorder {
             if mctas::blockstate::is_air(s) {
                 continue;
             }
+            // an environment / station cell holding a block of its own kind (any state: dust
+            // shape and power, a lamp lit or not, an observer firing) is not the machine
+            let kind = |x: &str| x.split('[').next().unwrap_or(x).to_string();
             if let Some(st) = self.stops.get(&p)
-                && (st == s || clock::canon::structural(st) == clock::canon::structural(s))
+                && (st == s || kind(st) == kind(s))
             {
                 continue;
             }
