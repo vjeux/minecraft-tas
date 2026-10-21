@@ -503,7 +503,7 @@ the new gadgets did and did not change.
 So 7x8 is the smallest box with both. Every smaller box loses one, and the gadgets below are the
 attempts to replace the missing one:
 
-| box | volume | crossing | elevator room | mechanism? | what stops it |
+| box | volume | room for the crossing | room for the elevator | mechanism? | what stops it |
 |---|---|---|---|---|---|
 | 5xN, Nx5 | 35, 50 | no | - | NO | strip model: no row mechanism at any width <= 10 (c70b, exhaustive); 5x5x2 = 50 out by argument (fly) |
 | 6x6 | 36 | no | no | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
@@ -511,7 +511,7 @@ attempts to replace the missing one:
 | 6x7 | 42 | no | no | YES: c70b mm01..05 (repaired a3s) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
 | 8x6 | 48 | yes | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
 | 6x8 | 48 | no | yes | slime only (fly's q68g) | as 6x9 |
-| 7x7 | 49 | yes | no | YES: c77 w1, c70b mm01, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86); at one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b); the w1 class leaves P (1,-1) and SU(1,-2) unfed; macrosat with feed + island start UNSAT at h6/h8 |
+| 7x7 | 49 | yes | no | YES: c77 w1, c70b mm01, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86); at one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b); the w1 class leaves P (1,-1) and SU(1,-2) unfed (clk-rt's mm01z feeds P from a carried observer; B (1,-2) stays unfed and no lever spot starts every area, pockets3); macrosat with feed + island start UNSAT at h6 in every placement but the central one, which is UNSAT up to h12 under `--physics` |
 | 9x6 | 54 | yes | no | YES: c70b m69a turned, w86 m69g-12 | one spare row, so the bottom row's pieces sit in a pocket only row-0 movers touch (m69g-12: satwire core W' (3,-1)) |
 | 6x9 | 54 | no | yes | YES: c78l m69a, c70b m69T, fly's q69i/j/m, r69t, s69 | below |
 
