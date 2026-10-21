@@ -1,0 +1,24 @@
+# cane-mc-8b as the farm judge builds it (its chests on the outputs, the crop planted, age 0): the design of an exact trace (clock misc trace-export --farm)
+name: cane-mc-8b-judged
+circuit: harvester sugar_cane
+tile: 5 0 0
+port crop: 0 1 0
+port output: 1 0 0
+entity: minecraft:hopper_minecart 1.5 2 0.5 {Rotation:[0f,0f]}
+origin: -2 0 0
+palette:
+  C minecraft:chest[facing=north,type=single,waterlogged=false]
+  D minecraft:dirt
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+  W minecraft:waxed_copper_grate[waterlogged=true]
+  s minecraft:sugar_cane[age=0]
+layer 0:
+  .WDC
+layer 1:
+  SOsH
+layer 2:
+  RP

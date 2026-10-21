@@ -29,10 +29,44 @@ pub struct Summary {
     pub key: Key,
     /// Where the label points: the top centre of the block, the top of the entity.
     pub anchor: [f32; 3],
-    /// Shulker boxes first, then items by count (largest first), then by name. Never empty.
+    /// Shulker boxes first, then items by count (largest first), then by name. Empty only for a
+    /// furnace burning with nothing in it.
     pub entries: Vec<Entry>,
     /// A placed shulker box (the box being filled or emptied: labelled by default).
     pub shulker_box: bool,
+    /// A furnace: its fire and its arrow as the game's furnace screen draws them (labelled by
+    /// default: a smelter's story).
+    pub furnace: Option<Cooking>,
+}
+
+/// A furnace's progress as its screen shows it (`AbstractFurnaceMenu`): the flame, the fuel's burn
+/// time left (`litTimeRemaining / litTotalTime`), and the arrow, the item's cooking progress
+/// (`cookingTimer / cookingTotalTime`), each 0..1, in the screen's steps (the flame 14 px high,
+/// the arrow 24 px wide: `getLitProgress`, `getBurnProgress`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Cooking {
+    /// Flame pixels lit, 0..=14 (0: out).
+    pub flame: u8,
+    /// Arrow pixels filled, 0..=24.
+    pub arrow: u8,
+}
+
+impl Cooking {
+    /// The screen's numbers for a furnace block entity.
+    pub fn of(c: &redsim::redstone::container::ContainerBe) -> Cooking {
+        // AbstractFurnaceMenu.getLitProgress (litTotalTime 0 counts as 200) and getBurnProgress (0
+        // without a total or a timer); AbstractFurnaceScreen draws ceil(lit * 13) + 1 of the
+        // flame's 14 px while lit and ceil(burn * 24) of the arrow's 24 px
+        let total = if c.lit_total == 0 { 200 } else { c.lit_total };
+        let flame = if c.lit_time > 0 { ((c.lit_time as f32 / total as f32).clamp(0.0, 1.0) * 13.0).ceil() as u8 + 1 } else { 0 };
+        let arrow = if c.cook_total > 0 && c.cook_timer > 0 { ((c.cook_timer as f32 / c.cook_total as f32).clamp(0.0, 1.0) * 24.0).ceil() as u8 } else { 0 };
+        Cooking { flame: flame.min(14), arrow: arrow.min(24) }
+    }
+
+    /// Anything to draw (a fire, an arrow)?
+    pub fn shows(self) -> bool {
+        self.flame > 0 || self.arrow > 0
+    }
 }
 
 /// Several containers' entries as one (a group of same-kind port chests): items summed by kind,
@@ -105,7 +139,8 @@ pub fn has_containers(s: &Session) -> bool {
 }
 
 /// Every container holding something, with its label, at `partial` (0..1) through the tick
-/// (entities interpolated like they are drawn). Empty containers have no label.
+/// (entities interpolated like they are drawn). Empty containers have no label, but a furnace
+/// with a fire or an arrow to show.
 pub fn summaries(s: &Session, partial: f32) -> Vec<Summary> {
     if !s.simulated() || s.replay.is_some() {
         return Vec::new();
@@ -118,7 +153,8 @@ pub fn summaries(s: &Session, partial: f32) -> Vec<Summary> {
         .filter_map(|(p, c)| {
             let entries = summarize(w, &c.slots);
             let shulker_box = matches!(w.get(*p), redsim::Block::ShulkerBox { .. });
-            (!entries.is_empty()).then(|| Summary { key: Key::Block(p.arr()), anchor: [p.x as f32 + 0.5, p.y as f32 + 1.0, p.z as f32 + 0.5], entries, shulker_box })
+            let furnace = c.furnace.then(|| Cooking::of(c));
+            (!entries.is_empty() || furnace.is_some_and(Cooking::shows)).then(|| Summary { key: Key::Block(p.arr()), anchor: [p.x as f32 + 0.5, p.y as f32 + 1.0, p.z as f32 + 0.5], entries, shulker_box, furnace })
         })
         .collect();
     let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
@@ -129,7 +165,7 @@ pub fn summaries(s: &Session, partial: f32) -> Vec<Summary> {
             continue;
         }
         let height = e.kind.dims().1;
-        v.push(Summary { key: Key::Entity(*id), anchor: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y) + height, lerp(e.zo, e.pos.z)], entries, shulker_box: false });
+        v.push(Summary { key: Key::Entity(*id), anchor: [lerp(e.xo, e.pos.x), lerp(e.yo, e.pos.y) + height, lerp(e.zo, e.pos.z)], entries, shulker_box: false, furnace: None });
     }
     v.sort_by_key(|s| s.key);
     v
@@ -365,6 +401,46 @@ impl Layout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A furnace's fire and arrow in the furnace screen's steps (AbstractFurnaceScreen: ceil(lit /
+    /// total * 13) + 1 of 14 px while lit, ceil(cooking / total * 24) of 24 px).
+    #[test]
+    fn a_furnace_shows_its_screens_fire_and_arrow() {
+        let mut c = redsim::redstone::container::ContainerBe {
+            slots: vec![None; 3],
+            cooldown: -1,
+            ticked: 0,
+            hopper: false,
+            bookshelf: false,
+            last_slot: -1,
+            crafter: false,
+            disabled: 0,
+            crafting_ticks: 0,
+            jukebox: false,
+            song: None,
+            song_ticks: 0,
+            furnace: true,
+            lit_time: 0,
+            lit_total: 0,
+            cook_timer: 0,
+            cook_total: 0,
+            smelted: 0,
+        };
+        assert_eq!(Cooking::of(&c), Cooking { flame: 0, arrow: 0 }, "out, nothing cooking");
+        assert!(!Cooking::of(&c).shows());
+        (c.lit_time, c.lit_total) = (1600, 1600);
+        assert_eq!(Cooking::of(&c).flame, 14, "a coal just lit: the whole flame");
+        c.lit_time = 1;
+        assert_eq!(Cooking::of(&c).flame, 2, "its last tick: the flame's first step and the base");
+        (c.lit_time, c.lit_total) = (100, 0);
+        assert_eq!(Cooking::of(&c).flame, 8, "no total counts as 200: ceil(6.5) + 1");
+        (c.cook_timer, c.cook_total) = (100, 200);
+        assert_eq!(Cooking::of(&c).arrow, 12);
+        c.cook_timer = 1;
+        assert_eq!(Cooking::of(&c).arrow, 1, "the arrow's first pixel at the first tick (ceil)");
+        c.cook_timer = 200;
+        assert_eq!(Cooking::of(&c).arrow, 24);
+    }
 
     #[test]
     fn labels_never_overlap() {

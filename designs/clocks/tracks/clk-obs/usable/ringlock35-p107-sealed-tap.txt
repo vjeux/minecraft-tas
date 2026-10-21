@@ -1,0 +1,36 @@
+# Sealed: a stone over each of the 12 hoppers (no dropped item can reach them; the intrusion rule).
+# Ring lock 3x5, 14 blocks (contents sweep): 12 hoppers around a 3x5 rectangle, a comparator in the inner column (on stone) reads the west hopper of its row and points into the east one, locking it while the read hopper holds items, so swords queue up in front of the locked hopper. The period depends only on where the swords start (see the nbt lines): here P = 107.
+# redsim: P=107 gt, warmup 50, family comparator+hopper, 14 blocks, output on 61/107 gt, 3 rising edge(s)
+# usable tap (clk-obs `clock obs tap`): a comparator at [3, 1, 1] (on a block put under it), the output at [4, 1, 1]
+name: ringlock35-p107-sealed-tap
+port output: 4 1 1
+nbt: 0 1 1 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+nbt: 0 1 2 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+nbt: 2 1 3 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+nbt: 2 1 4 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  .
+  .S.S
+  .
+  .
+  .
+layer 1:
+  HHA
+  hCAC
+  h.A
+  h.A
+  hBB
+layer 2:
+  SSS
+  S.S
+  S.S
+  S.S
+  SSS

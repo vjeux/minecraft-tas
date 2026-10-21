@@ -11,6 +11,12 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n2-rider-flat](archive/pext-n2-rider-flat.txt) | 8 | - |
 | [pext-n2-rider-3d](archive/pext-n2-rider-3d.txt) | 8 | - |
 
+**[pext-n2-sand7-flipsafe-3x5](archive/pext-n2-sand7-flipsafe-3x5.txt)** (piston-extender 2, N = 2; 7 blocks: observer, piston, sand, sticky_piston, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [pext-n2-flat-flipsafe10-6x4](archive/pext-n2-flat-flipsafe10-6x4.txt) | 10 | gold_block, slime_block |
+
 **[pext-n3-flat-cascade16-9x5](archive/pext-n3-flat-cascade16-9x5.txt)** (piston-extender 3, N = 3; 16 blocks: gold_block, observer, piston, slime_block, sticky_piston):
 
 | variant | blocks | adds |
