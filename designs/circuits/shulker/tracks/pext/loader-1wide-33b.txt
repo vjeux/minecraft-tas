@@ -1,0 +1,116 @@
+# A one-block-wide shulker loader you can line up side by side with no gap (33 blocks): a dispenser
+# under the box spot places an empty box, the hopper above fills it from the items chest, and when
+# the box is full a piston behind it breaks it; the dropped full box lands on the hopper under the
+# box's front, which sends it to the output chest.
+# How it works: the full test of the 39-block loader (a comparator on the box, a second comparator,
+# the redstone line shared with the neighbouring copies over a stone, and a comparator reading that
+# stone that passes only a full 15), a copper bulb toggled by each full box, and signals carried by
+# pistons and observers: a piston head that moves one cell is seen by the next observer (two cells
+# per piston), and a dispenser serves as the block the observer under the box dispenser watches.
+# Found by `mctas circuit shulker anneal` (random edits, each judged on redsim with the judge's own
+# scenarios) from the 39-block loader: same box, same badges, same speed.
+name: shulker-loader-1wide-33b
+circuit: shulker-loader
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -3
+palette:
+  A minecraft:dropper[facing=down,triggered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dispenser[facing=north,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  T minecraft:target[power=0]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dispenser[facing=up,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=south]
+  s minecraft:sticky_piston[extended=false,facing=north]
+layer -3:
+  .
+  .
+  .
+  D
+  B
+  .
+  P
+  .
+  .
+  .
+layer -2:
+  p
+  .
+  o
+  O
+  .
+  .
+  .
+  E
+  .
+  h
+layer -1:
+  E
+  h
+  h
+  d
+  H
+  A
+  G
+  C
+  W
+  C
+layer 0:
+  c
+  .
+  p
+  .
+  C
+  T
+  R
+  .
+  .
+  O
+layer 1:
+  .
+  .
+  .
+  H
+  .
+  .
+  .
+  .
+  .
+  F
+layer 2:
+  .
+  .
+  E
+  .
+  .
+  .
+  .
+  .
+  .
+  S
+layer 3:
+  .
+  .
+  .
+  s
+  A
+  B
+  .
+  P
+  B
+  .

@@ -149,9 +149,11 @@ each build's page.
   model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
   (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
   after the entities and falling blocks, and `drawn_matches_simulation` checks each). The
-  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 3 x
-  the dials' facing, code frames a quarter). `web check` replays lock3-tern's whole stimulus
-  (41117 frames) against `circuit sim`.
+  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 6 x
+  the dials' facing, code frames a quarter); the code frames, set once from their tags, neither
+  count as ports nor need a tappable side (critique on lock3-q85: facing away from the dials,
+  they held the camera in front, the dials seen edge-on). `web check` replays lock3-q85's whole
+  stimulus against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -374,8 +376,13 @@ viewer-side logic. What the viewer draws is redsim's state of the tick; what it 
 game client's own rendering of that state: interpolation between the tick's start and end
 positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMinecartRenderer
 .oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
-primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels; and annotations
-(tags, labels, outlines, the OUT boxes red while their output is powered). Audit of 2026-10-20
+primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, a lit light
+source (lamp, torch, copper bulb: `mesh::lit_emitter`) at full brightness without face shading
+(critique: "Lamps never look lit"), an explosion's cloud for 10 ticks after each of redsim's blasts
+(`HugeExplosionSeedParticle`; `mesh::Builder::explosion`: a mid-air burst breaks nothing and
+showed nothing); and annotations
+(tags, labels, outlines, the OUT boxes red while their output is powered, a TNT duper's `WATER`
+tag over its water: `scene::water_cells`). Audit of 2026-10-20
 (removed):
 
 * the viewer's own primed TNT (`mcview::tnt`: a fixed kick, gravity, collisions, vanishing at

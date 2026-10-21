@@ -32,6 +32,7 @@ pub mod designs_center_mech;
 pub mod observer_seq;
 pub mod obschain;
 pub mod leaderboard;
+pub mod layouts;
 pub mod designs_gravity;
 pub mod lm;
 pub mod properties_dyn;
