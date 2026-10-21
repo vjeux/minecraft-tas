@@ -809,7 +809,10 @@ kick) before the first input.
   blocks: both rings turn at the row's ends (short rings stay full of coal for three windows) and
   a second latch clock gives coal windows every 830 gt starting once the coal has filled its ring
   (coal hoarded by furnaces served early, and windows a whole number of ring laps apart, are what
-  starve a furnace: designs/circuits/tracks/smelter/NOTES.md).
+  starve a furnace: designs/circuits/tracks/smelter/NOTES.md). smelter-row-3 narrows the slice to
+  12 blocks a furnace (furnaces 4 apart, coal hoppers on the inner faces sharing one lock).
+  Intrusion: the judge's three chests stand in every run, so the open hopper tops are found with
+  their cells closed too (a stray can't pass through a chest).
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
