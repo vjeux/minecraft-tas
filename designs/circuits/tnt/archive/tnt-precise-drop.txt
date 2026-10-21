@@ -1,22 +1,20 @@
-# archived 2026-10-21T03:31Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-44b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 13 gt, safe drop 5 blocks, stands 23 blocks above the ground (stand: in the design), 44 blocks, 8x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 9.3 blocks below the machine, 13.7 blocks above the ground; launched at (-0.0001, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); dropped: every TNT falls straight down, 11.5+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
-# Precise drop, 44 blocks in an 8x5x8 box, 30 TNT/min: every TNT falls straight down from one
-# point and explodes at one point in mid-air 9.3 blocks under the machine (vjeux 02:45Z: closer than
-# 21), 13.7 blocks above the ground it stands 23 blocks over. Found by clk-rt's `circuit tnt compact
-# --depth 8..10` on the 45-block P40 version in 2 minutes (explore/timer d2432fd80,
-# designs/circuits/tracks/clk-rt/tnt-precise-drop-d93-44b.txt): the last block of the
-# frame-to-trapdoor route is a delay-4 repeater instead of an observer, so the trapdoor opens about
-# 56 ticks after the TNT was lit (fuse 24), and the obsidian under the engine's piston is gone.
-# The 16b engine is held by a redstone torch; a 7-block catalog P40 clock
-# (clk-obs-p40-lamp-obs-rb-stk-7b-30b78d) moves its redstone block in front of a repeater for 6
-# ticks every 40 and the torch goes dark: one TNT. The TNT flies into fence posts over a water
-# channel, the current pins it against an observer on an iron trapdoor, and the next TNT's push,
-# carried by observers and the repeater, opens the trapdoor.
+# archived 2026-10-21T03:52Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-280-44b.txt by mctas circuit archive
+# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 13 gt, safe drop 4 blocks, stands 23 blocks above the ground (stand: in the design), 44 blocks, 7x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 8.3 blocks below the machine, 14.7 blocks above the ground; launched at (0.0017, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); dropped: every TNT falls straight down, 11.5+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise drop, 44 blocks in a 7x5x8 box (280), 30 TNT/min: every TNT falls straight down from one
+# point and explodes at one point in mid-air 8.3 blocks under the machine, 14.7 blocks above the ground
+# it stands 23 blocks over. clk-rt's minimum-volume search (explore/timer 3d5668069,
+# designs/circuits/tracks/clk-rt/tnt-precise-drop-280-44b.txt): `circuit tnt graft` moved the clock and
+# its converter (repeater, stone, torch) as one module so the torch stands under the engine's piston and
+# powers it from below, one column narrower than the 320-volume step. A 7-block catalog P40 clock moves
+# its redstone block in front of the repeater for 6 ticks every 40 and the torch goes dark: one TNT.
+# The TNT flies into fence posts over a water channel, the current pins it against an observer on an
+# iron trapdoor, and the next TNT's push, carried by observers and a delay-4 repeater, opens the
+# trapdoor about 56 ticks after the TNT was lit.
 name: tnt-precise-drop
 circuit: tnt-duper
 stand: 23
-port start: 0 1 0 last
-origin: 0 0 -4
+port start: 1 0 0 last
+origin: 1 0 -4
 palette:
   A minecraft:observer[facing=north,powered=false]
   B minecraft:observer[facing=south,powered=false]
@@ -40,48 +38,48 @@ palette:
   o minecraft:observer[facing=down,powered=false]
   r minecraft:redstone_lamp[lit=false]
   s minecraft:sticky_piston[extended=false,facing=down]
-layer -3:
+layer -4:
   .
-  ....NFIN
+  .
   .
   .
   .
   .
   .N
   .
+layer -3:
+  .
+  ...NFIN
+  .
+  .
+  .
+  .
+  .JNG
+  .
 layer -2:
-  ....OOO
-  ...NW..C
-  ....NNN
+  ...OOO
+  ..NW..C
+  ...NNN
   .
-  .
-  ....SSS
-  .JNGLFS
-  ......S
+  M
+  ...SSS
+  R..LFS
+  .....S
 layer -1:
   .
-  .......K
-  .......B
-  .......B
-  M....T.B
-  ....D..E
-  R....HR
-  ......S
+  ......K
+  ......B
+  ......B
+  r...T.B
+  B..D..E
+  s...HR
+  .....S
 layer 0:
-  .
-  .
-  .
-  .
-  r
-  B
-  s....S
-  .....SS
-layer 1:
   .
   .
   .
   .
   o
   A
-  .
-  .
+  ....S
+  ....SS
