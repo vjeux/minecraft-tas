@@ -398,12 +398,17 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
         }
-        // a crop farm: crops grow by random ticks, which the browser's simulator does not run (the
-        // judge is the game's: crate::farm), so the view shows it as built
+        // a crop farm: the view runs it like its judge (webrender: the judge's chests, the crop
+        // planted, growth by random ticks at the judge's 100 times, FARM_RTS 300 against the
+        // game's 3); a crop redsim does not grow yet is shown as built
         "harvester" => {
             let crop = site_model::html::crop_words(c);
             let tile = site_model::html::tile_step(c).map(|s| format!(" To farm more, build copies side by side, one every {s} blocks.")).unwrap_or_default();
-            return format!("The view shows the farm as built. Crops grow by random ticks, which the browser's simulator does not run, so the view cannot grow the {crop}: download it to watch it harvest in the game.{tile}");
+            if !c.unmodeled.is_empty() || !c.view_halt.is_empty() {
+                return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
+            }
+            let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
+            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest.{tile}");
         }
         // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
         "randomizer" => {
@@ -1057,6 +1062,8 @@ mod tests {
         let b = Build { circuit: Some(c.clone()), blocks: 8, ..Default::default() };
         assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, plant one sugar cane on the dirt and put a chest under its hopper: the download has neither")), "{:?}", needs(&b, ""));
         assert!(try_it(&c, true).ends_with("To farm more, build copies side by side, one every 5 blocks."));
+        // (the view runs a farm like its judge: webrender's harvester view)
+        assert!(try_it(&c, true).starts_with("The view plants the sugar cane and puts our test's chest under its hopper, then runs it like our test"), "{}", try_it(&c, true));
         let card = site_model::html::props(&b);
         assert_eq!(card.title, "harvests sugar cane by itself · 8 blocks");
         // (one cane: its blocks per cane is its block count, not said twice)
@@ -1093,7 +1100,9 @@ mod tests {
         assert!(card.sub.contains("about 16.8 bamboo an hour per stalk · harvests each stalk at 3 blocks tall") && !card.sub.contains("cane"), "{}", card.sub);
         assert!(one_liner(&bamboo).contains("(about 16.8 bamboo an hour for each stalk"), "{}", one_liner(&bamboo));
         assert!(needs(&b3, "").iter().any(|n| n.starts_with("After building it, plant one bamboo on the mud and put a chest under each of its 2 hoppers")), "{:?}", needs(&b3, ""));
-        assert!(!try_it(&bamboo, true).contains("copies") && try_it(&bamboo, true).contains("cannot grow the bamboo"));
+        // (a crop the browser's simulator does not grow yet: shown as built)
+        let still = Circuit { unmodeled: "bamboo (not modeled)".into(), ..bamboo.clone() };
+        assert!(!try_it(&still, true).contains("copies") && try_it(&still, true).contains("cannot grow bamboo yet"), "{}", try_it(&still, true));
         assert_eq!(crate::explain::metric_definition("harvester bamboo", "per cane"), "blocks placed for each bamboo stalk it harvests");
     }
 
