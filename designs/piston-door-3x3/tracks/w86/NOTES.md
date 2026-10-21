@@ -197,6 +197,15 @@
    --strict --wire-dir SAT at h16, but with A2 feeding nothing (--region-budget A2:0) UNSAT at h16 and h20. The
    replaying seeds fr22ms / fr22st (real lever) fail on the left: satwire cores Q (-1,0)/(-1,1), and A2 drives
    nothing in real blocks. So the 7x7 trio family needs a left side whose 2-cell bottom-left feeds nothing.
+12. **macrosat realism (2026-10-21, clockinfra's --wire-dir, rules from my satwire cores):** (a) only an OBSERVER
+   senses a block change, and only in the cell it faces, so a wiring region starts only from an observer watching an
+   in-box change, the lever, or an already started region; a carried observer counts only if it actually fired
+   (0bbf27982); (b) a MULTI cell is dust on a solid block, a torch hung on a conductor beside/below it, or a passive
+   block a directional neighbour points into; (c) a conductor feeds only with dust on top or pointing in, a torch
+   below, or a directional output pointing in (its input inside the box). With these, gf16 (clockinfra's trio7 with
+   a redesigned bottom middle; its satwire cores were Q fed through L2's ML and through the F0 stone) and fr22's
+   fixed layout (h16, h20) are UNSAT. Earlier SATs (fr22ms, fr22st, fr22fb, gf16) leaned on fake starts (a parked
+   corner observer) or on unpowerable conductors.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
