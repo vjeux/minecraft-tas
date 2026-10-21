@@ -1092,6 +1092,31 @@ fn checks() -> Vec<Check> {
             Ok("smelter-1, smelter-clock-2 and smelter-row (rows of 4, 8, 16) robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
         }),
     });
+    // study 18, crop farms (track w86, crate circuit::farm): one game run each (a run repeats for
+    // its build): the cane record harvests every growth into the chest; the melon record's drops
+    // (3 to 7 slices in one stack a fruit) are each seen once and all reach the chest; the melon
+    // calibration (no hopper minecart: a stack squeezed by the piston head shoots out of the fruit's
+    // cell before the hopper takes it) must fail on the lost slices
+    v.push(Check {
+        name: "circuit:farm-run".into(),
+        what: "`circuit farm-run` (the real game, real random ticks, ITEM INTRUSION): cane-mc-8b and melon-mc-7b harvest every growth with nothing lost (melon: every drop stack seen and counted); the melon calibration without its hopper minecart loses a squeezed stack and fails",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("circuit farm-run designs/circuits/farm/archive/cane-mc-8b.txt"),
+            args("circuit farm-run designs/circuits/farm/archive/melon-mc-7b.txt"),
+            args("circuit farm-run designs/circuits/farm/tracks/w86/calibration/melon-lost.txt"),
+        ],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "FARM: cane-mc-8b harvester sugar_cane: per cane 8.0 blocks")?;
+            has(&o[1], "drops seen")?;
+            has(&o[1], "FARM: melon-mc-7b harvester melon: per cane 7.0 blocks")?;
+            has(&o[2], "FAIL: cal-melon-lost: ")?;
+            has(&o[2], "harvested items are not in the judge's chests")?;
+            Ok("cane-mc-8b and melon-mc-7b pass (every melon drop counted); the melon calibration fails on its lost slices".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)
