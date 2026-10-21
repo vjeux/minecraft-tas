@@ -68,6 +68,26 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 - Ruled out by geometry (hand check): S2's output dust on top of S1's output block when f's dust
   sits on top of its block (always 2 cells apart).
 
+## Compaction analysis (2026-10-21, after the coordinator's "compactness beats speed")
+- Why 28 blocks per dial: each frame has ONE reader cell (`getItemFrame`: comparator, block, frame
+  in a line, the frame facing the comparator's direction), and the two-subtractor test needs each
+  value twice (a rear and a side), so both frames need a reader + a hub block + a dust (the 2x2
+  core [F dust, S1; S2, K dust] over hubs F and K). The core's two outputs always point in
+  OPPOSITE directions (both orientations), so a bus or an OR block collects them only through
+  extra relays, and a comparator bus needs a comparator (+ support) in every cell next to the
+  cores' dusts. A U-shaped comparator bus at pitch 3 counts 28 per dial too: no gain.
+- TERNARY DIAL (the way down): T = subtract(rear = the dial frame itself, side = K - 1), where
+  K - 1 is the code reader's value one dust away. T = max(0, f + 1 - k): 0 if the dial is LOW,
+  exactly 1 at the code, >= 2 if HIGH. One comparator reads the dial; no dial reader, no hub,
+  and no second subtractor. "T == 1" from T's own dust line: the 1st dust D1 = T powers the
+  block under it (a torch there is ON iff low), the 2nd dust D2 = T - 1 >= 1 iff high. All
+  mismatches go into one block X with the output's wall torch: 3 dials' D2 into three faces, the
+  low torches' dust network onto X's top. Estimate: about 20 blocks per dial, about 62 for 3.
+- Its hazard: at the dial's wrap (rotation 7 -> 0) T can jump from HIGH straight to LOW. D2 drops
+  at once and the low torch lights 2 gt later, so X would be unpowered for one torch delay
+  (order-dependent: a flicker in some rotations). Fix: the high path through a repeater set to
+  delay 2 (4 gt) into X, so the low torch lights before the high signal ends.
+
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
   two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
