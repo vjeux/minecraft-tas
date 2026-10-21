@@ -1481,34 +1481,46 @@ fn build(g: Grid, o: &Opts) -> Model {
     Model { sat, g, ty, acts, lv, feed, exempt }
 }
 
-/// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds ONE component with a fixed
-/// output for the whole cycle: either one direction (a repeater, comparator or observer pointing
-/// into that neighbor: it powers only that cell, strongly) or MULTI (dust or a torch: it powers its
-/// neighbors together, so every piston next to it acts whenever it fires, lockstep; it strongly
-/// powers a conductor only from on top of it (dust) or from below it (a torch)). A feed through a
-/// wiring cell must use its output: into the piston's cell, its above cell (QC) or a conductor.
+/// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds at most ONE component, with a
+/// fixed output for the whole cycle, kept LOOSER than any real block so an UNSAT stays a bound:
+/// - DIRECTIONAL into one neighbor (a repeater, comparator or observer pointing there): it powers
+///   that cell only; its input or watched cell (opposite) must be inside the box (c70b's edge rule);
+/// - MULTI into a fixed set of neighbors (dust in some shape, a torch, a powered passive block such
+///   as a note block or dropper an observer fires into): whenever it fires, every piston in those
+///   cells (not facing it) acts in that step if retracted and does not retract if extended;
+/// - nothing (a passive block an observer only watches).
+/// Its timing is free (an observer's watched-cell rule, supports and torch inversion are not
+/// imposed). A feed through a wiring cell must use its output. (A stricter version that imposed
+/// observers' timing and supports made the real e78k UNSAT: real doors chain observer -> passive
+/// block -> piston, so it was dropped.)
 fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>]) {
     let n = g.n();
-    // out[w][e]: outputs into neighbor e; out[w][4]: multi
-    let out: Vec<Vec<Lit>> = (0..n)
-        .map(|w| {
-            let v: Vec<Lit> = (0..5).map(|_| sat.var()).collect();
-            // a wiring cell (static: the same in every state) picks exactly one
-            let mut cl = vec![!ty[0][w][WIRE]];
-            cl.extend(v.iter().copied());
-            sat.add(&cl);
-            sat.at_most_one(&v);
-            for e in 0..4 {
-                // a directional component reads its input (or an observer watches) the cell
-                // opposite its output: it must be inside the box (c70b's edge rule); else dust or a
-                // torch only
-                if g.step(w, e).is_none() || g.step(w, opp(e)).is_none() {
-                    sat.add(&[!v[e]]);
-                }
+    // dir[w][e]: directional into e; set[w][e]: e is in the MULTI set; multi[w]
+    let mut dir: Vec<Vec<Lit>> = Vec::new();
+    let mut set: Vec<Vec<Lit>> = Vec::new();
+    let mut multi: Vec<Lit> = Vec::new();
+    for w in 0..n {
+        let d: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
+        let st: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
+        let m = sat.var();
+        let mut one = d.clone();
+        one.push(m);
+        sat.at_most_one(&one);
+        for e in 0..4 {
+            sat.add(&[ty[0][w][WIRE], !d[e]]);
+            sat.add(&[m, !st[e]]);
+            if g.step(w, e).is_none() || g.step(w, opp(e)).is_none() {
+                sat.add(&[!d[e]]);
             }
-            v
-        })
-        .collect();
+            if g.step(w, e).is_none() {
+                sat.add(&[!st[e]]);
+            }
+        }
+        sat.add(&[ty[0][w][WIRE], !m]);
+        dir.push(d);
+        set.push(st);
+        multi.push(m);
+    }
     let dir_to = |from: usize, to: usize| (0..4).find(|&e| g.step(from, e) == Some(to));
     for (s, acts_s) in acts.iter().enumerate() {
         let mut used: HashMap<usize, Lit> = HashMap::new();
@@ -1519,28 +1531,28 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
                 if f.obs.is_some() {
                     continue;
                 }
-                let (x, multi_ok) = match f.cond {
-                    Some(q) => {
-                        let (wx, wy) = g.xy(w);
-                        let (qx, qy) = g.xy(q);
-                        (q, wx == qx && (wy == qy + 1 || wy == qy - 1))
+                let x = match f.cond {
+                    Some(q) => q,
+                    None => {
+                        if dir_to(w, a.c).is_some() {
+                            a.c
+                        } else {
+                            g.step(a.c, 2).unwrap_or(a.c)
+                        }
                     }
-                    None => (if dir_to(w, a.c).is_some() { a.c } else { g.step(a.c, 2).unwrap_or(a.c) }, true),
                 };
                 let mut cl = vec![!a.lit, !f.u];
                 if let Some(e) = dir_to(w, x) {
-                    cl.push(out[w][e]);
-                }
-                if multi_ok {
-                    cl.push(out[w][4]);
+                    cl.push(dir[w][e]);
+                    cl.push(set[w][e]);
                 }
                 sat.add(&cl);
                 let u = *used.entry(w).or_insert_with(|| sat.var());
                 sat.add(&[!a.lit, !f.u, u]);
             }
         }
-        // MULTI fires its neighbors together: a retracted piston next to it (not facing it) acts in
-        // the same step, an extended one does not retract
+        // MULTI fires its whole set together: a retracted piston in a set cell (not facing it)
+        // acts in the same step, an extended one does not retract
         for (&w, &u) in &used {
             for e in 0..4 {
                 let Some(y) = g.step(w, e) else { continue };
@@ -1551,11 +1563,11 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
                     let fires: Vec<Lit> = acts_s.iter().filter(|b| b.c == y && b.d == d && b.kind != Kind::Retract).map(|b| b.lit).collect();
                     let rets: Vec<Lit> = acts_s.iter().filter(|b| b.c == y && b.d == d && b.kind == Kind::Retract).map(|b| b.lit).collect();
                     for k in [false, true] {
-                        let mut cl = vec![!u, !out[w][4], !ty[s][y][piston(k, d, false)]];
+                        let mut cl = vec![!u, !set[w][e], !ty[s][y][piston(k, d, false)]];
                         cl.extend(fires.iter().copied());
                         sat.add(&cl);
                         for &r in &rets {
-                            sat.add(&[!u, !out[w][4], !ty[s][y][piston(k, d, true)], !r]);
+                            sat.add(&[!u, !set[w][e], !ty[s][y][piston(k, d, true)], !r]);
                         }
                     }
                 }
