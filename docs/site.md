@@ -24,17 +24,16 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.
-- **Clocks**: one card (pictured by the smallest clock that survives a chunk reload). Under every
-  period (game ticks) its page lists every clock that makes it (vjeux 2026-10-21 00:43Z: "for each
-  gameticks all the clocks that work (with their specific extension)"): every archived clock
-  (exact twins folded) and every family member at the extension that gives it, if a judge
-  verified it (tested in the game, or simulated to exactly its period), smallest first, each with
-  a "3D view" in the section's viewer and its downloads; every other clock page lists its own
-  period. Members have no page of their own; the time search finds them.
+- **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
+  Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
+  within a period, nothing folded): every archived clock (exact twins folded) and every family
+  member a judge verified (tested in the game, or simulated to exactly its period), which is a
+  clock of its own with a page, a 3D view and downloads ("extended (n = k)"); a clock page links
+  its period on the Clocks tab; the time search shows the period's heading and clocks.
 - **No extendable family pages** (vjeux 2026-10-21 00:33Z: "All these variations are useless,
-  remove them"): no family pages, no circuit members, no "comes in every size"; only the verified
-  clock members above; the smoke checks no family page is written or linked and every member is
-  a verified clock member with its file.
+  remove them"): no family pages, no member lists, no circuit members, no "comes in every size";
+  the smoke checks no family page is written or linked and every member design file is an
+  extended clock's.
 - Everything else is not published at all (no card, page, design file or search hit); the files
   stay in the repository. `mctas site kinds` prints the plan (every kind, its pick or its rows,
   how many designs it leaves out).

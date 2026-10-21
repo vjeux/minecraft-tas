@@ -380,25 +380,19 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
         let written = dir.join("families").exists() || dir.join("designs/circuits/members").exists();
-        // (the clock members a judge verified are listed under their periods: vjeux 00:43Z)
-        let bad_members: Vec<String> = site
-            .members
-            .iter()
-            .filter(|m| !m.axis.is_empty() || !(m.status == site_model::STATUS_JUDGED || m.status == site_model::STATUS_REDSIM) || !site.builds.iter().any(|b| b.id == m.base) || !dir.join(&m.design).is_file())
-            .map(|m| format!("{}-n{}", m.family, m.n))
-            .collect();
+        // (the verified clock members are clocks of their own now: no member list in the data;
+        // one design file per extended clock: vjeux 01:24Z)
+        let extended = site.builds.iter().filter(|b| crate::generate::is_member(b)).count();
         let member_files = std::fs::read_dir(dir.join("designs/clocks/members")).map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".txt")).count()).unwrap_or(0);
         check(
-            "no family page, no circuit member; clock members verified and listed only",
-            !written && linking_families.is_empty() && site.cards.is_empty() && bad_members.is_empty() && member_files == site.members.len(),
+            "no family page, no member list; every member design file is an extended clock's",
+            !written && linking_families.is_empty() && site.cards.is_empty() && site.members.is_empty() && member_files == extended,
             format!(
-                "written: {written}, {} pages link one{}, {} cards, {} members ({} not verified or without a base or file{}), {member_files} member files",
+                "written: {written}, {} pages link one{}, {} cards, {} members, {member_files} member files for {extended} extended clocks",
                 linking_families.len(),
                 linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(),
                 site.cards.len(),
-                site.members.len(),
-                bad_members.len(),
-                bad_members.first().map(|m| format!(", e.g. {m}")).unwrap_or_default()
+                site.members.len()
             ),
         );
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
@@ -495,11 +489,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
-    let clocks = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    // (every clock is a card of its own, under its period: vjeux 01:24Z)
+    let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
+    let clock_cards = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
     check(
-        "one card per kind: every study, one door card, one clock card, no variations table",
-        doubled.is_empty() && doors == 1 && clocks == 1,
-        format!("{} circuit kinds, {doors} door cards, {clocks} clock cards{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card, every clock a card, no variations table",
+        doubled.is_empty() && doors == 1 && clock_cards == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards of {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
@@ -595,19 +591,18 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let records = site.builds.iter().filter(|o| o.door.is_some()).count();
         check("door card: its page lists every board's record", rows == records && records >= 2, format!("{}: {rows} rows, {records} records", b.page));
     }
-    if let Some(b) = site.builds.iter().find(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")) {
-        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        // every clock and every verified member, one folded group per period (vjeux 00:43Z)
-        let clocks = site.builds.iter().filter(|o| o.clock.is_some()).count() + site.members.iter().filter(|m| m.axis.is_empty()).count();
-        let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|o| o.clock.as_ref().map(|c| c.every())).chain(site.members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period)).collect();
-        let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
-        let rows = section.matches("<tr id=\"p").count();
-        let groups = section.matches("<details id=\"p").count();
-        check("clock card: its page lists every clock of every period", rows == clocks && groups == periods.len() && section.contains("id=\"member-view\""), format!("{}: {rows} rows of {clocks} clocks, {groups} groups of {} periods", b.page, periods.len()));
-        // the clock a visitor sees first survives a chunk reload (critique: it changed its period)
-        let reload = b.clock.as_ref().map(|c| c.reload.clone()).unwrap_or_default();
-        check("clock card: its clock survives a chunk reload", site_model::html::reload_chip(&reload).is_none(), format!("{}: reload {reload:?}", b.name));
-    }
+    // every extended clock (a verified family member) is a clock of its own with a page, a 3D
+    // view and its design file (vjeux 01:24Z)
+    let extended: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.flags.iter().any(|f| f == "extended") && crate::generate::is_member(b)).collect();
+    let broken: Vec<&str> = extended
+        .iter()
+        .filter(|b| {
+            let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+            !page.contains("data-mcview=\"full\"") || !dir.join(&b.design).is_file() || !dir.join(crate::generate::litematic_path(&b.design)).is_file()
+        })
+        .map(|b| b.name.as_str())
+        .collect();
+    check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();

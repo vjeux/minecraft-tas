@@ -34,6 +34,9 @@ struct App {
     shared: Vec<String>,
     /// The kind line of the last card drawn (a run of cards shows it only where it changes).
     last_kind: Option<String>,
+    /// The period of the last clock card drawn: a heading opens each period (vjeux 01:24Z: every
+    /// clock as a card, "grouped by timing").
+    last_period: Option<u32>,
     /// Every group chip shown, not only the top ten.
     all_groups: bool,
     /// How many of the hits name what the search's words name (the rest only mention them).
@@ -113,7 +116,7 @@ async fn load() -> Result<(), JsValue> {
         }
     }
     let holds = site.holds();
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, all_groups: false, named: 0, holds }));
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, last_period: None, all_groups: false, named: 0, holds }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -403,6 +406,7 @@ fn refresh(write_hash: bool) {
         }
         a.shown = 0;
         a.last_kind = None;
+        a.last_period = None;
     });
     if done.is_none() {
         return;
@@ -437,11 +441,24 @@ fn more() {
         // (a run of cards: the home page shows a kind line only where the kind changes)
         let mut prev = a.last_kind.take();
         let mut html = String::new();
+        // (clocks sorted by period: one heading per period, vjeux 01:24Z)
+        let by_period = matches!(a.q.sort, site_model::Sort::Main | site_model::Sort::Period);
         for (k, h) in a.hits[a.shown..end].iter().enumerate() {
             // the cards that only mention the search's words, under their own line
             if a.named > 0 && a.shown + k == a.named {
                 html.push_str(&format!("<p class=\"also\">Also mentioning “{}”:</p>", esc(a.q.text.trim())));
                 prev = None;
+            }
+            if by_period {
+                let period = match h {
+                    site_model::Hit::Build(i) => a.site.builds.get(*i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
+                    site_model::Hit::Member(i) => a.site.members.get(*i).filter(|m| m.axis.is_empty()).map(|m| m.period),
+                };
+                if let Some(p) = period.filter(|p| a.last_period != Some(*p)) {
+                    html.push_str(&format!("<h3 class=\"period\" id=\"p{p}\">Every {}</h3>", esc(&site_model::html::keep_units(&site_model::gt_time(p)))));
+                    a.last_period = Some(p);
+                    prev = None;
+                }
             }
             html.push_str(&hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev));
         }

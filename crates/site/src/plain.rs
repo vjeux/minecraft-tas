@@ -192,9 +192,14 @@ pub fn one_liner(c: &Circuit) -> String {
         "tnt-duper" => format!(
             "Lights {}{} without ever using up its own TNT block.",
             if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) },
-            // (the precise duper: the coordinator 00:14Z, "every TNT explodes at the same point in
-            // mid-air")
-            if c.axis.contains("precise air burst") { ", and every TNT explodes at the same point in mid-air," } else { "" }
+            // (the precise dupers: the coordinator 00:14Z and 01:33Z)
+            if c.axis.contains("precise air burst") {
+                ", and every TNT explodes at the same point in mid-air,"
+            } else if c.axis.contains("precise drop") {
+                ", and every TNT falls straight down and explodes at the same point under the machine,"
+            } else {
+                ""
+            }
         ),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter

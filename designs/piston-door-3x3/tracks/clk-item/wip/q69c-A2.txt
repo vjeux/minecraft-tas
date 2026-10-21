@@ -1,0 +1,38 @@
+name: q69c-A2
+# q69c (fly) with two inputs driven by real calibrated sculk sensors, each read by an observer facing down (the observer turns every sensor phase change into a 2 gt pulse, so echo wakes are harmless pulses): A (2,-2,1) by sensor (3,-3) + observer (3,-2) into wool (3,-1) (QC into A); (1,-1,1) by sensor (0,-3) + observer (0,-2) into the block at (0,-1). Lever on the right wall back face (3,1,1). Other inputs ideal.
+port door: 0 0 0
+port lever: 3 1 1
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  S minecraft:slime_block
+  R minecraft:redstone_block
+  w minecraft:sticky_piston[extended=false,facing=west]
+  d minecraft:sticky_piston[extended=false,facing=down]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=true,facing=east]
+  g minecraft:piston_head[facing=east,short=false,type=sticky]
+  K minecraft:calibrated_sculk_sensor[facing=west,power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  O minecraft:observer[facing=down,powered=false]
+  V minecraft:white_wool
+  L minecraft:lever[face=wall,facing=south,powered=false]
+layer -3:
+  ..Ku.K
+layer -2:
+  ..OuuO
+layer -1:
+  .Gg..V
+  .R
+layer 0:
+  .SFFFF
+layer 1:
+  .SFFFF
+  .....L
+layer 2:
+  .SFFFF
+layer 3:
+  .SS..w
+layer 4:
+  .Swdd
+layer 5:
+  ....d
