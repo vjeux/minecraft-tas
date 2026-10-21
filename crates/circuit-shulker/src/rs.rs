@@ -121,7 +121,14 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
     // the start: the box supply (badge box-starved: 2 now, the rest later), the items, the levers
     let mut supply: Vec<JStack> = sc.supply();
     let first = o.starve_first.unwrap_or(2);
-    let held: Vec<JStack> = if sc.starve { supply.split_off(first.min(supply.len())) } else { Vec::new() };
+    let held: Vec<JStack> = if sc.starve {
+        supply.split_off(first.min(supply.len()))
+    } else if sc.one_box {
+        supply.split_off(1.min(supply.len()))
+    } else {
+        Vec::new()
+    };
+    let mut trickled = 0usize;
     let mut start_boxes: Vec<(BlockPos, Vec<Stack>)> = Vec::new();
     for g in 0..groups as u32 {
         let mine: Vec<BlockPos> = supplies.iter().filter(|(_, sg)| *sg == g).map(|(p, _)| *p).collect();
@@ -263,7 +270,15 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
         }
         topup(&mut w, &mut log, t, &mut paused_until, &mut cursor);
         let boxes_out = log.deliveries.iter().filter(|d| d.stack.is_box()).count() as u32;
-        if !held.is_empty() && boxes_out >= first.min(sc.boxes as usize) as u32 && !log.refilled {
+        // the judge's one-box check: one more box at every visit (a hopper feeding the chest)
+        if sc.one_box && trickled < held.len() {
+            let p = supplies[0].0;
+            let mut have = chest_stacks(&w, p);
+            have.push(rstack(&mut w, &held[trickled]).ok_or_else(|| format!("{} is not a redsim item", held[trickled].id))?);
+            set_chest(&mut w, p, &have);
+            trickled += 1;
+        }
+        if sc.starve && !held.is_empty() && boxes_out >= first.min(sc.boxes as usize) as u32 && !log.refilled {
             let second = log.deliveries.iter().filter(|d| d.stack.is_box()).nth(first.saturating_sub(1)).map(|d| d.t).unwrap_or(t);
             if t >= second + STARVE_WAIT {
                 let p = supplies[0].0;
@@ -430,5 +445,14 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Scenario)> {
     // full (the endless supply, required too)
     v.push(("full-chest".to_string(), shulker::full_chest_scenario(c, &base)));
     v.push(("endless".to_string(), shulker::endless_scenario(c, &base)));
+    v.push(("one-box".to_string(), shulker::one_box_scenario(c, &base)));
+    // the drop stress's burst run (loaders): boxes that already hold all but one stack, so each
+    // breaks right after it is placed
+    if base.loader {
+        let mut s = Scenario::with_stack(true, 1);
+        s.burst = true;
+        s.spare = 0;
+        v.push(("burst".to_string(), s));
+    }
     v
 }
