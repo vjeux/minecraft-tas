@@ -17,6 +17,8 @@ pub mod settle;
 pub mod stack;
 pub mod stack7;
 pub mod therm;
+pub mod rand4;
+pub mod randsearch;
 pub mod rings;
 pub mod rings2;
 pub mod route;
@@ -355,6 +357,33 @@ enum Cmd {
         #[arg(long, default_value_t = 0)]
         lane: i32,
     },
+    /// The layout search for randomizers with `--k` token pairs (crates/circuit-display/src/randsearch.rs):
+    /// writes its layout lines to `--out` (build them with `rand4 --pic <file>`).
+    RandSearch {
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        /// Only layouts whose box is at most this volume.
+        #[arg(long, default_value_t = 210)]
+        bound: i32,
+        /// Every complete layout within the bound, not only each new best.
+        #[arg(long)]
+        all: bool,
+        /// Dropper arrangements over a whole window around pair 0, not only the near ones.
+        #[arg(long)]
+        wide: bool,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// The randomizer-4 decoder found by the 3D layout search (crates/circuit-display/src/rand4.rs);
+    /// `--pic` builds any layout line the search prints instead.
+    Rand4 {
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        pic: Option<String>,
+        #[arg(long, default_value = "rand4")]
+        name: String,
+    },
     /// Rewrite a design's block states with its state at rest on redsim (inputs off, `--frames`
     /// after placement), so that it is settled the moment it is placed.
     Settle {
@@ -540,6 +569,27 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
+        Cmd::RandSearch { k, bound, all, wide, out } => {
+            let lines = randsearch::run(k, bound, all, wide);
+            std::fs::write(&out, lines.join("\n") + "\n")?;
+            println!("{} layouts -> {}", lines.len(), out.display());
+            Ok(())
+        }
+        Cmd::Rand4 { out, pic, name } => match pic {
+            // a file of layout lines: every line that routes is written as <out>/<name>-<i>.txt
+            Some(file) if std::path::Path::new(&file).is_file() => {
+                std::fs::create_dir_all(&out)?;
+                for (i, line) in std::fs::read_to_string(&file)?.lines().enumerate().filter(|(_, l)| l.contains("lo (")) {
+                    let n = format!("{name}-{i}");
+                    if let Err(e) = rand4::from_pic(line, &n, &out.join(format!("{n}.txt"))) {
+                        println!("{n}: {e}");
+                    }
+                }
+                Ok(())
+            }
+            Some(line) => rand4::from_pic(&line, &name, &out),
+            None => rand4::build(&out),
+        },
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
         Cmd::Finish { design, out, name, at } => {
             let v: Vec<i32> = at.split(',').filter_map(|x| x.trim().parse().ok()).collect();

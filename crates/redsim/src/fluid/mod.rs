@@ -133,6 +133,8 @@ pub fn waterlogged(b: &Block) -> Option<bool> {
         Block::CoralFan { waterlogged, .. } | Block::CoralWallFan { waterlogged, .. } => Some(waterlogged),
         // ---- fences (clk-misc) ----
         Block::Fence { waterlogged, .. } => Some(waterlogged),
+        // ---- crop farms (webrender): the waterlogged grate (a dry grate stays a plain block) ----
+        Block::WaterloggedGrate => Some(true),
         _ => None,
     }
 }
@@ -148,6 +150,8 @@ pub fn set_waterlogged(b: Block, v: bool) -> Option<Block> {
         Block::CoralWallFan { kind, facing, .. } => Some(Block::CoralWallFan { kind, facing, waterlogged: v }),
         // ---- fences (clk-misc) ----
         Block::Fence { kind, north, east, south, west, .. } => Some(Block::Fence { kind, north, east, south, west, waterlogged: v }),
+        // ---- crop farms (webrender) ----
+        Block::WaterloggedGrate => Some(if v { Block::WaterloggedGrate } else { Block::Simple(crate::block::Simple::WaxedCopperGrate) }),
         _ => None,
     }
 }

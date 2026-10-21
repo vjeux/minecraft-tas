@@ -347,6 +347,10 @@ kick) before the first input.
   cells|box [--rotations all|y]` re-places one module (a clock with its converter) at every target
   in 24 or 4 orientations and judges each. With them the precise drop went 324 -> 240 (6x5x8, burst
   10 blocks under the machine) and the air burst 528 -> 384 (designs/circuits/tracks/clk-rt/).
+  A lever-input seed is screened with its lever used at tick 10 (the judge's action; TNT carried by
+  a moving piston counts as kept), and `--effective` ranks by the judge's `effective volume`
+  (footprint x (height + max(stand, safe drop))) without the fast duper's on-the-ground gate, for
+  stand and pit designs (archive those only after `circuit tnt robust`).
   ON/OFF LEVER (vjeux 2026-10-21 "Can we have an on off switch for all the tnt"): a `tnt-duper`
   with a `lever` input is judged by `circuit::tnt::check_lever` (off as built: nothing primed,
   nothing moving; 4 on/off cycles, each off edge 11 ticks later than the last; each off stops
@@ -790,8 +794,9 @@ kick) before the first input.
   screen and the game see the same outcomes (`circuit trace-compare` is IDENTICAL on the
   calibration rand2-token). Ports: one input, pressed for real (a button of the design is pressed
   and holds for its own time, any other input is held on 30 then 20 gt, alternately), and N
-  outputs, each the design's repeater or comparator facing out of its box (the TAP a builder takes
-  the signal from). Stimulus: 24 presses per output (at least 48), each window the press, the
+  outputs, each the design's repeater or comparator with a free line out of its box (the TAP a
+  builder takes the signal from: every cell from its front straight to the box's edge is empty).
+  Stimulus: 24 presses per output (at least 48), each window the press, the
   recovery gap and a varying wait (0, 7, 3, 13, 1, 22, 5, 9 gt: several paces). Each window:
   exactly one output turns on, once, no other comes on; style `pulse` (all off again by the
   window's end) or `hold` (the chosen output stays on until a press changes it; exactly one on at
@@ -803,7 +808,9 @@ kick) before the first input.
   counts ...`). Item parts are judged by ITEM INTRUSION like every kind (seal hopper tops).
 * **harvester CROP** (study 18, farms, [crate::farm](../crates/circuit/src/farm.rs); board and
   mechanics: [designs/circuits/farm/WR.md](../designs/circuits/farm/WR.md)): an automatic crop
-  harvester (`circuit: harvester sugar_cane`; the only crop judged so far). No input; `port crop:`
+  harvester (`circuit: harvester sugar_cane`, or `bamboo`: no water needed, growths counted by height
+  since bamboo has no age counter, and a stalk has stopped by itself at 16 or when its top reads
+  `stage=1`). No input; `port crop:`
   (one per plant: an air cell on the design's soil, where the judge plants the crop at age 0; not
   counted) and `port output:` (the judge's chest, an air cell, not counted). Judged in the game only
   (redsim has no random ticks) by its own runner: `random_tick_speed` 300 (100 times vanilla) for

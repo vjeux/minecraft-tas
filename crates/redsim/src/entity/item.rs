@@ -171,8 +171,12 @@ pub fn tick(w: &mut World, i: usize) {
     let stuck = !crate::entity::no_collision(w, i, bb);
     w.entities.list[i].no_physics = stuck;
     if stuck {
-        w.errors.push("an item entity inside a block (moveTowardsClosestSpace: the entity's own random) is not modeled".into());
-        return;
+        let b = w.entities.list[i].bb;
+        let (x, z) = (w.entities.list[i].pos.x, w.entities.list[i].pos.z);
+        if !move_towards_closest_space(w, i, x, (b.min_y + b.max_y) / 2.0, z) {
+            w.errors.push("an item entity inside a block (moveTowardsClosestSpace: the entity's own random, unknown for this item) is not modeled".into());
+            return;
+        }
     }
     let (on_ground, hd, phase) = {
         let e = &w.entities.list[i];
@@ -219,4 +223,44 @@ pub fn tick(w: &mut World, i: usize) {
     if age >= 6000 {
         w.entities.list[i].removed = true;
     }
+}
+
+/// `Entity.moveTowardsClosestSpace(x, y, z)` of entity `i` (stuck inside a block): toward the
+/// nearest of the cell's north, south, west, east and top faces whose neighbour is not a full
+/// collision block (up when none), at `random.nextFloat() * 0.2 + 0.1` along that axis, the other
+/// axes' motion times 0.75. False when the entity's own random is unknown (nothing changed).
+fn move_towards_closest_space(w: &mut World, i: usize, x: f64, y: f64, z: f64) -> bool {
+    use crate::pos::{BlockPos, Dir};
+    let pos = BlockPos::new(mth::floor(x), mth::floor(y), mth::floor(z));
+    let delta = [x - pos.x as f64, y - pos.y as f64, z - pos.z as f64];
+    let mut closest_dir = Dir::Up;
+    let mut closest = f64::MAX;
+    for d in [Dir::North, Dir::South, Dir::West, Dir::East, Dir::Up] {
+        if crate::behavior::full_cube(&w.get(pos.rel(d))) {
+            continue;
+        }
+        let axis = match d {
+            Dir::West | Dir::East => 0,
+            Dir::Down | Dir::Up => 1,
+            Dir::North | Dir::South => 2,
+        };
+        let positive = matches!(d, Dir::East | Dir::Up | Dir::South);
+        let oriented = if positive { 1.0 - delta[axis] } else { delta[axis] };
+        if oriented < closest {
+            closest = oriented;
+            closest_dir = d;
+        }
+    }
+    let Some(r) = w.entities.list[i].random.as_mut() else { return false };
+    let speed = r.next_float() * 0.2 + 0.1;
+    let step: f32 = if matches!(closest_dir, Dir::East | Dir::Up | Dir::South) { 1.0 } else { -1.0 };
+    let v = (step * speed) as f64;
+    let m = w.entities.list[i].delta_movement;
+    let (sx, sy, sz) = (m.x * 0.75, m.y * 0.75, m.z * 0.75);
+    w.entities.list[i].delta_movement = match closest_dir {
+        Dir::West | Dir::East => Vec3::new(v, sy, sz),
+        Dir::Down | Dir::Up => Vec3::new(sx, v, sz),
+        Dir::North | Dir::South => Vec3::new(sx, sy, v),
+    };
+    true
 }

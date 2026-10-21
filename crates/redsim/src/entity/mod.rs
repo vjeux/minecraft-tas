@@ -143,6 +143,15 @@ pub struct Entity {
     /// `VehicleEntity.getDamage()` (boats, minecarts): +10 per point of damage, destroyed past
     /// 40, -1 per tick.
     pub vehicle_damage: f32,
+    // ---- the entity's own random (clk-misc, 2026-10-21: items pushed into blocks) ----
+    /// `Entity.random`, when the bridge seeds it: a summoned entity's is reseeded to
+    /// `0x6d63746173 + its summon index` (`Sandbox.summon`), a popResource drop's to the drop's own
+    /// seed, past its six placing draws (`rng::Drop`). `None`: unknown (a draw from it is a model
+    /// error).
+    pub random: Option<crate::rng::LegacyRandom>,
+    /// The bridge's summon index of a summoned (design) entity: its UUID's number, the count of
+    /// design entities alive when it came, past any number one of them still holds.
+    pub summon_index: Option<u32>,
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -198,6 +207,8 @@ impl Entity {
             piston_deltas: [0.0; 3],
             piston_deltas_time: 0,
             vehicle_damage: 0.0,
+            random: None,
+            summon_index: None,
         }
     }
 
@@ -328,7 +339,17 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
         }
     }
     let id = w.entities.add(kind, Vec3::new(pos[0], pos[1], pos[2]), yaw);
+    // the bridge's summon numbering (`Sandbox.summon`): after the design entities alive (item
+    // frames, which never leave, among them), past any number a live one still holds; its own
+    // random reseeded to 0x6d63746173 + that number
+    let live: Vec<u32> = w.entities.list.iter().filter(|e| !e.removed).filter_map(|e| e.summon_index).collect();
+    let mut index = (live.len() + w.frames.len()) as u32;
+    while live.contains(&index) {
+        index += 1;
+    }
     if let Some(e) = w.entities.list.last_mut() {
+        e.summon_index = Some(index);
+        e.random = Some(crate::rng::LegacyRandom::new(0x6d_6374_6173_i64 + index as i64));
         e.x_rot = pitch;
         e.x_rot_o = pitch;
         // Motion:[x, y, z] (doubles)

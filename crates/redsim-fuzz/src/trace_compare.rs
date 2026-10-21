@@ -56,6 +56,11 @@ pub struct Trace {
     /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
     /// with `random_state`), checked against the mirror every frame.
     pub rng: Vec<Option<i64>>,
+    /// Per tick: `Level.randValue` after the frame (`rv`, a bridge that seeds it): with it, redsim
+    /// runs the random ticks and checks the generator every frame.
+    pub rv: Vec<Option<i32>>,
+    /// The game's chunk tick order (header `chunk_order`).
+    pub chunk_order: Option<Vec<[i32; 2]>>,
 }
 
 fn f3(v: &serde_json::Value) -> Option<[f64; 3]> {
@@ -92,6 +97,8 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?, a.get(3).and_then(|s| s.as_str()).map(|s| s.to_string())))).collect())
             .unwrap_or_default(),
         rng: Vec::new(),
+        rv: Vec::new(),
+        chunk_order: h["chunk_order"].as_array().map(|a| a.iter().filter_map(|c| Some([c.get(0)?.as_i64()? as i32, c.get(1)?.as_i64()? as i32])).collect()),
     };
     for (i, line) in lines.enumerate() {
         let v: serde_json::Value = serde_json::from_str(line).with_context(|| format!("line {}", i + 2))?;
@@ -116,6 +123,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         }
         t.frames.push((blocks, ents));
         t.rng.push(v["rng"].as_i64());
+        t.rv.push(v["rv"].as_i64().map(|n| n as i32));
     }
     Ok(t)
 }
@@ -275,8 +283,19 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
         w.mirror_level_random(seed, chunks);
         // the sandbox's randomTickSpeed rule (3 unless the trace says otherwise)
-        w.chunk_draws = w.chunk_draws / 3 * trace.random_tick_speed;
+        w.tick_speed = trace.random_tick_speed;
         w.drop_seed = Some(seed);
+        // a trace from a bridge that seeds Level.randValue (its frames carry `rv`): the random
+        // ticks run, mirrored from the bridge's seed, in the game's chunk order (the header's
+        // `chunk_order`, which redsim's must match)
+        if trace.rv.iter().any(|v| v.is_some()) {
+            w.random_ticks = Some(redsim::crops::RandomTicks::new(trace.random_tick_speed, seed));
+        }
+        if let Some(game) = &trace.chunk_order
+            && *game != w.chunk_order
+        {
+            return Ok(Outcome::Diverges { tick: 0, diffs: vec![format!("chunk tick order: game {game:?}, redsim {:?} (crops::tick_order of the forced box {chunks:?})", w.chunk_order)], more: 0 });
+        }
     }
     let last = c.withheld().map(bp);
     let be: Vec<(BlockPos, &str)> = c.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).filter(|(p, _)| Some(*p) != last).collect();
@@ -465,6 +484,12 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
             }
             sim_rng_prev = Some(s);
+        }
+        // Level.randValue after this frame (traces with `rv`): the random ticks' positions
+        if let (Some(game), Some(rt)) = (trace.rv.get(t).copied().flatten(), w.random_ticks.as_ref())
+            && game != rt.value
+        {
+            ed.push(format!("Level.randValue: game {game}, redsim {} (the random ticks' or precipitation picks' count differs)", rt.value));
         }
         n_diff += ed.len();
         for d in ed {
