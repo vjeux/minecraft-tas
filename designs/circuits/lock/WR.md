@@ -1,8 +1,8 @@
 # Study 14: combination locks (WR board)
 
 ONE design: the item-frame combination lock players build. The player turns N item frames (the
-dials); the door opens only when every dial shows the rotation of its hidden code frame. "Set
-the code by rotating the hidden frame behind each dial."
+dials); the door opens only when every dial shows the same position as its own code frame. "Set
+the code by turning the code frames on the other side of the build."
 
 ## The judge (`circuit: lock N`, crates/circuit/src/lock.rs)
 - Ports: `port input.d0..d<N-1>: x y z frame` (the dials) and `port input.k0..k<N-1>: x y z frame`
@@ -98,6 +98,28 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   comparator and its frame is powered at 15, the comparator reads 15 instead of the frame, so a
   previous dial's mismatch (15) can force the next dial HIGH and travel down the chain with no
   inverter; only lows need a torch.
+
+- `circuit shrink` (game-judged, 2 positions x 4 rotations) on lock3-lines: no single block can go
+  (96 candidate blocks): the 102 is a layout minimum, not a padding one.
+- FORCING CHAIN (next to try): dial i's mismatch, high (its delay-2 repeater) or low (its torch),
+  powers dial i+1's frame block Bd at 15 (a dust ON TOP of Bd fed by both: dust powers the block
+  under it at its level, and a torch next to the dust lifts it to 15). Dial i+1 then reads 15,
+  goes HIGH and passes the mismatch on; only the last dial needs the output inverter (its high
+  repeater and low torch into X, X's wall torch = output). No shared network and no OR block per
+  dial: per dial about Bd, T, D1/Y, D2, R, A and the K line (about 16 blocks). A repeater whose
+  input drops and returns within its delay stays on (it re-reads its input at the tick), so the
+  repeaters also filter the 2 gt wrap glitch.
+- A single OR block H for all highs is safe next to any dust: a block powered only by dust is not
+  seen by other dust (wire reads run with `shouldSignal` off), unlike a block a torch or a
+  repeater powers.
+- Hand packing of the forcing chain (2026-10-21): every placement tried collides. The forcing dust
+  must be at 15, so the high repeater and the low torch must both touch it; the low torch hangs on
+  T's output block, on the face toward that dust; T's two side cells are then next to the torch or
+  to D1, so the code dust (K - 1) at T's side reads 15 or merges with D1. Ways out to test:
+  T's code input from a comparator pointing into its side with the decay done before it (code
+  reader -> dust -> dust -> a second comparator in compare mode -> T's side), or the low path
+  through its own repeater (any distance) into the frame block's free face. A packing search
+  (Rust, game-judged candidates) is the systematic route.
 
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
