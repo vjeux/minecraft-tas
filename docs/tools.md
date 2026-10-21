@@ -127,7 +127,7 @@ Never edit these by hand; change their generator or its inputs and regenerate:
 |---|---|---|
 | `designs/piston-door-3x3/LEADERBOARD.md` | `door leaderboard` | every design on main and `explore/*`, the verdict and shape caches, the `videos` release (GIFs, videos, montages), `archive/captions.tsv` |
 | `designs/piston-door-3x3/archive/README.md` | `door catalog`, `door video-all` | the archive files, the verdict cache, `archive/records.tsv`, `archive/captions.tsv`, `tracks/buildable/scripts/`, the `videos` release |
-| the `gh-pages` branch (REDSTONEPEDIA, https://vjeux.github.io/minecraft-tas/) | `site publish` | every archive and its caches, captions, traces, `web/viewer/`, `web/site/` ([site.md](site.md)) |
+| the `gh-pages` branch (REDSTONEPEDIA, https://vjeux.github.io/redstonepedia/) | `site publish` | every archive and its caches, captions, traces, `web/viewer/`, `web/site/` ([site.md](site.md)) |
 
 `archive/records.tsv` (the solid record progression, one row per record) and
 `archive/captions.tsv` (one line per design: how it works) are hand-edited data: add a row when

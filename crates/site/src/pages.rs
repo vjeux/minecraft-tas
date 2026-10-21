@@ -1,13 +1,13 @@
 //! The static pages: the index (the filtering UI's shell), one page per build, one per
 //! extendable family card, the family index, a static list of everything (no script needed),
 //! the about page and the 404 page. Every page is plain HTML5 with relative links (the site is a
-//! GitHub project page under /minecraft-tas/); viewers are `data-mcview` elements that
+//! GitHub project page under /redstonepedia/); viewers are `data-mcview` elements that
 //! webrender's bundle (viewer/mcview.js) renders when present.
 
 use site_model::html::{build_card, esc, kind_title, member_href};
 use site_model::{Build, Card, Member, Site, flag_label, real_time, status_label};
 
-pub const REPO_URL: &str = "https://github.com/vjeux/minecraft-tas";
+pub const REPO_URL: &str = "https://github.com/vjeux/redstonepedia";
 pub const SITE_NAME: &str = "REDSTONEPEDIA";
 
 /// What a page loads besides its HTML.
@@ -99,7 +99,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     // no page links in the footer (vjeux 13:35Z: "it's not to put them back in the footer"); the
     // date without the time, so it does not wrap on a phone (critique C52)
     s.push_str(&format!(
-        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
+        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/redstonepedia@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(site.generated.split('T').next().unwrap_or(&site.generated))
@@ -1502,8 +1502,9 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
 
 pub fn not_found_page(site: &Site) -> String {
     // GitHub Pages serves this file at any depth: absolute links to the project's root
-    let body = "<h1>Not found</h1><p>This page does not exist (any more). Start from <a href=\"/minecraft-tas/index.html\">the index</a>.</p>";
-    shell("Not found", "Page not found", "/minecraft-tas/", body, Scripts::default(), site)
+    let root = crate::deploy::SITE_PATH;
+    let body = format!("<h1>Not found</h1><p>This page does not exist (any more). Start from <a href=\"{root}index.html\">the index</a>.</p>");
+    shell("Not found", "Page not found", root, &body, Scripts::default(), site)
 }
 
 /// `<folder>/index.html` for the obvious per-kind URLs (`/clocks/`, `/doors/`, `/circuits/`): a

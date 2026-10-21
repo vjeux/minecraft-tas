@@ -11,7 +11,7 @@ pub struct WorldArgs {
     #[arg(long)]
     out: PathBuf,
     /// The save's folder name, as the game lists it.
-    #[arg(long, default_value = "minecraft-tas doors")]
+    #[arg(long, default_value = "redstonepedia doors")]
     name: String,
     #[arg(long, default_value_t = 12)]
     workers: usize,

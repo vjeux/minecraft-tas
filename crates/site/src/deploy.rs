@@ -1,7 +1,7 @@
 //! `mctas site deploy`: the generated folder becomes ONE orphan commit on the gh-pages branch
 //! (built with a temporary index, never touching the working tree or the current branch), pushed
 //! with the token of `gh auth token` (the push recipe of AGENTS.md). GitHub Pages serves it at
-//! https://vjeux.github.io/minecraft-tas/.
+//! https://vjeux.github.io/redstonepedia/.
 //!
 //! Two guards (several agents deploy): the checkout must contain the commit the current site was
 //! built from (else a deploy from an older tree would take features away: merge first), and
@@ -28,8 +28,13 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-pub const PAGES_URL: &str = "https://vjeux.github.io/minecraft-tas/";
-pub const REPO: &str = "vjeux/minecraft-tas";
+pub const PAGES_URL: &str = "https://vjeux.github.io/redstonepedia/";
+/// The repository (vjeux 13:06Z: renamed from vjeux/minecraft-tas; GitHub redirects git, the web
+/// and the API from the old name, not the old Pages site; local clones keep their folder names).
+pub const REPO: &str = "vjeux/redstonepedia";
+/// The site's path under vjeux.github.io (the repository's name): the 404 page links absolutely
+/// (`pages::not_found`), and `site serve` strips it.
+pub const SITE_PATH: &str = "/redstonepedia/";
 /// GitHub Pages' soft limit is 10 builds an hour for a branch; keep one for the next deploy.
 const BUILDS_PER_HOUR: usize = 9;
 
