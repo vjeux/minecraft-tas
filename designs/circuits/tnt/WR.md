@@ -57,7 +57,11 @@ dropping its block) to the launcher: the launch comes 64 ticks after the TNT was
 the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
 The PRECISE DROP (vjeux 01:00Z, tree farms; 02:45Z "21 blocks is super far away"): **tnt-precise-drop**
-now 45 blocks in an 8x5x8 box (320), 30/min, game-robust, bursting 14.5 blocks under the machine and
+now 44 blocks in an 8x5x8 box (320), 30/min, game-robust, bursting 9.3 blocks under the machine and
+13.7 above the ground (`stand: 23`). clk-rt's `circuit tnt compact --depth 8..10` (the minimum-volume
+search, vjeux 02:47Z) found it on the 45-block version in 2 minutes: the route's last observer became a
+delay-4 repeater (the trapdoor opens about 56 ticks after lighting, fuse 24) and the obsidian under the
+engine piston went. The 45-block step: 8x5x8, 14.5 below and
 8.5 above the ground (`stand: 23`; the card reads both). The 46-block step below (9x4x9, 21.4 below)
 used a P33 clock; this one a 7-block catalog P40 clock (clk-obs-p40-lamp-obs-rb-stk-7b-30b78d) whose
 moving redstone block stands 6 ticks in front of the converter's repeater (found by `hold-scan --pulse
