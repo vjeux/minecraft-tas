@@ -37,18 +37,18 @@ and `display settle F --frames 400`.
 ## therm-v5, the tower (`--tower`, NOT working yet: lane routing)
 Strips along +z in two columns (x = 3 and 13) stacked every 3 levels, s carried down ONE lossless
 column between them (`dE dW` zigzag, 2 cells per level, a branch to every hub through a z-detour
-at oz-4 shared by both columns), the chain on top of the shorter column. It builds (1464 blocks)
-and its box is ~20x13x27 = 7,000, but the seven lanes do not route: every lane needs its own
-z-plane (two lanes at the same lamp row would stand on each other), and then
-- a lane's north run at its lamp column crosses the z-planes of every lane in front of it: for two
-  lanes whose rows differ by 1, the one with the SMALLER z must not have its west run reach the
-  other's lamp column (lx_small > lx_big). Solvable: f 1, e 2, g 3, a 4, d 5, b 6, c 7.
-- but the descent (dust steps down from the strip's level to its lamp row) and the west run cannot
-  share a z-plane: a descent step one level above the run stands on the run's repeater. Descending
-  west overshoots the lamp column for column A (dy up to 6, only 2 cells of room), descending east
-  puts the run back under the descent. The fix is a second plane per lane (descend at z+1, run at
-  z) or a 2x2 spiral descent (1 level per cell, in (x, z) = (cx, cx+1) x (z, z+1), which does not
-  self-block), with the cross-lane constraints re-checked.
+at oz-4 shared by both columns), the chain on top of the shorter column. It builds (~1460 blocks)
+and its box is ~20x13x27 = 7,000 — but the seven lanes do not route. What is settled:
+- every lane needs its own z-plane (two lanes at the same lamp row would stand on each other);
+- a descent must not share a plane with its own west run (a dust one level above the run stands on
+  the run's repeater); the 2x2 dust spiral (x cx..cx+1, z zl..zl+1, one level per cell) is the
+  descent that never blocks itself, and is what `--tower` builds now;
+- what is left is the crossings: a lane's north run at its lamp column passes through every plane
+  in front of it, and the lanes' west runs sweep the lamp columns at their own row. A search over
+  the 7 segment-to-slot assignments x the 7 lane planes (20k random draws, `tower()` counts
+  clashes and unsupported cells) gets to 11 clashes, not 0 — the crossings need a real router (or
+  lanes that travel at their own y and only drop to the lamp row inside the face plane, where the
+  8 non-lamp face cells may hold design blocks).
 
 ## Volume ideas beyond the tower
 - Share one ruler between two segments (one per side): 7 rulers -> 4.

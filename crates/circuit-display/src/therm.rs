@@ -476,17 +476,105 @@ pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()>
 /// cells per level) with a branch to every strip's hub; each strip's output descends to its
 /// lamp's row with dust steps (west and down) and runs west, then north into the lamp.
 pub fn full_tower(code: &Code, out: &std::path::Path) -> Result<()> {
+    // search over which segment takes which (column, level) slot and which plane each lane gets
+    let mut best: Option<(usize, [usize; 7], [i32; 7])> = None;
+    let mut planes = [1, 2, 3, 4, 5, 6, 7];
+    let perms = perms7(&mut planes);
+    let mut rng: u64 = 0x9e3779b97f4a7c15;
+    let mut next = move || {
+        rng ^= rng << 13;
+        rng ^= rng >> 7;
+        rng ^= rng << 17;
+        rng
+    };
+    for _ in 0..20000 {
+        // a random assignment of the 7 segments to the 7 slots
+        let mut slots = [0usize, 1, 2, 3, 4, 5, 6];
+        for i in (1..7).rev() {
+            let j = (next() % (i as u64 + 1)) as usize;
+            slots.swap(i, j);
+        }
+        let p = perms[(next() % perms.len() as u64) as usize];
+        let Ok(n) = tower(code, &slots, &p, None) else { continue };
+        if best.as_ref().is_none_or(|b| n < b.0) {
+            println!("slots {slots:?} planes {p:?}: {n} clashes");
+            best = Some((n, slots, p));
+        }
+        if n == 0 {
+            break;
+        }
+    }
+    let (n, slots, p) = best.ok_or_else(|| anyhow!("no tower builds"))?;
+    ensure!(n == 0, "no clash-free tower: best {n} clashes (slots {slots:?} planes {p:?})");
+    tower(code, &slots, &p, Some(out))?;
+    Ok(())
+}
+
+/// Every permutation of the seven lane planes (lazily, as a vector).
+fn perms7(items: &mut [i32; 7]) -> Vec<[i32; 7]> {
+    let mut out = Vec::new();
+    let mut idx = [0usize; 7];
+    let mut a = *items;
+    out.push(a);
+    let mut i = 0;
+    while i < 7 {
+        if idx[i] < i {
+            let j = if i % 2 == 0 { 0 } else { idx[i] };
+            a.swap(j, i);
+            out.push(a);
+            idx[i] += 1;
+            i = 0;
+        } else {
+            idx[i] = 0;
+            i += 1;
+        }
+    }
+    out
+}
+
+enum Put {
+    Stone,
+    Dust,
+    Rep(D),
+}
+
+/// Write a lane cell, counting a clash when something is already there.
+fn put(b: &mut B, p: P, what: Put, clash: &mut usize) {
+    if b.blocks.contains_key(&p) {
+        *clash += 1;
+        if std::env::var("MCTAS_TOWER_DEBUG").is_ok() {
+            println!("  clash at {p:?}: {}", b.blocks[&p]);
+        }
+        return;
+    }
+    match what {
+        Put::Stone => b.stone(p),
+        Put::Dust => b.dust(p),
+        Put::Rep(d) => b.rep(p, d, 1),
+    }
+}
+
+/// Build the tower with these lane planes; returns the number of clashes plus unsupported cells,
+/// and writes the design when `out` is given.
+fn tower(code: &Code, slots: &[usize; 7], planes: &[i32; 7], out: Option<&std::path::Path>) -> Result<usize> {
     NARROW.with(|n| n.set(true));
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let mut b = B::default();
-    let oz = 12;
-    // segment, lamp column x, lamp row y, strip column x, strip level, lane depth (every lane
-    // has its own z: two lanes at the same y would stand on each other)
-    let segs: [(char, i32, i32, i32, i32, i32); 7] =
-        [('d', 1, 0, 3, 0, 5), ('g', 1, 2, 3, 3, 3), ('f', 2, 3, 3, 6, 1), ('a', 1, 4, 3, 9, 4), ('e', 2, 1, 13, 0, 2), ('c', 0, 1, 13, 3, 7), ('b', 0, 3, 13, 6, 6)];
-    // the chain above the strips, its output over the s column (8, 10, 6)
-    let split = chain_back(&mut b, [10, 8, 14], code);
+    let mut clash = 0usize;
+    let oz = 14;
+    // the lamps: segment, column x, row y; the slots: (strip column x, strip level)
+    let lamps: [(char, i32, i32); 7] = [('a', 1, 4), ('f', 2, 3), ('b', 0, 3), ('g', 1, 2), ('e', 2, 1), ('c', 0, 1), ('d', 1, 0)];
+    let slot_at: [(i32, i32); 7] = [(3, 0), (3, 3), (3, 6), (3, 9), (13, 0), (13, 3), (13, 6)];
+    let segs: Vec<(char, i32, i32, i32, i32)> = (0..7)
+        .map(|k| {
+            let (seg, lx, row) = lamps[k];
+            let (cx, lvl) = slot_at[slots[k]];
+            (seg, lx, row, cx, lvl)
+        })
+        .collect();
+    // the chain above the strips, its output over the s column
+    let split = chain_back(&mut b, [10, 8, oz + 2], code);
     let top = walk(&mut b, split, "N N W W W W W");
     ensure!(top == [9, 10, oz - 2], "chain feed ends at {top:?}");
     // the s column: down from (9, 10, 6) to level -2, a branch block at every strip level
@@ -498,7 +586,8 @@ pub fn full_tower(code: &Code, out: &std::path::Path) -> Result<()> {
         col = walk(&mut b, col, d);
         hubs.push((col[1], col));
     }
-    for (seg, lx, row, cx, lvl, zl) in segs {
+    for (k, (seg, lx, row, cx, lvl)) in segs.into_iter().enumerate() {
+        let zl = planes[k];
         let si = "abcdefg".find(seg).unwrap();
         let rs = runs(m[si]);
         let t = T { o: [cx, lvl, oz], su: 1, z_axis: true };
@@ -523,36 +612,51 @@ pub fn full_tower(code: &Code, out: &std::path::Path) -> Result<()> {
         moves.push("S");
         let end = walk(&mut b, src, &moves.join(" "));
         ensure!(end == hub, "s branch ends at {end:?}, want {hub:?}");
-        // the lane: the head repeater powers a stone at (cx, lvl + 1, oz - 5); each lamp row has
-        // its own lane depth (z = 1 + row), so no lane stands on another; the dust under the
-        // stone steps west and down to the row, then repeaters west and north into the lamp
+        // the lane: the head repeater powers a stone at (cx, lvl + 1, oz - 5), repeaters carry it
+        // to the lane's own plane z = zl, a 2x2 spiral of dust (x cx..cx+1, z zl..zl+1, one level
+        // per cell, which never stands on itself) descends to the lamp's row, then repeaters run
+        // west at the row and north into the lamp
         let h_out = lvl + 1;
-        b.stone([cx, h_out, oz - 5]);
-        for z in (zl + 1..oz - 5).rev() {
-            b.rep([cx, h_out, z], D::N, 1);
-        }
-        if zl < oz - 5 {
-            b.stone([cx, h_out, zl]);
-        }
+        put(&mut b, [cx, h_out, oz - 5], Put::Stone, &mut clash);
         let dy = h_out - row;
         ensure!(dy >= 0, "{seg}: the strip is below its lamp row");
-        // the descent steps EAST (away from the face columns), then the run goes west at the row
-        for k in 1..=dy {
-            b.dust([cx + k - 1, h_out - k, zl]);
+        // the spiral's cells, last first: (cx, row) in plane zl, then up the ring
+        let ring = [(cx, zl), (cx + 1, zl), (cx + 1, zl + 1), (cx, zl + 1)];
+        if dy == 0 {
+            if zl + 1 < oz - 5 {
+                put(&mut b, [cx, h_out, zl + 1], Put::Rep(D::N), &mut clash);
+            }
+            put(&mut b, [cx, h_out, zl], Put::Stone, &mut clash);
+        } else {
+            // the block the spiral hangs from, in the plane of the spiral's first cell
+            let (fx, fz) = ring[dy as usize % 4];
+            if fz < oz - 5 {
+                for z in (fz + 1..oz - 5).rev() {
+                    put(&mut b, [cx, h_out, z], Put::Rep(D::N), &mut clash);
+                }
+            }
+            put(&mut b, [fx, h_out, fz], Put::Stone, &mut clash);
+            for k in 1..=dy {
+                let (x, z) = ring[(dy - k) as usize % 4];
+                put(&mut b, [x, h_out - k, z], Put::Dust, &mut clash);
+            }
         }
-        let mut x = if dy == 0 { cx - 1 } else { cx + dy - 1 };
+        let mut x = cx - 1;
         while x > lx {
-            b.rep([x, row, zl], D::W, 1);
+            put(&mut b, [x, row, zl], Put::Rep(D::W), &mut clash);
             x -= 1;
         }
-        b.rep([lx, row, zl], D::N, 1);
+        put(&mut b, [lx, row, zl], Put::Rep(D::N), &mut clash);
         for z in 1..zl {
-            b.rep([lx, row, z], D::N, 1);
+            put(&mut b, [lx, row, z], Put::Rep(D::N), &mut clash);
         }
         b.port(&format!("output.{seg}"), [lx, row, 0]);
     }
     let d = b.design("seven-segment-therm-v5", Some("seven-segment 4"));
-    std::fs::write(out, d.to_text())?;
-    println!("{}: {} blocks", out.display(), d.blocks.len());
-    Ok(())
+    let bad = crate::agen::bad_supports(&b).len();
+    if let Some(out) = out {
+        std::fs::write(out, d.to_text())?;
+        println!("{}: {} blocks, {clash} clashes, {bad} unsupported", out.display(), d.blocks.len());
+    }
+    Ok(clash + bad)
 }
