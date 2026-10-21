@@ -137,6 +137,36 @@ pub fn game_run(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32) 
     r
 }
 
+/// Which drop (its number in the sandbox and its cell: `rng::Drop::seeded`, the bridge's
+/// `DropSeeder`) an item seen after its first tick at `pos` is, in a box of a sandbox seeded
+/// `seed` (the twin's calibration probe).
+pub fn which_drop(seed: i64, from: Pos, to: Pos, pos: [f64; 3]) -> Vec<String> {
+    let mut found = Vec::new();
+    for n in 0..5000u64 {
+        for cx in from[0]..=to[0] {
+            for cy in from[1]..=to[1] {
+                for cz in from[2]..=to[2] {
+                    let d = redsim::rng::Drop::seeded(seed, n, redsim::BlockPos::new(cx, cy, cz));
+                    if (d.pos[0] + d.motion[0] - pos[0]).abs() < 1e-5 && (d.pos[2] + d.motion[2] - pos[2]).abs() < 1e-5 {
+                        found.push(format!("drop {n} of cell [{cx}, {cy}, {cz}]"));
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
+/// The drop numbers whose drift is `motion` seen after the first tick (x and z, the drag 0.98F
+/// applied): the drift is a function of the number alone.
+pub fn which_drift(seed: i64, motion: [f64; 3]) -> Vec<u64> {
+    let drag = 0.98f32 as f64;
+    (0..100_000u64).filter(|n| {
+        let d = redsim::rng::Drop::seeded(seed, *n, redsim::BlockPos::new(0, 0, 0));
+        (d.motion[0] * drag - motion[0]).abs() < 1e-6 && (d.motion[2] * drag - motion[2]).abs() < 1e-6
+    }).collect()
+}
+
 /// A build's box (the watched box, raised for the crop to grow) and its sandbox seed.
 pub fn judge_box(c: &Circuit, margin: i32) -> (Pos, Pos, i64) {
     let (mut from, mut to) = crate::run::watch_box(c, margin);
@@ -144,6 +174,50 @@ pub fn judge_box(c: &Circuit, margin: i32) -> (Pos, Pos, i64) {
     to[1] = to[1].max(c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos[1] + 3).max().unwrap_or(to[1]));
     from[1] = from[1].min(to[1] - 2);
     (from, to, shulker::build_seed(from, to, 0))
+}
+
+/// The twin's calibration probe in the game (`farm-run --compare --probe`): [`run_in`]'s build
+/// and run, one tick per step, every tick's state as [`sim_digest`] writes it (from the run's
+/// start), up to `ticks + 2 * REST`.
+pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32) -> Result<Vec<String>> {
+    let Some(Kind::Harvester(crop)) = &c.kind else { bail!("{}: not a harvester", c.name()) };
+    let (from, to, seed) = judge_box(c, margin);
+    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
+    clock::verify::place(w, sb, &c.clock)?;
+    let crops: Vec<Pos> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
+    let chests: Vec<(Pos, String)> = c.outputs.iter().map(|o| (o.pos, CHEST.to_string())).collect();
+    w.set_blocks(sb, &chests, PlaceMode::Raw)?;
+    w.exec(sb, "gamerule random_tick_speed 0")?;
+    let planted: Vec<(Pos, String)> = crops.iter().map(|p| (*p, planted_state(crop).to_string())).collect();
+    w.set_blocks(sb, &planted, PlaceMode::Update)?;
+    w.step(sb, c.clock.free_from() + SETTLE)?;
+    let full = full_height(crop);
+    let digest = |w: &mut Worker| -> Result<String> {
+        let r = w.get_region(sb, from, to)?;
+        let blocks: Vec<String> = r.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
+        let mut ents: Vec<String> = w.entities(sb)?.iter().map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.motion[0], e.motion[1], e.motion[2])).collect();
+        ents.sort();
+        let (rng, rv) = w.random_states(sb)?;
+        Ok(format!("{} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; ")))
+    };
+    let mut out = vec![digest(w)?];
+    w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
+    let intakes = crate::intrusion::intakes(c);
+    let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
+    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    for t in 0..ticks + 2 * REST {
+        if t == ticks {
+            w.exec(sb, "gamerule random_tick_speed 0")?;
+        }
+        if let Some(k) = drop_at.iter().position(|d| *d == t && t > 0) {
+            w.summon(sb, &intruder_specs(k, &drop_cells))?;
+        }
+        w.step(sb, 1)?;
+        out.push(digest(w)?);
+    }
+    let _ = w.drop_sandbox(sb);
+    Ok(out)
 }
 
 /// The kinds and counts the design's own containers hold (judge chests left out).
@@ -756,6 +830,22 @@ pub fn turn_difference(game: &Circuit, pure: &Circuit) -> Option<String> {
 /// by [`judge`]. Outer Err: what redsim cannot build or run (UNMODELED); inner Err: the judge's
 /// refusal of the build (as [`game_run`]'s).
 pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::Result<std::result::Result<RunLog, String>, String> {
+    sim_run_probe(c, rts, ticks, margin, None)
+}
+
+/// A world's state as one line (a probe's tick): the box's blocks and every entity (kind,
+/// position, motion), sorted.
+fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
+    let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
+    let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
+    ents.sort();
+    let rng = format!("rng {} rv {}", w.level_random.as_ref().map(|r| r.state()).unwrap_or(0), w.random_ticks.as_ref().map(|r| r.value).unwrap_or(0));
+    format!("{} | {} | {rng}", blocks.join("; "), ents.join("; "))
+}
+
+/// [`sim_run`], every tick's [`sim_digest`] pushed to `probe` (from the run's start: after the
+/// placement, the planting and the settle).
+pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: Option<&mut Vec<String>>) -> std::result::Result<std::result::Result<RunLog, String>, String> {
     use redsim::world::flags;
     use redsim::{Block, BlockPos, World};
     let Some(Kind::Harvester(crop)) = &c.kind else { return Err(format!("{}: not a harvester", c.name())) };
@@ -836,6 +926,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
     let inside = |b: &redsim::entity::Aabb| b.min_x >= from[0] as f64 && b.min_y >= from[1] as f64 && b.min_z >= from[2] as f64 && b.max_x <= (to[0] + 1) as f64 && b.max_y <= (to[1] + 1) as f64 && b.max_z <= (to[2] + 1) as f64;
     let mut t = 0u32;
     let mut seen_items: Vec<u32> = Vec::new();
+    if let Some(p) = probe.as_deref_mut() {
+        p.push(sim_digest(&w, from, to));
+    }
     while t < ticks + rest_ticks {
         if t == ticks {
             set_rts(&mut w, 0);
@@ -853,6 +946,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
                 return Err(format!("tick {}: {e}", t + 1));
             }
             t += 1;
+            if let Some(p) = probe.as_deref_mut() {
+                p.push(sim_digest(&w, from, to));
+            }
             if escape.is_none()
                 && let Some(e) = w.entities.list.iter().find(|e| !e.removed && !inside(&e.bb))
             {

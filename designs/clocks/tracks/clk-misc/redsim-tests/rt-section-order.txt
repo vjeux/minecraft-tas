@@ -1,0 +1,17 @@
+name: rt-section-order
+# redsim test scene (not a clock; clk-misc 2026-10-21): the order level queries visit entities in
+# (EntitySectionStorage: x sections ascending, then within an x the section keys: z then y as
+# unsigned fields; in a section, the order the entities entered it). A hopper minecart stands on a
+# stone floor at the corner (0, 1, 0) of four entity sections; four items dropped in one tick at
+# the four cell centers around it (in the --action order: (0,1,-1), (0,1,0), (-1,1,-1), (-1,1,0))
+# all lie in its pickup box, and it takes one item a tick: in the game's order (-1,1,0),
+# (-1,1,-1), (0,1,0), (0,1,-1), not the order they came in. Found as the farm twin's one
+# disagreement (cane4-mc-21b turned once: a cart took the second of two drops in its box).
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+layer 0:
+  SSS
+  SSS
+  SSS
+entity: minecraft:hopper_minecart 0.0 1.0 0.0 {Rotation:[0f,0f]}

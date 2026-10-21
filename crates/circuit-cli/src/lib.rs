@@ -420,6 +420,10 @@ pub enum CircuitCmd {
         /// and every turned design checked to turn alike without the game.
         #[arg(long, conflicts_with_all = ["sim", "compare"])]
         compare_verify: bool,
+        /// With `--compare`: the run's every tick in the game (one tick per step) and on redsim,
+        /// the first tick whose blocks or entities differ printed (the twin's calibration).
+        #[arg(long, requires = "compare")]
+        probe: bool,
     },
     /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
     /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
@@ -991,13 +995,66 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify } => {
+        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify, probe } => {
             let c = Circuit::load(&design)?;
             circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
             let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
             if compare_verify {
                 let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
                 return farm_compare_verify(&c, &o);
+            }
+            if probe {
+                let base = if tiled { circuit::tiled(&c)? } else { c.clone() };
+                let rc = base.turned_pure(turns)?.translated(off)?;
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                let game = pool.map(vec![0u8], |w, _, _| circuit::farm::game_probe(w, &rc, rts, ticks, margin)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                let mut sim: Vec<String> = Vec::new();
+                if let Err(why) = circuit::farm::sim_run_probe(&rc, rts, ticks, margin, Some(&mut sim)) {
+                    println!("redsim does not model it: {why}");
+                }
+                match game.iter().zip(&sim).position(|(a, b)| a != b) {
+                    None => println!("{}: SAME for {} ticks (game {}, redsim {})", rc.name(), game.len().min(sim.len()).saturating_sub(1), game.len(), sim.len()),
+                    Some(t) => {
+                        let split = |s: &str| -> Vec<String> { s.split(" | ").flat_map(|part| part.split("; ")).filter(|x| !x.is_empty()).map(String::from).collect() };
+                        let (a, b) = (split(&game[t]), split(&sim[t]));
+                        println!("{}: tick {t} of the run differs", rc.name());
+                        for x in a.iter().filter(|x| !b.contains(x)) {
+                            println!("  game only:   {x}");
+                        }
+                        for x in b.iter().filter(|x| !a.contains(x)) {
+                            println!("  redsim only: {x}");
+                        }
+                        if t > 0 {
+                            // which drop (its number and cell: rng::Drop::seeded) each new item is
+                            let (bf, bt, seed) = circuit::farm::judge_box(&rc, margin);
+                            for (who, list) in [("game", &a), ("redsim", &b)] {
+                                for x in list.iter().filter(|x| x.starts_with("minecraft:item ")) {
+                                    let v: Vec<f64> = x.split_whitespace().filter_map(|w| w.parse::<f64>().ok()).collect();
+                                    if v.len() < 6 {
+                                        continue;
+                                    }
+                                    let found = circuit::farm::which_drop(seed, bf, bt, [v[0], v[1], v[2]]);
+                                    let drift = circuit::farm::which_drift(seed, [v[3], v[4], v[5]]);
+                                    println!("  {who}'s item {x}: {}; drift of drop {drift:?}", if found.is_empty() { "no drop matches".to_string() } else { found.join(", ") });
+                                }
+                            }
+                            let prev: Vec<String> = split(&game[t - 1]);
+                            for x in a.iter().filter(|x| !prev.contains(x)).take(12) {
+                                println!("  game, new this tick: {x}");
+                            }
+                            let ents = |s: &str| s.split(" | ").nth(1).unwrap_or("").to_string();
+                            let canes = |s: &str| s.split(" | ").next().unwrap_or("").split("; ").filter(|x| x.contains("sugar_cane") || x.contains("bamboo") || x.contains("kelp")).collect::<Vec<_>>().join("; ");
+                            println!("  crop blocks before: {}", canes(&game[t - 1]));
+                            println!("  crop blocks now (game):   {}", canes(&game[t]));
+                            println!("  crop blocks now (redsim): {}", canes(&sim[t]));
+                            println!("  entities before (game):   {}", ents(&game[t - 1]));
+                            println!("  entities before (redsim): {}", ents(&sim[t - 1]));
+                            println!("  entities now (game):      {}", ents(&game[t]));
+                            println!("  entities now (redsim):    {}", ents(&sim[t]));
+                        }
+                    }
+                }
+                return Ok(());
             }
             if sim || compare {
                 let base = if tiled { circuit::tiled(&c)? } else { c.clone() };

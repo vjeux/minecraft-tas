@@ -229,13 +229,15 @@ fn circuit_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitS
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`; `T0..T1/STEP:...` repeats it every
 /// STEP ticks from T0 through T1 (one entry per tick). `T:set:x,y,z:<state>` places a block with
 /// updates (`Action::Place`), `T:shape_set:x,y,z:<state>` changes one with shape updates only
-/// (`Action::ShapeSet`: a crop growing a step) - the state is the rest of the argument.
+/// (`Action::ShapeSet`: a crop growing a step) - the state is the rest of the argument;
+/// `T:drop:x,y,z:<stack>` summons an item at the cell's center, at rest (`Action::Drop`, the stack
+/// as SNBT: `{id:"minecraft:dirt",count:1}`).
 pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
     let parts: Vec<&str> = s.splitn(4, ':').collect();
     let (t, kind, at, state) = match parts.as_slice() {
         [t, kind, at] => (*t, *kind, *at, None),
         [t, kind, at, state] => (*t, *kind, *at, Some(state.to_string())),
-        _ => bail!("--action T:use|use_entity:x,y,z or T:set|shape_set:x,y,z:<state>, got {s:?}"),
+        _ => bail!("--action T:use|use_entity:x,y,z or T:set|shape_set:x,y,z:<state> or T:drop:x,y,z:<stack>, got {s:?}"),
     };
     let ticks: Vec<u32> = match t.split_once("..") {
         Some((a, rest)) => {
@@ -254,7 +256,8 @@ pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
         ("use_entity", None) => (clock::Action::UseEntity { pos }, None),
         ("set", Some(st)) => (clock::Action::Place { pos, state: full(st), nbt: None }, Some(full(st))),
         ("shape_set", Some(st)) => (clock::Action::ShapeSet { pos, state: full(st) }, Some(full(st))),
-        (other, _) => bail!("--action kind use, use_entity (no state), set or shape_set (with a state), not {other:?} in {s:?}"),
+        ("drop", Some(st)) => (clock::Action::Drop { pos, item: st.clone() }, Some(st.clone())),
+        (other, _) => bail!("--action kind use, use_entity (no state), set, shape_set or drop (with a state), not {other:?} in {s:?}"),
     };
     Ok(ticks.into_iter().map(|t| (t, a.clone(), match &j { Some(st) => json!([t, kind, pos, st]), None => json!([t, kind, pos]) })).collect())
 }
