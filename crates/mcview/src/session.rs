@@ -2377,13 +2377,21 @@ mod tests {
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
     /// output itself pulses.
+    /// The lock study's archived lock (it is replaced as the study finds smaller ones).
+    fn archived_lock() -> String {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
+        let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        std::fs::read_to_string(&v[0]).unwrap()
+    }
+
     /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
     /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
     /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
     /// goes off at the next turn.
     #[test]
     fn the_lock_opens_at_its_code() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-q85.txt")).unwrap();
+        let text = archived_lock();
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
@@ -2392,7 +2400,7 @@ mod tests {
         let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
         assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
         let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
-        assert_eq!(code, [3, 5, 1]);
+        assert!(code.iter().any(|k| *k > 0), "a code to turn to: {code:?}");
         let out = s.outputs[0];
         // its placement transient (OUT powered for 4 ticks) settled before the first frame shown;
         // the badge counts from there, and a reset comes back to it
@@ -2404,29 +2412,26 @@ mod tests {
         assert_eq!(s.tick, settled);
         s.run(40);
         assert!(!s.output_powered(out));
+        // each dial turned to its code frame's turn, one tap at a time: open exactly when every
+        // dial matches (read once the lock settled: it opens and closes within 10 gt)
         for (d, &k) in code.iter().enumerate() {
             for _ in 0..k {
                 // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
                 assert!(s.pulse_input(d, 2));
-                s.run(4);
-                if d < 2 || s.frame_turn(d) != Some(k) {
-                    assert!(!s.output_powered(out), "shut on the way (dial {d} at {:?})", s.frame_turn(d));
-                }
+                s.run(12);
+                let dials: Vec<u8> = (0..3).map(|i| s.frame_turn(i).unwrap()).collect();
+                assert_eq!(s.output_powered(out), dials == code, "dials {dials:?}, code {code:?}");
             }
         }
-        s.run(10);
-        assert_eq!((0..3).map(|i| s.frame_turn(i).unwrap()).collect::<Vec<_>>(), code);
         assert!(s.output_powered(out), "open at the code");
         assert!(s.pulse_input(2, 2));
-        // its comparator, the subtracting one, the repeater and the torch (8 gt), then the
-        // lamp's own 4 gt off-delay
-        s.run(14);
+        s.run(16);
         assert!(!s.output_powered(out), "shut one turn past it");
         assert!(s.halted.is_none() && s.world.errors.is_empty(), "{:?}", s.world.errors);
         // drawn: an item frame entity per frame, with its turn
         let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
         assert_eq!(frames.len(), 6, "{frames:?}");
-        assert!(frames.contains(&"frame:west:2:minecraft:arrow".to_string()), "{frames:?}");
+        s.drawn_matches_simulation().unwrap();
     }
 
     #[test]

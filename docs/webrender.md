@@ -176,8 +176,8 @@ each build's page.
   default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 6 x
   the dials' facing, code frames a quarter); the code frames, set once from their tags, neither
   count as ports nor need a tappable side (critique on lock3-q85: facing away from the dials,
-  they held the camera in front, the dials seen edge-on). `web check` replays lock3-q85's whole
-  stimulus against `circuit sim`.
+  they held the camera in front, the dials seen edge-on). `web check` replays the archived lock's
+  whole stimulus against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
