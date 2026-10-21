@@ -10,8 +10,8 @@
 //! DIR/found/ at once, each improvement to DIR/best.txt; [`front`] and [`write_front`] give the
 //! (volume, blocks) front.
 
+use crate::Pos;
 use anyhow::Result;
-use clock::Pos;
 use mctas::design::Design;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
@@ -297,8 +297,8 @@ pub fn mutate(r: &mut Rng, cur: &St, sp: &Space, pal: &[String], near: Option<&[
             let moved: Vec<(Pos, Pos, String)> = cl
                 .iter()
                 .map(|c| {
-                    let rel = clock::rotate_pos([c[0] - pick[0], c[1] - pick[1], c[2] - pick[2]], turns);
-                    (*c, add(anchor, rel), clock::canon::rotate_state(&b[c], turns))
+                    let rel = crate::rotate_pos([c[0] - pick[0], c[1] - pick[1], c[2] - pick[2]], turns);
+                    (*c, add(anchor, rel), crate::canon::rotate_state(&b[c], turns))
                 })
                 .collect();
             if !moved.iter().all(|(_, q, _)| set.contains(q) || sp.free(&b, *q)) {
