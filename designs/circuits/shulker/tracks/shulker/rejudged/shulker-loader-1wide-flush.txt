@@ -1,5 +1,4 @@
-# archived 2026-10-20T22:14Z from designs/circuits/shulker/tracks/shulker/loader-1wide-flush.txt by mctas circuit archive
-# CIRCUIT: shulker-loader-1wide-flush shulker-loader boxes/min 0.086, items/s 2.49, first box 13877 gt, cycle 13872 gt, hoppers awake 5, badges always-on+16-stack+unstackable+colours+restart+top-up+flush+box-starved+drop-free+tileable(1), bill 26 iron, 30 quartz, 81 redstone, 49 blocks, 1x8x10, robust
+# rejudged (2026-10-21T12:34Z, mctas circuit archive --rejudge): FAIL: shulker-loader-1wide-flush shulker-loader: jams with nearly full boxes coming one at a time: rotation 0: box 2 arrived at t=71 with 26 of 27 items (not full)
 name: shulker-loader-1wide-flush
 circuit: shulker-loader
 tile: 1 0 0

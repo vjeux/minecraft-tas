@@ -844,7 +844,7 @@ mod tests {
 
     #[test]
     fn shulker_and_bud_ports() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/archive/shulker-ref-loader-1.txt")).unwrap();
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/shulker/traces/exact/shulker-ref-loader-1.txt")).unwrap();
         let d = Design::parse(&text).unwrap();
         assert!(is_shulker(&d));
         assert_eq!(chest_cells(&d), vec![[0, 2, 1], [0, 3, -1], [2, 0, 0]]);

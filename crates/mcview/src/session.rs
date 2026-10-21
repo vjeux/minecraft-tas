@@ -2626,7 +2626,9 @@ mod tests {
     #[test]
     fn shulker_designs_run_live() {
         for (file, boxes) in [("shulker-ref-loader-1", 5), ("shulker-ref-unloader-1", 5), ("shulker-filter-loader", 1)] {
-            let text = std::fs::read_to_string(format!("{}/../../designs/circuits/shulker/archive/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            // the reference loader left the archive (2026-10-21 rejudge): its copy lives beside its trace
+            let dir = if file == "shulker-ref-loader-1" { "traces/exact" } else { "archive" };
+            let text = std::fs::read_to_string(format!("{}/../../designs/circuits/shulker/{dir}/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
             // the visitor turns the start lever on (the judge does at its start)
