@@ -185,7 +185,7 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator"
     )
 }
 
@@ -581,6 +581,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "flying-machine" => "direction and load",
             "shift" => "length",
             "randomizer" => "number of outputs",
+            "item-elevator" => "height",
             "lock" => "number of dials",
             _ => "length",
         };

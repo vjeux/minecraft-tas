@@ -275,6 +275,11 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
+        // an item elevator (clk-misc's study): how high, how fast
+        "item-elevator" => {
+            let n = c.kind.split_whitespace().nth(1).unwrap_or("");
+            format!("Lifts the items of its input chest {n} blocks straight up into its output chest{}, as fast as a hopper feeds them.", rate(m(c, "items/s")))
+        }
         // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
         "randomizer" => {
             let n = site_model::html::randomizer_n(c).unwrap_or(2);
@@ -415,6 +420,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // an item elevator: the view does not load the judge's items yet (crate::lift fills the
+        // input chest and empties the output chest every tick): shown as built, how to run it
+        "item-elevator" => {
+            return "The view shows the elevator as built, without the items our test loads into it. In the game, start its clock by placing its last block where the view puts its start block, then fill the bottom chest: every item rises into the top chest.".to_string();
         }
         // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
         "randomizer" => {
@@ -747,6 +757,10 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
             };
             let chest = if chests == 1 { "put a chest under its hopper".to_string() } else { format!("put a chest under each of its {chests} hoppers") };
             v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
+        }
+        // an item elevator: its two chests are our test's (not counted, not in the download)
+        if c.kind.starts_with("item-elevator") {
+            v.push("After building it, put a chest on top of its hopper (the items to lift) and one at the top, where the view shows its output: the download has neither (our test adds them, and they do not count in its blocks).".to_string());
         }
         // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
         if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
@@ -1214,6 +1228,27 @@ mod tests {
         let names: Vec<&str> = hits.iter().filter_map(|h| if let site_model::Hit::Build(i) = h { Some(site.builds[*i].name.as_str()) } else { None }).collect();
         assert_eq!(names, vec!["big", "classic6"]);
         assert!(site_model::html::lede(&site, "door").starts_with("The best 3×3 piston door for each of 2 records and the best 2×2 piston door, tested"), "{}", site_model::html::lede(&site, "door"));
+    }
+
+    #[test]
+    fn an_item_elevator_says_how_high_and_how_fast() {
+        // clk-misc's lift5-chain-14b, as the archive carries it
+        let c = Circuit {
+            kind: "item-elevator 5".into(),
+            axis: "5 blocks up".into(),
+            metrics: crate::circuits::parse_metrics("items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone"),
+            verdict: "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust".into(),
+            outputs: vec!["out".into()],
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[2], ("at rest".to_string(), "no".to_string()));
+        assert_eq!(one_liner(&c), "Lifts the items of its input chest 5 blocks straight up into its output chest (2.50 items a second), as fast as a hopper feeds them.");
+        let b = Build { circuit: Some(c.clone()), blocks: 14, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "lifts items 5 blocks up · 14 blocks");
+        assert!(card.sub.contains("2.50 items a second · the first item at the top after 1.5 s"), "{}", card.sub);
+        assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, put a chest on top of its hopper")));
+        assert_eq!(site_model::html::value_words("item-elevator 10", "10 blocks up"), "10 blocks up");
     }
 
     #[test]

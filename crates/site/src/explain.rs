@@ -130,15 +130,18 @@ pub fn kind_title(kind: &str) -> String {
             _ => words,
         },
         "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
+        // (clk-misc's study)
+        "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 31] = [
+    const IDS: [&str; 34] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
+        "randomizer", "harvester", "item-elevator",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -228,6 +231,7 @@ pub fn kind_summary(kind: &str) -> String {
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
+        "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         _ => String::new(),
     }
 }
@@ -1005,6 +1009,8 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("bud", "pulse") => "the length of each output pulse",
         (_, "boxes/min") => "full boxes delivered per minute, at the steady rate",
         (_, "items/s") => "items moved per second at the steady rate (from 10% to 90% of the total)",
+        ("item-elevator", "first item") => "game ticks from the start until the first item reaches the output chest",
+        (_, "at rest") => "whether the build comes to rest once its work is done (no: it keeps running, like an elevator's clock)",
         (_, "first box") => "game ticks from the start until the first box arrives",
         (_, "cycle") => "game ticks per box at the steady rate",
         (_, "hoppers awake") => "hoppers left unlocked at rest: each one looks for items every game tick (lag on busy servers)",
@@ -1186,7 +1192,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 18] = [
+pub const STUDIES: [(&str, &str, &str); 19] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1277,11 +1283,16 @@ pub const STUDIES: [(&str, &str, &str); 18] = [
         "Auto-smelters",
         "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
     ),
+    (
+        "elevator-items",
+        "Item elevators",
+        "An item elevator lifts items straight up: a hopper takes them from a chest at the bottom, a column of droppers fires them up block by block, and the top one pushes them into a chest at the top. Our test, in the real game, fills the input chest with 193 mixed items, empties the output chest every tick, and every item must arrive at the top, none lost or stuck; it measures how many items a second it lifts and how soon the first one arrives. For each height we keep the design with the fewest blocks placed.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 18] = [
+pub const STUDY_USES: [(&str, &str); 19] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1300,6 +1311,7 @@ pub const STUDY_USES: [(&str, &str); 18] = [
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
     ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
+    ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1329,6 +1341,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
         "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
+        "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
         _ => "",
     }
 }

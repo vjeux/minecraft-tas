@@ -239,6 +239,7 @@ pub fn kind_words(kind: &str) -> String {
         "adder" => "Adder",
         "randomizer" => "Randomizer",
         "harvester" => "Crop farm",
+        "item-elevator" => "Item elevator",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -284,6 +285,7 @@ pub fn value_words(kind: &str, axis: &str) -> String {
             let n = v.split_whitespace().filter(|t| t.chars().all(|c| c.is_ascii_digit())).last().unwrap_or(n);
             format!("1 of {n} outputs")
         }
+        "item-elevator" => format!("{n} blocks up"),
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
@@ -364,6 +366,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
         "randomizer" => format!("1 of {lo} to {hi} outputs"),
+        "item-elevator" => format!("{lo} to {hi} blocks up"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
@@ -480,6 +483,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm",
+            "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
             _ => "",
         },
     }
@@ -1161,6 +1165,12 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "items/min per furnace");
             let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first result within {}", crate::real_time(g)));
             (head, (!rate.is_empty()).then(|| format!("{rate} items a minute per furnace")).into_iter().chain(first).collect())
+        }
+        // an item elevator (clk-misc's study): how high, then how fast and how soon
+        "item-elevator" => {
+            let rate = cm(c, "items/s");
+            let first = cm(c, "first item").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first item at the top after {}", crate::real_time(g)));
+            (format!("lifts items {k1} blocks up"), (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).collect())
         }
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
