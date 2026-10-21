@@ -104,9 +104,9 @@ fn pick_reason(path: &str, b: &Build) -> String {
     let Some(c) = &b.circuit else { return String::new() };
     let mut why: Vec<&str> = Vec::new();
     // (standing on the ground is in a TNT duper's title already: not repeated)
-    // (a sorter: what builders tile it for)
+    // (a sorter: what builders tile it for; "tiles side by side" is its chip)
     if c.kind.starts_with("sorter") {
-        why.push("the classic one-block-wide slice, tiles side by side");
+        why.push("the classic one-block-wide slice");
     }
     if robust(b) {
         why.push("passed at every position and facing we tested");

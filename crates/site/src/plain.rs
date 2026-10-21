@@ -395,7 +395,11 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         }
     }
     if !items.is_empty() {
-        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
+        // (plural item names where English counts them: "105 iron ingots"; block and mass names
+        // stay as players say them: "1,111 cobblestone", "8 paper", "3 redstone")
+        const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
+        let plural = |i: &str, n: u64| if n > 1 && COUNTED.iter().any(|w| i.ends_with(w)) { format!("{i}s") } else { i.to_string() };
+        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {}", thousands(*n), plural(i, *n))).collect();
         let one = items.len() == 1 && items[0].1 == 1;
         v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
     }

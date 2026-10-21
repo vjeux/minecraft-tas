@@ -808,7 +808,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
-            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item in by {}", crate::real_time(g)));
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item sorted within {}", crate::real_time(g)));
             (
                 if rate.is_empty() { "takes one item kind out of a mixed line".to_string() } else { format!("takes one item kind out of a mixed line · {rate} items a second") },
                 first.into_iter().collect(),
