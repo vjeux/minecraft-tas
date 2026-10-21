@@ -683,7 +683,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         return s;
     }
     if base(&c.kind) == "flying-machine" {
-        s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        // (the docking-station machine's lever is a real input: the coordinator 00:45Z)
+        if c.devices.iter().any(|d| d == "lever") {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it shuttle between its docking stations. Flip its lever with the <span class=\"tag-in\">IN</span> button under the view: off, it docks at the lever's station and stays; on, it leaves again. Drag to look around, pinch or scroll to zoom.</p>");
+        } else {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        }
+        return s;
+    }
+    // an item sorter: items in, a chest, no lamp (critique: the generic lamp text)
+    if base(&c.kind) == "sorter" {
+        let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
+        s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
     match base(&c.kind) {
@@ -1039,7 +1050,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "fly",
         "Flying machines",
-        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. For each direction and load (sideways, up, down, with cargo or trailers) we keep the design with the fewest blocks placed; the machines that fly there and back have their own card.",
+        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. We show three: the smallest flat machine (its engine side by side, 1 block tall), the smallest tall machine (its engine stacked; it carries extra blocks) and the smallest machine with docking stations, which flies there and back.",
     ),
     (
         "shulker",
@@ -1049,7 +1060,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground) and the smallest duper that lights TNT on a press; each page says where it can stand.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise one (every TNT explodes at the same point in mid-air) and the smallest duper that lights TNT on a press; each page says where it can stand.",
     ),
     (
         "bud",
