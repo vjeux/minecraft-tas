@@ -221,12 +221,16 @@ circuits/gates/index.html	page				2026-10-20 00:04Z
 circuits/index.html	page				2026-10-19 23:31Z
 circuits/lock/index.html	page				2026-10-21 03:29Z
 circuits/lock/lock1-alt.html	circuit	lock/lock	1	Combination lock: 1 dial · 22 blocks	2026-10-21 07:33Z
+circuits/lock/lock1-hid.html	circuit	lock/lock	1	Combination lock: 1 dial · 23 blocks	2026-10-21 12:09Z
 circuits/lock/lock2-alt.html	circuit	lock/lock	2	Combination lock: 2 dials · 43 blocks	2026-10-21 07:33Z
+circuits/lock/lock2-hid.html	circuit	lock/lock	2	Combination lock: 2 dials · 49 blocks	2026-10-21 12:09Z
 circuits/lock/lock3-alt.html	circuit	lock/lock	3	Combination lock: 3 dials · 64 blocks	2026-10-21 06:35Z
+circuits/lock/lock3-hid.html	circuit	lock/lock	3	Combination lock: 3 dials · 73 blocks	2026-10-21 12:09Z
 circuits/lock/lock3-lines.html	circuit	lock/lock	3	Combination lock: 3 dials · 102 blocks	2026-10-21 03:29Z
 circuits/lock/lock3-q85.html	circuit	lock/lock	3	Combination lock: 3 dials · 85 blocks	2026-10-21 05:20Z
 circuits/lock/lock3-tern.html	circuit	lock/lock	3	Combination lock: 3 dials · 93 blocks	2026-10-21 04:40Z
 circuits/lock/lock4-alt.html	circuit	lock/lock	4	Combination lock: 4 dials · 85 blocks	2026-10-21 07:33Z
+circuits/lock/lock4-hid.html	circuit	lock/lock	4	Combination lock: 4 dials · 99 blocks	2026-10-21 12:09Z
 circuits/memory/counter10-ring5-bulb.html	circuit	memory/counter	10	Counter: every 10th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter10-ring5-bulb1.html	circuit	memory/counter	10	Counter: every 10th pulse · 17 blocks	2026-10-20 21:37Z
 circuits/memory/counter100-items.html	circuit	memory/counter	100	Counter: toggles every 100th pulse · 23 blocks	2026-10-20 14:26Z
