@@ -22,6 +22,7 @@ struct Stack {
 }
 
 /// A solved ring: its slots, copy/bridge mask, feed, and which line feeds it needs.
+#[derive(Clone)]
 struct Solved {
     slots: [Slot; 4],
     mask: u8,
@@ -99,11 +100,23 @@ fn try_solve(rs: &[crate::analog::Run], feed: &Feed, removed: &[(i32, i32, i32)]
 /// Leave out bridges, then arc corner groups and single arc cells, while the ring still solves
 /// with the same feed: fewer dust, supports and comparators. Kept: the feed cells, copy endpoints
 /// and the endpoints of the bridges still on (astack's distances carry a bridge into its other end
-/// even when that cell is gone, and the game then has a dead half-arc).
-fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8) -> Solved {
+/// even when that cell is gone, and the game then has a dead half-arc). `seed` > 0 shuffles the
+/// order the bridges and cells are tried in (the greedy result depends on it).
+fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8, seed: u64) -> Solved {
+    let mut rng = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    let mut next = move |n: usize| -> usize {
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        ((rng >> 33) as usize) % n.max(1)
+    };
     let mut best = s;
     let mut off = bridges_off | (best.mask >> 4);
-    for i in 0..4 {
+    let mut order: Vec<usize> = (0..4).collect();
+    if seed > 0 {
+        for i in (1..order.len()).rev() {
+            order.swap(i, next(i + 1));
+        }
+    }
+    for i in order {
         if off >> i & 1 == 1 {
             continue;
         }
@@ -112,10 +125,9 @@ fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8) -> 
             best = Solved { slots, mask, ..best };
         }
     }
-    let mut keep: Vec<(i32, i32, i32)> = best.feed.iter().map(|(c, _)| *c).collect();
-    for (a, c) in crate::astack::COPIES.iter() {
-        keep.extend([*a, *c]);
-    }
+    // kept: the line feeds' cells (a removed coupling cell just stops feeding; copies check their
+    // ends in astack's distances) and both ends of every bridge still on
+    let mut keep: Vec<(i32, i32, i32)> = best.feed.iter().map(|(c, _)| *c).filter(|c| *c == DIRECT || *c == SECOND).collect();
     for (i, (a, c)) in crate::astack::BRIDGES.iter().enumerate() {
         if off >> i & 1 == 0 {
             keep.extend([*a, *c]);
@@ -127,6 +139,11 @@ fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8) -> 
             if x != 0 && z != 0 {
                 groups.push(vec![(x, 0, z)]);
             }
+        }
+    }
+    if seed > 0 {
+        for i in (1..groups.len()).rev() {
+            groups.swap(i, next(i + 1));
         }
     }
     for g in groups {
@@ -142,7 +159,18 @@ fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8) -> 
     best
 }
 
-pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, out: &std::path::Path) -> Result<()> {
+/// A ring's own block count (with its supports) as build_ring places it.
+fn ring_cost(s: &Solved) -> usize {
+    let mut b = B::default();
+    crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
+    build_ring(&mut b, [0, 0, 0], &s.slots, &s.feed, s.mask);
+    crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+    b.dust([0, 0, 0]);
+    b.supports();
+    b.blocks.len()
+}
+
+pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, out: &std::path::Path) -> Result<()> {
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let cz = 5;
@@ -159,10 +187,56 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
         for (i, &(seg, _row, level)) in st.rings.iter().enumerate() {
             let si = "abcdefg".find(seg).unwrap();
             let rs = runs(m[si]);
-            let s = solve(&rs, &above, i == 0, lean, allowed, bridges_off).ok_or_else(|| anyhow!("no ring for {seg} {rs:?} (above {above:?})"))?;
+            // every feed option (coupling only for a lower ring with --lean; a line of its own;
+            // a line and a second feed), each pruned with `tries` orders: the cheapest ring plus
+            // feed cost whose coupling still lets the ring below solve
             let only = std::env::var("RINGS2_PRUNE_ONLY").unwrap_or_default();
-            let s = if prune_arcs && (only.is_empty() || only.contains(seg)) { prune(&rs, s, allowed, bridges_off) } else { s };
-            println!("  ring {seg} at level {level}: slots {:?} mask {:08b} direct {} second {} removed {:?} feed {:?}", s.slots, s.mask, s.direct, s.second, s.removed, s.feed);
+            let do_prune = prune_arcs && (only.is_empty() || only.contains(seg));
+            let mut opts: Vec<(bool, bool)> = Vec::new();
+            if i > 0 && lean {
+                opts.push((false, false));
+            }
+            opts.extend([(true, false), (true, true)]);
+            let mut vs: Vec<(usize, Solved)> = Vec::new();
+            for (direct, second) in opts {
+                let mut feed: Feed = Vec::new();
+                if direct {
+                    feed.push((DIRECT, 0));
+                }
+                if second {
+                    feed.push((SECOND, 0));
+                }
+                feed.extend(above.iter().copied());
+                let Some((slots, mask)) = (if feed.is_empty() { None } else { solve_ring_f(&rs, &feed, allowed, bridges_off) }) else { continue };
+                let base = Solved { slots, mask, feed, direct, second, removed: Vec::new() };
+                // a lower ring's own line: a descent (about 14 blocks per level step); a second
+                // feed: a dust and a comparator with their supports
+                let extra = if direct && i > 0 { 14 * i } else { 0 } + if second { 4 } else { 0 };
+                if do_prune {
+                    for seed in 0..tries.max(1) {
+                        let v = prune(&rs, base.clone(), allowed, bridges_off, seed);
+                        vs.push((ring_cost(&v) + extra, v));
+                    }
+                } else {
+                    vs.push((ring_cost(&base) + extra, base));
+                }
+            }
+            ensure!(!vs.is_empty(), "no ring for {seg} {rs:?} (above {above:?})");
+            vs.sort_by_key(|x| x.0);
+            let below = st.rings.get(i + 1).map(|&(bs, _, _)| runs(m["abcdefg".find(bs).unwrap()]));
+            let pick = vs
+                .iter()
+                .position(|(_, v)| {
+                    below.as_ref().is_none_or(|brs| {
+                        crate::astack::REMOVED.with(|r| *r.borrow_mut() = v.removed.clone());
+                        let cpl = coupling(&v.slots, &v.feed, v.mask);
+                        crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+                        solve(brs, &cpl, false, lean, allowed, bridges_off).is_some()
+                    })
+                })
+                .ok_or_else(|| anyhow!("no {seg} ring lets the ring below solve"))?;
+            let s = vs.swap_remove(pick).1;
+            println!("  ring {seg} at level {level} ({} blocks): slots {:?} mask {:08b} direct {} second {} removed {:?} feed {:?}", ring_cost(&s), s.slots, s.mask, s.direct, s.second, s.removed, s.feed);
             crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
             above = coupling(&s.slots, &s.feed, s.mask);
             crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
@@ -227,6 +301,13 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             }
             build_ring(&mut b, c, &s.slots, &s.feed, s.mask);
             crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+            // an empty slot's stone (the block its window would light) is not needed
+            for (u, sl) in s.slots.iter().enumerate() {
+                if matches!(sl, Slot::Empty) {
+                    let (x, z) = crate::astack::rot_pub(u, 1, 0);
+                    b.blocks.remove(&add(c, [x, 0, z]));
+                }
+            }
             b.dust(c);
             let y = level - 1;
             ensure!(y == row, "ring {seg} at {level}, lamp row {row}");

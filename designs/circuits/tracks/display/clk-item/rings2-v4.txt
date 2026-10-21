@@ -1,6 +1,4 @@
-# archived 2026-10-21T15:42Z from designs/circuits/tracks/display/clk-item/rings2-v3.txt by mctas circuit archive
-# CIRCUIT: seven-segment-rings3 seven-segment 4 latency 70 gt (a2 rises from a=0010), glitches 47, 677 blocks, 23x7x19, robust
-name: seven-segment-rings3
+name: seven-segment-rings4
 circuit: seven-segment 4
 port input.a0: -7 3 18
 port input.a1: -8 3 18
@@ -75,10 +73,13 @@ palette:
   K minecraft:composter[level=8]
   L minecraft:repeater[delay=1,facing=south]
   M minecraft:repeater[delay=1,facing=west]
+  N minecraft:repeater[delay=2,facing=south]
+  O minecraft:repeater[delay=3,facing=east]
+  P minecraft:repeater[delay=4,facing=south]
   R minecraft:redstone_wire
   S minecraft:stone
   c minecraft:comparator[facing=east,mode=subtract,powered=false]
-  h minecraft:hopper[facing=down,enabled=false]
+  h minecraft:hopper[enabled=false,facing=down]
   r minecraft:repeater[delay=1,facing=east]
 layer -1:
   .
@@ -124,11 +125,11 @@ layer 1:
   ...SMMMMMM...rrrrrrS
   ...L.......S.......L
   ...LSSS.RRRhRRR....LSSS
-  S.SSS.S.R.RBchR.S..SS.S
-  S..L..S.R..S.RR....L.SS
+  ..SSS.S.R.RBchR....SS.S
+  ...L..S.R..S.RR....L.SS
   .S.S....hGSRSch..S.S.S
   .S.......R.S.ER.SS...SS
-  .ESSS.S..hGERhR.S.SSS.S
+  .ESSS....hGERhR.S.SSS.S
   .SS.S....RRhRRR.SSS.SSS
   .SS
   .S
@@ -144,12 +145,12 @@ layer 2:
   ....SSSSSS...SSSSSS
   ...S.......L.......S
   ...hRRR....LSSS....hRRR
-  RSRBchR.S..SS.S.R..BchR
-  R..S..R.SS.L.SS....S.RR
-  hGSRS.S.ES.S.S..hGSRSch
+  .SRBchR....SS.S....BchR
+  ...S..R.SS.L.SS....S.RR
+  hGSR..S.ES.S.S..hGSRSch
   .R.S....SS...SS.RR.S.ER
-  .hGER.R...SSS.S.RhGERhR
-  .RRhR....SScSSS.RRRhRRR
+  .hGER.....SSS.S.RhGERhR
+  .RRhR.....ScSSS.RRRhRRR
   .DD
   .RS.S
   ..D.S
@@ -164,12 +165,12 @@ layer 3:
   ...SMMMMMM...rrrrrrS
   ...L.......S.......L
   ...LSSS....hRRR....LSSS
-  SGSSS.S.Rh.BchR.S..SS.S
+  SGSSS.S..h.BchR....SS.S
   S..L.SS.RB.S.RR....L.SS
   E..S.SE.hGSRSch..S.S.SE
   S.....S.RR.S.ER..S...SS
   S.SSS.S..hGERhR..ESSS.S
-  SSSGSSS..RRhRRR..SSGSSS
+  SSSGSSS...RhRRR..SSGSSS
   ..S..............SS
   ...SR............S
   ..S.A.......S.....S
@@ -178,15 +179,15 @@ layer 3:
   .....HK
   ..SRMBBrrrS.S
   ..LhGGGGSSLS
-  ..LRE..ErSL
-  ..LLJ..I.LL
+  ..LRE..EOSL
+  ..NPJ..I.PL
 layer 4:
   .
   ...........L
   ...hRRR....LSSS....hRRR
-  R.RBchR.S..SS.S.R..BchR
+  R.RBchR....SS.S....BchR
   R..S.RR....L.SS....S.RR
-  ..SRSch..S.S.SE.hGSRSch
+  ...RSch..S.S.SE.hGSRSch
   R..S..R..S...SS..R.S.ER
   RhGER.R..ESSS.S..hGERhR
   RRRhRRR..SSGSSS..RRhRRR
@@ -204,7 +205,7 @@ layer 5:
   .
   .
   ...........hRRR
-  ........R..BchR
+  ...........BchR
   ...........S.RR
   ........hGSRSch
   .........R.S.ER
