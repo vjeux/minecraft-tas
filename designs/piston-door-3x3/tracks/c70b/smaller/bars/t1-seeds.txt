@@ -1,0 +1,4 @@
+# w86 t1 (explore/w86 seven/t1.txt): w1 transposed, P in L1
+7 7 -2 -2 SE(-2,0) SE(-2,1) SE(-2,2) SU(-1,-2) SU(-1,0) SE(-1,1) SD(-1,4) stone(0,-1) stone(0,3) stone(2,3) SU(1,-2) SD(1,4) SU(2,-2) SU(3,-1) SW(4,1) SW(4,2)
+# t1 with TL to the ceiling (w86's (a)): SE(-2,2) and stone(0,3) out, SD+(0,4) in
+7 7 -2 -2 SE(-2,0) SE(-2,1) SU(-1,-2) SU(-1,0) SE(-1,1) SD(-1,4) stone(0,-1) SD+(0,4) stone(2,3) SU(1,-2) SD(1,4) SU(2,-2) SU(3,-1) SW(4,1) SW(4,2)
