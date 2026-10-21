@@ -56,7 +56,18 @@ four observers and a delay-2 repeater (a sticky piston answers a bare 2-tick obs
 dropping its block) to the launcher: the launch comes 64 ticks after the TNT was lit (fuse 14), while
 the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
-The PRECISE DROP (vjeux 01:00Z, tree farms): **tnt-precise-drop** (46 blocks, 36.4/min, game-robust):
+The PRECISE DROP (vjeux 01:00Z, tree farms; 02:45Z "21 blocks is super far away"): **tnt-precise-drop**
+now 45 blocks in an 8x5x8 box (320), 30/min, game-robust, bursting 14.5 blocks under the machine and
+8.5 above the ground (`stand: 23`; the card reads both). The 46-block step below (9x4x9, 21.4 below)
+used a P33 clock; this one a 7-block catalog P40 clock (clk-obs-p40-lamp-obs-rb-stk-7b-30b78d) whose
+moving redstone block stands 6 ticks in front of the converter's repeater (found by `hold-scan --pulse
+--rb`; a longer stand lets the torch-held engine run free, 4 TNT). Closer bursts need a later release:
+the next-push route takes 12 ticks, so D 8-10 needs P ≈ 45-48, and no catalog clock gives a ≤ 6-tick
+pulse there (P46's redstone block stands 20+ ticks); P54 releases at fuse 16-18, 4-5 blocks under the
+floor blocks. A block hung under the frame to shorten the route breaks the engine: the extended frame
+already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-volume search (vjeux
+02:47Z) with clk-rt's `circuit tnt compact`: bounds in the table below as they come.
+Earlier step, the 46-block version:
 every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
 the machine's lowest block, bit for bit (the judge's flag: `precise: 52 TNT at one point at fuse 1,
 in mid-air 21.4 blocks below the machine`, its own card "precise drop"). Catalog parts: the 16b
