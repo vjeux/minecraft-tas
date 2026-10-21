@@ -37,6 +37,11 @@ pub struct Options {
     pub edge: Option<bool>,
     /// Also target every input with a firing `door feeds` finds no option for.
     pub unfed: bool,
+    /// Keep the shuttles that replace only some of the target pulses (the most first; the rest stay
+    /// ideal): load relief for an overloaded area.
+    pub partial: bool,
+    /// The plan is ONE train for both edges: a tick is dropped only with both edges' copies.
+    pub train: bool,
     /// Ticks S stays powered (>= 3: a sticky piston on a shorter pulse drops the observer).
     pub holds: Vec<u32>,
     /// Ticks from S's switch to the plan tick it stands for (4 = 2 gt travel + 2 gt observer delay).
@@ -304,7 +309,7 @@ fn free_cells(d: &Design, along_z: bool, door: Pos, margin: i32) -> BTreeSet<Pos
 
 /// Every shuttle placement whose observer can reach a fed piston of each pulse from one end.
 fn placements(ctx: &Ctx, along_z: bool, door: Pos, o: &Options, evs: &[Event], fed: &[Vec<Pos>]) -> Vec<Place> {
-    let used: BTreeSet<Pos> = evs.iter().map(|e| e.2).collect();
+    let used: BTreeSet<Pos> = evs.iter().map(|e| e.2).filter(|c| !o.targets.contains(c)).collect();
     let free: BTreeSet<Pos> = free_cells(&ctx.design, along_z, door, o.margin).into_iter().filter(|c| !used.contains(c)).collect();
     let plane: Vec<(Pos, &'static str)> = DIRS.iter().copied().filter(|(d, _)| if along_z { d[0] == 0 } else { d[2] == 0 }).collect();
     let normal: Pos = if along_z { [1, 0, 0] } else { [0, 0, 1] };
@@ -325,7 +330,8 @@ fn placements(ctx: &Ctx, along_z: bool, door: Pos, o: &Options, evs: &[Event], f
                 // a redstone block powers what touches it (and QC-powers the piston below an
                 // empty neighbour): the landing cell's neighbours and their cells below
                 let reach: BTreeSet<Pos> = DIRS.iter().flat_map(|(dv, _)| [add(land, *dv), sub(add(land, *dv), [0, 1, 0])]).collect();
-                let ok = fed.iter().all(|ps| ps.is_empty() || ps.iter().any(|p| reach.contains(p)));
+                let hit = |ps: &Vec<Pos>| !ps.is_empty() && ps.iter().any(|p| reach.contains(p));
+                let ok = if o.partial { fed.iter().any(hit) } else { fed.iter().all(|ps| ps.is_empty() || hit(ps)) };
                 if ok {
                     out.push(Place { s, sdir: dn, o: oc, odir: d_none(), rb: true, land, input });
                 }
@@ -335,7 +341,8 @@ fn placements(ctx: &Ctx, along_z: bool, door: Pos, o: &Options, evs: &[Event], f
             }
             for &(f, fname) in &plane {
                 let (rest_out, land_out) = (sub(oc, f), sub(land, f));
-                let ok = sets.iter().all(|st| st.is_empty() || st.contains(&rest_out) || st.contains(&land_out));
+                let hit = |st: &BTreeSet<Pos>| !st.is_empty() && (st.contains(&rest_out) || st.contains(&land_out));
+                let ok = if o.partial { sets.iter().any(hit) } else { sets.iter().all(|st| st.is_empty() || hit(st)) };
                 if ok {
                     out.push(Place { s, sdir: dn, o: oc, odir: (f, fname), rb: false, land, input });
                 }
@@ -424,6 +431,8 @@ fn combos(pulses: &[Pulse], per: &[Vec<Opt>], cap: usize) -> Vec<(Vec<Opt>, Wind
 #[derive(Clone)]
 struct Found {
     place: Place,
+    /// The target pulses this shuttle replaces (all of them unless `--partial`), and how.
+    replaced: Vec<Pulse>,
     picks: Vec<Opt>,
     windows: Windows,
     evs: Vec<Event>,
@@ -439,10 +448,37 @@ fn stage2(ctx: &Ctx, evs: &[Event], pulses: &[Pulse], places: &[Place], per: &[V
         for (picks, w) in combos(pulses, &per[pi], o.max_combos) {
             let e = with_windows(&base, places[pi].input, &w);
             if let Ok(t) = ctx.judge(&e, &places[pi].edits(), screen) {
-                return Some(Found { place: places[pi].clone(), picks, windows: w, evs: e, ticks: t, absorbed: Vec::new() });
+                return Some(Found { place: places[pi].clone(), replaced: pulses.to_vec(), picks, windows: w, evs: e, ticks: t, absorbed: Vec::new() });
             }
         }
         None
+    });
+    res.into_iter().flatten().collect()
+}
+
+/// `--partial`: per placement, a large subset of the target pulses it can replace (the rest kept
+/// ideal), grown greedily: each pulse with options is added if the shuttle still works with it.
+fn stage2_partial(ctx: &Ctx, evs: &[Event], pulses: &[Pulse], places: &[Place], per: &[Vec<Vec<Opt>>], screen: &[Pos], o: &Options) -> Vec<Found> {
+    let jobs: Vec<usize> = (0..places.len()).filter(|&pi| per[pi].iter().any(|v| !v.is_empty())).collect();
+    let res = cs::par_map(&jobs, o.threads, |&pi| {
+        let mut best: Option<Found> = None;
+        let mut chosen: Vec<usize> = Vec::new();
+        for i in (0..pulses.len()).filter(|&i| !per[pi][i].is_empty()) {
+            let mut sub = chosen.clone();
+            sub.push(i);
+            let sp: Vec<Pulse> = sub.iter().map(|&j| pulses[j]).collect();
+            let sper: Vec<Vec<Opt>> = sub.iter().map(|&j| per[pi][j].clone()).collect();
+            let base = without(evs, &sp);
+            for (picks, w) in combos(&sp, &sper, o.max_combos) {
+                let e = with_windows(&base, places[pi].input, &w);
+                if let Ok(t) = ctx.judge(&e, &places[pi].edits(), screen) {
+                    best = Some(Found { place: places[pi].clone(), replaced: sp, picks, windows: w, evs: e, ticks: t, absorbed: Vec::new() });
+                    chosen = sub;
+                    break;
+                }
+            }
+        }
+        best
     });
     res.into_iter().flatten().collect()
 }
@@ -535,10 +571,10 @@ fn write_out(ctx: &Ctx, f: &Found, out: &Path, header: &[String]) -> Result<()> 
     Ok(())
 }
 
-fn describe(f: &Found, pulses: &[Pulse]) -> Vec<String> {
+fn describe(f: &Found) -> Vec<String> {
     let mut v = vec![f.place.label()];
-    let parts: Vec<String> = pulses.iter().zip(&f.picks).map(|(p, op)| format!("{} t{} <- {}", if p.open { "open" } else { "close" }, p.set, op.label())).collect();
-    v.push(format!("target pulses: {}", parts.join(", ")));
+    let parts: Vec<String> = f.replaced.iter().zip(&f.picks).map(|(p, op)| format!("{:?} {} t{} <- {}", p.cell, if p.open { "open" } else { "close" }, p.set, op.label())).collect();
+    v.push(format!("replaced {} pulses: {}", f.replaced.len(), parts.join(", ")));
     let w: Vec<String> = f.windows.iter().map(|(open, s, c)| format!("{} {s}-{c}", if *open { "open" } else { "close" })).collect();
     v.push(format!("S input {:?} pulses: {}", f.place.input, w.join(", ")));
     for a in &f.absorbed {
@@ -616,6 +652,39 @@ fn run_one(path: &Path, text: &str, o: &Options, tag: &str, quiet: bool) -> Resu
     let base = ctx.judge(&evs, &[], &screen).map_err(|e| anyhow::anyhow!("the plan itself fails: {e}"))?;
     let pulses: Vec<Pulse> = pulses_of(&evs, &o.targets).into_iter().filter(|p| o.edge.is_none_or(|e| e == p.open)).collect();
     anyhow::ensure!(!pulses.is_empty(), "no set/clear pulses on the target cells {:?} (a level held across a rest is not a pulse)", o.targets);
+    // target pulses the plan does not need at all: dropped with no shuttle
+    let need = cs::par_map(&pulses, o.threads, |p| ctx.judge(&without(&evs, &[*p]), &[], &screen).is_err());
+    let spare_t: Vec<Pulse> = pulses.iter().zip(&need).filter(|(_, n)| !**n).map(|(p, _)| *p).collect();
+    if !spare_t.is_empty() {
+        let s: Vec<String> = spare_t.iter().map(|q| format!("{:?} {} t{}", q.cell, if q.open { "open" } else { "close" }, q.set)).collect();
+        println!("{}{}target pulses the plan works without (each alone, no shuttle): {}", if quiet { path.display().to_string() } else { String::new() }, if quiet { " " } else { "" }, s.join(", "));
+        // the largest set of them it works without together (greedy, in order); with `--train`
+        // a tick only counts when both edges' copies go together (one train feeds both edges)
+        let mut joint: Vec<Pulse> = Vec::new();
+        let groups: Vec<Vec<Pulse>> = if o.train {
+            let mut g: Vec<Vec<Pulse>> = Vec::new();
+            for q in spare_t.iter().filter(|q| q.open) {
+                if let Some(c) = spare_t.iter().find(|c| !c.open && c.cell == q.cell && c.set == q.set) {
+                    g.push(vec![*q, *c]);
+                }
+            }
+            g
+        } else {
+            spare_t.iter().map(|q| vec![*q]).collect()
+        };
+        for grp in &groups {
+            let mut t = joint.clone();
+            t.extend(grp.iter().copied());
+            if ctx.judge(&without(&evs, &t), &[], &screen).is_ok() {
+                joint = t;
+            }
+        }
+        let s: Vec<String> = joint.iter().map(|q| format!("{:?} {} t{}", q.cell, if q.open { "open" } else { "close" }, q.set)).collect();
+        let ok_full = ctx.judge(&without(&evs, &joint), &[], &full).is_ok();
+        println!("  dropped together ({}): {} [{}]", joint.len(), s.join(", "), if ok_full { format!("WORKS at {} positions", full.len()) } else { "fails at the full positions".into() });
+    }
+    let pulses: Vec<Pulse> = pulses.into_iter().zip(need).filter(|(_, n)| *n).map(|(p, _)| p).collect();
+    anyhow::ensure!(!pulses.is_empty(), "every target pulse is spare: no shuttle needed");
     let fed = fed_pistons(&ctx, &evs, &pulses)?;
     say(format!("{}: plan open {} / close {}; {} target pulses:", path.display(), base.0, base.1, pulses.len()));
     for (p, f) in pulses.iter().zip(&fed) {
@@ -628,8 +697,10 @@ fn run_one(path: &Path, text: &str, o: &Options, tag: &str, quiet: bool) -> Resu
     say(format!("{} placements reach every target pulse ({rbs} with a redstone block); {covered} give each pulse alone ({} options per pulse)", places.len(), options(o, false).len()));
     let by_pulse: Vec<String> = pulses.iter().enumerate().map(|(k, p)| format!("{} t{} {}", if p.open { "open" } else { "close" }, p.set, per.iter().filter(|v| !v[k].is_empty()).count())).collect();
     say(format!("  placements giving each pulse alone: {}", by_pulse.join(", ")));
-    let mut found = stage2(&ctx, &evs, &pulses, &places, &per, &screen, o);
-    found.sort_by_key(|f| (f.windows.len(), f.ticks.0 + f.ticks.1));
+    let mut found = if o.partial { stage2_partial(&ctx, &evs, &pulses, &places, &per, &screen, o) } else { stage2(&ctx, &evs, &pulses, &places, &per, &screen, o) };
+    // a partial set the plan works without anyway (jointly spare) needs no shuttle
+    found.retain(|f| f.replaced.len() < 2 || ctx.judge(&without(&evs, &f.replaced), &[], &screen).is_err());
+    found.sort_by_key(|f| (std::cmp::Reverse(f.replaced.len()), f.windows.len(), f.ticks.0 + f.ticks.1));
     let spare = if o.absorb && !found.is_empty() { spare_pulses(&ctx, &evs, &o.targets, &screen, o.threads) } else { Vec::new() };
     if !spare.is_empty() {
         let s: Vec<String> = spare.iter().map(|q| format!("{:?} {} t{}", q.cell, if q.open { "open" } else { "close" }, q.set)).collect();
@@ -654,7 +725,7 @@ fn run_one(path: &Path, text: &str, o: &Options, tag: &str, quiet: bool) -> Resu
     }
     say(format!("{} shuttles WORK at {} positions x {} cycles:", done.len(), full.len(), o.cycles));
     for (k, f) in done.iter().enumerate() {
-        let lines = describe(f, &pulses);
+        let lines = describe(f);
         println!("{}{}#{k}: open {} / close {}: {}", if quiet { path.display().to_string() } else { String::new() }, if quiet { " " } else { "" }, f.ticks.0, f.ticks.1, lines.join("; "));
         if let Some(dir) = &o.out_dir {
             std::fs::create_dir_all(dir)?;

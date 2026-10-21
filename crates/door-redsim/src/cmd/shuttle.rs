@@ -21,6 +21,14 @@ pub struct ShuttleArgs {
     /// Only the target pulses of one edge: `open` or `close` (default: both).
     #[arg(long)]
     edge: Option<String>,
+    /// Also keep shuttles that replace only some of the target pulses (most first; the rest stay
+    /// ideal): load relief for an overloaded area.
+    #[arg(long)]
+    partial: bool,
+    /// The plan is ONE pulse train for both edges (`door interleave`): spare ticks are dropped only
+    /// with both edges' copies together.
+    #[arg(long)]
+    train: bool,
     /// Ticks the shuttle piston stays powered per pulse (>= 3: a sticky piston drops its block on
     /// shorter pulses), comma separated.
     #[arg(long, default_value = "3,4,5,6,8,10,12")]
@@ -76,7 +84,7 @@ where
 }
 
 pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
-    let ShuttleArgs { schedule, per_cell, target, unfed, edge, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
+    let ShuttleArgs { schedule, per_cell, target, unfed, edge, partial, train, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
     let edge = match edge.as_deref() {
         None => None,
         Some("open") => Some(true),
@@ -95,6 +103,6 @@ pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
     anyhow::ensure!(holds.iter().all(|&h| h >= 3), "--holds: every hold >= 3 (a sticky piston drops its block on a 1-2 gt pulse)");
     let payloads: Vec<String> = payload.split(',').map(|s| s.trim().to_string()).collect();
     anyhow::ensure!(payloads.iter().all(|p| p == "observer" || p == "redstone_block"), "--payload: observer, redstone_block");
-    let o = crate::shuttle::Options { targets, edge, unfed, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
+    let o = crate::shuttle::Options { targets, edge, unfed, partial, train, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
     crate::shuttle::cli(&schedule, &o, per_cell)
 }
