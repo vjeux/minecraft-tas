@@ -409,18 +409,35 @@ pub fn test(seg: char, code: &Code, out: &std::path::Path) -> Result<()> {
 /// (z = o.z + 2, driven from the south) and s taken up from the hub: returns the block (o + (9, 2, 0))
 /// that the chain's copy comparator powers at s.
 pub fn chain_back(b: &mut B, o: P, code: &Code) -> P {
+    chain_back_with(b, o, code, false)
+}
+
+/// chain_back, or with `west` a0 and a1 left on the chain's west side (their dust at x = o.x is
+/// then the build's west face: the judge's repeaters drive them from the west; clk-obs, rings2
+/// --chain-front): 5 blocks fewer and the box no wider than the chain.
+pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool) -> P {
     let p = |x: i32, y: i32, z: i32| add(o, [x, y, z]);
     crate::astack::build_chain(b, o, code);
-    b.ports.clear();
-    // a0: repeater into the dust at (0, 1, 1)
-    b.rep(p(0, 1, 2), D::N, 1);
-    b.port("input.a0", p(0, 1, 2));
-    // a1: a block powering the dust at (0, 1, -1)
-    b.stone(p(-1, 1, -1));
-    for z in 0..=2 {
-        b.rep(p(-1, 1, z), D::N, 1);
+    if west {
+        // a0 and a1 enter through repeaters in their dust's cells (the equaliser sets their delays):
+        // a0's into gen 0's side, a1's into its repeater (1, 1, -1)
+        b.blocks.remove(&p(0, 1, 1));
+        b.rep(p(0, 1, 1), D::E, 1);
+        b.blocks.remove(&p(0, 1, -1));
+        b.rep(p(0, 1, -1), D::E, 1);
+        b.ports.retain(|(k, _)| k == "input.a0" || k == "input.a1");
+    } else {
+        b.ports.clear();
+        // a0: repeater into the dust at (0, 1, 1)
+        b.rep(p(0, 1, 2), D::N, 1);
+        b.port("input.a0", p(0, 1, 2));
+        // a1: a block powering the dust at (0, 1, -1)
+        b.stone(p(-1, 1, -1));
+        for z in 0..=2 {
+            b.rep(p(-1, 1, z), D::N, 1);
+        }
+        b.port("input.a1", p(-1, 1, 2));
     }
-    b.port("input.a1", p(-1, 1, 2));
     // a2: (5, 1, -1) <- (6, 1, -1) <- block (7, 1, -1) <- repeaters from the back
     b.rep(p(6, 1, -1), D::W, 1);
     b.stone(p(7, 1, -1));
