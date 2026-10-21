@@ -58,7 +58,7 @@ dropping its block) to the launcher: the launch comes 64 ticks after the TNT was
 the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
 The PRECISE DROP (vjeux 01:00Z, tree farms; 02:45Z "21 blocks is super far away"): **tnt-precise-drop**
-now 44 blocks in a 6x5x8 box (240), 30/min, game-robust, bursting 10.0 blocks under the machine and
+now 41 blocks in a 6x5x8 box (240), 30/min, game-robust, bursting 10.0 blocks under the machine and
 13.0 above the ground (`stand: 23`): a clk-rt `compact` squeeze folded the clock into the gap between
 the engine and the channel. The 280-volume step (7x5x8, 8.3 below): clk-rt's `circuit tnt graft` moved the clock and its converter
 (repeater, stone, torch) as one module so the torch stands under the engine's piston and powers it from
@@ -83,7 +83,8 @@ already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-v
 | precise drop (P40) | 8x5x8 | 320 | 45 | 14.5 below | 30/min |
 | precise drop (compact, delay-4 route) | 8x5x8 | 320 | 44 | 9.3 below | 30/min |
 | precise drop (graft: torch under the piston) | 7x5x8 | 280 | 44 | 8.3 below, 14.7 above ground | 30/min |
-| **precise drop (compact squeeze: clock between engine and channel)** | **6x5x8** | **240** | **44** | **10.0 below, 13.0 above ground** | 30/min |
+| precise drop (compact squeeze: clock between engine and channel) | 6x5x8 | 240 | 44 | 10.0 below, 13.0 above ground | 30/min |
+| **precise drop (compact, 3 blocks fewer)** | **6x5x8** | **240** | **41** | **10.0 below, 13.0 above ground** | 30/min |
 | precise air burst (catalog parts) | 8x6x11 | 528 | 50 | mid-air, ~9 above the channel | 22.2/min |
 | **precise air burst (compact)** | **8x6x8** | **384** | **45** | mid-air | 22.2/min |
 
