@@ -34,6 +34,12 @@ pub enum DoorCmd {
     /// Verify every design on HEAD and on the explore/* branches and write the boards
     /// (LEADERBOARD.md: each board's leader with its GIF, video and caption, the rest collapsed).
     Leaderboard(cmd::boards::LeaderboardArgs),
+    /// The distinct PISTON LAYOUTS among the working doors of one size (layouts.rs): every design
+    /// on HEAD, origin/main and the explore/* branches the leaderboard's caches judge WORKS with
+    /// those volume dims; layout = its pistons at rest (position from the door, facing, sticky),
+    /// wiring ignored; identical layouts grouped, mirrors paired, per layout doors / best blocks /
+    /// best open-close / example / first find (earliest commit carrying one of its files, track).
+    Layouts(cmd::boards::LayoutsArgs),
     /// What our rules, checks, generators and wiring tools silently exclude (audit.rs, track
     /// audit): on working doors (default: the community 7x9, tracks/c79/c79-closed.txt), (1) every
     /// check that rejects or mislabels it, (2) its mechanism extracted from a redsim cycle and its
@@ -113,6 +119,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::Frontier(a) => cmd::boards::cmd_frontier(version, a),
         DoorCmd::Shapes(a) => cmd::boards::cmd_shapes(version, a),
         DoorCmd::Leaderboard(a) => cmd::boards::cmd_leaderboard(version, a),
+        DoorCmd::Layouts(a) => cmd::boards::cmd_layouts(a),
         DoorCmd::Audit(a) => cmd::checks::cmd_audit(version, a),
         DoorCmd::Provenance(a) => cmd::checks::cmd_provenance(a),
         DoorCmd::Turn(a) => cmd::design::cmd_turn(version, a),

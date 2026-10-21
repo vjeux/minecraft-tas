@@ -176,8 +176,18 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 | lock3-p3s | 89 | 6x3x9 = 162 | the output torch on the bus's south end |
 | lock3-q | 86 | 6x3x9 = 162 | a delay-1 repeater starts each low route (no cutter); high repeater delay 3 |
 | lock3-q85 | 85 | 6x3x9 = 162 | (census) the first dial's high repeater feeds a block that the bus reads, instead of a bus dust on its own support |
-Census in progress: `circuit local-census` on the 2-dial cut (lock2-q, 0.24 s per screen),
-remove 2 / add 1, palette stone, wire, repeaters x4, 588,147 candidates.
+| lock3-alt | 64 | 6x4x6 = 144 | lock3-two with the middle dial one level lower: each comparator side next to the other dial faces a plain support block, so no spacer rows; the bus steps down and up diagonally |
+| lock3-two | 68 | 6x3x8 = 144 | TWO COMPARATORS PER DIAL: T = compare(dial, code), W = compare(code, T's dust); a torch on T's dust support (low) and one on W's front block (high), both directly on one dust bus under them (no routes, no repeaters); code frames read from the west, each on the block south of its dial |
+Census results: the 2-dial cut (remove 2 / add 1, stone, wire, repeaters: 588,147 candidates,
+25 s) found the lock3-q85 cut; the 3-dial lock3-q85 (remove 2 / add 1, stone, wire, torches x5,
+repeaters x4, comparators x8: 11,430,940 candidates, 70 min on 64 threads) finds NOTHING: 85 is a
+minimum for every 2-block change. A big cut needs a new structure.
+- Next structure (two comparators per dial, no D2 and no high repeater): K's output dust (k) is
+  adjacent to T's side AND to W's back. T = compare(f, k) is f when f >= k, else 0. W =
+  compare(k, T's dust) is nonzero iff k >= T. Then match = (T > 0) AND (W > 0): low has T = 0,
+  high has W = 0. Each dial: a torch on T's front block and a torch on W's front block, OR'd
+  into the bus. Estimate 16 + routes per dial (the ternary dial is 21 with its route), if the
+  torches can sit next to the bus.
 
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
