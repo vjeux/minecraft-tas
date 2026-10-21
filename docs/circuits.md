@@ -203,7 +203,12 @@ kick) before the first input.
   (`enable high`: transparent while e is on; `enable low`: while it is off, a repeater lock).
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
-  each pulse must repeat with period exactly N (`level`, comparator counters).
+  each pulse must repeat with period exactly N (`level`, comparator counters). `counts` (site QA
+  2026-10-21): the axis is `counter N` only for ONE output pulse per N input pulses (a pulse in
+  every Nth input's phase, or a level with one rising edge per N inputs, `on k of N` noted); a
+  design that toggles every N pulses gives one pulse per 2N inputs (a square wave, a divider by 2N)
+  and is its own class (`counter N, one pulse per 2N inputs (...)`), as are `levels only` and more
+  than one pulse per N.
 * **tff-reset** (inputs r, t; [crate::seq](../crates/circuit/src/seq.rs)): pulses t, t, t, r, r,
   t, r, t, t, r of 4 gt, then t, r, t, r of 20 gt, each followed by the gap: every t pulse must
   change q exactly once, every r pulse must leave q off with one change from q = 1 and none from
@@ -557,6 +562,9 @@ kick) before the first input.
     give one pulse ending L after the last fall, longer ones three pulses (a min-pulse of 4 gt or
     less, to run them). A repeater ORed with the
     input fails: it holds one pending tick, so it ends L after the second input of a close train.
+    Site QA 2026-10-21 (a pressure plate keeping a light on: a short input): the stay-on L must
+    come from a 20 gt input; a design whose min-pulse is longer (an item timer needs its input
+    held about as long as its delay to reload) is its own class, `off L = .., needs a long input`.
   * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
     be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
     input's fall for every input from T up. Metrics T (axis, `on T = ..`), shortening, latency;
