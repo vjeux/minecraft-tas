@@ -262,6 +262,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             };
         }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
+        // the view's own run (at build time) sent out no box: no promise of boxes moving (the
+        // 28-block loader: its judge's redsim scenarios pass, the browser's run sends none)
+        "shulker-loader" | "shulker-unloader" if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) => {
+            return "The view runs it, but no box comes out there yet: the browser's simulator does not run this machine the way our test did. Download it to try it in the game.".to_string();
+        }
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
             return format!(
@@ -317,6 +322,13 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     if !c.unmodeled.is_empty() {
         return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+    }
+    // a demo the view stops early (redsim meets what it does not model: the 100- and 576-item
+    // counters' droppers holding several stacks, webrender's QA): no demo promised
+    if !c.view_halt.is_empty() {
+        let (tick, why) = crate::explain::halt_words(&c.view_halt);
+        let at = tick.map(|t| format!(" at tick {t} of our test")).unwrap_or_default();
+        return format!("The view shows it as built but stops{at}: {why}. Download it to try it in the game.");
     }
     let toggle = crate::explain::input_mode(&c.kind) == "toggle";
     let device = c.devices.first().map(String::as_str).unwrap_or("");
@@ -684,7 +696,9 @@ pub fn door(b: &Build) -> (String, String) {
     } else {
         format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
     };
-    (what, "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
+    // (the view plays the door by itself, its lever flipped like the record videos: webrender's door
+    // demo; any input of the visitor's ends it)
+    (what, "The view flips the lever for you, like our record video: the door opens, stays open a moment and closes, again and again. To take over, tap the lever or the Flip button under the view: once to open the door, again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).

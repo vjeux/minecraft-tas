@@ -784,6 +784,24 @@ fn checks() -> Vec<Check> {
             Ok("reference loader and unloader traces tick-identical in redsim".into())
         }),
     });
+    // the judge's full-chest check (a chest full of boxes, as a player fills it): track pext's
+    // 28-block loader jams there (its first dispenser fire comes before a box arrives and the
+    // chest never empties); track shulker's always-on loader and unloader pass
+    v.push(Check {
+        name: "circuit:shulker-full-chest".into(),
+        what: "`circuit shulker rs --only full-chest` (redsim): a chest full of boxes (27); a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes, track shulker's always-on loader and unloader deliver all",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "FAIL cal-shulker-full-chest-jam full-chest")?;
+            has(&o[0], "0 of 26 boxes")?;
+            has(&o[0], "OK shulker-auto-loader-1 full-chest")?;
+            has(&o[0], "OK shulker-auto-unloader-1 full-chest")?;
+            Ok("full chest: the box-counting loader jams, the always-on loader and unloader deliver every box".into())
+        }),
+    });
     v
 }
 

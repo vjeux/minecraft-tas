@@ -729,7 +729,20 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
         Some(s) => s,
         None => {
             if filled.len() > 1 {
-                w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks (not modeled)", filled.len()));
+                // getRandomSlot draws from the level random (not mirrored); when every filled slot
+                // holds the same item (and contents), every pick moves the same item and leaves
+                // the same total, so the world (blocks, comparators reading the fill level, the
+                // receiving container) is the same whichever slot goes: take the first (coordinator
+                // 2026-10-21: the item counters' droppers hold 2+ stacks of one item)
+                let Some(c) = w.containers.map.get(&pos) else { return };
+                let first = c.slots[filled[0]].unwrap();
+                let same = filled.iter().all(|&i| {
+                    let s = c.slots[i].unwrap();
+                    s.item == first.item && same_payload(w, s.payload, first.payload)
+                });
+                if !same {
+                    w.errors.push(format!("dropper at {pos} picks a random slot among {} stacks of different items (not modeled without the level random)", filled.len()));
+                }
             }
             filled[0]
         }

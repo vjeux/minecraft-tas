@@ -49,9 +49,10 @@ pub struct Trace {
     /// forced chunk draws that many `nextInt(48)` per tick (a grass scene recorded at 0 has no
     /// random ticks, which redsim does not model).
     pub random_tick_speed: u32,
-    /// A test scene's extra inputs (header `actions`, `trace-export --action`): (tick, `use` or
-    /// `use_entity`, cell), replayed after the design's own inputs of that tick.
-    pub actions: Vec<(u32, String, [i32; 3])>,
+    /// A test scene's extra inputs (header `actions`, `trace-export --action` / `--circuit`):
+    /// (tick, `use` / `use_entity` / `set` / `clear`, cell, the state for `set`), replayed after
+    /// the design's own inputs of that tick.
+    pub actions: Vec<(u32, String, [i32; 3], Option<String>)>,
     /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
     /// with `random_state`), checked against the mirror every frame.
     pub rng: Vec<Option<i64>>,
@@ -88,7 +89,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         random_tick_speed: h["random_tick_speed"].as_u64().unwrap_or(3) as u32,
         actions: h["actions"]
             .as_array()
-            .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?))).collect())
+            .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?, a.get(3).and_then(|s| s.as_str()).map(|s| s.to_string())))).collect())
             .unwrap_or_default(),
         rng: Vec::new(),
     };
@@ -289,11 +290,13 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     }
     let mut actions = c.actions();
     // a test scene's extra inputs (header `actions`), after the design's own at the same tick
-    for (t, kind, pos) in &trace.actions {
-        let a = match kind.as_str() {
-            "use" => Action::Use { pos: *pos },
-            "use_entity" => Action::UseEntity { pos: *pos },
-            other => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
+    for (t, kind, pos, state) in &trace.actions {
+        let a = match (kind.as_str(), state) {
+            ("use", _) => Action::Use { pos: *pos },
+            ("use_entity", _) => Action::UseEntity { pos: *pos },
+            ("set", Some(st)) => Action::Place { pos: *pos, state: st.clone(), nbt: None },
+            ("clear", _) => Action::Clear { pos: *pos },
+            (other, _) => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
         };
         actions.push((*t, a));
     }

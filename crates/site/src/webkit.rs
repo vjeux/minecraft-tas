@@ -28,13 +28,30 @@ fn console_lines(s: &Session) -> Option<Vec<String>> {
     v.as_array().map(|a| a.iter().map(|x| x.as_str().unwrap_or("").to_string()).collect())
 }
 
+/// Console lines WebKitGTK writes itself, not the page: its built-in media-controls script (any
+/// `<video controls>`: the door pages' record video) formats durations with Intl.DurationFormat,
+/// which WebKitGTK 2.54's JavaScriptCore lacks (Safari has it; webrender 2026-10-21). Named in the
+/// report, never a failure.
+fn webkitgtk_own(low: &str) -> bool {
+    low.contains("intl.durationformat") || low.contains("this._formatter.format")
+}
+
 /// The console lines worth a report (the viewer's `GPU error`, a panic, an `unavailable` asset,
-/// uncaught errors), and whether they fail the check (everything but `unavailable`).
+/// uncaught errors), and whether they fail the check (everything but `unavailable` and
+/// WebKitGTK's own media-controls errors).
 fn console_flags(lines: &[String]) -> (Vec<String>, bool) {
     let mut flagged = Vec::new();
     let mut fail = false;
+    let mut own = false;
     for l in lines {
         let low = l.to_lowercase();
+        if webkitgtk_own(&low) {
+            if !own {
+                flagged.push("WebKitGTK's own media controls (no Intl.DurationFormat in its JavaScriptCore; not the page's code)".to_string());
+                own = true;
+            }
+            continue;
+        }
         let bad = low.contains("gpu error") || low.contains("panic") || low.starts_with("uncaught") || low.starts_with("unhandled rejection");
         if bad || low.contains("unavailable") {
             flagged.push(l.chars().take(220).collect::<String>());
@@ -804,4 +821,25 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
     }
     Ok(fails)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::console_flags;
+
+    #[test]
+    fn webkitgtk_media_controls_are_named_not_failed() {
+        let lines = vec![
+            "uncaught: TypeError: undefined is not a constructor (evaluating 'new Intl.DurationFormat(...)')".to_string(),
+            "uncaught: TypeError: undefined is not an object (evaluating 'this._formatter.format')".to_string(),
+            "viewer ready".to_string(),
+        ];
+        let (flagged, fail) = console_flags(&lines);
+        assert!(!fail, "{flagged:?}");
+        assert_eq!(flagged.len(), 1, "{flagged:?}");
+        assert!(flagged[0].starts_with("WebKitGTK's own media controls"), "{flagged:?}");
+        // the page's own uncaught errors still fail
+        let (_, fail) = console_flags(&["uncaught: ReferenceError: x is not defined".to_string()]);
+        assert!(fail);
+    }
 }
