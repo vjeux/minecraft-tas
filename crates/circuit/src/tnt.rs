@@ -416,18 +416,40 @@ fn tnt_in(t: &Trace, f: usize) -> usize {
 /// The smallest period of the frames from `from` on (every frame of the second half equal to the
 /// one P later), and the first frame it holds from.
 fn period(t: &Trace, from: usize) -> Option<(usize, usize)> {
-    let n = t.cells.len();
+    period_of(&t.cells, from)
+}
+
+fn period_of(cells: &[Vec<(Pos, u32)>], from: usize) -> Option<(usize, usize)> {
+    let n = cells.len();
     let half = (n / 2).max(from);
     for p in 1..=n.saturating_sub(half) / 2 {
-        if (half..n - p).all(|i| t.cells[i] == t.cells[i + p]) {
+        if (half..n - p).all(|i| cells[i] == cells[i + p]) {
             let mut start = half;
-            while start > from && t.cells[start - 1] == t.cells[start - 1 + p] {
+            while start > from && cells[start - 1] == cells[start - 1 + p] {
                 start -= 1;
             }
             return Some((start, p));
         }
     }
     None
+}
+
+/// [`period`] over the block states alone, container contents and cooldowns left out (a hopper
+/// ring's items take several periods to settle into their round while its blocks repeat from the
+/// first one): the explosion-damage test compares blocks, not items.
+fn period_blocks(t: &Trace, from: usize) -> Option<(usize, usize)> {
+    let mut ids: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    let base: Vec<u32> = t
+        .names
+        .iter()
+        .map(|n| {
+            let b = n.split('{').next().unwrap_or(n);
+            let k = ids.len() as u32;
+            *ids.entry(b).or_insert(k)
+        })
+        .collect();
+    let frames: Vec<Vec<(Pos, u32)>> = t.cells.iter().map(|f| f.iter().map(|(p, id)| (*p, base[*id as usize])).collect()).collect();
+    period_of(&frames, from)
 }
 
 /// A run's PRECISE point (every TNT followed to fuse 1): every TNT of the periodic region that
@@ -504,7 +526,7 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     // destroyed would be missing from the frames seen before them)
     if c.explodes()
         && let Some(&x) = t.explosions.iter().min()
-        && start >= x as usize
+        && period_blocks(t, from).map(|(s, _)| s).unwrap_or(start) >= x as usize
     {
         return Outcome {
             pass: false,
