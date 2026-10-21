@@ -7,6 +7,7 @@ pub mod compact;
 pub mod graft;
 pub mod game;
 pub mod hold;
+pub mod lever;
 pub mod improve;
 pub mod precise;
 pub mod precision;
@@ -83,6 +84,38 @@ enum Cmd {
         nth: usize,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Give a TNT duper an on/off lever (`lever`): every inverter around it (a torch standing or
+    /// on a wall, a new stone under or behind it, a lever on another face of the stone) judged on
+    /// redsim with the lever stimulus (off at rest and idle, on/off cycles, back to rest each time).
+    LeverScan {
+        design: PathBuf,
+        /// Cells around the design's box a torch may stand in.
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        /// Remove the design's `port start` (a clock the lever starts by itself).
+        #[arg(long)]
+        no_start: bool,
+        /// Kicks per ground for a candidate that passes the first.
+        #[arg(long, default_value_t = 4)]
+        kicks: usize,
+        #[arg(long, default_value_t = 24)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Only torches next to one of these cells: "x,y,z;x,y,z".
+        #[arg(long, allow_hyphen_values = true)]
+        near: Option<String>,
+        /// Print every candidate's verdict.
+        #[arg(long)]
+        list: bool,
+        /// Gates instead of inverters: a sticky piston the lever powers pushes one of the
+        /// design's own blocks home (lever off: it stands one cell back).
+        #[arg(long)]
+        gate: bool,
+        /// A pass must carry this in its judge line (e.g. "precise:": the lever keeps the flag).
+        #[arg(long, default_value = "")]
+        want: String,
     },
     /// A TNT engine held by a catalog clock (`hold`): scan the archived clocks for a cell where a
     /// piston is powered on every tick of the period but one short release window, put the
@@ -551,6 +584,19 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
+        }
+        Cmd::LeverScan { design, margin, no_start, kicks, threads, out, near, list, gate, want } => {
+            let near: Vec<[i32; 3]> = near
+                .unwrap_or_default()
+                .split(';')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 3, "--near x,y,z;...: {s:?}");
+                    Ok([v[0], v[1], v[2]])
+                })
+                .collect::<anyhow::Result<_>>()?;
+            lever::scan(&design, &lever::LeverOpts { margin, no_start, kicks, threads, out, near, list, gate, want })?;
         }
         Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, pulse, rb, archive, out } => {
             let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, pulse, rb, max_blocks, min_period, max_period, judge: !list, out };
