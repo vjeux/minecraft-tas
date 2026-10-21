@@ -176,8 +176,15 @@ pub fn one_liner(c: &Circuit) -> String {
                 if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") }
             )
         }
-        "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { m(c, "rate").to_string() }),
+        "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) }),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
+        // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
+        // iron_ingot`)
+        "sorter" => {
+            let item = c.kind.split_whitespace().nth(1).map(|i| i.replace('_', " ")).unwrap_or_default();
+            let set = if item.is_empty() { String::new() } else { format!(" (set up for {item}s; the items in its filter hopper choose the kind)") };
+            format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if m(c, "items/s").is_empty() { String::new() } else { format!(", {} items a second", m(c, "items/s")) })
+        }
         "burst" => format!("One press gives exactly {n} pulses{}.", if m(c, "period").is_empty() { String::new() } else { format!(", {} apart", ticks_short(m(c, "period"))) }),
         "divider" => format!(
             "Feed it a clock and the output goes on and off once for every {n} input pulses{}.",
@@ -327,6 +334,11 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
+    }
+    // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
+    // comparator cannot count non-stacking items, and other names or enchantments do not stack)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) {
+        out.push("It cannot sort items that do not stack (tools, armour, potions) nor items renamed or enchanted unlike the ones in its filter: they pass by unsorted.".to_string());
     }
     // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
     if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
