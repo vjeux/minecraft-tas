@@ -1,0 +1,23 @@
+name: mm08-oc
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:stone
+  O minecraft:obsidian
+  S minecraft:smooth_stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  ..SSSSB
+layer 0:
+  A.ADDD.C
+layer 1:
+  A.ADDD
+layer 2:
+  OA.DDD.C
+layer 3:
+  .AS...sC
+layer 4:
+  .O..ss.O

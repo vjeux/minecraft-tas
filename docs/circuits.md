@@ -419,6 +419,12 @@ kick) before the first input.
   drop pushed into a block takes a random way out: a sound design can lose one in a few hundred
   bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
   (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
+  Then the FULL CHEST (`shulker::FULL_CHEST`, 2026-10-21): a chest full of boxes as a player fills
+  it (a loader: 27 empty boxes and 26 boxes' worth of unstackables; an unloader: 27 full boxes),
+  every box loaded or emptied and delivered, at every rotation; a failure fails the design
+  (`jams with a full chest`). A box-arrival line that fires the dispenser on the box chest
+  comparator's on and off jams there: with the hoppers and the dispenser full the chest never
+  empties. `circuit shulker rs --only full-chest` is its redsim screen.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch

@@ -202,6 +202,10 @@ enum Cmd {
         /// Edits only within this distance of the cut blocks.
         #[arg(long, default_value_t = 3)]
         local: i32,
+        /// The design whose scenarios and rate the result must match (default: the input's own;
+        /// give it to repair a hand seed that does not pass yet).
+        #[arg(long)]
+        target: Option<PathBuf>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
@@ -268,9 +272,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Repair { design, r#box, steps, batch, threads, palette, tol, seed, moves, temp, local, out_dir } => {
+        Cmd::Repair { design, r#box, steps, batch, threads, palette, tol, seed, moves, temp, local, target, out_dir } => {
             let (a, b) = r#box.split_once(':').ok_or_else(|| anyhow::anyhow!("--box wants x,y,z:x,y,z"))?;
-            let o = lns::RepairOptions { bbox: (parse_pos(a)?, parse_pos(b)?), steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, temp, local, out_dir };
+            let o = lns::RepairOptions { bbox: (parse_pos(a)?, parse_pos(b)?), steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, temp, local, target, out_dir };
             let finds = lns::repair(&design, &o)?;
             println!("{} passing designs in the box", finds.len());
             for (s, _) in finds.iter().take(10) {

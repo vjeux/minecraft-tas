@@ -596,6 +596,38 @@ impl<'a> Builder<'a> {
         self.add_model(&m, base, None, None);
     }
 
+    /// A flying machine's track (an annotation, no block: [`crate::scene::Look::track`]): thin
+    /// bars in the plane just under (or, `normal` = z, behind) the path box `lo`..`hi`: two rails
+    /// along `axis` at its sides and a tie at every block, so the machine is seen to fly while
+    /// the camera follows it (the judges' worlds are void: nothing else to see it move against).
+    pub fn track(&mut self, lo: Pos, hi: Pos, axis: usize, normal: usize, color: [u8; 3]) {
+        if axis == normal || axis > 2 || normal > 2 {
+            return;
+        }
+        let w = 3 - axis - normal;
+        let t = 0.5;
+        let len = 16.0 * (hi[axis] - lo[axis] + 1) as f32;
+        let wid = 16.0 * (hi[w] - lo[w] + 1) as f32;
+        let bar = |a0: f32, a1: f32, w0: f32, w1: f32| {
+            let (mut from, mut to) = ([0.0f32; 3], [0.0f32; 3]);
+            from[axis] = a0;
+            to[axis] = a1;
+            from[w] = w0;
+            to[w] = w1;
+            from[normal] = -t;
+            to[normal] = 0.0;
+            Part::new(from, to).all("white_concrete").tint(color).emissive(true).nocull()
+        };
+        let mut parts = vec![bar(0.0, len, 0.0, t), bar(0.0, len, wid - t, wid)];
+        let mut a = 0.0;
+        while a <= len + 0.01 {
+            parts.push(bar((a - t / 2.0).max(0.0), (a + t / 2.0).min(len), 0.0, wid));
+            a += 16.0;
+        }
+        let m = Model { parts, ..Default::default() };
+        self.add_model(&m, [lo[0] as f32, lo[1] as f32, lo[2] as f32], None, None);
+    }
+
     /// A powered output's box filled with translucent red (its outline drawn by [`Builder::marker`]).
     pub fn out_fill(&mut self, cell: Pos) {
         let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];

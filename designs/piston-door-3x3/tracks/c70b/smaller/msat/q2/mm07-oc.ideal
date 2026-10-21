@@ -1,0 +1,121 @@
+phase between
+# mech-synth ideal schedule (open/close on both edges)
+design designs/piston-door-3x3/tracks/c70b/smaller/msat/q2/mm07-oc.txt
+# open:  LSup+@(0,-2,0) LSup@(2,-2,0) LSeast+@(-2,2,0) LSdown@(1,3,0) LSdown@(1,3,0) LSdown@(4,3,0) LSeast+@(-2,-1,0) LSwest@(4,-1,0) LSwest@(3,3,0) LSwest@(3,3,0) LSup+@(0,-2,0) LSwest@(4,-1,0) LSwest@(4,1,0) LSdown@(1,3,0) LSdown@(1,3,0) LSdown@(1,4,0) LSdown@(1,4,0) LSup@(2,-2,0) LSeast@(-1,0,0) LSeast@(-1,0,0) PSdown@(1,4,0) LSwest@(4,-1,0) LSwest@(4,-1,0) LSeast@(-2,1,0) LSwest@(4,1,0) LSup+@(0,-2,0) LSeast@(-2,1,0) LSeast@(-2,3,0) LSeast@(-2,3,0) LSdown@(4,3,0) PSeast+@(-2,-1,0) LSdown@(1,4,0) LSdown@(1,4,0) PSwest@(4,1,0) PSdown@(1,3,0) LSwest@(3,3,0) LSwest@(3,3,0) LSeast+@(-2,2,0) LSeast+@(-2,2,0) LSwest@(4,1,0) LSwest@(4,1,0) LSdown@(1,4,0) LSdown@(1,4,0)
+# close: PSup+@(0,-2,0) PSup@(2,-2,0) PSeast@(-2,1,0) PSwest@(4,1,0) PSdown@(0,4,0) PSdown@(1,4,0) LSup@(-1,-2,0) LSup@(-1,-2,0) LSup+@(0,-2,0) LSup+@(0,-2,0) PSwest@(4,-1,0) PSeast@(-2,3,0) PSwest@(3,3,0) LSeast@(-1,0,0) LSeast@(-1,0,0) LSwest@(4,1,0) LSwest@(4,1,0) PSdown@(0,4,0) LSdown@(1,4,0) LSup@(-1,-2,0) LSup@(2,-2,0) LSup@(2,-2,0) LSeast+@(-2,2,0) LSeast@(-2,3,0) LSup@(-1,-2,0) PSup+@(0,-2,0) PSup@(2,-2,0) LSdown@(1,4,0) PSup@(-1,-2,0) LSwest@(4,1,0) LSwest@(4,1,0) LSeast@(-2,3,0) LSwest@(3,3,0) LSwest@(3,3,0) PSdown@(4,3,0) LSdown@(0,4,0) LSdown@(0,4,0) LSeast+@(-2,2,0) PSeast@(-2,3,0) LSdown@(1,3,0) LSdown@(1,3,0) PSwest@(4,1,0) PSdown@(0,4,0) PSdown@(1,4,0) LSup+@(0,-2,0) LSeast+@(-2,-1,0) PSwest@(4,-1,0) LSeast+@(-2,2,0) PSwest@(3,3,0)
+open 0 clear 0 -3 0
+open 6 set 2 -3 0 minecraft:redstone_block
+open 12 clear -3 2 0
+open 18 set 1 3 1 minecraft:redstone_block
+open 24 clear 1 3 1
+open 30 set 5 3 0 minecraft:redstone_block
+open 36 clear -3 -1 0
+open 42 set 4 -2 0 minecraft:redstone_block
+open 48 set 3 3 1 minecraft:redstone_block
+open 54 clear 3 3 1
+open 60 set 0 -3 0 minecraft:redstone_block
+open 66 clear 4 -2 0
+open 72 set 5 1 0 minecraft:redstone_block
+open 78 set 0 3 1 minecraft:redstone_block
+open 84 clear 0 3 1
+open 90 set 1 4 1 minecraft:redstone_block
+open 96 clear 1 4 1
+open 102 clear 2 -3 0
+open 108 set -1 0 1 minecraft:redstone_block
+open 114 clear -1 0 1
+open 120 set 1 4 -1 minecraft:redstone_block
+open 122 clear 1 4 -1
+open 126 set 4 -2 0 minecraft:redstone_block
+open 132 clear 4 -2 0
+open 138 set -3 1 0 minecraft:redstone_block
+open 144 clear 5 1 0
+open 150 clear 0 -3 0
+open 156 clear -3 1 0
+open 162 set -3 3 0 minecraft:redstone_block
+open 168 clear -3 3 0
+open 174 clear 5 3 0
+open 180 set -2 -1 1 minecraft:redstone_block
+open 182 clear -2 -1 1
+open 186 set 1 4 1 minecraft:redstone_block
+open 192 clear 1 4 1
+open 198 set 4 2 1 minecraft:redstone_block
+open 198 set -1 3 1 minecraft:redstone_block
+open 200 clear 4 2 1
+open 200 clear -1 3 1
+open 204 set 3 3 1 minecraft:redstone_block
+open 210 clear 3 3 1
+open 216 set -3 2 0 minecraft:redstone_block
+open 222 clear -3 2 0
+open 228 set 5 2 0 minecraft:redstone_block
+open 234 clear 5 2 0
+open 240 set 1 4 1 minecraft:redstone_block
+open 246 clear 1 4 1
+close 0 set 0 -2 1 minecraft:redstone_block
+close 0 set 2 -2 1 minecraft:redstone_block
+close 0 set -2 1 1 minecraft:redstone_block
+close 0 set 4 2 1 minecraft:redstone_block
+close 0 set 0 4 -1 minecraft:redstone_block
+close 0 set 1 4 -1 minecraft:redstone_block
+close 2 clear 0 -2 1
+close 2 clear 2 -2 1
+close 2 clear -2 1 1
+close 2 clear 4 2 1
+close 2 clear 0 4 -1
+close 2 clear 1 4 -1
+close 6 set -1 -3 0 minecraft:redstone_block
+close 12 clear -1 -3 0
+close 18 set 0 -3 0 minecraft:redstone_block
+close 24 clear 0 -3 0
+close 30 set 5 -1 0 minecraft:redstone_block
+close 30 set -2 3 1 minecraft:redstone_block
+close 30 set 3 3 -1 minecraft:redstone_block
+close 32 clear 5 -1 0
+close 32 clear -2 3 1
+close 32 clear 3 3 -1
+close 36 set -1 -1 1 minecraft:redstone_block
+close 42 clear -1 -1 1
+close 48 set 5 2 0 minecraft:redstone_block
+close 54 clear 5 2 0
+close 60 set 0 4 -1 minecraft:redstone_block
+close 62 clear 0 4 -1
+close 66 set 1 4 1 minecraft:redstone_block
+close 72 set -1 -3 0 minecraft:redstone_block
+close 78 set 2 -3 0 minecraft:redstone_block
+close 84 clear 2 -3 0
+close 90 set -3 2 0 minecraft:redstone_block
+close 96 set -3 3 0 minecraft:redstone_block
+close 102 clear -1 -3 0
+close 108 set 0 -2 1 minecraft:redstone_block
+close 108 set 2 -2 1 minecraft:redstone_block
+close 110 clear 0 -2 1
+close 110 clear 2 -2 1
+close 114 clear 1 4 1
+close 120 set -1 -2 1 minecraft:redstone_block
+close 122 clear -1 -2 1
+close 126 set 5 2 0 minecraft:redstone_block
+close 132 clear 5 2 0
+close 138 clear -3 3 0
+close 144 set 3 3 1 minecraft:redstone_block
+close 150 clear 3 3 1
+close 156 set 4 3 1 minecraft:redstone_block
+close 158 clear 4 3 1
+close 162 set 0 4 1 minecraft:redstone_block
+close 168 clear 0 4 1
+close 174 clear -3 2 0
+close 180 set -2 4 0 minecraft:redstone_block
+close 182 clear -2 4 0
+close 186 set 2 3 1 minecraft:redstone_block
+close 192 clear 2 3 1
+close 198 set 4 1 1 minecraft:redstone_block
+close 198 set 0 4 -1 minecraft:redstone_block
+close 198 set 1 4 -1 minecraft:redstone_block
+close 200 clear 4 1 1
+close 200 clear 0 4 -1
+close 200 clear 1 4 -1
+close 204 set 0 -3 0 minecraft:redstone_block
+close 210 set -3 -1 0 minecraft:redstone_block
+close 216 set 5 -1 0 minecraft:redstone_block
+close 218 clear 5 -1 0
+close 222 set -3 2 0 minecraft:redstone_block
+close 228 set 3 3 -1 minecraft:redstone_block
+close 230 clear 3 3 -1

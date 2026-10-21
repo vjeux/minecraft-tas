@@ -1165,7 +1165,33 @@ impl Circuit {
     /// states are written as given).
     pub fn rotated(&self, w: &mut Worker, turns: u8) -> Result<Circuit> {
         let rc = clock::verify::rotated(w, &self.clock, turns)?;
-        let mut d = rc.design;
+        self.with_turned_design(rc.design, turns)
+    }
+
+    /// [`Circuit::rotated`] without the game: block states turned by `clock::canon::rotate_state`
+    /// (redsim's judge checking the turned builds; designs with entities are refused, their data
+    /// is turned by the game).
+    pub fn turned_pure(&self, turns: u8) -> Result<Circuit> {
+        let turns = turns % 4;
+        if turns == 0 {
+            return Ok(self.clone());
+        }
+        if !self.clock.design.entities.is_empty() {
+            anyhow::bail!("a design with entities is turned by the game (Circuit::rotated)");
+        }
+        let c = &self.clock;
+        let mut d = c.design.clone();
+        d.blocks = c.design.blocks.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), clock::canon::rotate_state(s, turns))).collect();
+        d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), clock::rotate_pos(*p, turns))).collect();
+        d.block_entities = c.design.block_entities.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), s.clone())).collect();
+        if let Some(clock::Kick::Place { state, ticks, .. }) = &c.kick {
+            let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
+            d.meta.insert("port start".into(), format!("{} {ticks}{at}", clock::canon::rotate_state(state, turns)));
+        }
+        self.with_turned_design(d, turns)
+    }
+
+    fn with_turned_design(&self, mut d: mctas::design::Design, turns: u8) -> Result<Circuit> {
         if let Some(t) = self.travel {
             let r = clock::rotate_pos(t, turns);
             d.meta.insert("travel".into(), format!("{} {} {}", r[0], r[1], r[2]));
@@ -1178,7 +1204,9 @@ impl Circuit {
             let r = clock::rotate_pos(st, turns);
             d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
-        Ok(Circuit::from_design(d)?.keep_drivers(self, turns))
+        let mut out = Circuit::from_design(d)?.keep_drivers(self, turns);
+        out.drop = self.drop;
+        Ok(out)
     }
 
     /// The judge's inputs for a schedule: at each input edge, the action applied between ticks

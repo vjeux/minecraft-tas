@@ -225,6 +225,32 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
                     }
                 }
             }
+            // TNT dupers: the turned builds too (2026-10-21: clk-rt's 21-block fast duper passed
+            // this run but primes nothing at rotations 1 and 3, in the game and in redsim alike:
+            // the turned build's update order differs). A turned build that fails or measures
+            // otherwise makes the run `rotation-dependent` (flagged, as the game judge does)
+            if out.pass && matches!(k, Kind::TntDuper | Kind::TntDuperTriggered) && o.stimulus.is_none() {
+                for turns in 1..4u8 {
+                    let Ok(tc) = c.turned_pure(turns) else { break };
+                    let verdict = match run::sim_trace(&tc, &schedule, o.margin) {
+                        Ok(tt) => {
+                            let to = check::check(&tc, k, &schedule, &tt);
+                            if !to.pass {
+                                Some(to.why)
+                            } else if to.metrics != out.metrics.iter().take(to.metrics.len()).cloned().collect::<Vec<_>>() {
+                                Some(format!("measures {}", to.metrics.iter().map(|(a, b)| format!("{a} {b}")).collect::<Vec<_>>().join(", ")))
+                            } else {
+                                None
+                            }
+                        }
+                        Err(why) => Some(why),
+                    };
+                    if let Some(why) = verdict {
+                        out.why = format!("rotation-dependent: turned {turns} time(s): {}; {}", why.chars().take(120).collect::<String>(), out.why);
+                        break;
+                    }
+                }
+            }
             let out = match lamp_part(c, &schedule, o.margin, t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
                 _ => out,

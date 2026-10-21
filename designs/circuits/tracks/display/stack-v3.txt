@@ -1,0 +1,388 @@
+name: seven-segment-stack-v3
+circuit: seven-segment 4
+port input.a0: 0 -2 -1
+port input.a1: -2 -2 -1
+port input.a2: 1 -2 -2
+port input.a3: 0 -2 1
+port output.a: 0 14 0
+port output.b: 0 12 0
+port output.c: 0 20 0
+port output.d: 0 10 0
+port output.e: 0 16 0
+port output.f: 0 18 0
+port output.g: 0 22 0
+origin: -4 0 -4
+palette:
+  A minecraft:comparator[facing=north,mode=subtract,powered=true]
+  B minecraft:comparator[facing=south,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=true]
+  E minecraft:comparator[facing=west,mode=subtract,powered=false]
+  F minecraft:redstone_wall_torch[facing=east,lit=false]
+  G minecraft:redstone_wall_torch[facing=east,lit=true]
+  H minecraft:redstone_wall_torch[facing=north,lit=false]
+  I minecraft:redstone_wall_torch[facing=north,lit=true]
+  J minecraft:redstone_wall_torch[facing=south,lit=false]
+  K minecraft:redstone_wall_torch[facing=south,lit=true]
+  L minecraft:redstone_wall_torch[facing=west,lit=false]
+  M minecraft:redstone_wall_torch[facing=west,lit=true]
+  N minecraft:redstone_wire[power=0]
+  O minecraft:redstone_wire[power=15]
+  P minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  Q minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  R minecraft:redstone_torch[lit=false]
+  S minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  T minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  U minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  V minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  W minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  X minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  c minecraft:comparator[facing=north,mode=subtract,powered=false]
+  r minecraft:redstone_torch[lit=true]
+  s minecraft:stone
+layer -1:
+  .
+  .
+  .....r
+  ..r.r
+  .
+  ....r
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  ....Hs
+  ..s.sJ
+  ..J
+  ....sF
+  ....J
+  .
+  .
+layer 1:
+  .
+  ....I
+  ...MsR
+  ..R.Rs
+  ..sG.K
+  .....sG
+  ...Ms
+  .
+  .
+layer 2:
+  .
+  ....sF
+  ..Ls.s
+  ..s.sG
+  ...sFsH
+  ...H.Js
+  ...s
+  .
+  .
+layer 3:
+  .
+  ....MsG
+  .Ms..r
+  ..r.rsI
+  ...IsGsG
+  ..Ms.s
+  ...K.K
+  .
+  .
+layer 4:
+  ......H
+  ...Ls.s
+  .s...s
+  .JsHsRs
+  ...sJsJsF
+  .Ls..J
+  ...sLs
+  ...J
+  .
+layer 5:
+  ...I..sG
+  ...s..R
+  ...I.R
+  .sRs.sI
+  .K.MsKs.s
+  Ms...sG
+  ...Ms
+  ..Ms
+  .
+layer 6:
+  ...s...s
+  ...H..sJ
+  ..Ls.sH
+  ..s...s
+  Ls.s.s..r
+  s..J.Js
+  ...s
+  ..s
+  .
+layer 7:
+  ...R
+  ...sG.rs
+  .Ms..rsK
+  ..r
+  s.......s
+  R.Ms.sR
+  ...R.K
+  ..R
+  .
+layer 8:
+  ...sH
+  ....s.s
+  .sr..srsF
+  ..s
+  r.......R
+  s.s...s
+  ..Js.sF
+  ..s..J
+  .
+layer 9:
+  ...rs
+  ....ssR
+  .Rss.Rs.s
+  ..RsssssK
+  ss.s.s.ss
+  rsssssr
+  ..sr.ss
+  ..r..sK
+  .....K
+layer 10:
+  ...sr
+  ....APs
+  .sRWssR
+  ..sNANcQs
+  RWsE.CsQr
+  sXBOBOs
+  ..rssCr
+  ..s...sF
+  ....Ls
+layer 11:
+  ...Rs
+  ......r
+  .rs.Rrs
+  ..rsssssR
+  s.rs.s.ss
+  RsssssRs
+  ..sR.ssI
+  ..R.s..s
+  ....s
+layer 12:
+  ...sR
+  ......s
+  .sr.ssr
+  ..sOcOcPs
+  r.sE.CsCR
+  sWBNDNsV
+  ..RssCRs
+  ..s.V
+  ....r
+layer 13:
+  ...rs
+  ....ssR
+  .Rss.Rs
+  .sRsss
+  ss.s.sr.s
+  rsssssr
+  ..sr.ssR
+  ..r.s
+  ....s
+layer 14:
+  ...sr
+  ....APs
+  .sREssR
+  .SsNAN
+  REsE.Cs.r
+  sXBOBOs
+  ..rssCrs
+  ..s.U
+  ....R
+layer 15:
+  ...Rs
+  ...ss.r
+  .rss.rs
+  ..rsss
+  s.rs.s.ss
+  ...sssR
+  ..sRr.sr
+  ..R
+  ....s
+layer 16:
+  ...sR
+  ...SS.s
+  .srEssr
+  ..sOcO
+  r.sE.CsPR
+  ...NDNs
+  ..Rss.Rs
+  ..s
+  ....r
+layer 17:
+  ....s
+  ....ssR
+  .Rss.Rs
+  ..Rssss
+  s.Rs.s..s
+  ..ssssr
+  ..sr.ssR
+  ..rss
+  ....s
+layer 18:
+  ....r
+  ....APs
+  .sREssR
+  ..sNANc
+  R.sE.Cs.r
+  ..BOBOs
+  ..rssCrs
+  ..sXB
+  ....R
+layer 19:
+  .
+  .
+  .rss.rs
+  .srssss
+  ss.s.s.ss
+  ..ssssRs
+  ..sRrssr
+  .
+  .
+layer 20:
+  .
+  .
+  .srEssr
+  .TsOcOc
+  rEsE.CsCR
+  ..BNDNsV
+  ..RssCRs
+  .
+  .
+layer 21:
+  .
+  .
+  ..ss.Rs
+  ..Rssss
+  ..rs.s.ss
+  ...sssr
+  ...rR
+  .
+  .
+layer 22:
+  .
+  .
+  ..REssR
+  ..sNcNc
+  ..sE.CsQr
+  ...OBOs
+  ...ss
+  .
+  .
+# tower a2 1 -2 -2 22 ff00
+# tower a1 -2 -1 -2 22 f0f0
+# tower a3 0 1 -2 0 cccc
+# tower a0 0 -1 -2 4 aaaa
+# tower corner2~ -2 0 1 22 f0f0
+# tower corner2~ -1 0 2 22 0f0f
+# tower corner2~ 0 0 3 22 f0f0
+# tower corner2~ 1 0 4 22 0f0f
+# tower corner2~ 1 1 5 22 f0f0
+# tower corner2 2 1 6 22 0f0f
+# tower corner3~ 1 -1 1 22 ff00
+# tower corner3~ 1 0 2 22 00ff
+# tower corner3~ 1 1 3 22 ff00
+# tower corner3~ 1 2 4 22 00ff
+# tower corner3~ 0 2 5 22 ff00
+# tower corner3 -1 2 6 22 00ff
+# tower X20~ 0 2 1 1 cccc
+# tower X20~ -1 2 2 22 3333
+# tower X20~ -1 1 3 3 cccc
+# tower X20~ -1 0 4 4 3333
+# tower X20~ -1 -1 5 5 cccc
+# tower X20~ -1 -2 6 6 3333
+# tower X20 -2 -2 7 22 cccc
+# tower X21~ 1 1 1 1 cccc
+# tower X21~ 2 1 2 22 3333
+# tower X21~ 2 0 3 3 cccc
+# tower X21~ 2 -1 4 4 3333
+# tower X21~ 2 0 5 5 cccc
+# tower X21~ 2 -1 6 6 3333
+# tower X21 2 -2 7 22 cccc
+# tower X22~ 1 -1 3 5 5555
+# tower X22~ 1 0 6 6 5555
+# tower X22~ 1 1 7 7 aaaa
+# tower X22~ 1 2 8 8 5555
+# tower X22 2 2 9 20 aaaa
+# tower X23~ 0 0 5 5 aaaa
+# tower X23~ -1 0 6 6 5555
+# tower X23~ -1 1 7 7 aaaa
+# tower X23~ -2 1 8 8 5555
+# tower X23 -2 2 9 20 aaaa
+# tower Y10~ 0 -2 1 1 aaaa
+# tower Y10~ 0 -3 2 2 5555
+# tower Y10~ 1 -3 3 3 aaaa
+# tower Y10 2 -3 4 18 5555
+# tower Y11~ 2 3 10 10 5555
+# tower Y11~ 3 3 11 11 aaaa
+# tower Y11 3 2 12 20 5555
+# tower Y12~ -1 2 4 22 3333
+# tower Y12~ -1 3 5 5 cccc
+# tower Y12 -2 3 6 18 3333
+# tower Y13 -3 -2 8 20 3333
+# tower Y20~ 0 -3 4 4 5555
+# tower Y20~ -1 -3 5 5 aaaa
+# tower Y20 -1 -4 6 16 5555
+# tower Y21~ 2 -4 5 5 aaaa
+# tower Y21~ 3 -4 6 6 5555
+# tower Y21~ 3 -3 7 7 aaaa
+# tower Y21~ 3 -2 8 8 5555
+# tower Y21~ 4 -2 9 9 aaaa
+# tower Y21 4 -1 10 12 5555
+# tower Y23~ -2 1 4 4 3333
+# tower Y23~ -3 1 5 5 cccc
+# tower Y23 -4 1 6 14 3333
+# tower X10~ -1 -3 7 7 cccc
+# tower X10~ 0 -3 8 8 3333
+# tower X10 0 -4 9 18 cccc
+# tower X11~ 3 0 4 4 3333
+# tower X11 4 0 5 22 cccc
+# tower X12~ 1 3 9 9 aaaa
+# tower X12~ 1 4 10 10 5555
+# tower X12 0 4 11 18 aaaa
+# tower X13~ -1 -2 2 2 5555
+# tower X13~ -2 -2 3 22 aaaa
+# tower X13~ -3 -2 4 20 5555
+# tower X13~ -3 -1 5 5 aaaa
+# tower X13~ -3 0 6 6 5555
+# tower X13 -4 0 7 20 aaaa
+# roles 0 3 1 2
+# comp 0 10 -1 000d
+# comp 1 10 0 00b0
+# comp 0 10 1 5000
+# comp -1 10 0 0e00
+# comp 0 12 -1 2000
+# comp 1 12 0 0900
+# comp 0 12 1 000f
+# comp -1 12 0 0070
+# comp 0 14 -1 000d
+# comp 1 14 0 0070
+# comp 0 14 1 f000
+# comp -1 14 0 0600
+# comp 0 16 -1 d000
+# comp 1 16 0 0c00
+# comp 0 16 1 0005
+# comp -1 16 0 00d0
+# comp 0 18 -1 000d
+# comp 1 18 0 00c0
+# comp 0 18 1 d000
+# comp -1 18 0 0700
+# comp 0 20 -1 3000
+# comp 1 20 0 0b00
+# comp 0 20 1 000f
+# comp -1 20 0 00e0
+# comp 0 22 -1 000c
+# comp 1 22 0 00f0
+# comp 0 22 1 d000
+# comp -1 22 0 0b00
