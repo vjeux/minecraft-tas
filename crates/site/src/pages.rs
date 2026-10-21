@@ -932,7 +932,14 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
     let mut per_cell: Vec<Vec<bool>> = vec![Vec::with_capacity(total as usize); cells.len()];
     for _ in 0..total {
         if declared {
-            levels.push(if s.output_on() == Some(true) { 15 } else { 0 });
+            // the power delivered into the output's cell, as the clock judge measures it (critique:
+            // a 4-tick clock drew one solid bar, the judge's lamp never going dark between its
+            // 2-tick pulses because of the lamp's own 4-tick off-delay)
+            let on = match s.outputs.first() {
+                Some(&o) => s.output_powered(o),
+                None => s.output_on() == Some(true),
+            };
+            levels.push(if on { 15 } else { 0 });
         } else {
             for (k, p) in cells.iter().enumerate() {
                 per_cell[k].push(mcview::session::active(&s.world.get(mcview::session::bp(*p))));
@@ -1434,6 +1441,20 @@ pub fn redirect_page(site: &Site, prefix: &str, title: &str, fragment: &str) -> 
 mod tests {
     use super::*;
     use site_model::{ClockInfo, Door};
+
+    #[test]
+    fn a_fast_clock_chart_draws_its_pulses() {
+        // critique 205ae4e74: a 4-tick clock (on 2 of 4) drew one solid bar: the judge's lamp
+        // never went dark between its pulses (the lamp's own 4-tick off-delay); the chart reads the
+        // power into the output's cell, as the judge does
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-obs-p4-obs-4b.txt")).unwrap();
+        let c = ClockInfo { period: 4, warmup: 5, on: 2, edges: 1, ..Default::default() };
+        let html = clock_wave(&text, &c).unwrap();
+        let points = html.split("class=\"wout\" points=\"").nth(1).and_then(|s| s.split('"').next()).unwrap();
+        let ys: Vec<f64> = points.split_whitespace().filter_map(|p| p.split(',').nth(1)?.parse().ok()).collect();
+        let rises = ys.windows(2).filter(|w| w[1] < w[0]).count();
+        assert!(rises >= 3, "one rise per cycle, 3 cycles: {rises} in {points}");
+    }
 
     pub fn tiny_site() -> Site {
         let clock = |id: &str, p: u32, blocks: u32| Build {
