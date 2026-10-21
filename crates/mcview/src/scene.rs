@@ -648,6 +648,15 @@ fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
             add(c, 0.5, &mut ports);
         }
     }
+    // a TNT duper's TNT is what it is about (critique of the first sheet: tnt-clocked-22b's live
+    // view showed its OUT box and hid the TNT): its TNT blocks count like ports, 6 in all
+    if crate::session::is_tnt_design(&s.design) {
+        let tnt: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && b.state.starts_with("minecraft:tnt")).map(|b| b.cell).collect();
+        let w = 6.0 / tnt.len().max(2) as f32;
+        for c in tnt {
+            add(c, w, &mut ports);
+        }
+    }
     let mut parts: Vec<(Pos, f32)> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, part_weight(&b.state))).filter(|(c, w)| *w > 0.0 && !ports.iter().any(|(p, _)| p == c)).collect();
     parts.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     parts.truncate(MAX_PARTS);
