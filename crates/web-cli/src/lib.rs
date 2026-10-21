@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 mod cdp;
 mod qa;
+mod recqa;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
@@ -190,6 +191,37 @@ pub enum WebCmd {
         timeout: u64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
+    },
+    /// The Record button's files at phone size, in Chromium and WebKitGTK: each page's live viewer
+    /// recorded (the file it offers caught), every file played in both browsers (it loads, plays
+    /// on, draws a picture) and checked natively: the codec and size, the duration (its frames at
+    /// 30/s), every frame decoded and none black, its colours next to what the encoder read (the
+    /// range and matrix its pixels use, and that its tags say so). Writes the files, a sheet of
+    /// each one's frames and a report.
+    Recqa {
+        /// Pages of the site (paths in `--dir`, e.g. `doors/e78k-h3-38b.html`).
+        pages: Vec<String>,
+        #[arg(long)]
+        dir: PathBuf,
+        #[arg(long, short)]
+        out: PathBuf,
+        /// `chromium`, `chrome` (needs `--chrome`), `webkit` (comma-separated).
+        #[arg(long, default_value = "chromium,webkit")]
+        engines: String,
+        #[arg(long, default_value = "390,844")]
+        window: String,
+        /// Chromium's device scale (WebKit's rig is 2).
+        #[arg(long, default_value_t = 3.0)]
+        scale: f32,
+        /// Seconds to wait for each file.
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+        /// Google's Chrome for Testing headless shell (H.264 in MP4: the file most visitors get),
+        /// for `--engines ...,chrome`.
+        #[arg(long)]
+        chrome: Option<PathBuf>,
     },
     /// Each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still
     /// frame the viewer would search for, found ahead; the site puts it on its thumbnails), one
@@ -592,6 +624,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
