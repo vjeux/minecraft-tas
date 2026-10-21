@@ -99,7 +99,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     // no page links in the footer (vjeux 13:35Z: "it's not to put them back in the footer"); the
     // date without the time, so it does not wrap on a phone (critique C52)
     s.push_str(&format!(
-        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every archived design was tested in the real game (Minecraft 26.3, tick by tick); the members of extendable families are generated from them and marked tested in the game, simulated or formula.</footer>\n",
+        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(site.generated.split('T').next().unwrap_or(&site.generated))

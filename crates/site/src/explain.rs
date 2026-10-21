@@ -683,7 +683,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         return s;
     }
     if base(&c.kind) == "flying-machine" {
-        s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        // (the docking-station machine's lever is a real input: the coordinator 00:45Z)
+        if c.devices.iter().any(|d| d == "lever") {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it shuttle between its docking stations. Flip its lever with the <span class=\"tag-in\">IN</span> button under the view: off, it docks at the lever's station and stays; on, it leaves again. Drag to look around, pinch or scroll to zoom.</p>");
+        } else {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        }
+        return s;
+    }
+    // an item sorter: items in, a chest, no lamp (critique: the generic lamp text)
+    if base(&c.kind) == "sorter" {
+        let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
+        s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
     match base(&c.kind) {
