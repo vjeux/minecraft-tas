@@ -65,11 +65,15 @@ pub struct RunOpts {
     /// the next box at each gt `t` with `(t + phase) % every == 0` (a design aid that sweeps where
     /// a box lands relative to the design's cycle).
     pub trickle: Option<(u32, u32)>,
+    /// Item intrusion (the real-use audit, circuit::intrusion): the audit's three stray stacks
+    /// dropped on every intake ([`crate::intakes`]) at gt 150, 350 and 550 (3 gt apart from one
+    /// intake to the next), each once its cell has been empty for 4 gt.
+    pub intrusion: bool,
 }
 
 impl Default for RunOpts {
     fn default() -> RunOpts {
-        RunOpts { margin: 3, cap: None, endless_boxes: false, starve_first: None, trickle: None }
+        RunOpts { margin: 3, cap: None, endless_boxes: false, starve_first: None, trickle: None, intrusion: false }
     }
 }
 
@@ -196,6 +200,9 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
     let mut drained = 0u64;
     // the dropped boxes' lives (every gt): first and last gt seen
     let mut box_lives: HashMap<String, (u32, u32)> = HashMap::new();
+    // item intrusion: (due gt, cell, stack) still to drop, and how long each intake has been empty
+    let mut strays: Vec<(u32, [i32; 3], &str)> = if o.intrusion { shulker::strays(c) } else { Vec::new() };
+    let mut empty_for: HashMap<[i32; 3], u32> = HashMap::new();
     let mut t = 0u32;
     let junk_total: u64 = if sc.filter { sc.source_stacks().iter().filter(|s| s.id != sc.item).map(|s| s.count as u64).sum() } else { 0 };
     loop {
@@ -207,9 +214,33 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
                     set_chest(&mut w, *p, st);
                 }
             }
+            // item intrusion: a stray stack dropped on an intake once its cell was empty 4 gt
+            if !strays.is_empty() {
+                let now = t + k;
+                for (_, p, _) in &strays {
+                    let e = empty_for.entry(*p).or_insert(0);
+                    *e = if w.get(bp(*p)).is_air() { *e + 1 } else { 0 };
+                }
+                let mut i = 0;
+                while i < strays.len() {
+                    let (due, p, item) = strays[i];
+                    if due <= now && empty_for.get(&p).copied().unwrap_or(0) >= 4 {
+                        let (kind, at, nbt) = clock::Action::drop_entity(p, item);
+                        redsim::entity::spawn(&mut w, &kind, at, Some(&nbt)).map_err(|e| format!("a stray item: {e}"))?;
+                        strays.swap_remove(i);
+                    } else {
+                        i += 1;
+                    }
+                }
+            }
             w.tick();
             if let Some(e) = w.errors.first() {
                 return Err(format!("t={}: redsim: {e}", t + k + 1));
+            }
+            // a design that spills items: dozens of loose entities (each gt costs redsim more,
+            // and the game judge fails it on the entities left anyway)
+            if w.entities.list.len() > MAX_ENTITIES {
+                return Err(format!("t={}: {} entities alive (the design spills items)", t + k + 1, w.entities.list.len()));
             }
             if let Some(h) = hook.as_mut() {
                 h(t + k + 1, &w);
@@ -240,8 +271,7 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
             // a dropped box waiting for its hopper (RunLog::box_drop_life)
             for e in w.entities.list.iter().filter(|e| !e.removed) {
                 if let EntityKind::Item(it) = &e.kind
-                    && let Some(id) = container::item_id(&it.item)
-                    && jstack(&w, &Stack { item: id, count: it.count, payload: it.payload }).is_box()
+                    && it.item.ends_with("shulker_box")
                 {
                     let tt = t + k + 1;
                     let r = box_lives.entry(e.id.to_string()).or_insert((tt, tt));
@@ -446,11 +476,40 @@ pub fn badge_ok(name: &str, sc: &Scenario, log: &RunLog) -> Result<(), String> {
 /// One named scenario judged on redsim: `Ok(metrics)` or why not.
 pub fn check(c: &Circuit, name: &str, sc: &Scenario, o: RunOpts) -> Result<Vec<(String, String)>, String> {
     let log = run(c, sc, o)?;
-    let out = shulker::judge(sc, &log);
+    verdict(c, name, sc, &log)
+}
+
+/// The item-intrusion check (redsim, the real-use audit for shulker kinds): the run again with
+/// stray stacks dropped on every intake ([`RunOpts::intrusion`]); every box must still come out
+/// as in the plain run (as many, each full for a loader or empty for an unloader), within the
+/// scenario's cap. The strays themselves may end anywhere (an output or items chest takes them
+/// in real use) and the timing may shift. `Ok(None)` without intakes.
+pub fn intrusion_check(c: &Circuit, sc: &Scenario) -> Result<Option<String>, String> {
+    if crate::intakes(c).is_empty() {
+        return Ok(None);
+    }
+    let base = run(c, sc, RunOpts::default())?;
+    let with = run(c, sc, RunOpts { intrusion: true, ..Default::default() })?;
+    let boxes = |log: &RunLog| -> Vec<(usize, u64)> {
+        log.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| (d.stack.contents.len(), d.stack.contents.iter().map(|s| s.count as u64).sum())).collect()
+    };
+    let (b0, b1) = (boxes(&base), boxes(&with));
+    if with.timed_out && b1.len() < b0.len() {
+        return Ok(Some(format!("with stray items on the intakes {} of {} boxes come out (a jam or a lost box)", b1.len(), b0.len())));
+    }
+    if b1 != b0 {
+        return Ok(Some(format!("with stray items on the intakes the boxes differ: {b1:?} (without: {b0:?})")));
+    }
+    Ok(Some(format!("passes ({} boxes as without the strays, last at {} gt instead of {})", b1.len(), with.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| d.t).max().unwrap_or(0), base.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| d.t).max().unwrap_or(0))))
+}
+
+/// A run's verdict as [`check`] gives it: the judge's, the badge's, and redsim's drop screen.
+pub fn verdict(c: &Circuit, name: &str, sc: &Scenario, log: &RunLog) -> Result<Vec<(String, String)>, String> {
+    let out = shulker::judge(sc, log);
     if !out.pass {
         return Err(out.why);
     }
-    badge_ok(name, sc, &log)?;
+    badge_ok(name, sc, log)?;
     // a one-wide design: nothing walls its drops in on the sides, and in the game a drop drifts
     // sideways up to 0.1 block/gt (out of the design's plane within about 3 gt), so a dropped box
     // must be taken by a hopper within BOX_DROP_LIFE gt (2026-10-21: a 1x7x9 loader whose box
@@ -468,6 +527,10 @@ pub fn check(c: &Circuit, name: &str, sc: &Scenario, o: RunOpts) -> Result<Vec<(
 /// The longest a dropped box may wait for its hopper in a one-wide design (redsim's screen; the
 /// game judge's drop stress is the check).
 pub const BOX_DROP_LIFE: u32 = 2;
+
+/// Loose entities a run may hold at once before redsim gives up on it (a sound design has a drop
+/// or two at a time).
+pub const MAX_ENTITIES: usize = 32;
 
 /// The scenarios of a design's badges that redsim decides (every badge scenario of the judge
 /// but `colours`), after the plain one (`base`).
