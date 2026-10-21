@@ -21,8 +21,9 @@ use crate::trace::Trace;
 use crate::{Circuit, InputHow};
 use anyhow::{bail, Result};
 
-/// Ticks each combination is held: the lock must settle within it.
-pub const STEP: u32 = 16;
+/// Ticks each combination is held: the lock must settle within it (2 s: the coordinator's call,
+/// compactness beats speed for a lock; a comparator bus takes about 2 gt per dial).
+pub const STEP: u32 = 40;
 /// Steps each code frame turns to set the second code.
 const RECODE: u8 = 3;
 
