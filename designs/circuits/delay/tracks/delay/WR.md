@@ -8,7 +8,7 @@ What a world-record entry means here, per N. "Blocks" is `mctas circuit verify`'
 | even N, shortest pulses kept | 2 blocks per 2 gt (a comparator line, min-pulse 2) | delay-cmp card | at the bar for pulse fidelity; a repeater line is cheaper but needs 8 gt pulses |
 | N = 1 | 6 blocks | delay-piston-qc-1 (min-pulse 3) | open in principle: 1 gt needs the piston's block-event phase, and no smaller trick is known |
 | N = 3 | 9 blocks | delay-piston-or-3 | OPEN: 9 blocks for 3 gt is a first implementation |
-| odd N >= 5 | 13 + 2n blocks | delay-piston-or5/7/9/11 cards | OPEN: same mechanism, same question |
+| odd N >= 5 | 13 + 2n blocks | delay-odd5 (N 5, 11 blocks) + delay-piston-7/9/11/13 (10 blocks) | N = 5 BUILT 2026-10-21 (11 blocks); N = 1 and 3 look infeasible under R7 (WR notes below) |
 | **tileable stack** | a slice that repeats with no gap, so k parallel lines cost k x the slice | none measured | OPEN: builders run buses of equal delays side by side; `tile:` now judges study-3 kinds if opened |
 | flat (one layer) | a repeater line already is | - | at the bar |
 
@@ -84,12 +84,21 @@ arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggere
   (a) Y powered by RB0 (input piston, arrives t+2) OR RB0b (piston behind a delay-1 repeater from the
       input, departs t'+2): Y acts (3, 2), pushes X away at t+3 and pulls it back for t'+4, and the
       output stage above turns X's (3, 4) absence into (5, 5). 10 blocks on paper, but there is a
-      PARITY OBSTRUCTION: RB0 lands at I + u + 2f0 (u: P0's offset from the input I) and RB0b at
-      I + 2v + 2f1 (the repeater at I + v, P0b at I + 2v), so the two landing cells differ by an
-      odd vector and can never share a neighbour (Y). A dust line of 1 or 3 between I and P0 does
-      not fix it (a sum of 4 unit vectors is never a unit vector); 3 dusts (4 steps) do, which
-      makes topology (a) about 16 blocks. Y fed by RB0 through quasi-connectivity has the right
-      parity but gets no block update when RB0 lands (a BUD), so it would not act.
+      PARITY OBSTRUCTION when P0b sits right in front of the repeater: RB0 lands at I + u + 2f0
+      (u: P0's offset from the input I) and RB0b at I + 2v + 2f1 (the repeater at I + v, P0b at
+      I + 2v), so the two landing cells differ by an odd vector and can never share a neighbour (Y).
+      THE FIX COSTS ONE BLOCK: the repeater powers a solid block S at I + 2v, and P0b stands next to
+      S at I + 2v + u (S strongly powered powers it sideways). Then RB0 and RB0b land 2 apart and Y
+      sits between them. With u = x the pushes must be vertical, and an up-facing piston is held by
+      its own landed block through quasi-connectivity (the head cell is its QC cell), and a
+      down-facing layout QC-powers Y from the blocks at rest; with u = y (P0 standing ON the input
+      stone) and both pistons pushing east it works: delay-odd5, below. Y fed by RB0 through
+      quasi-connectivity has the right parity but gets no block update when RB0 lands (a BUD).
+      **BUILT: delay-odd5, N = 5 gt both edges, 11 blocks, 6x4x3, min-pulse 6, min-gap 5, robust in
+      the game, tick-identical in redsim** (archive/delay-odd5.txt): input stone I, P0 on top of it
+      (sticky, east) with RB0; repeater (facing I) + its stone + S; P0b on S (sticky, east) with
+      RB0b; Y (sticky, east) between the two landing cells, X (RB) in front of it; Q2 (sticky, east,
+      extended) on top of X with its head and RB2; the output next to the head.
   (b) output = OR(X at its near cell (5, 3), cut block Z absent (6, 5)): P2 powered at rest by K
       (K pushed off at t+3 by a piston on RB0, back at t'+2) pulls X near; P3 on X pushes Z out of a
       dust step-up cut at t+6 and pulls it back at t'+5.
