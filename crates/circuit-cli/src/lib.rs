@@ -445,6 +445,22 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
+    /// Item elevators (`circuit: item-elevator N`, circuit::lift): ONE run of the judge at
+    /// rotation 0 (`--run base|intrusion`), in the game or on redsim (`--sim`), its table and
+    /// outcome: a design aid; `mctas circuit verify` is the judge (`circuit sim` its redsim twin).
+    LiftRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long)]
+        sim: bool,
+        /// The whole judge's redsim twin (`circuit::lift::sim_verify`), every build's line.
+        #[arg(long)]
+        builds: bool,
+    },
     /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
     /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
     /// fewer palette blocks added in the air cells of --cells; prints those passing the base, tiled
@@ -896,6 +912,54 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
             std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
+        }
+        CircuitCmd::LiftRun { designs, run, margin, sim, builds } => {
+            let r = match run.as_str() {
+                "base" => circuit::lift::Run::Base,
+                "intrusion" => circuit::lift::Run::Intrusion,
+                other => anyhow::bail!("lift-run --run {other}: base or intrusion"),
+            };
+            if builds {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                for design in &designs {
+                    let c = Circuit::load(design)?;
+                    match circuit::lift::sim_verify(&c, &o) {
+                        Ok(rep) => {
+                            for b in &rep.builds {
+                                let line = match &b.result {
+                                    Ok(k) => format!("{} {} [{}]", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", ")),
+                                    Err(e) => format!("refused: {e}"),
+                                };
+                                println!("  rotation {} at {:?}: {}", b.turns, b.offset, line.chars().take(300).collect::<String>());
+                            }
+                            println!("{} (redsim)", rep.summary(&c));
+                        }
+                        Err(why) => println!("UNMODELED: {}: {why}", c.name()),
+                    }
+                }
+                return Ok(());
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let out = circuit::lift::run_one(pool.as_ref(), &c, r, margin)?;
+                for l in &out.table {
+                    println!("{l}");
+                }
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                let how = if sim { "redsim" } else { "game" };
+                if out.pass {
+                    println!("LIFT: {} {} {} run: {}, {} blocks ({how})", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), r.title(), m.join(", "), c.blocks());
+                } else {
+                    println!("FAIL: {} {} run ({how}): {} ({})", c.name(), r.title(), out.why, m.join(", "));
+                }
+            }
         }
         CircuitCmd::SmelterRun { designs, run, margin, sim, compare } => {
             let all = run == "all";

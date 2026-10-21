@@ -201,13 +201,20 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
-        // the whole farm judge's redsim twin (crate::farm::sim_verify: every build of `circuit
-        // verify` and the tiled run, the game's random ticks mirrored draw for draw): its verdict
+    if matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
+        // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
+        // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; an
+        // item elevator: crate::lift::sim_verify, every build and the intrusion run): its verdict
         // on the base build's card
         let mut schedule = Schedule::new(c.inputs.len());
-        schedule.ticks = crate::farm::RUN;
-        let (trace, outcome) = match crate::farm::sim_verify(c, o) {
+        let rep = if matches!(c.kind, Some(Kind::Harvester(_))) {
+            schedule.ticks = crate::farm::RUN;
+            crate::farm::sim_verify(c, o)
+        } else {
+            schedule.ticks = crate::lift::Scenario::new(crate::lift::Run::Base).cap;
+            crate::lift::sim_verify(c, o)
+        };
+        let (trace, outcome) = match rep {
             Ok(rep) => {
                 let mut cells: Vec<(Pos, String)> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
                 cells.sort();
@@ -627,6 +634,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
+        return crate::lift::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
@@ -850,17 +860,22 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
     // little: no dependence)
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
+    // an item elevator: the builds agree when every one passes, rests alike and flows within 2%
+    // of the base build (its first item may come a few gt apart: a dropper chain's clock starts at
+    // another phase)
+    let lift = matches!(&rep.kind, Some(Kind::ItemElevator(_)));
     let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
     let differs = |b: &Build| -> bool {
-        if !smelter {
+        if !smelter && !lift {
             return sig(b) != base;
         }
         if sig(b) == "FAIL" {
             return true;
         }
-        let rate = |b: &Build| num(b, "items/min per furnace").and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        let (key, tol) = if lift { ("items/s", 0.02) } else { ("items/min per furnace", 0.2) };
+        let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
         let (r, r0) = (rate(b), rate(base_build));
-        num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > 0.2 * r.max(r0)
+        num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > tol * r.max(r0)
     };
     let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| differs(b));
     let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| differs(b));

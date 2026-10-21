@@ -25,6 +25,7 @@ pub mod elevator;
 pub mod farm;
 pub mod fly;
 pub mod intrusion;
+pub mod lift;
 pub mod lock;
 pub mod random;
 pub mod pulsemult;
@@ -239,6 +240,9 @@ pub enum Kind {
     /// real random ticks in the game, and every harvested item must reach the judge's chests
     /// (`port output:`).
     Harvester(String),
+    /// An item elevator ([`lift`]): every item from the input chest (`port items:`) into the
+    /// output chest (`port output:`) N blocks above it, at a hopper's pace at least.
+    ItemElevator(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -355,6 +359,10 @@ impl Kind {
                 Some(crop) => Kind::Harvester(farm::crop_id(crop)?),
                 None => bail!("circuit: harvester: name the crop (`circuit: harvester sugar_cane`)"),
             },
+            "item-elevator" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::ItemElevator(n),
+                _ => bail!("circuit: item-elevator: give the height, the output chest's y minus the input chest's (`circuit: item-elevator 5`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -407,6 +415,7 @@ impl Kind {
             Kind::Randomizer(n) => format!("randomizer {n}"),
             Kind::Smelter(n) => format!("smelter {n}"),
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
+            Kind::ItemElevator(n) => format!("item-elevator {n}"),
         }
     }
 
@@ -432,6 +441,7 @@ impl Kind {
             Kind::Randomizer(_) => "random",
             Kind::Smelter(_) => "smelter",
             Kind::Harvester(_) => "farm",
+            Kind::ItemElevator(_) => "elevator-items",
         }
     }
 
@@ -953,6 +963,11 @@ impl Circuit {
                         bail!("harvester: runs by itself (no input port), has {names:?}");
                     }
                 }
+                Kind::ItemElevator(_) => {
+                    if !names.is_empty() {
+                        bail!("item-elevator: runs by itself (no input port), has {names:?}");
+                    }
+                }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
                     // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
                     // combo's mode lever (badge `combo`)
@@ -1040,6 +1055,17 @@ impl Circuit {
                         bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
                     }
                 }
+            }
+            Kind::ItemElevator(n) => {
+                if !self.stores.iter().any(|s| s.role == "items") || self.outputs.len() != 1 {
+                    bail!("item-elevator: needs `port items: x y z` (the input chest: an air cell) and one `port output: x y z` (the output chest, N blocks above it)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+                lift::check_ports(self, *n)?;
             }
             _ => {
                 if self.outputs.is_empty() {
