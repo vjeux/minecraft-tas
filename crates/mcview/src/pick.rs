@@ -58,61 +58,121 @@ pub fn boxes(atlas: &Atlas, state: &str, cell: Pos) -> Vec<([f32; 3], [f32; 3])>
     out
 }
 
-/// The first still block the ray hits within `max` blocks.
-pub fn pick(atlas: &Atlas, blocks: &[RBlock], origin: [f32; 3], dir: [f32; 3], max: f32) -> Option<Pos> {
-    let map: HashMap<Pos, &str> = blocks.iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, b.state.as_str())).collect();
-    let mut cell = [origin[0].floor() as i32, origin[1].floor() as i32, origin[2].floor() as i32];
-    let step: [i32; 3] = std::array::from_fn(|k| if dir[k] > 0.0 { 1 } else { -1 });
-    let mut tmax = [0f32; 3];
-    let mut tdelta = [0f32; 3];
-    for k in 0..3 {
-        if dir[k].abs() < 1e-9 {
-            tmax[k] = f32::MAX;
-            tdelta[k] = f32::MAX;
-        } else {
-            let next = if dir[k] > 0.0 { cell[k] as f32 + 1.0 } else { cell[k] as f32 };
-            tmax[k] = (next - origin[k]) / dir[k];
-            tdelta[k] = 1.0 / dir[k].abs();
+/// The still blocks' model boxes, ready for many rays ([`Picker::hit`]): each box is listed in
+/// every cell it reaches, so a ray walks its cells with one lookup each (the default camera casts
+/// thousands: `scene::best_camera`).
+pub struct Picker {
+    boxes: Vec<([f32; 3], [f32; 3], Pos)>,
+    by_cell: HashMap<Pos, Vec<u32>>,
+    /// The cells holding a still block (with a model or not).
+    still: std::collections::HashSet<Pos>,
+    /// The cells holding any block (moving ones too).
+    occupied: std::collections::HashSet<Pos>,
+}
+
+impl Picker {
+    pub fn new(atlas: &Atlas, blocks: &[RBlock]) -> Picker {
+        let mut cells: HashMap<Pos, &str> = HashMap::new();
+        let mut occupied = std::collections::HashSet::new();
+        for b in blocks {
+            occupied.insert(b.cell);
+            if b.offset == [0.0; 3] {
+                cells.insert(b.cell, b.state.as_str());
+            }
         }
-    }
-    let mut t = 0.0;
-    while t <= max {
-        // the cell and its neighbors: models reach a little beyond their cell (wall torches,
-        // piston arms), so test the 3x3x3 around the walked cell, nearest hit first
-        let mut best: Option<(f32, Pos)> = None;
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    let c = [cell[0] + dx, cell[1] + dy, cell[2] + dz];
-                    if let Some(st) = map.get(&c) {
-                        for (lo, hi) in boxes(atlas, st, c) {
-                            if let Some(h) = hit_box(origin, dir, lo, hi)
-                                && best.is_none_or(|(b, _)| h < b)
-                            {
-                                best = Some((h, c));
-                            }
+        let mut list: Vec<(Pos, &str)> = cells.iter().map(|(c, s)| (*c, *s)).collect();
+        list.sort_by_key(|(c, _)| *c);
+        let mut out = Picker { boxes: Vec::new(), by_cell: HashMap::new(), still: cells.keys().copied().collect(), occupied };
+        for (c, st) in list {
+            for (lo, hi) in boxes(atlas, st, c) {
+                let i = out.boxes.len() as u32;
+                out.boxes.push((lo, hi, c));
+                for x in lo[0].floor() as i32..=hi[0].floor() as i32 {
+                    for y in lo[1].floor() as i32..=hi[1].floor() as i32 {
+                        for z in lo[2].floor() as i32..=hi[2].floor() as i32 {
+                            out.by_cell.entry([x, y, z]).or_default().push(i);
                         }
                     }
                 }
             }
         }
-        if let Some((h, c)) = best
-            && h <= t + 1.8
-        {
-            return Some(c);
-        }
-        let k = if tmax[0] < tmax[1] && tmax[0] < tmax[2] {
-            0
-        } else if tmax[1] < tmax[2] {
-            1
-        } else {
-            2
-        };
-        cell[k] += step[k];
-        t = tmax[k];
-        tmax[k] += tdelta[k];
+        out
     }
-    None
+
+    /// Whether a still block stands at `c`.
+    pub fn has(&self, c: Pos) -> bool {
+        self.still.contains(&c)
+    }
+
+    /// Whether any block (moving ones too) is at `c`.
+    pub fn occupied(&self, c: Pos) -> bool {
+        self.occupied.contains(&c)
+    }
+
+    /// The model box of the cell's block with the most volume (its main part), if any.
+    pub fn main_box(&self, c: Pos) -> Option<([f32; 3], [f32; 3])> {
+        let list = self.by_cell.get(&c)?;
+        list.iter().map(|&i| self.boxes[i as usize]).filter(|(_, _, b)| *b == c).map(|(lo, hi, _)| (lo, hi)).max_by(|a, b| {
+            let v = |(lo, hi): &([f32; 3], [f32; 3])| (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
+            v(a).total_cmp(&v(b))
+        })
+    }
+
+    /// The first still block the ray hits within `max` blocks, and how far along the ray.
+    pub fn hit(&self, origin: [f32; 3], dir: [f32; 3], max: f32) -> Option<(Pos, f32)> {
+        let mut cell = [origin[0].floor() as i32, origin[1].floor() as i32, origin[2].floor() as i32];
+        let step: [i32; 3] = std::array::from_fn(|k| if dir[k] > 0.0 { 1 } else { -1 });
+        let mut tmax = [0f32; 3];
+        let mut tdelta = [0f32; 3];
+        for k in 0..3 {
+            if dir[k].abs() < 1e-9 {
+                tmax[k] = f32::MAX;
+                tdelta[k] = f32::MAX;
+            } else {
+                let next = if dir[k] > 0.0 { cell[k] as f32 + 1.0 } else { cell[k] as f32 };
+                tmax[k] = (next - origin[k]) / dir[k];
+                tdelta[k] = 1.0 / dir[k].abs();
+            }
+        }
+        let mut best: Option<(f32, Pos)> = None;
+        loop {
+            let exit = tmax[0].min(tmax[1]).min(tmax[2]);
+            if let Some(list) = self.by_cell.get(&cell) {
+                for &i in list {
+                    let (lo, hi, c) = self.boxes[i as usize];
+                    if let Some(h) = hit_box(origin, dir, lo, hi)
+                        && best.is_none_or(|(b, _)| h < b)
+                    {
+                        best = Some((h, c));
+                    }
+                }
+            }
+            // every box hit before this cell's exit was met on the way (each box is listed in
+            // every cell it reaches)
+            if let Some((h, c)) = best
+                && h <= exit + 1e-4
+            {
+                return (h <= max).then_some((c, h));
+            }
+            if exit > max {
+                return None;
+            }
+            let k = if tmax[0] < tmax[1] && tmax[0] < tmax[2] {
+                0
+            } else if tmax[1] < tmax[2] {
+                1
+            } else {
+                2
+            };
+            cell[k] += step[k];
+            tmax[k] += tdelta[k];
+        }
+    }
+}
+
+/// The first still block the ray hits within `max` blocks.
+pub fn pick(atlas: &Atlas, blocks: &[RBlock], origin: [f32; 3], dir: [f32; 3], max: f32) -> Option<Pos> {
+    Picker::new(atlas, blocks).hit(origin, dir, max).map(|(c, _)| c)
 }
 
 #[cfg(test)]
