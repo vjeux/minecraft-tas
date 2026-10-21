@@ -202,3 +202,21 @@ bottom-right pocket that feeds SU(3,-1) is 2 cells that nothing reaches; one mor
   pusher below sees a gap. A piston pushes one cell, so S at (3,-3) cannot push O AND the column.
   Even a contiguous column pushed up by one would shove K' (3,3), the corner piston it is meant to
   fire, into (3,4), and nothing brings it back.
+
+## trio7 (w86, 7x7 = 49, lever-held top trio): SU(1,-2) and A2's close start (2026-10-21 night)
+- SU(1,-2) (o30, c24/c36/c48/c60, all kept by prune-plan) from the sealed (0,-2): every single block
+  there fails, 0 of 29 (observers x6, plain + calibrated sensors x4, comparators, repeaters,
+  torches, dust, wool, stone, RB); `door selffeed` gives 0. fly's t7o (compacted) feeds SU(1,-2)'s
+  close from an observer at (0,-2) watching SU(-1,-2) (the lockstep); w86's fr22 feeds it from (2,-2).
+- A2 = (-2,-2),(-2,-1) at the close start: SE(-2,0)'s first solo push (S out of L0) has the window
+  c0..c21 (fr22 and trio7); an extra top-left co-fire (RB at (-2,2): SE(-2,1) + SE(-2,0) by QC) is
+  harmless only at c24/c36/c39, and it cannot replace the first push anywhere in c0..c21. No
+  re-time: the close order must change.
+- clockinfra's co-fire-first macrosat close (po16): made to WORK in redsim 32x3 (wip/po16d: SU(1,-2)'s
+  last close feed as a plain (1,-3,0) instead of a lever on (0,-1) that QC-fired SU(-1,-2); the
+  trio levels restored), but it is not lever-held (w86: SD+(1,4) re-held only at c151). Its A2 still
+  has SE(-2,0)'s 2 close actions (step 22: hold >= 4 gt from c61, or a 2 gt pulse at c108..114; step
+  30: c133..148): exhaustive 2-cell screen, 41 states each, 0 of 1,681 (co-fires kept or not).
+- clockinfra's --lever-flip re-solve: with A2 feeding nothing, UNSAT at h16; unrestricted SAT (lf16)
+  but with 11 A2-fed actions (4 open, 7 close). The A2-budget-1 run decides.
+- Tool: `door ideal-rs --without x,y,z` (drop an input cell's events for a --vary screen).

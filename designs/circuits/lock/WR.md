@@ -205,6 +205,13 @@ minimum for every 2-block change. A big cut needs a new structure.
   signal must reach W's far side without touching D1, and every torch face of D1's support has
   its upper cell next to D1; (3) forcing T to 0 when high (T's other side from W's inverter)
   loops through W's side and oscillates.
+- 3D INTERLEAVE SEARCH (`mctas circuit lock-search`, circuit::lock::placed_design): dial 0 fixed,
+  dial 1 at every offset dx -3..3, dy -2..2, dz -3..3 and mirror (332 placements). Two dials may
+  share a cell only if it is stone in both or a bus dust in both. Each placement is judged on
+  redsim (lock 2), and the passing patterns are repeated for 3 dials. 18 pass, the best 43
+  blocks = 2 x 21 + 1: no placement shares any block. The 3-dial repeats come back to
+  lock3-alt's own pattern (64 blocks, 144). With these rigid modules the alternating 2-row stack
+  is optimal; a smaller lock needs a different dial module, not a different packing.
 - Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
   torch on the front block's south face, over the next (lower) dial, with the bus under it;
   supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the

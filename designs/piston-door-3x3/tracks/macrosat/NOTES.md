@@ -148,6 +148,15 @@ at h 20 in 502 s); with `--lever` (h 20, with and without island start) and with
 (h 20 and h 28) it is UNSAT too. So the best known 7x7 mechanism cannot be fed within 20-28
 parallel steps in this model: its firings need feeds that no real source in the box gives.
 
+**u2-T (clk-item's u2-7x7 with a real lever and torch, explore/tff tracks/clk-item/wip/) on its
+fixed layout (2026-10-21, for w86).** Box -2..4 x -2..4, lever spot free, wiring free in the empty
+cells, h 16 per edge: mechanics alone SAT (566 s); feed + lever without island start SAT (838 s);
+with island start UNSAT (597 s); plus a movable observer allowed in any empty cell UNSAT
+(1568 s); plus `--physics` UNSAT (1041 s). Every firing can be fed, but no lever spot, wiring or
+observer placement starts every island before its first firing: w86's start-order argument
+(stacks only cross downward; the top-left and top-right islands share no crossing), confirmed
+within 16 steps. Not covered: an observer replacing one of its blocks, added redstone blocks.
+
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
 (retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /
