@@ -285,6 +285,17 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Put each design on a floor: one layer of --block under its whole footprint (the box's
+    /// bottom layer minus one), written to DIR/<name>-floor.txt (2026-10-21: the fast engine's
+    /// dud TNT explode on the ground under it; a floor in the box takes their rays). Obsidian
+    /// where a moving block would grab the floor is `circuit material`'s call.
+    Floor {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "minecraft:obsidian")]
+        block: String,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
     /// TILEABLE variation with `circuit verify`.
     Tile {
@@ -745,6 +756,26 @@ pub fn run(args: Vec<String>) -> Result<()> {
             d.name = format!("{}-r{}", d.name, turns % 4);
             std::fs::write(&out, format!("# {} turned {} quarter turn(s) clockwise (circuit tnt turn)\n{}", c.design.name, turns % 4, d.to_text()))?;
             println!("{}: {} turned {}", out.display(), design.display(), turns % 4);
+        }
+        Cmd::Floor { designs, block, out } => {
+            std::fs::create_dir_all(&out)?;
+            for design in designs {
+                let c = clock::Clock::load(&design)?;
+                let mut d = c.design.clone();
+                let Some((lo, hi)) = d.bounds() else { anyhow::bail!("{}: no blocks", design.display()) };
+                for x in lo[0]..=hi[0] {
+                    for z in lo[2]..=hi[2] {
+                        d.blocks.insert([x, lo[1] - 1, z], block.clone());
+                    }
+                }
+                // the floor is the new bottom: a declared stand counts from it
+                d.meta.remove("stand");
+                d.name = format!("{}-floor", d.name);
+                let path = out.join(format!("{}.txt", d.name));
+                let n = (hi[0] - lo[0] + 1) * (hi[2] - lo[2] + 1);
+                std::fs::write(&path, format!("# {} on a floor of {n} {block} (circuit tnt floor)\n{}", c.design.name, d.to_text()))?;
+                println!("{}: {} + {n} {block} under its footprint", path.display(), design.display());
+            }
         }
         Cmd::Tile { design, n, offset, out } => {
             let c = clock::Clock::load(&design)?;

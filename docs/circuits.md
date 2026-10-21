@@ -834,10 +834,16 @@ audit's parts (`check::set_real_use`) and lists what changes.
   judge's safe drop and the flying machines' clearance (track fly).
 * **TNT, what breaks first**: a blown-up verdict names the first machine block an explosion
   destroyed and, on redsim, the TNT behind it (its spawn frame and kick); the safe drop's report
-  says why one block less fails. `mctas circuit tnt robust <design> --spawn-run R --drop N
-  [--ground obsidian]` replays one per-spawn run (2026-10-21: tnt-engine-lever-17b at 5 blocks,
-  run 58 on grass: TNT 7, kick 0.087751, is not launched, explodes on the ground under the
-  machine and breaks the wall lever first; obsidian under the engine piston changes nothing).
+  says why one block less fails, and the culprit's path (its position at each of its first frames,
+  then every 8). `mctas circuit tnt robust <design> --spawn-run R --drop N [--ground obsidian]`
+  replays one per-spawn run. 2026-10-21, the fast engine (tnt-engine-lever-17b, safe drop 6): the
+  culprit is no dud of the engine but a launched TNT that lands about 20 blocks out and is knocked
+  back by the explosions in its landing zone (run 58: TNT 7 lands at z = -21, comes back along the
+  ground and explodes under the machine, breaking the wall lever; run 51: TNT 6 comes back in the
+  air over it). A floor in the box takes the ground blasts: `mctas circuit tnt floor <design>...
+  [--block B] --out DIR` adds one layer under the footprint (obsidian where a moving slime would
+  grab it: `circuit material`); tnt-engine-lever-29b (the inverter under the engine, 12 stone
+  under it) needs 4 blocks: effective volume 108, vs 150 and 160.
   The metric `effective volume` (the site ranks TNT dupers by it) is the footprint times the box
   height plus the height it stands at (`max(stand, safe drop)`), the footprint's sides short side
   first (a rotated build swaps them; a metric that changes with the rotation would make every

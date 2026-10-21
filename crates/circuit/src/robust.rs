@@ -341,7 +341,25 @@ pub fn replay_spawn_run(c: &Circuit, run: u64, ground: crate::Ground) -> Result<
     if let Some(b) = crate::tnt::first_broken(c, &t)
         && let Some(f) = b.split(" in frame ").nth(1).and_then(|r| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|x| x.parse::<u32>().ok())
     {
-        let who: Vec<String> = t.primed.iter().enumerate().filter(|(_, p)| p.frame + 80 >= f && p.frame + 78 <= f).map(|(i, p)| format!("TNT {i} (primed in frame {}, kick nextDouble {:.6})", p.frame, kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN))).collect();
+        let who: Vec<String> = t
+            .primed
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.frame + 80 >= f && p.frame + 78 <= f)
+            .map(|(i, p)| {
+                let v = |a: [f64; 3]| format!("({:.3}, {:.3}, {:.3})", a[0], a[1], a[2]);
+                format!(
+                    "TNT {i} (primed in frame {}, kick nextDouble {:.6}; spawned at {} moving {}, {}, at rest from frame {} at {})",
+                    p.frame,
+                    kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN),
+                    v(p.pos),
+                    p.motion.map(v).unwrap_or_else(|| "?".into()),
+                    p.launch.map(|l| format!("launched at {}", v(l))).unwrap_or_else(|| "never launched (no horizontal speed of 0.4 blocks/gt)".into()),
+                    p.moved,
+                    v(p.last_pos)
+                )
+            })
+            .collect();
         text.push_str(&format!("; the TNT going off then: {}", if who.is_empty() { "none found".into() } else { who.join(", ") }));
     }
     Ok(text)
