@@ -158,9 +158,11 @@ circuits/fly/fly-horizontal-6b-10gt-f7b224.html	circuit	fly/flying-machine flat	
 circuits/fly/fly-horizontal-6b-10gt-fe361f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:27Z
 circuits/fly/fly-horizontal-7b-9gt-aa517c.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 02:58Z
 circuits/fly/fly-horizontal-7b-9gt-e75c5f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 01:57Z
+circuits/fly/fly-horizontal-start-7b-10gt.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-21 17:37Z
 circuits/fly/fly-payload-18-24b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 18 extra blocks · 24 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-9-15b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 9 extra blocks · 15 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-n1.html	circuit	fly/flying-machine tall		Tall flying machine: carries up to 18 extra blocks · 7 blocks	2026-10-20 01:32Z
+circuits/fly/fly-payload-start-1-11b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 1 extra block · 11 blocks	2026-10-21 17:37Z
 circuits/fly/fly-train-n1.html	circuit	fly/-flying-machine horizontal		Flat flying machine: pulls 1 trailer · 8 blocks	2026-10-20 02:58Z
 circuits/fly/fly-two-way-14b-73cdd4.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 03:32Z
 circuits/fly/fly-two-way-14b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z

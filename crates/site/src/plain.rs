@@ -169,7 +169,12 @@ pub fn one_liner(c: &Circuit) -> String {
                     (false, _) => format!(" It {}.", c.feature),
                     _ => String::new(),
                 };
-                format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                // (started by its own lever: the coordinator 16:10Z)
+                if c.devices.iter().any(|d| d == "lever") {
+                    format!("Flip its lever and it flies{dir} by itself{pace}, until something stops it.{carries}")
+                } else {
+                    format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                }
             }
         }
         "shulker-loader" => format!("Takes items from a chest, puts them into empty shulker boxes and sends each full box out{}.", rate(m(c, "items/s"))),
@@ -264,8 +269,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
-        // (and how to start one in the game: the judge places its start block for a tick)
-        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        // (and how to start one in the game: the judge places its start block for a tick; a
+        // one-way machine with its own start lever: the lever, the coordinator 16:10Z)
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way")) => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Flip its lever (the IN button under the view): the machine sets off and flies until something stops it; reset to see it again. In the game, flip the lever the same way.".to_string(),
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again. In the game, start it the same way: place a block where the view puts its start block, then break it.".to_string(),
         // a duper lit once per trigger: its button, else a short pulse (the card's "per short
         // pulse")
@@ -604,10 +611,7 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
             // mid-air 10.0 blocks below the machine"), and the height our test stood it at: one
             // plain statement (critique b0fb9ae4e: "at least 4 up", "10 under the machine" and the
             // view's "23 above the ground" read as three contradicting heights)
-            let below = [c.verdict.as_str(), c.robustness.as_str()].iter().find_map(|t| {
-                let i = t.find(" blocks below the machine")?;
-                t[..i].rsplit(' ').next()?.parse::<f64>().ok()
-            });
+            let below = site_model::html::tnt_burst_depth(c);
             let stood = c.metrics.iter().find(|(k, _)| k == "stands").and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
             match (drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()), below) {
                 (Some(safe), Some(depth)) => {
@@ -622,10 +626,15 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 }
                 (Some(0), None) => v.push("Works standing on the ground.".to_string()),
                 // a design that declares its stand height (`stand: N`): said plainly (vjeux 11:49Z:
-                // "stand it 4 blocks up")
+                // "stand it 4 blocks up"), and whether that is the lowest it is safe at (vjeux
+                // 15:17Z: "is stand 6 the safe minimum?")
                 (Some(n), None) if stood.is_some_and(|h| h >= n) => {
                     let h = stood.unwrap_or(n);
-                    v.push(format!("Stand it {h} blocks up: lower than {n} block{}, its own TNT explodes close enough to destroy it.", if n == 1 { "" } else { "s" }));
+                    v.push(if h == n {
+                        format!("Stand it {h} blocks up, the lowest our test found safe: lower, its own TNT explodes close enough to destroy it.")
+                    } else {
+                        format!("Stand it {h} blocks up (our test found it safe from {n} block{} up: lower, its own TNT explodes close enough to destroy it).", if n == 1 { "" } else { "s" })
+                    });
                 }
                 // (true for launchers and droppers alike: critique, "lands under it" contradicted a
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
@@ -777,11 +786,25 @@ pub fn clock(b: &Build) -> (String, String) {
     let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
+    // how to take its signal into a circuit (the judge's `usable` tap; a clock with none says so
+    // in its warning)
+    let tap = c.map(|c| tap_words(&c.usable)).unwrap_or_default();
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
+        format!("{}{tap}", if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }),
     )
+}
+
+/// How a builder takes a clock's signal into a circuit, from the judge's `usable` tap (` To use it
+/// in a circuit, ...`; empty when it has none or was not checked: the warning says the first).
+pub fn tap_words(usable: &str) -> String {
+    match usable.trim() {
+        "yes: repeater" => " To use it in a circuit, put a repeater where the view puts its lamp: it picks up every pulse.".to_string(),
+        "yes: comparator" => " To use it in a circuit, take the signal from its comparator (part of the download, where the view puts its lamp): it reads the clock and passes on every pulse.".to_string(),
+        "yes: observer" => " To use it in a circuit, take the signal from its observer (part of the download, where the view puts its lamp): it watches the clock and pulses every cycle.".to_string(),
+        _ => String::new(),
+    }
 }
 
 /// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
@@ -892,6 +915,26 @@ mod tests {
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
+        // a declared stand: whether it is the lowest safe one (vjeux 15:17Z)
+        let at = |stands: &str| needs(&Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "6 blocks"), ("stands", stands)])), ..Default::default() }, "")[0].clone();
+        assert_eq!(at("6 blocks above the ground"), "Stand it 6 blocks up, the lowest our test found safe: lower, its own TNT explodes close enough to destroy it.");
+        assert!(at("9 blocks above the ground").starts_with("Stand it 9 blocks up (our test found it safe from 6 blocks up"));
+    }
+
+    #[test]
+    fn a_duper_standing_up_counts_the_air_under_it() {
+        // (the coordinator 15:18Z: 4x4x4 standing 6 up is 64 + 4·4·6 = 160; standing 4 up, 128)
+        let duper = |stand: &str, safe: &str| Build {
+            volume: Some(64),
+            dims: Some("4x4x4".into()),
+            circuit: Some(circuit("tnt-duper", &[("safe drop", safe), ("stands", stand)])),
+            ..Default::default()
+        };
+        assert_eq!(site_model::html::effective_volume(&duper("6 blocks above the ground", "6 blocks")), Some(160));
+        assert_eq!(site_model::html::effective_volume(&duper("4 blocks above the ground", "4 blocks")), Some(128));
+        assert_eq!(site_model::html::effective_volume(&duper("", "0 blocks (on the ground)")), Some(64));
+        // the lowest safe height counts when no stand is declared above it
+        assert_eq!(site_model::html::effective_volume(&duper("", "5 blocks")), Some(64 + 16 * 5));
     }
 
     #[test]
