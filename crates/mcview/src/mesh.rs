@@ -46,9 +46,37 @@ pub struct Mesh {
     pub solid: Vec<Vertex>,
     /// Translucent quads (sort them with [`Mesh::sorted_translucent`]).
     pub translucent: Vec<Quad>,
+    /// Camera-facing squares (the game's particles), turned to the camera when the frame is drawn
+    /// ([`Sprite::quad`]), cut out like the solid faces.
+    pub sprites: Vec<Sprite>,
     /// Bounds of everything drawn (blocks), for framing.
     pub lo: [f32; 3],
     pub hi: [f32; 3],
+}
+
+/// A camera-facing square: its centre, half its size (blocks), its texture (layer, UV rect) and
+/// colour (full brightness: the game's explosion particles light themselves).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sprite {
+    pub pos: [f32; 3],
+    pub half: f32,
+    pub layer: u32,
+    pub uv: [f32; 4],
+    pub color: [u8; 4],
+}
+
+impl Sprite {
+    /// Its two triangles facing the camera (`right`, `up`: the camera's axes), the game's corner
+    /// order (`SingleQuadParticle`: the texture upright on the screen).
+    pub fn quad(&self, right: [f32; 3], up: [f32; 3]) -> [Vertex; 6] {
+        let c = self.pos;
+        let h = self.half;
+        let at = |sx: f32, sy: f32| [c[0] + (right[0] * sx + up[0] * sy) * h, c[1] + (right[1] * sx + up[1] * sy) * h, c[2] + (right[2] * sx + up[2] * sy) * h];
+        let [u0, v0, u1, v1] = self.uv;
+        let v = |pos: [f32; 3], uv: [f32; 2]| Vertex { pos, uv, layer: self.layer, color: self.color };
+        let (bl, br, tr, tl) = (v(at(-1.0, -1.0), [u0, v1]), v(at(1.0, -1.0), [u1, v1]), v(at(1.0, 1.0), [u1, v0]), v(at(-1.0, 1.0), [u0, v0]));
+        [bl, br, tr, bl, tr, tl]
+    }
 }
 
 /// A block to draw: cell, offset (blocks), state string.
@@ -713,24 +741,19 @@ impl<'a> Builder<'a> {
         self.add_model(&Model::one(p), base, None, None);
     }
 
-    /// An explosion's cloud `age` ticks after the blast at `c` (the game client's
-    /// `HugeExplosionSeedParticle`: 8 ticks of large puffs around the blast, white at first, then
-    /// grey): puffs in a fixed pattern spreading out and shrinking over 10 ticks.
-    pub fn explosion(&mut self, c: [f32; 3], age: f32) {
-        const PUFFS: [[f32; 3]; 9] = [[0.0, 0.0, 0.0], [1.0, 0.3, 0.2], [-0.9, -0.2, 0.5], [0.3, 1.0, -0.6], [-0.4, -0.9, -0.3], [0.6, -0.4, 1.0], [-0.5, 0.6, -1.0], [1.1, -0.8, -0.4], [-1.0, 0.9, 0.7]];
-        let k = (age / 10.0).clamp(0.0, 1.0);
-        let spread = 0.6 + 1.8 * k;
-        let size = 1.4 - 0.7 * k;
-        let grey = (250.0 - 110.0 * k) as u8;
-        let colour = if age < 2.0 { [255, 246, 220] } else { [grey, grey, grey] };
-        for (i, o) in PUFFS.iter().enumerate() {
-            if i as f32 > age * 2.0 + 1.0 {
-                continue;
-            }
-            let s16 = size * 16.0;
-            let p = Part::new([0.0; 3], [s16, s16, s16]).all("white_concrete").tint(colour).emissive(true).nocull();
-            let base = [c[0] + o[0] * spread - size / 2.0, c[1] + o[1] * spread - size / 2.0, c[2] + o[2] * spread - size / 2.0];
-            self.add_model(&Model::one(p), base, None, None);
+    /// An explosion's particles `age` ticks after the blast at `c` (its tick `time`): the game's
+    /// emitter and puffs ([`crate::particles`]), the game's sprite frames once loaded (a white
+    /// puff until then; a page without them asks for them with the entity textures).
+    pub fn explosion(&mut self, c: [f32; 3], time: u64, age: f32) {
+        if let Some(g) = &self.atlas.game
+            && !g.tex.contains_key("particle/explosion_0")
+        {
+            g.wants_entities.set(true);
+        }
+        for p in crate::particles::explosion(c, time, age) {
+            let (layer, uv) = self.atlas.sprite(&format!("particle/explosion_{}", p.frame), "explosion_puff");
+            let g = (p.grey * 255.0).round() as u8;
+            self.mesh.sprites.push(Sprite { pos: p.pos, half: p.half, layer, uv, color: [g, g, g, 255] });
         }
     }
 
