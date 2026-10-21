@@ -224,8 +224,10 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
-    // a TNT duper stands on its own ground (its top layer's air above it is lit)
+    // a TNT duper stands on its own ground (its top layer's air above it is lit), its craters open
+    // to the air
     b.light_floor = floor.map(|f| f.hi[1] + 1);
+    b.light_holes = floor.map(|f| f.changed.keys().copied().collect()).unwrap_or_default();
     b.extra_occ = extra_occ;
     b.ghost = look.ghost.iter().copied().collect();
     b.blocks(&items);
@@ -1261,6 +1263,39 @@ fn cell_entry(o: [f32; 3], d: [f32; 3], c: Pos) -> Option<f32> {
 mod tests {
     use super::*;
     use crate::session::Options;
+
+    /// The crater a TNT duper blows in its judge's ground is lit like the open air (vjeux
+    /// 2026-10-21, "the bedrock texture no longer works correctly": since the game's light on
+    /// every face, the light counted every cell under the ground's top as ground, and the crater's
+    /// walls and bedrock bottom were drawn black): after tnt-clocked-22b's first blasts, the top
+    /// faces at the bottom of its crater are bright.
+    #[test]
+    fn a_tnt_crater_is_lit() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-clocked-22b.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        let blown = |s: &Session| -> Vec<Pos> { s.floor.as_ref().map(|f| f.changed.keys().copied().filter(|c| f.shown(*c).is_none()).collect()).unwrap_or_default() };
+        while blown(&s).is_empty() && s.tick < 2000 {
+            s.step();
+        }
+        let holes = blown(&s);
+        assert!(!holes.is_empty(), "a crater by tick {}", s.tick);
+        let f = s.floor.as_ref().unwrap();
+        // the crater's floor: a blown cell over a block still there
+        let bottoms: Vec<Pos> = holes.iter().copied().filter(|c| f.contains([c[0], c[1] - 1, c[2]]) && f.shown([c[0], c[1] - 1, c[2]]).is_some()).collect();
+        assert!(!bottoms.is_empty(), "{holes:?}");
+        let look = viewer_look(&s);
+        let atlas = crate::atlas::Atlas::build();
+        let m = build(&atlas, &s, 0.0, &look);
+        let mut lum = Vec::new();
+        for v in m.solid.iter() {
+            if bottoms.iter().any(|c| v.pos[1] == c[1] as f32 && v.pos[0] >= c[0] as f32 && v.pos[0] <= c[0] as f32 + 1.0 && v.pos[2] >= c[2] as f32 && v.pos[2] <= c[2] as f32 + 1.0) {
+                lum.push(v.color[0] as f32);
+            }
+        }
+        assert!(!lum.is_empty(), "the crater's floor drawn");
+        let mean = lum.iter().sum::<f32>() / lum.len() as f32;
+        assert!(mean > 120.0, "the crater's floor lit: mean {mean} over {} corners", lum.len());
+    }
 
     /// An input whose centre hides behind another block from the pictures' side (here A behind
     /// the judge's lamp in the output cell in front of it) makes the camera start on a side every

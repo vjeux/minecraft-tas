@@ -220,3 +220,22 @@ bottom-right pocket that feeds SU(3,-1) is 2 cells that nothing reaches; one mor
 - clockinfra's --lever-flip re-solve: with A2 feeding nothing, UNSAT at h16; unrestricted SAT (lf16)
   but with 11 A2-fed actions (4 open, 7 close). The A2-budget-1 run decides.
 - Tool: `door ideal-rs --without x,y,z` (drop an input cell's events for a --vary screen).
+- Later seeds (each replays in redsim 32x3; screened after `door prune-plan`, exhaustive per
+  region with the 41-state palette incl. observers x6, sensors, torches, repeaters, comparators):
+  - lf16a1-L (clockinfra 76f1ed250): A2 needs nothing (266 of 1,681 pass, air included); after
+    prune-plan the C1 lockstep gives 0/76 and 0/1,554, the observer lockstep 0/21,168.
+  - fr22ms (w86 2164bedf9): A2 still feeds SE(-2,0) x4 + SU(-1,-2) x2 + a QC feed: 0/1,681, and 0
+    for each part alone. fr22st (w86 22601f536, --strict): SE(-2,0) x3 + SU(-1,-2) x2: 0/1,681.
+    fr22fb (w86 deed26f23, --free bottom-left): A = (-2,-2) alone feeds SU(-2,-1) x4 + SU(-1,-2) x2:
+    0/41. gf16 (clockinfra d82404a69): SE(-2,0) x6 + SU(-1,-2) x2 from A2: 0/1,681.
+  - bf16 (clockinfra 9dbae69cb, every rule then on): A2 feeding E(-2,-1) x6: 0/1,681; C1 (1,-2)
+    feeding SU(0,-2) x9: 0/41. The model's own picks (observers at (-1,-2) and (1,-2) facing east)
+    fail on timing: an observer fires 2 gt after its watched piston moves, and the schedule wanted
+    the pulses at free steps. Now a macrosat rule (explore/clockinfra 4af573504); bf16's layout is
+    UNSAT under it.
+- The physics behind every A2 zero: in (-2,-2),(-2,-1) the only driver of SE(-2,0) is an observer at
+  (-2,-1) facing down (a torch there would be lit forever: (-2,-2)'s block has no power source;
+  repeaters and comparators cannot point up; dust has no support), so SE(-2,0) can only follow a
+  change of (-2,-2), and (-2,-2) cannot both drive SU(-1,-2) eastward and change (an observer there
+  sees only out-of-box or piston cells). So A2 budget 0 (`--region-budget '-2,-2,-2,-1:0'`) is
+  the right constraint for every redesign; trio7 itself is UNSAT under --wire-dir at h16 and h20.

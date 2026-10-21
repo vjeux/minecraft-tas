@@ -92,11 +92,13 @@ pub fn declared_stand(c: &Circuit) -> i32 {
     c.clock.design.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
 }
 
-/// The judge's drop metrics: the safe drop, and the declared stand when it is higher.
+/// The judge's drop metrics: the safe drop, and the declared stand when it is at least the safe
+/// drop (the height the design is meant to stand at, which the site's pick rule reads: a stand
+/// equal to the safe drop counts too).
 pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
     let mut v = vec![drop_metric(safe)];
     let stand = declared_stand(c);
-    if stand > safe {
+    if stand > 0 && stand >= safe {
         v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
     }
     v

@@ -1,5 +1,5 @@
-# archived 2026-10-21T13:13Z from designs/circuits/tracks/clk-misc/tnt-engine-lever-17b.txt by mctas circuit archive
-# CIRCUIT: tnt-engine-lever-17b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs lever on, switch lever off: stops within 2 gt; on: restarts within 5 gt, safe drop 6 blocks, 17 blocks, 4x4x4, robust (survives its own explosions: 212 exploded, design intact; launched at (0.0041, 0.1464, -0.9986) blocks/gt, spread (1.3554, 0.6794, 1.5279); useful: every blast clear of fluids, each destroys blocks on open ground)
+# archived 2026-10-21T14:10Z from designs/circuits/tracks/clk-misc/tnt-engine-lever-17b.txt by mctas circuit archive
+# CIRCUIT: tnt-engine-lever-17b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs lever on, switch lever off: stops within 2 gt; on: restarts within 5 gt, safe drop 6 blocks, stands 6 blocks above the ground (stand: in the design), 17 blocks, 4x4x4, robust (survives its own explosions: 212 exploded, design intact; launched at (-0.0046, 0.1548, -1.0001) blocks/gt, spread (0.5733, 0.7993, 0.2552); useful: every blast clear of fluids, each destroys blocks on open ground)
 # The clockless TNT engine with an on/off LEVER (vjeux 2026-10-21: "I thought we were going to remove the clock as we
 # didn't need it"; "Can we have an on off switch for all the tnt"): tnt-triggered-launch-16b's engine, its holding
 # redstone block replaced by a torch that holds the engine piston (lit while the lever is off) and the lever on the

@@ -1,5 +1,6 @@
 # verified WORKS by door leaderboard: 50 blocks, category solid
 # archived 2026-10-18 06:54Z from origin/explore/logic-min:designs/piston-door-3x3/tracks/logic-min/BEST.txt (repo at 4267b30)
+# material (clk-rt 2026-10-21, `door material`): 1 obsidian -> stone (the door passes with the same ticks); no obsidian left
 name: logic-min-v2
 port door: 0 0 0
 port lever: 5 4 0
@@ -7,17 +8,16 @@ origin: -3 0 0
 palette:
   A minecraft:observer[facing=south,powered=false]
   B minecraft:observer[facing=up,powered=false]
-  C minecraft:obsidian
-  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  E minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-  F minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
-  G minecraft:sticky_piston[extended=false,facing=down]
-  H minecraft:sticky_piston[extended=false,facing=east]
-  I minecraft:sticky_piston[extended=false,facing=up]
-  J minecraft:sticky_piston[extended=false,facing=west]
-  K minecraft:sticky_piston[extended=true,facing=north]
+  C minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  D minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  E minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:sticky_piston[extended=false,facing=east]
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:sticky_piston[extended=true,facing=north]
+  K minecraft:stone
   L minecraft:lever[face=floor,facing=west,powered=false]
-  M minecraft:stone
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston_head[facing=north,short=false,type=sticky]
   R minecraft:redstone_wall_torch[facing=west,lit=true]
@@ -26,7 +26,7 @@ palette:
   r minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
   s minecraft:smooth_stone
 layer -2:
-  ....Is
+  ....Hs
   .
   .
 layer -1:
@@ -34,30 +34,30 @@ layer -1:
   .
   .
 layer 0:
-  ..SMMMS
+  ..SKKKS
   .
   .
 layer 1:
-  ..SMMMS.J
+  ..SKKKS.I
   .
   .
 layer 2:
-  H.SMMMS.C
+  G.SKKKS.K
   .
   .
 layer 3:
-  .....M..B
+  .....K..B
   A...P.s.s
-  ooooK..s
+  ooooJ..s
 layer 4:
-  ....GDMoL
-  ......F.F
-  .....RsDs
+  ....FCKoL
+  ......E.E
+  .....RsCs
 layer 5:
-  ....GBsO
+  ....FBsO
   .
   .
 layer 6:
-  .....Ers
+  .....Drs
   .
   .

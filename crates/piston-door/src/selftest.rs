@@ -141,6 +141,44 @@ fn checks() -> Vec<Check> {
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a broken door".into()) } else { has(&o[0], "BROKEN").map(|_| "rejected (BROKEN)".into()) }),
     });
+    // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
+    const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
+    const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
+    const OBS_TNT: &str = "designs/circuits/selftest/tnt-obsidian-replaceable.txt";
+    v.push(Check {
+        name: "material:door-obsidian".into(),
+        what: "`door material` turns the fixture's replaceable obsidian to stone and keeps c88-s26-54b's needed one (redsim screen, same ticks)",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("door material {OBS_DOOR} --out {{tmp}}/a --threads 4")), args(&format!("door material {OBS_NEEDED_DOOR} --out {{tmp}}/b --threads 4"))],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 0 obsidian kept")?;
+            has(&o[1], "1 designs with obsidian: 0 changed (0 obsidian -> stone), 1 obsidian kept")?;
+            Ok("replaceable -> stone, needed kept".into())
+        }),
+    });
+    v.push(Check {
+        name: "material:archive-guards".into(),
+        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone) and archives c88-s26-54b (its obsidian is needed); `circuit archive` refuses the TNT fixture",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("?door verify {OBS_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
+            args(&format!("door verify {OBS_NEEDED_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
+            args(&format!("?circuit archive {OBS_TNT} --root {{tmp}}/circuits")),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "not archived: obsidian at")?;
+            has(&o[1], "archived ")?;
+            if o[1].contains("not archived") {
+                return Err(format!("refused a needed obsidian: {}", tail(&o[1])));
+            }
+            has(&o[2], "not archived: obsidian at")?;
+            Ok("replaceable refused (door, TNT), needed archived".into())
+        }),
+    });
     // 3. pockets re-find known regions
     let r = "-1,-3;-2,-3;-2,-2;-2,-1;-1,-2;0,-2";
     v.push(Check {
@@ -810,6 +848,22 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-tnt-lever-nostop tnt-duper: lever off at rest:")?;
             Ok("the lever engine kept (stops within 2 gt, restarts within 5 gt); the engine without its inverter refused at rest".into())
+        }),
+    });
+    // the sorter's exact gate (the pick sweep, 2026-10-21): the judge's base run of the published
+    // sorter in the game and on redsim, every cell with container contents compared every gt (it
+    // diverged at frame 0 until the game side's container text kept named items: the filter
+    // papers' `components` broke the item split)
+    v.push(Check {
+        name: "circuit:sorter-compare".into(),
+        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
+            Ok("sorter-classic's base run tick-identical in redsim (4121 frames)".into())
         }),
     });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
