@@ -411,6 +411,40 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             if same.is_empty() { format!("{} door cards, every one its own mechanism", cards.len()) } else { same.iter().take(5).cloned().collect::<Vec<_>>().join(", ") },
         );
     }
+    // a clock that is hard to wire into a circuit (the judge's `usable`: `no: ...`): its page warns
+    // (never hidden), its card says so, and on the Clocks tab it comes after the easy ones of its
+    // period (the coordinator 2026-10-21)
+    {
+        let hard = |b: &site_model::Build| b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no"));
+        let unwarned: Vec<String> = site
+            .builds
+            .iter()
+            .filter(|b| hard(b))
+            .filter(|b| !std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default().contains(&site_model::html::esc(crate::plain::USABLE_WARNING)))
+            .map(|b| b.name.clone())
+            .collect();
+        let hits = site.run(&site_model::Query::from_fragment("kind=clock")).map(|(h, _)| h).unwrap_or_default();
+        let mut early: Vec<String> = Vec::new();
+        for w in hits.windows(2) {
+            if let (site_model::Hit::Build(a), site_model::Hit::Build(b)) = (w[0], w[1]) {
+                let (a, b) = (&site.builds[a], &site.builds[b]);
+                let same = a.clock.as_ref().map(|c| c.every()) == b.clock.as_ref().map(|c| c.every());
+                if same && hard(a) && !hard(b) {
+                    early.push(format!("{} before {}", a.name, b.name));
+                }
+            }
+        }
+        let n = site.builds.iter().filter(|b| hard(b)).count();
+        check(
+            "clocks hard to wire into a circuit: warned on their pages, after the easy ones of their period",
+            unwarned.is_empty() && early.is_empty(),
+            if unwarned.is_empty() && early.is_empty() {
+                format!("{n} clocks warned")
+            } else {
+                format!("unwarned: {}; out of order: {}", unwarned.iter().take(3).cloned().collect::<Vec<_>>().join(", "), early.iter().take(3).cloned().collect::<Vec<_>>().join(", "))
+            },
+        );
+    }
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));

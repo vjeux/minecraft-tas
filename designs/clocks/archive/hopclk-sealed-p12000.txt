@@ -1,4 +1,4 @@
-# archived 2026-10-21T16:47Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p12000.txt by mctas clock archive
+# archived 2026-10-21T17:00Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p12000.txt by mctas clock archive
 # CLOCK: hopclk-sealed-p12000 period 12000 gt (10 min), on 6000/12000, edges 1, warmup 10, family comparator+copper_bulb+hopper+redstone_block+redstone_wire+repeater+sticky_piston, 27 blocks, 11x3x2, robust
 # Sealed hopper clock (clk-obs), period 12000 gt: two hoppers facing each other pass 188 stones, one per
 # 8 gt; each hopper's comparator powers a sticky piston through the dust behind it, and the two

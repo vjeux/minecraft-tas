@@ -396,6 +396,7 @@ impl Kind {
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
             Kind::Compute(spec) if spec.op == compute::Op::SevenSegment => "display",
+            Kind::Compute(spec) if spec.op == compute::Op::Adder => "adder",
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
             Kind::Lock(_) => "lock",
@@ -595,13 +596,13 @@ impl Circuit {
                 "start" => {}
                 // an elevator's rider cell (the judge's armor stand stands there: crate::elevator)
                 "rider" => {}
-                "items" | "boxes" | "reject" | "pass" => {
+                "items" | "boxes" | "reject" | "pass" | "feed" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, feed, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
