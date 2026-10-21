@@ -199,15 +199,16 @@ pub fn graft(o: &GraftOptions) -> Result<usize> {
     passing.sort_by(|a, b| b.0.cmp(&a.0));
     std::fs::create_dir_all(&o.out)?;
     let mut tsv = String::from("name\tvolume\tsize\tblocks\tverdict\n");
-    for (i, (_, v, st)) in passing.iter().enumerate() {
-        let (vol, s) = compact::volume(&st.b);
+    for (i, (sc, v, st)) in passing.iter().enumerate() {
+        let (_, s) = compact::volume(&st.b);
+        let vol = -sc.neg_volume;
         let mut d = seed.design.clone();
         d.blocks = st.b.clone();
         d.ports = st.ports.clone();
         d.name = format!("{}-g{i}-v{vol}", seed.design.name);
         std::fs::write(o.out.join(format!("{}.txt", d.name)), format!("# {v}\n{}", d.to_text()))?;
-        tsv += &format!("{}\t{vol}\t{}x{}x{}\t{}\t{v}\n", d.name, s[0], s[1], s[2], st.b.len());
-        println!("{}: volume {vol} ({}x{}x{}), {} blocks", d.name, s[0], s[1], s[2], st.b.len());
+        tsv += &format!("{}\t{vol}\t{}x{}x{} (static)\t{}\t{v}\n", d.name, s[0], s[1], s[2], st.b.len());
+        println!("{}: judged volume {vol} (static {}x{}x{}), {} blocks", d.name, s[0], s[1], s[2], st.b.len());
     }
     std::fs::write(o.out.join("graft.tsv"), tsv)?;
     Ok(passing.len())
