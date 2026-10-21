@@ -500,7 +500,8 @@ the new gadgets did and did not change.
 - **Room for the centre's 2-cell move**: two spare rows on one side for an elevator (e78k's
   bottom). With the trio's row: height >= 5 + 1 + 2 = 8.
 
-So 7x8 is the smallest box with both. Every smaller box loses one, and the gadgets below are the
+So 7x8 is the smallest box with both. Every smaller box loses one (7x7 has the room for each, but
+not for both at once: with the trio in the ceiling C has no way out), and the gadgets below are the
 attempts to replace the missing one:
 
 | box | volume | room for the crossing | room for the elevator | mechanism? | what stops it |
@@ -511,8 +512,8 @@ attempts to replace the missing one:
 | 6x7 | 42 | no | no | YES: c70b mm01..05 (repaired a3s) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
 | 8x6 | 48 | yes | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
 | 6x8 | 48 | no | yes | slime only (fly's q68g) | as 6x9 |
-| 7x7 | 49 | yes | no | YES: c77 w1, c70b mm01, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86); at one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b); the w1 class leaves P (1,-1) and SU(1,-2) unfed (clk-rt's mm01z feeds P from a carried observer; B (1,-2) stays unfed and no lever spot starts every area, pockets3); macrosat with feed + island start UNSAT at h6 in every placement but the central one, which is UNSAT up to h12 under `--physics` |
-| 9x6 | 54 | yes | no | YES: c70b m69a turned, w86 m69g-12 | one spare row, so the bottom row's pieces sit in a pocket only row-0 movers touch (m69g-12: satwire core W' (3,-1)) |
+| 7x7 | 49 | only with the trio, which leaves C no way out (w86) | no | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). macrosat with feed + island start: UNSAT at h6 in every placement but the central one, which is UNSAT up to h12 under `--physics` |
+| 9x6 | 54 | yes | no | YES: c70b m69a turned, w86 m69g / m69g-12 | one spare row, so the bottom row's pieces sit in a pocket that only row-0 movers touch. m69g's W' (3,-1) is fed only from the 2-cell pocket (4,-1),(5,-1): every filling with sensors, observers, wool, dust and torches drives it 0 of 324 times. Shuttles reach it only with one more row (clk-item; satwire core W', w86) |
 | 6x9 | 54 | no | yes | YES: c78l m69a, c70b m69T, fly's q69i/j/m, r69t, s69 | below |
 
 **6-wide boxes** (6x9, 6x8, 6x7) have no spare column on one side. That side frame holds the 3
