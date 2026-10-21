@@ -44,7 +44,7 @@ that it cannot be met (then the bar becomes the proven optimum).
 |---|---|---|---|---|
 | 1 | n1-sticky 2 blocks, 3/3 gt (trivial) | same | same | not a record (a lone sticky piston): drop from the catalog's headline |
 | 2 | sf7 7 blocks, 7/12 gt (5x2x2); rider7-flat 7, 9/9 (5x3x1) | rider7-flat 7, 9/9 | sf7 7/12 | **<= 6 blocks, 1-wide, extend <= 5 gt, retract <= 9 gt**; or prove 7 optimal (exhaustive 1-wide search, k-block additions to every A-B-payload-lever base) |
-| 3 | flat-cascade19 19 blocks, 27/27 gt (9x6x1) | same | rider24 25/25 | **<= 12 blocks, 1-wide, height <= 4, extend <= 12 gt, retract <= 18 gt** |
+| 3 | flat-cascade16 16 blocks, 28/34 gt (9x5x1) | same | rider20 15/18 gt (20 blocks, 7x4x3; 10-21 anneal of rider24) | **<= 12 blocks, 1-wide, height <= 4, extend <= 12 gt, retract <= 18 gt** |
 | 4 | flat-cascade26 26, 43/55 gt | same | cascade33 41/53 | **<= 16 blocks, 1-wide, extend <= 16 gt, retract <= 24 gt** |
 | N >= 5 | flat cascade 10N - 5 - floor((N-1)/3), 14N-6 / 16N-8 gt | same | same | **one 1-wide family, <= 3N + 4 blocks, extend <= 4N gt, retract <= 6N gt**, judged up to N = 12 |
 
@@ -92,6 +92,21 @@ slimes instead), and the starters above were rearranged so nothing moves outside
 16-block N = 3 keeps 5).
 The length stays 3N (the line of N pistons and N - 1 slimes plus the payload, then N cells of
 travel); the bound is 2N + 1 with no slime between the pistons.
+
+Any 3D shape (vjeux 10-21: "huuuge for a triple piston extender"), searched, nothing smaller yet:
+* `pext anneal` without `--plane-z` from the 9x4 N = 3 (two seeds, 30 000 steps each): every
+  3D move costs volume; nothing below 36.
+* `pext grow` census: the 9x4 N = 3 with its top row removed (lever kept outside the box), up to 5
+  blocks grown back inside 9x3: none works (11 min, 64 threads).
+* From the 3D designs (anneal without `--plane-z`): pext-n3-rider24 (8x5x3 = 120, 25/25 gt) went
+  to 20 blocks, 7x4x3 = 84, 15/18 gt: the fastest N = 3 (archived as pext-n3-rider20-7x4x3,
+  rider24 removed as dominated), still more volume than the flat 36; pext-n3-cascade22
+  (9x4x4 = 144) went to 18 blocks, 108.
+* N = 2 in 5x2 (the 2N + 1 length; the second row below, above or beside; lever on the back
+  piston, outside the box): up to 5 blocks, none works. rider-flat 6x2 = 12 stays.
+* A shorter N = 3 needs a line without slimes between the pistons (2N + 1 = 7 long); its
+  retraction needs the 6 single-cell actions of the slime-free stacks, whose logic has never fit
+  a small box (sf43: 10x5x5).
 
 ## Status
 
