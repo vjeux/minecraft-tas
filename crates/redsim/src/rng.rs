@@ -124,11 +124,13 @@ pub fn state_diff(game: i64, ours: i64) -> Option<String> {
 }
 
 /// A drop as the bridge places it (`Sandbox.DropSeeder`): where, its yaw, its motion.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Drop {
     pub pos: [f64; 3],
     pub y_rot: f32,
     pub motion: [f64; 3],
+    /// The item's own random after those draws (`Entity.random`: `moveTowardsClosestSpace`...).
+    pub random: LegacyRandom,
 }
 
 /// Half the item entity's height (`EntityTypes.ITEM`: 0.25).
@@ -144,7 +146,7 @@ impl Drop {
         let y_rot = r.next_float() * 360.0;
         let mx = r.next_double() * 0.2 - 0.1;
         let mz = r.next_double() * 0.2 - 0.1;
-        Drop { pos: [x, y, z], y_rot, motion: [mx, 0.2, mz] }
+        Drop { pos: [x, y, z], y_rot, motion: [mx, 0.2, mz], random: r }
     }
 }
 

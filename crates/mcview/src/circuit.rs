@@ -228,7 +228,9 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader") {
+    // (an item sorter's, an auto-smelter's and a harvester's outputs are the judge's chests: no
+    // lamp there, the coordinator 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester") {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -418,6 +420,44 @@ pub fn sorter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
 /// chest, every result into the output chest).
 pub fn is_smelter(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
+}
+
+/// A crop harvester (study 16 farms, `circuit: harvester <crop>`: it breaks every grown block of
+/// its crop and sends the items into a chest, by itself).
+pub fn is_harvester(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("harvester"))
+}
+
+/// The random tick speed the farm judge grows its crops at (`circuit::farm::RTS`: 100 times
+/// vanilla's 3, a cane growing a block about every 11 s): the view shows the judge's run.
+pub const FARM_RTS: u32 = 300;
+
+/// A harvester's world grows and drops like the judge's run: random ticks at [`FARM_RTS`], their
+/// positions seeded with `build_seed` of the judge's watch box at salt 1 (the game's own
+/// generator is unseeded: no run reproduces another), the drops seeded at salt 0 (an item's place
+/// and motion).
+pub fn farm_ticks(w: &mut redsim::World, from: Pos, to: Pos) {
+    w.drop_seed = Some(redsim::redstone::shulker::build_seed(from, to, 0));
+    w.random_ticks = Some(redsim::crops::RandomTicks::new(FARM_RTS, redsim::redstone::shulker::build_seed(from, to, 1)));
+}
+
+/// A harvester's judge things (`circuit::farm`): its chests (every `port output:`, an air cell)
+/// and its crop planted (every `port crop:`, the crop's state at age 0). None when the design is no
+/// harvester or names a crop the judge does not plant.
+pub fn harvester_ports(d: &Design) -> Option<(Vec<Pos>, Vec<(Pos, &'static str)>)> {
+    if !is_harvester(d) {
+        return None;
+    }
+    let planted = match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
+        "sugar_cane" => "minecraft:sugar_cane[age=0]",
+        _ => return None,
+    };
+    let cells = |name: &str| -> Vec<Pos> {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v
+    };
+    Some((cells("output"), cells("crop").into_iter().map(|p| (p, planted)).collect()))
 }
 
 /// The smelter judge's base load for `n` furnaces (`circuit::smelter::Scenario::new`): 16 items a

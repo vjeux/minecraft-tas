@@ -174,6 +174,9 @@ pub struct Builder<'a> {
     occ: HashSet<Pos>,
     /// Block names of the still cells (translucent faces between the same blocks are culled).
     names: HashMap<Pos, String>,
+    /// The still cells of waterlogged blocks (`waterlogged=true`): they hold a water source, drawn
+    /// in their cell like the game's fluid renderer (a farm's water in its copper grate).
+    wet: HashSet<Pos>,
     /// The ground: every cell below this y counts as an opaque block (culling, AO).
     pub ground: Option<i32>,
     /// More cells holding an opaque full block, drawn some other way (a TNT duper's intact
@@ -208,6 +211,7 @@ impl<'a> Builder<'a> {
             atlas,
             occ: HashSet::new(),
             names: HashMap::new(),
+            wet: HashSet::new(),
             ground: None,
             extra_occ: HashSet::new(),
             ghost: HashSet::new(),
@@ -284,6 +288,7 @@ impl<'a> Builder<'a> {
     pub fn blocks(&mut self, items: &[Item]) {
         self.occ.clear();
         self.names.clear();
+        self.wet.clear();
         self.light = None;
         let states: HashMap<Pos, &str> = items.iter().filter(|it| it.offset == [0.0; 3]).map(|it| (it.cell, it.state)).collect();
         let mut light_cells: Vec<(Pos, crate::light::Cell, u8)> = Vec::with_capacity(items.len() + self.extra_occ.len());
@@ -297,6 +302,9 @@ impl<'a> Builder<'a> {
                     n => n,
                 };
                 self.names.insert(it.cell, n.to_string());
+                if it.state.contains("waterlogged=true") {
+                    self.wet.insert(it.cell);
+                }
                 let m = self.model_at(it.state, Some(it.cell));
                 let opaque = m.as_ref().is_some_and(|m| m.full && m.parts.iter().all(|p| p.layer == Layer::Opaque)) && !self.ghost.contains(&it.cell);
                 if opaque {
@@ -342,6 +350,10 @@ impl<'a> Builder<'a> {
                 let base = [it.cell[0] as f32 + it.offset[0], it.cell[1] as f32 + it.offset[1], it.cell[2] as f32 + it.offset[2]];
                 let still = it.offset == [0.0; 3];
                 self.add_model(&m, base, if still { Some(it.cell) } else { None }, None);
+            }
+            // a waterlogged block's water, in its cell
+            if it.offset == [0.0; 3] && self.wet.contains(&it.cell) {
+                self.water(it.cell, &states);
             }
         }
     }
@@ -550,7 +562,9 @@ impl<'a> Builder<'a> {
     /// average height of the water cells sharing that corner (full when water stands above any
     /// of them), faces only toward cells that are neither water nor opaque cubes.
     fn water(&mut self, cell: Pos, states: &HashMap<Pos, &str>) {
-        let is_water = |names: &HashMap<Pos, String>, p: Pos| names.get(&p).is_some_and(|n| n == "minecraft:water");
+        // water cells, and waterlogged blocks' (their own water: a source)
+        let wet = self.wet.clone();
+        let is_water = |names: &HashMap<Pos, String>, p: Pos| names.get(&p).is_some_and(|n| n == "minecraft:water") || wet.contains(&p);
         // the own height of a water cell (in blocks): full under water, else the game's amount / 9
         let level_of = |p: Pos| -> Option<u32> {
             states.get(&p).map(|s| {
