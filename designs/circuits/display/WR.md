@@ -42,3 +42,21 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 - Rows' F (ON form): a [C+D', C+D, C'+D', C+D'], b [1, C xnor D, C'+D', C'D], c [C'+D, 1, 1, C'D],
   d [C+D', C xor D, C'+D, C'+D'], e [D', CD', C+D', 1], f [C'D', C'+D', 1, C+D'],
   g [C, C'+D', 1, C+D] (C = a1, D = a0).
+
+## Board (clk-obs, 2026-10-21)
+| design | blocks | box (volume) | status |
+|---|---|---|---|
+| seven-segment-towers (tracks/display/towers-v1.txt) | 2118 | 27x42x28 (31,752) | game robust: the first working build |
+| stack-v1 | 982 | 9x38x9 (3,078) | game robust |
+| stack-v2 | 697 | 9x26x9 (2,106) | game: every build passes (one rotation counts another glitch total) |
+| **seven-segment-stack-v3** (archive/seven-segment-stack-v3.txt) | **649** | **9x24x9 (1,944)** | **record**: game, latency 38 gt, 76 glitches |
+
+How v3 works: seven rings of 4 subtract comparators stacked every 2 levels in one column; ring k's
+lamp is segment k. The 4 ring corners come from 4 torch towers in a pinwheel; each rear column is a
+torch chain (rear = NOT the rear two levels down) plus an outer injection at (0,-3) and a diagonal
+one at (-1,-2) (a repeater, or a subtract comparator whose side is fed by a repeater); all towers
+start from the 4 inputs through wall torches (a wall torch on a tower block starts the next column a
+level up). Generator: `mctas circuit display stack-search` then `display stack --forest
+--rings-first` (crates/circuit-display). Open: the 9x9 form's floor is 9x9x13 = 1053 even with no
+feed; a 7x7 footprint has no solution with these injection faces (the a1/a0 XOR rows of b and d need
+two product terms per rear).

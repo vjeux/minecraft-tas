@@ -220,6 +220,7 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
         "shulker-loader" => "Shulker box loader",
