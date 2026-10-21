@@ -19,6 +19,9 @@ struct Stack {
     cx: i32,
     rings: Vec<(char, i32, i32)>,
     turn: i32,
+    /// ring-relative cells the stack's line feed and second feed comparators feed
+    direct: (i32, i32, i32),
+    second: (i32, i32, i32),
 }
 
 /// A solved ring: its slots, copy/bridge mask, feed, and which line feeds it needs.
@@ -33,8 +36,18 @@ struct Solved {
     removed: Vec<(i32, i32, i32)>,
 }
 
-const DIRECT: (i32, i32, i32) = (-1, 0, 3);
-const SECOND: (i32, i32, i32) = (-2, 0, 3);
+thread_local! {
+    /// The current stack's line feed cells (ring-relative): its direct feed and its second feed.
+    static CELLS: std::cell::Cell<((i32, i32, i32), (i32, i32, i32))> = const { std::cell::Cell::new(((-1, 0, 3), (-2, 0, 3))) };
+}
+#[allow(non_snake_case)]
+fn DIRECT() -> (i32, i32, i32) {
+    CELLS.with(|c| c.get().0)
+}
+#[allow(non_snake_case)]
+fn SECOND() -> (i32, i32, i32) {
+    CELLS.with(|c| c.get().1)
+}
 
 fn solve(rs: &[crate::analog::Run], above: &Feed, top: bool, lean: bool, allowed: u8, bridges_off: u8) -> Option<Solved> {
     let mut tries: Vec<(bool, bool)> = Vec::new();
@@ -45,10 +58,10 @@ fn solve(rs: &[crate::analog::Run], above: &Feed, top: bool, lean: bool, allowed
     for (direct, second) in tries {
         let mut feed: Feed = Vec::new();
         if direct {
-            feed.push((DIRECT, 0));
+            feed.push((DIRECT(), 0));
         }
         if second {
-            feed.push((SECOND, 0));
+            feed.push((SECOND(), 0));
         }
         feed.extend(above.iter().copied());
         if feed.is_empty() {
@@ -127,7 +140,7 @@ fn prune(rs: &[crate::analog::Run], s: Solved, allowed: u8, bridges_off: u8, see
     }
     // kept: the line feeds' cells (a removed coupling cell just stops feeding; copies check their
     // ends in astack's distances) and both ends of every bridge still on
-    let mut keep: Vec<(i32, i32, i32)> = best.feed.iter().map(|(c, _)| *c).filter(|c| *c == DIRECT || *c == SECOND).collect();
+    let mut keep: Vec<(i32, i32, i32)> = best.feed.iter().map(|(c, _)| *c).filter(|c| *c == DIRECT() || *c == SECOND()).collect();
     for (i, (a, c)) in crate::astack::BRIDGES.iter().enumerate() {
         if off >> i & 1 == 0 {
             keep.extend([*a, *c]);
@@ -170,18 +183,34 @@ fn ring_cost(s: &Solved) -> usize {
     b.blocks.len()
 }
 
-pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, out: &std::path::Path) -> Result<()> {
+pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, out: &std::path::Path) -> Result<()> {
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let cz = 5;
-    let stacks = [
-        Stack { cx: 1, rings: vec![('a', 4, 5), ('g', 2, 3), ('d', 0, 1)], turn: 0 },
-        Stack { cx: 9, rings: vec![('f', 3, 4), ('e', 1, 2)], turn: -1 },
-        Stack { cx: -7, rings: vec![('b', 3, 4), ('c', 1, 2)], turn: 1 },
-    ];
+    // --tight: the side stacks one cell closer (no gap column between the stacks' arcs: they sit
+    // at odd and even levels, and the diagonal dust steps between them are cut by the arc
+    // supports, or by a block where none is); their line feeds move to the arc cells nearest
+    // the middle (even x, as the lines' blocks need), so the lines and lanes are shorter
+    let stacks = if tight {
+        [
+            Stack { cx: 1, rings: vec![('a', 4, 5), ('g', 2, 3), ('d', 0, 1)], turn: 0, direct: (-1, 0, 3), second: (-2, 0, 3) },
+            Stack { cx: 8, rings: vec![('f', 3, 4), ('e', 1, 2)], turn: -1, direct: (-2, 0, 3), second: (-1, 0, 3) },
+            Stack { cx: -7, rings: vec![('b', 3, 4), ('c', 1, 2)], turn: 1, direct: (-1, 0, 3), second: (-2, 0, 3) },
+        ]
+    } else {
+        [
+            Stack { cx: 1, rings: vec![('a', 4, 5), ('g', 2, 3), ('d', 0, 1)], turn: 0, direct: (-1, 0, 3), second: (-2, 0, 3) },
+            Stack { cx: 9, rings: vec![('f', 3, 4), ('e', 1, 2)], turn: -1, direct: (-1, 0, 3), second: (-2, 0, 3) },
+            Stack { cx: -7, rings: vec![('b', 3, 4), ('c', 1, 2)], turn: 1, direct: (-1, 0, 3), second: (-2, 0, 3) },
+        ]
+    };
     // solve every ring first, top down per stack
     let mut solved: Vec<Vec<Solved>> = Vec::new();
     for st in &stacks {
+        CELLS.with(|c| c.set((st.direct, st.second)));
+        // --tight: the bridge on the axis facing the middle stack stays off (its target block, one
+        // level down, would sit beside the middle rings' arc dust at their level and feed it)
+        let bridges_off = bridges_off | if tight && st.cx == 8 { 2 } else { 0 };
         let mut above: Feed = Vec::new();
         let mut v = Vec::new();
         for (i, &(seg, _row, level)) in st.rings.iter().enumerate() {
@@ -201,10 +230,10 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             for (direct, second) in opts {
                 let mut feed: Feed = Vec::new();
                 if direct {
-                    feed.push((DIRECT, 0));
+                    feed.push((DIRECT(), 0));
                 }
                 if second {
-                    feed.push((SECOND, 0));
+                    feed.push((SECOND(), 0));
                 }
                 feed.extend(above.iter().copied());
                 let Some((slots, mask)) = (if feed.is_empty() { None } else { solve_ring_f(&rs, &feed, allowed, bridges_off) }) else { continue };
@@ -251,29 +280,31 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     let split = chain_back(&mut b, [-7, 2, 16], code);
     let hub = walk(&mut b, split, "N N");
     ensure!(hub == [2, 4, 12], "hub at {hub:?}");
-    let f_rear = walk(&mut b, hub, "E E E N");
-    let b_rear = walk(&mut b, hub, "W W W W W N");
+    let rear_of = |st: &Stack, level: i32| [st.cx + st.direct.0, level, cz + st.direct.2 + 2];
+    let (f_moves, b_moves, e_moves, c_moves) = if tight { ("E E N", "W W W W W N", "W dS dE N", "E dS dW N") } else { ("E E E N", "W W W W W N", "S dS dE N N W", "E dS dW N") };
+    let f_rear = walk(&mut b, hub, f_moves);
+    let b_rear = walk(&mut b, hub, b_moves);
     let a_rear = walk(&mut b, hub, "N uW");
-    let mut rears: Vec<(P, P)> = vec![(a_rear, [0, 5, 10]), (f_rear, [8, 4, 10]), (b_rear, [-8, 4, 10])];
+    let mut rears: Vec<(P, P)> = vec![(a_rear, rear_of(&stacks[0], 5)), (f_rear, rear_of(&stacks[1], 4)), (b_rear, rear_of(&stacks[2], 4))];
     // descents (two levels down each): only for the lower rings that need their own feed; d's
     // starts from g's rear, so g's descent is built when either needs it
     if need(0, 1) || need(0, 2) {
         let g_rear = walk(&mut b, a_rear, "W dS dE N");
         if need(0, 1) {
-            rears.push((g_rear, [0, 3, 10]));
+            rears.push((g_rear, rear_of(&stacks[0], 3)));
         }
         if need(0, 2) {
             let d_rear = walk(&mut b, g_rear, "E dS dW N");
-            rears.push((d_rear, [0, 1, 10]));
+            rears.push((d_rear, rear_of(&stacks[0], 1)));
         }
     }
     if need(1, 1) {
-        let e_rear = walk(&mut b, f_rear, "S dS dE N N W");
-        rears.push((e_rear, [8, 2, 10]));
+        let e_rear = walk(&mut b, f_rear, e_moves);
+        rears.push((e_rear, rear_of(&stacks[1], 2)));
     }
     if need(2, 1) {
-        let c_rear = walk(&mut b, b_rear, "E dS dW N");
-        rears.push((c_rear, [-8, 2, 10]));
+        let c_rear = walk(&mut b, b_rear, c_moves);
+        rears.push((c_rear, rear_of(&stacks[2], 2)));
     }
     for (rear, want) in rears {
         ensure!(rear == want, "feed line ends at {rear:?}, want {want:?}");
@@ -288,8 +319,9 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
         for (ri, &(seg, row, level)) in st.rings.iter().enumerate() {
             let s = &solved[si][ri];
             if s.second {
-                b.dust([st.cx - 2, level, cz + 5]);
-                b.comp([st.cx - 2, level, cz + 4], D::N, false);
+                // a dust beside the direct feed's rear block, and a comparator into the second cell
+                b.dust([st.cx + st.second.0, level, cz + st.second.2 + 2]);
+                b.comp([st.cx + st.second.0, level, cz + st.second.2 + 1], D::N, false);
             }
             let c = [st.cx, level, cz];
             crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
@@ -332,6 +364,30 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
                 ensure!(lane_x == lx, "straight lane off its lamp");
             }
             b.port(&format!("output.{seg}"), [lx, row, 0]);
+        }
+    }
+    // stacks one column apart (--tight): a dust step between two stacks' rings (an upper dust and
+    // a lower dust in neighbouring columns) connects their networks unless the cell above the
+    // lower dust is solid; put a stone there (or fail when something else holds that cell)
+    if tight {
+        let stack_of = |x: i32| stacks.iter().position(|st| (st.cx - 3..=st.cx + 3).contains(&x));
+        let is_dust = |b: &B, p: &P| b.blocks.get(p).is_some_and(|s| s.starts_with("minecraft:redstone_wire"));
+        let dusts: Vec<P> = b.blocks.keys().copied().filter(|p| is_dust(&b, p) && (cz - 3..=cz + 3).contains(&p[2])).collect();
+        let mut cuts: Vec<P> = Vec::new();
+        for l in &dusts {
+            for d in [[1, 0, 0], [-1, 0, 0]] {
+                let u = [l[0] - d[0], l[1] + 1, l[2]];
+                if is_dust(&b, &u) && stack_of(u[0]) != stack_of(l[0]) {
+                    cuts.push([l[0], l[1] + 1, l[2]]);
+                }
+            }
+        }
+        for c in cuts {
+            match b.blocks.get(&c) {
+                None => b.stone(c),
+                Some(s) if s == "minecraft:stone" || s.starts_with("minecraft:hopper") => {}
+                Some(s) => anyhow::bail!("cut cell {c:?} holds {s}: two stacks' dust connect there"),
+            }
         }
     }
     let bad = crate::agen::bad_supports(&b);
