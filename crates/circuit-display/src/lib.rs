@@ -280,6 +280,10 @@ enum Cmd {
         /// Dropper arrangements over a whole window around pair 0, not only the near ones.
         #[arg(long)]
         wide: bool,
+        /// Refuse layouts with a quasi-connectivity hazard (a dust's support next to a dropper's
+        /// top cell): fewer layouts, none that leaves a dropper stuck triggered.
+        #[arg(long)]
+        qc_safe: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -439,7 +443,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
-        Cmd::RandSearch { k, bound, all, wide, out } => {
+        Cmd::RandSearch { k, bound, all, wide, qc_safe, out } => {
+            randsearch::QC_SAFE.store(qc_safe, std::sync::atomic::Ordering::Relaxed);
             let lines = randsearch::run(k, bound, all, wide);
             std::fs::write(&out, lines.join("\n") + "\n")?;
             println!("{} layouts -> {}", lines.len(), out.display());

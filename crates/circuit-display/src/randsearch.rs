@@ -32,6 +32,15 @@ fn conn(g: &G, a: P, b: P) -> bool {
 }
 // full validity of a grid
 fn valid(g: &G) -> bool {
+    // quasi-connectivity: a dropper also fires from power at the cell above it, and a block that
+    // a dust powers (the dust's support) next to that cell changes it without updating the
+    // dropper below (diagonal), which then stays triggered (a BUD) and never fires again: no
+    // threshold dust and no support under a dust next to (or over) a dropper's top cell
+    let tops: Vec<P> = if !QC_SAFE.load(std::sync::atomic::Ordering::Relaxed) { vec![] } else { g.m.iter().filter_map(|(p, c)| if let C::Drop(_) = c { Some(ad(*p, (0, 1, 0))) } else { None }).collect() };
+    for (p, c) in &g.m {
+        let risky = match c { C::Dust(s) => *s & 15 != 9, C::Sup => matches!(g.m.get(&ad(*p, (0, 1, 0))), Some(C::Dust(_))), _ => false };
+        if risky && tops.iter().any(|t| (t.1 == p.1 && (t.0 - p.0).abs() + (t.2 - p.2).abs() == 1) || ad(*t, (0, 1, 0)) == *p) { return false; }
+    }
     for &(a, b) in &g.taps { if !conn(g, a, b) { return false; } }
     // supports
     for (p, c) in &g.m {
@@ -207,6 +216,10 @@ fn rec(st: &mut S, g: &G, idx: usize) {
 /// `all`: every complete layout within the bound (up to 300 per dropper arrangement), not only
 /// each new best (some layouts the model accepts fail on redsim: build them all and keep the
 /// passing ones).
+/// `qc_safe`: also refuse every layout with a quasi-connectivity hazard (see `valid`). Off by
+/// default: such layouts often pass anyway (rand4-compact: 64 game builds), and every layout is
+/// screened on redsim, which reproduces the stuck dropper when it happens.
+pub static QC_SAFE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub fn run(k: usize, best0: i32, all: bool, wide: bool) -> Vec<String> {
     // dropper arrangements: pair 0 at y 0 along x; pair 1 at y 2 (along x or z, offsets); pair 2
     // (k = 3) at y 0, 2 or 4; `wide`: every base in a window around pair 0 (pairs 1 and 2 at y 2,
@@ -258,6 +271,7 @@ fn press(g: &G, k: usize) -> Option<G> {
     let near = |p: P| signal.iter().any(|s| (s.0 - p.0).abs() + (s.2 - p.2).abs() <= 1 && (s.1 - p.1).abs() <= 1);
     let mut drops: Vec<(u8, P)> = g.m.iter().filter_map(|(p, c)| if let C::Drop(i) = c { Some((*i, *p)) } else { None }).collect();
     drops.sort();
+    let all_tops: Vec<P> = if QC_SAFE.load(std::sync::atomic::Ordering::Relaxed) { drops.iter().map(|(_, p)| ad(*p, (0, 1, 0))).collect() } else { vec![] };
     let tops = |pair: usize| -> Vec<P> { drops.iter().filter(|(i, _)| *i as usize / 2 == pair).map(|(_, p)| ad(*p, (0, 1, 0))).collect() };
     let mut net: Vec<P> = Vec::new();
     for pair in 0..k { for t in tops(pair) {
@@ -271,6 +285,7 @@ fn press(g: &G, k: usize) -> Option<G> {
         let ok = |g: &G, p: P| -> bool {
             if g.m.contains_key(&p) || near(p) || guard.contains(&p) || corners.contains(&p) { return false; }
             let below = ad(p, (0, -1, 0));
+            if all_tops.iter().any(|t| (t.1 == below.1 && (t.0 - below.0).abs() + (t.2 - below.2).abs() == 1) || ad(*t, (0, 1, 0)) == below) { return false; }
             match g.m.get(&below) { Some(C::Sup) => true, None => !corners.contains(&below) && !guard.contains(&below) && !fixed.contains(&below), _ => false }
         };
         let mut prev: BTreeMap<P, P> = BTreeMap::new();
