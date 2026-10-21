@@ -296,6 +296,10 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             ("use_entity", _) => Action::UseEntity { pos: *pos },
             ("set", Some(st)) => Action::Place { pos: *pos, state: st.clone(), nbt: None },
             ("clear", _) => Action::Clear { pos: *pos },
+            ("shape_set", Some(st)) => Action::ShapeSet { pos: *pos, state: st.clone() },
+            ("update", _) => Action::Update { pos: *pos },
+            // (the event's name: the judge's fixed set, leaked to the 'static the action holds)
+            ("game_event", Some(ev)) => Action::GameEvent { pos: *pos, event: Box::leak(ev.clone().into_boxed_str()) },
             (other, _) => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
         };
         actions.push((*t, a));

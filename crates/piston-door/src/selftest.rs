@@ -795,6 +795,22 @@ fn checks() -> Vec<Check> {
             Ok("the lever engine kept (stops within 2 gt, restarts within 5 gt); the engine without its inverter refused at rest".into())
         }),
     });
+    // the sorter's exact gate (the pick sweep, 2026-10-21): the judge's base run of the published
+    // sorter in the game and on redsim, every cell with container contents compared every gt (it
+    // diverged at frame 0 until the game side's container text kept named items: the filter
+    // papers' `components` broke the item split)
+    v.push(Check {
+        name: "circuit:sorter-compare".into(),
+        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
+            Ok("sorter-classic's base run tick-identical in redsim (4121 frames)".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)

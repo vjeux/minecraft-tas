@@ -31,12 +31,23 @@ pub struct Options {
     /// Game-judge this many of the smallest passing designs (0: none).
     pub game: usize,
     pub version: String,
+    /// Block ids (substrings) never deleted or replaced (e.g. a hopper ring's hoppers).
+    pub keep: Vec<String>,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
 struct Want {
     kind: Kind,
     axis: String,
+    /// A precise drop's burst depth (`in mid-air D blocks below the machine`): kept (clk-misc
+    /// 2026-10-21: a hopper ring's hop count sets it).
+    depth: Option<String>,
+}
+
+/// The burst depth a TNT verdict states.
+fn burst_depth(why: &str) -> Option<String> {
+    let i = why.find(" blocks below the machine")?;
+    why[..i].rsplit(' ').next().map(|s| s.to_string())
 }
 
 /// The kind's judge on one state: (score, verdict).
@@ -58,6 +69,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     let axis = archive::axis(&want.kind, out, &verify::family(&c, t));
     if axis != want.axis {
         return (mk(1), format!("passes as {axis}"));
+    }
+    if want.depth.is_some() && burst_depth(&out.why) != want.depth {
+        return (mk(1), format!("bursts {} blocks below the machine (the seed: {})", burst_depth(&out.why).unwrap_or_else(|| "not".into()), want.depth.clone().unwrap_or_default()));
     }
     let d = verify::dims(&c, t);
     let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
@@ -94,7 +108,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let rep0 = verify::sim(&c0, &vo)?;
     let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
     anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-    let want = Want { axis: archive::axis(&kind, out0, &verify::family(&c0, t0)), kind: kind.clone() };
+    let want = Want { axis: archive::axis(&kind, out0, &verify::family(&c0, t0)), kind: kind.clone(), depth: burst_depth(&out0.why) };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;
     seed.meta.retain(|k, _| !k.starts_with("extend"));
@@ -119,7 +133,8 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }
-    let keep = |_: &BTreeMap<Pos, String>, _: Pos| false;
+    let keep_ids = &o.keep;
+    let keep = |b: &BTreeMap<Pos, String>, p: Pos| b.get(&p).is_some_and(|s| keep_ids.iter().any(|k| s.contains(k.as_str())));
     let chains = Chains {
         seed: &seed,
         space: Space { region, frozen: &frozen },

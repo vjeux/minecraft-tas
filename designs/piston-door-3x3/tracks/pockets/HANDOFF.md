@@ -94,6 +94,14 @@
   A2:0 UNSAT h16/h20, w86). Open: w86's --free left-side redesigns (left two columns + bottom middle, A2:0).
   clockinfra's converter `door ideal-rs --assist-dir` (explore/clockinfra 42e3423ab, not merged here) breaks on
   stacked pistons; its .drives file keys the original plan by piston.
+  10:40-14:30Z: pockets READS MACROSAT EXPORTS (3deadc0db: `use` lever toggles as real pulls, conductor levers,
+  glass taps = updates) + island check edge rule (observer output must stay in the box) + design observers firing
+  into a pocket count as starts (11a410d81); all merged on main. Verdicts: gf16 UNSAT (A2 start, matches);
+  bf16 (clockinfra, SAT under every rule, replays redsim + game) passes my island check but its wiring isn't real
+  (clk-item A2 0/1,681, C1 0/41; w86 satwire core Q: dust always fires the piston under it) -> macrosat
+  4af573504 rules (observer timing, dust/torch/passive kinds, supports) -> bf16 layout UNSAT. m79/m80 9x6 and
+  8x6 UNSAT too (w86). Prune caveat: prune-plan drops area START triggers (gf16-p lost SW(4,1)'s step-1 pulse):
+  keep the trigger inputs (`--keep`). Repo renamed vjeux/redstonepedia (remote set-url done).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
