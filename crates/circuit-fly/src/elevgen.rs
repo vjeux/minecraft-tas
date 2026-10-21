@@ -6,14 +6,16 @@
 //! observer on a sticky piston: moved, it fires and sends the docked machine; in place, it sees
 //! the arrival through a relay and bounces it).
 //!
-//! Call logic: a copper bulb TB at the bottom floor holds the target (lit = top). Each button
-//! stands on a copper bulb Q (toggled once per press); a comparator reads Q and observers watch
-//! the comparator, so each press gives one 2 gt edge however long it is held. Present: the edge,
-//! through a repeater, strongly powers the docked platform and a second repeater reads it into
-//! TB (top: into the event bulb E_t). Otherwise the edge goes through a repeater into the cell of a
-//! stone that a piston moves next to TB while lit (top: that stands next to E_t while not lit);
-//! E_t's lit state reaches TB through a comparator and an observer chain. TB's level reaches the
-//! pistons and the top floor by a comparator, a block and a torch tower.
+//! The target T (top or bottom) is a set/reset latch: a redstone block between two normal
+//! pistons. Each press WRITES T from the platform's presence alone (rule B: a press at the floor
+//! where it stands sends it, anywhere else calls it), so presses that agree never cancel (a toggle
+//! that samples T does, when two presses race). Each button stands on a copper bulb toggled once
+//! per press; a comparator reads the bulb and observers watch the comparator, so a press gives
+//! 2 gt edges however long it is held. Bottom press: reset (target bottom), then set if the
+//! platform is docked there (the edge, through a repeater, strongly powers the docked platform and
+//! a second repeater reads it). Top press: set, then reset if the platform is docked at the top;
+//! both go down by observer chains. T reaches the bottom flag piston directly and the top one by
+//! a torch tower.
 
 use mctas::design::Design;
 
@@ -60,7 +62,7 @@ impl B {
         self.put(p, s);
         self.stations.push(p);
     }
-    /// A diode or dust and the stone under it.
+    /// A diode or dust and the block under it.
     fn on(&mut self, p: Pos, s: &str, support: &str) {
         self.st(p, s);
         self.st([p[0], p[1] - 1, p[2]], support);
@@ -70,9 +72,9 @@ impl B {
     }
 }
 
-/// The elevator of `h` blocks between floors (h = 5 for now: the torch tower's lit block must
-/// stand at h + 2).
+/// The elevator of `h` blocks between floors (only h = 5 is laid out so far).
 pub fn design(h: i32) -> Design {
+    assert!(h >= 3, "elevator: h >= 3");
     let mut b = B { d: Design::default(), stations: Vec::new() };
     b.d.name = format!("fly-elevator-{h}");
     // the machine (bottom floor as built) and its platform
@@ -103,79 +105,116 @@ pub fn design(h: i32) -> Design {
     b.on([-1, h + 1, 0], &rep("east", 1), OBS);
     b.st([-2, h + 1, 0], STONE);
     b.st([-2, h + 2, 0], DUST);
-    // top flag: in at (-1,h+2,0) (its back powers s) while FP_t is retracted (target bottom)
-    b.st([-1, h + 2, 0], &obs("west"));
-    b.st([-1, h + 2, -1], &sticky("south"));
-    b.stations.push([-1, h + 2, 1]);
+    // top flag: in at (-1,h+3,0) while FP_t, south of it, is retracted (target bottom); extended
+    // (target top) it pushes the flag out to (-1,h+3,-1). Its back powers o's dock cell, which
+    // kicks s below it by quasi-connectivity: a flag beside s itself, moved in mid-trip, would
+    // kick s one cell early (s's cell below that is on the path). It watches an observer on the
+    // relay dust.
+    b.st([-2, h + 3, 0], &obs("down"));
+    b.st([-1, h + 3, 0], &obs("west"));
+    b.st([-1, h + 3, 1], &sticky("north"));
+    b.stations.push([-1, h + 3, -1]);
 
-    // bottom gate (south side): button on Q, comparator, edge observer, repeater into P's cell
-    b.st([2, 4, 4], button());
-    b.st([2, 3, 4], BULB);
-    b.on([2, 3, 3], &cmp("south"), STONE);
-    b.st([2, 3, 2], &obs("south"));
-    b.on([2, 3, 1], &rep("south", 1), STONE);
-    // present: R_p_b reads the docked platform into TB
+    // the target T: a redstone block M between two normal pistons (y = 1, z = 3): at Pt (2,1,3)
+    // (T = top) it powers FP_b's back and the tower's first repeater; at Pb (3,1,3) nothing. PS
+    // pushes it to Pt (set: target top), PR back to Pb (reset: target bottom).
+    b.st([1, 1, 3], "minecraft:piston[extended=false,facing=east]");
+    b.stations.push([2, 1, 3]);
+    b.st([3, 1, 3], "minecraft:redstone_block");
+    b.st([4, 1, 3], "minecraft:piston[extended=false,facing=west]");
+    // the tower: a repeater reads Pt, dust round to K0 (-1,y0,2), then torches and blocks up the
+    // column (-1,y,2) to the block at h + 3 beside FP_t: y0 = (h + 3) mod 4 makes that block one
+    // that is powered while the target is top (blocks at y0 + 4k)
+    let y0 = (h + 3) % 4;
+    b.on([2, 1, 4], &rep("north", 1), STONE);
+    let feed: &[Pos] = match y0 {
+        0 => &[[-1, 1, 4], [-1, 0, 3]],
+        1 => &[[-1, 1, 4], [-1, 1, 3]],
+        2 => &[[-1, 1, 4], [-1, 2, 3]],
+        _ => &[[-1, 2, 4], [-1, 3, 3]],
+    };
+    for p in [[2, 1, 5], [1, 1, 5], [0, 1, 5], [-1, 1, 5]].iter().chain(feed) {
+        b.dust(*p);
+    }
+    b.st([-1, y0, 2], STONE);
+    for y in y0 + 1..=h + 3 {
+        let k = y - y0;
+        let s = if k % 2 == 1 { format!("minecraft:redstone_torch[lit={}]", k % 4 == 1) } else { STONE.to_string() };
+        b.st([-1, y, 2], &s);
+    }
+
+    // bottom gate (north side): button on Q, comparator, edge observer Wq, repeater R1 into P's
+    // cell. Set if P is docked: R_p_b reads P, a dust down into PS (6 gt after the reset). Reset
+    // always: a second edge observer W2, a dust round the west (by x = -3) and onto PR.
+    b.st([2, 4, -4], button());
+    b.st([2, 3, -4], BULB);
+    b.on([2, 3, -3], &cmp("north"), STONE);
+    b.st([2, 3, -2], &obs("north"));
+    // (R1 reads the platform 6 gt after the press, after the reset path's lock was checked: a
+    // platform leaving in between makes no write, which is right, it leaves for the top anyway)
+    b.on([2, 3, -1], &rep("north", 3), STONE);
     b.on([3, 3, 0], &rep("west", 1), STONE);
-    b.st([4, 3, 0], BULB);
-    // lit: a second edge observer, a repeater into X's cell (4,3,1); X is pushed there from
-    // (5,3,1) by a piston beside K1 (powered = lit)
-    b.st([3, 3, 3], &obs("west"));
-    b.st([4, 3, 3], STONE);
-    b.on([4, 3, 2], &rep("south", 1), STONE);
-    b.st([5, 3, 1], STONE);
-    b.st([6, 3, 1], &sticky("west"));
-    b.stations.push([4, 3, 1]);
-    // TB's level: a comparator into K1; a dust under K1 runs round to (3,2,2), whose support
-    // powers the bottom flag piston
-    b.on([5, 3, 0], &cmp("west"), STONE);
-    b.st([6, 3, 0], STONE);
-    for p in [[6, 2, 0], [6, 2, 1], [6, 2, 2], [6, 2, 3], [6, 2, 4], [5, 2, 4], [4, 2, 4], [3, 2, 4], [3, 2, 3], [3, 2, 2]] {
+    for p in [[4, 3, 0], [4, 2, 1], [4, 1, 2]] {
         b.dust(p);
     }
-    // the torch tower, on K2 (a second comparator reading TB from the north: a torch beside K1
-    // would power FPx by quasi-connectivity): lit blocks at 3 + 4k, lit torches at 6 + 4k, up to
-    // the lit block at h + 2 (h = 5: 7), which powers FPx_t beside it
-    b.on([4, 3, -1], &cmp("south"), STONE);
-    b.st([4, 3, -2], STONE);
-    let mut y = 4;
-    while y < h + 2 {
-        let on_at_rest = (y - 4) % 4 == 0;
-        b.st([4, y, -2], &format!("minecraft:redstone_torch[lit={on_at_rest}]"));
-        b.st([4, y + 1, -2], STONE);
-        y += 2;
+    // presence at the bottom floor: an observer on P's dock cell toggles a bulb on each arrival
+    // and departure (lit as built: docked); a comparator reading it locks the reset path's
+    // repeater R_a while the platform is there, so a press writes exactly once
+    b.st([2, 3, 1], &obs("north"));
+    b.st([2, 3, 2], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    b.on([2, 3, 3], "minecraft:comparator[facing=north,mode=compare,powered=true]", STONE);
+    // reset (unless docked): a second edge observer W2 east of Cq, a dust round the east (x = 6,
+    // a repeater on the way) and back west along z = 5 into R_a (2,3,4), then onto PR's block
+    b.st([3, 3, -3], &obs("west"));
+    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [6, 3, -2], [6, 3, -1]] {
+        b.dust(p);
     }
-    assert_eq!(y, h + 3, "elevator: the tower's lit block must stand at h + 2");
-    // the top flag piston's lit line: beside the lit torch at h + 1, west along z = -3, one step
-    // up into FP_t's back
-    let yl = h + 1;
-    for x in (-1..=4).rev() {
-        b.dust([x, yl, -3]);
+    b.on([6, 3, 0], &rep("north", 1), STONE);
+    for p in [[6, 3, 1], [6, 3, 2], [6, 3, 3], [6, 3, 4], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
+        b.dust(p);
     }
-    b.dust([-1, yl + 1, -2]);
+    b.on([2, 3, 4], "minecraft:repeater[delay=1,facing=east,locked=true,powered=false]", STONE);
+    for p in [[1, 3, 4], [1, 3, 3]] {
+        b.dust(p);
+    }
+    // (the last dust's support, above PR, powers it: dust on PR itself pops when it extends)
 
-    // top gate (north side): button on Q_t, comparator, edge observer, repeater into P_t's cell
+    // top gate (north side, the same parts at t0): reset if P_t is docked, by R_p_t (south of
+    // P_t) and an observer chain down onto the bottom reset dust; set unless docked: W2_t, a dust
+    // into R_a_t (6,t0,0), locked by the top presence comparator, an observer chain down onto the
+    // bottom set dust
     b.st([2, t0 + 1, -4], button());
     b.st([2, t0, -4], BULB);
     b.on([2, t0, -3], &cmp("north"), STONE);
     b.st([2, t0, -2], &obs("north"));
-    b.on([2, t0, -1], &rep("north", 1), STONE);
-    // present: R_p_t reads the docked platform into the event bulb E_t
-    b.on([3, t0, 0], &rep("west", 1), STONE);
-    b.st([4, t0, 0], BULB);
-    // not lit: a second edge observer, a repeater (4 gt) into X_t's cell (4,t0,-1), where X_t
-    // stands while its piston below (powered = lit) is retracted
-    b.st([3, t0, -3], &obs("west"));
-    b.dust([4, t0, -3]);
-    b.st([4, t0, -2], &rep("north", 2)); // on the tower's lit block
-    assert_eq!(t0 - 1, h + 2);
-    b.st([4, t0, -1], STONE);
-    b.st([4, t0 - 1, -1], &sticky("up"));
-    b.stations.push([4, t0 + 1, -1]);
-    // E_t's lit state: a comparator, an observer chain down x = 4, z = 1, into TB from above
-    b.st([4, t0, 1], &cmp("north"));
+    b.on([2, t0, -1], &rep("north", 3), STONE);
+    b.on([2, t0, 1], &rep("north", 1), STONE);
+    b.st([2, t0, 2], &obs("north"));
     for y in 5..t0 {
-        b.st([4, y, 1], &obs("up"));
+        b.st([2, y, 2], &obs("up"));
     }
+    b.st([2, 5, 3], &obs("north"));
+    b.st([1, 5, 3], &obs("east"));
+    b.st([1, 4, 3], &obs("up"));
+    // presence at the top floor
+    b.st([3, t0, 0], &obs("west"));
+    b.st([4, t0, 0], BULB);
+    b.on([5, t0, 0], &cmp("west"), STONE);
+    b.st([3, t0, -3], &obs("west"));
+    for p in [[4, t0, -3], [5, t0, -3], [6, t0, -3], [6, t0, -2], [6, t0, -1]] {
+        b.dust(p);
+    }
+    b.on([6, t0, 0], &rep("north", 1), STONE);
+    // (the chain watches a second repeater: an observer on R_a_t would fire on its lock changing)
+    b.on([6, t0, 1], &rep("north", 1), STONE);
+    b.st([6, t0, 2], &obs("north"));
+    b.st([6, t0 - 1, 2], &obs("up"));
+    b.st([5, t0 - 1, 2], &obs("east"));
+    for y in 5..t0 - 1 {
+        b.st([5, y, 2], &obs("up"));
+    }
+    b.st([4, 5, 2], &obs("east"));
+    b.st([4, 5, 1], &obs("south"));
     b.st([4, 5, 0], &obs("south"));
     b.st([4, 4, 0], &obs("up"));
 
@@ -183,7 +222,7 @@ pub fn design(h: i32) -> Design {
     b.d.meta.insert("distance".into(), h.to_string());
     b.d.meta.insert("travel".into(), "0 1 0".into());
     b.d.ports.insert("rider".into(), [2, 4, 0]);
-    b.d.ports.insert("input.bottom".into(), [2, 4, 4]);
+    b.d.ports.insert("input.bottom".into(), [2, 4, -4]);
     b.d.meta.insert("port input.bottom".into(), "button".into());
     b.d.ports.insert("input.top".into(), [2, t0 + 1, -4]);
     b.d.meta.insert("port input.top".into(), "button".into());
