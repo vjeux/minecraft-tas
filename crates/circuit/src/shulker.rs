@@ -270,6 +270,10 @@ pub struct Scenario {
     /// boxes before every gt (a box chest kept full, as a hopper line from storage keeps it, and as
     /// the site viewer's endless run does), so a box leaving never shows on a comparator.
     pub endless: bool,
+    /// The one-box check ([`one_box`]): the boxes come one at a time, as a hopper feeding the box
+    /// chest brings them: one at the start, one more at every visit of the judge (a box that lands
+    /// in an empty chest is pulled out before a comparator on the chest can see it).
+    pub one_box: bool,
 }
 
 /// Stress runs after a design passes its builds: the plain scenario (unstackables, or the design's
@@ -323,7 +327,7 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false, one_box: false }
     }
 
     /// The scenario's items in a stack (a box's contents included): the scenario item, or with
@@ -635,7 +639,15 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     let per_chest = 27usize;
     let mut supply: Vec<Stack> = sc.supply();
     // badge `box-starved`: the design starts with 2 boxes, the rest come later
-    let held: Vec<Stack> = if sc.starve { supply.split_off(2.min(supply.len())) } else { Vec::new() };
+    let held: Vec<Stack> = if sc.starve {
+        supply.split_off(2.min(supply.len()))
+    } else if sc.one_box {
+        // the one-box check: one box now, each next one once the previous was delivered
+        supply.split_off(1.min(supply.len()))
+    } else {
+        Vec::new()
+    };
+    let mut trickled = 0usize;
     // the endless-supply check: each box chest's starting boxes, set back before every gt
     let mut start_boxes: Vec<(Pos, String)> = Vec::new();
     for g in 0..groups as u32 {
@@ -825,8 +837,16 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         }
         topup(w, &mut log, t, &mut paused_until, &mut cursor)?;
         let boxes_out = log.deliveries.iter().filter(|d| d.stack.is_box()).count() as u32;
+        // the one-box check: one more box at every visit, as a hopper feeding the chest brings them
+        if sc.one_box && trickled < held.len() {
+            let p = supplies[0];
+            let mut have = read_chest(w, sb, p)?;
+            have.push(held[trickled].clone());
+            w.merge_block_entity(sb, p, &items_snbt(&have))?;
+            trickled += 1;
+        }
         // badge `box-starved`: STARVE_WAIT gt after the 2nd box arrives, the held boxes come
-        if !held.is_empty() && boxes_out >= 2 {
+        if sc.starve && !held.is_empty() && boxes_out >= 2 {
             let second = log.deliveries.iter().filter(|d| d.stack.is_box()).nth(1).map(|d| d.t).unwrap_or(t);
             if t >= second + STARVE_WAIT && !log.refilled {
                 let p = supplies[0];
@@ -1159,7 +1179,11 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     // the full chest ([`FULL_CHEST`]): a chest full of boxes, every one loaded or emptied; then
     // the same chest kept full (the endless supply)
-    for (what, check) in [("jams with a full chest", full_chest as fn(&Pool, &Circuit, &Scenario, &Options) -> Result<Option<String>>), ("jams with an endless box supply", endless_chest)] {
+    for (what, check) in [
+        ("jams with a full chest", full_chest as fn(&Pool, &Circuit, &Scenario, &Options) -> Result<Option<String>>),
+        ("jams with an endless box supply", endless_chest),
+        ("jams with boxes coming one at a time", one_box),
+    ] {
         if let Some(why) = check(pool, c, &sc, o)? {
             rep.pass = false;
             rep.verdict = format!("{what}: {why}");
@@ -1294,6 +1318,24 @@ pub fn endless_scenario(c: &Circuit, base: &Scenario) -> Scenario {
     let mut s = full_chest_scenario(c, base);
     s.endless = true;
     s
+}
+
+/// The one-box scenario: unstackables (a design that sorts: its own item), the plain number of
+/// boxes, coming one at a time (one at the start, one more at every visit of the judge).
+pub fn one_box_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let sorts = c.stores.iter().any(|s| s.role == "reject");
+    let mut s = Scenario::with_stack(base.loader, if sorts { base.stack } else { 1 });
+    s.one_box = true;
+    s.spare = 0;
+    s.cap += s.boxes * 2000;
+    s
+}
+
+/// The one-box check (2026-10-21: a loader that read its box chest delivered nothing when its
+/// boxes came one at a time: each one leaves the chest before the comparator updates), at every
+/// rotation judged.
+pub fn one_box(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    chest_check(pool, c, &one_box_scenario(c, base), "one-box", o)
 }
 
 /// The endless-supply check (2026-10-21: a loader that counted its box chest's level changes
