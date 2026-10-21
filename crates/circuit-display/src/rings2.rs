@@ -332,6 +332,17 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
         }
         v_out
     };
+    // the full race check for a --timing ring: every judged transition (as s before and after),
+    // the ring's ON set (an OFF ring's: the complement), what its lane filters (the first
+    // repeater drops dips under 2 x deglitch gt; an OFF lane's delay-4 repeater after the torch
+    // drops the ring output's pulses under 8 gt)
+    let race_of = |seg: char| -> Option<crate::astack::Race> {
+        if !x.timing.contains(seg) {
+            return None;
+        }
+        let trans: Vec<(u8, u8)> = judged.iter().map(|&(v, w)| (code.s(v), code.s(w))).collect();
+        Some(crate::astack::Race { trans, on: seg_mask(seg), dip_ok: 2 * deglitch as u32, pulse_ok: if off.contains(seg) { 8 } else { 0 } })
+    };
     // the race check's context for one ring: its feed cells' times (a line feed: the line's time;
     // a coupling cell: the ring above's, the entry with the least distance winning) and its runs
     let set_ctx = |seg: char, feed: &Feed, above: &Feed, above_t: &Times| {
@@ -348,11 +359,12 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             }
         }
         crate::astack::FEED_T.with(|f| *f.borrow_mut() = ft.into_iter().map(|(c, (_, t))| (c, t)).collect());
-        crate::astack::PULSE_RUNS.with(|p| *p.borrow_mut() = if x.timing.contains(seg) { pulse_runs(seg) } else { Vec::new() });
+        crate::astack::RACE.with(|r| *r.borrow_mut() = race_of(seg));
     };
     let clear_ctx = || {
         crate::astack::FEED_T.with(|f| f.borrow_mut().clear());
         crate::astack::PULSE_RUNS.with(|p| p.borrow_mut().clear());
+        crate::astack::RACE.with(|r| *r.borrow_mut() = None);
     };
     // solve every ring first, top down per stack
     let mut solved: Vec<Vec<Solved>> = Vec::new();
@@ -438,14 +450,20 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             if !x.quiet {
                 println!("  ring {seg} at level {level} ({} blocks): slots {:?} mask {:08b} direct {} second {} removed {:?} feed {:?}", ring_cost(&s), s.slots, s.mask, s.direct, s.second, s.removed, s.feed);
             }
-            if x.timing.contains(seg) || x.report {
+            if (x.timing.contains(seg) || x.report) && !x.quiet {
                 set_ctx(seg, &s.feed, &above, &above_t);
                 crate::astack::PULSE_RUNS.with(|p| *p.borrow_mut() = pulse_runs(seg));
+                // the report judges every ring (OFF rings with their lane's filters)
+                let trans: Vec<(u8, u8)> = judged.iter().map(|&(v, w)| (code.s(v), code.s(w))).collect();
+                crate::astack::RACE.with(|r| *r.borrow_mut() = Some(crate::astack::Race { trans, on: seg_mask(seg), dip_ok: 2 * deglitch as u32, pulse_ok: if off.contains(seg) { 8 } else { 0 } }));
                 crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
                 let times: Times = crate::astack::FEED_T.with(|f| f.borrow().iter().map(|(c, t)| (*c, *t)).collect());
                 println!("    {seg} feed times {times:?}; watched runs {:?}", pulse_runs(seg));
                 for l in crate::astack::pulse_report(&rs, &s.slots, &s.feed, s.mask) {
                     println!("    {seg} {l}");
+                }
+                if let Some((n, why)) = crate::astack::race_report(&rs, &s.slots, &s.feed, s.mask) {
+                    println!("    {seg} race model: {n} glitching transition(s) {why:?}");
                 }
                 crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
                 clear_ctx();
@@ -608,15 +626,20 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     Ok(d.blocks.len())
 }
 
-/// `mctas circuit display rings2-sweep` (clk-obs): every subset of `candidates` as the `--off`
-/// segments (the rings computing the complement, their lanes filtering both ways), each built
-/// with the same options in parallel; one line per subset that builds (blocks, the subset), the
-/// cheapest first; the designs in `out_dir` (`off-<segs>.txt`).
+/// `mctas circuit display rings2-sweep` (clk-obs): for each code (the chain's bit weights) every
+/// subset of `candidates` as the `--off` segments (the rings computing the complement, their lanes
+/// filtering both ways), each built with the same options in parallel; one line per build (blocks,
+/// code, subset), the cheapest first; the designs in `out_dir` (`off-<w>-<segs>.txt`). `judge` > 0:
+/// the K cheapest finished (equalised, settled, constants in chests) and run through the judge's
+/// own stimulus on redsim (their glitching phases).
 #[allow(clippy::too_many_arguments)]
-pub fn sweep(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, candidates: &str, x: &Extra, out_dir: &std::path::Path, threads: usize, judge: usize) -> Result<()> {
+pub fn sweep(codes: &[Code], allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, candidates: &str, x: &Extra, out_dir: &std::path::Path, threads: usize, judge: usize) -> Result<()> {
     std::fs::create_dir_all(out_dir)?;
     let segs: Vec<char> = candidates.chars().filter(|c| "abcdefg".contains(*c)).collect();
     let subsets: Vec<String> = (0..1u32 << segs.len()).map(|m| segs.iter().enumerate().filter(|(i, _)| m >> i & 1 == 1).map(|(_, c)| *c).collect()).collect();
+    let jobs: Vec<(usize, String)> = (0..codes.len()).flat_map(|ci| subsets.iter().map(move |s| (ci, s.clone()))).collect();
+    let wname = |ci: usize| codes[ci].w.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
+    let file = |ci: usize, off: &str, what: &str| out_dir.join(format!("{what}-{}-{}.txt", wname(ci).replace(',', ""), if off.is_empty() { "none" } else { off }));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -624,27 +647,27 @@ pub fn sweep(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             s.spawn(|| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let Some(off) = subsets.get(i) else { break };
+                    let Some((ci, off)) = jobs.get(i) else { break };
                     let xo = Extra { timing: x.timing.clone(), direct: x.direct.clone(), ring_bridges_off: x.ring_bridges_off.clone(), middle_east: x.middle_east, report: false, side_east: x.side_east, quiet: true };
-                    let out = out_dir.join(format!("off-{}.txt", if off.is_empty() { "none" } else { off }));
-                    let r = build(code, allowed, bridges_off, lean, prune_arcs, tries, tight, deglitch, off, &xo, &out);
-                    results.lock().unwrap().push((off.clone(), r.map_err(|e| e.to_string())));
+                    let r = build(&codes[*ci], allowed, bridges_off, lean, prune_arcs, tries, tight, deglitch, off, &xo, &file(*ci, off, "off"));
+                    results.lock().unwrap().push((*ci, off.clone(), r.map_err(|e| e.to_string())));
                 }
             });
         }
     });
     let mut v = results.into_inner().unwrap();
-    v.sort_by_key(|(off, r)| (r.as_ref().map(|n| *n).unwrap_or(usize::MAX), off.len()));
-    let file = |off: &str| out_dir.join(format!("off-{}.txt", if off.is_empty() { "none" } else { off }));
-    for (off, r) in &v {
+    v.sort_by_key(|(ci, off, r)| (r.as_ref().map(|n| *n).unwrap_or(usize::MAX), off.len(), *ci));
+    let shown = |off: &str| if off.is_empty() { "-".to_string() } else { off.to_string() };
+    let built = v.iter().filter(|x| x.2.is_ok()).count();
+    for (ci, off, r) in &v {
         match r {
-            Ok(n) => println!("{n}\toff={}\t{}", if off.is_empty() { "-" } else { off }, file(off).display()),
-            Err(e) => println!("-\toff={}\t{}", if off.is_empty() { "-" } else { off }, e.lines().next().unwrap_or("")),
+            Ok(n) => println!("{n}\tw={}\toff={}\t{}", wname(*ci), shown(off), file(*ci, off, "off").display()),
+            Err(e) if codes.len() == 1 => println!("-\tw={}\toff={}\t{}", wname(*ci), shown(off), e.lines().next().unwrap_or("")),
+            Err(_) => {}
         }
     }
-    // --judge K: the K cheapest finished (equalised, settled, constants in chests) and run through
-    // the judge's own stimulus on redsim: the glitching phases
-    let top: Vec<(String, usize)> = v.iter().filter_map(|(off, r)| r.as_ref().ok().map(|n| (off.clone(), *n))).take(judge).collect();
+    println!("{built} of {} builds", v.len());
+    let top: Vec<(usize, String, usize)> = v.iter().filter_map(|(ci, off, r)| r.as_ref().ok().map(|n| (*ci, off.clone(), *n))).take(judge).collect();
     if top.is_empty() {
         return Ok(());
     }
@@ -655,20 +678,20 @@ pub fn sweep(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             s.spawn(|| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let Some((off, n)) = top.get(i) else { break };
-                    let fin = out_dir.join(format!("finished-{}.txt", if off.is_empty() { "none" } else { off }));
-                    let r = crate::finish(&file(off), &fin, "seven-segment-rings2", [2, 4, 13]).and_then(|_| crate::glitch::run_judge(&fin));
-                    judged.lock().unwrap().push((off.clone(), *n, fin, r.map_err(|e| e.to_string())));
+                    let Some((ci, off, n)) = top.get(i) else { break };
+                    let fin = file(*ci, off, "finished");
+                    let r = crate::finish(&file(*ci, off, "off"), &fin, "seven-segment-rings2", [2, 4, 13]).and_then(|_| crate::glitch::run_judge(&fin));
+                    judged.lock().unwrap().push((*ci, off.clone(), *n, fin, r.map_err(|e| e.to_string())));
                 }
             });
         }
     });
     let mut j = judged.into_inner().unwrap();
-    j.sort_by_key(|(_, n, _, r)| (r.as_ref().map(|l| l.len()).unwrap_or(usize::MAX), *n));
-    for (off, n, fin, r) in j {
+    j.sort_by_key(|(_, _, n, _, r)| (r.as_ref().map(|l| l.len()).unwrap_or(usize::MAX), *n));
+    for (ci, off, n, fin, r) in j {
         match r {
-            Ok(lines) => println!("JUDGED {n}\toff={}\t{} glitching phase(s)\t{}\t{}", if off.is_empty() { "-" } else { &off }, lines.len() - 1, fin.display(), lines[..lines.len() - 1].join(" ; ")),
-            Err(e) => println!("JUDGED {n}\toff={}\tERROR {}", if off.is_empty() { "-" } else { &off }, e.lines().next().unwrap_or("")),
+            Ok(lines) => println!("JUDGED {n}\tw={}\toff={}\t{} glitching phase(s)\t{}\t{}", wname(ci), shown(&off), lines.len() - 1, fin.display(), lines[..lines.len() - 1].join(" ; ")),
+            Err(e) => println!("JUDGED {n}\tw={}\toff={}\tERROR {}", wname(ci), shown(&off), e.lines().next().unwrap_or("")),
         }
     }
     Ok(())

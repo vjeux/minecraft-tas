@@ -335,6 +335,10 @@ enum Cmd {
         /// glitching phases).
         #[arg(long, default_value_t = 0)]
         judge: usize,
+        /// The codes swept: `all` (every order of the weights 1, 2, 4, 8) or `4,1,8,2;1,2,4,8`
+        /// (default: --w alone).
+        #[arg(long, default_value = "")]
+        codes: String,
     },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
@@ -495,9 +499,31 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false };
             rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &opts, &out).map(|_| ())
         }
-        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, threads, judge } => {
+        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, threads, judge, codes } => {
             let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true };
-            rings2::sweep(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &candidates, &opts, &out_dir, threads, judge)
+            // the codes: --w alone, a `;` list, or `all` (every order of the weights 1, 2, 4, 8)
+            let list: Vec<analog::Code> = if codes == "all" {
+                let mut v = Vec::new();
+                for a in [1u8, 2, 4, 8] {
+                    for b in [1u8, 2, 4, 8] {
+                        for c in [1u8, 2, 4, 8] {
+                            for d in [1u8, 2, 4, 8] {
+                                let mut s = [a, b, c, d];
+                                s.sort();
+                                if s == [1, 2, 4, 8] {
+                                    v.push(analog::Code { w: [a, b, c, d], neg: 15 });
+                                }
+                            }
+                        }
+                    }
+                }
+                v
+            } else if codes.is_empty() {
+                vec![therm::parse_code(&w, 15)?]
+            } else {
+                codes.split(';').map(|c| therm::parse_code(c.trim(), 15)).collect::<Result<Vec<_>>>()?
+            };
+            rings2::sweep(&list, copies, bridges_off, lean, prune, tries, tight, deglitch, &candidates, &opts, &out_dir, threads, judge)
         }
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {

@@ -282,6 +282,147 @@ thread_local! {
     /// when t_W <= t_O + 2 (O's change reaches W's tick 2 gt later). FEED_T times, distances_t
     /// paths. Empty: no check.
     pub static PULSE_RUNS: std::cell::RefCell<Vec<(u8, u8, bool, bool)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// The full race check (clk-obs, `display rings2 --timing`): when set, a layout is accepted
+    /// only when no judged transition makes the ring's lane glitch ([`race_glitches`]).
+    pub static RACE: std::cell::RefCell<Option<Race>> = const { std::cell::RefCell::new(None) };
+}
+
+/// What the race check judges for one ring: every judged transition's s before and after, the
+/// ring's ON set over s, and what its lane filters (a repeater of delay d drops dips under 2d gt;
+/// an OFF ring's lane, repeater - torch - delay-4 repeater, also drops its output's pulses under
+/// 8 gt).
+#[derive(Clone, Debug)]
+pub struct Race {
+    pub trans: Vec<(u8, u8)>,
+    pub on: u16,
+    pub dip_ok: u32,
+    pub pulse_ok: u32,
+}
+
+/// The windows' turn-on and turn-off times for one transition sa -> sb, the race model (times in
+/// gt after s changes at the chain): W reads its s contact (t_W) and O's output (O's contact: t_O),
+/// a comparator ticks 2 gt after an input changes and reads its inputs as they are then, O before
+/// W in a tick (its front is a diode). Returns the ring output's on-intervals (start, end), None
+/// for unbounded.
+fn race_intervals(rs: &[Run], p: &[usize], slots: &[Slot; 4], dt: &BTreeMap<(i32, i32, i32), (u8, u32)>, sa: u8, sb: u8) -> Vec<(Option<i64>, Option<i64>)> {
+    let mut out = Vec::new();
+    for (r, &u) in rs.iter().zip(p) {
+        let at = |x: i32, z: i32| {
+            let (rx, rz) = rot(u, x, z);
+            (rx, 0, rz)
+        };
+        let to = dt.get(&at(3, 1)).map(|v| v.1 as i64);
+        let tw = dt.get(&at(2, -1)).map(|v| v.1 as i64);
+        let inside = |s: u8| r.lo <= s && s <= r.hi;
+        let (ia, ib) = (inside(sa), inside(sb));
+        let rising = sb > sa;
+        // enable and disable times, by which side does it (an Inner window has both sides; a Top
+        // window only O, a Bottom window only its direct contact)
+        let o_side = |w_scheduled: bool| -> Option<i64> { to.map(|t| if w_scheduled { t + 2 } else { t + 4 }) };
+        let w_side = || -> Option<i64> { tw.map(|t| t + 2) };
+        let (on_t, off_t): (Option<i64>, Option<i64>) = match slots[u] {
+            Slot::Empty => continue,
+            Slot::Inner { .. } => {
+                let (t_o, t_w) = match (to, tw) {
+                    (Some(a), Some(b)) => (a, b),
+                    _ => continue,
+                };
+                // entering from below: O enables (it ticks at t_O + 2); W turns on at its first
+                // tick that sees it: its own at t_W + 2 when t_W >= t_O (O ticks first), else the
+                // one O's change schedules at t_O + 4
+                let enter_below = if t_w >= t_o { (t_w + 2).min(t_o + 4) } else { t_o + 4 };
+                let enter_above = t_w + 2;
+                let exit_above = t_w + 2;
+                // leaving below: O disables at t_O + 2; W turns off at its first tick that sees it
+                let exit_below = if t_w >= t_o { (t_w + 2).min(t_o + 4) } else { t_o + 4 };
+                match (ia, ib, rising) {
+                    (true, true, _) => (None, None),
+                    (true, false, true) => (None, Some(exit_above)),
+                    (true, false, false) => (None, Some(exit_below)),
+                    (false, true, true) => (Some(enter_below), None),
+                    (false, true, false) => (Some(enter_above), None),
+                    (false, false, _) => {
+                        let (lo, hi) = (sa.min(sb), sa.max(sb));
+                        if !(lo < r.lo && r.hi < hi) {
+                            continue;
+                        }
+                        // crossed entirely: on when its enabling side switches, off when the other does
+                        if rising { (Some(enter_below), Some(exit_above)) } else { (Some(enter_above), Some(exit_below)) }
+                    }
+                }
+            }
+            Slot::Top { .. } => match (ia, ib) {
+                (true, true) => (None, None),
+                (true, false) => (None, o_side(false)),
+                (false, true) => (o_side(false), None),
+                (false, false) => continue,
+            },
+            Slot::Bottom { .. } => match (ia, ib) {
+                (true, true) => (None, None),
+                (true, false) => (None, w_side()),
+                (false, true) => (w_side(), None),
+                (false, false) => continue,
+            },
+        };
+        if let (Some(a), Some(b)) = (on_t, off_t)
+            && a >= b
+        {
+            continue;
+        }
+        out.push((on_t, off_t));
+    }
+    out
+}
+
+/// How many of the race context's transitions make the ring's lane glitch (see [`Race`]).
+pub fn race_glitches(rs: &[Run], p: &[usize], slots: &[Slot; 4], dt: &BTreeMap<(i32, i32, i32), (u8, u32)>, race: &Race) -> (u32, Vec<String>) {
+    let mut n = 0;
+    let mut why = Vec::new();
+    for &(sa, sb) in &race.trans {
+        let mut iv = race_intervals(rs, p, slots, dt, sa, sb);
+        // the union of the on-intervals (None = unbounded), in time order
+        iv.sort_by_key(|(a, _)| a.unwrap_or(i64::MIN));
+        let mut merged: Vec<(Option<i64>, Option<i64>)> = Vec::new();
+        for (a, b) in iv {
+            if let Some(last) = merged.last_mut() {
+                let joins = match (last.1, a) {
+                    (None, _) => true,
+                    (Some(e), Some(s)) => s <= e,
+                    (Some(_), None) => true,
+                };
+                if joins {
+                    last.1 = match (last.1, b) {
+                        (None, _) | (_, None) => None,
+                        (Some(x), Some(y)) => Some(x.max(y)),
+                    };
+                    continue;
+                }
+            }
+            merged.push((a, b));
+        }
+        // the lane: dips shorter than dip_ok are bridged, bounded pulses shorter than pulse_ok drop
+        let mut f: Vec<(Option<i64>, Option<i64>)> = Vec::new();
+        for (a, b) in merged {
+            if let (Some(last), Some(s)) = (f.last_mut(), a)
+                && let Some(e) = last.1
+                && s - e < race.dip_ok as i64
+            {
+                last.1 = b;
+                continue;
+            }
+            f.push((a, b));
+        }
+        f.retain(|(a, b)| !matches!((a, b), (Some(x), Some(y)) if y - x < race.pulse_ok as i64));
+        let edges: usize = f.iter().map(|(a, b)| a.is_some() as usize + b.is_some() as usize).sum();
+        let ideal = usize::from((race.on >> sa & 1 == 1) != (race.on >> sb & 1 == 1));
+        if edges > ideal {
+            n += 1;
+            if why.len() < 4 {
+                why.push(format!("s {sa} -> {sb}: {f:?}"));
+            }
+        }
+    }
+    (n, why)
 }
 
 /// Whether a watched window's contact times are race-free (see PULSE_RUNS).
@@ -290,8 +431,15 @@ fn race_free(t_o: u32, t_w: u32, down: bool, up: bool) -> bool {
     (!down || d >= 0) && (!up || d <= 2)
 }
 
-/// Whether every slot holding one of PULSE_RUNS has its contacts timed race-free (see PULSE_RUNS).
+/// Whether every slot holding one of PULSE_RUNS has its contacts timed race-free (see PULSE_RUNS),
+/// and, with RACE set, whether no judged transition glitches the lane.
 fn pulse_safe(rs: &[Run], p: &[usize], slots: &[Slot; 4], dust: &[(i32, i32, i32)], feed: &Feed) -> bool {
+    if let Some(race) = RACE.with(|r| r.borrow().clone()) {
+        let dt = distances_t(dust, feed);
+        if race_glitches(rs, p, slots, &dt, &race).0 > 0 {
+            return false;
+        }
+    }
     let pr = PULSE_RUNS.with(|r| r.borrow().clone());
     if pr.is_empty() {
         return true;
@@ -340,6 +488,32 @@ pub fn pulse_report(rs: &[Run], slots: &[Slot; 4], feed: &Feed, copies: u8) -> V
         out.push(format!("slot {u} run {run:?}{tag} O {o:?} W {w:?}"));
     }
     out
+}
+
+/// The race check's verdict on a solved ring (RACE and FEED_T set as built): the transitions
+/// predicted to glitch its lane, with the filtered waveforms of the first few.
+pub fn race_report(rs: &[Run], slots: &[Slot; 4], feed: &Feed, copies: u8) -> Option<(u32, Vec<String>)> {
+    let race = RACE.with(|r| r.borrow().clone())?;
+    COPY_MASK.with(|c| c.set(copies));
+    let dt = distances_t(&ring_dust(slots), feed);
+    COPY_MASK.with(|c| c.set(0));
+    // which slot holds which run: the window each slot's constants and distances give
+    let window = |u: usize| -> Option<(i32, i32)> {
+        let at = |x: i32, z: i32| {
+            let (rx, rz) = rot(u, x, z);
+            (rx, 0, rz)
+        };
+        let d1 = dt.get(&at(3, 1)).map(|v| v.0 as i32);
+        let d2 = dt.get(&at(2, -1)).map(|v| v.0 as i32);
+        match slots[u] {
+            Slot::Empty => None,
+            Slot::Inner { k, c } => Some((c as i32 + d1? - k as i32 + 1, k as i32 + d2? - 1)),
+            Slot::Top { k, c } => Some((c as i32 + d1? - k as i32 + 1, 15)),
+            Slot::Bottom { k } => Some((0, k as i32 + d2? - 1)),
+        }
+    };
+    let p: Vec<usize> = rs.iter().map(|r| (0..4).find(|&u| window(u) == Some((r.lo as i32, r.hi as i32))).unwrap_or(0)).collect();
+    Some(race_glitches(rs, &p, slots, &dt, &race))
 }
 
 fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<(u32, [Slot; 4])> {
