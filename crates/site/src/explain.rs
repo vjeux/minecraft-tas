@@ -114,6 +114,7 @@ pub fn kind_title(kind: &str) -> String {
         "on-delay" => "Hold-to-activate: ignores short presses (on-delay)".into(),
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
+        "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
         _ => words,
     }
 }
@@ -201,6 +202,7 @@ pub fn kind_summary(kind: &str) -> String {
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
+        "lock" => "turns its output on only while every item-frame dial shows the rotation of its hidden code frame; set the code by turning the code frames".into(),
         _ => String::new(),
     }
 }
@@ -1016,7 +1018,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 12] = [
+pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1077,11 +1079,16 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
         "Item sorters",
         "A line of hoppers carries mixed items across a row of slices; each slice takes one item kind into its chest and lets the rest go on. Its filter hopper holds that kind plus a few filler items, so a comparator reading it sees one item more than usual and briefly unlocks the hopper under it, which drops exactly that item into the chest. Our test, in the real game, sends mixed items down the line and counts every one: each kind must end in its chest, the rest at the end of the line, nothing lost; then slices side by side, and a full chest that must not jam the line or drain a neighbour. We show the classic one-block-wide slice, the one builders tile into storage halls.",
     ),
+    (
+        "lock",
+        "Combination locks",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has a hidden code frame; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 12] = [
+pub const STUDY_USES: [(&str, &str); 13] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1094,6 +1101,7 @@ pub const STUDY_USES: [(&str, &str); 12] = [
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
+    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1117,6 +1125,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "bud" => "Notice a block placed, removed or grown next to it.",
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
+        "lock" => "Open a door only when every item frame shows its code.",
         _ => "",
     }
 }

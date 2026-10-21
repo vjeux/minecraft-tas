@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 13] = [
+pub const STUDIES: [(&str, &str); 14] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -33,6 +33,7 @@ pub const STUDIES: [(&str, &str); 13] = [
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
     ("compute", "Computational redstone"),
     ("sorter", "Item sorters"),
+    ("lock", "Combination locks"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).

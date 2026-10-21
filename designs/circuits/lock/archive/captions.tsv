@@ -1,0 +1,2 @@
+file	caption
+lock3-lines.txt	Set the code by turning the three code frames on the right; turn the three dials on the left: the lamp lights only when every dial shows its code frame's rotation, and never on the way through. Each dial's comparator and its code frame's comparator (one level down, powering the blocks under two dusts) feed two subtractors that catch a difference either way; a repeater carries any difference to the torch, which turns off (opens and closes within 8 ticks).
