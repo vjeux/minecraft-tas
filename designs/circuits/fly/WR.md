@@ -16,3 +16,10 @@ layouts listed on it, not 47 cards.
 | vertical two-way | none | 7-block engines fly both ways; the bottom station needs 4+ blocks | open |
 
 Cards must say slime or honey, and a payload card how many blocks it carries.
+
+## clk-item pass (2026-10-21)
+
+- On/off switch on the docking-station machine: done, fly-docking-15b (see its row); new judge flying_switch.
+- One-way below 6 blocks: the census behind the bound is exhaustive over every SHAPE a 5-block machine can have (every pentacube's bounding box — 5x1x1, 4x2x1, 3x3x1, 3x2x2, 2x2x2, upright or flat — fits one of its 14 boxes), with slime, honey, stone, observers, pistons, sticky pistons, and redstone blocks in the k = 6 pass. Its scope limit is the simulator: redsim, then every 6-block find re-judged in the game. A 5-block machine that only flies in the real game (an update-order or 0-tick effect redsim does not model) would be missed. That is the honest residue, not a known candidate.
+- Payload: 6 + n blocks carrying n is the bound by definition (the cargo is counted); the cap is 9 per half (the 12-block push limit), 18 in all.
+- Train: 3 blocks per trailer (slime + sticky piston + the observer that fires it after the trailer lands). A 2-block trailer needs that piston fired without its own observer: by the previous trailer's observer through a conductor, or by a redstone block riding along. Untried; this is the open item on this board.
