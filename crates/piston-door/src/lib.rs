@@ -42,6 +42,7 @@ pub mod ideal_rs;
 pub mod feeds;
 pub mod interleave;
 pub mod selffeed;
+pub mod shuttle;
 pub mod route;
 pub mod route2;
 pub mod minimize;

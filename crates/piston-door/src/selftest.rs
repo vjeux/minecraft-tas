@@ -294,6 +294,22 @@ fn checks() -> Vec<Check> {
     }
     // 6a. the first sub-56 mechanism (7x7 = 49b, c77 w1): ideal inputs must keep working
     const W1: &str = "designs/piston-door-3x3/tracks/c77/seven/w1.ideal";
+    // 6a'. door shuttle re-finds mm01z's shuttled observer (clk-rt): P (boxed, no free neighbour)
+    v.push(Check {
+        name: "shuttle:mm01z".into(),
+        what: "`door shuttle` on c70b's 7x7 mm01 with P's inputs as targets re-finds mm01z's shuttle (S (-2,-2) east carrying an observer at (-1,-2) facing down into (0,-2)) and only it, WORKS at 32 positions",
+        quick: true,
+        jvm: false,
+        steps: vec![args("door shuttle designs/piston-door-3x3/selftest/shuttle-mm01.ideal --target 0,-1,1;1,-1,1")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let line = o[0].lines().find(|l| l.contains("shuttles WORK")).ok_or(format!("no summary: {}", tail(&o[0])))?;
+            if !line.starts_with("1 shuttles WORK") {
+                return Err(format!("expected exactly 1 shuttle: {line}"));
+            }
+            has(&o[0], "S [-2, -2, 0] facing east, O [-1, -2, 0] facing down").map(|_| "1 shuttle: S (-2,-2) east + observer (-1,-2) down".into())
+        }),
+    });
     v.push(Check {
         name: "ideal:7x7-w1".into(),
         what: "c77's 7x7 (49b) mechanism w1 (13 sticky pistons: the center emptied by a pull after a column wiggle, ring pistons escaping to the corners) WORKS with ideal inputs (--between-ticks) in 55 / 43",
