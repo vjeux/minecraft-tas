@@ -144,6 +144,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
     // kicks; `circuit verify` sweeps every kick)
@@ -456,6 +461,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         return crate::shulker::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        return crate::sorter::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;

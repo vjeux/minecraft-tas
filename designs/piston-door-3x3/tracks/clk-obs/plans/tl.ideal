@@ -1,0 +1,32 @@
+phase between
+design designs/piston-door-3x3/tracks/clk-obs/plans/q69j-tl.txt
+let s = 20
+# top-left wired (P_T, Pl from Br's motion); top-right and bottoms ideal (fly's q69j plan)
+open 0 set 2 3 1 minecraft:redstone_block
+open 6 clear 2 3 1
+open 16 clear 2 5 1
+open 22 set 2 4 1 minecraft:redstone_block
+open 26 clear 2 4 1
+open 42+s set -1 -2 1 minecraft:redstone_block
+open 62+s clear 0 -3 1
+open 72+s clear 1 -3 1
+open 80+s clear -1 -2 1
+open 94+s set 3 -1 1 minecraft:redstone_block
+open 95+s clear 3 -1 1
+open 100+s set 2 -2 1 minecraft:redstone_block
+open 104+s clear 2 -2 1
+close 0 set 2 4 1 minecraft:redstone_block
+close 1 clear 2 4 1
+close 6 set 2 5 1 minecraft:redstone_block
+close 32+s set 1 -3 1 minecraft:redstone_block
+close 40+s clear 1 -3 1
+close 46+s set -1 -1 1 minecraft:redstone_block
+close 50+s clear -1 -1 1
+close 44+s set 2 -2 1 minecraft:redstone_block
+close 45+s clear 2 -2 1
+close 56+s set 3 -1 1 minecraft:redstone_block
+close 60+s clear 3 -1 1
+close 66+s set 2 -2 1 minecraft:redstone_block
+close 67+s clear 2 -2 1
+close 72+s set 1 -3 1 minecraft:redstone_block
+close 86+s set 0 -3 1 minecraft:redstone_block

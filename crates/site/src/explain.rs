@@ -113,15 +113,16 @@ pub fn kind_title(kind: &str) -> String {
         "off-delay" => "Stay-on timer (off-delay)".into(),
         "on-delay" => "Hold-to-activate: ignores short presses (on-delay)".into(),
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
+        "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 29] = [
+    const IDS: [&str; 30] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -199,6 +200,7 @@ pub fn kind_summary(kind: &str) -> String {
         "off-delay" => "keeps the output on for a set time after the input turns off".into(),
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
+        "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         _ => String::new(),
     }
 }
@@ -345,6 +347,7 @@ pub fn badge_meaning(b: &str) -> &'static str {
         "mixed" => "mixed items, full and partial stacks, packed as they come",
         "filter" => "packs one kind of item and passes the rest on",
         "tileable" => "copies side by side work together (one per item kind)",
+        "overflow" => "a full chest stops nothing: its items go on along the line, no other slice loses its filter, and it resumes once emptied",
         "always-on" => "no lever: it runs by itself",
         "restart" => "when the items pause and come back, it carries on by itself",
         "box-starved" => "nothing is lost while the empty-box supply runs out; it resumes when boxes come back",

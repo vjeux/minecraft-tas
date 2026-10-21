@@ -221,6 +221,7 @@ pub fn kind_words(kind: &str) -> String {
         "off-delay" => "Stay-on timer",
         "on-delay" => "Hold-to-activate",
         "pulse-train" => "Rapid fire while on",
+        "sorter" => "Item sorter",
         _ => "",
     };
     if !words.is_empty() {
