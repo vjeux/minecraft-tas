@@ -786,8 +786,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        let (wx, y0, y1) = window;
-                        c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
+                        mcview::scene::fit_view(&mut c, &mcview::scene::view_points(&p.session, &p.look), aspect, window);
                     }
                     p.camera = c;
                 }
