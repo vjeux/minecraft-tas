@@ -957,6 +957,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
+    // (a bamboo farm: per stalk, w86)
+    if kind.ends_with("bamboo") {
+        match k {
+            "per cane" => return "blocks placed for each bamboo stalk it harvests",
+            "items per hour per cane" => return "bamboo harvested each hour for each stalk, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+            "harvest height" => return "how tall a stalk gets before the farm cuts it, in blocks",
+            _ => {}
+        }
+    }
     match (base(kind), k) {
         ("off-delay", "L") => "how long the output stays on after the input turns off",
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
@@ -1025,7 +1034,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
         ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
-        ("harvester", "harvest height") => "2: each block is harvested as soon as it grows; 3: only when the cane is full height",
+        ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
