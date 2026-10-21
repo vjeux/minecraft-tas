@@ -238,3 +238,12 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   inside an otherwise sealed region, the island-start wall); families has no observer piece, so
   mechmut judges such dumps by their own export pair only (no repair) and never aborts a folder
   on a dump it cannot hold.
+- trio7 (clockinfra 76f1ed250; w86's layout = the u2 family with the top trio lever-held, + a
+  movable observer at (3,3)): lf16a1-L WORKS in redsim (32 x 3, 156 / 154), extent 7x7, and d67's
+  strict screen finds NO region that cannot start (the first seed to pass that), but FAILS on the
+  (0,-2) one-cell conflict (SU(1,-2) / SU(-1,-2) share the sealed (0,-2): 16 firings, the u0/u2
+  wall), 12 edge-weak firings (SD(-1,3), SE(-1,1) only from the west column B4; SW(3,-1) only from
+  the bottom-right D4) and 2 lever stand-in artifacts (inputs at (1,5,0) / (1,4,1)). Asked
+  clockinfra for the same run + `--private` (the conflict rule) and an edge rule. Its
+  observer-free sibling po16 does not solve in families (QC off, wiring reserved) within 3M
+  states; 0 of 70 neighbours solve. The bridge reads the header-less `.report` dumps now.
