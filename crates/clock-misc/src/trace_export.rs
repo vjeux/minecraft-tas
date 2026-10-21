@@ -65,6 +65,10 @@ pub struct ExportArgs {
     /// redsim's trace-compare replays.
     #[arg(long = "action", requires = "ticks")]
     pub extra_actions: Vec<String>,
+    /// Right-click each design's own `port lever` at these ticks (`T0..T1/STEP` or `T`): a door's
+    /// lever flips, like the door judge's open/close cycles, one command for many doors.
+    #[arg(long, requires = "ticks")]
+    pub lever_flips: Option<String>,
     /// One trace per sandbox seed `A..B` (`<stem>-s<seed>.trace`, header `seed`): another level
     /// random each time (TNT kicks, item drops...), which redsim's trace-compare mirrors.
     #[arg(long)]
@@ -394,7 +398,14 @@ pub fn run(a: ExportArgs) -> Result<()> {
                 acts.extend(extra.iter().cloned());
                 (sc.judged, acts, Over { ticks: Some(sc.ticks), bbox: Some(sc.bbox), far: sc.far })
             } else {
-                (d.clone(), extra.clone(), Over::default())
+                let mut acts = extra.clone();
+                // --lever-flips: this design's own lever
+                if let Some(spec) = &a.lever_flips {
+                    let lever = mctas::design::Design::load(d)?.ports.get("lever").copied().with_context(|| format!("{}: no `port lever`", d.display()))?;
+                    acts.extend(parse_action(&format!("{spec}:use:{},{},{}", lever[0], lever[1], lever[2]))?);
+                    acts.sort_by_key(|(t, _, _)| *t);
+                }
+                (d.clone(), acts, Over::default())
             };
             let (p, ticks) = match export_one(&mut w, &design, &out_dir, &a, &acts, s, &over) {
                 Ok(r) => r,
