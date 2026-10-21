@@ -544,6 +544,8 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
+        // (an adder: which one, from its kind key: every adder is `adder 1`)
+        Some(c) if c.kind.starts_with("adder") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -775,7 +777,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
