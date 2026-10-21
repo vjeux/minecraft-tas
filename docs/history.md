@@ -648,14 +648,15 @@ wiring region next to a pulsing piston could not start from it, and a movable ob
 fired unseen. It is fixed in explore/clockinfra 36b146530. Every island-start UNSAT was re-run;
 the lines below are the re-confirmed ones (fixed model):
 - Plain feed + lever + island start, h6: UNSAT for 7x7 (-3..3, -3..3), (-3..3, -1..5),
-  (-2..4, -3..3) and (-3..3, -2..4).
+  (-2..4, -3..3), (-3..3, -2..4) and (-2..4, -1..5).
 - With the lever as a level, island starts, the `--physics` rules (co-firing, hold, redstone-block
   stability, QC arming) and movable observers (`--observers`; carried redstone blocks are in the
   palette from the start), no flat door is fed within 8 parallel steps per edge in 7x7
-  (-3..3, -3..3), 6x8 (-1..4, -4..3), or 8x6 (-4..3, -2..3) and (-4..3, -1..4).
-- u2-T's start order (above), h16.
-Still running at the time of writing: the central 7x7 placements at h6, the other 7x7 and 48
-placements at h8 with `--physics --observers`, and s69 with its right column free (x 1..3). The
+  (-3..3, -3..3) and (-3..3, -1..5), 6x8 (-1..4, -4..3) and (-1..4, -1..6), or 8x6 (-4..3, -2..3)
+  and (-4..3, -1..4).
+- u2-T's start order (above), h16; trio7 with one fixed-output component per wiring cell, h16.
+Still running at the time of writing: the central 7x7 placement (-2..4, -2..4), the other 7x7 and
+48 placements at h8 with `--physics --observers`, and s69 with its right column free (x 1..3). The
 palette has no slime and no copper bulbs.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
