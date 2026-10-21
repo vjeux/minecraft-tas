@@ -500,7 +500,12 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
         Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
-        Kind::Counter(n) => format!("counter {n}"),
+        Kind::Counter(n) => {
+            // site QA 2026-10-21: the counter's pick gives one output pulse per N input pulses;
+            // square waves (dividers) and other duties are their own classes
+            let c = m("counts");
+            if c.is_empty() || c.starts_with("one pulse per N") { format!("counter {n}") } else { format!("counter {n}, {c}") }
+        }
         Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
@@ -511,19 +516,35 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
-        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
-        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
-        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
-        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
-        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
-        Kind::TntDuper => m("rate"),
+        // the variation, then `, switchable` for an on/off lever (circuit::tnt::check_lever) or input
+        Kind::TntDuper => {
+            let base = if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") {
+                format!("{} precise drop", m("rate"))
+            } else if out.why.contains("in mid-air") {
+                format!("{} precise air burst", m("rate"))
+            } else if out.why.contains("precise:") {
+                format!("{} precise", m("rate"))
+            } else if out.why.contains("dropped:") {
+                format!("{} dropped", m("rate"))
+            } else if out.why.contains("launched at") {
+                format!("{} launched", m("rate"))
+            } else if out.why.contains("slime-free") {
+                format!("{} slime-free", m("rate"))
+            } else {
+                m("rate")
+            };
+            if m("runs").is_empty() { base } else { format!("{base}, switchable") }
+        }
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
         Kind::Burst(n) => format!("N = {n}"),
         Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
         Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
-        Kind::OffDelay => format!("off L = {}", m("L")),
+        // site QA 2026-10-21 (a pressure plate keeping a light on): the full stay-on time from a
+        // 20 gt input; a design that needs a longer input (its min-pulse) is its own class
+        Kind::OffDelay => {
+            let mp: u32 = m("min-pulse").split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+            format!("off L = {}{}", m("L"), if mp > 20 { ", needs a long input" } else { "" })
+        }
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
         Kind::Compute(..) => kind.name(),

@@ -762,7 +762,9 @@ circuits/tff/tff-snowdisp-dust.html	circuit	tff/tff		Toggle switch: reacts in 6 
 circuits/tff/tff-snowdisp.html	circuit	tff/tff		Toggle switch: reacts in 6 ticks (0.3 s) · 6 blocks	2026-10-20 00:04Z
 circuits/tff/tff-window.html	circuit	tff/tff		Toggle switch: reacts in 4 ticks (0.2 s) · 17 blocks	2026-10-20 02:17Z
 circuits/tnt/index.html	page				2026-10-20 07:19Z
+circuits/tnt/tnt-airburst-lever-56b.html	circuit	tnt/tnt-duper precise air burst, switchable		TNT duper: about 22 TNT a minute · 56 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-airburst.html	circuit	tnt/tnt-duper precise air burst		TNT duper: explodes each TNT at one exact point in the air · about 22 TNT a minute · 44 blocks	2026-10-20 17:00Z
+circuits/tnt/tnt-button-17b.html	circuit	tnt/tnt-duper-triggered		TNT duper, one per pulse: 1 TNT per short pulse · 17 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-clocked-22b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 86 TNT a minute · 22 blocks	2026-10-20 23:52Z
 circuits/tnt/tnt-drop-16b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 16 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 12 blocks	2026-10-20 07:19Z
@@ -772,6 +774,7 @@ circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TN
 circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off switch · 200 TNT a minute · 12 blocks	2026-10-20 08:18Z
 circuits/tnt/tnt-lever-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: has an off switch · 200 TNT a minute · 15 blocks	2026-10-20 12:42Z
 circuits/tnt/tnt-precise-28b.html	circuit	tnt/tnt-duper precise		tnt-duper: lands each TNT on the same spot · 200 TNT a minute · 28 blocks	2026-10-20 08:18Z
+circuits/tnt/tnt-precise-drop-lever-52b.html	circuit	tnt/tnt-duper precise drop, switchable		TNT duper: 30 TNT a minute · 52 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-precise-drop.html	circuit	tnt/tnt-duper precise drop		TNT duper: drops each TNT straight down to explode at one point · 30 TNT a minute · 41 blocks	2026-10-21 01:51Z
 circuits/tnt/tnt-precise-slow-43b.html	circuit	tnt/tnt-duper precise		TNT duper: lands each TNT on the same spot · about 13 TNT a minute · 43 blocks	2026-10-20 13:10Z
 circuits/tnt/tnt-slow-launch-30b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 13 TNT a minute · 30 blocks	2026-10-20 16:34Z

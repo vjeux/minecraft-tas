@@ -376,10 +376,39 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         });
         let twins = crate::mechanism::folds(&cards, &keys);
         let folded = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
+        let family = cards.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.family.is_some() || c.n.is_some())).count();
         check(
-            "the Clocks tab: one card per mechanism and period",
-            twins.is_empty() && folded > 0,
-            if twins.is_empty() { format!("{} cards, {folded} clocks folded under them", cards.len()) } else { twins.iter().take(5).map(|(a, h)| format!("{} = {}", cards[*a].name, cards[*h].name)).collect::<Vec<_>>().join(", ") },
+            "the Clocks tab: one card per mechanism and period, family members included",
+            twins.is_empty() && folded > 0 && family > 0,
+            if twins.is_empty() { format!("{} cards ({family} of a family), {folded} clocks folded under them", cards.len()) } else { twins.iter().take(5).map(|(a, h)| format!("{} = {}", cards[*a].name, cards[*h].name)).collect::<Vec<_>>().join(", ") },
+        );
+    }
+    // one card per door mechanism (vjeux 13:10Z, "What about doors?"): no two door cards (board
+    // leaders, the records table's rows) are one mechanism with a swapped block
+    {
+        let cards: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.door.as_ref().is_some_and(|d| !d.leads.is_empty() && d.host.is_none())).collect();
+        let keys: Vec<Vec<String>> = crate::circuits::par_map(&cards, |b| {
+            let text = std::fs::read_to_string(dir.join(&b.design)).unwrap_or_default();
+            let still: crate::simulate::Still = crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(&text));
+            crate::mechanism::keys_of(&still, &text)
+        });
+        let mut seen: std::collections::BTreeMap<&String, usize> = std::collections::BTreeMap::new();
+        let mut same: Vec<String> = Vec::new();
+        for (i, ks) in keys.iter().enumerate() {
+            for k in ks {
+                match seen.get(k) {
+                    Some(&j) if j != i => same.push(format!("{} = {}", cards[i].name, cards[j].name)),
+                    _ => {
+                        seen.insert(k, i);
+                    }
+                }
+            }
+        }
+        same.dedup();
+        check(
+            "the Doors tab: one card per door mechanism",
+            same.is_empty() && cards.len() > 1 && keys.iter().all(|k| !k.is_empty()),
+            if same.is_empty() { format!("{} door cards, every one its own mechanism", cards.len()) } else { same.iter().take(5).cloned().collect::<Vec<_>>().join(", ") },
         );
     }
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {

@@ -185,6 +185,33 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     Ok(res)
 }
 
+/// `circuit compact <seed> <seed>...`: one run per seed (DIR/<study>/<seed stem>/), DIR/sweep.tsv
+/// in `compact_all`'s format (the record is the seed itself).
+pub fn compact_list(seeds: &[PathBuf], o: &Options, out: &Path) -> Result<()> {
+    std::fs::create_dir_all(out)?;
+    let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
+    for seed in seeds {
+        let stem = seed.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let file = seed.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let study = Circuit::load(seed).ok().and_then(|c| c.kind.map(|k| k.study().to_string())).unwrap_or_else(|| "unknown".into());
+        let run_dir = out.join(&study).join(&stem);
+        let line = match compact_one(seed, o, &run_dir, false) {
+            Ok(res) => {
+                let (bv, bb, f, game) = res.best.first().map(|(v, b, f, g)| (v.to_string(), b.to_string(), f.display().to_string(), g.split_whitespace().next().unwrap_or("").to_string())).unwrap_or_default();
+                println!("{study}: {} {}: {file} {}, {} blocks -> {}", res.kind, res.axis, res.seed_volume, res.seed_blocks, if bv.is_empty() { "no smaller design".to_string() } else { format!("{bv} volume, {bb} blocks {game} {f}") });
+                format!("{study}\t{}\t{}\t{file}\t{}\t{}\t{bv}\t{bb}\t{game}\t{f}\n", res.kind, res.axis, res.seed_volume, res.seed_blocks)
+            }
+            Err(e) => {
+                println!("{study}: {file} skipped: {}", format!("{e:#}").chars().take(160).collect::<String>());
+                format!("{study}\t\t\t{file}\t\t\t\t\tskipped\t\n")
+            }
+        };
+        tsv += &line;
+        std::fs::write(out.join("sweep.tsv"), &tsv)?;
+    }
+    Ok(())
+}
+
 /// A file-system-safe slug of an axis value.
 fn slug(s: &str) -> String {
     let mut out = String::new();

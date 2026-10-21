@@ -9,10 +9,10 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Delay lines](delay/CATALOG.md) | 9 | 1 | 0 |
 | [Logic gates](gates/CATALOG.md) | 11 | 7 | 0 |
 | [Memory](memory/CATALOG.md) | 66 | 6 | 0 |
-| [Piston extenders](pext/CATALOG.md) | 64 | 22 | 23 |
+| [Piston extenders](pext/CATALOG.md) | 64 | 21 | 24 |
 | [Flying machines](fly/CATALOG.md) | 13 | 4 | 3 |
 | [Shulker loaders and unloaders](shulker/CATALOG.md) | 17 | 14 | 3 |
-| [TNT dupers](tnt/CATALOG.md) | 4 | 4 | 0 |
+| [TNT dupers](tnt/CATALOG.md) | 7 | 7 | 0 |
 | [BUD switches](bud/CATALOG.md) | 12 | 10 | 0 |
 | [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 41 | 9 | 0 |
 | Computational redstone | 0 | 0 | 0 |

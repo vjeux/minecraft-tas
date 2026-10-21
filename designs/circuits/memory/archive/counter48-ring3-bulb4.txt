@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:54Z from designs/circuits/memory/tracks/memory/counter48-ring3-bulb4.txt by mctas circuit archive
-# CIRCUIT: counter48-ring3-bulb4 counter 48 N 48, output level every 48 pulses, 20 blocks, 11x3x2, robust
+# CIRCUIT: counter48-ring3-bulb4 counter 48 N 48, output level every 48 pulses, counts one pulse per N, on 24 of 48, 20 blocks, 11x3x2, robust
 # Counter 48, dropper ring + 4 copper bulbs, 20 blocks (track memory, `mctas circuit memory ring --n 3 --bulbs 4`): the input cell fires 3 droppers (3 next to it), and 3 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 3, and toggles a chain of 4 bulb T flip-flops (bulb + comparator), each halving the rate (level style).
 name: counter48-ring3-bulb4
 circuit: counter 48

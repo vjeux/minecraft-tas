@@ -274,6 +274,9 @@ pub struct Scenario {
     /// chest brings them: one at the start, one more at every visit of the judge (a box that lands
     /// in an empty chest is pulled out before a comparator on the chest can see it).
     pub one_box: bool,
+    /// The judge's visit pace in gt (0: the default `SEG`); the one-box burst check runs at more
+    /// than one pace so its boxes land at different points of the design's cycle.
+    pub pace: u32,
 }
 
 /// Stress runs after a design passes its builds: the plain scenario (unstackables, or the design's
@@ -327,7 +330,7 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false, one_box: false }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false, one_box: false, pace: 0 }
     }
 
     /// The scenario's items in a stack (a box's contents included): the scenario item, or with
@@ -740,7 +743,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         let (a, b) = v.split_once('-')?;
         Some((a.parse().ok()?, b.parse().ok()?))
     });
-    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless { 1 } else { SEG };
+    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless { 1 } else if sc.pace > 0 { sc.pace } else { SEG };
     loop {
         // the endless-supply check: the box chests back to their starting boxes before the gt
         if sc.endless {
@@ -1347,13 +1350,27 @@ pub fn one_box_burst_scenario(c: &Circuit, base: &Scenario) -> Scenario {
     s
 }
 
+/// The one-box burst check's visit paces (gt): the default and two that land the boxes elsewhere
+/// in a fast cycle (2026-10-21: a loader that fires its breaker on both edges of the full test
+/// passed at the default pace and jammed at 23 gt).
+pub const ONE_BOX_BURST_PACES: [u32; 3] = [0, 17, 23];
+
 /// The one-box burst check (2026-10-21: a loader whose once-per-box switch is a sticky-piston
-/// shuttle missed a box that filled within ~6 gt of the previous break, and jammed): loaders only.
+/// shuttle missed a box that filled within ~6 gt of the previous break, and jammed): loaders
+/// only, at every pace of [`ONE_BOX_BURST_PACES`].
 pub fn one_box_burst(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
     if !base.loader {
         return Ok(None);
     }
-    chest_check(pool, c, &one_box_burst_scenario(c, base), "one-box-burst", o)
+    for pace in ONE_BOX_BURST_PACES {
+        let mut s = one_box_burst_scenario(c, base);
+        s.pace = pace;
+        let name = if pace == 0 { "one-box-burst".to_string() } else { format!("one-box-burst, a box every {pace} gt") };
+        if let Some(why) = chest_check(pool, c, &s, &name, o)? {
+            return Ok(Some(if pace == 0 { why } else { format!("a box every {pace} gt, {why}") }));
+        }
+    }
+    Ok(None)
 }
 
 /// The endless-supply check (2026-10-21: a loader that counted its box chest's level changes
