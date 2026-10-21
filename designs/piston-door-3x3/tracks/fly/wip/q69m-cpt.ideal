@@ -1,6 +1,7 @@
 # door ideal-rs --compact designs/piston-door-3x3/tracks/fly/wip/q69m.ideal: every input group pulled as early as it goes (others fixed, 2 passes);
 # open 55 / close 18 (was 105 / 81); windows: the group's own shifts that keep it working
 design designs/piston-door-3x3/tracks/fly/wip/q69m.txt
+phase between
 # open  t0 [2, 3, 1] pulse 6 gt: window [+0, +0]
 # open  t0 [1, 4, 1] off: window [+0, +0]
 # open  t3 [0, 4, 1] on: window [+0, +0]

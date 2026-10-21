@@ -519,6 +519,7 @@ pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: 
         let is_piston = |p: Pos| d.blocks.get(&p).is_some_and(|b| b.contains("piston[") && !b.contains("moving_piston") && !b.contains("piston_head"));
         let mut kept: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
         let mut lines = vec![format!("# door ideal-rs --offplane-dir {}: in-plane inputs below row {} moved behind the pistons they feed", path.display(), door[1] + below), design_line];
+        lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
         for (open, ph) in [(true, "open"), (false, "close")] {
             for (t, q, st) in s.events_of(open, &vars)? {
                 let mut targets = vec![q];
@@ -834,6 +835,9 @@ pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32
         Err(_) => (ev, groups, o1, c1),
     };
     let mut lines = vec![format!("# door ideal-rs --compact {}: every input group pulled as early as it goes (others fixed, 2 passes);", path.display()), format!("# open {o1} / close {c1} (was {o0} / {c0}); windows: the group's own shifts that keep it working"), design_line];
+    // keep the plan's input phase: without it the written plan is read in the default phase and
+    // replays at different ticks than the ones just measured
+    lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
     for g in &groups {
         let ds: Vec<i64> = (-24..=24).filter(|d| *d != 0).collect();
         let res = cs::par_map(&ds, threads, |&d| shifted(&ev, g, d).is_some_and(|e2| works(&e2).is_ok()));
