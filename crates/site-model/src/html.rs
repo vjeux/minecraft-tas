@@ -440,6 +440,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
         return "sand elevator lift sand up";
     }
     match b.kind.as_str() {
+        "door" if crate::door_side(b) == 2 => "2x2 piston door hidden secret entrance",
         "door" => "3x3 piston door hidden secret entrance",
         "clock" => "clock pulser oscillator repeating",
         _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
@@ -1187,17 +1188,19 @@ pub fn props(b: &Build) -> Props {
             // two counts): the blocks, in their space
             let title = if dims.is_empty() { blocks_word(b.blocks) } else { format!("{} in a {dims} space", blocks_word(b.blocks)) };
             // one short kind line (critique: "3×3 PISTON DOOR · STONE DOOR" on every card); a
-            // fully seamless stone door says so (vjeux 23:44Z: what people call a piston door)
+            // fully seamless stone door says so (vjeux 23:44Z: what people call a piston door);
+            // the opening's size first (a 2x2 door, designs/piston-door-2x2)
             let full = b.door.as_ref().is_some_and(|d| d.seamless == "FULL" || d.seamless == "SUPER");
+            let n = crate::door_side(b);
             let kind = match b.group.as_str() {
-                "solid" if full => "3×3 seamless stone door",
-                "solid" => "3×3 stone door",
-                "sculk" => "3×3 sculk door",
-                "gravity" => "3×3 sand or gravel door",
-                "entity" => "3×3 entity door",
-                _ => if cat.is_empty() { "3×3 piston door" } else { cat },
+                "solid" if full => format!("{n}×{n} seamless stone door"),
+                "solid" => format!("{n}×{n} stone door"),
+                "sculk" => format!("{n}×{n} sculk door"),
+                "gravity" => format!("{n}×{n} sand or gravel door"),
+                "entity" => format!("{n}×{n} entity door"),
+                _ => if cat.is_empty() { format!("{n}×{n} piston door") } else { cat.to_string() },
             };
-            Props { kind: kind.into(), title, sub, chips }
+            Props { kind, title, sub, chips }
         }
         "clock" => {
             let c = b.clock.as_ref();
@@ -1452,10 +1455,17 @@ pub fn lede(site: &Site, kind: &str) -> String {
     let [doors, clocks, kinds] = site.holds();
     let periods = site.clock_periods();
     let s = |n: usize| if n == 1 { "" } else { "s" };
-    let door_part = if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") };
+    // the 3x3 doors' records, and the 2x2 doors' (their own boards: designs/piston-door-2x2)
+    let small = site.builds.iter().filter(|b| b.door.as_ref().is_some_and(|d| d.side() == 2)).count();
+    let big = doors - small;
+    let mut door_part = if big == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {big} records") };
+    if small > 0 {
+        door_part.push_str(&if small == 1 { " and the best 2×2 piston door".to_string() } else { format!(" and the best 2×2 piston door for each of {small} records") });
+    }
     let clock_part = format!("{clocks} clock{} for {periods} period{}", s(clocks), s(periods));
     let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
     match kind {
+        "door" if small > 0 => format!("{}{}, tested tick by tick in the real game: each card's page lists every record of its size.", door_part[..1].to_uppercase(), &door_part[1..]),
         "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
         // (short: on a phone the tab's first screen showed one card under it, webrender's profile)
         "clock" => format!("{clock_part}, smallest first, each tested in the real game or simulated to its exact period."),

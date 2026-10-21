@@ -81,6 +81,12 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.
+- **2x2 doors** (clk-item's `door-size: 2`, designs/piston-door-2x2/archive with the same caches;
+  the coordinator 2026-10-21: their own boards, not mixed with the 3x3 records): a card of their
+  own after the 3x3 card, its page's table holding the 2x2 records only. Their boards are the
+  2x2's (WR.md: smallest, no slime, fastest); the community regulation's checks (seamless tiers,
+  frame, record eligibility) are the 3x3's and are not shown on a 2x2 page. A 2x2 door named like
+  a 3x3 one fails the build (one page per name).
 - **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
   Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
   within a period, nothing folded; each heading links its period and counts its clocks; the card

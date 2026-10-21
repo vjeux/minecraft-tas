@@ -869,13 +869,14 @@ pub fn door(b: &Build) -> (String, String) {
     // piston door): flush when closed, a clean doorway when open, the machine hidden
     let tier = d.map(|d| d.seamless.as_str()).unwrap_or("");
     // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
-    // the lever's click")
+    // the lever's click"); the opening's size (a 2x2 door: designs/piston-door-2x2)
+    let n = site_model::door_side(b);
     let what = if b.group == "sculk" {
-        format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+        format!("Flip the lever: the sculk sensor hears its click and the {n}×{n} doorway opens; flip it back and it closes.{timing}")
     } else if tier == "FULL" || tier == "SUPER" {
-        format!("Flip the lever and the 3×3 doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
+        format!("Flip the lever and the {n}×{n} doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
     } else {
-        format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
+        format!("Flip the lever and the {n}×{n} doorway opens; flip it back and it closes.{timing}")
     };
     // (the view plays the door by itself, its lever flipped like the record videos: webrender's door
     // demo; any input of the visitor's ends it)
@@ -1151,6 +1152,39 @@ mod tests {
         assert_eq!(card.title, "1 of 2 outputs at random · 19 blocks");
         assert!(card.sub.contains("the chosen output stays on until the next press · lights after 8 ticks (0.4 s) · tested fair over 768 presses"), "{}", card.sub);
         assert_eq!(site_model::html::value_words("randomizer 2", "1 of 2"), "1 of 2 outputs");
+    }
+
+    #[test]
+    fn a_2x2_door_has_its_own_card_and_words() {
+        // (clk-item's 2x2 doors, the coordinator 2026-10-21: their own card and records, after the
+        // 3x3 card)
+        let mk = |name: &str, side: u32, leads: &[&str], blocks: u32| Build {
+            id: format!("doors/{name}"),
+            kind: "door".into(),
+            group: "solid".into(),
+            name: name.into(),
+            page: format!("doors/{name}.html"),
+            blocks,
+            volume: Some(blocks),
+            door: Some(site_model::Door { leads: leads.iter().map(|s| s.to_string()).collect(), size: if side == 3 { 0 } else { side }, open: Some(1), close: Some(3), ..Default::default() }),
+            ..Default::default()
+        };
+        let mut builds = vec![mk("big", 3, &["seamless"], 41), mk("big2", 3, &["solid"], 38), mk("classic6", 2, &["solid", "slime-free"], 20)];
+        let notes = crate::kinds::select_doors(&mut builds);
+        assert!(notes[0].starts_with("door cards: 2 (3x3: 2, 2x2: 1)"), "{notes:?}");
+        let card = |n: &str| builds.iter().find(|b| b.name == n).unwrap().clone();
+        assert_eq!(card("big").door.unwrap().records, 2);
+        assert_eq!(card("classic6").door.unwrap().records, 1);
+        assert!(card("big2").flags.iter().any(|f| f == "size") && !card("classic6").flags.iter().any(|f| f == "size"));
+        assert_eq!(site_model::html::props(&card("classic6")).kind, "2×2 stone door");
+        assert!(door(&card("classic6")).0.starts_with("Flip the lever and the 2×2 doorway opens"), "{}", door(&card("classic6")).0);
+        assert!(door(&card("big")).0.contains("the 3×3 doorway opens"));
+        // the Doors tab: the 3x3 card first, then the 2x2's (a smaller door, listed after)
+        let site = site_model::Site { builds: builds.clone(), ..Default::default() };
+        let (hits, _) = site.run(&site_model::Query::from_fragment("kind=door")).unwrap();
+        let names: Vec<&str> = hits.iter().filter_map(|h| if let site_model::Hit::Build(i) = h { Some(site.builds[*i].name.as_str()) } else { None }).collect();
+        assert_eq!(names, vec!["big", "classic6"]);
+        assert!(site_model::html::lede(&site, "door").starts_with("The best 3×3 piston door for each of 2 records and the best 2×2 piston door, tested"), "{}", site_model::html::lede(&site, "door"));
     }
 
     #[test]

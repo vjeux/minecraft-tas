@@ -640,6 +640,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
 
 /// Doors (the coordinator 21:55Z): one card, the overall smallest solid door (the "solid" board's
 /// leader); every board's record keeps its page (no card); every other door is not published.
+/// One card per door size (the coordinator 2026-10-21: the 2x2 doors' own boards, not mixed with
+/// the 3x3 records): each size's card holds that size's records.
 pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
     let leads = |b: &Build| b.door.as_ref().map(|d| d.leads.clone()).unwrap_or_default();
     let before = builds.iter().filter(|b| b.door.is_some()).count();
@@ -648,37 +650,57 @@ pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
     // or ties on size is the best at nothing (critique: the one-way sculk door, 40 blocks, under
     // the any-way one, 37)
     let size = |b: &Build| (b.volume.unwrap_or(u32::MAX), b.blocks);
+    let side = site_model::door_side;
     let dominated: BTreeSet<String> = builds
         .iter()
         .filter(|b| {
             let l = leads(b);
             !l.is_empty()
                 && l.iter().all(|x| {
-                    x.strip_suffix(", not rotation-safe").is_some_and(|base| builds.iter().any(|o| o.id != b.id && leads(o).iter().any(|y| y == base) && size(o) <= size(b)))
+                    x.strip_suffix(", not rotation-safe").is_some_and(|base| builds.iter().any(|o| o.id != b.id && side(o) == side(b) && leads(o).iter().any(|y| y == base) && size(o) <= size(b)))
                 })
         })
         .map(|b| b.id.clone())
         .collect();
     builds.retain(|b| !dominated.contains(&b.id));
-    // the one card: the best fully seamless door, the seamless board's record (vjeux 23:44Z: "Can
-    // you show a seamless piston door. This is what people usually consider to be piston
-    // doors"); without one, the smallest stone door
-    let main = builds.iter().position(|b| leads(b).iter().any(|l| l == "seamless")).or_else(|| builds.iter().position(|b| leads(b).iter().any(|l| l == "solid")));
-    // what the one card holds: how many records sit behind it
-    let records = builds.iter().filter(|b| b.door.is_some()).count();
+    let sides: BTreeSet<u32> = builds.iter().filter(|b| b.door.is_some()).map(side).collect();
+    let mut mains: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut records: BTreeMap<u32, usize> = BTreeMap::new();
+    for s in &sides {
+        let of_side = |b: &Build| b.door.is_some() && side(b) == *s;
+        // the one card: the best fully seamless door, the seamless board's record (vjeux 23:44Z:
+        // "Can you show a seamless piston door. This is what people usually consider to be piston
+        // doors"); without one, the smallest stone door
+        let main = builds
+            .iter()
+            .position(|b| of_side(b) && leads(b).iter().any(|l| l == "seamless"))
+            .or_else(|| builds.iter().position(|b| of_side(b) && leads(b).iter().any(|l| l == "solid")))
+            .or_else(|| builds.iter().position(of_side));
+        if let Some(m) = main {
+            mains.insert(*s, m);
+        }
+        // what the one card holds: how many records sit behind it
+        records.insert(*s, builds.iter().filter(|b| of_side(b)).count());
+    }
     let mut kept = 0;
     for (i, b) in builds.iter_mut().enumerate() {
-        let Some(d) = b.door.as_mut() else { continue };
+        if b.door.is_none() {
+            continue;
+        }
+        let s = side(b);
+        let main = mains.get(&s) == Some(&i);
+        let d = b.door.as_mut().unwrap();
         d.host = None;
         d.variants.clear();
-        d.records = if Some(i) == main { records } else { 0 };
+        d.records = if main { records.get(&s).copied().unwrap_or(0) } else { 0 };
         kept += 1;
         b.flags.retain(|f| !matches!(f.as_str(), "variant" | "twin" | "size"));
-        if Some(i) != main {
+        if !main {
             b.flags.push("size".into());
         }
     }
-    vec![format!("one door card: {kept} board records kept of {before} doors ({} best at nothing dropped; the rest stay in the repository, unpublished)", dominated.len())]
+    let per_side: Vec<String> = records.iter().rev().map(|(s, n)| format!("{s}x{s}: {n}")).collect();
+    vec![format!("door cards: {} ({}): {kept} board records kept of {before} doors ({} best at nothing dropped; the rest stay in the repository, unpublished)", mains.len(), per_side.join(", "), dominated.len())]
 }
 
 /// Clocks (vjeux 21:47Z: "one card per period is the per-size table of a single clock kind
