@@ -258,3 +258,14 @@ Top press: SET, then RESET if P_t is docked; both go down by two observer chains
 only on presence, so repeated agreeing writes are idempotent. Watch the "flap" (reset then set
 while docked with T pointing away) for an extra flag kick; if the sweep shows it, add presence
 levels (an observer on P's dock cell toggling a bulb) and route instead of flapping.
+
+### Elevator v5 (12:35)
+Exact writes: presence levels (an observer on the platform's dock cell toggling a copper bulb, a
+comparator) LOCK the other write path's repeater (bottom: reset unless docked; top: set unless
+docked). An observer must never watch a lockable repeater (it fires on the lock). Judge: a press
+within DOCKED gt of an arrival or departure (before or after) may go either way; the same button
+cannot be re-pressed within 21 gt (stone button). H=5 passes every phase in redsim.
+OPEN (h=10/20 sweep): a target change that moves a flag in just after the platform docks fires the
+flag twice (its moved pulse, then the arrival relay 8 gt later) -> double kick, machine breaks.
+Fix planned: presence-gated flags (flag in only while docked AND target elsewhere; no relays): the
+moved pulse is then the only kick, always ~10 gt after docking.

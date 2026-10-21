@@ -594,6 +594,12 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     if let Some((p, _)) = log.smelted.iter().find(|(_, n)| *n == 0) {
         return fail(format!("the furnace at {p:?} never smelted (the items are not spread across the {} furnaces)", log.smelted.len()), table);
     }
+    // shared out: every furnace smelts at least two thirds of an even share (a row whose first or
+    // last furnace does most of the work is no faster than a smaller array)
+    let even = smelted / log.smelted.len().max(1) as u64;
+    if let Some((p, n)) = log.smelted.iter().find(|(_, n)| 3 * *n < 2 * even) {
+        return fail(format!("the furnace at {p:?} smelted {n} of {smelted} items (an even share is {even}: the items are not shared out across the {} furnaces)", log.smelted.len()), table);
+    }
     if let Some(e) = log.loose.first() {
         return fail(format!("{} entit{} alive at the end ({e}...)", log.loose.len(), if log.loose.len() == 1 { "y" } else { "ies" }), table);
     }
