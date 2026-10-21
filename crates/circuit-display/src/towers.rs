@@ -568,8 +568,8 @@ impl World {
 const NAMES: [char; 7] = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
 pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, name: &str) -> Result<()> {
-    if pitch % 4 != 0 {
-        bail!("--pitch must be a multiple of 4");
+    if pitch % 2 != 0 || pitch < 2 {
+        bail!("--pitch must be even (a ring needs its support level)");
     }
     let mut w = World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48 };
     let top_max = 200;
@@ -604,22 +604,30 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
     let se = !a[3];
     let sw = a[2];
     let comps: [(&str, [i32; 2], u16, u16); 4] = [("north", [0, -1], nw, ne), ("east", [1, 0], ne, se), ("south", [0, 1], se, sw), ("west", [-1, 0], sw, nw)];
+    // need[k][j]: the tower value comparator j of ring k reads, as a tower shows it at levels 0 mod
+    // 4 (a ring at 2 mod 4 sees every tower inverted: its corners too); fneed: the rear function
     let mut need: Vec<Vec<u16>> = Vec::new();
-    for &c in &NAMES {
+    let mut fneed: Vec<Vec<u16>> = Vec::new();
+    for (k, &c) in NAMES.iter().enumerate() {
         let seg = seg_mask(c);
+        let flip = (pitch * k as i32).rem_euclid(4) == 2;
         let mut fs = Vec::new();
+        let mut gs = Vec::new();
         let mut acc = 0u16;
         for &(_, _, s1, s2) in &comps {
+            let (s1, s2) = if flip { (!s1, !s2) } else { (s1, s2) };
             let sel = !s1 & !s2;
             let row = (0..16).find(|&v| sel >> v & 1 == 1).unwrap() & 12;
             let f = (0..16).filter(|&v| seg >> (row | (v & 3)) & 1 == 1).fold(0u16, |m, v| m | 1 << v);
             acc |= f & sel;
             fs.push(f);
+            gs.push(if flip { !f } else { f });
         }
         if acc != seg {
             bail!("segment {c}: the rows do not cover it");
         }
-        need.push(fs);
+        need.push(gs);
+        fneed.push(fs);
     }
     // per side of the ring (west, north, south, east): a literal pair, an a1 tower of even base
     // and an a0 tower of odd base (their phase patterns differ: at the 4 levels mod 4 they show
@@ -678,7 +686,7 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
         2 => (-x, -z),
         _ => (z, -x),
     };
-    let fn_slots_n = [(-3, -5), (2, -5), (0, -10), (-5, -10), (5, -10), (-10, -10)];
+    let fn_slots_n = [(-3, -5), (2, -5), (0, -10), (-5, -10), (5, -10), (-10, -10), (3, -15), (-2, -15)];
     let lit_slots_n = [(-7, -12), (-3, -12), (1, -12), (5, -12)];
     let relay_slots_ne = [(9, -9), (13, -12), (9, -14)];
     let rot = |j: usize, s: (i32, i32)| rot(j % 4, s);
@@ -718,8 +726,11 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
                 // a helper only an XOR reads takes the far slots
                 slots.reverse();
             }
-            let id = build(&mut w, f, &format!("F{f:04x}{side}"), slots)?;
-            ftower.insert((f, jj), id);
+            if let Ok(id) = build(&mut w, f, &format!("F{f:04x}{side}"), slots) {
+                ftower.insert((f, jj), id);
+            } else if !ftower.keys().any(|k| k.0 == f) {
+                eprintln!("no slot for F{f:04x}{side}: a tower of another side serves it");
+            }
         }
     }
     for c in w.planned.clone() {
@@ -728,22 +739,7 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
     let bottom = w.cells.keys().filter(|p| matches!(w.cells[*p], K::Dust)).map(|p| p[1]).max().unwrap_or(0);
     let l0 = (bottom + 3 + 3) / 4 * 4;
     let ring_levels: Vec<i32> = (0..7).map(|k| l0 + pitch * k as i32).collect();
-    // trim every tower to its last use
-    for (k, fs) in need.iter().enumerate() {
-        for (j, f) in fs.iter().enumerate() {
-            if let Some(&id) = ftower.get(&(*f, j)) {
-                w.towers[id].uses.push(ring_levels[k]);
-            }
-        }
-    }
-    for i in 0..w.towers.len() {
-        let mut top = w.towers[i].uses.iter().copied().max().unwrap_or(w.towers[i].b);
-        if w.towers[i].label.starts_with(['N', 'S']) {
-            top = ring_levels[6];
-        }
-        w.trim(i, top);
-    }
-    place_rings(&mut w, &ring_levels, &comps, &need, &mut design)?;
+    place_rings(&mut w, &ring_levels, &comps, &fneed, &mut design)?;
     for (k, fs) in need.iter().enumerate() {
         let l = ring_levels[k];
         for (j, &(_, d, _, _)) in comps.iter().enumerate() {
@@ -752,11 +748,28 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
                 continue;
             }
             let target = [2 * d[0], l, 2 * d[1]];
-            let id = ftower[&(f, j)];
-            if w.route(target, &[id]).is_none() {
-                bail!("ring {} ({}): no feed line from {} to the {} rear", k, NAMES[k], w.towers[id].label, comps[j].0);
+            let id = ftower.get(&(f, j)).copied();
+            let mut cands: Vec<usize> = (0..w.towers.len()).filter(|&i| w.towers[i].value(0) == f && Some(i) != id).collect();
+            cands.sort_by_key(|&i| (w.towers[i].x - target[0]).abs() + (w.towers[i].z - target[2]).abs());
+            let mut done = false;
+            for i in id.into_iter().chain(cands) {
+                if w.route(target, &[i]).is_some() {
+                    done = true;
+                    break;
+                }
+            }
+            if !done {
+                bail!("ring {} ({}): no feed line for F{f:04x} to the {} rear", k, NAMES[k], comps[j].0);
             }
         }
+    }
+    // trim every tower to its last use (the corner towers to the top ring)
+    for i in 0..w.towers.len() {
+        let mut top = w.towers[i].uses.iter().copied().max().unwrap_or(w.towers[i].b);
+        if w.towers[i].label.starts_with(['N', 'S']) {
+            top = ring_levels[6];
+        }
+        w.trim(i, top);
     }
     emit(&w, &mut design);
     let mut text = design.to_text();

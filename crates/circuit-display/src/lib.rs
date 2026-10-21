@@ -27,7 +27,7 @@ enum Cmd {
     Towers {
         #[arg(long)]
         out: PathBuf,
-        /// Levels between two rings (a multiple of 4: a tower shows the same polarity there).
+        /// Levels between two rings (even; at 2 mod 4 every tower shows the ring its complement).
         #[arg(long, default_value_t = 4)]
         pitch: i32,
         /// Half-width of the square the towers may stand in.
