@@ -211,6 +211,31 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
     site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
+/// Each input's button as the 3D view labels it, in `inputs` order (critique 058332315: a page
+/// named "D0 … K2" where the view's buttons say "Dial 1 … Code 3"): webrender's own
+/// `mcview::circuit::input_label` (a lock frame's tag "DIAL 1" is its button "Dial 1", as the
+/// viewer's bar writes it; any other input's tag is its button). Empty when the viewer cannot
+/// read the design.
+fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
+    let Ok(d) = mcview::design::Design::parse(text) else { return Vec::new() };
+    let vi = mcview::circuit::inputs(&d);
+    inputs
+        .iter()
+        .map(|n| {
+            vi.iter()
+                .find(|ci| &ci.name == n)
+                .map(|ci| {
+                    let tag = mcview::circuit::input_label(&d, ci);
+                    match tag.split_once(' ') {
+                        Some((w, k)) if ci.how == mcview::circuit::InputHow::Frame && !w.is_empty() => format!("{}{} {k}", &w[..1], w[1..].to_lowercase()),
+                        _ => tag,
+                    }
+                })
+                .unwrap_or_else(|| n.to_uppercase())
+        })
+        .collect()
+}
+
 fn details(c: &Design, min_pulse: Option<u32>) -> Details {
     let devices: Vec<String> = c
         .inputs
@@ -695,6 +720,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     metrics,
                     verdict: r.summary.clone(),
                     inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),
+                    input_labels: viewer_input_labels(&text, &parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default()),
                     outputs: parsed.as_ref().map(|p| p.outputs.clone()).unwrap_or_default(),
                     direction: parsed.as_ref().map(|p| p.direction.clone()).unwrap_or_default(),
                     family: r.family.clone(),

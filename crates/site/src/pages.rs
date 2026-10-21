@@ -372,6 +372,13 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     if b.circuit.is_some() {
         body.push_str(&picker);
     }
+    // what it needs where you build it (a height, water, a loading recipe), right under the view
+    // (critique b0fb9ae4e: above it, the sorter's recipe pushed the view off a phone's first
+    // screen)
+    let needs = crate::plain::needs(b, design_text);
+    if !needs.is_empty() {
+        body.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
+    }
     // one door card; every clock a card of its own (vjeux 01:24Z): no clock stands for others
     if b.door.is_some() {
         body.push_str(&door_table(site, b, prefix));
@@ -495,12 +502,10 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         },
         _ => String::new(),
     };
-    let mut warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
-    // what it needs where you build it, in the opening lines too (critique, real-world lens)
-    let needs = crate::plain::needs(b, design_text);
-    if !needs.is_empty() {
-        warn.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
-    }
+    let warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
+    // (what it needs where you build it: under the 3D view, critique b0fb9ae4e: the sorter's
+    // loading recipe and its warning pushed the view off a phone's first screen; `needs_box`)
+    let _ = design_text;
     // the secondary line without what the opening sentence already says (critique: "subtitles
     // restate the opening sentence")
     let numbers = |s: &str| -> Vec<String> { s.split(|c: char| !(c.is_ascii_digit() || c == '.')).map(|t| t.trim_matches('.').to_string()).filter(|t| !t.is_empty()).collect() };

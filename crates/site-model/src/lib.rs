@@ -368,6 +368,12 @@ pub struct Circuit {
     /// the custom on-state. Pages only (not exported).
     #[serde(skip)]
     pub devices: Vec<String>,
+    /// Each input's button as the 3D view labels it (parallel to `inputs`; webrender's
+    /// `mcview::circuit::input_label`: "A", "CLK", a lock's "Dial 1"): a page names the buttons a
+    /// visitor sees (critique 058332315: "D0 … K2" where the view says "Dial 1 … Code 3"). Pages
+    /// only (not exported).
+    #[serde(skip)]
+    pub input_labels: Vec<String>,
     /// The judge's stimulus as the design format's `stimulus:` text (per input its edges), for
     /// the viewer's demo (`data-stimulus`), and its labeled phases (`from-to label; ...`). Pages
     /// only.
