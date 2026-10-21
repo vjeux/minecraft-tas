@@ -46,8 +46,15 @@ at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 bl
 a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
-**tnt-airburst** (58 blocks, 13.2/min, every TNT bit for bit at one point in mid-air, safe on the
-ground, game-robust), archived again as its own card ("precise air burst").
+**tnt-airburst** (50 blocks, 22.2/min, every TNT bit for bit at one point in mid-air 8.7 blocks
+above the channel, safe on the ground, game-robust; its own card "precise air burst"), rebuilt from
+catalog parts after vjeux 01:00Z ("massively simplify"): the precise drop's torch-held engine with a
+7-block catalog P54 clock (clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02); the 58b's launcher geometry (the
+x-stop is a fence post standing on the launcher slime, so every neighbor of the raised slime is air
+and nothing is dragged back down); the next engine push, seen by an observer at the frame, goes down
+four observers and a delay-2 repeater (a sticky piston answers a bare 2-tick observer pulse by
+dropping its block) to the launcher: the launch comes 64 ticks after the TNT was lit (fuse 14), while
+the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
 The PRECISE DROP (vjeux 01:00Z, tree farms): **tnt-precise-drop** (46 blocks, 36.4/min, game-robust):
 every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
