@@ -312,6 +312,84 @@ pub fn shulker_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::endless(loader, item, cells("items"), cells("boxes"), cells("output"), rejects))
 }
 
+/// An item sorter (study 13, `circuit: sorter <item>`: a slice sends every item of its kind into
+/// its chest and lets every other item go on along the line).
+pub fn is_sorter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("sorter"))
+}
+
+/// The sorter judge's visits: every 20 gt (`circuit::shulker::SEG`, `circuit::sorter`'s `drive`).
+pub const SORTER_SEG: u32 = 20;
+/// How many times the viewer's sorter run repeats its judge's stream (an endless run, as far as
+/// anyone watches: a pass takes minutes at a hopper's pace).
+pub const SORTER_PASSES: usize = 8;
+
+/// The kinds of the sorter judge's stream besides the sorted ones, by max stack
+/// (`circuit::sorter::JUNK64`, `JUNK16`, `JUNK1`).
+const SORTER_JUNK64: [&str; 5] = ["cobblestone", "stone", "iron_block", "slime_block", "heavy_weighted_pressure_plate"];
+const SORTER_JUNK16: [&str; 3] = ["snowball", "ender_pearl", "bucket"];
+const SORTER_JUNK1: [&str; 3] = ["iron_shovel", "wooden_shovel", "diamond_sword"];
+
+/// The item kinds a design's own containers hold (its `nbt:` lines' `id:"..."`, without
+/// `minecraft:`): a sorter's recipe and fillers, which the judge's stream leaves out.
+pub fn design_kinds(d: &Design) -> Vec<String> {
+    let mut v: Vec<String> = Vec::new();
+    for nbt in d.block_entities.values() {
+        let mut rest = nbt.as_str();
+        while let Some(i) = rest.find("id:\"") {
+            rest = &rest[i + 4..];
+            let Some(j) = rest.find('"') else { break };
+            let id = rest[..j].strip_prefix("minecraft:").unwrap_or(&rest[..j]).to_string();
+            rest = &rest[j..];
+            if !v.contains(&id) {
+                v.push(id);
+            }
+        }
+    }
+    v
+}
+
+/// The sorter judge's base stream for a design sorting `kind` (`circuit::sorter::Scenario::base`:
+/// its kind mixed with 64-stack, 16-stack and unstackable kinds, full and partial stacks, runs of
+/// its kind back to back), the kinds the design holds left out; None when too many are.
+pub fn sorter_stream(kind: &str, avoid: &[String]) -> Option<Vec<redsim::redstone::container::Stack>> {
+    use redsim::redstone::container as rc;
+    let k = kind.strip_prefix("minecraft:").unwrap_or(kind).to_string();
+    let mut av = avoid.to_vec();
+    av.push(k.clone());
+    let pick = |from: &[&'static str], n: usize| -> Vec<&'static str> { from.iter().filter(|x| !av.iter().any(|a| a == *x)).take(n).copied().collect() };
+    let (j, s, u) = (pick(&SORTER_JUNK64, 3), pick(&SORTER_JUNK16, 2), pick(&SORTER_JUNK1, 1));
+    if j.len() < 3 || s.len() < 2 || u.is_empty() {
+        return None;
+    }
+    let st = |id: &str, n: u32| -> Option<rc::Stack> {
+        let item = rc::item_id(id)?;
+        Some(rc::Stack::new(item, n.min(rc::max_stack_of(id) as u32) as u8))
+    };
+    [st(&k, 64), st(j[0], 64), st(&k, 20), st(s[0], 16), st(j[1], 37), st(&k, 64), st(&k, 64), st(u[0], 1), st(s[1], 5), st(&k, 33), st(j[2], 64), st(u[0], 1), st(&k, 1), st(j[0], 10), st(&k, 64)].into_iter().collect()
+}
+
+/// The sorter judge's chests on a sorter's ports (`circuit::sorter`: one on each `items`, `pass`
+/// and `output` port, air cells): its source topped up from the judge's base stream
+/// ([`sorter_stream`], [`SORTER_PASSES`] times over) and its sinks emptied at every visit, every
+/// [`SORTER_SEG`] gt (redsim's chest driver, `redstone::shulker::Chests`, as a loader's: the
+/// sources topped up from a queue, the outputs emptied).
+pub fn sorter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_sorter(d) {
+        return None;
+    }
+    let kind = d.meta.get("circuit")?.split_whitespace().nth(1)?;
+    let stream = sorter_stream(kind, &design_kinds(d))?;
+    let cells = |name: &str| -> Vec<redsim::pos::BlockPos> {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v.into_iter().map(crate::session::bp).collect()
+    };
+    let queue: Vec<_> = (0..SORTER_PASSES).flat_map(|_| stream.iter().copied()).collect();
+    let sinks: Vec<_> = cells("pass").into_iter().chain(cells("output")).collect();
+    Some(redsim::redstone::shulker::Chests::judged(true, cells("items"), Vec::new(), sinks, Vec::new(), Vec::new(), queue))
+}
+
 /// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
 /// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
 /// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
@@ -373,7 +451,7 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {

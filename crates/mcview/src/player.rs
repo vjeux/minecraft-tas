@@ -507,6 +507,16 @@ impl Player {
         self.dirty = true;
     }
 
+    /// The live viewer's default camera at its CSS size (`scene::live_camera`: on a phone, clear
+    /// of the Record pill when the build would come out under it); returns the window it used.
+    pub fn frame_live(&mut self, atlas: &Atlas, w: f32, h: f32) -> (f32, f32, f32) {
+        let (cam, window) = scene::live_camera(atlas, &self.session, &self.look, w, h);
+        self.camera = cam;
+        self.home = cam;
+        self.dirty = true;
+        window
+    }
+
     /// Flip a door's lever (or the first input).
     pub fn flip(&mut self) -> bool {
         self.stop_demo();

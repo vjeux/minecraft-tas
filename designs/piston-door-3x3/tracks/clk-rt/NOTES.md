@@ -34,6 +34,11 @@ boxed-in wiggle piston P and on islands.
   (q68*, q69*, r69*, vq78), c70b's smaller/mm/* and mm-w1 (65 plans, in-plane inputs moved off the
   plane first) and pockets' svc (137 plans): no other shuttle works. Most of these plans have no
   unfed piston at all (their walls are islands and loads, not boxed pistons).
+- Load relief (fly, 01:14Z: m69T bot6's bottom-left makes 8 ticks from 3 cells): `--partial`
+  finds only (0,-4) open t6 (a shuttle in the bottom-right row); the spare check finds more: as one
+  train, (-2,3) t0, (-1,-2) t9 and (3,4) t10 drop on both edges (32 positions; top6: (-1,-2) t3,
+  (3,4) t6). `--spare-only` over fly's wip: r69t drops 9 pulses together, q68 / q68c / q69c / q69h /
+  vq78 4, q68e/f / q69i / r69 3.
 
 ## 3. s69 (fly's 6x9) with Qv fed by the carried observer: wip/s69z.txt + wip/s69z.ideal
 - pockets3's pick (00:19Z): s69 is the closest on structure; its hard blockers are the 2-cell

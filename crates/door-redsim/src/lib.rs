@@ -57,6 +57,9 @@ pub enum DoorCmd {
     /// the others by `--rest` (ticks evaluated and written as numbers); for trying an area that
     /// starts later than the lever without editing the plan by hand.
     ShiftPlan(cmd::ideal::ShiftPlanArgs),
+    /// Drop every input pulse a `door ideal` plan does not need (greedy, latest first, each drop
+    /// kept only while the plan with all drops so far still works): lighter wiring areas.
+    PrunePlan(cmd::ideal::PrunePlanArgs),
     /// Replace a plan's ideal inputs by OBSERVERS watching the mechanism itself (piston-door
     /// selffeed.rs, track pext): for each input, every observer in a free plane cell that powers
     /// the same piston (directly, through the cell above it, or through a solid block touching
@@ -93,6 +96,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
         DoorCmd::Feeds(a) => cmd::ideal::cmd_feeds(a),
         DoorCmd::ShiftPlan(a) => cmd::ideal::cmd_shift_plan(a),
+        DoorCmd::PrunePlan(a) => cmd::ideal::cmd_prune_plan(a),
         DoorCmd::Selffeed(a) => cmd::selffeed::cmd_selffeed(a),
         DoorCmd::Interleave(a) => cmd::selffeed::cmd_interleave(a),
         DoorCmd::Shuttle(a) => cmd::shuttle::cmd_shuttle(a),

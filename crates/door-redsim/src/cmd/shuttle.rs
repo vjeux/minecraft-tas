@@ -21,6 +21,18 @@ pub struct ShuttleArgs {
     /// Only the target pulses of one edge: `open` or `close` (default: both).
     #[arg(long)]
     edge: Option<String>,
+    /// Also keep shuttles that replace only some of the target pulses (most first; the rest stay
+    /// ideal): load relief for an overloaded area.
+    #[arg(long)]
+    partial: bool,
+    /// The plan is ONE pulse train for both edges (`door interleave`): spare ticks are dropped only
+    /// with both edges' copies together.
+    #[arg(long)]
+    train: bool,
+    /// Only report spare pulses (each alone, then the largest set dropped together; every input
+    /// when no --target is given): load relief with no shuttle at all.
+    #[arg(long)]
+    spare_only: bool,
     /// Ticks the shuttle piston stays powered per pulse (>= 3: a sticky piston drops its block on
     /// shorter pulses), comma separated.
     #[arg(long, default_value = "3,4,5,6,8,10,12")]
@@ -76,7 +88,7 @@ where
 }
 
 pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
-    let ShuttleArgs { schedule, per_cell, target, unfed, edge, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
+    let ShuttleArgs { schedule, per_cell, target, unfed, edge, partial, train, spare_only, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
     let edge = match edge.as_deref() {
         None => None,
         Some("open") => Some(true),
@@ -90,11 +102,11 @@ pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
         anyhow::ensure!(v.len() == 3, "--target x,y,z");
         targets.push([v[0], v[1], v[2]]);
     }
-    anyhow::ensure!(unfed || !targets.is_empty(), "give --target cells or --unfed");
+    anyhow::ensure!(unfed || spare_only || !targets.is_empty(), "give --target cells, --unfed or --spare-only");
     let holds: Vec<u32> = list(&holds)?;
     anyhow::ensure!(holds.iter().all(|&h| h >= 3), "--holds: every hold >= 3 (a sticky piston drops its block on a 1-2 gt pulse)");
     let payloads: Vec<String> = payload.split(',').map(|s| s.trim().to_string()).collect();
     anyhow::ensure!(payloads.iter().all(|p| p == "observer" || p == "redstone_block"), "--payload: observer, redstone_block");
-    let o = crate::shuttle::Options { targets, edge, unfed, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
+    let o = crate::shuttle::Options { targets, edge, unfed, partial, train, spare_only, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
     crate::shuttle::cli(&schedule, &o, per_cell)
 }

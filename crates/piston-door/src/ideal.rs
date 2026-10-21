@@ -152,10 +152,16 @@ impl Schedule {
     }
 
     /// A plan's text with every event's tick moved: events on a cell listed in `shifts` by its
-    /// shift, the others by `rest`. Ticks are evaluated with the plan's `let`s and written as
-    /// numbers; other lines are kept. Fails on a tick that would become negative. For trying a
-    /// re-timed plan (one area started later than the lever, say) without editing it by hand.
-    pub fn shift_text(text: &str, shifts: &[(Pos, i64)], rest: i64) -> Result<String> {
+    /// shift, the others by `rest`. A shift is a number of ticks, or `@name`: the tick becomes
+    /// `name+<tick>` and a `let name = 0` goes before the first event, for `ideal-rs --sweep`.
+    /// Ticks are evaluated with the plan's `let`s and written as numbers; other lines are kept.
+    /// Fails on a tick that would become negative. For trying a re-timed plan (one area started
+    /// later than the lever, say) without editing it by hand.
+    pub fn shift_text(text: &str, shifts: &[(Pos, String)], rest: &str) -> Result<String> {
+        let mut names: Vec<&str> = shifts.iter().map(|(_, s)| s.as_str()).chain(std::iter::once(rest)).filter_map(|s| s.strip_prefix('@')).collect();
+        names.sort();
+        names.dedup();
+        let mut declared = false;
         let mut vars = BTreeMap::new();
         let mut out = String::new();
         for (i, raw) in text.lines().enumerate() {
@@ -170,12 +176,24 @@ impl Schedule {
                 vars.insert(k.trim().to_string(), eval(v.trim(), &vars).with_context(ctx)?);
             }
             if p.len() >= 6 && (p[0] == "open" || p[0] == "close") {
+                if !declared {
+                    for n in &names {
+                        out += &format!("let {n} = 0\n");
+                    }
+                    declared = true;
+                }
                 let int = |s: &str| s.parse::<i32>().with_context(ctx);
                 let pos = [int(p[3])?, int(p[4])?, int(p[5])?];
-                let k = shifts.iter().find(|(c, _)| *c == pos).map_or(rest, |(_, k)| *k);
-                let t = eval(p[1], &vars).with_context(ctx)? + k;
-                anyhow::ensure!(t >= 0, "tick {t} < 0 after the shift: {}", ctx());
-                let tick = t.to_string();
+                let s = shifts.iter().find(|(c, _)| *c == pos).map_or(rest, |(_, s)| s.as_str());
+                let t0 = eval(p[1], &vars).with_context(ctx)?;
+                let tick = match s.strip_prefix('@') {
+                    Some(n) => format!("{n}+{t0}"),
+                    None => {
+                        let t = t0 + s.parse::<i64>().with_context(|| format!("shift {s:?}"))?;
+                        anyhow::ensure!(t >= 0, "tick {t} < 0 after the shift: {}", ctx());
+                        t.to_string()
+                    }
+                };
                 let mut q = p.clone();
                 q[1] = &tick;
                 out += &q.join(" ");
