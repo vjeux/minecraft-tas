@@ -1,5 +1,4 @@
-# archived 2026-10-20T07:54Z from designs/circuits/shulker/tracks/shulker-speed/unloader-small.txt by mctas circuit archive
-# CIRCUIT: shulker-small-unloader shulker-unloader boxes/min 0.087, items/s 2.50, first box 13849 gt, cycle 13832 gt, hoppers awake 3, badges always-on+16-stack+unstackable+colours+box-starved+drop-free+tileable(5), bill 16 iron, 5 quartz, 31 redstone, 1 slime, 41 blocks, 5x5x7, robust
+# rejudged (2026-10-21T18:16Z, mctas circuit archive --rejudge): FAIL: shulker-small-unloader shulker-unloader: loses a box to stray items: 1 of 3 boxes come out with stray items dropped on its open hopper tops (a jam or a lost box)
 # Smallest always-on shulker unloader so far, 41 blocks (track shulker-speed, clk-item): clk-rt's
 # always-on unloader without the hopper lock (its repeater, dust, stone and two floors) and without
 # the drop cell's side walls and the wall south of the box cell: the unloading hopper is still on its 8 gt

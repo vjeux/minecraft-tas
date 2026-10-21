@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 16] = [
+pub const STUDIES: [(&str, &str); 18] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -36,6 +36,8 @@ pub const STUDIES: [(&str, &str); 16] = [
     ("sorter", "Item sorters"),
     ("lock", "Combination locks"),
     ("display", "Seven-segment display decoders"),
+    ("random", "Randomizers"),
+    ("smelter", "Auto-smelters"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -498,6 +500,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
 fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
+        Kind::Elevator(n) => format!("height {n}"),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
@@ -570,6 +573,15 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::Randomizer(n) => format!("1 of {n}"),
+        // the furnace count; a tileable slice is its own class (it builds any count)
+        Kind::Smelter(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} furnace{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} furnace{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
     }
 }
 

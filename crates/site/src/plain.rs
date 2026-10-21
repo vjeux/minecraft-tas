@@ -221,6 +221,13 @@ pub fn one_liner(c: &Circuit) -> String {
             let rate = m(c, "items/s").trim_end_matches('0').trim_end_matches('.').to_string();
             format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a second") })
         }
+        // an auto-smelter (study 17): its furnaces, how the items get there, how fast
+        "smelter" => {
+            let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
+            let rate = m(c, "items/min per furnace").trim_end_matches('0').trim_end_matches('.').to_string();
+            let furnaces = if !m(c, "tileable").is_empty() { "the furnaces of its slices (build as many slices side by side as you need)".to_string() } else if n == 1 { "its furnace".to_string() } else { format!("its {n} furnaces") };
+            format!("Shares the items of its input chest out to {furnaces}, feeds them coal from its fuel chest and collects every result in its output chest{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a minute per furnace") })
+        }
         "burst" => format!("One press gives exactly {n} pulses{}.", if m(c, "period").is_empty() { String::new() } else { format!(", {} apart", ticks_short(m(c, "period"))) }),
         "divider" => format!(
             "Feed it a clock and the output goes on and off once for every {n} input pulses{}.",
@@ -255,6 +262,26 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
+        "randomizer" => {
+            let n = site_model::html::randomizer_n(c).unwrap_or(2);
+            let share = match n {
+                2 => "half the time".to_string(),
+                3 => "a third of the time".to_string(),
+                4 => "a quarter of the time".to_string(),
+                8 => "an eighth of the time".to_string(),
+                n => format!("1 time in {n}"),
+            };
+            let shows = match m(c, "style") {
+                "hold" => ", and it stays on until the next press picks again".to_string(),
+                "pulse" if !m(c, "pulse").is_empty() => format!(", for a pulse of {}", ticks(m(c, "pulse"))),
+                "pulse" => ", for one pulse".to_string(),
+                _ => String::new(),
+            };
+            format!("Each press lights one of its {n} outputs, picked at random, each {share}{shows}.")
+        }
+        // the adder study (w86): which adder it is (every design is `adder 1`)
+        "adder" => format!("{}.", first_cap(&crate::explain::kind_summary(&format!("adder {}", site_model::html::adder_variant(c))))),
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
@@ -268,6 +295,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         return "Download the design below to build it in the game (the 3D view needs a browser with WebGL).".to_string();
     }
     let b = base(&c.kind);
+    // a view that cannot run the design, or stops early, promises no try-it of its kind (the
+    // per-kind lines below assume a live view; the shulker machines and the locks say it their
+    // own way)
+    if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock") {
+        if !c.unmodeled.is_empty() {
+            return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+        }
+        if !c.view_halt.is_empty() {
+            let (tick, why) = crate::explain::halt_words(&c.view_halt);
+            let at = tick.map(|t| format!(" at tick {t} of our test")).unwrap_or_default();
+            return format!("The view shows it as built but stops{at}: {why}. Download it to try it in the game.");
+        }
+    }
     match b {
         // (and how to start one in the game: the judge places its start block for a tick; a
         // one-way machine with its own start lever: the lever, the coordinator 16:10Z)
@@ -307,6 +347,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
             return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
         }
+        "smelter" => return "Watch the hoppers carry the items into the top of each furnace and the coal into its side; the results drop into the output chest (the numbers over each container show what it holds).".to_string(),
         // a combination lock: how to try it in the game, and in the view when its buttons turn
         // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
         // redstone block in the frame's cell instead of turning it); how to hook a door to it
@@ -349,6 +390,24 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // "the box marked OUT" named a box it does not have)
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
+        // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
+        "randomizer" => {
+            let tags = list_words(&c.outputs.iter().map(|o| o.to_uppercase()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "or");
+            let after = match m(c, "style") {
+                "pulse" => "flashes once",
+                _ => "lights and stays lit until the next press picks again",
+            };
+            return format!("Press IN under the view, holding it a moment like a button press: one of the outputs ({tags}) {after}, at random. The view first plays our test on a loop; touch any control to take over.");
+        }
+        // an adder: what to try (which buttons, what lights), in binary
+        "adder" => {
+            let tail = " The view first plays our test on a loop; touch any control to take over.";
+            return match site_model::html::adder_variant(c) {
+                "half" => format!("Turn on A0, B0 or both with the buttons under the view: with one on, S0 (the sum) lights; with both, COUT (the carry) lights instead, because 1 + 1 = 10 in binary.{tail}"),
+                "slice" => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary). To add longer numbers, stack copies side by side: each copy's COUT is the next copy's CIN.{tail}"),
+                _ => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary).{tail}"),
+            };
         }
         _ => {}
     }
@@ -466,6 +525,10 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
+    }
+    // an auto-smelter: the fuel the test uses (other fuels fill a furnace differently)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("smelter")) {
+        out.push("Our test feeds it coal (charcoal works the same); other fuels such as lava buckets or blocks of coal may be shared out differently between the furnaces.".to_string());
     }
     // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
     // comparator cannot count non-stacking items, and other names or enchantments do not stack)
@@ -641,6 +704,11 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (Some(n), None) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
                 (None, _) => {}
             }
+        }
+        // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
+        if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
+            let list = list_words(&counts.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
+            v.push(format!("Fair in the real game: over {presses} presses in {runs} builds, its outputs came up {list} times."));
         }
         // a duper lit by one short pulse of a redstone block's removal: what its input is, and why
         // a button lights more (the judge's pulse is 4 ticks; a stone button holds 20); a duper with
@@ -826,12 +894,16 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
-    // (a caption opening on how to load it says the needs box again: its next sentence is how it
-    // works; the hidden-code locks: "Put any item in each of the 6 item frames; ...")
+    // (a caption opening on how to load or use it says the needs box or the opening line again:
+    // its next sentence is how it works; the hidden-code locks: "Put any item in each of the 6
+    // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
+    // at random, ... Inside, two droppers face each other: ...")
     let how = match how.strip_prefix(first_sentence(&how).as_str()) {
-        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") => rest.trim_start_matches(['.', ' ']).to_string(),
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || (how.starts_with("Press the button") && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
+    // ("Inside, two droppers ...": the how, without its lead-in)
+    let how = how.strip_prefix("Inside, ").map(first_cap).unwrap_or(how);
     let how = first_sentence(&how);
     if try_line.is_empty() && how.is_empty() {
         return String::new();
@@ -935,6 +1007,50 @@ mod tests {
         assert_eq!(site_model::html::effective_volume(&duper("", "0 blocks (on the ground)")), Some(64));
         // the lowest safe height counts when no stand is declared above it
         assert_eq!(site_model::html::effective_volume(&duper("", "5 blocks")), Some(64 + 16 * 5));
+    }
+
+    #[test]
+    fn a_randomizer_says_its_odds_and_its_fairness() {
+        // clk-item's rand2-token, as the archive carries it
+        let c = Circuit {
+            kind: "randomizer 2".into(),
+            axis: "1 of 2".into(),
+            metrics: vec![("style".into(), "hold".into()), ("latency".into(), "8 gt".into()), ("presses".into(), "48".into())],
+            verdict: "CIRCUIT: rand2-token randomizer 2 style hold, latency 8 gt, presses 48, 19 blocks, 10x3x1, robust (uniform: chi2 0.2 (limit 10.8) over 768 presses in 16 runs, counts 378/390)".into(),
+            outputs: vec!["a".into(), "b".into()],
+            inputs: vec!["in".into()],
+            ..Default::default()
+        };
+        assert_eq!(one_liner(&c), "Each press lights one of its 2 outputs, picked at random, each half the time, and it stays on until the next press picks again.");
+        let b = Build { circuit: Some(c.clone()), blocks: 19, ..Default::default() };
+        assert_eq!(needs(&b, ""), vec!["Fair in the real game: over 768 presses in 16 builds, its outputs came up 378 and 390 times.".to_string()]);
+        assert!(try_it(&c, true).contains("one of the outputs (A or B) lights and stays lit"), "{}", try_it(&c, true));
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "1 of 2 outputs at random · 19 blocks");
+        assert!(card.sub.contains("the chosen output stays on until the next press · lights after 8 ticks (0.4 s) · tested fair over 768 presses"), "{}", card.sub);
+        assert_eq!(site_model::html::value_words("randomizer 2", "1 of 2"), "1 of 2 outputs");
+    }
+
+    #[test]
+    fn adders_say_which_adder() {
+        // (the adder study, w86: every design is `adder 1`, its axis says which)
+        let mk = |axis: &str, inputs: &[&str]| Circuit { kind: "adder 1".into(), axis: axis.into(), inputs: inputs.iter().map(|s| s.to_string()).collect(), ..Default::default() };
+        let half = mk("half adder", &["a0", "b0"]);
+        let full = mk("full adder", &["a0", "b0", "cin"]);
+        let slice = mk("4-bit adder slice", &["a0", "b0", "cin"]);
+        assert!(one_liner(&half).starts_with("Adds two one-bit inputs"), "{}", one_liner(&half));
+        assert!(one_liner(&full).contains("a carry in (CIN)"), "{}", one_liner(&full));
+        assert!(one_liner(&slice).starts_with("A full adder made to be copied"), "{}", one_liner(&slice));
+        assert!(try_it(&slice, true).contains("stack copies side by side"));
+        assert_eq!(site_model::html::props(&Build { circuit: Some(half.clone()), blocks: 17, ..Default::default() }).title, "half adder: two bits into a sum and a carry · 17 blocks");
+        // no axis: a carry input says full
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0", "cin"])), "full");
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0"])), "half");
+        // a slice's card: its blocks per bit and its time per bit (the judge's `slice` metric)
+        let mut s = slice.clone();
+        s.metrics = vec![("latency".into(), "18 gt".into()), ("slice".into(), "54 blocks per bit, latency 18 + 12 (N-1) gt".into())];
+        let card = site_model::html::props(&Build { circuit: Some(s), blocks: 54, ..Default::default() });
+        assert!(card.sub.contains("54 blocks per bit · reacts in 18 ticks (0.9 s), 12 ticks (0.6 s) more for each bit after the first"), "{}", card.sub);
     }
 
     #[test]

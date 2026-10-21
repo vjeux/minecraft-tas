@@ -20,7 +20,7 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable\titems";
 
 /// The verdict table's header line.
 pub fn header() -> &'static str {
@@ -87,6 +87,10 @@ pub struct Row {
     /// `yes`, or `no: <why>` (a plain warning on the site, never a reason to hide); empty: not
     /// checked.
     pub usable: String,
+    /// What an item a player drops on an open hopper top does (`clock verify`'s ITEMS property,
+    /// [`crate::verify::items_property`], clk-misc 2026-10-21; a property the page states, never a
+    /// reason to hide): `ok`, or what changes; empty: no open hopper top, or not checked.
+    pub items: String,
 }
 
 impl Row {
@@ -127,6 +131,7 @@ impl Row {
             self.hidden.clone(),
             self.reload.clone(),
             self.usable.clone(),
+            self.items.clone(),
         ]
         .join("\t")
     }
@@ -157,8 +162,88 @@ impl Row {
             hidden: f.get(17).copied().unwrap_or("").into(),
             reload: f.get(18).copied().unwrap_or("").into(),
             usable: f.get(19).copied().unwrap_or("").into(),
+            items: f.get(20).copied().unwrap_or("").into(),
         })
     }
+}
+
+/// A three-way merge of verdict tables, row by row (keyed by the design file; `clock merge-rows`,
+/// clockinfra 2026-10-21: git's line union doubled main's table, the old rows after the new). Per
+/// file: our row when we changed it from `base`, else their row when they changed it (of their
+/// duplicates the one with the most columns, the last on a tie), else ours; a row one side removed
+/// stays removed. Our order, then their new files. Returns the table and the counts (ours changed,
+/// theirs taken, duplicates dropped).
+pub fn merge_rows(base: &str, ours: &str, theirs: &str) -> (String, (usize, usize, usize)) {
+    fn rows(t: &str) -> Vec<(&str, &str)> {
+        t.lines().filter(|l| !l.is_empty() && !l.starts_with("hash\t")).filter_map(|l| l.split('\t').nth(1).map(|f| (f, l))).collect()
+    }
+    let b: BTreeMap<&str, &str> = rows(base).into_iter().collect();
+    let o_rows = rows(ours);
+    let o: BTreeMap<&str, &str> = o_rows.iter().copied().collect();
+    let mut t: BTreeMap<&str, &str> = BTreeMap::new();
+    let mut dups = 0;
+    let mut t_order: Vec<&str> = Vec::new();
+    for (f, l) in rows(theirs) {
+        match t.get(f) {
+            Some(prev) => {
+                dups += 1;
+                if l.split('\t').count() >= prev.split('\t').count() {
+                    t.insert(f, l);
+                }
+            }
+            None => {
+                t.insert(f, l);
+                t_order.push(f);
+            }
+        }
+    }
+    let header = ours.lines().find(|l| l.starts_with("hash\t")).or_else(|| theirs.lines().find(|l| l.starts_with("hash\t"))).unwrap_or(HEADER);
+    let mut out = format!("{header}\n");
+    let (mut ours_changed, mut theirs_taken) = (0, 0);
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let pick = |f: &str, ours_changed: &mut usize, theirs_taken: &mut usize| -> Option<String> {
+        let (ob, ol, tl) = (b.get(f).copied(), o.get(f).copied(), t.get(f).copied());
+        match (ol, tl) {
+            (Some(ol), _) if Some(ol) != ob && ob.is_some() => {
+                *ours_changed += 1;
+                Some(ol.to_string())
+            }
+            (Some(ol), None) => {
+                // theirs removed it (it was in base) or ours added it
+                if ob.is_some() { None } else { Some(ol.to_string()) }
+            }
+            (Some(ol), Some(tl)) => {
+                if Some(tl) != ob && tl != ol {
+                    *theirs_taken += 1;
+                    Some(tl.to_string())
+                } else {
+                    Some(ol.to_string())
+                }
+            }
+            (None, Some(tl)) => {
+                // ours removed it (it was in base) or theirs added it
+                if ob.is_some() { None } else { Some(tl.to_string()) }
+            }
+            (None, None) => None,
+        }
+    };
+    for (f, _) in &o_rows {
+        if seen.insert(f)
+            && let Some(l) = pick(f, &mut ours_changed, &mut theirs_taken)
+        {
+            out.push_str(&l);
+            out.push('\n');
+        }
+    }
+    for f in t_order {
+        if seen.insert(f)
+            && let Some(l) = pick(f, &mut ours_changed, &mut theirs_taken)
+        {
+            out.push_str(&l);
+            out.push('\n');
+        }
+    }
+    (out, (ours_changed, theirs_taken, dups))
 }
 
 pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
@@ -642,6 +727,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         hidden: String::new(),
         reload: String::new(),
         usable: crate::usable::word(&crate::usable::judge(&c, crate::usable::Rule::default(), base.output.as_ref().filter(|o| !o.wave.gaps.is_empty() && o.wave.irregular().is_none()).map(|o| o.wave.gaps[0]))),
+        items: base.items.clone().unwrap_or_default(),
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);

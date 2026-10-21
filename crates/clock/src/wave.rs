@@ -96,6 +96,13 @@ pub fn be_extra_from_nbt(kind: &str, nbt: &str) -> Option<String> {
             let cd = if kind == "hopper" { format!(",cd={}", int_after("TransferCooldown:").unwrap_or(-1)) } else { String::new() };
             Some(format!("{{items={}{cd}}}", list.join(",")))
         }
+        // the smelter study (track sorter): a furnace's slots, burn time left and cooking timer
+        "furnace" => {
+            let mut items = items_of(nbt);
+            items.sort();
+            let list: Vec<String> = items.iter().map(|(s, c, i)| format!("{s}:{c}:{i}")).collect();
+            Some(format!("{{items={},lit={},cook={}}}", list.join(","), int_after("lit_time_remaining:").unwrap_or(0), int_after("cooking_time_spent:").unwrap_or(0)))
+        }
         _ => None,
     }
 }
@@ -185,6 +192,18 @@ pub fn be_extra_redsim(w: &redsim::World, p: redsim::BlockPos, b: &redsim::Block
             }
             let cd = if matches!(b, redsim::Block::Hopper { .. }) { format!(",cd={}", c.map(|c| c.cooldown).unwrap_or(-1)) } else { String::new() };
             Some(format!("{{items={}{cd}}}", list.join(",")))
+        }
+        redsim::Block::Furnace { .. } => {
+            let c = w.containers.map.get(&p);
+            let mut list: Vec<String> = Vec::new();
+            if let Some(c) = c {
+                for (slot, st) in c.slots.iter().enumerate() {
+                    if let Some(st) = st {
+                        list.push(format!("{slot}:{}:{}", st.count, redsim::redstone::container::item_name(st.item).trim_start_matches("minecraft:")));
+                    }
+                }
+            }
+            Some(format!("{{items={},lit={},cook={}}}", list.join(","), c.map(|c| c.lit_time).unwrap_or(0), c.map(|c| c.cook_timer).unwrap_or(0)))
         }
         _ => None,
     }
