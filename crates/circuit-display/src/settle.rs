@@ -42,7 +42,7 @@ pub fn run(design: &Path, out: &Path, frames: u32) -> Result<()> {
     }
     // keep the generator's `# tower` comment lines
     let mut out_text = d.to_text();
-    for l in text.lines().filter(|l| l.starts_with("# tower ")) {
+    for l in text.lines().filter(|l| l.starts_with("# tower ") || l.starts_with("# roles ") || l.starts_with("# comp ")) {
         out_text.push_str(l);
         out_text.push('\n');
     }

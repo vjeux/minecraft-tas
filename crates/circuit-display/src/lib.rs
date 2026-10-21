@@ -5,6 +5,7 @@
 
 pub mod check;
 pub mod settle;
+pub mod stack;
 pub mod towers;
 
 use anyhow::Result;
@@ -25,6 +26,16 @@ enum Cmd {
     /// functions come from torch towers (both literal polarities, the row functions of a1 a0),
     /// every tower and feed line routed by a small search. Writes the design to `--out`.
     Towers(towers::Opts),
+    /// The compact stack (crates/circuit-display/src/towers/stack_build.rs) of a stack-search
+    /// solution: rings every 2 levels in a 9x9 column, rear columns as torch chains plus injections.
+    Stack(towers::stack_build::StackOpts),
+    /// The compact stack's feasibility search (crates/circuit-display/src/stack.rs): segment
+    /// orders x corner assignments whose 4 rear columns are torch chains plus 2 literal injections.
+    StackSearch {
+        /// Bit 0: no outer injection (7x7); bit 1: no Y1 side dust.
+        #[arg(long, default_value_t = 0)]
+        model: u8,
+    },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
     Check {
@@ -48,6 +59,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit display".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
         Cmd::Towers(o) => towers::run(&o),
+        Cmd::Stack(o) => towers::stack_build::run(&o),
+        Cmd::StackSearch { model } => stack::search(model),
         Cmd::Check { design, hold } => check::run(&design, hold),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }

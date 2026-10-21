@@ -18,6 +18,14 @@ use std::path::Path;
 type P = [i32; 3];
 const H: [[i32; 2]; 4] = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
+pub mod stack_build;
+
+impl World {
+    fn new(radius: i32, max_line: usize, spacing: i32) -> World {
+        World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48 }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum K {
     Stone,
@@ -30,6 +38,8 @@ enum K {
     TBlock(usize),
     TTorch(usize),
     Comp(&'static str),
+    /// A torch that is no tower's (a rear column's chain torch).
+    Torch,
     RBlock,
     Lamp,
     /// Air that must stay air.
@@ -191,7 +201,7 @@ impl World {
                     Some(K::Rep(_)) => '>',
                     Some(K::Corner) => 'c',
                     Some(K::TBlock(_)) => '#',
-                    Some(K::TTorch(_)) => 'i',
+                    Some(K::TTorch(_) | K::Torch) => 'i',
                     Some(K::Comp(_)) => 'C',
                     Some(K::RBlock) => 'X',
                     Some(K::Lamp) => 'L',
@@ -822,7 +832,12 @@ pub fn run(o: &Opts) -> Result<()> {
         }
         w.trim(i, top);
     }
-    emit(&w, &mut design);
+    write_design(&w, &mut design, out)
+}
+
+/// Emit the world into the design and write it with the `# tower` lines `display check` reads.
+fn write_design(w: &World, design: &mut Design, out: &std::path::Path) -> Result<()> {
+    emit(w, design);
     let mut text = design.to_text();
     for t in &w.towers {
         text.push_str(&format!("# tower {} {} {} {} {} {:04x}\n", t.label.replace(' ', "_"), t.x, t.z, t.b, t.top, t.s));
@@ -869,7 +884,7 @@ fn emit(w: &World, design: &mut Design) {
             K::Stone | K::Target => "minecraft:stone".to_string(),
             K::TBlock(i) if p[1] == w.towers[*i].b && p[1] < 0 => continue,
             K::TBlock(_) => "minecraft:stone".to_string(),
-            K::TTorch(_) => "minecraft:redstone_torch".to_string(),
+            K::TTorch(_) | K::Torch => "minecraft:redstone_torch".to_string(),
             K::Dust | K::Corner => "minecraft:redstone_wire".to_string(),
             K::Comp(f) => format!("minecraft:comparator[facing={f},mode=subtract]"),
             K::RBlock => "minecraft:redstone_block".to_string(),
