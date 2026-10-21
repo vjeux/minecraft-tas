@@ -39,7 +39,8 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
-| lock3-lines | 3 | 102 (+6 frames) | 8 / 8 gt | ARCHIVED: every combination of 2 codes, robust |
+| lock3-tern | 3 | 93 (+6 frames), 6x3x12 = 216 | 6 / 8 gt | ARCHIVED (the one design): ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
+| lock3-lines | 3 | 102 (+6 frames), 6x5x10 = 300 | 8 / 8 gt | replaced by lock3-tern |
 | lock1-tern (ternary dial) | 1 | 32 (+2 frames), 7x3x5 | 6 / 8 gt | passes the judge at 4 positions (robust); the same dial in the two-subtractor core costs 51 |
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
 
@@ -101,6 +102,13 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 
 - `circuit shrink` (game-judged, 2 positions x 4 rotations) on lock3-lines: no single block can go
   (96 candidate blocks): the 102 is a layout minimum, not a padding one.
+- lock3-tern (93): redsim local census `--remove 1`: none of its 87 removable blocks can go. Where
+  its blocks go: per dial 22 (Bd, T, D1, D2, R, the code stub + K dust + K + Bk, the cutter above
+  the low route; level 1: 7 supports, the low torch A, 2 route dusts; level 0: 2 route supports),
+  the bus 20 (10 dusts + 10 supports), the output torch 1. Next targets: (a) the bus: dials closer
+  along it, or the R outputs and routes entering it at fewer cells; (b) pitch 4 -> 3 (now T of the
+  next dial reads the code dust on its side: mirror alternate dials so two code lines share no T
+  side); (c) the low route (6 per dial): A directly beside the bus.
 - FORCING CHAIN (next to try): dial i's mismatch, high (its delay-2 repeater) or low (its torch),
   powers dial i+1's frame block Bd at 15 (a dust ON TOP of Bd fed by both: dust powers the block
   under it at its level, and a torch next to the dust lifts it to 15). Dial i+1 then reads 15,
