@@ -21,6 +21,7 @@ pub mod labels;
 pub mod light;
 pub mod mesh;
 pub mod models;
+pub mod particles;
 pub mod pick;
 pub mod player;
 pub mod render;
