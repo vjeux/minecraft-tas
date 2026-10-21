@@ -180,12 +180,25 @@ fn ring_cost(s: &Solved) -> usize {
     crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
     b.dust([0, 0, 0]);
     b.supports();
+    if std::env::var("RINGS2_DUMP").is_ok() {
+        let mut kinds: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+        for s in b.blocks.values() {
+            *kinds.entry(s.split('[').next().unwrap_or("").trim_start_matches("minecraft:").to_string()).or_default() += 1;
+        }
+        println!("    ring blocks by kind: {kinds:?}");
+    }
     b.blocks.len()
 }
 
-pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, out: &std::path::Path) -> Result<()> {
+pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, off: &str, out: &std::path::Path) -> Result<()> {
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
+    // --off SEGS: those rings compute the segment's complement (its OFF runs); their lanes invert
+    // it back through a torch between two filtering repeaters (middle stack only)
+    let seg_mask = |seg: char| {
+        let mk = m["abcdefg".find(seg).unwrap()];
+        if off.contains(seg) { !mk } else { mk }
+    };
     let cz = 5;
     // --tight: the side stacks one cell closer (no gap column between the stacks' arcs: they sit
     // at odd and even levels, and the diagonal dust steps between them are cut by the arc
@@ -215,7 +228,7 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
         let mut v = Vec::new();
         for (i, &(seg, _row, level)) in st.rings.iter().enumerate() {
             let si = "abcdefg".find(seg).unwrap();
-            let rs = runs(m[si]);
+            let rs = runs(seg_mask(seg));
             // every feed option (coupling only for a lower ring with --lean; a line of its own;
             // a line and a second feed), each pruned with `tries` orders: the cheapest ring plus
             // feed cost whose coupling still lets the ring below solve
@@ -252,7 +265,7 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             }
             ensure!(!vs.is_empty(), "no ring for {seg} {rs:?} (above {above:?})");
             vs.sort_by_key(|x| x.0);
-            let below = st.rings.get(i + 1).map(|&(bs, _, _)| runs(m["abcdefg".find(bs).unwrap()]));
+            let below = st.rings.get(i + 1).map(|&(bs, _, _)| runs(seg_mask(bs)));
             let pick = vs
                 .iter()
                 .position(|(_, v)| {
@@ -344,8 +357,21 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             let y = level - 1;
             ensure!(y == row, "ring {seg} at {level}, lamp row {row}");
             let lane_x = st.cx;
-            b.rep([lane_x, y, cz - 1], D::N, 1);
+            // --deglitch: the lane's first repeater at delay `deglitch` (a repeater stays on when its
+            // input drops for less than its delay: Java's DiodeBlock re-checks the input at the
+            // scheduled tick), so the rings' short hand-over dips never reach the lamp
+            b.rep([lane_x, y, cz - 1], D::N, if deglitch > 0 { deglitch } else { 1 });
             b.stone([lane_x, y, cz - 2]);
+            if off.contains(seg) {
+                // the ring gives NOT(segment): the first repeater (delay `deglitch`) drops its
+                // short dips (the segment's short pulses); a wall torch on the stone inverts it; a
+                // delay-4 repeater drops the segment's short dips and lights the lamp
+                ensure!(st.turn == 0 && cz == 5, "--off is for the middle stack's lanes");
+                b.set([lane_x, y, cz - 3], "redstone_wall_torch[facing=north,lit=true]");
+                b.rep([lane_x, y, 1], D::N, 4);
+                b.port(&format!("output.{seg}"), [lamp_x(seg), row, 0]);
+                continue;
+            }
             b.rep([lane_x, y, cz - 3], D::N, 1);
             for z in 1..cz - 3 {
                 b.rep([lane_x, y, z], D::N, 1);

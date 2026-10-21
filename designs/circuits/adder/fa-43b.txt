@@ -1,0 +1,43 @@
+name: fa-43b
+# w86 2026-10-21: full adder from two copies of the synthesized half adder ha-17b. The first half adder's sum
+# lands on a stone at (0,1,-1); that powered stone is the SECOND half adder's b input (its dust lies next to
+# it), and the carry in is the second's a input (its torch hangs on cin's cell). The first carry's stone is
+# read by a repeater and a short dust line ending in the output lamp, which also touches the second carry's
+# stone: the lamp lights when either carry is on.
+circuit: adder 1
+port input.a0: 3 1 -1
+port input.b0: 2 1 3
+port input.cin: 1 1 -5
+port output.s0: -2 1 -5
+port output.cout: -2 1 -1
+origin: -2 0 -5
+palette:
+  R minecraft:redstone_block
+  S minecraft:stone
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  a minecraft:comparator[facing=south,mode=subtract,powered=false]
+  b minecraft:comparator[facing=east,mode=subtract,powered=false]
+  t minecraft:redstone_wall_torch[facing=south,lit=true]
+  u minecraft:redstone_wall_torch[facing=north,lit=true]
+  p minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  r minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+layer 0:
+  ......
+  RSS...
+  .SS...
+  .SS...
+  ......
+  S.RSS.
+  S..SS.
+  SS.SS.
+  ......
+layer 1:
+  ......
+  adbt..
+  upd...
+  Sbd...
+  ..S...
+  d.adbt
+  d.upd.
+  drSbd.
+  ......
