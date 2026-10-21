@@ -858,18 +858,70 @@ pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32
         lines.push(format!("# {} t{t} {:?} {what}: window [{lo:+}, {hi:+}]", if g.phase == 0 { "open " } else { "close" }, q));
     }
     for (phase, evs) in ev.iter().enumerate() {
-        let mut evs = evs.clone();
-        evs.sort_by_key(|x| x.0);
-        for (t, q, st) in &evs {
-            let ph = if phase == 0 { "open" } else { "close" };
-            lines.push(match st.as_deref() {
-                Some("@use") => format!("{ph} {t} use {} {} {}", q[0], q[1], q[2]),
-                Some(b) => format!("{ph} {t} set {} {} {} {b}", q[0], q[1], q[2]),
-                None => format!("{ph} {t} clear {} {} {}", q[0], q[1], q[2]),
-            });
-        }
+        lines.extend(event_lines(phase, evs));
     }
     std::fs::write(out, lines.join("\n") + "\n")?;
     println!("wrote {} (last input t{}, open {o1} / close {c1})", out.display(), span(&ev));
+    Ok(())
+}
+
+/// One phase's events as plan lines (`open|close <t> set|clear|use x y z [block]`), by tick.
+fn event_lines(phase: usize, evs: &[Ev]) -> Vec<String> {
+    let mut evs = evs.to_vec();
+    evs.sort_by_key(|x| x.0);
+    let ph = if phase == 0 { "open" } else { "close" };
+    evs.iter()
+        .map(|(t, q, st)| match st.as_deref() {
+            Some("@use") => format!("{ph} {t} use {} {} {}", q[0], q[1], q[2]),
+            Some(b) => format!("{ph} {t} set {} {} {} {b}", q[0], q[1], q[2]),
+            None => format!("{ph} {t} clear {} {} {}", q[0], q[1], q[2]),
+        })
+        .collect()
+}
+
+/// `door prune-plan`: drop every input PULSE (a `set` and its `clear`) the plan does not need,
+/// greedily, latest pulse first, each drop kept only while the plan with all drops so far still
+/// works (screened at the 4 default positions, then confirmed at `extra_offsets`). Lone level edges,
+/// lever uses and the `keep` cells stay. A pulse the plan works without ALONE (`door shuttle`
+/// lists those) often cannot go together with the others; this finds a set that can. Fewer pulses
+/// = lighter wiring areas for pockets / satwire.
+pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], extra_offsets: u32, cycles: u32) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let s = Schedule::parse(&text)?;
+    let vars = s.vars().clone();
+    let (screen, full) = (crate::ideal::offsets(0), crate::ideal::offsets(extra_offsets));
+    let design_line = text.lines().find(|l| l.trim_start().starts_with("design ")).context("no design line")?.trim().to_string();
+    let ev: [Vec<Ev>; 2] = [s.events_of(true, &vars)?, s.events_of(false, &vars)?];
+    let works = |e: &[Vec<Ev>; 2], offs: &[[i32; 3]]| run(&schedule_of(s.design(), e), &BTreeMap::new(), offs, cycles, false);
+    let (o0, c0) = works(&ev, &full).map_err(|e| anyhow::anyhow!("the plan itself is BROKEN: {e}"))?;
+    let groups = plan_groups(&ev);
+    let mut order: Vec<usize> = (0..groups.len()).filter(|&gi| groups[gi].evi.len() == 2 && !keep.contains(&ev[groups[gi].phase][groups[gi].evi[0]].1)).collect();
+    order.sort_by_key(|&gi| std::cmp::Reverse(ev[groups[gi].phase][groups[gi].evi[0]].0));
+    let without = |rm: &[usize]| -> [Vec<Ev>; 2] {
+        let gone = |phase: usize, i: usize| rm.iter().any(|&gi| groups[gi].phase == phase && groups[gi].evi.contains(&i));
+        [0, 1].map(|phase| ev[phase].iter().enumerate().filter(|(i, _)| !gone(phase, *i)).map(|(_, e)| e.clone()).collect())
+    };
+    println!("{}: {} pulses can be tried (of {} input groups), open {o0} / close {c0}", path.display(), order.len(), groups.len());
+    let mut removed: Vec<usize> = Vec::new();
+    for gi in order {
+        let mut trial = removed.clone();
+        trial.push(gi);
+        let e2 = without(&trial);
+        if works(&e2, &screen).is_ok() && works(&e2, &full).is_ok() {
+            let g = &groups[gi];
+            let (t, q, _) = &ev[g.phase][g.evi[0]];
+            println!("  dropped {} t{t} {q:?} ({} gt)", if g.phase == 0 { "open " } else { "close" }, ev[g.phase][g.evi[1]].0 - t);
+            removed = trial;
+        }
+    }
+    let ev = without(&removed);
+    let (o1, c1) = works(&ev, &full).map_err(|e| anyhow::anyhow!("pruned plan BROKEN (bug): {e}"))?;
+    let mut lines = vec![format!("# door prune-plan {}: {} pulses dropped (greedy, latest first); open {o1} / close {c1} (was {o0} / {c0})", path.display(), removed.len()), design_line];
+    lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
+    for (phase, evs) in ev.iter().enumerate() {
+        lines.extend(event_lines(phase, evs));
+    }
+    std::fs::write(out, lines.join("\n") + "\n")?;
+    println!("{} pulses dropped; wrote {} (open {o1} / close {c1}, {} positions x {cycles} cycles)", removed.len(), out.display(), full.len());
     Ok(())
 }

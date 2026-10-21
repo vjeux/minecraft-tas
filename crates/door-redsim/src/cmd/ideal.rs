@@ -19,6 +19,35 @@ pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
 }
 
 #[derive(clap::Args)]
+pub struct PrunePlanArgs {
+    /// The `door ideal` plan.
+    schedule: PathBuf,
+    /// Write the pruned plan here.
+    #[arg(long)]
+    out: PathBuf,
+    /// Never drop a pulse of this input cell, `x,y,z` (repeatable).
+    #[arg(long, allow_hyphen_values = true)]
+    keep: Vec<String>,
+    /// Extra pseudo-random positions every drop is confirmed at (screened at the 4 default ones).
+    #[arg(long, default_value_t = 28)]
+    extra_offsets: u32,
+    #[arg(long, default_value_t = 2)]
+    cycles: u32,
+}
+
+/// `door prune-plan`: drop the input pulses a plan works without, together.
+pub fn cmd_prune_plan(args: PrunePlanArgs) -> Result<()> {
+    let PrunePlanArgs { schedule, out, keep, extra_offsets, cycles } = args;
+    let mut cells = Vec::new();
+    for k in &keep {
+        let v: Vec<i32> = k.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--keep x,y,z: {k}");
+        cells.push([v[0], v[1], v[2]]);
+    }
+    crate::ideal_rs::prune(&schedule, &out, &cells, extra_offsets, cycles)
+}
+
+#[derive(clap::Args)]
 pub struct ShiftPlanArgs {
     /// The `door ideal` plan.
     schedule: PathBuf,
