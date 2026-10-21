@@ -441,8 +441,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
         why.push(log.restless.clone());
     }
     let per_cane = blocks as f64 / log.canes.max(1) as f64;
+    let per_cane_text = if (blocks * 10) % log.canes.max(1) == 0 { format!("{per_cane:.1}") } else { format!("{per_cane:.2}") };
     let metrics = vec![
-        ("per cane".to_string(), format!("{per_cane:.1} blocks")),
+        ("per cane".to_string(), format!("{per_cane_text} blocks")),
         ("items per hour per cane".to_string(), format!("{:.2}", per_hour(log))),
         ("harvest height".to_string(), log.height_max.to_string()),
         ("wait".to_string(), format!("{} gt", log.wait_max)),
