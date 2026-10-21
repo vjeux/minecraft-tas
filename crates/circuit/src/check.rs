@@ -202,6 +202,18 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 }
             }
         }
+        Kind::FlyingMachine if start_input(c).is_some() => {
+            // a one-way machine with a START input (coordinator 2026-10-21: "start: flip the
+            // lever"): parked at rest, then the device keeps working at other moments of the
+            // flight ([`flying_start`]). This is the first of the START_FLIPS runs
+            // ([`start_variants`] has the others, [`start_check`] judges them).
+            let (i, button) = start_input(c).unwrap();
+            let t0 = c.clock.free_from() + 60;
+            s.phase(0, t0, "rest");
+            start_flips(&mut s, i, button, t0, START_FLIPS[0]);
+            t = t0 + 400 + 60 * c.distance.unwrap_or(16);
+            s.phase(t0, t, "launch");
+        }
         Kind::FlyingMachine => {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
@@ -283,6 +295,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Counter(n) => counter(c, *n, s, t),
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
+        Kind::FlyingMachine if start_input(c).is_some() => flying_start(c, s, t),
         Kind::FlyingMachine if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => flying_switch(c, s, t),
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
@@ -388,6 +401,155 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
         }
         Some(st) if st.periods >= 2 => Outcome::fail(format!("oscillates in place (period {} gt): a clock, not a machine", st.period), table),
         _ => Outcome::fail(if first_change.is_none() { "never moves".to_string() } else { "no steady motion (it breaks, stops, or never repeats its shape)".to_string() }, table),
+    }
+}
+
+/// The audit's lever flips (clk-misc 2026-10-21, real use: no hand flips a lever back within
+/// 100 ms, and a 2 gt flip makes any sticky piston spit, so 4 gt is the floor). A one-way flyer's
+/// start lever is judged once per value k: it turns on, then off k gt later, on again k gt after
+/// that, off once more, and twice more long after the machine left ([`start_flips`]).
+pub const START_FLIPS: [u32; 8] = [4, 5, 6, 8, 10, 12, 16, 20];
+
+/// One start run's device edges from `t0` with flip gap `k` (a lever: on at t0, off at t0 + k, on
+/// at t0 + 2k, off at t0 + 3k, on 40 gt and off 60 gt after that; a button: pressed at t0, again
+/// k gt after it pops back up (a stone button stays pressed 10 gt, a wooden one 15) and once
+/// more 60 gt later), with the "launch" phase.
+fn start_flips(s: &mut Schedule, i: usize, button: bool, t0: u32, k: u32) {
+    let mut last = t0;
+    if button {
+        for at in [t0, t0 + 15 + k, t0 + 15 + k + 60] {
+            s.pulse(i, at, 1);
+            last = at;
+        }
+    } else {
+        for (n, at) in [t0, t0 + k, t0 + 2 * k, t0 + 3 * k, t0 + 3 * k + 40, t0 + 3 * k + 100].into_iter().enumerate() {
+            s.set(i, at, n % 2 == 0);
+            last = at;
+        }
+    }
+    s.ticks = s.ticks.max(last);
+}
+
+/// The other START_FLIPS runs of a one-way flyer with a start device (the first is the kind's
+/// stimulus): (k, its schedule). Empty for every other design.
+pub fn start_variants(c: &Circuit, base: &Schedule) -> Vec<(u32, Schedule)> {
+    let Some((i, button)) = start_input(c) else { return Vec::new() };
+    let Some(&(t0, end, _)) = base.phases.iter().find(|p| p.2 == "launch") else { return Vec::new() };
+    START_FLIPS[1..]
+        .iter()
+        .map(|&k| {
+            let mut s = base.clone();
+            s.edges[i].clear();
+            start_flips(&mut s, i, button, t0, k);
+            s.ticks = base.ticks.max(end);
+            (k, s)
+        })
+        .collect()
+}
+
+/// A passing one-way start flyer must pass its other START_FLIPS runs too: `run` gives each
+/// schedule's trace (redsim or this build in the game). The first failure names its flip gap.
+pub fn start_check<F>(c: &Circuit, kind: &Kind, out: Outcome, base: &Schedule, mut run: F) -> anyhow::Result<Outcome>
+where
+    F: FnMut(&Schedule) -> anyhow::Result<std::result::Result<Trace, String>>,
+{
+    if !out.pass || *kind != Kind::FlyingMachine {
+        return Ok(out);
+    }
+    let mut out = out;
+    for (k, s) in start_variants(c, base) {
+        let t = match run(&s)? {
+            Ok(t) => t,
+            Err(why) => return Ok(Outcome::fail(format!("flips {k} gt apart: {why}"), out.table)),
+        };
+        let o = check(c, kind, &s, &t);
+        if !o.pass {
+            return Ok(Outcome::fail(format!("flips {k} gt apart: {}", o.why), o.table));
+        }
+        out.table.push(format!("flips {k} gt apart: flies intact ({})", o.metrics.iter().map(|(a, b)| format!("{a} {b}")).collect::<Vec<_>>().join(", ")));
+    }
+    Ok(out)
+}
+
+/// A one-way flying machine's START input: a button, or a lever on a machine with no `port start`
+/// kick (with a kick, a lever is a docking machine's on/off switch: [`flying_switch`]). (index,
+/// is a button).
+fn start_input(c: &Circuit) -> Option<(usize, bool)> {
+    c.inputs.iter().enumerate().find_map(|(i, inp)| match inp.how {
+        crate::InputHow::Button => Some((i, true)),
+        crate::InputHow::Lever if c.clock.kick.is_none() => Some((i, false)),
+        _ => None,
+    })
+}
+
+/// A one-way flying machine with a START input ([`stimulus`], coordinator 2026-10-21: "start:
+/// flip the lever"). Parked at rest: nothing changes, stations included, until the first flip or
+/// press. Then it must leave and fly its distance intact along `travel` in a steady motion while
+/// the device keeps working at other moments of the launch: an extra flip never breaks it, never
+/// starts it twice, never leaves a block behind (anything left behind breaks the machine's shape,
+/// so it never stands intact again). The launch station (the device and its support, `port
+/// station`) ends as built, the lever's own state aside. Metrics: speed, latency (the first flip
+/// to the first move), start.
+fn flying_start(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let mut r = crate::fly::Recorder::machine(&c.clock.design.blocks, None, &c.stations);
+    for f in 0..t.frames() {
+        r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    let n = t.frames();
+    let Some(t0) = s.phases.iter().find(|p| p.2 == "launch").map(|p| p.0 as usize) else {
+        return Outcome::fail("no launch phase in the stimulus", table);
+    };
+    let from = (c.clock.free_from() as usize).min(t0);
+    if t0 >= n {
+        return Outcome::fail("the run ends before the first flip", table);
+    }
+    if let Some(f) = (from..t0).find(|&f| t.cells[f] != t.cells[from]) {
+        return Outcome::fail(format!("not parked: something changes at frame {f}, before the first flip (frame {t0})"), table);
+    }
+    let Some(first) = (t0..n).find(|&f| r.canon[f] != r.canon[t0] || r.corner[f] != r.corner[t0]) else {
+        return Outcome::fail("never moves after the first flip", table);
+    };
+    let along = |p: &Pos| p[0] * travel[0] + p[1] * travel[1] + p[2] * travel[2];
+    let far = (t0..n).filter_map(|f| r.shifts[f].map(|p| along(&p))).max().unwrap_or(0);
+    let start = if c.inputs.iter().any(|i| i.how == crate::InputHow::Button) { "press the button" } else { "flip the lever" };
+    if let Some(e) = &t.ended {
+        table.push(e.clone());
+    }
+    table.push(format!("parked until the first flip (frame {t0}), first move at frame {first}, farthest intact {far} cells along {travel:?}"));
+    // the launch station as built (structural: a lever's `powered` aside)
+    if let Some(last) = t.cells.last() {
+        for p in &c.stations {
+            let built = c.clock.design.blocks.get(p).map(|b| clock::canon::structural(b));
+            let now = last.iter().find(|(q, _)| q == p).map(|(_, id)| clock::canon::structural(&t.names[*id as usize]));
+            if built != now {
+                return Outcome::fail(format!("the launch station changed at {p:?}: {} at the end, {} as built", now.as_deref().unwrap_or("air"), built.as_deref().unwrap_or("air")), table);
+            }
+        }
+    }
+    let Some(st) = crate::fly::steady(&r, t0) else {
+        return Outcome::fail("no steady flight after the launch (it breaks, stops, or never repeats its shape)", table);
+    };
+    let k = st.cells();
+    if k == 0 || st.periods < 2 {
+        return Outcome::fail(format!("no flight after the launch (period {} gt, {k} cells)", st.period), table);
+    }
+    let dir = st.d.map(|x| x / k);
+    table.push(format!("steady from frame {}: period {} gt, {k} cell(s) per period along {dir:?} ({} periods seen)", st.start, st.period, st.periods));
+    if st.d.iter().filter(|x| **x != 0).count() != 1 || dir != travel {
+        return Outcome::fail(format!("flies along {:?}, not along travel {travel:?}", st.d), table);
+    }
+    let need = c.distance.unwrap_or(0) as i32;
+    if far < need && t.ended.is_none() {
+        return Outcome::fail(format!("intact only {far} cells along travel (distance {need}): extra flips broke it or it stopped"), table);
+    }
+    let speed = if st.period % k as u32 == 0 { format!("{} gt/block", st.period / k as u32) } else { format!("{}/{} gt/block", st.period, k) };
+    Outcome {
+        pass: true,
+        why: String::new(),
+        metrics: vec![("speed".into(), speed), ("period".into(), format!("{} gt, {k} cell(s)", st.period)), ("latency".into(), gt((first - t0) as i64)), ("start".into(), start.to_string())],
+        table,
     }
 }
 

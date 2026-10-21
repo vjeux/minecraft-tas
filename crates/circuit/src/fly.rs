@@ -40,6 +40,10 @@ pub struct Recorder {
     /// observer an on/off lever pushes into its working cell). Whatever stands there is left out
     /// of the machine's shape; the machine itself never enters a station cell.
     free_stations: std::collections::HashSet<Pos>,
+    /// Leave the station cells out of `canon` / `corner` too ([`Recorder::machine`]): a one-way
+    /// machine leaves a static launch station (its start lever) behind, and only the machine itself
+    /// repeats shifted.
+    machine_only: bool,
 }
 
 fn sub(a: Pos, b: Pos) -> Pos {
@@ -60,7 +64,7 @@ impl Recorder {
     /// `stations`: the return-station cells (their blocks are design blocks, left out of the
     /// machine's shape).
     pub fn new(design: &BTreeMap<Pos, String>, kick: Option<(Pos, u32, u32)>, stations: &[Pos]) -> Recorder {
-        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick, stations: HashMap::new(), free_stations: stations.iter().filter(|p| !design.contains_key(*p)).copied().collect() };
+        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick, stations: HashMap::new(), free_stations: stations.iter().filter(|p| !design.contains_key(*p)).copied().collect(), machine_only: false };
         let mut cells: Vec<(Pos, u32)> = Vec::new();
         for (p, s) in design {
             let id = r.state_id(s);
@@ -77,6 +81,21 @@ impl Recorder {
         r.reference = cells.into_iter().map(|(p, s)| (sub(p, c), s)).collect();
         r.reference.sort();
         r
+    }
+
+    /// Like [`Recorder::new`], with the station cells left out of every frame (`canon`, `corner`)
+    /// as well as out of the shape: [`steady`] then sees the machine alone flying away from a
+    /// static launch station (a one-way machine's start lever and its support).
+    pub fn machine(design: &BTreeMap<Pos, String>, kick: Option<(Pos, u32, u32)>, stations: &[Pos]) -> Recorder {
+        let mut r = Recorder::new(design, kick, stations);
+        r.machine_only = true;
+        r
+    }
+
+    /// Is this (cell, state) a station block standing in its own station cell (or anything in a
+    /// station cell empty at rest)?
+    fn is_station(&self, p: &Pos, id: u32) -> bool {
+        self.free_stations.contains(p) || self.info[id as usize].structural.is_some_and(|s| self.stations.get(p) == Some(&s))
     }
 
     fn state_id(&mut self, s: &str) -> u32 {
@@ -113,6 +132,9 @@ impl Recorder {
             }
             let id = self.state_id(s);
             mach.push((p, id));
+        }
+        if self.machine_only {
+            mach.retain(|(p, id)| !self.is_station(p, *id));
         }
         mach.sort();
         let corner = if mach.is_empty() { [0; 3] } else { corner_of(mach.iter().map(|(p, _)| p)) };
