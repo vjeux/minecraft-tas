@@ -147,7 +147,7 @@ pub fn one_liner(c: &Circuit) -> String {
                 _ => String::new(),
             };
             if two_way {
-                format!("Once started it flies one way, then comes back by itself{pace}.")
+                format!("Once started it flies to its docking station, then comes back by itself{pace}.")
             } else {
                 // (direction words: "flies sideways", not "flies horizontal": critique)
                 let dir = match c.direction.as_str() {
@@ -155,7 +155,13 @@ pub fn one_liner(c: &Circuit) -> String {
                     "horizontal" => " sideways".to_string(),
                     d => format!(" {d}"),
                 };
-                let carries = if c.feature.is_empty() { String::new() } else { format!(" It {}.", c.feature) };
+                // (a tall machine's cargo: what it carries as built, and up to how many its
+                // extend headers allow: vjeux 00:31Z, cargo is a property, not a kind)
+                let carries = match (c.feature.is_empty(), c.extend_n) {
+                    (false, Some((_, hi))) if c.feature.starts_with("carries") => format!(" It carries extra blocks stuck to it: {} as built, up to {hi}.", c.feature.trim_start_matches("carries ").split(" extra").next().unwrap_or("1")),
+                    (false, _) => format!(" It {}.", c.feature),
+                    _ => String::new(),
+                };
                 format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
             }
         }
@@ -176,7 +182,13 @@ pub fn one_liner(c: &Circuit) -> String {
                 if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") }
             )
         }
-        "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) }),
+        "tnt-duper" => format!(
+            "Lights {}{} without ever using up its own TNT block.",
+            if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) },
+            // (the precise duper: the coordinator 00:14Z, "every TNT explodes at the same point in
+            // mid-air")
+            if c.axis.contains("precise air burst") { ", and every TNT explodes at the same point in mid-air," } else { "" }
+        ),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
         // iron_ingot`)
@@ -234,6 +246,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             );
         }
         "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
+        // an item sorter: what to watch (critique: the generic "the box marked OUT turns red")
+        "sorter" => {
+            let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
+            return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
+        }
         _ => {}
     }
     if !c.unmodeled.is_empty() {
@@ -369,6 +386,77 @@ pub fn warning(b: &Build) -> Option<String> {
 /// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
 /// height above the ground (`safe drop`), the items its containers start with (the design's
 /// `nbt:` lines), water, open sky.
+/// An item name counted (plural where English counts it: "105 iron ingots"; block and mass names
+/// as players say them: "1,111 cobblestone", "8 paper", "3 redstone").
+fn item_plural(item: &str, n: u64) -> String {
+    const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
+    if n > 1 && COUNTED.iter().any(|w| item.ends_with(w)) { format!("{item}s") } else { item.to_string() }
+}
+
+/// How to load a design's containers, slot by slot (critique on the item sorter: "where they go
+/// IS the build"): one clause per loaded container, the top one first, each run of equal slots
+/// in words. None without slot data.
+fn loading_recipe(design: &str) -> Option<String> {
+    let d = mctas::design::Design::parse(design).ok()?;
+    // (position, block, slots: (slot, item, count, custom name))
+    let mut cons: Vec<([i32; 3], String, Vec<(u8, String, u64, String)>)> = Vec::new();
+    for (pos, snbt) in &d.block_entities {
+        let block = d.blocks.get(pos).map(|s| s.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default();
+        let mut slots = Vec::new();
+        for part in snbt.split("{Slot:").skip(1) {
+            let slot = part.split('b').next().and_then(|s| s.trim().parse::<u8>().ok());
+            let id = part.split("id:\"").nth(1).and_then(|s| s.split('"').next()).map(|s| s.trim_start_matches("minecraft:").replace('_', " "));
+            let (Some(slot), Some(id)) = (slot, id) else { continue };
+            let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|c| c.parse::<u64>().ok()).unwrap_or(1);
+            let name = part.split("custom_name\":\"").nth(1).and_then(|n| n.split('"').next()).unwrap_or("").to_string();
+            slots.push((slot, id, count, name));
+        }
+        if !slots.is_empty() {
+            slots.sort();
+            cons.push((*pos, block, slots));
+        }
+    }
+    if cons.is_empty() {
+        return None;
+    }
+    cons.sort_by_key(|(p, _, _)| (-p[1], p[0], p[2]));
+    let words = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+    let mut clauses: Vec<String> = Vec::new();
+    for (k, (_, block, slots)) in cons.iter().enumerate() {
+        let same = cons.iter().filter(|(_, b, _)| b == block).count();
+        let pos_word = if same == 2 { if cons.iter().take(k).any(|(_, b, _)| b == block) { "lower " } else { "upper " } } else { "" };
+        // runs of consecutive slots holding the same thing
+        let mut runs: Vec<(Vec<u8>, &str, u64, &str)> = Vec::new();
+        for (slot, id, count, name) in slots {
+            match runs.last_mut() {
+                Some(r) if r.1 == id && r.2 == *count && r.3 == name && r.0.last().is_some_and(|l| l + 1 == *slot) => r.0.push(*slot),
+                _ => runs.push((vec![*slot], id, *count, name)),
+            }
+        }
+        let total = slots.len();
+        let parts: Vec<String> = runs
+            .iter()
+            .enumerate()
+            .map(|(ri, (ss, id, count, name))| {
+                let what = if *count == 1 { format!("one {id}") } else { format!("{} {}", thousands(*count), item_plural(id, *count)) };
+                let named = if name.is_empty() { String::new() } else { format!(" named “{name}”") };
+                let place = if ss.len() == 1 && ss[0] == 0 {
+                    "in its first slot".to_string()
+                } else if ri == runs.len() - 1 && ri > 0 && ss.len() + runs[..ri].iter().map(|r| r.0.len()).sum::<usize>() == total && ss.len() > 1 {
+                    format!("in each of the other {}", words.get(ss.len()).copied().unwrap_or("slots"))
+                } else if ss.len() == 1 {
+                    format!("in slot {}", ss[0] + 1)
+                } else {
+                    format!("in each of slots {} to {}", ss[0] + 1, ss[ss.len() - 1] + 1)
+                };
+                format!("{what}{named} {place}")
+            })
+            .collect();
+        clauses.push(format!("the {pos_word}{block} holds {}", parts.join(" and ")));
+    }
+    Some(format!("Load it exactly like this (the download comes loaded): {}.", clauses.join("; ")))
+}
+
 pub fn needs(b: &Build, design: &str) -> Vec<String> {
     let mut v = Vec::new();
     if let Some(c) = &b.circuit {
@@ -395,13 +483,14 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         }
     }
     if !items.is_empty() {
-        // (plural item names where English counts them: "105 iron ingots"; block and mass names
-        // stay as players say them: "1,111 cobblestone", "8 paper", "3 redstone")
-        const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
-        let plural = |i: &str, n: u64| if n > 1 && COUNTED.iter().any(|w| i.ends_with(w)) { format!("{i}s") } else { i.to_string() };
-        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {}", thousands(*n), plural(i, *n))).collect();
+        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {}", thousands(*n), item_plural(i, *n))).collect();
         let one = items.len() == 1 && items[0].1 == 1;
-        v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
+        // a sorter: where its items go IS the build (critique): each container's slots in words
+        let recipe = if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) { loading_recipe(design) } else { None };
+        match recipe {
+            Some(r) => v.push(r),
+            None => v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" })),
+        }
     }
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
@@ -557,6 +646,17 @@ mod tests {
         assert_eq!(reload_words("glitch then resumes in 2 of 4 builds").unwrap(), "If its chunk unloads mid-cycle (you walk away and come back), it skips a beat, then keeps going (in 2 of 4 of our test builds).");
         assert!(reload_words("changes period to 12 gt").unwrap().contains("its period changes to 12 ticks (0.6 s)"));
         assert!(reload_words("ok").is_none() && reload_words("").is_none());
+    }
+
+    #[test]
+    fn a_sorter_says_how_to_load_its_hoppers() {
+        // where the items go IS the build (critique): each hopper's slots in words, top first
+        let design = "name: s\ncircuit: sorter iron_ingot\norigin: 0 0 0\npalette:\n  A minecraft:hopper[enabled=true,facing=down]\n  B minecraft:hopper[enabled=false,facing=down]\nlayer 1:\n  B\nlayer 2:\n  A\nnbt: 0 2 0 {Items:[{Slot:0b,id:\"minecraft:iron_ingot\",count:41},{Slot:1b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:2b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:3b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:4b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}}]}\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:iron_ingot\",count:64},{Slot:1b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:2b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:3b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:4b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}}]}\n";
+        let b = Build { circuit: Some(circuit("sorter iron_ingot", &[])), ..Default::default() };
+        assert_eq!(
+            needs(&b, design),
+            vec!["Load it exactly like this (the download comes loaded): the upper hopper holds 41 iron ingots in its first slot and one paper named “filter” in each of the other four; the lower hopper holds 64 iron ingots in its first slot and one paper named “lock” in each of the other four.".to_string()]
+        );
     }
 
     #[test]

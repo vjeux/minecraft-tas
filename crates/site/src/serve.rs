@@ -368,6 +368,23 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
             .collect();
         check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+        // no extendable family pages and no generated members (vjeux 00:33Z: "All these
+        // variations are useless, remove them"): none written, none linked, none in the data
+        let links_family = |html: &str| html.split("href=\"").skip(1).any(|s| s.split('"').next().is_some_and(|h| h.contains("families/")));
+        let linking_families: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
+            .collect();
+        let written = dir.join("families").exists() || dir.join("designs/clocks/members").exists() || dir.join("designs/circuits/members").exists();
+        check(
+            "no family page or generated member: none written, none linked, none in the data",
+            !written && linking_families.is_empty() && site.cards.is_empty() && site.members.is_empty(),
+            format!("written: {written}, {} pages link one{}, {} cards, {} members", linking_families.len(), linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(), site.cards.len(), site.members.len()),
+        );
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
         // two sentences aside)
         let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);

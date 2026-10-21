@@ -11,12 +11,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// The coordinator's picks where the rule is ambiguous (2026-10-20 21:55Z, 23:49Z, 00:01Z):
 /// (study/kind, design).
-const PICKS: [(&str, &str); 4] = [
+const PICKS: [(&str, &str); 5] = [
     // vjeux asked for 1-wide tileable loaders; it keeps being shrunk
     ("shulker/shulker-loader", "shulker-loader-1wide"),
     // safe on the ground, built from catalog parts, 85.7 TNT a minute (clk-misc 62c785ba5; the
     // dupers that had to stand in the air left the archive)
     ("tnt/tnt-duper", "tnt-clocked-22b"),
+    // the precise duper (the coordinator 00:14Z): every TNT explodes at one point in mid-air
+    ("tnt/tnt-duper precise", "tnt-airburst"),
     // a block change detector; its page says it does not see pure block updates
     ("bud/bud", "bud-observer"),
     // study 13 (clk-obs ff0e2f6208): the classic 1-wide tileable, overflow-safe hopper filter
@@ -27,14 +29,14 @@ const PICKS: [(&str, &str); 4] = [
 /// table is the 1-wide flat line.
 const SIZE_PICKS: [(&str, i64, &str); 1] = [("pext/piston-extender", 2, "pext-n2-rider7-flat")];
 
-/// The kinds whose designs differ by a number a builder picks (the reach, the count, the length)
-/// or, for flying machines, by direction and load: one card per kind, a table on its page.
+/// The kinds whose designs differ by a number a builder picks (the reach, the count, the length):
+/// one card per kind, a table of the archived sizes on its page. (Flying machines are not: one
+/// design per engine shape, vjeux 00:33Z.)
 pub fn parametric(kind: &str) -> bool {
-    kind == "flying-machine"
-        || matches!(
-            base(kind),
-            "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift"
-        )
+    matches!(
+        base(kind),
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift"
+    )
 }
 
 fn base(kind: &str) -> &str {
@@ -51,6 +53,15 @@ pub fn kind_key(b: &Build) -> String {
         "gate" => format!("gate {}", w.next().unwrap_or("").trim_end_matches("-ba")),
         "monostable" => format!("monostable {}", w.next().unwrap_or("")),
         "flying-machine" if c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way") => "flying-machine two-way".into(),
+        // flying machines by engine shape (vjeux 00:31Z, the coordinator): a tall engine (stacked:
+        // the one that carries extra blocks) and a flat one (side by side, 1 block tall); the
+        // other one-way machines (up, down, trains) are not published
+        "flying-machine" if c.feature.starts_with("carries") => "flying-machine tall".into(),
+        "flying-machine" if c.feature.is_empty() && (c.direction.is_empty() || c.direction == "horizontal") => "flying-machine flat".into(),
+        "flying-machine" => format!("-flying-machine {}", if c.direction.is_empty() { "other" } else { c.direction.as_str() }),
+        // the precise duper is its own kind (vjeux 00:14Z: "We still need another variation for
+        // precise drop location"): every TNT explodes at the same point in mid-air
+        "tnt-duper" if c.axis.contains("precise") => "tnt-duper precise".into(),
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
         _ => k0.to_string(),
     }
@@ -139,7 +150,12 @@ fn kinds_of(builds: &[Build]) -> BTreeMap<(String, String), Vec<usize>> {
         if c.layout_of.is_some() || basic(b) {
             continue;
         }
-        by.entry((c.study.clone(), kind_key(b))).or_default().push(i);
+        // (a kind key starting with "-" is no published kind: its designs stay unpublished)
+        let key = kind_key(b);
+        if key.starts_with('-') {
+            continue;
+        }
+        by.entry((c.study.clone(), key)).or_default().push(i);
     }
     by
 }
@@ -219,12 +235,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
     }
     let mut kept: BTreeSet<usize> = chosen.values().flatten().copied().collect();
-    let generators: BTreeSet<usize> = kinds_of(builds)
-        .iter()
-        .filter(|((_, kind), _)| parametric(kind))
-        .flat_map(|(_, idx)| idx.iter().copied())
-        .filter(|&i| !kept.contains(&i) && builds[i].circuit.as_ref().is_some_and(|c| c.extends))
-        .collect();
+    // (no generators: the extendable families are gone, vjeux 00:33Z)
+    let generators: BTreeSet<usize> = BTreeSet::new();
     kept.extend(generators.iter().copied());
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
