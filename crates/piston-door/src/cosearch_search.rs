@@ -2689,14 +2689,16 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usi
     Some(out)
 }
 
-/// Per input: its feed paths `(pocket, co-fire)`. `None` = a clean feed (a pocket cell next to its
-/// piston, through a static next to it, or next to the cell above it while that cell holds no
-/// piston). `Some(j)` = QC through the cell above, which holds another piston: the source that
-/// powers that cell powers that piston too, so the pocket can fire this input only when input `j`
-/// pulses at the same tick (`Some(None)`: the piston above has no plan input, never). One entry
-/// per pocket, a clean path winning (w86 / clk-item's A2 on trio7, 10-21: B4's (-2,2) source fires
-/// SE(-2,1) and SE(-2,0) together).
-fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)]) -> Vec<Vec<(usize, Option<Option<usize>>)>> {
+/// Per input: its feed paths `(pocket, co-fire)`. `None` = a clean feed. `Some((cell, j))` = the
+/// feed also powers ANOTHER piston at `cell` (input `j`, or `None`: a piston with no plan input):
+/// a DIRECT feed (a pocket cell or static next to the piston) is next to the cell above the piston
+/// BELOW it, so it QC-powers that one (clockinfra 10-21: trio7's left stack); a QC feed through the
+/// cell above, when that cell holds a piston, powers that piston directly. The pocket can then fire
+/// the input only when the co-fired piston pulses at the same tick or is extended anyway (see
+/// `group_producers`). One entry per pocket, a clean path winning (w86 / clk-item's A2 on trio7,
+/// 10-21: B4's (-2,2) source fires SE(-2,1) and SE(-2,0) together).
+type Cofire = Option<((i32, i32), Option<usize>)>;
+fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)]) -> Vec<Vec<(usize, Cofire)>> {
     let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
     let pocket_of = |c: (i32, i32)| pockets.iter().position(|pk| pk.contains(&c));
     // the pockets reaching a cell: a pocket cell, or a pocket next to a static there
@@ -2707,18 +2709,32 @@ fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], stat
             None => Vec::new(),
         }
     };
+    // a piston at `c` (the co-fired one), with its plan input
+    let piston_at = |c: (i32, i32)| -> Cofire {
+        match seed.get(c.0, c.1) {
+            Block::Piston { .. } => Some((c, p.assist_pistons.iter().position(|&b| b == c))),
+            _ => None,
+        }
+    };
+    // the piston below, QC-powered by a direct feed: harmless when it faces UP, into the fed piston
+    // (powered, that one extends or stays extended: immovable, so the one below is blocked; s69's
+    // Qv@ over B1, fr22's Q over SU(-1,-2))
+    let below_of = |c: (i32, i32)| -> Cofire {
+        match seed.get(c.0, c.1) {
+            Block::Piston { facing: Dir::Up, .. } => None,
+            _ => piston_at(c),
+        }
+    };
     p.assist_pistons
         .iter()
         .map(|&(px, py)| {
-            let mut v: Vec<(usize, Option<Option<usize>>)> = Vec::new();
+            let mut v: Vec<(usize, Cofire)> = Vec::new();
+            let below = below_of((px, py - 1));
             for c in n4(px, py) {
-                v.extend(reach(c).into_iter().map(|i| (i, None)));
+                v.extend(reach(c).into_iter().map(|i| (i, below)));
             }
             let above = (px, py + 1);
-            let cofire = match seed.get(above.0, above.1) {
-                Block::Piston { .. } => Some(p.assist_pistons.iter().position(|&b| b == above)),
-                _ => None,
-            };
+            let cofire = piston_at(above);
             for c in n4(above.0, above.1).into_iter().filter(|c| *c != (px, py)) {
                 v.extend(reach(c).into_iter().map(|i| (i, cofire)));
             }
@@ -2731,14 +2747,14 @@ fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], stat
 }
 
 /// The pockets that can fire one plan group: a clean feed, or a co-firing feed whose other piston
-/// has a group on the same edge within a tick of this one.
-fn group_producers(paths: &[(usize, Option<Option<usize>>)], g: &PGroup, groups: &[PGroup]) -> Vec<usize> {
+/// is extended at that tick (more power changes nothing; `extended(cell, phase, tick)`) or has a
+/// group on the same edge within a tick of this one.
+fn group_producers(paths: &[(usize, Cofire)], g: &PGroup, groups: &[PGroup], extended: &dyn Fn((i32, i32), usize, u32) -> bool) -> Vec<usize> {
     paths
         .iter()
         .filter(|(_, cf)| match cf {
             None => true,
-            Some(None) => false,
-            Some(Some(j)) => groups.iter().any(|h| h.k == *j && h.phase == g.phase && (h.t as i32 - g.t as i32).abs() <= 1),
+            Some((cell, j)) => extended(*cell, g.phase, g.t) || j.is_some_and(|j| groups.iter().any(|h| h.k == j && h.phase == g.phase && (h.t as i32 - g.t as i32).abs() <= 1)),
         })
         .map(|(i, _)| *i)
         .collect()
@@ -2758,9 +2774,37 @@ fn group_producers(paths: &[(usize, Option<Option<usize>>)], g: &PGroup, groups:
 fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool, bool)) {
     let (names, (dx, dy), why, sculk) = show;
     let feeders = pocket_feeders(p, pockets, statics);
-    // co-fire aware producers of every plan group (the pockets that can fire it)
+    // co-fire aware producers of every plan group (the pockets that can fire it); a co-fired piston
+    // already extended at that tick is harmless (its state per tick from the plan's replay)
     let paths = pocket_feed_paths(p, seed, pockets, statics);
-    let prod: Vec<Vec<usize>> = groups.iter().map(|g| group_producers(&paths[g.k], g, groups)).collect();
+    let cf_cells: Vec<(i32, i32)> = {
+        let mut v: Vec<(i32, i32)> = paths.iter().flatten().filter_map(|(_, cf)| cf.map(|(c, _)| c)).collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    let cf_replay = replay_cells(p, seed, &cf_cells.iter().map(|c| BlockPos::new(c.0, c.1, seed.z)).collect::<Vec<_>>(), None);
+    let extended = |c: (i32, i32), ph: usize, t: u32| -> bool {
+        let Some(r) = &cf_replay else { return false };
+        let Some(i) = cf_cells.iter().position(|q| *q == c) else { return false };
+        r[ph].get(t as usize).or(r[ph].last()).is_some_and(|row| matches!(row[i], Block::Piston { extended: true, .. }))
+    };
+    let prod: Vec<Vec<usize>> = groups.iter().map(|g| group_producers(&paths[g.k], g, groups, &extended)).collect();
+    // groups no area can fire at all (no feed, or every feed co-fires a retracted piston that does
+    // not pulse then): a feed wall before any start question
+    {
+        let pin = |k: usize| (p.pin_mask >> k) & 1 == 1;
+        let none: Vec<String> = (0..groups.len())
+            .filter(|gi| prod[*gi].is_empty() && !pin(groups[*gi].k))
+            .map(|gi| {
+                let g = &groups[gi];
+                format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)
+            })
+            .collect();
+        if !none.is_empty() {
+            println!("  island start: NO AREA CAN FIRE (no feed, or only co-firing a retracted piston that does not pulse then): {}", none.join(" "));
+        }
+    }
     // --pin-assist inputs (kept ideal: "any source") are given: available from the flip, nobody's
     // load. Flip-time inputs (every pulse at the flip, both edges: a lever-held level) are given
     // only with the lever OUTSIDE the pockets (on the pistons' backs, gadget 1); with the lever in
