@@ -119,7 +119,7 @@ fn straight(name: &str, cells: &str) -> Result<(Design, usize)> {
     };
     // the cart starts on the last powered rail of a lever-powered stretch (the east launcher)
     let mut start: Option<i32> = None;
-    let mut close = |d: &mut Design, run: &mut Vec<[i32; 3]>, start: &mut Option<i32>| -> usize {
+    let close = |d: &mut Design, run: &mut Vec<[i32; 3]>, start: &mut Option<i32>| -> usize {
         if run.is_empty() {
             return 0;
         }
