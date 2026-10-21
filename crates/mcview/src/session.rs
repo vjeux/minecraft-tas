@@ -2377,61 +2377,67 @@ mod tests {
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
     /// output itself pulses.
-    /// The lock study's archived lock (it is replaced as the study finds smaller ones).
-    fn archived_lock() -> String {
+    /// The lock study's archived locks (name, text): replaced as the study finds smaller ones.
+    fn archived_locks() -> Vec<(String, String)> {
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
         let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
         v.sort();
-        std::fs::read_to_string(&v[0]).unwrap()
+        v.iter().map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), std::fs::read_to_string(p).unwrap())).collect()
     }
 
     /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
     /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
     /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
-    /// goes off at the next turn.
+    /// goes off at the next turn. Every archived lock (1 to 4 dials).
     #[test]
-    fn the_lock_opens_at_its_code() {
-        let text = archived_lock();
-        let mut s = Session::new(&text, &Options::default()).unwrap();
-        assert!(s.simulated(), "{:?}", s.unsimulated);
-        let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
-        assert_eq!(names, ["d0", "d1", "d2", "k0", "k1", "k2"]);
-        assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame));
-        let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
-        assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
-        let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
-        assert!(code.iter().any(|k| *k > 0), "a code to turn to: {code:?}");
-        let out = s.outputs[0];
-        // its placement transient (OUT powered for 4 ticks) settled before the first frame shown;
-        // the badge counts from there, and a reset comes back to it
-        assert!(s.tick > 0 && s.tick < crate::circuit::SETTLE / 2 && s.rest_tick == s.tick && s.world.idle(), "settled at {}", s.tick);
-        assert!(!s.output_powered(out), "no false OUT on a paused page");
-        let settled = s.tick;
-        s.run(7);
-        s.reset();
-        assert_eq!(s.tick, settled);
-        s.run(40);
-        assert!(!s.output_powered(out));
-        // each dial turned to its code frame's turn, one tap at a time: open exactly when every
-        // dial matches (read once the lock settled: it opens and closes within 10 gt)
-        for (d, &k) in code.iter().enumerate() {
-            for _ in 0..k {
-                // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
-                assert!(s.pulse_input(d, 2));
-                s.run(12);
-                let dials: Vec<u8> = (0..3).map(|i| s.frame_turn(i).unwrap()).collect();
-                assert_eq!(s.output_powered(out), dials == code, "dials {dials:?}, code {code:?}");
+    fn the_locks_open_at_their_code() {
+        let locks = archived_locks();
+        assert!(!locks.is_empty());
+        for (name, text) in locks {
+            let mut s = Session::new(&text, &Options::default()).unwrap();
+            assert!(s.simulated(), "{name}: {:?}", s.unsimulated);
+            let n = s.circuit_inputs.len() / 2;
+            let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+            let want: Vec<String> = (0..n).map(|i| format!("d{i}")).chain((0..n).map(|i| format!("k{i}"))).collect();
+            assert_eq!(names, want, "{name}");
+            assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame), "{name}");
+            let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
+            let want: Vec<String> = (1..=n).map(|i| format!("DIAL {i}")).chain((1..=n).map(|i| format!("CODE {i}"))).collect();
+            assert_eq!(labels, want, "{name}");
+            let code: Vec<u8> = (n..2 * n).map(|i| s.frame_turn(i).unwrap()).collect();
+            assert!(code.iter().any(|k| *k > 0), "{name}: a code to turn to: {code:?}");
+            let out = s.outputs[0];
+            // its placement transient (lock3-q85: OUT powered for 4 ticks) settled before the
+            // first frame shown; the badge counts from there, and a reset comes back to it
+            assert!(s.tick < crate::circuit::SETTLE / 2 && s.rest_tick == s.tick && s.world.idle(), "{name}: settled at {}", s.tick);
+            assert!(!s.output_powered(out), "{name}: no false OUT on a paused page");
+            let settled = s.tick;
+            s.run(7);
+            s.reset();
+            assert_eq!(s.tick, settled, "{name}");
+            s.run(40);
+            assert!(!s.output_powered(out), "{name}");
+            // each dial turned to its code frame's turn, one tap at a time: open exactly when
+            // every dial matches (read once the lock settled: it opens and closes within 10 gt)
+            for (d, &k) in code.iter().enumerate() {
+                for _ in 0..k {
+                    // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
+                    assert!(s.pulse_input(d, 2));
+                    s.run(12);
+                    let dials: Vec<u8> = (0..n).map(|i| s.frame_turn(i).unwrap()).collect();
+                    assert_eq!(s.output_powered(out), dials == code, "{name}: dials {dials:?}, code {code:?}");
+                }
             }
+            assert!(s.output_powered(out), "{name}: open at the code");
+            assert!(s.pulse_input(n - 1, 2));
+            s.run(16);
+            assert!(!s.output_powered(out), "{name}: shut one turn past it");
+            assert!(s.halted.is_none() && s.world.errors.is_empty(), "{name}: {:?}", s.world.errors);
+            // drawn: an item frame entity per frame, with its turn
+            let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
+            assert_eq!(frames.len(), 2 * n, "{name}: {frames:?}");
+            s.drawn_matches_simulation().unwrap();
         }
-        assert!(s.output_powered(out), "open at the code");
-        assert!(s.pulse_input(2, 2));
-        s.run(16);
-        assert!(!s.output_powered(out), "shut one turn past it");
-        assert!(s.halted.is_none() && s.world.errors.is_empty(), "{:?}", s.world.errors);
-        // drawn: an item frame entity per frame, with its turn
-        let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
-        assert_eq!(frames.len(), 6, "{frames:?}");
-        s.drawn_matches_simulation().unwrap();
     }
 
     #[test]

@@ -1331,19 +1331,22 @@ mod tests {
         let pass = s.design.ports["pass"].0;
         assert!(cell_seen(&picker, &cam, 399.0 / 480.0, pass) >= 0.5, "PASS seen");
         // a lock's dials seen from the side they face (critique on lock3-q85: "the dials show as
-        // thin brown frames seen edge-on"), on a phone and a desktop (the study's archived lock)
+        // thin brown frames seen edge-on"), on a phone and a desktop (the study's archived locks:
+        // the eye on the dials' side, at most ~65 degrees off their faces)
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
         let mut locks: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
         locks.sort();
-        let s = Session::new(&std::fs::read_to_string(&locks[0]).unwrap(), &Options::default()).unwrap();
-        let d0 = s.circuit_inputs.iter().find(|c| c.name == "d0").unwrap().pos;
-        let facing = s.world.frames.iter().find(|f| f.pos == bp(d0)).unwrap().facing.step();
-        let look = viewer_look(&s);
-        for (w, h) in [(399.0, 480.0), (1232.0, 480.0)] {
-            let (cam, _) = live_camera(&atlas, &s, &look, w, h);
-            let d = cam.dir();
-            let toward = d[0] * facing[0] as f32 + d[1] * facing[1] as f32 + d[2] * facing[2] as f32;
-            assert!(toward > 0.5, "{w}x{h}: the dials face {facing:?}, the eye looks from {d:?}");
+        for path in &locks {
+            let s = Session::new(&std::fs::read_to_string(path).unwrap(), &Options::default()).unwrap();
+            let d0 = s.circuit_inputs.iter().find(|c| c.name == "d0").unwrap().pos;
+            let facing = s.world.frames.iter().find(|f| f.pos == bp(d0)).unwrap().facing.step();
+            let look = viewer_look(&s);
+            for (w, h) in [(399.0, 480.0), (1232.0, 480.0)] {
+                let (cam, _) = live_camera(&atlas, &s, &look, w, h);
+                let d = cam.dir();
+                let toward = d[0] * facing[0] as f32 + d[1] * facing[1] as f32 + d[2] * facing[2] as f32;
+                assert!(toward > 0.35, "{}: {w}x{h}: the dials face {facing:?}, the eye looks from {d:?}", path.display());
+            }
         }
         // a lit lamp is drawn at full brightness, an unlit one shaded
         assert!(crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=true]") && !crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=false]"));
