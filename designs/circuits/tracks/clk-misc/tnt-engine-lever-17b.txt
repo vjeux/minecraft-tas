@@ -1,0 +1,44 @@
+# The clockless TNT engine with an on/off LEVER (vjeux 2026-10-21: "I thought we were going to remove the clock as we
+# didn't need it"; "Can we have an on off switch for all the tnt"): tnt-triggered-launch-16b's engine, its holding
+# redstone block replaced by a torch that holds the engine piston (lit while the lever is off) and the lever on the
+# torch's stone; the obsidian under the piston is not needed. Lever off (as built): the torch holds the sticky piston
+# extended, nothing moves. Lever on: the torch goes dark and the engine runs by itself, its frame's redstone block
+# re-powering the piston through the dust every cycle: one TNT per 6 gt (200 TNT/min). Lever off again: the torch
+# relights within 2 gt and the piston stays extended. It stands 6 blocks above the ground (stand: its safe drop over
+# every kick: the TNT bursts under it).
+name: tnt-engine-lever-17b
+circuit: tnt-duper
+port input: 0 -1 0 lever
+stand: 6
+origin: 0 0 -1
+palette:
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  O minecraft:obsidian
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  X minecraft:stone
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=north]
+  t minecraft:redstone_torch[lit=true]
+layer -1:
+  .
+  L
+  X
+  .
+layer 0:
+  .
+  .SSS
+  tsOS
+  ...S
+layer 1:
+  ..T
+  .D
+  ..rR
+  ...S
+layer 2:
+  .
+  .
+  ..S
+  ..SS

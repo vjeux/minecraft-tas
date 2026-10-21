@@ -7,10 +7,11 @@
 //!   spawn the same n >= 1 primed TNT, and the design's TNT blocks must all stand again in every
 //!   period (a moved TNT is in flight for 2 gt, so the most seen in the period counts). Metrics:
 //!   rate (TNT per minute), period, TNT per period, latency (the kick to the first spawn).
-//! * `tnt-duper-triggered`: [`PULSES`] input pulses of [`PULSE`] gt spaced by the sizing gap;
-//!   nothing may spawn before the first one, each pulse's window must spawn the same k >= 1 primed
-//!   TNT and end with every TNT block standing. Metrics: TNT per pulse, latency (the pulse's start
-//!   to its first spawn), the gap.
+//! * `tnt-duper-triggered`: [`PULSES`] real presses spaced by the sizing gap (a button input
+//!   pressed, holding for its own time; any other input held on 30 then 20 gt, [`PRESSES`]);
+//!   nothing may spawn before the first one, each press's window must spawn exactly ONE primed
+//!   TNT and end with every TNT block standing. Metrics: TNT per pulse (1), latency (the press's
+//!   start to its spawn), the gap.
 //!
 //! Precision (where the primed TNT is and how it moves) draws from the game's random kick, so it
 //! is reported in the table, not in the metrics the builds are compared on.
@@ -31,6 +32,14 @@ pub const CYCLES: usize = 8;
 /// Pulses and pulse length of the triggered stimulus.
 pub const PULSES: usize = 6;
 pub const PULSE: u32 = 4;
+/// A triggered duper's presses for an input that is not a button: held on like a wooden button
+/// (30 gt), then a stone one (20 gt), alternately.
+pub const PRESSES: [u32; 2] = [30, 20];
+
+/// How long a button stays pressed: stone and polished blackstone 20 gt, wooden ones 30 gt.
+pub fn press_ticks(state: &str) -> u32 {
+    if state.contains("stone_button") { 20 } else { 30 }
+}
 
 /// The kind's stimulus (`check::stimulus`).
 pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
@@ -38,15 +47,42 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
     let mut t = start;
     match kind {
         Kind::TntDuperTriggered => {
+            // real presses (site QA 2026-10-21: a button holds 20-30 gt, so one press of a design
+            // judged with a 4-tick removal lit several TNT): a button input is pressed and holds
+            // for its own time (wood 30 gt, stone 20 gt); any other input is held on like a wooden
+            // then a stone button, alternately. A design that needs a short pulse carries its own
+            // pulse limiter
+            let button = c.inputs.first().is_some_and(|i| i.how == crate::InputHow::Button);
             for k in 0..PULSES {
-                s.pulse(0, t, PULSE);
-                s.phase(t, t + PULSE + gap, format!("pulse {}", k + 1));
-                t += PULSE + gap;
+                let len = match c.inputs.first() {
+                    Some(i) if button => press_ticks(c.clock.design.blocks.get(&i.pos).map(|s| s.as_str()).unwrap_or("")),
+                    _ => PRESSES[k % PRESSES.len()],
+                };
+                s.pulse(0, t, if button { 1 } else { len });
+                s.phase(t, t + len + gap, format!("press {}", k + 1));
+                t += len + gap;
             }
             // explosions on: wait for the last pulse's TNT to go off (a fuse is 80 gt)
             if c.explodes() {
                 s.phase(t, t + EXPLODE_TAIL, "explosions");
                 t += EXPLODE_TAIL;
+            }
+        }
+        _ if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => {
+            // an on/off lever (vjeux 2026-10-21: "Can we have an on off switch for all the tnt"):
+            // off at rest, then LEVER_CYCLES on/off cycles, each on window LEVER_SHIFT gt longer
+            // than the last so the off edges fall at other moments of the period ([`check_lever`])
+            let i = c.inputs.iter().position(|inp| inp.how == crate::InputHow::Lever).unwrap_or(0);
+            t = c.clock.free_from() + LEVER_REST;
+            s.phase(0, t, "rest");
+            for k in 0..LEVER_CYCLES {
+                let on = LEVER_ON + LEVER_SHIFT * k;
+                s.set(i, t, true);
+                s.phase(t, t + on, format!("on {}", k + 1));
+                t += on;
+                s.set(i, t, false);
+                s.phase(t, t + LEVER_OFF, format!("off {}", k + 1));
+                t += LEVER_OFF;
             }
         }
         _ if !c.inputs.is_empty() => {
@@ -72,6 +108,19 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
 
 /// Each window of the switchable duper's stimulus (gt).
 pub const SWITCH: u32 = 400;
+
+/// The lever stimulus ([`check_lever`]): the rest phase; the on/off cycles; the first on window
+/// ([`LEVER_PERIODS`]+ periods of up to 65 gt after the [`STOP`] start-up); how much longer each on
+/// window is than the last (the off edges 11 gt apart: at other moments of every period that is not
+/// a multiple of 11, up to 44); each off window: the stop, a fuse, the explosions, then
+/// [`LEVER_IDLE`] gt that must stand still.
+pub const LEVER_REST: u32 = 200;
+pub const LEVER_CYCLES: u32 = 4;
+pub const LEVER_ON: u32 = 300;
+pub const LEVER_PERIODS: usize = 4;
+pub const LEVER_SHIFT: u32 = 11;
+pub const LEVER_IDLE: u32 = 100;
+pub const LEVER_OFF: u32 = STOP + 80 + 40 + LEVER_IDLE;
 
 /// The survival flag: how many TNT exploded, how many left out of range (`run::OUT_OF_RANGE`).
 fn survive_flag(t: &Trace) -> String {
@@ -180,6 +229,138 @@ pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     out
 }
 
+/// `tnt-duper` with an on/off LEVER (vjeux 2026-10-21: "Can we have an on off switch for all the
+/// tnt"; the stimulus: [`LEVER_REST`], then [`LEVER_CYCLES`] on/off cycles, the off edges at
+/// other moments of the period). Rest (the lever off as built): no TNT primed, and the machine
+/// standing still over the phase's last [`LEVER_IDLE`] gt (off means idle: no clock left
+/// running). Each on window: dupes periodically from [`STOP`] gt after the on edge ([`LEVER_PERIODS`]+ periods),
+/// the same (P, n) in every on window (the full rate after each restart), every TNT block standing
+/// again over its last period. Each off window: nothing primed from [`STOP`] gt after the off
+/// edge, then it stands still for [`LEVER_IDLE`] gt with the same blocks as at rest (by kind: the
+/// moving parts may stand elsewhere, wherever in the period the lever turned off; every TNT block
+/// back, nothing broken or left over), and the next on window restarts at the full rate. Metrics: rate, period,
+/// per period, runs (lever on), the switch (stops within X gt, restarts within Y gt). Flags: a
+/// self-running duper's, measured over EVERY TNT of the run, start-ups and stops included (a
+/// precise duper keeps its point for each TNT that fires).
+pub fn check_lever(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let n0 = tnt_in(t, 0);
+    if n0 == 0 {
+        return Outcome::fail("no TNT block in the design", table);
+    }
+    let frames = t.cells.len();
+    let primed_in = |a: usize, b: usize| t.primed.iter().map(|q| q.frame as usize).filter(|&f| f >= a && f < b).collect::<Vec<usize>>();
+    let still = |a: usize, b: usize| (a..b).all(|f| t.cells[f] == t.cells[b - 1]);
+    let idle = LEVER_IDLE as usize;
+    let mut rest: Option<usize> = None;
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    let (mut stop_max, mut start_max) = (0usize, 0usize);
+    for (from, to, label) in &s.phases {
+        let (a, b) = (*from as usize, (*to as usize).min(frames));
+        if b < a + idle + STOP as usize {
+            return Outcome::fail(format!("{label}: the run ended before the phase could be judged (frames {a}..{b})"), table);
+        }
+        let sp = primed_in(a, b);
+        if label == "rest" {
+            if let Some(f) = sp.first() {
+                return Outcome::fail(format!("lever off at rest: {} TNT primed (the first at frame {f})", sp.len()), table);
+            }
+            if !still(b - idle, b) {
+                return Outcome::fail(format!("lever off at rest: the machine is still moving in the last {idle} gt of the rest phase (off must be idle: a clock left running?)"), table);
+            }
+            rest = Some(b - 1);
+            table.push(format!("rest {a}..{b}: nothing primed, standing still"));
+        } else if label.starts_with("on") {
+            let Some(&first) = sp.first() else {
+                let moved = (a..b).find(|&f| t.cells[f] != t.cells[a.saturating_sub(1)]).map(|f| format!("it moves from {} gt after the lever, standing still again from {} gt", f - a, (a..b).rev().take_while(|&g| t.cells[g] == t.cells[b - 1]).last().unwrap_or(b) - a)).unwrap_or_else(|| "nothing moves".into());
+                return Outcome::fail(format!("{label}: no TNT primed after the lever turns on ({moved})"), table);
+            };
+            start_max = start_max.max(first - a);
+            let lo = a + STOP as usize;
+            let span = b - lo;
+            let mut cnt = vec![0usize; span];
+            for f in primed_in(lo, b) {
+                cnt[f - lo] += 1;
+            }
+            let found = (1..=span / LEVER_PERIODS).find(|&p| cnt[..p].iter().sum::<usize>() > 0 && (0..span - p).all(|i| cnt[i] == cnt[i + p]));
+            let Some(p) = found else {
+                return Outcome::fail(format!("{label} (frames {a}..{b}): {} primed from frame {lo}, not periodic with {LEVER_PERIODS}+ periods (P <= {} gt)", cnt.iter().sum::<usize>(), span / LEVER_PERIODS), table);
+            };
+            let n: usize = cnt[..p].iter().sum();
+            let most = (b - p..b).map(|f| tnt_in(t, f)).max().unwrap_or(0);
+            if most < n0 {
+                return Outcome::fail(format!("TNT consumed: {most} of {n0} TNT blocks stand in the last period of {label}"), table);
+            }
+            table.push(format!("{label} {a}..{b}: {} primed, the first {} gt after the lever, then {n} per {p} gt", sp.len(), first - a));
+            runs.push((p, n));
+        } else {
+            let lo = a + STOP as usize;
+            if let Some(&f) = primed_in(lo, b).first() {
+                return Outcome::fail(format!("{label}: TNT primed {} gt after the lever turns off (it must stop within {STOP} gt)", f - a), table);
+            }
+            if let Some(&last) = sp.last() {
+                stop_max = stop_max.max(last - a);
+            }
+            if !still(b - idle, b) {
+                return Outcome::fail(format!("{label}: still moving in the last {idle} gt of the off window (off must be idle)"), table);
+            }
+            let Some(r) = rest else {
+                return Outcome::fail("no rest phase before the first off window", table);
+            };
+            // nothing broken, nothing left over: the same blocks as at rest (by kind, wherever the
+            // off edge left the moving parts: the lever turns off at any moment of the period),
+            // every TNT block back; then the next on window must restart at the full rate
+            let kinds = |f: usize| -> std::collections::BTreeMap<String, usize> {
+                let mut m = std::collections::BTreeMap::new();
+                for (_, id) in &t.cells[f] {
+                    let n = t.names[*id as usize].split(['[', ' ']).next().unwrap_or_default();
+                    if n != "minecraft:piston_head" && n != "minecraft:moving_piston" {
+                        *m.entry(n.to_string()).or_insert(0usize) += 1;
+                    }
+                }
+                m
+            };
+            let (now, then) = (kinds(b - 1), kinds(r));
+            if now != then {
+                let diff: Vec<String> = then
+                    .iter()
+                    .filter(|(k, n)| now.get(*k) != Some(n))
+                    .map(|(k, n)| format!("{} {} -> {}", clock::short(k), n, now.get(k).copied().unwrap_or(0)))
+                    .chain(now.iter().filter(|(k, _)| !then.contains_key(*k)).map(|(k, n)| format!("{} 0 -> {n}", clock::short(k))))
+                    .take(4)
+                    .collect();
+                return Outcome::fail(format!("{label}: stops with other blocks than at rest ({}): something left over or broken", diff.join(", ")), table);
+            }
+            let same = t.cells[b - 1] == t.cells[r];
+            table.push(format!("{label} {a}..{b}: {} primed after the lever, standing still {}", sp.len(), if same { "in the rest state" } else { "with its moving parts elsewhere than at rest" }));
+        }
+    }
+    if runs.len() != LEVER_CYCLES as usize {
+        return Outcome::fail(format!("{} on windows judged, {LEVER_CYCLES} expected", runs.len()), table);
+    }
+    if runs.iter().any(|r| *r != runs[0]) {
+        return Outcome::fail(format!("the on windows differ (period, TNT per period): {runs:?}: not the full rate after every restart"), table);
+    }
+    if c.explodes() && no_explosion(t) {
+        return Outcome::fail("no primed TNT exploded during the run (explosions are judged in the real game; redsim does not model them)", table);
+    }
+    let (p, n) = runs[0];
+    // every TNT's fuse-1 point (a precise duper keeps one point through its stops and restarts)
+    for (i, q) in t.primed.iter().enumerate() {
+        if let Some((e, _)) = q.end {
+            table.push(format!("TNT {i}: primed at frame {}, at fuse 1 at ({:.4}, {:.4}, {:.4})", q.frame, e[0], e[1], e[2]));
+        }
+    }
+    let metrics = vec![
+        ("rate".to_string(), format!("{} TNT/min", fmt_rate(n as f64 * 1200.0 / p as f64))),
+        ("period".to_string(), format!("{p} gt")),
+        ("per period".to_string(), n.to_string()),
+        ("runs".to_string(), "lever on".to_string()),
+        ("switch".to_string(), format!("lever off: stops within {stop_max} gt; on: restarts within {start_max} gt")),
+    ];
+    Outcome { pass: true, why: flags(c, t, 0), metrics, table }
+}
+
 fn switched(s: &Schedule, t: &Trace) -> Outcome {
     let n0 = tnt_in(t, 0);
     let mut table = Vec::new();
@@ -254,12 +435,16 @@ fn tnt_in(t: &Trace, f: usize) -> usize {
 /// The smallest period of the frames from `from` on (every frame of the second half equal to the
 /// one P later), and the first frame it holds from.
 fn period(t: &Trace, from: usize) -> Option<(usize, usize)> {
-    let n = t.cells.len();
+    period_of(&t.cells, from)
+}
+
+fn period_of(cells: &[Vec<(Pos, u32)>], from: usize) -> Option<(usize, usize)> {
+    let n = cells.len();
     let half = (n / 2).max(from);
     for p in 1..=n.saturating_sub(half) / 2 {
-        if (half..n - p).all(|i| t.cells[i] == t.cells[i + p]) {
+        if (half..n - p).all(|i| cells[i] == cells[i + p]) {
             let mut start = half;
-            while start > from && t.cells[start - 1] == t.cells[start - 1 + p] {
+            while start > from && cells[start - 1] == cells[start - 1 + p] {
                 start -= 1;
             }
             return Some((start, p));
@@ -268,12 +453,31 @@ fn period(t: &Trace, from: usize) -> Option<(usize, usize)> {
     None
 }
 
+/// [`period`] over the block states alone, container contents and cooldowns left out (a hopper
+/// ring's items take several periods to settle into their round while its blocks repeat from the
+/// first one): the explosion-damage test compares blocks, not items.
+fn period_blocks(t: &Trace, from: usize) -> Option<(usize, usize)> {
+    let mut ids: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    let base: Vec<u32> = t
+        .names
+        .iter()
+        .map(|n| {
+            let b = n.split('{').next().unwrap_or(n);
+            let k = ids.len() as u32;
+            *ids.entry(b).or_insert(k)
+        })
+        .collect();
+    let frames: Vec<Vec<(Pos, u32)>> = t.cells.iter().map(|f| f.iter().map(|(p, id)| (*p, base[*id as usize])).collect()).collect();
+    period_of(&frames, from)
+}
+
 /// A run's PRECISE point (every TNT followed to fuse 1): every TNT of the periodic region that
 /// reached fuse 1 stood at one point then, bit for bit (8 or more): `Some(Ok(point))`;
 /// `Some(Err((i, p, main)))` when the `i`-th primed TNT (in `t.primed` order) ended at `p`, not at
 /// the others' `main`; `None` when the run is not periodic or too few TNT reached fuse 1.
 pub fn precise_point(c: &Circuit, t: &Trace) -> Option<std::result::Result<[f64; 3], (usize, [f64; 3], [f64; 3])>> {
-    let (start, _) = period(t, c.clock.free_from() as usize)?;
+    // a lever duper's run is not periodic (on/off cycles): every TNT of it counts
+    let start = if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) { 0 } else { period(t, c.clock.free_from() as usize)?.0 };
     let ended: Vec<(usize, [f64; 3])> = t.primed.iter().enumerate().filter(|(_, q)| q.frame as usize >= start).filter_map(|(i, q)| q.end.map(|e| (i, e.0))).collect();
     if ended.len() < 8 {
         return None;
@@ -341,7 +545,7 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     // destroyed would be missing from the frames seen before them)
     if c.explodes()
         && let Some(&x) = t.explosions.iter().min()
-        && start >= x as usize
+        && period_blocks(t, from).map(|(s, _)| s).unwrap_or(start) >= x as usize
     {
         return Outcome {
             pass: false,
@@ -542,8 +746,8 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             lat.push(f - lo);
         }
     }
-    if per.iter().any(|&n| n != per[0]) || per[0] == 0 {
-        return Outcome { pass: false, why: format!("primed TNT per pulse {per:?}: not the same every pulse"), metrics: Vec::new(), table };
+    if per.iter().any(|&n| n != 1) {
+        return Outcome { pass: false, why: format!("primed TNT per press {per:?}: one press must light exactly ONE TNT (a design triggered by a short pulse carries its own pulse limiter)"), metrics: Vec::new(), table };
     }
     // explosions on: every TNT has gone off by the end (the stimulus waits for them) and the
     // machine is back to its rest state
@@ -570,7 +774,9 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if !sp.is_empty() {
         table.push(sp);
     }
-    let gap = s.phases.first().map(|ph| ph.1 - ph.0 - PULSE).unwrap_or(0);
+    // the gap after a press (the press measured on the input cell)
+    let press = (starts[0]..t.cells.len()).take_while(|&f| t.inputs[0][f]).count() as u32;
+    let gap = s.phases.first().map(|ph| (ph.1 - ph.0).saturating_sub(press)).unwrap_or(0);
     let metrics = vec![
         ("per pulse".to_string(), per[0].to_string()),
         ("latency".to_string(), format!("{} gt", lat.iter().max().copied().unwrap_or(0))),
