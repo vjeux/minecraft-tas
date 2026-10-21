@@ -390,6 +390,18 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// One run of the minecart station judge (study 19: real carts, ridden and empty, at several
+    /// speeds; presses at random moments), its table printed (crates/circuit/src/station.rs).
+    StationRun {
+        design: PathBuf,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     FarmRun {
         design: PathBuf,
         /// The copies side by side (`tile:`) instead of one.
@@ -987,6 +999,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), run.name(), out.why);
                 }
+            }
+        }
+        CircuitCmd::StationRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::station::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("STATION: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
         CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare } => {

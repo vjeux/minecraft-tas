@@ -340,6 +340,9 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
         Kind::Elevator(_) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
+        Kind::Station(_) => {
+            // a station runs real carts in its own runs (crate::station): no input schedule here
+        }
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) | Kind::Harvester(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
@@ -470,6 +473,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     }
     match kind {
         Kind::Elevator(_) => crate::elevator::check(c, s, t),
+        Kind::Station(_) => Outcome::fail("a station is judged by its own runs (`mctas circuit station-run`, `mctas circuit verify`)", Vec::new()),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
         Kind::Gate(claim) => gate(c, claim.as_deref(), s, t),

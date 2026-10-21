@@ -24,6 +24,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 13 item sorters | clk-obs, sorter | sorter ITEM | the item stack size it sorts | items/s, first item, hoppers awake, slice width, badges overflow-proof / stream-direct ([targets](../designs/circuits/tracks/sorter/WR.md)) |
 | 17 auto-smelters | sorter | smelter N | N furnaces / a tileable slice of N | items/min per furnace, first item, items per coal, spread, hoppers awake, at rest, blocks per furnace |
 | 18 crop farms | w86 (farm) | harvester CROP (sugar_cane) | the crop | blocks per cane, items per hour per cane, harvest height, wait; tileable ([board](../designs/circuits/farm/WR.md)) |
+| 19 minecart stations | clk-obs (rail) | station 1 (one-way line), station 2 (two-way line) | the line | stop distance, departure delay, departure speed; real carts, ridden and empty ([board](../designs/circuits/rail/WR.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -839,6 +840,34 @@ kick) before the first input.
   cane-7b, cane-mc-9b, bamboo-8b, bamboo-down-9b, tiled and moved builds: identical). `circuit sim` judges a harvester with
   it (the base build, then the copies of a `tile:` design; about 0.25 s a run), so `circuit
   compact` and the other searches run on redsim; `farm-run --sim` is one twin run.
+* **station 1 | station 2** (study 19, minecart stations, [crate::station](../crates/circuit/src/station.rs);
+  board and mechanics: [designs/circuits/rail/WR.md](../designs/circuits/rail/WR.md); clk-obs,
+  coordinator 2026-10-21): a station on a rail line, `station 1` on a one-way line, `station 2` on a
+  two-way line. Ports: `port line.in:` and `port line.out:` (the first cell of the judge's own track
+  at each end: air beside one of the design's rails, level or one up or down; the judge lays 8
+  cells of straight plain rail outward from each, on stone where the design has nothing below; the
+  design must stand without them), `port input.go: x y z button` (the departure button). Judged in
+  the game by its own runner with the game's own minecarts: a rider is an armor stand riding the
+  cart (`/ride`), so the cart runs the ridden physics (`OldMinecartBehavior`: its move scaled by
+  0.75, slowed by 0.997 a tick instead of 0.96; redsim does not model passengers, so `circuit sim`
+  only says so). One run sends 17 carts in, ridden and empty, with 0.02 to 2.0 blocks per tick of
+  momentum toward the station (2.0: a cart off a booster line keeps that much), summoned at the
+  station's edge; some cycles press the button while the station is empty first (it must change
+  nothing), some press while the cart is still braking (it may be sent straight on or stop and wait
+  for the next press, but must leave in its direction). PASS, for every cart: it comes to rest
+  inside the station within 300 gt; a ridden one where the rider can click the button from the cart
+  (`station::clickable`: a look ray from a player's eyes, 1.2075 above the cart, reaches the
+  button's outline within 4.5 blocks past every block's outline; the player's own cart does not
+  take the click, `ProjectileUtil.getEntityHitResult`); it stays put for a seeded random 5 to 154
+  gt; the press moves it within 80 gt and it leaves through `line.out` and rolls on by itself 6
+  blocks along the judge's track within 300 gt; the rider is still in the cart. `station 2` also
+  sends 8 carts the other way (in through `line.out`, fast enough to roll through that much plain
+  track): each must pass through without coming to rest and leave through `line.in`. Item parts
+  get ITEM INTRUSION like every kind (drops on open hopper tops before three of the cycles).
+  Metrics: stop distance (the farthest a cart rests past the station's entry), departure delay (the
+  longest from a press to the cart's first move), leaves at (the slowest leaving cart where it
+  leaves the station), other way passes at. `mctas circuit station-run` is one game run;
+  `STATION_TRACE=1` prints the cart and the design's rails every tick.
 
 ### Real use (the audit of 2026-10-21)
 
@@ -1000,6 +1029,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit smelter-run <designs> [--run base\|tiled\|intrusion\|all] [--sim] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` notes every crop item seen off its way every 20 gt; `--sim` runs the judge's redsim twin instead (rotation 0), `--compare` both, their records side by side (they must be the same) |
+| `mctas circuit station-run <design> [--turns T --offset x,y,z] [--margin 3]` | study 19: one minecart station run in the game (every cart: where it rests, how long it is held, its departure delay and speed; the carts the other way), its outcome; `--turns/--offset` replays one `circuit verify` build; `STATION_TRACE=1` prints the cart's position and the design's rails' states every tick on stderr |
 | `mctas circuit arith synth --kind K --in a0[=x,y,z] --out s0[=x,y,z]... --grid WxD [--height H] [--auto-ports --in-sides nesw --out-sides nesw] [--r7] [--sym a0,b0,..] [--chain cin,cout] [--fix <design>] [--ring-all] --out-dir D` | SAT synthesis of a combinational circuit ([crates/circuit-arith/src/synth.rs](../crates/circuit-arith/src/synth.rs)): a CNF model of a WxDxH grid (stone, redstone block, dust with its shape and dust steps up and down, torches, repeaters, comparators), every input combination solved at once, then minimized by block count; each model is judged by `circuit sim` and a rejected one is blocked (CEGAR). `--r7`: input cells are the judge's stone driven by its repeater (the compute kinds' R7); `--sym`: ring-order symmetry breaking between interchangeable inputs; `--chain cin,cout`: a bit slice (cout a lamp directly powered, `slice:` = cout - cin); `--fix`: complete a partial design (its blocks fixed); `--ring-all`: auto ports on every component layer (3D). Ports given `=x,y,z` are fixed, anywhere (inside the grid too). Adders: designs/circuits/adder/tracks/w86/NOTES.md |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
 | `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--base D] [--tile N] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest. `--base D`: keep D's blocks and add K blocks in the air cells of its box grown by 1. `--tile N`: each passing design's densest tiling (pitch 1..=N; with `--only`, that class set's only), listed first and written with its `tile:` header |
