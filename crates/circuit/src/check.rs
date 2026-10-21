@@ -616,6 +616,17 @@ fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             if trip.is_none() {
                 let a = first + 40;
                 trip = (8..(to - a) / 2).find(|&p| (a..a + p).all(|f| same(f, f + p)));
+                // a machine that makes one trip and parks while the switch is still on is no
+                // docking machine (track fly 2026-10-21: an annealed one did exactly that)
+                if trip.is_none() {
+                    return Outcome::fail(format!("{label}: no round trip repeats while the switch is on: it must shuttle until the switch turns off"), table);
+                }
+            }
+            if let Some(p) = trip
+                && to > p + 10
+                && !(to - p - 10..to).any(|f| !same(f, f - 1))
+            {
+                return Outcome::fail(format!("{label}: stops shuttling before the switch turns off (still for the last {} gt)", p + 10), table);
             }
             table.push(format!("{label}: moves {} gt after the switch turns on, flies {far} cells and comes back", first - from));
         }
