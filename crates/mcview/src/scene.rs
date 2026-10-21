@@ -411,13 +411,15 @@ fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3
         let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
         let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
         // a TNT duper's landing zone, where its TNT blow their crater, can lie further out
-        // (critique: tnt-clocked-22b's pit cut off at the view's edge)
-        let reach = if s.floor.is_some() { tnt_reach } else { VIEW_REACH };
-        let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - reach && p[k] <= hi[k] + reach);
+        // (critique: tnt-clocked-22b's pit cut off at the view's edge): its TNT near the ground
+        // count within `tnt_reach`, those in the air within VIEW_REACH like any run's entities (an
+        // air burst's flight left its duper small in a wide frame)
+        let surface = s.floor.as_ref().map(|f| f.hi[1] as f32 + 1.0);
+        let within = |p: &[f32; 3], r: f32| (0..3).all(|k| p[k] >= lo[k] - r && p[k] <= hi[k] + r);
+        let near = |p: &[f32; 3]| within(p, VIEW_REACH) || surface.is_some_and(|y| p[1] <= y + 2.0 && within(p, tnt_reach));
         // a TNT duper's TNT that sinks into the craters it blows in its judge's ground counts at
         // the ground's surface: the pit shows from above its rim, and framing its bottom looked
         // down on a field of grass (critique on tnt-clocked-22b: ~70% of a phone's view grass)
-        let surface = s.floor.as_ref().map(|f| f.hi[1] as f32 + 1.0);
         ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near).map(|p| match surface {
             Some(y) if p[1] < y => [p[0], y, p[2]],
             _ => p,
