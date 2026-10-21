@@ -18,6 +18,7 @@ pub mod doors;
 pub mod explain;
 pub mod generate;
 pub mod kinds;
+pub mod mechanism;
 pub mod pages;
 pub mod plain;
 pub mod published;
@@ -61,6 +62,15 @@ pub enum SiteCmd {
         /// Also the designs crates/site/hidden.tsv keeps off the site.
         #[arg(long)]
         all: bool,
+    },
+    /// The Clocks tab's cards of one period in a generated site, each with the clocks folded under
+    /// it (one card per mechanism: crates/site/src/mechanism.rs) and what they swap.
+    Mechanisms {
+        #[arg(long, default_value = "site")]
+        dir: PathBuf,
+        /// The period, in game ticks (as the Clocks tab groups them).
+        #[arg(long)]
+        period: u32,
     },
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
@@ -257,6 +267,26 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             Ok(())
         }
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
+        SiteCmd::Mechanisms { dir, period } => {
+            let site: site_model::Site = serde_json::from_str(&std::fs::read_to_string(dir.join("data/site.json"))?)?;
+            let at: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.every() == period)).collect();
+            let cards: Vec<&&site_model::Build> = at.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).collect();
+            println!("every {period} ticks: {} cards for {} clocks", cards.len(), at.len());
+            let mut cards = cards;
+            cards.sort_by_key(|b| (b.blocks, b.volume, b.name.clone()));
+            for b in cards {
+                let c = b.clock.as_ref().unwrap();
+                println!("{} ({} blocks, {}): {}", b.name, b.blocks, b.dims.clone().unwrap_or_default(), b.kinds.join(" "));
+                for v in &c.variants {
+                    if let Some(o) = site.builds.iter().find(|o| &o.id == v) {
+                        let plus: Vec<&String> = o.kinds.iter().filter(|k| !b.kinds.contains(k)).collect();
+                        let minus: Vec<&String> = b.kinds.iter().filter(|k| !o.kinds.contains(k)).collect();
+                        println!("    {} ({} blocks): +{:?} -{:?}", o.name, o.blocks, plus, minus);
+                    }
+                }
+            }
+            Ok(())
+        }
         SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
             if !page.is_empty() {
                 if engine != "webkit" {

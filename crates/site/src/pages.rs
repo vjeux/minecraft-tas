@@ -442,6 +442,14 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         if b.kind == "door" || b.circuit.is_some() || b.clock.is_some() { " Verified in the real game." } else { "" },
         chips(&b.kinds, prefix, "with")
     ));
+    if let Some(c) = &b.clock {
+        body.push_str(&same_mechanism(site, b, c, prefix));
+    }
+    // a pick that stands higher than the ground: the kind's design that sits right on it (vjeux
+    // 11:49Z)
+    if let Some(g) = b.circuit.as_ref().and_then(|c| c.ground.as_ref()).and_then(|g| site.builds.iter().find(|o| &o.id == g)) {
+        body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground: <a href=\"{prefix}{}\">{}</a>.</p>\n", esc(&g.page), esc(&page_title(g))));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -566,6 +574,57 @@ fn link_build(site: &Site, id: &str, prefix: &str) -> String {
     }
 }
 
+/// How a clock's blocks differ from another's, in words: `copper bulb instead of note block`.
+fn swap_words(own: &[String], other: &[String]) -> String {
+    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
+    let plus: Vec<String> = own.iter().filter(|k| !other.contains(k)).cloned().collect();
+    let minus: Vec<String> = other.iter().filter(|k| !own.contains(k)).cloned().collect();
+    match (plus.is_empty(), minus.is_empty()) {
+        (false, false) => format!("{} instead of {}", words(&plus), words(&minus)),
+        (false, true) => format!("{} too", words(&plus)),
+        (true, false) => format!("no {}", words(&minus)),
+        (true, true) => "the same blocks, set another way".to_string(),
+    }
+}
+
+/// A clock's mechanism (crates/site/src/mechanism.rs: the coordinator 11:33Z, "one card per
+/// mechanism per period"): on its card's page, the clocks of the same period and mechanism with
+/// other blocks, each with its own downloads; on a folded clock's page, the card it folds under.
+fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
+    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
+    if let Some(h) = c.host.as_ref().and_then(|h| site.builds.iter().find(|o| &o.id == h)) {
+        return format!(
+            "<section><h2>The same clock as another</h2><p>It is <a href=\"{prefix}{}\">this clock</a> ({}) with {}: the same mechanism and period. The Clocks tab lists it under that one.</p></section>\n",
+            esc(&h.page),
+            esc(&site_model::html::props(h).title),
+            esc(&swap_words(&b.kinds, &h.kinds))
+        );
+    }
+    let vs: Vec<&Build> = c.variants.iter().filter_map(|v| site.builds.iter().find(|o| &o.id == v)).collect();
+    if vs.is_empty() {
+        return String::new();
+    }
+    let rows: String = vs
+        .iter()
+        .map(|v| {
+            let on = match v.clock.as_ref() {
+                Some(vc) if vc.on != c.on && vc.on > 0 => format!(" · on for {} of {} ticks", vc.on, vc.period),
+                _ => String::new(),
+            };
+            format!(
+                "<li><a href=\"{prefix}{}\">with {}</a> · {}{on} · <a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a></li>",
+                esc(&v.page),
+                esc(&swap_words(&v.kinds, &b.kinds)),
+                esc(&site_model::html::blocks_word(v.blocks)),
+                esc(&crate::generate::litematic_path(&v.design)),
+                esc(&v.design)
+            )
+        })
+        .collect();
+    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&words(&c.swaps))) };
+    format!("<section><h2>Also works with{also}</h2><p>The same clock with other blocks in some cells, or set another way (the same mechanism and period):</p><ul class=\"swaps\">{rows}</ul></section>\n")
+}
+
 /// The properties table rows of a build.
 fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String {
     let mut s = String::new();
@@ -664,13 +723,13 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             }
         }
         if let Some(h) = &c.host {
-            s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same period)", link_build(site, h, prefix))));
+            s.push_str(&row("Same mechanism as", &format!("{} (the same period, other blocks in some cells)", link_build(site, h, prefix))));
         }
         if !c.variants.is_empty() {
             // a wall of variants folds to a count (critique C10: 31 links in a row)
             let links: Vec<String> = c.variants.iter().map(|v| link_build(site, v, prefix)).collect();
-            let cell = if links.len() <= 6 { links.join(", ") } else { format!("<details><summary>{} variants</summary>{}</details>", links.len(), links.join(", ")) };
-            s.push_str(&row("Variants (bigger, the same period)", &cell));
+            let cell = if links.len() <= 6 { links.join(", ") } else { format!("<details><summary>{} versions</summary>{}</details>", links.len(), links.join(", ")) };
+            s.push_str(&row("The same mechanism with other blocks", &cell));
         }
         if !c.aliases.is_empty() {
             s.push_str(&row("Also found as", &esc(&c.aliases.join(", "))));

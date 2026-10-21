@@ -18,19 +18,32 @@ use std::collections::{BTreeMap, BTreeSet};
 /// best-ranked design that does it, so a new record needs no site change (the coordinator
 /// 06:56Z: "pick the smallest judged design of the kind automatically instead of a hard-coded id").
 type Rule = (&'static str, &'static str, fn(&Build) -> bool);
-const RULES: [Rule; 4] = [
+const RULES: [Rule; 5] = [
     // vjeux asked for 1-wide tileable shulker loaders (the unloaders that go with them likewise),
     // working with their chests kept full the way a player keeps them (the 3D view's endless run;
     // the judge gives a loader 3 boxes and a spare: webrender found the 28-block loader jams once
     // its box chest holds about 20)
     ("shulker/shulker-loader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
     ("shulker/shulker-unloader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
-    // the self-running duper builders can put down anywhere (the coordinator 23:49Z: "safe on the
-    // ground"; the dupers that had to stand in the air left the archive)
-    ("tnt/tnt-duper", "works standing on the ground", on_the_ground),
+    // the self-running duper, safe where it is meant to stand (vjeux 11:49Z, the coordinator: its
+    // declared stand height, `stand: N`, the ground when it declares none; a duper that sits right
+    // on the ground is its variant when the pick stands higher)
+    ("tnt/tnt-duper", "is safe at its own stand height", safe_at_stand),
     // the flying machine with docking stations and an on/off lever (the coordinator 00:45Z)
     ("fly/flying-machine two-way", "has an on/off lever", has_lever),
+    // a true BUD switch (vjeux 11:46Z: "a single observer is not a BUD switch", it misses pure
+    // block updates, the defining case): it notices the pure update, and resets itself (a pulse is
+    // what starts a farm or an alarm; the coordinator 11:47Z)
+    ("bud/bud", "notices a pure block update and resets itself", true_bud),
 ];
+
+/// One line a kind's card says beside its pick (the coordinator 11:47Z): (study/kind, the line).
+const MENTIONS: [(&str, &str); 1] = [("bud/bud", "the classic 2-block BUD switch latches until you reset it; for visible block changes a single observer is enough")];
+
+/// A kind's mention ([`MENTIONS`]), for its page too.
+pub fn mention(study: &str, kind: &str) -> Option<&'static str> {
+    MENTIONS.iter().find(|(p, _)| *p == format!("{study}/{kind}")).map(|(_, m)| *m)
+}
 
 fn metric<'a>(b: &'a Build, k: &str) -> &'a str {
     b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(n, _)| n == k)).map(|(_, v)| v.as_str()).unwrap_or("")
@@ -50,6 +63,45 @@ fn on_the_ground(b: &Build) -> bool {
     metric(b, "safe drop").split_whitespace().next() == Some("0")
 }
 
+/// The ground variant a kind keeps beside its pick when the pick stands higher (vjeux 11:49Z: the
+/// 22-block clocked duper, "sits right on the ground"): the best design of the kind that works on
+/// the ground.
+const GROUND_VARIANTS: [&str; 1] = ["tnt/tnt-duper"];
+
+/// The ground variants of the chosen picks ([`GROUND_VARIANTS`]): (variant, pick) pairs.
+fn ground_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        let path = format!("{study}/{kind}");
+        let Some(&pick) = keep.first() else { continue };
+        if !GROUND_VARIANTS.contains(&path.as_str()) || stand_height(&builds[pick]) == 0 {
+            continue;
+        }
+        let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| on_the_ground(b) && b.id != builds[pick].id).collect();
+        if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+            out.push((v, pick));
+        }
+    }
+    out
+}
+
+/// The height a design is meant to stand at (`stand: N`, the judge's `stands` metric), 0: on the
+/// ground.
+pub fn stand_height(b: &Build) -> u32 {
+    metric(b, "stands").split_whitespace().next().and_then(|n| n.parse().ok()).unwrap_or(0)
+}
+
+/// Safe at its own stand height: the judge's safe drop no higher than where it is meant to stand.
+fn safe_at_stand(b: &Build) -> bool {
+    metric(b, "safe drop").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).is_some_and(|safe| safe <= stand_height(b))
+}
+
+/// A true BUD switch: it notices the pure block update, and resets itself (not latched).
+fn true_bud(b: &Build) -> bool {
+    metric(b, "detects").split_whitespace().any(|w| w == "update") && !b.circuit.as_ref().is_some_and(|c| c.axis.contains("latched")) && !metric(b, "reset").contains("manual")
+}
+
 fn has_lever(b: &Build) -> bool {
     b.circuit.as_ref().is_some_and(|c| c.devices.iter().any(|d| d == "lever"))
 }
@@ -58,9 +110,9 @@ fn has_lever(b: &Build) -> bool {
 /// (kind, row). The 3-dial combination lock (the coordinator 06:56Z).
 const CARD_ROWS: [(&str, i64); 1] = [("lock", 3)];
 
-/// Per-size picks: (study/kind, size, design). Reach 2: the 1-wide flat one, so the whole reach
-/// table is the 1-wide flat line.
-const SIZE_PICKS: [(&str, i64, &str); 1] = [("pext/piston-extender", 2, "pext-n2-rider7-flat")];
+/// Per-size picks: (study/kind, size, design). None now: reach 2 is the smallest box like every
+/// reach (pext-n2-rider-flat, 6x2x1; vjeux via pext 11:55Z).
+const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 
 /// The kinds whose designs differ by a number a builder picks (the reach, the count, the length):
 /// one card per kind, a table of the archived sizes on its page. (Flying machines are not: one
@@ -157,13 +209,20 @@ fn lone_reason(b: &Build) -> String {
 }
 
 /// The candidates of one kind, best first: robust ones first, then fewest blocks, then the
-/// fastest, then the name.
+/// fastest, then the name. A piston extender: the smallest box first (vjeux via pext 11:55Z: "the
+/// smallest VOLUME per reach in any 3D shape", the box being the game judge's, every cell over the
+/// whole run), then blocks, then speed.
 pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
     let mut v: Vec<&Build> = list.to_vec();
     // (a mirror pair's tie goes to the A-first version: "A AND NOT B", not "B AND NOT A")
     let mirror = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().nth(1).is_some_and(|f| f.ends_with("-ba")));
-    v.sort_by(|a, b| (!robust(a), a.blocks, speed(a), mirror(a)).partial_cmp(&(!robust(b), b.blocks, speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
+    let boxed = |b: &Build| if base_of_build(b) == "piston-extender" && b.group != "Sand elevator" { b.volume.unwrap_or(u32::MAX) } else { 0 };
+    v.sort_by(|a, b| (!robust(a), boxed(a), a.blocks, speed(a), mirror(a)).partial_cmp(&(!robust(b), boxed(b), b.blocks, speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
     v
+}
+
+fn base_of_build(b: &Build) -> &str {
+    b.circuit.as_ref().map(|c| base(&c.kind)).unwrap_or("")
 }
 
 /// A gate with its own levers (the basics): not a gate a builder wires in (the coordinator 21:55Z:
@@ -279,6 +338,13 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
                 _ if smallest => format!("smallest {}", tested(pool.len())),
                 _ => format!("best {}", tested(pool.len())),
             };
+            // the kind's one-line mention beside its pick (the BUD: the latched classic, the
+            // observer)
+            let reason = match mention(study, kind) {
+                Some(m) if !reason.is_empty() => format!("{reason}; {m}"),
+                Some(m) => m.to_string(),
+                None => reason,
+            };
             claims.insert(i, reason);
         }
     }
@@ -286,6 +352,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // (no generators: the extendable families are gone, vjeux 00:33Z)
     let generators: BTreeSet<usize> = BTreeSet::new();
     kept.extend(generators.iter().copied());
+    // a pick that stands higher keeps the kind's ground design beside it: a page, no card, linked
+    // from the pick's (vjeux 11:49Z)
+    let grounds = ground_variants(builds, &chosen);
+    kept.extend(grounds.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -318,6 +388,18 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.span.clear();
             c.span_blocks.clear();
             c.card_member = false;
+            c.ground = None;
+        }
+    }
+    let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
+    for &(v, pick) in &grounds {
+        let up = stand_height(&builds[pick]);
+        builds[v].flags.push("size".into());
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = format!("sits right on the ground (the pick of its kind stands {up} blocks up)");
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.ground = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another

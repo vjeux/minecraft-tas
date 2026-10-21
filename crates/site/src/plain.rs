@@ -571,6 +571,12 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                     ));
                 }
                 (Some(0), None) => v.push("Works standing on the ground.".to_string()),
+                // a design that declares its stand height (`stand: N`): said plainly (vjeux 11:49Z:
+                // "stand it 4 blocks up")
+                (Some(n), None) if stood.is_some_and(|h| h >= n) => {
+                    let h = stood.unwrap_or(n);
+                    v.push(format!("Stand it {h} blocks up: lower than {n} block{}, its own TNT explodes close enough to destroy it.", if n == 1 { "" } else { "s" }));
+                }
                 // (true for launchers and droppers alike: critique, "lands under it" contradicted a
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
                 (Some(n), None) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
