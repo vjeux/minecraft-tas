@@ -586,6 +586,10 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
 **Proven** (each within the stated model): 5-tall boxes (strip model); 6x6 with <= 2 two-move
 blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, the rest
 undecided at the cap); macrosat's UNSATs, which are bounded by the horizon (h6-h12) and its rules.
+With the gadgets in its palette (`--physics --observers`: movable observers, carried redstone
+blocks, BUD and hold rules), macrosat is UNSAT at h8 for 7x7 in two placements, (-3..3, -3..3) and
+(-3..3, -1..5), and for those two plus four 48 boxes with at most 18 pistons (clockinfra; the
+other placements still running).
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
