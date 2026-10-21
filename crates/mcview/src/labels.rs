@@ -17,8 +17,8 @@ pub enum Key {
 /// One line of a label.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Entry {
-    /// `count` items of `id` in all (summed over its stacks).
-    Items { id: &'static str, count: u32 },
+    /// `count` items of `id` in all, in `stacks` stacks (slots).
+    Items { id: &'static str, count: u32, stacks: u32 },
     /// `n` shulker boxes (`id`: the first one's item id, for its colour), `used` of their `slots`
     /// slots holding something.
     Boxes { id: &'static str, n: u32, used: u32, slots: u32 },
@@ -38,14 +38,17 @@ pub struct Summary {
 /// Several containers' entries as one (a group of same-kind port chests): items summed by kind,
 /// boxes summed.
 pub fn merge<'a>(lists: impl IntoIterator<Item = &'a [Entry]>) -> Vec<Entry> {
-    let mut items: Vec<(&'static str, u32)> = Vec::new();
+    let mut items: Vec<(&'static str, u32, u32)> = Vec::new();
     let mut boxes: Option<(&'static str, u32, u32, u32)> = None;
     for list in lists {
         for e in list {
             match e {
-                Entry::Items { id, count } => match items.iter_mut().find(|(i, _)| i == id) {
-                    Some(x) => x.1 += count,
-                    None => items.push((id, *count)),
+                Entry::Items { id, count, stacks } => match items.iter_mut().find(|(i, _, _)| i == id) {
+                    Some(x) => {
+                        x.1 += count;
+                        x.2 += stacks;
+                    }
+                    None => items.push((id, *count, *stacks)),
                 },
                 Entry::Boxes { id, n, used, slots } => {
                     let b = boxes.get_or_insert((id, 0, 0, 0));
@@ -61,13 +64,13 @@ pub fn merge<'a>(lists: impl IntoIterator<Item = &'a [Entry]>) -> Vec<Entry> {
     if let Some((id, n, used, slots)) = boxes {
         v.push(Entry::Boxes { id, n, used, slots });
     }
-    v.extend(items.into_iter().map(|(id, count)| Entry::Items { id, count }));
+    v.extend(items.into_iter().map(|(id, count, stacks)| Entry::Items { id, count, stacks }));
     v
 }
 
 /// A container's slots summed by kind (shulker boxes first, then items by count).
 pub fn summarize(w: &World, slots: &[Option<Stack>]) -> Vec<Entry> {
-    let mut items: Vec<(&'static str, u32)> = Vec::new();
+    let mut items: Vec<(&'static str, u32, u32)> = Vec::new();
     let mut boxes: Option<(&'static str, u32, u32, u32)> = None;
     for s in slots.iter().flatten() {
         let id = item_name(s.item);
@@ -78,9 +81,12 @@ pub fn summarize(w: &World, slots: &[Option<Stack>]) -> Vec<Entry> {
             b.2 += used * s.count as u32;
             b.3 += 27 * s.count as u32;
         } else {
-            match items.iter_mut().find(|(i, _)| *i == id) {
-                Some(e) => e.1 += s.count as u32,
-                None => items.push((id, s.count as u32)),
+            match items.iter_mut().find(|(i, _, _)| *i == id) {
+                Some(e) => {
+                    e.1 += s.count as u32;
+                    e.2 += 1;
+                }
+                None => items.push((id, s.count as u32, 1)),
             }
         }
     }
@@ -89,7 +95,7 @@ pub fn summarize(w: &World, slots: &[Option<Stack>]) -> Vec<Entry> {
     if let Some((id, n, used, slots)) = boxes {
         v.push(Entry::Boxes { id, n, used, slots });
     }
-    v.extend(items.into_iter().map(|(id, count)| Entry::Items { id, count }));
+    v.extend(items.into_iter().map(|(id, count, stacks)| Entry::Items { id, count, stacks }));
     v
 }
 
@@ -142,7 +148,8 @@ pub fn thousands(n: u32) -> String {
     out
 }
 
-/// What the label of one entry says next to its icon: `1,344`; one box `12/27`; several `×3`.
+/// What the label of one entry says next to its icon: `1,344 items`; one box `12/27 slots`;
+/// several `3 boxes`.
 pub fn entry_text(e: &Entry) -> String {
     match e {
         // with its unit (critique: "×27" read as stacks beside a hopper's "×9" items)
@@ -153,11 +160,21 @@ pub fn entry_text(e: &Entry) -> String {
     }
 }
 
-/// An entry's spoken form (the label's tooltip): `1,344 cobblestone`, `3 shulker boxes, 81 of 81
-/// slots filled`.
+/// [`entry_text`] for a judge's port chest: its items in stacks (`27 stacks`: how full the chest
+/// is, which is what the judge keeps; critique: a loader's ITEMS chest "should be 27 stacks").
+pub fn entry_text_stacks(e: &Entry) -> String {
+    match e {
+        Entry::Items { stacks: 1, .. } => "1 stack".into(),
+        Entry::Items { stacks, .. } => format!("{} stacks", thousands(*stacks)),
+        _ => entry_text(e),
+    }
+}
+
+/// An entry's spoken form (the label's tooltip): `1,344 cobblestone in 21 stacks`, `3 shulker
+/// boxes, 81 of 81 slots filled`.
 pub fn entry_title(e: &Entry) -> String {
     match e {
-        Entry::Items { id, count } => format!("{} {}", thousands(*count), id.replace('_', " ")),
+        Entry::Items { id, count, stacks } => format!("{} {} in {} stack{}", thousands(*count), id.replace('_', " "), thousands(*stacks), if *stacks == 1 { "" } else { "s" }),
         Entry::Boxes { n, used, slots, .. } => format!("{n} shulker box{}, {used} of {slots} slots filled", if *n == 1 { "" } else { "es" }),
     }
 }
@@ -300,6 +317,39 @@ impl Layout {
         }
         None
     }
+
+    /// [`Layout::place`] under its point instead (a tag whose cell has a block right above it:
+    /// over the cell it would read as that block's), rows going down.
+    pub fn place_below(&mut self, safe: &Rect, ax: f64, ay: f64, w: f64, h: f64, rows: usize) -> Option<(Rect, bool)> {
+        const GAP: f64 = 2.0;
+        let mut cands: Vec<(f64, usize, i32)> = Vec::new();
+        for k in 0..rows {
+            for c in [-1i32, 0, 1] {
+                cands.push((k as f64 + 2.5 * c.abs() as f64, k, c));
+            }
+        }
+        cands.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
+        for (_, k, c) in cands {
+            let y0 = ay + GAP + k as f64 * (h + GAP);
+            let centred = ax - w / 2.0;
+            let x0 = if c == 0 && safe.x1 - safe.x0 >= w { centred.min(safe.x1 - w).max(safe.x0) } else { centred + c as f64 * (w + 4.0) };
+            let r = Rect { x0, y0, x1: x0 + w, y1: y0 + h };
+            if !r.inside(safe) || self.obstacles.iter().chain(self.texts.iter()).any(|p| p.overlaps(&r)) || self.lines.iter().any(|(a, b)| seg_hits(*a, *b, &r)) {
+                continue;
+            }
+            let moved = k > 0 || c != 0 || (x0 - centred).abs() > w / 4.0;
+            if moved {
+                let end = leader_end(ax, ay, &r);
+                if self.texts.iter().any(|t| seg_hits((ax, ay), end, t)) {
+                    continue;
+                }
+                self.lines.push(((ax, ay), end));
+            }
+            self.texts.push(r);
+            return Some((r, moved));
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -349,10 +399,10 @@ mod tests {
 
     #[test]
     fn groups_merge() {
-        let a = [Entry::Items { id: "iron_shovel", count: 27 }];
-        let b = [Entry::Items { id: "iron_shovel", count: 5 }, Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }];
+        let a = [Entry::Items { id: "iron_shovel", count: 27, stacks: 27 }];
+        let b = [Entry::Items { id: "iron_shovel", count: 5, stacks: 5 }, Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }];
         let m = merge([&a[..], &b[..]]);
-        assert_eq!(m, vec![Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }, Entry::Items { id: "iron_shovel", count: 32 }]);
+        assert_eq!(m, vec![Entry::Boxes { id: "shulker_box", n: 1, used: 3, slots: 27 }, Entry::Items { id: "iron_shovel", count: 32, stacks: 32 }]);
     }
 
     #[test]
@@ -366,11 +416,12 @@ mod tests {
         let slots = vec![st(shovel, 1, 0), st(shovel, 1, 0), None, st(boxid, 1, full), st(id("redstone"), 64, 0), st(id("redstone"), 3, 0)];
         let e = summarize(&w, &slots);
         assert_eq!(e[0], Entry::Boxes { id: item_name(boxid), n: 1, used: 12, slots: 27 });
-        assert_eq!(e[1], Entry::Items { id: "redstone", count: 67 });
-        assert_eq!(e[2], Entry::Items { id: "iron_shovel", count: 2 });
+        assert_eq!(e[1], Entry::Items { id: "redstone", count: 67, stacks: 2 });
+        assert_eq!(e[2], Entry::Items { id: "iron_shovel", count: 2, stacks: 2 });
         assert_eq!(entry_text(&e[0]), "12/27 slots");
         assert_eq!(entry_text(&e[1]), "67 items");
-        assert_eq!(entry_text(&Entry::Items { id: "redstone", count: 1 }), "1 item");
+        assert_eq!(entry_text_stacks(&e[1]), "2 stacks");
+        assert_eq!(entry_text(&Entry::Items { id: "redstone", count: 1, stacks: 1 }), "1 item");
         assert_eq!(entry_text(&Entry::Boxes { id: item_name(boxid), n: 27, used: 0, slots: 729 }), "27 boxes");
         assert_eq!(thousands(1344), "1,344");
         assert_eq!(thousands(999), "999");

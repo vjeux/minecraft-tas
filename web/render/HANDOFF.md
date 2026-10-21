@@ -57,7 +57,9 @@ is the short version for whoever picks the work up.
   The hand-drawn tiles are the offline fallback. Native tools download the same atlas into
   `~/.cache/mctas/mcmeta/26.3-atlas` (`--procedural` opts out).
 - Camera: `clock shot`'s exactly (the judge's swept box at 85% of the full 70-degree frame, then
-  the 64% crop). The floor is the pictures' floor: its top one block under the lowest cell
+  the 64% crop) for `web compare`'s pictures; the viewer's own views (live and thumbnails) take
+  the scored default camera (`scene::best_camera`: docs/webrender.md, Camera; `web shot --live
+  [--dpr 2]` renders a live viewer's). The floor is the pictures' floor: its top one block under the lowest cell
   (`clock shot` and `door video` fill grass at lo - 2), ending 56 blocks around a clock (110 for
   a door), each grass block turned like the game's (position-seeded variant of 4).
 - Texture array layers must never be a multiple of 6: wgpu's WebGL2 backend then takes the

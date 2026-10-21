@@ -1157,6 +1157,11 @@ pub fn how_text(caption: &str) -> String {
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
             return first_cap(&drop_source_paths(&c[i + 3..]));
         }
+        // a head naming the track that found it (`Dropper ring (clk-item): `, 448 clock
+        // captions): the name stays, the track id goes (critique: raw ids on the page)
+        if let Some(j) = head.rfind(" (clk-").filter(|&j| i < 220 && !head[j + 2..].contains(' ')) {
+            return drop_source_paths(&format!("{}: {}", &head[..j], &c[i + 3..]));
+        }
     }
     drop_source_paths(c)
 }
@@ -1473,5 +1478,13 @@ mod tests {
         assert!(s.starts_with("<svg") && s.ends_with("</svg>"));
         assert_eq!(s.matches("<polygon").count(), 2);
         assert!(s.contains(">pulse 2</text>") && s.contains(">IN</text>") && s.contains(">OUT</text>"));
+    }
+
+    #[test]
+    fn a_caption_head_loses_its_track_id() {
+        // (critique e92a18d12: raw ids on an extended clock's page)
+        assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
+        // a parenthesis that is not a track id stays
+        assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
     }
 }

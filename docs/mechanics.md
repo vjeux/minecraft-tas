@@ -443,14 +443,17 @@ track notes).
   taps land inside the sensor's 40 gt dead time. **Calibrated sensor -> observer = 3 taps 10 gt apart**
   (T+2, T+12, T+22): an odd count for a pull-type piston (pull/push/pull on open, push/pull/push on
   close), and its window can hold another piston meanwhile (the 63's B through dust -> wool).
-* **On a door still moving after the re-arm, read the sensor with an observer, never drive a piston
-  with it directly** (clk-item, q69h / q69c, 6x9 doors that move 57-83 gt): every piston of a 6x9 box is
-  within range (8 plain / 16 calibrated), and a piston's extend / retract is the same game event as the
+* **On a door still moving after the re-arm, read the sensor with an observer rather than letting it
+  hold a piston** (clk-item, q69h / q69c, 6x9 doors that move 57-83 gt): a calibrated sensor (range 16)
+  hears every piston of a 6x9 box, a plain one (range 8) all but the far corners (the box's diagonal is
+  9.4), and a piston's extend / retract is the same game event as the
   lever's on / off (`BLOCK_ACTIVATE` 10 / `BLOCK_DEACTIVATE` 9, `VibrationSystem`), so no frequency
   filter separates the lever from the door. A sensor powering a piston directly re-holds it on every
   echo wake: q69h's Qr (calibrated, woke t2, again t29 and t57), q69c's (0,4,1) (plain, woke t5, again
   t49 from a piston 2.2 blocks away whose line crosses only free cells, so a wool DOOR did not help)
-  and q69c's A were all broken. An observer watching the sensor instead turns every phase change of
+  and q69c's A were all broken. (One direct drive does work: q69h's W, with a calibrated sensor at
+  (-2,-2) next to the cell the slime drags W into, plus a wool shield at (0,-2); redsim 32 x 3 and the
+  game. So measure, do not assume.) An observer watching the sensor instead turns every phase change of
   every echo cycle into one more 2 gt tap, which is harmless for a piston that tolerates extra pulses:
   q69c's A (sensor (3,-3), observer (3,-2) facing down) and (1,-1,1) (sensor (0,-3), observer (0,-2))
   both WORK at 32 positions x 3 cycles and in the game. The observer may write into a WOOL block that

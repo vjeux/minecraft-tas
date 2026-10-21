@@ -217,8 +217,8 @@ impl Overlays {
         for g in mcview::circuit::port_groups(&p.session.design) {
             let t = make(&self.layer, &g.label, g.colour, g.cells);
             let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
-                ("shulker-loader", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
-                ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") => Some("emptied"),
+                ("shulker-loader" | "sorter", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
+                ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") | ("sorter", "OUT" | "PASS") => Some("emptied"),
                 _ => None,
             };
             if let Some(r) = role {
@@ -320,8 +320,9 @@ impl Overlays {
         url
     }
 
-    /// A label's contents: per kind (two at most) its icon and count, then `+n` more kinds.
-    fn fill_label(&mut self, atlas: &Atlas, el: &HtmlElement, entries: &[Entry]) {
+    /// A label's contents: per kind (two at most) its icon and count, then `+n` more kinds; a
+    /// judge's port chest (`stacks`) counts its items in stacks.
+    fn fill_label(&mut self, atlas: &Atlas, el: &HtmlElement, entries: &[Entry], stacks: bool) {
         el.set_inner_html("");
         for e in entries.iter().take(2) {
             let id = match e {
@@ -338,7 +339,8 @@ impl Overlays {
                 None => div(&format!("width:10px;height:10px;border-radius:2px;flex:none;background:{}", item_color(id))),
             };
             let _ = el.append_child(&icon);
-            let _ = el.append_child(&span("margin-right:2px", &labels::entry_text(e)));
+            let text = if stacks { labels::entry_text_stacks(e) } else { labels::entry_text(e) };
+            let _ = el.append_child(&span("margin-right:2px", &text));
             // several boxes: how full they are, as a bar (not when all are empty: nothing to show)
             if let Entry::Boxes { n, used, slots, .. } = e
                 && *n > 1
@@ -412,12 +414,15 @@ impl Overlays {
         // the tags first, always shown (at their point when no free spot is left); the
         // containers under a tag (port chests) show their contents in the tag; no tag covers an
         // input's cell (a tap there presses that input, not the tag's)
-        let view = Rect { x0: 0.0, y0: 0.0, x1: w, y1: h };
+        // tags stay 4 px inside the view (critique: a long tag ran into the right edge)
+        let view = Rect { x0: 4.0, y0: 4.0, x1: w - 4.0, y1: h - 4.0 };
         for ci in &p.session.circuit_inputs {
             if let Some((x, y)) = project([ci.pos[0] as f32 + 0.5, ci.pos[1] as f32 + 0.5, ci.pos[2] as f32 + 0.5]) {
                 layout.obstacles.push(Rect { x0: x - 10.0, y0: y - 10.0, x1: x + 10.0, y1: y + 10.0 });
             }
         }
+        // the still blocks' cells (a tag never covers the block right above its cell)
+        let solid: std::collections::HashSet<[i32; 3]> = p.session.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| b.cell).collect();
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
@@ -430,7 +435,7 @@ impl Overlays {
                     contents.set_inner_html("");
                     let _ = contents.style().set_property("display", "none");
                 } else {
-                    self.fill_label(atlas, &contents, &entries);
+                    self.fill_label(atlas, &contents, &entries, true);
                     let _ = contents.style().set_property("display", "inline-flex");
                 }
                 let tg = &mut self.tags[i];
@@ -450,7 +455,28 @@ impl Overlays {
             }
             let tg = &self.tags[i];
             let (wt, ht) = tg.size;
-            let rect = match layout.place(&view, ax, ay, wt, ht, 5) {
+            // a block right above the tagged cell (a clock's observer over its OUT lamp): the tag
+            // does not cover it, it goes aside with a leader line (critique: "OUT" read as the
+            // observer's)
+            let top = tg.cells.iter().max_by_key(|c| c[1]).copied();
+            let above = top.map(|c| [c[0], c[1] + 1, c[2]]).filter(|c| !tg.cells.contains(c) && solid.contains(c)).and_then(|c| cell_box(c));
+            if let Some(b) = above {
+                layout.obstacles.push(b);
+            }
+            // a block over the cell: under the cell instead (rows going down from its bottom face)
+            let below = above.and_then(|_| {
+                let c = top?;
+                let n = tg.cells.len().max(1) as f32;
+                let mid = |k: usize| tg.cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+                let low = tg.cells.iter().map(|c| c[1]).min().unwrap_or(c[1]) as f32 - 0.05;
+                let (bx, by) = project([mid(0), low, mid(2)])?;
+                layout.place_below(&view, bx, by, wt, ht, 3)
+            });
+            let placed = below.or_else(|| layout.place(&view, ax, ay, wt, ht, 5));
+            if above.is_some() {
+                layout.obstacles.pop();
+            }
+            let rect = match placed {
                 Some((rect, _)) => rect,
                 None => {
                     // no free spot: at its point, inside the view (a long tag near the edge ran
@@ -531,7 +557,7 @@ impl Overlays {
             }
             if self.labels[&s.key].content != content {
                 let el = self.labels[&s.key].el.clone();
-                self.fill_label(atlas, &el, &s.entries);
+                self.fill_label(atlas, &el, &s.entries, false);
                 let size = measure(&el);
                 let l = self.labels.get_mut(&s.key).unwrap();
                 l.content = content;

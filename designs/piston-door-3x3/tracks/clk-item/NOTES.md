@@ -110,7 +110,7 @@ separate the lever from the door. Every piston of a 6x9 box is in range (8 regul
 `ideal-rs --holds` models ONE hold and no echo, so its windows are optimistic: a sensor input must
 be checked with a real sensor block in redsim.
 
-### q69c wired with real sensors: 3 of 13 inputs (wip/q69c-A3, redsim 32x3; A2 also the game 4x2)
+### q69c wired with real sensors: 3 of 11 inputs (an earlier count of 13 was wrong: q69c has 11 input cells) (wip/q69c-A3, redsim 32x3; A2 also the game 4x2)
 The working pattern: a calibrated sculk sensor read by an OBSERVER facing it. The observer turns every
 sensor phase change (wake, cooldown, re-arm, and every echo wake) into a 2 gt pulse, so the echo
 becomes extra pulses instead of extra holds; it only suits inputs that tolerate extra pulses.
@@ -155,3 +155,40 @@ C2 (4,-1)(5,-1) | D7 (4,2..4)(5,1..4). W' (3,-1) sticky up (o14-16, c26-30) is f
 - `door shuttle --target 3,-1,-1` (observer or redstone block payloads, radius 0, holds 3..20, leads
   2..6, --absorb): 7 placements reach both pulses, none gives either pulse alone; 0 WORK. With
   `--margin 1` (a box past 54) 8 shuttles WORK: the pocket is one row short.
+
+## u2-7x7 (c70b, 7x7 = 49, slime-free): the lever + SD(1,4) wired; every island input else 0
+Plan: c70b's bars/u2-7x7/mm01-oc.ideal, `door prune-plan` (6 pulses dropped). Regions (`door feeds`,
+box -2..4,-2..4): A2 (-2,-2)(-2,-1) | B4 (-2,2)(-2,3)(-2,4)(-1,4) | C1 (0,-2) | D5 (2,4)(3,3)(3,4)(4,3)(4,4)
+| E4 (3,-2)(4,-2)(4,-1)(4,0).
+- THE LEVER: on the static S(2,3)'s back face (2,3,1). It strongly powers S(2,3) and arms no piston
+  (no piston touches S(2,3) or has its quasi cell next to it). D (0,4)'s (0,4,1) cannot be the lever:
+  measured window, D off at open t0..t12+ but back on only at close t42..t90+ (close t0..t36: BROKEN).
+- SD(1,4) (2,4,0) WIRED: one redstone torch standing on S(2,3) at (2,4). Lever on (closed rest):
+  S(2,3) powered, torch off; lever off (open): the torch lights and holds SD(1,4) (pulses were not
+  needed: a level works). 1 block, solid (no sculk). wip/u2-T: redsim 32x3 and the game 4x2.
+  (Sensor fillings also drive it, 10,993 of 1.9M in D5, but the torch is the cheapest: 1 block.)
+  This is c70b's open "lever at the top arms SD(1,4)" problem, solved by moving the lever, and the
+  torch's level also STARTS the top-right island (an observer in D5 can watch it).
+- Every other input, real sensors (plain, calibrated x4), observers x4, wool, stone, dust, torches,
+  wall torches x4, repeaters 4 facings x 4 delays (34 states), every filling of its region:
+  - D5 with the torch fixed: SW(4,2) (5,2,0) o60/c36, SW(4,1) (5,1,0) c24/c42, both: 0 of 1,336,336.
+  - E4: SW(3,-1) (4,-1,0), SU(2,-2) (2,-2,1), (5,1,0): 0 each; (4,-1,0)+(2,-2,1): 0 of 1,336,336;
+    the SU+(2,-2) holder (2,-3,0) with (2,-3) freed too: 0 of 45,435,424.
+  - A2 (the 2-cell island): SU(-1,-2) (-1,-3,0), SE(-2,0) (-3,0,0), SE(-1,-1) (-1,-1,1), (-3,1,0) and
+    every pair and the triple: 0 of 1,156 each.
+  - B4: D's level (0,4,1) (control: BROKEN without it), SD(-1,3), SE(-1,1), (-3,1,0), (-3,0,0): 0 of
+    1,336,336 each.
+
+## m69g-12 (c70b's 9x6 = 54): the bottom pocket is the same wall as m69g's
+Plan rebuilt with c70b's own command: `door mechmut m69g-12.line --rounds 0 --top 1 --validate
+--ideal-out DIR` (WORKS redsim 32x2, open 81 / close 57, extent 9x6). The lever goes on SD+(1,4)'s
+back face (1,5,0), on at rest: it holds the whole top trio (direct + QC), so the 3 top inputs drop
+and the lever-only plan WORKS (4x2); `door prune-plan` then drops nothing more (21 pulse groups).
+Regions (box -3..5,-1..4): A3 (-3..-1,-1) | B8 | C8 | D2 (4,-1)(5,-1). SU(3,-1) (o24, o42, o66) is fed
+only from (4,-1); SW(5,0) (c54) only from (5,-1) or (5,1); SW(4,0/1) (4,2,0) from D or C.
+- D2 with real sensors (plain, calibrated x4), observers x4, wool, stone, dust, torches x5,
+  repeaters x16 (34 states), every filling: SU(3,-1) 0 of 1,156; SW(5,0) 0; both 0; (4,2,0) 0.
+- `door shuttle --target 3,-2,0` (observer or redstone block, radius 0, with or without --absorb):
+  0 placements. With `--margin 1` (outside 54): 1 WORKS.
+So both 9x6 mechanisms (w86's m69g and c70b's m69g-12) fail the same way: one spare row, and the
+bottom-right pocket that feeds SU(3,-1) is 2 cells that nothing reaches; one more row (9x7 = 63) fixes it.
