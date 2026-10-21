@@ -1,0 +1,42 @@
+# REDSIM / JUDGE CASE (clk-rt 2026-10-21, for clk-misc): a 21-block variant of tnt-clocked-22b found by `circuit tnt
+# compact --depth fast:0`. redsim's `circuit sim` passes it (100 TNT/min, safe drop 0); the game judge does not: 8 of 16
+# builds fail (rotation 1 at [0,0,0]: no primed TNT), rotation-dependent, safe drop 6.
+# REDSIM (circuit sim): CIRCUIT: tnt-clocked-22b-v64-21b-0 tnt-duper rate 100 TNT/min, period 36 gt, per period 3, latency 10 gt, safe drop 0 blocks (on the ground), 21 blocks, 4x4x4, redsim (survives its own explosions: 144 exploded, design intact; launched at (0.0000, 0.1539, -1.0014) blocks/gt, spread (0.0000, 0.4407, 0...
+# GAME (circuit verify --workers 8): 8 of 16 builds fail: rotation 1 at [0, 0, 0]: no primed TNT; CIRCUIT: tnt-clocked-22b-v64-21b-0 tnt-duper rate 100 TNT/min, period 36 gt, per period 3, latency 10 gt, safe drop 6 blocks, 21 blocks, 4x4x4, rotation-dependent (survives its own explosions: 144 exploded, design intact; launched at (0.0014, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.000...
+name: tnt-fast-21b-rotation-case
+circuit: tnt-duper
+port start: 0 1 0 last
+origin: 0 0 0
+palette:
+  A minecraft:obsidian
+  B minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:stone
+  O minecraft:observer[facing=north,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  o minecraft:observer[facing=south,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  R
+  .
+layer -1:
+  .
+  .SSS
+  .CAS
+  ...S
+layer 0:
+  E.T
+  oD
+  s.BR
+  ...S
+layer 1:
+  r
+  O
+  ..SS
+  ...S
