@@ -84,6 +84,8 @@ candidate when none improves, so the box can grow before it shrinks), `--free-le
 | 8 | cascade52 24x5 = 120, 85/107 | **pext-n8-flat-cascade52-24x4**: 52 blocks, 24x4 = 96, 87/95 (the old one stays: faster extend) |
 | 9 | cascade59 27x6 = 162, 92/114 | **pext-n9-flat-cascade59-27x4**: 59 blocks, 27x4 = 108, 94/104 (the old one stays: faster extend) |
 | 10 | cascade69 30x6 = 180, 109/135 | **pext-n10-flat-cascade69-30x4**: 69 blocks, 30x4 = 120, 107/119 (replaces it) |
+| 11 | cascade76 33x6 = 198, 118/146 | **pext-n11-flat-cascade75-33x4**: 75 blocks, 33x4 = 132, 123/135 (the old one stays: faster extend) |
+| 12 | cascade82 36x6 = 216, 129/157 | **pext-n12-flat-cascade82-36x5**: 82 blocks, 36x5 = 180, 127/145 (replaces it) |
 
 What changed, every N: the row of observers under the line is gone (they ride on top of the
 slimes instead), and the starters above were rearranged so nothing moves outside 4 rows (N = 3: 5).
