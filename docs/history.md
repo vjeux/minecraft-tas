@@ -512,7 +512,7 @@ attempts to replace the missing one:
 | 6x7 | 42 | no | no | YES: c70b mm01..05 (repaired a3s) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
 | 8x6 | 48 | yes | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
 | 6x8 | 48 | no | yes | slime only (fly's q68g) | as 6x9 |
-| 7x7 | 49 | only with the trio, which leaves C no way out (w86) | no | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). macrosat with feed + island start: UNSAT at h6 in every placement but the central one, which is UNSAT up to h12 under `--physics` |
+| 7x7 | 49 | only with the trio, which leaves C no way out (w86) | no | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). clk-item's u2-T fixes the top: the lever on the static S(2,3)'s back face plus one torch at (2,4) hold SD(1,4) and start the top-right island (solid, game 4x2). Every other input of u2 still drives 0 times over every filling of its region, sensors, observers, wool, torches and repeaters included (0 of 1,156 to 45M) |
 | 9x6 | 54 | yes | no | YES: c70b m69a turned, w86 m69g / m69g-12 | one spare row, so the bottom row's pieces sit in a pocket that only row-0 movers touch. m69g's W' (3,-1) is fed only from the 2-cell pocket (4,-1),(5,-1): every filling with sensors, observers, wool, dust and torches drives it 0 of 324 times. Shuttles reach it only with one more row (clk-item; satwire core W', w86) |
 | 6x9 | 54 | no | yes | YES: c78l m69a, c70b m69T, fly's q69i/j/m, r69t, s69 | below |
 
@@ -586,10 +586,11 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
 **Proven** (each within the stated model): 5-tall boxes (strip model); 6x6 with <= 2 two-move
 blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, the rest
 undecided at the cap); macrosat's UNSATs, which are bounded by the horizon (h6-h12) and its rules.
-With the gadgets in its palette (`--physics --observers`: movable observers, carried redstone
-blocks, BUD and hold rules), macrosat is UNSAT at h8 for 7x7 in two placements, (-3..3, -3..3) and
-(-3..3, -1..5), and for those two plus four 48 boxes with at most 18 pistons (clockinfra; the
-other placements still running).
+With feed + island start, macrosat is UNSAT at h6 for 7x7 in every placement but the central one,
+which is UNSAT up to h12 under `--physics`. With the gadgets in its palette (`--physics
+--observers`: movable observers, carried redstone blocks, BUD and hold rules) it is UNSAT at h8 for
+7x7 in two placements, (-3..3, -3..3) and (-3..3, -1..5), and for those two plus four 48 boxes with
+at most 18 pistons (clockinfra; the other placements still running).
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
