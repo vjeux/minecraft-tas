@@ -23,3 +23,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Randomizers](random/CATALOG.md) | 4 | 2 | 2 |
 | [Auto-smelters](smelter/CATALOG.md) | 5 | 5 | 0 |
 | [Crop farms](farm/CATALOG.md) | 7 | 7 | 0 |
+| [Item elevators](elevator-items/CATALOG.md) | 4 | 1 | 0 |

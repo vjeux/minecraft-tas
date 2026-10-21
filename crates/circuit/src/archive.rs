@@ -737,6 +737,8 @@ fn axis_label(a: &str) -> (String, String) {
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
         // a counter's axis is its kind, `counter N`
         None if a.starts_with("counter ") => ("N".to_string(), String::new()),
+        // an item elevator's, its height (`5 blocks up`)
+        None if a.ends_with(" blocks up") => ("height".to_string(), "blocks up".to_string()),
         None => (String::new(), String::new()),
     }
 }

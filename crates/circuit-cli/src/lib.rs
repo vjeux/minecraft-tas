@@ -261,8 +261,9 @@ pub enum CircuitCmd {
         #[arg(long)]
         from: Option<PathBuf>,
     },
-    /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
-    /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
+    /// Family generators: `repeater-line` (the judge's own calibration family) = n + 1 delay-1
+    /// repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks); `dropper-lift` = the
+    /// dropper-chain item elevator, 4 + 2n blocks up in 13 + 5n blocks (`circuit::lift::dropper_chain`).
     Gen {
         family: String,
         #[arg(long)]
@@ -816,8 +817,14 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
         CircuitCmd::Gen { family, n, out } => {
+            if family == "dropper-lift" {
+                anyhow::ensure!((0..=40).contains(&n), "dropper-lift --n {n}: 0..40");
+                std::fs::write(&out, circuit::lift::dropper_chain(n as u32))?;
+                println!("{}", out.display());
+                return Ok(());
+            }
             if family != "repeater-line" {
-                anyhow::bail!("unknown family {family:?} (repeater-line)");
+                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift)");
             }
             let k = (n + 1).max(1) as usize;
             let text = format!(
