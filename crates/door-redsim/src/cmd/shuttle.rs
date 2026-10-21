@@ -5,8 +5,12 @@ use std::path::PathBuf;
 
 #[derive(clap::Args)]
 pub struct ShuttleArgs {
-    /// The `door ideal` plan.
-    schedule: PathBuf,
+    /// The `door ideal` plan(s); several = batch mode, one line per plan (and target group).
+    #[arg(required = true, num_args = 1..)]
+    schedule: Vec<PathBuf>,
+    /// Search each target cell on its own (with --unfed: every unfed input separately).
+    #[arg(long)]
+    per_cell: bool,
     /// Plan input cells the shuttle replaces, `x,y,z` (repeatable, or `;`-separated): every pulse
     /// of these cells must come from the shuttled observer.
     #[arg(long)]
@@ -72,7 +76,7 @@ where
 }
 
 pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
-    let ShuttleArgs { schedule, target, unfed, edge, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
+    let ShuttleArgs { schedule, per_cell, target, unfed, edge, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
     let edge = match edge.as_deref() {
         None => None,
         Some("open") => Some(true),
@@ -92,5 +96,5 @@ pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
     let payloads: Vec<String> = payload.split(',').map(|s| s.trim().to_string()).collect();
     anyhow::ensure!(payloads.iter().all(|p| p == "observer" || p == "redstone_block"), "--payload: observer, redstone_block");
     let o = crate::shuttle::Options { targets, edge, unfed, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
-    crate::shuttle::cli(&schedule, &o)
+    crate::shuttle::cli(&schedule, &o, per_cell)
 }

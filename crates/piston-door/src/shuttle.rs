@@ -562,22 +562,46 @@ fn unfed_inputs(text: &str, label: &str) -> Result<Vec<Pos>> {
     Ok(out)
 }
 
-pub fn cli(path: &Path, o: &Options) -> Result<()> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let s = Schedule::parse(&text)?;
-    let mut targets = o.targets.clone();
-    if o.unfed {
-        for c in unfed_inputs(&text, &path.display().to_string())? {
-            if !targets.contains(&c) {
-                targets.push(c);
+pub fn cli(paths: &[PathBuf], o: &Options, per_cell: bool) -> Result<()> {
+    let quiet = paths.len() > 1;
+    for path in paths {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let mut targets = o.targets.clone();
+        if o.unfed {
+            match unfed_inputs(&text, &path.display().to_string()) {
+                Ok(v) => targets.extend(v.into_iter().filter(|c| !o.targets.contains(c))),
+                Err(e) => {
+                    println!("{}: door feeds fails: {e:#}", path.display());
+                    continue;
+                }
+            }
+            if !quiet {
+                println!("unfed inputs (door feeds: no option): {targets:?}");
             }
         }
-        println!("unfed inputs (door feeds: no option): {targets:?}");
-        if targets.is_empty() {
-            return Ok(());
+        let groups: Vec<Vec<Pos>> = if per_cell { targets.iter().map(|c| vec![*c]).collect() } else { vec![targets.clone()] };
+        for g in groups.into_iter().filter(|g| !g.is_empty()) {
+            let tag = if per_cell { format!("-{}_{}_{}", g[0][0], g[0][1], g[0][2]) } else { String::new() };
+            let og = Options { targets: g.clone(), ..o.clone() };
+            match run_one(path, &text, &og, &tag, quiet) {
+                Ok(n) if quiet || per_cell => println!("{} target {g:?}: {n} shuttles WORK", path.display()),
+                Ok(_) => {}
+                Err(e) => println!("{} target {g:?}: {e:#}", path.display()),
+            }
         }
     }
-    let o = &Options { targets, ..o.clone() };
+    Ok(())
+}
+
+/// One search: the shuttles that replace every pulse of `o.targets` in the plan at `path`; returns
+/// how many WORK at the full positions (printed unless `quiet`, written to `--out-dir`).
+fn run_one(path: &Path, text: &str, o: &Options, tag: &str, quiet: bool) -> Result<usize> {
+    let s = Schedule::parse(text)?;
+    let say = |m: String| {
+        if !quiet {
+            println!("{m}");
+        }
+    };
     let design = s.design().clone();
     let door = *design.ports.get("door").context("design has no door port")?;
     let along_z = design.meta.get("door-axis").is_some_and(|v| v == "z");
@@ -591,25 +615,25 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let (screen, full) = (crate::ideal::offsets(0), crate::ideal::offsets(o.extra_offsets));
     let base = ctx.judge(&evs, &[], &screen).map_err(|e| anyhow::anyhow!("the plan itself fails: {e}"))?;
     let pulses: Vec<Pulse> = pulses_of(&evs, &o.targets).into_iter().filter(|p| o.edge.is_none_or(|e| e == p.open)).collect();
-    anyhow::ensure!(!pulses.is_empty(), "no set/clear pulses on the target cells {:?}", o.targets);
+    anyhow::ensure!(!pulses.is_empty(), "no set/clear pulses on the target cells {:?} (a level held across a rest is not a pulse)", o.targets);
     let fed = fed_pistons(&ctx, &evs, &pulses)?;
-    println!("{}: plan open {} / close {}; {} target pulses:", path.display(), base.0, base.1, pulses.len());
+    say(format!("{}: plan open {} / close {}; {} target pulses:", path.display(), base.0, base.1, pulses.len()));
     for (p, f) in pulses.iter().zip(&fed) {
-        println!("  {} t{}-{} at {:?} -> pistons {:?}", if p.open { "open" } else { "close" }, p.set, p.clear, p.cell, f);
+        say(format!("  {} t{}-{} at {:?} -> pistons {:?}", if p.open { "open" } else { "close" }, p.set, p.clear, p.cell, f));
     }
     let places = placements(&ctx, along_z, door, o, &evs, &fed);
     let per = stage1(&ctx, &evs, &pulses, &places, o, &screen);
     let covered = per.iter().filter(|v| v.iter().all(|x| !x.is_empty())).count();
     let rbs = places.iter().filter(|p| p.rb).count();
-    println!("{} placements reach every target pulse ({rbs} with a redstone block); {covered} give each pulse alone ({} options per pulse)", places.len(), options(o, false).len());
+    say(format!("{} placements reach every target pulse ({rbs} with a redstone block); {covered} give each pulse alone ({} options per pulse)", places.len(), options(o, false).len()));
     let by_pulse: Vec<String> = pulses.iter().enumerate().map(|(k, p)| format!("{} t{} {}", if p.open { "open" } else { "close" }, p.set, per.iter().filter(|v| !v[k].is_empty()).count())).collect();
-    println!("  placements giving each pulse alone: {}", by_pulse.join(", "));
+    say(format!("  placements giving each pulse alone: {}", by_pulse.join(", ")));
     let mut found = stage2(&ctx, &evs, &pulses, &places, &per, &screen, o);
     found.sort_by_key(|f| (f.windows.len(), f.ticks.0 + f.ticks.1));
-    let spare = if o.absorb { spare_pulses(&ctx, &evs, &o.targets, &screen, o.threads) } else { Vec::new() };
+    let spare = if o.absorb && !found.is_empty() { spare_pulses(&ctx, &evs, &o.targets, &screen, o.threads) } else { Vec::new() };
     if !spare.is_empty() {
         let s: Vec<String> = spare.iter().map(|q| format!("{:?} {} t{}", q.cell, if q.open { "open" } else { "close" }, q.set)).collect();
-        println!("pulses the plan works without anyway (not absorbed): {}", s.join(", "));
+        say(format!("pulses the plan works without anyway (not absorbed): {}", s.join(", ")));
     }
     let mut done: Vec<Found> = Vec::new();
     for mut f in found {
@@ -625,22 +649,22 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
                 f.ticks = t;
                 done.push(f);
             }
-            Err(e) => println!("  fails at the full positions: {}: {}", f.place.label(), e.chars().take(160).collect::<String>()),
+            Err(e) => say(format!("  fails at the full positions: {}: {}", f.place.label(), e.chars().take(160).collect::<String>())),
         }
     }
-    println!("{} shuttles WORK at {} positions x {} cycles:", done.len(), full.len(), o.cycles);
+    say(format!("{} shuttles WORK at {} positions x {} cycles:", done.len(), full.len(), o.cycles));
     for (k, f) in done.iter().enumerate() {
         let lines = describe(f, &pulses);
-        println!("#{k}: open {} / close {}: {}", f.ticks.0, f.ticks.1, lines.join("; "));
+        println!("{}{}#{k}: open {} / close {}: {}", if quiet { path.display().to_string() } else { String::new() }, if quiet { " " } else { "" }, f.ticks.0, f.ticks.1, lines.join("; "));
         if let Some(dir) = &o.out_dir {
             std::fs::create_dir_all(dir)?;
             let stem = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-            let out = dir.join(format!("{stem}-sh{k}"));
+            let out = dir.join(format!("{stem}{tag}-sh{k}"));
             let mut header = vec![format!("door shuttle {}: target inputs {:?} fed by a shuttled observer; WORKS at {} positions x {} cycles, open {} / close {}", path.display(), o.targets, full.len(), o.cycles, f.ticks.0, f.ticks.1)];
             header.extend(lines);
             write_out(&ctx, f, &out, &header)?;
             println!("    wrote {}.ideal + .txt", out.display());
         }
     }
-    Ok(())
+    Ok(done.len())
 }
