@@ -60,11 +60,15 @@ pub struct RunOpts {
     /// `box-starved` with this many boxes at the start instead of 2 (a design aid: a loader whose
     /// box-arrival watcher rides a shuttle may miss the late boxes after an odd number).
     pub starve_first: Option<usize>,
+    /// The one-box trickle at its own pace instead of one box per visit: `(every, phase)` adds
+    /// the next box at each gt `t` with `(t + phase) % every == 0` (a design aid that sweeps where
+    /// a box lands relative to the design's cycle).
+    pub trickle: Option<(u32, u32)>,
 }
 
 impl Default for RunOpts {
     fn default() -> RunOpts {
-        RunOpts { margin: 3, cap: None, endless_boxes: false, starve_first: None }
+        RunOpts { margin: 3, cap: None, endless_boxes: false, starve_first: None, trickle: None }
     }
 }
 
@@ -185,7 +189,7 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
             return Err(format!("the lever at {:?} is not modeled", i.pos));
         }
     }
-    let seg = if sc.poll_entities { 1 } else { SEG };
+    let seg = if sc.poll_entities || o.trickle.is_some() { 1 } else if sc.pace > 0 { sc.pace } else { SEG };
     let cap = o.cap.unwrap_or(sc.cap).min(sc.cap);
     let sinks: Vec<(BlockPos, usize)> = if sc.loader { Vec::new() } else { sources.clone() };
     let mut drained = 0u64;
@@ -271,7 +275,8 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
         topup(&mut w, &mut log, t, &mut paused_until, &mut cursor);
         let boxes_out = log.deliveries.iter().filter(|d| d.stack.is_box()).count() as u32;
         // the judge's one-box check: one more box at every visit (a hopper feeding the chest)
-        if sc.one_box && trickled < held.len() {
+        let paced = o.trickle.is_none_or(|(every, phase)| (t + phase) % every.max(1) == 0);
+        if sc.one_box && trickled < held.len() && paced {
             let p = supplies[0].0;
             let mut have = chest_stacks(&w, p);
             have.push(rstack(&mut w, &held[trickled]).ok_or_else(|| format!("{} is not a redsim item", held[trickled].id))?);
@@ -453,7 +458,12 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Scenario)> {
         s.burst = true;
         s.spare = 0;
         v.push(("burst".to_string(), s));
-        v.push(("one-box-burst".to_string(), shulker::one_box_burst_scenario(c, &base)));
+        for pace in shulker::ONE_BOX_BURST_PACES {
+            let mut s = shulker::one_box_burst_scenario(c, &base);
+            s.pace = pace;
+            let name = if pace == 0 { "one-box-burst".to_string() } else { format!("one-box-burst-{pace}") };
+            v.push((name, s));
+        }
     }
     v
 }

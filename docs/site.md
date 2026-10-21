@@ -10,10 +10,11 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
-  non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
-  metric, the A-first version of a mirror pair (a piston extender: the smallest box first, then
-  blocks, then speed: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D
-  shape"; other layouts of one design fold under its smallest box); the gates with their own
+  non-parametric kind keeps one design: robust first, then the smallest box, then fewest blocks,
+  then the study's speed metric, the A-first version of a mirror pair (the box first for every
+  kind: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D shape", and the
+  coordinator 13:31Z, every kind's pick; the sand elevator by blocks; other layouts of one
+  extender fold under its smallest box); the gates with their own
   levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
   new records must need no site change): where builders ask for more than the smallest, `RULES`
   narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
@@ -30,12 +31,24 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 - **Clocks, one card per mechanism** (the coordinator 2026-10-21 11:33Z, vjeux at 19 ticks: "The
   first 10 clocks look all the same to me?"; `crates/site/src/mechanism.rs`): in every period the
   clocks whose designs, or whose pictures at their thumbnails' still frames, differ only by
-  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston...; an observer
-  powering nothing), turned or mirrored, are one mechanism: the smallest keeps the card ("also
-  works with note block, copper bulb"), the others keep their pages, listed on its page with their
-  downloads, and leave the Clocks tab and the time search (`host`). A family's clock never folds.
-  `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds under each;
-  the smoke checks no period lists two cards of one mechanism.
+  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston, and every
+  toggled component a relay can be: trapdoors, doors and fence gates of any wood or metal,
+  powered and activator rails, crafters, bells, a dispenser or dropper holding nothing; an
+  observer powering nothing), turned or mirrored, are one mechanism: the smallest (blocks, then
+  box volume; a family's clock first among equals) keeps the card ("also works with trapdoor,
+  powered rail": every wood or metal one word), the others keep their pages, listed on its page
+  with their downloads, and leave the Clocks tab and the time search (`host`). The families' clocks
+  fold too (vjeux 13:09Z: eleven observer rings that only swap their relay were eleven cards a
+  period). `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds
+  under each; without `--period`, one line per period (`--before <saved run>`: what changed); the
+  smoke checks no period lists two cards of one mechanism, family members included.
+- **Doors, one record per mechanism** (vjeux 13:10Z): two board leaders that are one mechanism
+  (the same key) with the same numbers fold into one record leading all their boards; the smoke
+  checks no two rows of the records table are one mechanism.
+- **Lists sort by blocks placed, then the box's volume, then speed** (vjeux 13:11Z): the cards of
+  a period, the time search, the all-builds list, the doors' records table, the "also works with"
+  lists; a per-size table keeps its size order. The one-per-kind picks rank by the box first
+  (`kinds::ranked`: vjeux's minimum-volume rule), the sand elevator by blocks.
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations

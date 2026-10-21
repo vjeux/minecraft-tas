@@ -907,7 +907,7 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             let c = builds[i].circuit.as_ref();
             // (gates: the most common function first, critique)
             let value = c.and_then(site_model::html::sort_value).unwrap_or(i64::MAX);
-            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
+            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {

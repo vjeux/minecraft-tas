@@ -560,6 +560,33 @@ pub fn human_blocks(ids: &str) -> String {
     ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
 }
 
+/// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
+/// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
+/// trapdoors, powered rails").
+pub fn swap_words(ids: &[String]) -> String {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        let id = id.trim_start_matches("minecraft:");
+        let word = if id.ends_with("_trapdoor") {
+            "trapdoor".to_string()
+        } else if id.ends_with("_door") {
+            "door".to_string()
+        } else if id.ends_with("_fence_gate") {
+            "fence gate".to_string()
+        } else if id.ends_with("copper_bulb") {
+            "copper bulb".to_string()
+        } else if id.ends_with("_skull") || id.ends_with("_head") {
+            "mob head".to_string()
+        } else {
+            id.replace('_', " ")
+        };
+        if !out.contains(&word) {
+            out.push(word);
+        }
+    }
+    out.join(", ")
+}
+
 /// A door's category in words (the kind line).
 pub fn door_category(group: &str) -> &'static str {
     match group {
@@ -952,7 +979,7 @@ pub fn props(b: &Build) -> Props {
             // coordinator 11:33Z, vjeux: "The first 10 clocks look all the same to me?")
             let also = c.and_then(|c| match (c.swaps.is_empty(), c.variants.len()) {
                 (_, 0) => None,
-                (false, _) => Some(format!("also works with {}", human_blocks(&c.swaps.join("+")))),
+                (false, _) => Some(format!("also works with {}", swap_words(&c.swaps))),
                 (true, 1) => Some("1 other block choice on its page".to_string()),
                 (true, n) => Some(format!("{n} other block choices on its page")),
             });
