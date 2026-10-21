@@ -9,6 +9,7 @@ astack.rs, analog.rs), then `mctas circuit display settle` (it now keeps compara
 | analog-v2 | 632 | 9x16x9 (1296) | 86 gt | 76 | robust |
 | analog-v3 | 565 | 7x16x9 (1008) | 36 gt | 48 | position-dependent (46 in one build) |
 | analog-v4 | 565 | 7x16x8 (896) | 40 gt | 64 | position-dependent (61 in one build) |
+| **analog-v5** (w [8,2,4,1]) | **566** | **7x16x7 (784)** | 34 gt | 64 | position-dependent (63 in one build) |
 
 How it works:
 - The value as one signal strength: s = 15 - (8 !a0 + a1 + 4 a2 + 2 a3) (code w [8,1,4,2] neg 0001,
@@ -32,6 +33,6 @@ How it works:
   flows DOWN the stack through the rings' bridges. v4's descent stands on top-ring arc cells (left
   out of that ring) and uses one row outside the 7x7.
 
-Open: a descent fully inside the 7x7 (7x16x7 = 784) finds no assignment for this code (the bottom
-ring runs out of feeds); glitches come from the unequal delays of W's two sides (O adds 2 gt) and the
-bridge cascade (2 gt per ring).
+Open: with w [8,1,4,2] a descent fully inside the 7x7 finds no assignment (the bottom ring runs out
+of feeds); w [8,2,4,1] and [4,2,8,1] (neg 0001) do (v5). Glitches come from the unequal delays of W's
+two sides (O adds 2 gt) and the bridge cascade (2 gt per ring).
