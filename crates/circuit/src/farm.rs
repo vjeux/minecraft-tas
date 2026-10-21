@@ -1013,7 +1013,8 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             }
             if seen_items.contains(&e.id) && log.stranded.len() < 6 {
                 let under = BlockPos::new(e.pos.x.floor() as i32, (e.pos.y - 0.01).floor() as i32, e.pos.z.floor() as i32);
-                let what = clock::short(&w.get(under).to_string()).to_string();
+                // (the game reads void_air outside the world's height, y -64..319)
+                let what = if under.y < -64 || under.y > 319 { "void_air".to_string() } else { clock::short(&w.get(under).to_string()).to_string() };
                 log.stranded.push(format!("tick {t}: an item at {:.2?} on {what} at {:?} (motion {:.2?})", [e.pos.x, e.pos.y, e.pos.z], [under.x, under.y, under.z], [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z]));
             }
             now_items.push(e.id);

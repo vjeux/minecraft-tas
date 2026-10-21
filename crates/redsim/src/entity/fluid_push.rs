@@ -168,6 +168,37 @@ pub fn update_fluid_interaction(w: &mut World, i: usize) -> bool {
     let in_water = e.fluid.in_water();
     if in_water {
         e.fall_distance = 0.0;
+        // `doWaterSplashEffect` on entering water (not on the first tick): its sound's pitch and
+        // its bubble and splash particles draw from the entity's own random (2 floats, then 3 and
+        // 2 doubles per particle, 1 + width x 20 of each kind); the particles and the sound go to
+        // the clients, the SPLASH game event to sculk sensors
+        if !e.was_touching_water && !e.first_tick {
+            let width = e.kind.dims().0;
+            if let Some(r) = e.random.as_mut() {
+                r.next_float();
+                r.next_float();
+                let n = 1.0f32 + width * 20.0f32;
+                let mut k = 0;
+                while (k as f32) < n {
+                    r.next_double();
+                    r.next_double();
+                    r.next_double();
+                    k += 1;
+                }
+                let mut k = 0;
+                while (k as f32) < n {
+                    r.next_double();
+                    r.next_double();
+                    k += 1;
+                }
+            }
+            if !w.sculk.is_empty() {
+                let why = "an entity's splash (GameEvent.SPLASH) near sculk sensors is not modeled".to_string();
+                if !w.errors.contains(&why) {
+                    w.errors.push(why);
+                }
+            }
+        }
     }
     e.was_touching_water = in_water;
     e.fluid_height = [e.fluid.water_height(), 0.0];
