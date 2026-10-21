@@ -28,6 +28,15 @@ pub struct PrunePlanArgs {
     /// Never drop a pulse of this input cell, `x,y,z` (repeatable).
     #[arg(long, allow_hyphen_values = true)]
     keep: Vec<String>,
+    /// Drop pulses of these input cells only, `x,y,z` (repeatable): one area's load.
+    #[arg(long, allow_hyphen_values = true)]
+    only: Vec<String>,
+    /// Try every subset of the candidate pulses (at most 16; narrow with --only), largest first,
+    /// instead of the greedy pass: the most pulses that can go together.
+    #[arg(long)]
+    exhaustive: bool,
+    #[arg(long, default_value_t = 24)]
+    threads: usize,
     /// Extra pseudo-random positions every drop is confirmed at (screened at the 4 default ones).
     #[arg(long, default_value_t = 28)]
     extra_offsets: u32,
@@ -37,14 +46,17 @@ pub struct PrunePlanArgs {
 
 /// `door prune-plan`: drop the input pulses a plan works without, together.
 pub fn cmd_prune_plan(args: PrunePlanArgs) -> Result<()> {
-    let PrunePlanArgs { schedule, out, keep, extra_offsets, cycles } = args;
-    let mut cells = Vec::new();
-    for k in &keep {
-        let v: Vec<i32> = k.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
-        anyhow::ensure!(v.len() == 3, "--keep x,y,z: {k}");
-        cells.push([v[0], v[1], v[2]]);
-    }
-    crate::ideal_rs::prune(&schedule, &out, &cells, extra_offsets, cycles)
+    let PrunePlanArgs { schedule, out, keep, only, exhaustive, threads, extra_offsets, cycles } = args;
+    let cells = |list: &[String]| -> Result<Vec<[i32; 3]>> {
+        let mut out = Vec::new();
+        for k in list {
+            let v: Vec<i32> = k.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "x,y,z expected: {k}");
+            out.push([v[0], v[1], v[2]]);
+        }
+        Ok(out)
+    };
+    crate::ideal_rs::prune(&schedule, &out, &cells(&keep)?, &cells(&only)?, exhaustive, threads, extra_offsets, cycles)
 }
 
 #[derive(clap::Args)]

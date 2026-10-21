@@ -885,7 +885,7 @@ fn event_lines(phase: usize, evs: &[Ev]) -> Vec<String> {
 /// lever uses and the `keep` cells stay. A pulse the plan works without ALONE (`door shuttle`
 /// lists those) often cannot go together with the others; this finds a set that can. Fewer pulses
 /// = lighter wiring areas for pockets / satwire.
-pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], extra_offsets: u32, cycles: u32) -> Result<()> {
+pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], only: &[Pos], exhaustive: bool, threads: usize, extra_offsets: u32, cycles: u32) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
     let vars = s.vars().clone();
@@ -895,7 +895,10 @@ pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], extra_
     let works = |e: &[Vec<Ev>; 2], offs: &[[i32; 3]]| run(&schedule_of(s.design(), e), &BTreeMap::new(), offs, cycles, false);
     let (o0, c0) = works(&ev, &full).map_err(|e| anyhow::anyhow!("the plan itself is BROKEN: {e}"))?;
     let groups = plan_groups(&ev);
-    let mut order: Vec<usize> = (0..groups.len()).filter(|&gi| groups[gi].evi.len() == 2 && !keep.contains(&ev[groups[gi].phase][groups[gi].evi[0]].1)).collect();
+    // `only` (when given) restricts the drops to one area's input cells: the greedy order then
+    // spends no drop elsewhere that would block one there
+    let cand = |p: &Pos| !keep.contains(p) && (only.is_empty() || only.contains(p));
+    let mut order: Vec<usize> = (0..groups.len()).filter(|&gi| groups[gi].evi.len() == 2 && cand(&ev[groups[gi].phase][groups[gi].evi[0]].1)).collect();
     order.sort_by_key(|&gi| std::cmp::Reverse(ev[groups[gi].phase][groups[gi].evi[0]].0));
     let without = |rm: &[usize]| -> [Vec<Ev>; 2] {
         let gone = |phase: usize, i: usize| rm.iter().any(|&gi| groups[gi].phase == phase && groups[gi].evi.contains(&i));
@@ -903,7 +906,28 @@ pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], extra_
     };
     println!("{}: {} pulses can be tried (of {} input groups), open {o0} / close {c0}", path.display(), order.len(), groups.len());
     let mut removed: Vec<usize> = Vec::new();
-    for gi in order {
+    if exhaustive {
+        // every subset of the candidates, largest first (each size screened in parallel at the 4
+        // default positions, the first hit confirmed at the full set)
+        anyhow::ensure!(order.len() <= 16, "--exhaustive takes at most 16 candidate pulses ({}): narrow with --only", order.len());
+        let n = order.len();
+        'size: for k in (1..=n).rev() {
+            let subsets: Vec<Vec<usize>> = (0u32..1 << n).filter(|m| m.count_ones() as usize == k).map(|m| (0..n).filter(|i| m >> i & 1 == 1).map(|i| order[i]).collect()).collect();
+            let ok = cs::par_map(&subsets, threads, |sub| works(&without(sub), &screen).is_ok());
+            for (sub, _) in subsets.iter().zip(ok.iter()).filter(|(_, ok)| **ok) {
+                if works(&without(sub), &full).is_ok() {
+                    removed = sub.clone();
+                    break 'size;
+                }
+            }
+        }
+        for &gi in &removed {
+            let g = &groups[gi];
+            let (t, q, _) = &ev[g.phase][g.evi[0]];
+            println!("  dropped {} t{t} {q:?} ({} gt)", if g.phase == 0 { "open " } else { "close" }, ev[g.phase][g.evi[1]].0 - t);
+        }
+    }
+    for gi in if exhaustive { Vec::new() } else { order } {
         let mut trial = removed.clone();
         trial.push(gi);
         let e2 = without(&trial);
@@ -916,7 +940,8 @@ pub fn prune(path: &std::path::Path, out: &std::path::Path, keep: &[Pos], extra_
     }
     let ev = without(&removed);
     let (o1, c1) = works(&ev, &full).map_err(|e| anyhow::anyhow!("pruned plan BROKEN (bug): {e}"))?;
-    let mut lines = vec![format!("# door prune-plan {}: {} pulses dropped (greedy, latest first); open {o1} / close {c1} (was {o0} / {c0})", path.display(), removed.len()), design_line];
+    let how = if exhaustive { "largest working subset" } else { "greedy, latest first" };
+    let mut lines = vec![format!("# door prune-plan {}: {} pulses dropped ({how}); open {o1} / close {c1} (was {o0} / {c0})", path.display(), removed.len()), design_line];
     lines.extend(text.lines().find(|l| l.trim_start().starts_with("phase ")).map(|l| l.trim().to_string()));
     for (phase, evs) in ev.iter().enumerate() {
         lines.extend(event_lines(phase, evs));
