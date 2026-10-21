@@ -601,7 +601,9 @@ r69; 5+ in q68*, r69a, r69t.
   the piston it should fire (clk-item). With sensors, calibrated sensors and wool in the palette,
   sh0p's top-left still drives its whole load, but the bottom-left drives only B1 o30 (not
   (1,-2)'s train or G's level). The 1-cell bottom-right (S's 3 pulses) and the 2-cell top-right
-  drive nothing: at best 3 of 10 inputs are real (pockets3).
+  drive nothing: at best 3 of 10 inputs are real (pockets3). With the bottom-left's load pruned to
+  the most that can go together (`prune-plan --only --exhaustive`, wip/q69c-blp), that area still
+  drives only B1 (o30 + c56), never (1,-2)'s pulses, G's level or Qv (pockets3).
 
 **Proven** (each within the stated model): 5-tall boxes up to 10 wide and their turns (strip
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
