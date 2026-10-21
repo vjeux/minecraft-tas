@@ -46,7 +46,7 @@ at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 bl
 a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
-**tnt-airburst** (now 45 blocks in 5x5x10 = 250, the judge's box of every cell the run fills, 22.2/min,
+**tnt-airburst** (now 44 blocks in 5x5x10 = 250, the judge's box of every cell the run fills, 22.2/min,
 every TNT bit for bit at one point in mid-air, safe on the ground, game-robust; its own card "precise
 air burst"; clk-rt's `compact --depth above:5` folded the 50-block version below, 8x6x11 = 528, first
 to 8x6x8 = 384, then with the clock behind the engine to a build 4 blocks wide, 5x6x10 = 300, then with
@@ -90,7 +90,8 @@ already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-v
 | precise air burst (catalog parts) | 8x6x11 | 528 | 50 | mid-air, ~9 above the channel | 22.2/min |
 | precise air burst (compact) | 8x6x8 | 384 | 45 | mid-air | 22.2/min |
 | precise air burst (compact: clock behind the engine, 4 wide; the frame sweeps a 5th column) | 5x6x10 | 300 | 45 | mid-air | 22.2/min |
-| **precise air burst (compact: the launcher piston one higher, fed by an observer)** | **5x5x10** | **250** | **45** | mid-air (2048 runs of per-TNT kicks) | 22.2/min |
+| precise air burst (compact: the launcher piston one higher, fed by an observer) | 5x5x10 | 250 | 45 | mid-air (2048 runs of per-TNT kicks) | 22.2/min |
+| **precise air burst (compact, one block fewer)** | **5x5x10** | **250** | **44** | mid-air (1024 runs of per-TNT kicks) | 22.2/min |
 
 Squeezing the 240 by one face layer (y-4, x2, x7, z-4, z3): clk-rt, running.
 
