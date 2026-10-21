@@ -188,11 +188,13 @@ pub fn design(h: i32) -> Design {
         b.dust(p);
     }
     // (x = 7: one clear of the set line's descent at x = 5, or an up-step would join them)
-    b.on([7, 3, 0], &rep("north", 1), STONE);
+    b.on([7, 3, 0], &rep("north", 2), STONE); // (4 gt: a comparator eats a 2 gt pulse)
     for p in [[7, 3, 1], [7, 3, 2], [7, 3, 3], [7, 3, 4], [7, 3, 5], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
         b.dust(p);
     }
-    b.on([2, 3, 4], "minecraft:repeater[delay=1,facing=east,locked=true,powered=false]", STONE);
+    // (a comparator subtracting the presence level, not a repeater it locks: a lock that lands
+    // during the pulse freezes the repeater on, and the reset piston with it)
+    b.on([2, 3, 4], "minecraft:comparator[facing=east,mode=subtract,powered=false]", STONE);
     for p in [[1, 3, 4], [1, 3, 3]] {
         b.dust(p);
     }
@@ -220,10 +222,11 @@ pub fn design(h: i32) -> Design {
     b.st([4, t0, 0], BULB);
     b.on([5, t0, 0], &cmp("west"), STONE);
     b.st([3, t0, -3], &obs("west"));
-    for p in [[4, t0, -3], [5, t0, -3], [6, t0, -3], [6, t0, -2], [6, t0, -1]] {
+    b.on([4, t0, -3], &rep("west", 2), STONE); // (4 gt for the comparator)
+    for p in [[5, t0, -3], [6, t0, -3], [6, t0, -2], [6, t0, -1]] {
         b.dust(p);
     }
-    b.on([6, t0, 0], &rep("north", 1), STONE);
+    b.on([6, t0, 0], "minecraft:comparator[facing=north,mode=subtract,powered=false]", STONE);
     // (the chain watches a second repeater: an observer on R_a_t would fire on its lock changing)
     b.on([6, t0, 1], &rep("north", 1), STONE);
     b.st([6, t0, 2], &obs("north"));
