@@ -881,6 +881,27 @@ fn checks() -> Vec<Check> {
             Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff, a bulb toggle claiming a latched BUD and a start lever whose watcher stays on the parked part refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
         }),
     });
+    // 9b. study 19: minecart stations, judged in the game by their own runner (real carts, ridden
+    // and empty, 0.02 to 2.0 b/t; presses with the station empty, mid-arrival and after a random
+    // hold): the one-way record's metrics, and the same station with its button hidden behind a
+    // support refused (the rider clicks it from the cart: a look ray must reach it)
+    v.push(Check {
+        name: "circuit:verify-station".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` says redsim does not model riders",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
+            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, robust")?;
+            has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            has(&o[1], "minecart stations run real carts with riders, which redsim does not model")?;
+            Ok("the one-way station robust with its metrics; a hidden button refused; redsim declines".into())
+        }),
+    });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
     // chests, every item and box counted): track shulker's always-on loader and unloader with
     // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
