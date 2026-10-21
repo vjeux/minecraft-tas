@@ -92,7 +92,9 @@ restarts: minimum volume with the face fixed, glitches reported (the worst build
 | seven-segment-therm-v3 (tracks/display) | 1793 | 47x7x52 (17,108) | game robust, latency 130 gt, glitch-free |
 | seven-segment-therm-v4 (tracks/display) | 1465 | 47x7x39 (12,831) | game robust, latency 108 gt, glitch-free |
 | seven-segment-therm-v5 (tracks/display, clk-obs10: the tower) | 1441 | 19x13x28 (6,916) | game robust, 0 glitches; A*-routed lanes |
-| **seven-segment-therm-v7** (archive) | **1411** | **18x13x24 (5,616)** | **glitch-free record**: game robust, latency 104 gt, 0 glitches (lane zone 5 deep) |
+| seven-segment-therm-v7 (tracks/display) | 1411 | 18x13x24 (5,616) | game robust, 0 glitches (lane zone 5 deep) |
+| seven-segment-therm-v9 (tracks/display) | 1176 | 18x10x23 (4,140) | game robust, 0 glitches: shared rulers (a/b/d/g two per ruler) |
+| **seven-segment-therm-v10** (archive) | **1033** | **18x7x29 (3,654)** | **glitch-free record**: game robust, latency 88 gt, 0 glitches: 4 shared rulers (s = 0 windows fed from the hub), chain behind the strips |
 | seven-segment-rings (clk-item, explore/tff e8d28920e) | 849 | 23x7x21 (3,381) | volume leader: game robust, 55 glitches (clk-obs8's rings.rs plan, fixed by clk-item) |
 
 therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog chain gives s; a dust
