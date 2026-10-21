@@ -82,7 +82,11 @@ domain's crates: members `mctas redsim clock clock-cli` + the generator's own cr
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
 Failures are never stored. The build's last line says what was reused and computed; the 4 most
-recently used code versions of each domain are kept.
+recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
+domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
+time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
+time, so a deploy sends only what changed.
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:
