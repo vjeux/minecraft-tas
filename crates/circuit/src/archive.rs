@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 15] = [
+pub const STUDIES: [(&str, &str); 16] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -31,6 +31,7 @@ pub const STUDIES: [(&str, &str); 15] = [
     ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
+    ("adder", "Adders"),
     ("compute", "Computational redstone"),
     ("sorter", "Item sorters"),
     ("lock", "Combination locks"),
@@ -526,6 +527,19 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::OffDelay => format!("off L = {}", m("L")),
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
+        // the adder study (w86): what it adds, by its carry ports; a bit slice is a ripple adder of
+        // any width (judged at 1..4 and 8 bits)
+        Kind::Compute(spec) if spec.op == crate::compute::Op::Adder => {
+            if !m("slice").is_empty() {
+                "4-bit adder slice".to_string()
+            } else if spec.n == 1 && m("carry") == "in and out" {
+                "full adder".to_string()
+            } else if spec.n == 1 && m("carry") == "out" {
+                "half adder".to_string()
+            } else {
+                format!("{}-bit adder{}", spec.n, if m("carry").is_empty() { String::new() } else { format!(", carry {}", m("carry")) })
+            }
+        }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
