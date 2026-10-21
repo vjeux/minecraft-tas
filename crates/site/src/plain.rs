@@ -722,7 +722,10 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // neither is counted in its blocks)
         if c.kind.starts_with("harvester") {
             let crop = site_model::html::crop_words(c);
-            v.push(format!("After building it, plant one {crop} on its soil and put a chest under its hopper: the download has neither (our test adds both, and neither counts in its blocks)."));
+            let (crops, chests) = (c.crops.max(1), c.outputs.len().max(1));
+            let plant = if crops == 1 { format!("plant one {crop} on its soil") } else { format!("plant a {crop} on each of its {crops} soil blocks") };
+            let chest = if chests == 1 { "put a chest under its hopper".to_string() } else { format!("put a chest under each of its {chests} hoppers") };
+            v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
         }
         // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
         if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
@@ -1030,30 +1033,40 @@ mod tests {
 
     #[test]
     fn a_crop_farm_says_its_rate_and_what_to_add() {
-        // w86's cane-8b, as the archive carries it
+        // w86's cane-mc-8b and cane2-mc-13b, as the archive carries them
         let c = Circuit {
             kind: "harvester sugar_cane".into(),
             axis: "sugar cane".into(),
-            metrics: crate::circuits::parse_metrics("per cane 8.0 blocks, items per hour per cane 2.87, harvest height 2, wait 2 gt, bill 6 iron, 1 quartz, 4 redstone"),
-            verdict: "CIRCUIT: cane-8b harvester sugar_cane per cane 8.0 blocks, items per hour per cane 2.87, harvest height 2, wait 2 gt, bill 6 iron, 1 quartz, 4 redstone, 8 blocks, 4x4x1, robust".into(),
+            metrics: crate::circuits::parse_metrics("per cane 8.0 blocks, items per hour per cane 2.89, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone"),
+            verdict: "CIRCUIT: cane-mc-8b harvester sugar_cane per cane 8.0 blocks, items per hour per cane 2.89, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 8 blocks, 4x3x1, robust".into(),
             tile: "5 0 0".into(),
+            crops: 1,
             outputs: vec!["out".into()],
             ..Default::default()
         };
         assert_eq!(c.metrics[0], ("per cane".to_string(), "8.0 blocks".to_string()));
-        assert_eq!(c.metrics[1], ("items per hour per cane".to_string(), "2.87".to_string()));
+        assert_eq!(c.metrics[1], ("items per hour per cane".to_string(), "2.89".to_string()));
         assert_eq!(one_liner(&c), "Harvests sugar cane by itself, forever: every block that grows is broken and its item goes into a chest (about 2.9 sugar cane an hour for each cane, at the game's normal speed).");
         let b = Build { circuit: Some(c.clone()), blocks: 8, ..Default::default() };
-        assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, plant one sugar cane on its soil and put a chest under its hopper")));
+        assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, plant one sugar cane on its soil and put a chest under its hopper: the download has neither")), "{:?}", needs(&b, ""));
         assert!(try_it(&c, true).ends_with("To farm more, build copies side by side, one every 5 blocks."));
         let card = site_model::html::props(&b);
         assert_eq!(card.title, "harvests sugar cane by itself · 8 blocks");
         // (one cane: its blocks per cane is its block count, not said twice)
         assert!(!card.sub.contains("blocks per cane") && card.sub.contains("about 2.9 sugar cane an hour per cane · takes each block as soon as it grows"), "{}", card.sub);
-        let mut two = c.clone();
-        two.metrics[0].1 = "6.5 blocks".into();
-        two.verdict = two.verdict.replace("8 blocks, 4x4x1", "13 blocks, 4x4x2");
-        assert!(site_model::html::props(&Build { circuit: Some(two), blocks: 13, ..Default::default() }).sub.contains("6.5 blocks per cane"));
+        // two canes, two chests; its west cane waits for the east cane's next growth step
+        let two = Circuit {
+            metrics: crate::circuits::parse_metrics("per cane 6.5 blocks, items per hour per cane 2.82, harvest height 2, wait 91 gt, bill 32 iron, 1 quartz, 5 redstone"),
+            verdict: "CIRCUIT: cane2-mc-13b harvester sugar_cane per cane 6.5 blocks, items per hour per cane 2.82, harvest height 2, wait 91 gt, bill 32 iron, 1 quartz, 5 redstone, 13 blocks, 7x3x1, robust".into(),
+            tile: "7 0 0".into(),
+            crops: 2,
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let b2 = Build { circuit: Some(two), blocks: 13, ..Default::default() };
+        let card = site_model::html::props(&b2);
+        assert!(card.sub.contains("6.5 blocks per cane · about 2.8 sugar cane an hour per cane · harvests each cane at 2 blocks tall"), "{}", card.sub);
+        assert!(needs(&b2, "").iter().any(|n| n.starts_with("After building it, plant a sugar cane on each of its 2 soil blocks and put a chest under each of its 2 hoppers")), "{:?}", needs(&b2, ""));
     }
 
     #[test]

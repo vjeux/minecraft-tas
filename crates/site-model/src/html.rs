@@ -939,8 +939,12 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
                 rest.push(format!("about {:.1} {crop} an hour per cane", h));
             }
+            // (2 tall: as soon as it grows, unless a block waits for another cane's step: w86's
+            // two-cane farm harvests its west cane up to 91 gt later)
+            let wait = cm(c, "wait").split_whitespace().next().and_then(|v| v.parse::<u32>().ok());
             match cm(c, "harvest height").split_whitespace().next() {
-                Some("2") => rest.push("takes each block as soon as it grows".to_string()),
+                Some("2") if wait.is_none_or(|w| w <= 5) => rest.push("takes each block as soon as it grows".to_string()),
+                Some("2") => rest.push("harvests each cane at 2 blocks tall".to_string()),
                 Some("3") => rest.push("harvests each cane when it is full".to_string()),
                 _ => {}
             }
