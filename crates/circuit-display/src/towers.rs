@@ -18,7 +18,18 @@ use std::path::Path;
 type P = [i32; 3];
 const H: [[i32; 2]; 4] = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
+pub mod forest;
 pub mod stack_build;
+
+/// The facing name of a horizontal direction.
+fn dir_name((dx, dz): (i32, i32)) -> &'static str {
+    match (dx, dz) {
+        (0, -1) => "north",
+        (0, 1) => "south",
+        (-1, 0) => "west",
+        _ => "east",
+    }
+}
 
 impl World {
     fn new(radius: i32, max_line: usize, spacing: i32) -> World {
@@ -40,6 +51,8 @@ enum K {
     Comp(&'static str),
     /// A torch that is no tower's (a rear column's chain torch).
     Torch,
+    /// A wall torch (facing away from the block it hangs on): a forest branch.
+    WTorch(&'static str),
     RBlock,
     Lamp,
     /// Air that must stay air.
@@ -201,7 +214,7 @@ impl World {
                     Some(K::Rep(_)) => '>',
                     Some(K::Corner) => 'c',
                     Some(K::TBlock(_)) => '#',
-                    Some(K::TTorch(_) | K::Torch) => 'i',
+                    Some(K::TTorch(_) | K::Torch | K::WTorch(_)) => 'i',
                     Some(K::Comp(_)) => 'C',
                     Some(K::RBlock) => 'X',
                     Some(K::Lamp) => 'L',
@@ -885,6 +898,7 @@ fn emit(w: &World, design: &mut Design) {
             K::TBlock(i) if p[1] == w.towers[*i].b && p[1] < 0 => continue,
             K::TBlock(_) => "minecraft:stone".to_string(),
             K::TTorch(_) | K::Torch => "minecraft:redstone_torch".to_string(),
+            K::WTorch(f) => format!("minecraft:redstone_wall_torch[facing={f}]"),
             K::Dust | K::Corner => "minecraft:redstone_wire".to_string(),
             K::Comp(f) => format!("minecraft:comparator[facing={f},mode=subtract]"),
             K::RBlock => "minecraft:redstone_block".to_string(),

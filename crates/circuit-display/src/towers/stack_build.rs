@@ -32,6 +32,12 @@ pub struct StackOpts {
     /// Build orders tried (the first by priority, the others shuffled).
     #[arg(long, default_value_t = 50)]
     pub tries: u32,
+    /// Feed the towers with wall-torch branches (no dust) instead of routed lines.
+    #[arg(long)]
+    pub forest: bool,
+    /// Highest base level of a fed tower.
+    #[arg(long, default_value_t = 24)]
+    pub y_max: i32,
     #[arg(long, default_value = "seven-segment-stack")]
     pub name: String,
 }
@@ -45,14 +51,6 @@ fn rotv(j: usize, (x, z): (i32, i32)) -> (i32, i32) {
     }
 }
 
-fn dir_name((dx, dz): (i32, i32)) -> &'static str {
-    match (dx, dz) {
-        (0, -1) => "north",
-        (0, 1) => "south",
-        (-1, 0) => "west",
-        _ => "east",
-    }
-}
 
 const X1: (i32, i32) = (0, -4);
 const X2: (i32, i32) = (-2, -2);
@@ -75,20 +73,36 @@ pub fn run(o: &StackOpts) -> Result<()> {
     eprint!("{}", stack::describe(&sol));
     let perm = sol.perm;
     let mut last = anyhow!("no attempt");
-    let mut built = None;
+    let mut built: Option<(World, Design)> = None;
+    let mut best_bottom = i32::MAX;
     for seed in 0..o.tries {
         match towers(o, &sol, seed) {
-            Ok(x) => {
-                built = Some(x);
-                break;
+            Ok((w, d)) => {
+                // the lowest bottom feed wins (the rings stand on it)
+                let b = feed_top(&w);
+                if b < best_bottom {
+                    best_bottom = b;
+                    built = Some((w, d));
+                }
             }
             Err(e) => last = e,
         }
     }
+    eprintln!("bottom feed tops out at level {best_bottom}");
     let Some((mut w, mut design)) = built else { return Err(last) };
-    let bottom = w.cells.iter().filter(|(_, k)| matches!(k, K::Dust | K::Rep(_))).map(|(p, _)| p[1]).max().unwrap_or(0);
+    let bottom = feed_top(&w);
     let l0 = (bottom + 3 + 3) / 4 * 4;
     let levels: Vec<i32> = (0..7).map(|k| l0 + 2 * k as i32).collect();
+    // towers no ring reads (the role 1 and 0 inputs, relays) end at their last branch before the
+    // rings go up over them
+    let ring_cols: HashSet<(i32, i32)> = PINWHEEL.iter().copied().chain((0..4).flat_map(|j| [X1, X2, Y1, Y2].map(|a| rotv(j, a)))).collect();
+    for i in 0..w.towers.len() {
+        let t = &w.towers[i];
+        if !ring_cols.contains(&(t.x, t.z)) {
+            let top = t.uses.iter().copied().max().unwrap_or(t.b);
+            w.trim(i, top);
+        }
+    }
     place(&mut w, &sol, &levels, &mut design)?;
     // trim: corners to the top ring, literal towers to their last ring
     for i in 0..w.towers.len() {
@@ -151,12 +165,18 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32) -> Result<(World, Design)> {
         let bit = perm[role as usize];
         w.put_tower(x, z, -2, top_max, lit(role), &format!("a{bit}")).ok_or_else(|| anyhow!("input column {x},{z}"))?;
         design.ports.insert(format!("input.a{bit}"), [x, -2, z]);
-        for dx in -2i32..=2 {
-            for dz in -2i32..=2 {
-                if dx.abs() + dz.abs() <= 2 && (dx, dz) != (0, 0) {
-                    w.cells.entry([x + dx, -1, z + dz]).or_insert(K::Keep);
-                }
+    }
+    // the judge drives each input from the first side (N, S, W, E) whose repeater and switch cells
+    // are free (all below the box): keep the cells above them clear
+    let cols: Vec<(i32, i32)> = inputs.iter().map(|i| i.0).collect();
+    for &(x, z) in &cols {
+        let side = [(0, -1), (0, 1), (-1, 0), (1, 0)].into_iter().find(|&(dx, dz)| !cols.contains(&(x + dx, z + dz)) && !cols.contains(&(x + 2 * dx, z + 2 * dz)));
+        let (dx, dz) = side.ok_or_else(|| anyhow!("input {x},{z} has no free side"))?;
+        for k in 1..=2 {
+            if w.cells.contains_key(&[x + k * dx, -1, z + k * dz]) {
+                bail!("input {x},{z}: its driver touches a design block");
             }
+            w.cells.insert([x + k * dx, -1, z + k * dz], K::Keep);
         }
     }
     // the other two corners, then every literal tower a side uses
@@ -186,6 +206,15 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32) -> Result<(World, Design)> {
         todo.swap(i, (rng >> 33) as usize % (i + 1));
     }
     let mut left = todo;
+    if o.forest {
+        // wall-torch branches: the targets in order, each kept clear until its turn
+        let mut avoid: HashSet<(i32, i32)> = left.iter().map(|t| t.1).collect();
+        for item in &left {
+            avoid.remove(&item.1);
+            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, o.y_max, o.radius + 1)?;
+        }
+        return Ok((w, design));
+    }
     while !left.is_empty() {
         let mut next = Vec::new();
         let n = left.len();
@@ -272,4 +301,11 @@ fn place(w: &mut World, sol: &Solution, levels: &[i32], design: &mut Design) -> 
         }
     }
     Ok(())
+}
+
+/// The highest level the bottom feed uses: lines, wall torches, tower bases, relay columns.
+fn feed_top(w: &World) -> i32 {
+    let cells = w.cells.iter().filter(|(_, k)| matches!(k, K::Dust | K::Rep(_) | K::WTorch(_))).map(|(p, _)| p[1]);
+    let towers = w.towers.iter().map(|t| if t.label.ends_with('~') { t.top } else { t.b });
+    cells.chain(towers).max().unwrap_or(0)
 }
