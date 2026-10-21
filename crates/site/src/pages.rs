@@ -267,9 +267,9 @@ fn viewer(prefix: &str, b: &Build) -> String {
         None => String::new(),
     };
     // what runs by itself plays at once: clocks, flying machines, self-running TNT dupers, shulker
-    // machines (always-on ones start by themselves; a start lever is the visitor's), the judge's
-    // demo
-    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-")) { " data-autoplay" } else { "" };
+    // machines (always-on ones start by themselves; a start lever is the visitor's), item sorters
+    // (the viewer feeds them the judge's stream), the judge's demo
+    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter")) { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),

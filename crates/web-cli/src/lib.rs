@@ -56,6 +56,10 @@ pub enum WebCmd {
         /// thumbnail.
         #[arg(long)]
         live: bool,
+        /// With --live: the device pixel ratio (the viewer's CSS size is the picture's / this;
+        /// a phone: --width 654 --height 960 --dpr 2).
+        #[arg(long, default_value_t = 1.0)]
+        dpr: f32,
     },
     /// Check the viewer against the repo's tools: its design parser against `mctas::design` on
     /// every block and port, and its clock period detector (the code the browser runs) against
@@ -365,7 +369,7 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
@@ -1043,12 +1047,16 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         // with the judge's chests (`shulker_pair`); designs with TNT run with exploding TNT
         // (`tnt_pair`)
         let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
-        let tnt = !fly && !shulker && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
-        let circ = !fly && !shulker && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        // item sorters run with the judge's chests and stream (`sorter_pair`)
+        let sorter = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit: sorter"));
+        let tnt = !fly && !shulker && !sorter && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        let circ = !fly && !shulker && !sorter && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
+        } else if sorter {
+            sorter_pair(&text, probe.as_mut())
         } else if tnt {
             tnt_pair(&text, probe.as_mut())
         } else if circ {
@@ -1073,7 +1081,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         };
         // what the viewer draws is redsim's state, every tick (circuits: in `circuit_pair`)
         if !circ {
-            let busy = tnt || shulker || mcview::design::Design::parse(&text).is_ok_and(|d| !d.entities.is_empty());
+            let busy = tnt || shulker || sorter || mcview::design::Design::parse(&text).is_ok_and(|d| !d.entities.is_empty());
             if let Err(e) = drawn_pass(&text, if busy { TNT_TICKS } else { DRAWN_TICKS }) {
                 bad += 1;
                 println!("FAIL {} {e}", d.display());
@@ -1084,7 +1092,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             flyers += 1;
         } else if tnt {
             tnts += 1;
-        } else if circ || shulker {
+        } else if circ || shulker || sorter {
             circuits += 1;
         } else {
             ok += 1;
@@ -1095,7 +1103,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
     }
     println!(
         "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " (clocks, flying machines, shulker and TNT designs in the native and the wasm viewer)" } else { "" }
+        if probe.is_some() { " (clocks, flying machines, shulker, sorter and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -1435,6 +1443,101 @@ fn shulker_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
         lever_note = ", and after its start lever".to_string();
     }
     Ok(Some(format!("{} {SHULKER_TICKS} ticks agree (the judge's chests, endless){lever_note}", kind.name())))
+}
+
+/// Ticks an item sorter runs in `web check` (its judge visits every 20).
+const SORTER_TICKS: u32 = 1200;
+
+/// An item sorter in the viewer (redsim's chest driver: the judge's stream fed, the sinks emptied
+/// every `circuit::shulker::SEG` gt) against a reference run built from the repo's tools: the
+/// design placed by the clock judge's placement (`clock::sim::world_for`) in the viewer's box, a
+/// chest on each of `circuit::Circuit`'s `items`, `pass` and output ports, the settle, the
+/// judge's own base stream (`circuit::sorter::Scenario::base`) and visits: the same frames for
+/// SORTER_TICKS ticks (in the wasm viewer too when given); and the items the viewer's sinks
+/// receive visit by visit are those of the judge's redsim screen (`circuit::sorter::sim_run`'s
+/// flow). None when the design is no sorter, or when redsim cannot follow its run (the viewer
+/// must then show it as built).
+fn sorter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    use redsim::redstone::container as rc;
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let Some(circuit::Kind::Sorter(item)) = c.kind.clone() else { return Ok(None) };
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let role = |r: &str| -> Vec<[i32; 3]> {
+        let mut v: Vec<[i32; 3]> = c.stores.iter().filter(|s| s.role == r).map(|s| s.pos).collect();
+        v.sort();
+        v
+    };
+    let mut outs: Vec<[i32; 3]> = c.outputs.iter().map(|o| o.pos).collect();
+    outs.sort();
+    let sources: Vec<redsim::BlockPos> = role("items").into_iter().map(bp).collect();
+    let sinks: Vec<redsim::BlockPos> = role("pass").into_iter().chain(outs).map(bp).collect();
+    let sc = circuit::sorter::Scenario::base(&item, &circuit::sorter::design_kinds(&c)).map_err(|e| format!("{e:#}"))?;
+    let mut stream = Vec::new();
+    for st in &sc.stream {
+        stream.push(rc::Stack::new(rc::item_id(&st.id).ok_or_else(|| format!("redsim has no item {}", st.id))?, st.count as u8));
+    }
+    let queue: Vec<rc::Stack> = (0..mcview::circuit::SORTER_PASSES).flat_map(|_| stream.iter().copied()).collect();
+    let seg = circuit::shulker::SEG;
+    if seg != mcview::circuit::SORTER_SEG {
+        return Err(format!("the viewer's sorter visits every {} gt, the judge's every {seg}", mcview::circuit::SORTER_SEG));
+    }
+    // the reference run: its frames' hash and the items its sinks got at each visit
+    let mut w = clock::sim::world_for(&c.clock, from, to)?;
+    let chest = redsim::Block::parse(circuit::shulker::CHEST)?;
+    for p in sources.iter().chain(&sinks) {
+        w.set_block(*p, chest, redsim::world::flags::ALL);
+    }
+    for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
+        w.tick();
+    }
+    let mut ch = redsim::redstone::shulker::Chests::judged(true, sources.clone(), Vec::new(), sinks.clone(), Vec::new(), Vec::new(), queue);
+    ch.start(&mut w);
+    let count = |w: &redsim::World| -> u64 { sinks.iter().map(|p| redsim::redstone::shulker::chest_stacks(w, *p).iter().map(|s| s.count as u64).sum::<u64>()).sum() };
+    let mut h: u64 = 0xcbf29ce484222325;
+    let mut flow: Vec<(u32, u64)> = Vec::new();
+    let mut total = 0u64;
+    for t in 0..=SORTER_TICKS {
+        if t > 0 {
+            if t > 1 && (t - 1) % seg == 0 {
+                let got = count(&w);
+                if got > 0 {
+                    total += got;
+                    flow.push((t - 1, total));
+                }
+                ch.visit(&mut w);
+            }
+            w.tick();
+        }
+        if !w.errors.is_empty() {
+            return if s.simulated() { Err("the reference run meets something redsim does not model but the viewer simulates it".into()) } else { Ok(None) };
+        }
+        h = mcview::session::frame_hash(h, &w.blocks());
+    }
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
+    }
+    if s.frames_digest(SORTER_TICKS) != h {
+        return Err(format!("frames 0..={SORTER_TICKS} differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, SORTER_TICKS)? != h
+    {
+        return Err(format!("the wasm viewer's frames 0..={SORTER_TICKS} differ from the reference run's"));
+    }
+    // the judge's own redsim screen: the same deliveries at the same visits
+    let log = circuit::sorter::sim_run(&c, &sc, 4)?;
+    let theirs: Vec<(u32, u64)> = log.flow.iter().copied().filter(|(t, _)| *t < SORTER_TICKS).collect();
+    if theirs != flow {
+        return Err(format!("the sinks' deliveries {:?} differ from the judge's redsim screen's {:?}", &flow[..flow.len().min(6)], &theirs[..theirs.len().min(6)]));
+    }
+    if total == 0 {
+        return Err(format!("nothing reached its sinks in {SORTER_TICKS} ticks"));
+    }
+    Ok(Some(format!("sorter {SORTER_TICKS} ticks agree (the judge's chests and stream; {total} items delivered, as the judge's redsim screen)")))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they

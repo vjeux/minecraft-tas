@@ -109,11 +109,13 @@ impl Machine {
         design.meta.remove("stop");
         design.meta.remove("station");
         // `port station[.<name>]: x y z` (the shared judge's spelling): the design block there is
-        // a return-station block
+        // a return-station block; a station cell empty at rest (a part a switch moves into place:
+        // the shared judge's free stations, `circuit::fly`, fly-docking-15b) has no block of its
+        // own to place
         let station_ports: Vec<(String, Pos)> = design.ports.iter().filter(|(k, _)| *k == "station" || k.starts_with("station.")).map(|(k, p)| (k.clone(), *p)).collect();
         for (k, p) in station_ports {
-            let state = design.blocks.remove(&p).ok_or_else(|| anyhow!("port {k}: no design block at {p:?}"))?;
             design.ports.remove(&k);
+            let Some(state) = design.blocks.remove(&p) else { continue };
             stops.push((p, state));
             stations.insert(p);
         }
