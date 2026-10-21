@@ -77,6 +77,7 @@ Found with `farm-run --trace` (see WR.md mechanics).
 
 | design | blocks | result |
 |---|---|---|
+| [pumpkin4-mc-16b](stem/pumpkin4-mc-16b.txt), [melon4-mc-16b](stem/melon4-mc-16b.txt) | 16 (4 a stem) | robust with 32 builds and tiling (tile 3 0 0), archived: four stems around one fruit cell, an observer + dust above each stem (each dust powers the cell above the shared piston) |
 | [pumpkin-mc-7b](stem/pumpkin-mc-7b.txt) | 7 | robust x3 with tiling (tile 0 0 2), archived: observer above the stem + dust on it, a piston above the fruit cell (powered through the cell above it), mud under the fruit, a hopper minecart under the mud on a hopper |
 | [melon-mc-7b](stem/melon-mc-7b.txt) | 7 | the same design with a melon stem: robust x3 with tiling, archived (every drop stack counted) |
 | [pumpkin-6b](stem/pumpkin-6b.txt), [melon-6b](stem/melon-6b.txt) | 6 | a hopper directly under the mud: the squeezed drop shoots sideways out of the cell first (12 of 16 builds); the melon one is the calibration [melon-lost](calibration/melon-lost.txt) |

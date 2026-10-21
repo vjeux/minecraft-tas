@@ -854,7 +854,8 @@ kick) before the first input.
   missed harvest; a melon breaks into 3 to 7 slices in one stack, so the run is recorded tick by
   tick and every crop item stack is counted when first seen: the delivered slices must equal what
   the drops held, and a drop taken in the tick it appeared (not seen) fails the run as not exactly
-  counted). Cactus (`cactus`): the judge plants it on the design's sand (sand falls: it needs a block
+  counted; pumpkins are counted the same way, since a fruit broken in the very tick it grew never
+  shows on its stem). Cactus (`cactus`): the judge plants it on the design's sand (sand falls: it needs a block
   under it), a growth is counted when the top block's age drops, like sugar cane; a cactus item that
   touches a cactus (its whole cell) dies after 5 ticks, so a drop falling back onto the plant is lost.
   No input; `port crop:`

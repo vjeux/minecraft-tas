@@ -6,7 +6,9 @@ name: bamboo-hc-12b
 # reaches the stump. A second hopper minecart stands half on a hopper beside the stalk, half over the
 # third block's cell: it takes the third block's item as it appears and any item lying on the second
 # block, and that hopper empties it into a chest. Walls keep items over the stalk; a stone caps it.
+# Copies stand side by side, 3 blocks apart.
 circuit: harvester bamboo
+tile: 3 0 0
 port crop: 0 1 0
 port output.a: 0 -2 0
 port output.b: 0 1 -1
