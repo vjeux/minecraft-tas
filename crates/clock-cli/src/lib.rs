@@ -540,6 +540,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     println!("{}", verify_json(&r, sim.as_ref()));
                 } else {
                     print_verify(&r, verbose, secs, sim.as_ref());
+                    // the ITEMS property (the real-use audit's item intrusion: a property, never a
+                    // failure), when the clock has an open hopper top
+                    if let Some(i) = r.base().and_then(|b| b.items.as_ref()) {
+                        println!("ITEMS: {}: {i}", r.name);
+                    }
                 }
                 failed |= r.verdict != Verdict::Clock;
             }
