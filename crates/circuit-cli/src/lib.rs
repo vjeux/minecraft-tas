@@ -315,6 +315,10 @@ pub enum CircuitCmd {
         /// (comma-separated: `delay` keeps an instant design instant).
         #[arg(long, default_value = "")]
         same: String,
+        /// Look for another main value than the base's (the first metric's value as the checker
+        /// prints it, e.g. `3 gt`): the base only seeds the search.
+        #[arg(long)]
+        value: Option<String>,
         #[arg(long, default_value_t = 0)]
         threads: usize,
         #[arg(long)]
@@ -562,8 +566,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
-        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
-        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
+        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", None, threads, out.as_deref())?,
+        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, value, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, value.as_deref(), threads, out.as_deref())?,
         CircuitCmd::LockSearch { out_dir } => {
             std::fs::create_dir_all(&out_dir)?;
             let o = Options { version: version.to_string(), ..Default::default() };
@@ -703,7 +707,7 @@ fn palette_state(s: &str) -> String {
 /// `circuit local-census` / `sorter-census`: the census, its passing designs, the smallest
 /// written to `out`.
 #[allow(clippy::too_many_arguments)]
-fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, same: &str, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
+fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, same: &str, value: Option<&str>, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
     let c = Circuit::load(base)?;
     let pos = |s: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -725,7 +729,7 @@ fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str,
         circuit::sorter::census(&c, remove, box_, &states, threads)?
     } else {
         let same: Vec<String> = same.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
-        let judge = circuit::local::trace_judge(&c, &same)?;
+        let judge = circuit::local::trace_judge_value(&c, &same, value)?;
         circuit::local::census(&c, remove, box_, &states, &keep, threads, &judge)
     };
     println!("local census: {} designs pass (base {} blocks)", found.len(), c.blocks());

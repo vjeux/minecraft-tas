@@ -79,7 +79,10 @@ arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggere
   N = 3 needs an output change at t'+3 by an arrival (impossible: arrivals come 2 after an act) or
   by a departure triggered by an arrival at t'+2, and the rise at t+3 likewise. With one input
   piston and its block back at its start cell at t'+2 that is possible on ONE edge only in every
-  combination tried; N = 3 and N = 1 look infeasible (reasoned, not proven).
+  combination tried; N = 3 and N = 1 look infeasible (reasoned, not proven). Census check
+  (`circuit local-census --value '3 gt'` / `'1 gt'`, remove 2 + add 1 of stone, dust, repeaters x4,
+  RB, sticky pistons x6, observers x6): from delay-odd5 0 of 466,566 for N = 3 and for N = 1; from
+  delay-piston-7 0 of 335,305 for N = 3 and for N = 5.
 - Two N = 5 topologies on paper, to build:
   (a) Y powered by RB0 (input piston, arrives t+2) OR RB0b (piston behind a delay-1 repeater from the
       input, departs t'+2): Y acts (3, 2), pushes X away at t+3 and pulls it back for t'+4, and the
