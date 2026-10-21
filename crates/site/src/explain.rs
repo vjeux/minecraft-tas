@@ -423,13 +423,15 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let rearm = with_seconds(metric(c, "re-arm"));
             let jams = metric(c, "jams");
             format!(
-                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
+                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>{}",
                 if detects.is_empty() { "nothing".to_string() } else { list(&detects) },
                 if misses.is_empty() { "; it misses nothing".to_string() } else { format!("; it does not see {}", list(&misses)) },
                 if pulse.is_empty() { String::new() } else { format!("Each detection gives a {pulse} output pulse") },
                 if latency.is_empty() { String::new() } else { format!(", {latency} after the change. ") },
                 if rearm.is_empty() { String::new() } else { format!("It can detect the next change {rearm} later (re-arm). ") },
-                if jams.is_empty() { String::new() } else { format!("Two changes close together jam it: {}.", esc(jams)) }
+                if jams.is_empty() { String::new() } else { format!("Two changes close together jam it: {}.", esc(jams)) },
+                // the kind's mention (the coordinator 11:47Z): the latched classic, the observer
+                crate::kinds::mention(&c.study, "bud").map(|m| format!("<p>{}.</p>", esc(&first_cap(m)))).unwrap_or_default()
             )
         }
         "tnt-duper" => {

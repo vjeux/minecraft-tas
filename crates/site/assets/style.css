@@ -138,6 +138,9 @@ footer nav.foot { margin-bottom: 6px; }
 footer nav.foot a { color: var(--muted); }
 
 main { max-width: 1440px; margin: 0 auto; padding: 16px 24px 48px; }
+/* a redirect page (a design that left the site: crates/site/src/published.rs): one short column */
+main.moved { max-width: 640px; padding-top: 32px; }
+main.moved h1 { font-size: 22px; margin: 12px 0; }
 footer { max-width: 1440px; margin: 0 auto; padding: 16px 24px 32px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 h1 { font-size: 30px; margin: 8px 0 4px; }
 /* (after the rule above, or a phone kept the 30px title: critique b0fb9ae4e, a 4-line title pushed

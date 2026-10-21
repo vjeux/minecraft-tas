@@ -10,16 +10,31 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
   non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
-  metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
-  dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z: new records must need
-  no site change): where builders ask for more than the smallest, `RULES` narrows the kind first
-  and the ranking picks among those (shulker loaders and unloaders: tiles side by side; the
-  self-running TNT duper: works standing on the ground; the two-way flying machine: has an on/off
-  lever), its card saying so ("the smallest of 16 tested that tiles side by side"); a rule nothing
-  meets is a build note. `SIZE_PICKS` picks a size of a parametric kind (reach 2: the 1-wide flat
-  rider). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
+  metric, the A-first version of a mirror pair (a piston extender: the smallest box first, then
+  blocks, then speed: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D
+  shape"; other layouts of one design fold under its smallest box); the gates with their own
+  levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
+  new records must need no site change): where builders ask for more than the smallest, `RULES`
+  narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
+  side by side and keeps sending boxes out with its chests kept full; the self-running TNT duper:
+  safe at its own stand height, `stand: N` or the ground, its card saying "stand it N blocks up",
+  and the best one that sits right on the ground kept as its variant page when the pick stands
+  higher; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
+  update and resets itself, vjeux 11:46Z: "a single observer is not a BUD switch"), its card saying
+  so ("the smallest of 16 tested that tiles side by side"); a rule nothing meets is a build note.
+  `MENTIONS` adds one line beside a kind's pick (the BUD: the latched 2-block classic, the single
+  observer). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
   design of every size: one card (its smallest design, or the size builders know: `CARD_ROWS`,
   the 3-dial lock), and on each of their pages a table of every size.
+- **Clocks, one card per mechanism** (the coordinator 2026-10-21 11:33Z, vjeux at 19 ticks: "The
+  first 10 clocks look all the same to me?"; `crates/site/src/mechanism.rs`): in every period the
+  clocks whose designs, or whose pictures at their thumbnails' still frames, differ only by
+  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston...; an observer
+  powering nothing), turned or mirrored, are one mechanism: the smallest keeps the card ("also
+  works with note block, copper bulb"), the others keep their pages, listed on its page with their
+  downloads, and leave the Clocks tab and the time search (`host`). A family's clock never folds.
+  `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds under each;
+  the smoke checks no period lists two cards of one mechanism.
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations
@@ -96,6 +111,26 @@ Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (8
 cell holds a comparator, so its output is searched again (`clock::sim::lamp_outputs`: a run per
 candidate, ~50 s each); the others overlap it (members costliest first, the circuits beside the
 clocks, every study's circuits in one pass).
+
+### No dead links: every page ever published (`crates/site/src/published.rs`)
+
+`crates/site/published.tsv` lists every page path the site ever deployed (8490 on 2026-10-21,
+rebuilt from every deploy GitHub Pages kept, since 2026-10-19 23:21Z, by `mctas site published
+--recover`) with what it
+was: a circuit's `study/kind`, a clock's period, a door's main board, a family's card. `site
+build` writes a small redirect page at each listed path it does not build (a design rejudged
+out, no longer its kind's pick, an old clock, door or family page): a meta refresh to the current
+page of the same kind (the same size of a parametric kind; a clock of the same period, else the
+Clocks tab at that period; its board's record; a family's base design), a link, and a one-line
+note saying why, from the archive's `rejudged/` entry when there is one ("This design was replaced
+by “…”, because it failed a retest (jams with a full chest: 0 of 26 boxes after 22020 gt)."); the
+pages vjeux deleted (`DELETED_PAGES`) stay deleted. The site carries the whole list
+(`data/published.tsv`): `site deploy` adds what it published to the repository's list (commit
+it), and refuses to drop a page of the live site (the page joins the list: rebuild); `site
+publish` first merges the live site's pages into the list, so a list nobody committed is never
+lost. `site smoke` checks every listed path resolves (a page, or a redirect to a page). Git merges
+the list by union (`.gitattributes`). The 404 page links absolutely (`/minecraft-tas/...`), and
+`site serve` answers under that prefix too.
 
 ## Where the data comes from (no JVM)
 
