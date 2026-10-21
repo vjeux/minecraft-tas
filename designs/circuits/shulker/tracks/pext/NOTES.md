@@ -34,6 +34,14 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
   piston on every change of the full test, a short pulse leaves the pushed observer one cell up, the
   next change pulls it back; up there it fires the piston relays to the breaking piston, down there
   into air. Traced with `mctas circuit shulker watch`.
+- Loader 1x6x9 = 54, 29 blocks (archived `shulker-loader-1wide-1x6x9`; the 28-block 1x7x8 stays
+  as the fewest-blocks one). Hand rebuild (`loader-north-6tall-seed.txt`, 32 blocks, passed on
+  the first try): the bottom line that fired the dispenser after each break is gone; instead an
+  observer watching the observer above the breaking piston starts a chain on the boxes side (one
+  more column), into a piston whose head an observer watches, under the box dispenser. Then the
+  soft-volume anneal: 32 -> 29 blocks at 54. Why not 1x6x8: on the boxes side the column next to
+  the box spot is closed at the box's height by the boxes chest and the comparator reading it, so
+  any chain from the top line down to the dispenser needs the extra column.
 - Unloader 24 -> 23 (lns) -> 22 blocks (anneal), 1x7x6 = 42, 2.50 items/s, the 7 badges: archived
   `shulker-unloader-1wide-22b`. Soft-volume anneals (slack 1 and 2) find nothing smaller yet.
 
