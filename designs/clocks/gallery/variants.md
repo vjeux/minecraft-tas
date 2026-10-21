@@ -2006,16 +2006,16 @@ A variant is a clock with the same period as a smaller clock (its host: fewer bl
 
 ## 62 gt (3.1 s)
 
-**[clk-obs-p62-obs-pis-stk-8b-ec367f](../archive/clk-obs-p62-obs-pis-stk-8b-ec367f.txt)** (8 blocks: note_block, observer, piston, sticky_piston), 6 variants:
+**[clk-obs-div-p62](../archive/clk-obs-div-p62.txt)** (7 blocks: calibrated_sculk_sensor, comparator, copper_bulb, dispenser, observer, stone), 6 variants:
 
 | variant | blocks | kinds vs the host |
 |---|---|---|
-| [clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954](../archive/clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954.txt) | 8 | +copper_bulb, +redstone_lamp, -note_block |
-| [clk-obs-p62-bulb-lamp-obs-stk-8b-7338bc](../archive/clk-obs-p62-bulb-lamp-obs-stk-8b-7338bc.txt) | 8 | +copper_bulb, +redstone_lamp, -note_block, -piston |
-| [clk-obs-p62-bulb-note-obs-pis-stk-8b-8865b2](../archive/clk-obs-p62-bulb-note-obs-pis-stk-8b-8865b2.txt) | 8 | +copper_bulb |
-| [clk-obs-p62-bulb-note-obs-stk-8b-05236c](../archive/clk-obs-p62-bulb-note-obs-stk-8b-05236c.txt) | 8 | +copper_bulb, -piston |
-| [clk-obs-p62-lamp-obs-rb-stk-8b-1f1c83](../archive/clk-obs-p62-lamp-obs-rb-stk-8b-1f1c83.txt) | 8 | +redstone_block, +redstone_lamp, -note_block, -piston |
-| [clk-obs-p62-note-obs-rb-stk-8b-3d17ec](../archive/clk-obs-p62-note-obs-rb-stk-8b-3d17ec.txt) | 8 | +redstone_block, -piston |
+| [clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954](../archive/clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954.txt) | 8 | +piston, +redstone_lamp, +sticky_piston, -calibrated_sculk_sensor, -comparator, -dispenser, -stone |
+| [clk-obs-p62-bulb-lamp-obs-stk-8b-7338bc](../archive/clk-obs-p62-bulb-lamp-obs-stk-8b-7338bc.txt) | 8 | +redstone_lamp, +sticky_piston, -calibrated_sculk_sensor, -comparator, -dispenser, -stone |
+| [clk-obs-p62-bulb-note-obs-pis-stk-8b-8865b2](../archive/clk-obs-p62-bulb-note-obs-pis-stk-8b-8865b2.txt) | 8 | +note_block, +piston, +sticky_piston, -calibrated_sculk_sensor, -comparator, -dispenser, -stone |
+| [clk-obs-p62-bulb-note-obs-stk-8b-05236c](../archive/clk-obs-p62-bulb-note-obs-stk-8b-05236c.txt) | 8 | +note_block, +sticky_piston, -calibrated_sculk_sensor, -comparator, -dispenser, -stone |
+| [clk-obs-p62-lamp-obs-rb-stk-8b-1f1c83](../archive/clk-obs-p62-lamp-obs-rb-stk-8b-1f1c83.txt) | 8 | +redstone_block, +redstone_lamp, +sticky_piston, -calibrated_sculk_sensor, -comparator, -copper_bulb, -dispenser, -stone |
+| [clk-obs-p62-note-obs-rb-stk-8b-3d17ec](../archive/clk-obs-p62-note-obs-rb-stk-8b-3d17ec.txt) | 8 | +note_block, +redstone_block, +sticky_piston, -calibrated_sculk_sensor, -comparator, -copper_bulb, -dispenser, -stone |
 
 ## 63 gt (3.15 s)
 
