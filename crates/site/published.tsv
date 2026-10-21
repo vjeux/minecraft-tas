@@ -72,6 +72,7 @@ circuits/delay/delay-torch-2.html	circuit	delay/delay	6	delay: 6-tick delay · 6
 circuits/delay/delay-torch-n0.html	circuit	delay/delay	6	Delay: 6-tick delay · 6 blocks	2026-10-20 00:31Z
 circuits/delay/index.html	page				2026-10-20 00:04Z
 circuits/display/index.html	page				2026-10-21 09:19Z
+circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
 circuits/display/seven-segment-stack-v3.html	circuit	display/seven-segment		7-segment display decoder: 4 · 649 blocks	2026-10-21 09:19Z
 circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 · 627 blocks	2026-10-21 10:13Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
