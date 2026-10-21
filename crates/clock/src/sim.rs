@@ -297,8 +297,10 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
                     redsim::redstone::container::apply_block_entities(&mut s.world, [(bp(pos), n.as_str())]).map_err(|e| (Verdict::Unmodeled, format!("nbt: {e}")))?;
                 }
             }
-            Action::UseEntity { .. } => {
-                return Err((Verdict::Unmodeled, "an item frame (an entity) is not modeled".to_string()));
+            Action::UseEntity { pos } => {
+                if !redsim::entity::frame::use_frame(&mut s.world, bp(pos)) {
+                    return Err((Verdict::Unmodeled, format!("no single item frame at {pos:?} to turn")));
+                }
             }
             Action::Use { pos } => {
                 if !s.world.use_block(bp(pos)) {

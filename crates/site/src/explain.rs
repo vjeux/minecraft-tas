@@ -204,7 +204,7 @@ pub fn kind_summary(kind: &str) -> String {
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
-        "lock" => "turns its output on only while every item-frame dial shows the rotation of its hidden code frame; set the code by turning the code frames".into(),
+        "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         _ => String::new(),
     }
 }
@@ -1084,7 +1084,7 @@ pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has a hidden code frame; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
     ),
 ];
 

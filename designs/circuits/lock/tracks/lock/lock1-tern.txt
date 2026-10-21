@@ -1,0 +1,32 @@
+# Ternary dial (clk-item): ONE comparator reads the dial frame directly, subtracting the code reader's value one dust away (T = 0 low / 1 code / >= 2 high). T's first dust powers the block under it (its wall torch = low), the second dust (high) goes through a delay-2 repeater (so at the 7 -> 0 wrap the low torch lights before the high signal ends) into X; the low torch's dust also reaches X; X's wall torch is the output.
+name: lock1-tern
+circuit: lock 1
+port input.d0: -3 2 0 frame
+port input.k0: -1 2 5 frame
+port output: 4 3 0
+entity: minecraft:item_frame -2.5 2.5 0.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame -0.5 2.5 5.5 {Facing:3b,Item:{id:"minecraft:arrow",count:1},ItemRotation:3b}
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  w minecraft:redstone_wire
+  T minecraft:comparator[facing=west,mode=subtract,powered=false]
+  K minecraft:comparator[facing=south,mode=compare,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  A minecraft:redstone_wall_torch[facing=south,lit=true]
+  O minecraft:redstone_wall_torch[facing=east,lit=true]
+layer 0:
+  .......
+  ...S...
+  ...SSS.
+layer 1:
+  .SSSS..
+  .SAw.S.
+  .S.www.
+  .S.....
+layer 2:
+  STwwRSO
+  .w.S.w.
+  .w.....
+  .K.....
+  .S.....
