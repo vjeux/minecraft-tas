@@ -130,3 +130,16 @@ region's free cells; after `door prune-plan` dropped (1,-2,1) o52, (2,3,1) c12, 
 - sh0p's S (3,-3,1) open pulse from (2,-3): 0 of 18. A sensor's wake is floor(distance to the lever),
   and every legal lever spot (the static right wall, x = 3, y 0..2) is 3-5 blocks from (2,-3), so it
   wakes at t3-t5; S needs o16.
+
+### q69h pass (fly asked for completeness): 1 of 11 inputs drivable
+Lever on (3,2,1): (3,1,1) QC-arms K (3,-1) through (3,0) and breaks the door at t6. `door prune-plan`
+dropped Qr o2 and c48, (2,4,1) c36, K c6. Every input screened over every filling of each region it
+can be fed from, palette: air, wool, stone, sculk, calibrated x4, dust, observers x4, torches; the
+rest-on redstone blocks of P_T, (2,5,1) and B1 removed with their input (control: BROKEN without a
+filling):
+- W (-2,-1,1): WORKS — calibrated sensor (-2,-2) (powers W, which the slime dragged there) + wool
+  shield (0,-2): 4,112 fillings, cheapest 2 blocks; wip/q69h-W, redsim 32x3 and the game 4x2.
+- A5: N (-1,-2,1), B1 (1,-3,1): 0 of 1,889,568 each.
+- B4: Pl, P_T, (2,4,1), (2,5,1): 0 of 104,976 each.
+- C3: K, A (2,-2,1), B1: 0 of 5,832 each.
+- D3: Qr, (2,4,1), (2,5,1): 0 of 5,832 each.
