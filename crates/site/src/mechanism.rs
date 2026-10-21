@@ -138,10 +138,52 @@ fn orient_state(o: &[(usize, i32); 3], k: &str, v: &str) -> String {
 
 /// The mechanism key of a design's text, as written (None: it does not parse).
 pub fn key(text: &str) -> Option<String> {
-    let d = mctas::design::Design::parse(text).ok()?;
+    let d = untapped(text)?;
     let cells: Vec<([i32; 3], String)> = d.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
     let entities: Vec<String> = d.entities.iter().map(|e| e.kind.clone()).collect();
     Some(key_of_cells(&cells, &entities, &stocked(&d)))
+}
+
+/// The cells the usable-output rule added to a clock to give it a tap (webrender's
+/// `clock::usable`, each written down in a comment: `# port output moved ... (usable-output rule):
+/// the output of a comparator ... added at 0 0 1 (...)`): the comparator or observer tap, the block
+/// under a comparator, and the block put under a repeater tap's cell (`... (on a block put under
+/// it) ...`). The tap is how a builder takes the signal, not the clock's mechanism: two clocks of
+/// one mechanism, one tapped by a comparator and one by a repeater, are one card.
+fn tap_cells(text: &str, d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
+    let mut out = BTreeSet::new();
+    let below = |p: [i32; 3]| [p[0], p[1] - 1, p[2]];
+    let plain_block = |p: [i32; 3]| d.blocks.get(&p).is_some_and(|s| class(s).0 == "block");
+    for line in text.lines().filter(|l| l.trim_start().starts_with('#') && l.contains("(usable-output rule)")) {
+        let rule = line.split_once("(usable-output rule):").map(|(_, r)| r).unwrap_or("");
+        // (only the rule's own words, not its "(was ...)" reason)
+        let rule = rule.split(" (was ").next().unwrap_or(rule);
+        if let Some(at) = rule.split_once("added at ").map(|(_, r)| r) {
+            let n: Vec<i32> = at.split_whitespace().take(3).filter_map(|w| w.trim_end_matches([',', ')']).parse().ok()).collect();
+            if let [x, y, z] = n[..] {
+                let p = [x, y, z];
+                out.insert(p);
+                if rule.contains("comparator") && plain_block(below(p)) {
+                    out.insert(below(p));
+                }
+            }
+        } else if rule.contains("on a block put under it")
+            && let Some(&port) = d.ports.get("output")
+            && plain_block(below(port))
+        {
+            out.insert(below(port));
+        }
+    }
+    out
+}
+
+/// A design without the cells its tap added ([`tap_cells`]).
+fn untapped(text: &str) -> Option<mctas::design::Design> {
+    let mut d = mctas::design::Design::parse(text).ok()?;
+    let taps = tap_cells(text, &d);
+    d.blocks.retain(|p, _| !taps.contains(p));
+    d.block_entities.retain(|p, _| !taps.contains(p));
+    Some(d)
 }
 
 /// The cells whose containers the design stocks with items (its `nbt:` lines' `Items`): a
@@ -158,11 +200,14 @@ fn stocked(d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
 /// ([`ring_key`]).
 pub fn keys_of(still: &crate::simulate::Still, text: &str) -> Vec<String> {
     let mut v: Vec<String> = key(text).into_iter().collect();
-    let d = mctas::design::Design::parse(text).ok();
+    let d = untapped(text);
     if !still.cells.is_empty() {
         let entities: Vec<String> = d.as_ref().map(|d| d.entities.iter().map(|e| e.kind.clone()).collect()).unwrap_or_default();
         let stocked = d.as_ref().map(stocked).unwrap_or_default();
-        v.push(format!("still:{}", key_of_cells(&still.cells, &entities, &stocked)));
+        // (the still frame without the tap's cells either)
+        let taps = mctas::design::Design::parse(text).map(|full| tap_cells(text, &full)).unwrap_or_default();
+        let cells: Vec<([i32; 3], String)> = still.cells.iter().filter(|(p, _)| !taps.contains(p)).cloned().collect();
+        v.push(format!("still:{}", key_of_cells(&cells, &entities, &stocked)));
     }
     v.extend(d.as_ref().and_then(ring_key));
     v.extend(d.as_ref().and_then(hopper_loop_key));
@@ -473,7 +518,10 @@ pub fn folds(builds: &[Build], keys: &[Vec<String>]) -> Vec<(usize, usize)> {
     }
     let mut out = Vec::new();
     for mut g in groups.into_values().filter(|g| g.len() > 1) {
-        g.sort_by_key(|&i| (!kind_card(&builds[i]), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), !keeps_card(&builds[i]), builds[i].name.clone()));
+        // (a clock a builder can wire into a circuit keeps the card when its mechanism has one:
+        // the coordinator 2026-10-21, the judge's `usable`; a hard one is listed under it)
+        let hard = |i: usize| builds[i].clock.as_ref().is_some_and(|c| c.usable.starts_with("no"));
+        g.sort_by_key(|&i| (!kind_card(&builds[i]), hard(i), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), !keeps_card(&builds[i]), builds[i].name.clone()));
         let host = g[0];
         out.extend(g[1..].iter().copied().filter(|&i| !kind_card(&builds[i])).map(|i| (i, host)));
     }
@@ -665,6 +713,15 @@ mod tests {
         // the smallest (8 blocks) keeps the card, a family's clock first among equals, then by
         // name: m-trap-ring; every other one folds, the families' clocks too
         assert_eq!(pairs, vec![(0, 3), (1, 3), (2, 3)]);
+        // a clock that is hard to wire never keeps the card over one a builder can wire, however
+        // small (the judge's `usable`)
+        let mut hard = builds.clone();
+        if let Some(c) = hard[3].clock.as_mut() {
+            c.usable = "no: the output is under the build".into();
+        }
+        let mut pairs = folds(&hard, &keys);
+        pairs.sort();
+        assert_eq!(pairs, vec![(1, 0), (2, 0), (3, 0)], "z-gate-ring-n1, easy, keeps the card");
     }
 
     /// clk-misc's ring one step longer (n = 1): standing up, the relay in a corner.
@@ -709,6 +766,23 @@ mod tests {
 
     fn loop_of(text: &str) -> Option<String> {
         hopper_loop_key(&mctas::design::Design::parse(text).unwrap())
+    }
+
+    #[test]
+    fn a_tap_is_no_part_of_the_mechanism() {
+        // clk-obs-p30-obs-stk-6b-f5eb19 before and after the usable-output rule gave it an observer
+        // tap (its comment names the cell), and a comparator tap with the stone under it
+        let before = "name: c\norigin: 0 0 -1\nport output: 0 -1 -1\npalette:\n  A minecraft:observer[facing=up,powered=false]\n  B minecraft:note_block[instrument=harp,note=0,powered=false]\n  C minecraft:sticky_piston[extended=false,facing=north]\n  D minecraft:observer[facing=down,powered=false]\n  E minecraft:observer[facing=north,powered=false]\nlayer 0:\n  .\n  A\n  B\n  C\nlayer 1:\n  D\n  D\n  E\n  .\n";
+        let after = "# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 -1 (was 0 -1 -1: the output [0, -1, -1] is under the build)\nname: c\nport output: -2 1 -1\norigin: -1 0 -1\npalette:\n  A minecraft:observer[facing=north,powered=false]\n  B minecraft:observer[facing=up,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  O minecraft:observer[facing=down,powered=false]\n  S minecraft:sticky_piston[extended=false,facing=north]\n  o minecraft:observer[facing=east,powered=false]\nlayer 0:\n  .\n  .B\n  .N\n  .S\nlayer 1:\n  oO\n  .O\n  .A\n  .\n";
+        assert_ne!(key(after.trim_start_matches(|c| c != '\n')), key(before), "the tap is a block");
+        assert_eq!(key(after), key(before), "without the tap: one mechanism");
+        // a comparator tap with its stone, and a block put under a repeater's cell
+        let plain = "name: d\norigin: 0 0 0\nport output: 1 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\nlayer 0:\n  NA\n";
+        let comparator = "# port output moved 2026-10-21 (usable-output rule): the output of a comparator facing south (on the ground) that reads the build, added at 0 0 1 (was 1 0 0: ...)\nname: d\norigin: 0 0 0\nport output: 0 0 2\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  S minecraft:stone\n  c minecraft:comparator[facing=north,mode=compare,powered=false]\nlayer -1:\n  ..\n  S\nlayer 0:\n  NA\n  c\n";
+        assert_ne!(key(&comparator.replace("(usable-output rule)", "(clockinfra)")), key(plain), "the comparator and its stone are blocks");
+        assert_eq!(key(comparator), key(plain), "without the comparator tap and its stone: one mechanism");
+        let put = "# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 0 0: ...)\nname: d\norigin: 0 0 0\nport output: 2 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  S minecraft:stone\nlayer -1:\n  ..S\nlayer 0:\n  NA\n";
+        assert_eq!(key(put), key(plain), "without the block put under the repeater's cell");
     }
 
     #[test]

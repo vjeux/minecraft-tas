@@ -592,6 +592,11 @@ pub fn tnt_air(c: &crate::Circuit) -> u32 {
 /// it (its footprint times [`tnt_air`]: `4x4x4` standing 6 up is 4·4·4 + 4·4·6 = 160), what the
 /// TNT dupers rank by (the coordinator 15:18Z).
 pub fn effective_volume(b: &Build) -> Option<u32> {
+    // (the judge's own number when it gives one: clk-misc's `effective volume N (WxD footprint x
+    // (H + S) high: the box and the air under it)`)
+    if let Some(n) = b.circuit.as_ref().and_then(|c| cm(c, "effective volume").split_whitespace().next()?.parse::<u32>().ok()) {
+        return Some(n);
+    }
     let v = b.volume?;
     let air = b.circuit.as_ref().map(tnt_air).unwrap_or(0);
     if air == 0 {
@@ -618,6 +623,10 @@ pub fn tnt_rate_words(rate: &str) -> String {
 pub fn human_blocks(ids: &str) -> String {
     ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
 }
+
+/// The chip of a clock with no spot to take its output into a circuit (the judge's `usable`: `no:
+/// ...`; the page's warning says it in full).
+pub const HARD_TO_WIRE: &str = "hard to wire into a circuit";
 
 /// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
 /// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
@@ -1062,6 +1071,11 @@ pub fn props(b: &Build) -> Props {
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
             }
+            // no spot to take its output into a circuit (the judge's `usable`: a warning on its
+            // own card, never summed up over a list)
+            if c.is_some_and(|c| c.usable.starts_with("no")) {
+                chips.push(HARD_TO_WIRE.into());
+            }
             // a lamp on its output stays lit (critique a417977c3; said by its cause, not as "too
             // fast": critique 41f1ec62a): on the card too
             if let Some(c) = c.filter(|c| !c.lamp.is_empty()) {
@@ -1349,7 +1363,13 @@ pub fn shared_chips(list: &[&Build]) -> Vec<String> {
         return Vec::new();
     }
     let first = props(list[0]).chips;
-    first.into_iter().filter(|c| list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+    first.into_iter().filter(|c| !warning_chip(c) && list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+}
+
+/// A chip that warns (a lamp kept lit, a reload, no spot to wire it): it stays on each card it
+/// concerns, never summed up over a list.
+fn warning_chip(c: &str) -> bool {
+    c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk") || c == HARD_TO_WIRE
 }
 
 /// The chips most cards of a list share (two thirds or more, at least 3 cards): said once above
@@ -1362,7 +1382,7 @@ pub fn common_chips(list: &[&Build]) -> Vec<String> {
     }
     // (a warning stays on each card it concerns: summed up over the first cards it read as a
     // property of all, "4177 results. Most keep a lamp on them lit" when 668 of them do)
-    let warning = |c: &str| c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk");
+    let warning = warning_chip;
     let all: Vec<Vec<String>> = list.iter().map(|b| props(b).chips).collect();
     let mut seen: Vec<String> = Vec::new();
     for chips in &all {

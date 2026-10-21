@@ -48,9 +48,20 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   powered rail": every wood or metal one word), the others keep their pages, listed on its page
   with their downloads, and leave the Clocks tab and the time search (`host`). The families' clocks
   fold too (vjeux 13:09Z: eleven observer rings that only swap their relay were eleven cards a
-  period). `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds
+  period). A layout-independent key folds the same loop built another way (the coordinator
+  13:55Z, "the entire class"): an observer ring with one relay per loop step (`ring_key`: its
+  sequence of observers and relays), a hopper loop with comparators reading it (`hopper_loop_key`:
+  the loop, which hoppers are read, their items); both conservative, anything else folds only by
+  its layout. `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds
   under each; without `--period`, one line per period (`--before <saved run>`: what changed); the
   smoke checks no period lists two cards of one mechanism, family members included.
+- **Clocks hard to wire** (the judge's `usable` column: `yes: repeater` / `comparator` /
+  `observer`, or `no: <why>`; webrender's `clock::usable`): a clock with no tap says so in a plain
+  warning on its page (never hidden) and a "hard to wire into a circuit" chip on its card (never
+  summed up over a list); it comes after the easy ones of its period on the Clocks tab and in the
+  time search; a mechanism's card is a clock that can be wired when one can (its hard ones listed
+  under it, marked); a clock with a tap says how to take its signal ("To use it in a circuit, put
+  a repeater where the view puts its lamp"). The smoke checks the warning and the order.
 - **Doors, one record per mechanism** (vjeux 13:10Z): two board leaders that are one mechanism
   (the same key) with the same numbers fold into one record leading all their boards; the smoke
   checks no two rows of the records table are one mechanism.

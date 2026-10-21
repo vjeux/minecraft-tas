@@ -778,11 +778,25 @@ pub fn clock(b: &Build) -> (String, String) {
     let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
+    // how to take its signal into a circuit (the judge's `usable` tap; a clock with none says so
+    // in its warning)
+    let tap = c.map(|c| tap_words(&c.usable)).unwrap_or_default();
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
+        format!("{}{tap}", if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }),
     )
+}
+
+/// How a builder takes a clock's signal into a circuit, from the judge's `usable` tap (` To use it
+/// in a circuit, ...`; empty when it has none or was not checked: the warning says the first).
+pub fn tap_words(usable: &str) -> String {
+    match usable.trim() {
+        "yes: repeater" => " To use it in a circuit, put a repeater where the view puts its lamp: it picks up every pulse.".to_string(),
+        "yes: comparator" => " To use it in a circuit, take the signal from its comparator (part of the download, where the view puts its lamp): it reads the clock and passes on every pulse.".to_string(),
+        "yes: observer" => " To use it in a circuit, take the signal from its observer (part of the download, where the view puts its lamp): it watches the clock and pulses every cycle.".to_string(),
+        _ => String::new(),
+    }
 }
 
 /// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain

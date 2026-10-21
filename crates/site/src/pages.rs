@@ -419,7 +419,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&extended_line(site, b, c, prefix));
         // the other clocks of its period: on the Clocks tab, under the period's heading
         body.push_str(&format!(
-            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first.</p>\n",
+            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first (the ones hard to wire into a circuit last).</p>\n",
             esc(&site_model::html::keep_units(&site_model::gt_time(c.every()))),
             c.every()
         ));
@@ -641,6 +641,10 @@ fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &st
                 }
                 _ => String::new(),
             };
+            // (a variant with no spot to take its output into a circuit says so: the judge's
+            // `usable`)
+            let hard = if v.clock.as_ref().is_some_and(|vc| vc.usable.starts_with("no")) { format!(" · {}", site_model::html::HARD_TO_WIRE) } else { String::new() };
+            let on = format!("{on}{hard}");
             format!(
                 "<li><a href=\"{prefix}{}\">with {}</a> · {}{on} · <a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a></li>",
                 esc(&v.page),
