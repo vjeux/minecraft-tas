@@ -1,4 +1,4 @@
-# Auto-smelters (study 16): notes
+# Auto-smelters (study 17): notes
 
 Judge: `circuit: smelter N` ([crate::smelter](../../../../crates/circuit/src/smelter.rs), docs:
 [docs/circuits.md](../../../../docs/circuits.md) "smelter N"). The player's use: dump items in the

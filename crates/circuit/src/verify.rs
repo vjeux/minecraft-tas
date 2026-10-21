@@ -199,7 +199,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 16): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -417,7 +417,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
 /// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
-    if c.kind == Some(Kind::FlyingMachine)
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];

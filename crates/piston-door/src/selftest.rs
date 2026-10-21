@@ -961,7 +961,7 @@ fn checks() -> Vec<Check> {
             Ok("sorter-classic robust, overflow-proof; no tile, the sideways filter, the filter gap, the leaky threshold and the cobblestone fillers refused in the game; the line-locking design robust, not overflow-proof".into())
         }),
     });
-    // study 16, auto-smelters (track sorter, coordinator 2026-10-21; crate circuit::smelter): the
+    // study 17, auto-smelters (track sorter, coordinator 2026-10-21; crate circuit::smelter): the
     // furnace in redsim against the game, every cell every gt (furnace timers and lit state
     // included), on the one-furnace record's base run and the naive slice's tiled run
     v.push(Check {
@@ -991,7 +991,7 @@ fn checks() -> Vec<Check> {
         steps: vec![s],
         timeout: 120,
         pred: Box::new(|o| {
-            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
+            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
             has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
@@ -1008,7 +1008,7 @@ fn checks() -> Vec<Check> {
         steps: vec![s],
         timeout: 600,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
+            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
             has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): rotation 0: 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
@@ -1047,6 +1047,7 @@ fn checks() -> Vec<Check> {
             args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
             args("circuit shulker rs --only one-box-burst,one-box-burst-23 designs/circuits/selftest/shulker-one-box-pace-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+            args("circuit shulker intakes designs/circuits/selftest/shulker-intrusion.txt designs/circuits/shulker/archive/shulker-loader-1wide-1x6x11-36b.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -1068,7 +1069,11 @@ fn checks() -> Vec<Check> {
             has(&o[4], "FAIL cal-shulker-one-box-pace-jam one-box-burst-23")?;
             has(&o[4], "2 of 3 boxes")?;
             has(&o[4], "OK shulker-auto-loader-1 one-box-burst-23")?;
-            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces): the weak loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[5], "cal-shulker-intrusion: intake 1,1,0 (the hopper under it feeds the item line)")?;
+            has(&o[5], "the boxes differ: [(27, 27), (27, 27), (0, 0)]")?;
+            has(&o[5], "shulker-loader-1wide-1x6x11-36b: intake 0,0,1")?;
+            has(&o[5], "passes (3 boxes as without the strays")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces), stray items on the open hopper tops: the weak loaders jam or lose a box, the always-on loader and unloader and the 36b deliver every box".into())
         }),
     });
     v
