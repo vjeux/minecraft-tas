@@ -454,3 +454,56 @@ mod tests {
         assert_eq!(s.len(), 16);
     }
 }
+
+#[cfg(test)]
+mod columns {
+    use super::*;
+
+    /// Whether run r fits a slot whose column carries s at distance f (O contact f, W contact f + 1).
+    fn fits(r: Run, f: i32) -> bool {
+        let (lo, hi) = (r.lo as i32, r.hi as i32);
+        if lo == 0 {
+            hi >= f + 1
+        } else if hi == 15 {
+            f < lo
+        } else {
+            f < lo && hi >= f + 1 && lo + hi - 2 * f - 1 <= 15
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn column_feasibility() {
+        for c in all_codes() {
+            let segs: Vec<Vec<Run>> = masks(&c).iter().map(|m| runs(*m)).collect();
+            if segs.iter().any(|r| r.len() > 4) {
+                continue;
+            }
+            let mut best: Option<[i32; 4]> = None;
+            for fe in 0..8 {
+                for fnn in 0..8 {
+                    for fw in 0..8 {
+                        for fs in 0..8 {
+                            let f = [fe, fnn, fw, fs];
+                            let ok = segs.iter().all(|rs| {
+                                // some injective map runs -> axes
+                                let n = rs.len();
+                                (0..256u32).any(|m| {
+                                    let a: Vec<usize> = (0..n).map(|i| (m >> (2 * i) & 3) as usize).collect();
+                                    let mut seen = [false; 4];
+                                    a.iter().all(|&x| !std::mem::replace(&mut seen[x], true)) && rs.iter().zip(&a).all(|(r, &x)| fits(*r, f[x]))
+                                })
+                            });
+                            if ok && best.is_none() {
+                                best = Some(f);
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(f) = best {
+                println!("COLS w {:?} neg {:04b} {:?}: f {f:?}", c.w, c.neg, cost(&c));
+            }
+        }
+    }
+}

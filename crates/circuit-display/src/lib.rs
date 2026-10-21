@@ -9,6 +9,7 @@ pub mod analog;
 pub mod astack;
 pub mod ladder;
 pub mod check;
+pub mod glitch;
 pub mod settle;
 pub mod stack;
 pub mod stack7;
@@ -85,6 +86,13 @@ enum Cmd {
         /// The chain one level lower, standing on the top ring (--down).
         #[arg(long)]
         flat: bool,
+    },
+    /// Every single-bit and complement transition of a seven-segment decoder on redsim: which
+    /// outputs glitch, with their waveforms (crates/circuit-display/src/glitch.rs).
+    Glitches {
+        design: PathBuf,
+        #[arg(long)]
+        verbose: bool,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -183,6 +191,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 agen::search_and_write(&out, y0, place.as_deref())
             }
         }
+        Cmd::Glitches { design, verbose } => glitch::run(&design, verbose),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }
