@@ -61,35 +61,48 @@ pub fn is_cover(state: &str) -> bool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Run {
     Base,
-    Tiled,
+    /// A row of slices side by side with this many furnaces in all (4, 8, 16: [`ROWS`]).
+    Tiled(u32),
     Intrusion,
 }
 
+/// The rows a tileable slice is judged as (furnaces in all; coordinator 2026-10-21: players build
+/// 8 to 16 furnace arrays).
+pub const ROWS: [u32; 3] = [4, 8, 16];
+
 impl Run {
-    pub fn name(self) -> &'static str {
+    pub fn name(self) -> String {
         match self {
-            Run::Base => "base",
-            Run::Tiled => "tiled",
-            Run::Intrusion => "intrusion",
+            Run::Base => "base".into(),
+            Run::Tiled(4) => "tiled".into(),
+            Run::Tiled(n) => format!("tiled{n}"),
+            Run::Intrusion => "intrusion".into(),
         }
     }
 
     pub fn parse(s: &str) -> Option<Run> {
         Some(match s {
             "base" => Run::Base,
-            "tiled" | "tileable" => Run::Tiled,
+            "tiled" | "tileable" | "tiled4" => Run::Tiled(4),
+            "tiled8" => Run::Tiled(8),
+            "tiled16" => Run::Tiled(16),
             "intrusion" | "strays" => Run::Intrusion,
             _ => return None,
         })
     }
 
-    pub fn title(self) -> &'static str {
+    pub fn title(self) -> String {
         match self {
-            Run::Base => "the array as built",
-            Run::Tiled => "3 slices side by side (one input, one fuel and one output chest)",
-            Run::Intrusion => "stray items dropped on every open hopper top",
+            Run::Base => "the array as built".into(),
+            Run::Tiled(n) => format!("slices side by side, {n} furnaces in all (one input, one fuel and one output chest)"),
+            Run::Intrusion => "stray items dropped on every open hopper top".into(),
         }
     }
+}
+
+/// Copies of a slice of `n` furnaces for a row of `row` furnaces (at least 2).
+pub fn copies_for(n: u32, row: u32) -> usize {
+    (row.div_ceil(n.max(1)) as usize).max(2)
 }
 
 /// One run's inputs.
@@ -675,15 +688,17 @@ pub fn scenario_for(c: &Circuit, run: Run) -> Result<(Scenario, Circuit)> {
     let Some(Kind::Smelter(n)) = &c.kind else { bail!("{}: not a smelter", c.name()) };
     match run {
         Run::Base => Ok((Scenario::new(run, *n, false), c.clone())),
-        Run::Tiled => {
+        Run::Tiled(row) => {
             if c.tile.is_none() {
                 bail!("{}: no `tile:` header (a fixed array is judged as built)", c.name());
             }
-            Ok((Scenario::new(run, *n * COPIES as u32, false), tiled(c, COPIES)?))
+            let k = copies_for(*n, row);
+            Ok((Scenario::new(run, *n * k as u32, false), tiled(c, k)?))
         }
         Run::Intrusion => {
             if c.tile.is_some() {
-                Ok((Scenario::new(run, *n * COPIES as u32, true), tiled(c, COPIES)?))
+                let k = copies_for(*n, ROWS[0]);
+                Ok((Scenario::new(run, *n * k as u32, true), tiled(c, k)?))
             } else {
                 Ok((Scenario::new(run, *n, true), c.clone()))
             }
@@ -693,7 +708,13 @@ pub fn scenario_for(c: &Circuit, run: Run) -> Result<(Scenario, Circuit)> {
 
 /// The runs a design must pass besides the base run.
 fn required(c: &Circuit) -> Vec<Run> {
-    if c.tile.is_some() { vec![Run::Tiled, Run::Intrusion] } else { vec![Run::Intrusion] }
+    if c.tile.is_some() {
+        let mut v: Vec<Run> = ROWS.iter().map(|r| Run::Tiled(*r)).collect();
+        v.push(Run::Intrusion);
+        v
+    } else {
+        vec![Run::Intrusion]
+    }
 }
 
 /// The judge (`mctas circuit verify`): the base run at N positions x 4 rotations, then the
@@ -727,10 +748,10 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         match run_rotations(pool, c, run, o) {
             Ok(outs) => {
                 lines.push(format!("{}: passes (4 rotations)", run.title()));
-                if run == Run::Tiled
+                if let Run::Tiled(row) = run
                     && let Some(m) = outs.first().and_then(|k| k.metrics.iter().find(|(k, _)| k == "items/min per furnace"))
                 {
-                    row_rate = m.1.clone();
+                    row_rate = format!("{row_rate}{}{row}: {}", if row_rate.is_empty() { "" } else { ", " }, m.1);
                 }
             }
             Err(why) => {
@@ -748,7 +769,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         k.outcome.metrics.push(("blocks per furnace".to_string(), format!("{:.1}", blocks as f64 / n as f64)));
         if let Some(t) = c.tile {
             k.outcome.metrics.push(("tileable".to_string(), format!("every {}", t.step.iter().map(|v| v.abs()).sum::<i32>())));
-            k.outcome.metrics.push(("row of 3 items/min per furnace".to_string(), row_rate));
+            k.outcome.metrics.push(("rows items/min per furnace".to_string(), row_rate));
         }
         k.outcome.metrics.push(("bill".to_string(), bill));
         k.outcome.table.extend(lines);
@@ -834,7 +855,10 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
         passed += 1;
         match r {
             Run::Base => base = Some(out),
-            Run::Tiled => row_rate = out.metrics.iter().find(|(k, _)| k == "items/min per furnace").map(|x| x.1.clone()).unwrap_or_default(),
+            Run::Tiled(row) => {
+                let m = out.metrics.iter().find(|(k, _)| k == "items/min per furnace").map(|x| x.1.clone()).unwrap_or_default();
+                row_rate = format!("{row_rate}{}{row}: {m}", if row_rate.is_empty() { "" } else { ", " });
+            }
             Run::Intrusion => {}
         }
     }
@@ -842,7 +866,7 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
     base.metrics.push(("blocks per furnace".to_string(), format!("{:.1}", c.blocks() as f64 / *n as f64)));
     if let Some(t) = c.tile {
         base.metrics.push(("tileable".to_string(), format!("every {}", t.step.iter().map(|v| v.abs()).sum::<i32>())));
-        base.metrics.push(("row of 3 items/min per furnace".to_string(), row_rate));
+        base.metrics.push(("rows items/min per furnace".to_string(), row_rate));
     }
     (passed * 1000, base)
 }
