@@ -1,31 +1,33 @@
 # archived 2026-10-19T20:36Z from designs/clocks/tracks/clk-obs/mech2/p84-bulb-obs-rb-stk-7b-b-0da4c2.txt by mctas clock archive
-# CLOCK: clk-obs-p84-bulb-obs-rb-stk-7b-b-0da4c2 period 84 gt (4.2 s), on 28/84, edges 14, warmup 2, family copper_bulb+observer+redstone_block+sticky_piston, 7 blocks, 1x3x4, robust
-name: clk-obs-p84-bulb-obs-rb-stk-7b-b-0da4c2
+# CLOCK: clk-obs-p84-bulb-obs-rb-stk-7b-b-0da4c2 period 84 gt (4.2 s), on 28/84, edges 14, warmup 4, family copper_bulb+observer+redstone_block+sticky_piston, 8 blocks, 2x3x4, robust
 # P84: 1 copper bulb, 3 observers, 1 redstone block, 2 sticky pistons; changing in place: copper_bulb, observer, redstone_block, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 2 2
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 2 0 (was 0 2 2: the output [0, 2, 2] has a moving or non-sturdy block under it: a repeater there has nothing to stand on)
+name: clk-obs-p84-bulb-obs-rb-stk-7b-b-0da4c2
+port output: -2 2 0
 port start: 0 2 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=south]
-  B minecraft:redstone_block
-  C minecraft:observer[facing=up,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=north]
-  E minecraft:waxed_copper_bulb[lit=false,powered=false]
-  F minecraft:observer[facing=south,powered=false]
-  G minecraft:observer[facing=north,powered=false]
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=north]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=south]
 layer 0:
   .
-  A
-  B
+  .s
+  .R
   .
 layer 1:
   .
-  C
+  .B
   .
-  D
+  .S
 layer 2:
-  E
-  F
-  G
+  .W
+  OA
+  .o
   .
