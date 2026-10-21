@@ -313,7 +313,20 @@ kick) before the first input.
   grounds at the safe drop (`--ticks` for a long run). A clock-held engine (the study's one duper,
   tnt-clocked-22b): `mctas circuit tnt hold-scan <engine> --piston x,y,z` tries every archived
   clock and turn for a cell where a piston is powered on all but one short window of the period,
-  puts the engine's piston there and judges each machine on redsim. `explode: off` is for analysis only (the
+  puts the engine's piston there and judges each machine on redsim. MINIMUM VOLUME (vjeux
+  2026-10-21 "treat this as the door experiment where we want to find the minimum volume"):
+  `mctas circuit tnt compact <seed> [--region box] [--depth lo..hi | any | above[:CLEAR]] --out DIR`
+  anneals inside a box on redsim (moves: delete / step / move / replace / add / turn / swap /
+  translate a cluster / relocate a cluster turned / push a face layer inward, ports following their
+  blocks, repair bursts after big moves), scored in tiers (dupes 1 per period > one fuse-1 point over
+  the screening kicks > the burst depth in range, or an air burst clear of the machine > the redsim
+  judge passes with precise in mid-air, design intact and useful) then by volume then blocks; a
+  `--region` smaller than the seed is a squeeze (blocks outside are moved in one at a time, never at
+  the cost of the tier). `mctas circuit tnt graft <design> --module cells --anchor x,y,z --targets
+  cells|box [--rotations all|y]` re-places one module (a clock with its converter) at every target
+  in 24 or 4 orientations and judges each. With them the precise drop went 324 -> 240 (6x5x8, burst
+  10 blocks under the machine) and the air burst 528 -> 384 (designs/circuits/tracks/clk-rt/).
+  `explode: off` is for analysis only (the
   measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
