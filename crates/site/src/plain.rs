@@ -277,12 +277,22 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // redstone block in the frame's cell instead of turning it); how to hook a door to it
         "lock" => {
             let game = "right-click a dial (an item frame on the dials' side) to turn its item one step, 8 steps around; the output turns on (open) only while every dial shows the same position as its code frame across the machine. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door";
+            // the view's own button names (webrender's input_label: "Dial 1", "Code 1")
+            let named = |prefix: char| -> Vec<String> { c.inputs.iter().zip(&c.input_labels).filter(|(n, _)| n.starts_with(prefix)).map(|(_, l)| l.clone()).collect() };
+            let (dials, codes) = (named('d'), named('k'));
             return if !c.unmodeled.is_empty() {
                 format!("The view shows it as built: the browser's simulator cannot run it yet. In the game, {game}.")
-            } else if crate::explain::viewer_turns_frames() {
-                format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
-            } else {
+            } else if !crate::explain::viewer_turns_frames() {
                 format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
+            } else if dials.len() >= 2 && !codes.is_empty() {
+                format!(
+                    "Tap {} under the view to turn that dial one step, 8 steps around (on a small screen, tap the {} tags on the frames themselves); {} set the code the same way. The output turns on (open) only while every dial shows the same position as its code frame. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    list_words(&dials.iter().map(String::as_str).collect::<Vec<_>>(), "or"),
+                    dials[0].split(' ').next().unwrap_or("dial").to_uppercase(),
+                    if codes.len() == 1 { codes[0].clone() } else { format!("{} to {}", codes[0], codes[codes.len() - 1]) }
+                )
+            } else {
+                format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
             };
         }
         _ => {}
@@ -292,7 +302,8 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let toggle = crate::explain::input_mode(&c.kind) == "toggle";
     let device = c.devices.first().map(String::as_str).unwrap_or("");
-    let names: Vec<String> = c.inputs.iter().map(|n| n.to_uppercase()).collect();
+    // (the buttons as the view labels them, when known: webrender's input_label)
+    let names: Vec<String> = if c.input_labels.len() == c.inputs.len() { c.input_labels.clone() } else { c.inputs.iter().map(|n| n.to_uppercase()).collect() };
     let press = match (device, names.len()) {
         (_, 0) => String::new(),
         ("lever", 1) => format!("Flip the lever marked {} (or tap {} under the view)", names[0], names[0]),

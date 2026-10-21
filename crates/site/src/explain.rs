@@ -743,7 +743,23 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     // D0, D1, D2, K0, K1 and K2 buttons"); its buttons only when they turn the frames
     if base(&c.kind) == "lock" {
         if viewer_turns_frames() {
-            s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+            // (the view's own tags, from webrender's input_label: "DIAL 1".."CODE 3")
+            let tags = |prefix: char| -> Vec<String> { c.inputs.iter().zip(&c.input_labels).filter(|(n, _)| n.starts_with(prefix)).map(|(_, l)| l.to_uppercase()).collect() };
+            let span = |v: &[String]| match v {
+                [] => String::new(),
+                [one] => one.clone(),
+                [first, .., last] => format!("{first} to {last}"),
+            };
+            let (dials, codes) = (tags('d'), tags('k'));
+            if dials.is_empty() || codes.is_empty() {
+                s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+            } else {
+                s.push_str(&format!(
+                    "<p>The dials are the item frames tagged {}, the code frames those tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>",
+                    esc(&span(&dials)),
+                    esc(&span(&codes))
+                ));
+            }
         } else {
             s.push_str("<p>The view runs the lock's redstone, but its buttons cannot turn item frames yet (they do not stand for a right-click): try the dials in the game, or read the measurements below, from our test in the real game. Drag to look around, pinch or scroll to zoom.</p>");
         }
@@ -824,7 +840,8 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     let mut controls: Vec<String> = Vec::new();
     for (i, name) in c.inputs.iter().enumerate() {
         let device = c.devices.get(i).map(String::as_str).unwrap_or("redstone block");
-        let label = input_label(name);
+        // (the button as the view labels it, when known: webrender's input_label)
+        let label = c.input_labels.get(i).filter(|l| !l.is_empty()).cloned().unwrap_or_else(|| input_label(name));
         let what = match device {
             "lever" => format!("click the <b>lever</b> tagged <b>{label}</b> (or the {label} button of the bar) to switch it on or off"),
             "button" => format!("click the <b>button</b> tagged <b>{label}</b> (or the {label} button of the bar) to press it"),
