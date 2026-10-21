@@ -166,6 +166,18 @@
    right pocket {(3,-2),(3,-1)} has no inputs inside the box (every component there would watch / take input from
    x = 4). (c) satwire with b kept ideal: core close SD(0,4) (5 firings; only feed an observer in the sealed (1,4)
    watching SD(2,4)).
+9. **u2-T (c70b's u2 + clk-item's lever on S(2,3)'s back + torch for SD(1,4)): the wall is START ORDER, not load**
+   (2026-10-21 06:20Z). Per-pulse windows (`ideal-rs --sweep`, each pulse alone, the rest fixed;
+   runs/u2t/u2TW.ideal): the top is timing-free (TL's release any open tick 0..64, re-hold c39..80; TM's SD(1,4)
+   open 0..70 / close 0..33; SW(4,2)+SW(4,1)'s pull any open tick), the binding pulse is the left stack's (-3,1) at
+   close c0..2 (the head of the left close chain; B4 must act at the close flip). Islands (clk-item): A2
+   (-2,-2)(-2,-1), B4 (-2,2..4)(-1,4), C1 (0,-2), D5 top-right, E4 bottom-right. Stacks cross only DOWNWARD (a
+   source above powers both, an observer below watches the lower one); the top has no crossing (SD+(0,4) is fed
+   only from B4, SD(1,4) only from D5, nothing sees across). So with one lever: in B4 (needed for c0..2) the top
+   right never starts; in D5, B4's open o12-23 and C1's o19-25 precede every start the right side can pass on (the
+   bottom-row shift reaches the left at o29-34, ML reaches L2 at o37). A fix needs a TOP crossing: e.g. TL leaving
+   LEFT (L2) so (0,4) is free for an observer watching a lever-held TM puller (lever on its top), with a static
+   extra at T0 (all 3 extras static). mechmut from such seeds (3 rounds) found no working mechanism.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
