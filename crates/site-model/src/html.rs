@@ -478,7 +478,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             // (the adder study, w86; the randomizers, clk-item)
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
-            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper",
+            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm",
             _ => "",
         },
     }
