@@ -300,10 +300,26 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
     // each family's words for its extended clocks' pages: its kind of clock, how one step extends
     // it, the n of its base (critique: an extended clock said only "a longer version of <id>")
-    let fam_words: BTreeMap<String, (String, String, String, i64)> = ce
+    // each family's words and steps for its clocks' pages: its kind of clock, how one step extends
+    // it, the n of its base, what one step adds (critique: an extended clock said only "a longer
+    // version of <id>"; critique 41f1ec62a: the hopper clock's page never said its range)
+    let fam_words: BTreeMap<String, site_model::Extend> = ce
         .cards
         .iter()
-        .flat_map(|c| c.families.iter().map(move |f| (f.id.clone(), (f.build.clone(), c.title.clone(), f.rule.clone(), f.base))))
+        .flat_map(|c| {
+            c.families.iter().map(move |f| {
+                let ext = site_model::Extend {
+                    base: f.build.clone(),
+                    title: c.title.clone(),
+                    rule: f.rule.clone(),
+                    base_n: f.base,
+                    dt: f.period.eval(f.base + 1) - f.period.eval(f.base),
+                    db: f.blocks.eval(f.base + 1) - f.blocks.eval(f.base),
+                    hi: 0,
+                };
+                (f.id.clone(), ext)
+            })
+        })
         .collect();
     let mut clock_members: Vec<Member> = Vec::new();
     let mut dropped_members = 0;
@@ -360,22 +376,35 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("  note: {} verified clock family members as clocks of their own", extra.len());
     builds.extend(extra);
     members.clear();
-    // every extended clock (a generated member or an archived one) names its base, its kind of
-    // clock and the family's rule; its base must be on the site (no dead link, nothing dropped
-    // silently: a missing base fails the build)
+    // every extended clock (a generated member or an archived one) and every family's base design
+    // names its family: its base, its kind of clock, the rule, what a step adds and the slowest of
+    // the family on the site; an extended clock's base must be on the site (no dead link, nothing
+    // dropped silently: a missing base fails the build)
     let ids: std::collections::BTreeSet<String> = builds.iter().map(|b| b.id.clone()).collect();
-    for b in builds.iter_mut().filter(|b| b.flags.iter().any(|f| f == "extended")) {
-        let Some(c) = b.clock.as_mut() else { continue };
-        let Some((base, title, rule, base_n)) = c.family.as_ref().and_then(|f| fam_words.get(f)) else {
-            bail!("{}: an extended clock without its family's words", b.id);
-        };
-        if !ids.contains(base) {
-            bail!("{}: its base design {base} is not on the site", b.id);
+    let mut slowest: BTreeMap<String, u32> = BTreeMap::new();
+    for b in &builds {
+        if let Some((f, p)) = b.clock.as_ref().and_then(|c| c.family.clone().map(|f| (f, c.every()))) {
+            let e = slowest.entry(f).or_insert(0);
+            *e = (*e).max(p);
         }
-        c.base = Some(base.clone());
-        c.extend_title = title.clone();
-        c.extend_rule = rule.clone();
-        c.base_n = *base_n;
+    }
+    for b in builds.iter_mut() {
+        let extended = b.flags.iter().any(|f| f == "extended");
+        let id = b.id.clone();
+        let Some(c) = b.clock.as_mut() else { continue };
+        let Some(fam) = c.family.clone() else { continue };
+        let Some(words) = fam_words.get(&fam) else {
+            if extended {
+                bail!("{id}: an extended clock without its family's words");
+            }
+            continue;
+        };
+        if extended && !ids.contains(&words.base) {
+            bail!("{id}: its base design {} is not on the site", words.base);
+        }
+        if extended || words.base == id {
+            c.extend = Some(site_model::Extend { hi: slowest.get(&fam).copied().unwrap_or(0), ..words.clone() });
+        }
     }
     // what a lamp on each clock's output does (critique a417977c3), simulated once per clock, on
     // every thread; with the off-gap rule's count beside it (a lamp needs 4 gt dark to go out)

@@ -603,6 +603,16 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .map(|b| b.name.as_str())
         .collect();
     check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // a combination lock's page names its dials in words, never the raw port names (critique
+    // 058332315: "Use the D0, D1, D2, K0, K1 and K2 buttons"), and sends a visitor to the view's
+    // buttons only when they turn the frames
+    for b in site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("lock"))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let text: String = page.split("<section").skip(1).filter(|s| s.contains("<h2>Try it</h2>") || s.contains("<h2>How to try it</h2>")).collect();
+        let raw = ["D0", "D1", "K0", "K1"].iter().any(|n| text.contains(n));
+        let buttons = text.contains("button under the view");
+        check(&format!("lock {}: its dials in words; its buttons named only when they turn frames", b.name), !raw && buttons == crate::explain::viewer_turns_frames(), format!("raw port names: {raw}, names the buttons: {buttons}, the view turns frames: {}", crate::explain::viewer_turns_frames()));
+    }
     // a clock too fast for a lamp, or one relighting it within the tick, says so (critique
     // a417977c3; the coordinator 03:20Z), the 4-tick clock among them
     let fast: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| !c.lamp.is_empty())).collect();

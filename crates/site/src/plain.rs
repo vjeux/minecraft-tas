@@ -226,6 +226,14 @@ pub fn one_liner(c: &Circuit) -> String {
         "off-delay" => format!("The output turns on with the input and stays on {l} after the input turns off."),
         "on-delay" => format!("The output only turns on once the input has been on for {}; shorter presses do nothing.", ticks(m(c, "T"))),
         "pulse-train" => format!("While the input is on, the output pulses every {}.", ticks(m(c, "P"))),
+        // a combination lock (critique 41f1ec62a: no "hidden" code frame on a page whose caption
+        // puts the code frames on the right; how many positions a dial has)
+        "lock" => {
+            let n = c.metrics.iter().find(|(k, _)| k == "dials").map(|(_, v)| v.clone()).unwrap_or_else(|| number(&c.kind).to_string());
+            format!(
+                "Its output turns on only while each of its {n} dials (item frames, 8 positions each) is turned to the same position as its code frame, on the other side of the machine; set the code by turning the code frames, and keep that side out of sight."
+            )
+        }
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
@@ -263,6 +271,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         "sorter" => {
             let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
             return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
+        }
+        // a combination lock: how to try it in the game, and in the view when its buttons turn
+        // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
+        // redstone block in the frame's cell instead of turning it); how to hook a door to it
+        "lock" => {
+            let game = "right-click a dial (an item frame on the dials' side) to turn its item one step, 8 steps around; the output turns on (open) only while every dial shows the same position as its code frame across the machine. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door";
+            return if !c.unmodeled.is_empty() {
+                format!("The view shows it as built: the browser's simulator cannot run it yet. In the game, {game}.")
+            } else if crate::explain::viewer_turns_frames() {
+                format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
+            } else {
+                format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
+            };
         }
         _ => {}
     }
@@ -383,10 +404,12 @@ pub fn warning(b: &Build) -> Option<String> {
     if let Some(c) = b.clock.as_ref().filter(|c| !c.lamp.is_empty()) {
         let gap = ticks(&format!("{} gt", c.lamp_gap));
         out.push(match c.lamp.as_str() {
-            "stays lit" => format!("Too fast for a lamp to blink: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's output is never off longer than {gap}, so a lamp on it stays lit. Redstone dust there follows every pulse."),
+            // (by its cause, not its speed: critique 41f1ec62a, a 1-second hopper clock is not
+            // "too fast", its output is just off briefly)
+            "stays lit" => format!("A lamp on its output stays lit: the output is off for only {gap} at a time, and a redstone lamp goes dark only after more than 4 ticks (0.2 s) without power. Redstone dust there follows every pulse."),
             // (seen in the game: the coordinator 03:20Z)
             "relit" => format!("A redstone lamp on its output stays lit, though the power reaching it is off for {gap} at a time: the machine relights it within the same tick its power goes off. Redstone dust there follows every pulse."),
-            _ => format!("Too fast for a lamp to follow every pulse: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's shortest gaps last {gap}, so a lamp on it stays lit through them. Redstone dust there follows every pulse."),
+            _ => format!("A lamp on its output misses some pulses: its shortest gaps last only {gap}, and a redstone lamp goes dark only after more than 4 ticks (0.2 s) without power. Redstone dust there follows every pulse."),
         });
     }
     let robustness = match (&b.circuit, &b.clock) {
@@ -520,8 +543,43 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
     }
+    // item frames hold an item each, or a comparator reads nothing from them (critique 41f1ec62a:
+    // the lock's page never said to put an item in each frame)
+    let frames: Vec<&str> = design.lines().filter_map(|l| l.trim_start().strip_prefix("entity: minecraft:item_frame")).collect();
+    if !frames.is_empty() {
+        let item = frames
+            .iter()
+            .find_map(|f| f.split("id:\"").nth(1).and_then(|s| s.split('"').next()))
+            .map(|i| item_plural(&i.trim_start_matches("minecraft:").replace('_', " "), 2))
+            .unwrap_or_else(|| "items".to_string());
+        let n = frames.len();
+        v.push(format!(
+            "Its {} item frame{} must each hold an item ({item} in the download; any item works): building it by hand, put one in each frame. A right-click turns a frame's item one step of 8.",
+            n,
+            if n == 1 { "" } else { "s" }
+        ));
+    }
     // (open sky for a daylight detector: said in its warning line)
     v
+}
+
+/// A family's base design: the range its one design makes, for the page's opening line
+/// (critique 41f1ec62a: "any period from 1 s to 4 min 15 s, set by the number of items in the
+/// hopper" sat at the bottom of the hopper clock's page): `To make it slower: <the family's rule>;
+/// each step adds 16 ticks (0.8 s), up to every 5108 ticks (4 min 15.4 s).` None for any other
+/// clock, or a family that reaches no further on the site.
+pub fn slower_line(b: &Build) -> Option<String> {
+    let c = b.clock.as_ref()?;
+    let e = c.extend.as_ref()?;
+    if e.base != b.id || e.hi <= c.every() || e.rule.is_empty() {
+        return None;
+    }
+    let adds = match (e.dt > 0, e.db) {
+        (false, _) => String::new(),
+        (true, db) if db > 0 => format!("; each step adds {} and {}", ticks(&format!("{} gt", e.dt)), site_model::html::blocks_word(db as u32)),
+        (true, _) => format!("; each step adds {}", ticks(&format!("{} gt", e.dt))),
+    };
+    Some(format!("To make it slower: {}{adds}, up to every {}.", e.rule, ticks(&format!("{} gt", e.hi))))
 }
 
 /// `1111` -> `1,111`.

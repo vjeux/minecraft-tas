@@ -472,7 +472,6 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
         c.family = Some(m.family.clone());
         c.n = Some(m.n);
         c.aliases.clear();
-        c.base = Some(base.id.clone());
     }
     b
 }

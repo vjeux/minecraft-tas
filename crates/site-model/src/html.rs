@@ -926,10 +926,10 @@ pub fn props(b: &Build) -> Props {
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
             }
-            // too fast for a lamp to blink (critique a417977c3), or relit within the tick: said
-            // on the card too
+            // a lamp on its output stays lit (critique a417977c3; said by its cause, not as "too
+            // fast": critique 41f1ec62a): on the card too
             if let Some(c) = c.filter(|c| !c.lamp.is_empty()) {
-                chips.push(if c.lamp == "relit" { "a lamp on it stays lit".into() } else { "too fast for a lamp".into() });
+                chips.push(if c.lamp == "misses pulses" { "a lamp on it misses pulses".into() } else { "a lamp on it stays lit".into() });
             }
             // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
             if b.flags.iter().any(|f| f == "extended") {
@@ -1234,7 +1234,7 @@ pub fn unlike_most(chip: &str) -> Option<String> {
             "comes in every size" => "one size only",
             "works facing any way" => "works only facing one way",
             "starts by itself" => "needs a kick to start",
-            "too fast for a lamp" => "a lamp on it blinks",
+            "a lamp on it stays lit" => "a lamp on it blinks",
             _ => return None,
         }
         .to_string(),
@@ -1279,6 +1279,8 @@ pub fn chip_plural(chip: &str) -> String {
         "drops nothing on the ground" => "drop nothing on the ground".to_string(),
         "loads and unloads" => "load and unload".to_string(),
         "empties any box" => "empty any box".to_string(),
+        "a lamp on it stays lit" => "keep a lamp on them lit".to_string(),
+        "a lamp on it misses pulses" => "make a lamp on them miss pulses".to_string(),
         other => format!("are {other}"),
     }
 }

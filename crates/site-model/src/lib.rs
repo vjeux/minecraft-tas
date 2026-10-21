@@ -208,20 +208,15 @@ pub struct ClockInfo {
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
     #[serde(default, skip_serializing_if = "is_false")]
     pub instance: bool,
-    /// An extended clock (a longer version of a tested clock: vjeux 01:24Z): its base design's
-    /// build id, the name of its kind of clock (`dropper ring`), how one step extends it (`widen
-    /// the dropper ring by one column (2 hoppers)`) and the n of its base design.
+    /// Its extendable family, for a base design and its longer versions alike (vjeux 01:24Z:
+    /// longer versions are clocks of their own; critique 41f1ec62a: the hopper clock's page never
+    /// said one design makes any period from 1 s to 4 min 15 s).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base: Option<String>,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub extend_title: String,
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub extend_rule: String,
-    #[serde(default, skip_serializing_if = "is_zero_i64")]
-    pub base_n: i64,
+    pub extend: Option<Extend>,
     /// What a redstone lamp on its output does, simulated with one there (critique a417977c3: a
-    /// lamp waits 4 gt before going dark): `stays lit` (never dark while the output pulses) or
-    /// `misses pulses` (lights fewer times than the output rises); empty when it follows every
+    /// lamp goes dark only after more than 4 gt without power): `stays lit` (never dark while the
+    /// output pulses), `relit` (stays lit though the output is off longer: relit within the tick)
+    /// or `misses pulses` (lights fewer times than the output rises); empty when it follows every
     /// pulse or was not simulated. `lamp_gap`: the output's shortest off-gap, in gt.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lamp: String,
@@ -229,11 +224,26 @@ pub struct ClockInfo {
     pub lamp_gap: u32,
 }
 
-fn is_zero_u32(n: &u32) -> bool {
-    *n == 0
+/// A clock's extendable family, in words and numbers.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Extend {
+    /// The tested base design's build id.
+    pub base: String,
+    /// The name of its kind of clock (`dropper ring`), may be empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// How one step extends it (`one more stone in the first hopper (same blocks; ...)`).
+    pub rule: String,
+    /// The n of the base design.
+    pub base_n: i64,
+    /// What one step adds: ticks, blocks.
+    pub dt: i64,
+    pub db: i64,
+    /// The slowest of the family on the site, in gt.
+    pub hi: u32,
 }
 
-fn is_zero_i64(n: &i64) -> bool {
+fn is_zero_u32(n: &u32) -> bool {
     *n == 0
 }
 
