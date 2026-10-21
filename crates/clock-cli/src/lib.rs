@@ -591,6 +591,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     println!("{}", verify_json(&r, sim.as_ref()));
                 } else {
                     print_verify(&r, verbose, secs, sim.as_ref());
+                    // the ITEMS property (the real-use audit's item intrusion: a property, never a
+                    // failure), when the clock has an open hopper top
+                    if let Some(i) = r.base().and_then(|b| b.items.as_ref()) {
+                        println!("ITEMS: {}: {i}", r.name);
+                    }
                 }
                 failed |= r.verdict != Verdict::Clock;
             }
@@ -1287,7 +1292,11 @@ fn usable_game(dir: &std::path::Path, extra: Vec<String>, write: bool, o: &Verif
                 r.pulses = pulses;
                 r.gaps = gaps;
             }
-            r.usable = word;
+            // the game's word when the game ran a tap; a clock redsim finds no tap for keeps its
+            // row's reason (every candidate's, not only the declared output's)
+            if !(word.starts_with("no: ") && word.ends_with(" (redsim)") && r.usable.starts_with("no: ")) {
+                r.usable = word;
+            }
         }
     }
     println!("usable --game: {} clocks in {:.0} s: {yes} usable in the game, {no} not, {refused} not a clock as archived, {differ} where redsim said otherwise", files.len(), t0.elapsed().as_secs_f64());
