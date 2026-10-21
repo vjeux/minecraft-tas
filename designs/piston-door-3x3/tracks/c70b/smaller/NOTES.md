@@ -247,3 +247,9 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   clockinfra for the same run + `--private` (the conflict rule) and an edge rule. Its
   observer-free sibling po16 does not solve in families (QC off, wiring reserved) within 3M
   states; 0 of 70 neighbours solve. The bridge reads the header-less `.report` dumps now.
+- clockinfra made both walls macrosat rules (`--wire-dir`, explore/clockinfra, 2026-10-21
+  08:29Z): one component per wiring cell with a fixed output all cycle (one direction:
+  repeater / comparator / observer, or MULTI: dust / torch, lockstep, strong power only from on
+  top / below), and the edge rule (a directional component's input / watched cell must be in the
+  box). Re-runs on trio7 at h16 / h20 (+ A2 budget 1, + a `--private`-only variant) report to
+  c70b; the exporter now writes rest holds from the close end (no hand-patched -L).
