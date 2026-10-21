@@ -617,7 +617,7 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
     // segments that cannot put all their runs on one side of a shared ruler (a single-cell run
     // above 0 followed by a gap-1 run; s == 0 takes its side from the head end)
     let alone: Vec<char> = "abcdefg".chars().zip(m).filter(|(_, mk)| runs(*mk).windows(2).any(|w| w[0].lo == w[0].hi && w[0].hi > 0 && w[1].lo == w[0].hi + 2)).map(|(c, _)| c).collect();
-    let mut best: Option<(i32, Vec<TStrip>, [usize; 7])> = None;
+    let mut best: Option<(i32, Vec<TStrip>, [usize; 7], i64)> = None;
     let mut fails = 0;
     for t in 0..o.tries {
         let groups: Vec<Vec<char>> = if let Some(g) = &o.groups {
@@ -658,18 +658,20 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
             fails += 1;
             continue;
         };
+        let (bmn, bmx) = bounds(&b.blocks);
+        let vol: i64 = (0..3).map(|i| (bmx[i] - if i == 2 { 1 } else { bmn[i].min(0) } + 1) as i64).product();
         let mut w = crate::route::world_from(&b, &lanes, lo, hi);
         match crate::route::route_all(&mut w, &lanes, &order, o.expand) {
             Ok(n) => {
-                if best.as_ref().is_none_or(|x| n < x.0) {
-                    println!("try {t}: groups {} slots {slots:?} order {order:?}: {n} lane blocks", fmt_groups(&groups));
-                    best = Some((n, strips, order));
+                if best.as_ref().is_none_or(|x| (vol, n) < (x.3, x.0)) {
+                    println!("try {t}: groups {} slots {slots:?} order {order:?}: volume {vol}, {n} lane blocks", fmt_groups(&groups));
+                    best = Some((n, strips, order, vol));
                 }
             }
             Err(_) => fails += 1,
         }
     }
-    let (n, strips, order) = best.ok_or_else(|| anyhow!("no tower routes ({fails} tries failed)"))?;
+    let (n, strips, order, _) = best.ok_or_else(|| anyhow!("no tower routes ({fails} tries failed)"))?;
     println!("best: {n} lane blocks ({fails} of {} tries failed)", o.tries);
     let (mut b, lanes, lo, hi) = tower_base(code, &strips, o)?;
     let mut w = crate::route::world_from(&b, &lanes, lo, hi);
@@ -816,7 +818,11 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
         chain_y = top_a - 2;
     }
     let y_top = chain_y + 2;
-    let (top, moves, cuts) = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind).ok_or_else(|| anyhow!("no s spiral"))?;
+    // behind: the chain's s block at z = strips' end + 3 feeds the top along z, 2 cells per move
+    let par = behind.then(|| (bounds(&b.blocks).1[2] + 3).rem_euclid(2));
+    let found = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind, par)
+        .or_else(|| spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind, None));
+    let (top, moves, cuts) = found.ok_or_else(|| anyhow!("no s spiral"))?;
     if std::env::var("MCTAS_SPIRAL_DEBUG").is_ok() {
         println!("s spiral from {top:?}: {}; cut stones {cuts:?}", moves.join(" "));
     }
@@ -854,9 +860,19 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
     // y_top, then west into the column's top
     let (_, smx) = bounds(&b.blocks);
     if behind {
-        // the chain's s block (origin + (7, 2, 0)) at x 9, its whole body past the strips
-        let mut zc = smx[2] + 3;
-        if (zc - top[2]) % 2 != 0 {
+        // the chain's s block (origin + (7, 2, 0)) at x 9, as close behind the strips as its
+        // cells allow: none on a base cell, none next to a base cell but stone, parity for the feed
+        let fits = |zc: i32| -> bool {
+            let mut t = B::default();
+            chain_back(&mut t, [2, chain_y, zc], code);
+            t.supports();
+            t.blocks.iter().all(|(p, _)| {
+                !b.blocks.contains_key(p)
+                    && [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].iter().all(|d| b.blocks.get(&add(*p, *d)).is_none_or(|s| s == "minecraft:stone"))
+            })
+        };
+        let mut zc = smx[2] - 6;
+        while (zc - top[2]) % 2 != 0 || !fits(zc) {
             zc += 1;
         }
         chain_back(&mut b, [2, chain_y, zc], code);
@@ -898,7 +914,7 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
 /// support), no cell is used twice, and before the line leaves a hub level every `ends` cell of
 /// that level (where a branch to a strip starts) is a block or dust of the line.
 #[allow(clippy::too_many_arguments)]
-pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)], south: bool) -> Option<(P, Vec<&'static str>, Vec<P>)> {
+pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)], south: bool, z0_parity: Option<i32>) -> Option<(P, Vec<&'static str>, Vec<P>)> {
     use std::collections::HashMap;
     #[derive(Clone, Copy, PartialEq)]
     enum C {
@@ -1107,6 +1123,9 @@ pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, end
         false
     }
     for z0 in z_lo..=z_hi {
+        if z0_parity.is_some_and(|p| z0.rem_euclid(2) != p) {
+            continue;
+        }
         let p = [9, y_top, z0];
         let mut s = S { y_end, x_lo, x_hi, z_lo, z_hi, ends, base, m: HashMap::new(), out: Vec::new(), line: vec![p], flats: 0, strong: strong.clone() };
         s.m.insert(p, C::Used);

@@ -16,6 +16,7 @@ and `display settle F --frames 400`.
 | therm-v8 (`--oz 9 --cxb 14`) | 1401 | 18x13x23 (5,382) | 104 gt | 0 | robust |
 | therm-v9 (`--shared`, 5 rulers) | 1176 | 18x10x23 (4,140) | 96 gt | 0 | robust |
 | therm-v10 (`--shared`, 4 rulers, chain behind) | 1033 | 18x7x29 (3,654) | 88 gt | 0 | robust |
+| **therm-v11** (v10, chain tucked behind the shortest strip; search by volume) | **1062** | **18x7x27 (3,402)** | 86 gt | **0** | robust |
 
 Regenerate a tower design: `display therm --tower [--shared] --oz 9 --cxb 14 --groups G --slots S
 --order O --tries 1 --name N --out F` (the search prints G/S/O; without them it draws `--tries`
