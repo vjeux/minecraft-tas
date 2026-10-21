@@ -234,6 +234,11 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 15's 7-segment decoders (crates/circuit-display): design generators.
+    Display {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Study 13, item sorters: ONE run of a sorter's base scenario (or a badge's tiled run) in the
     /// game at rotation 0, its table printed (what reached each chest) and the outcome: a design
     /// aid; `mctas circuit verify` is the judge.
@@ -529,6 +534,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
+        CircuitCmd::Display { args } => circuit_display::run(args)?,
         CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
         CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
