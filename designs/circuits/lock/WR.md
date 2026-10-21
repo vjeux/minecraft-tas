@@ -204,7 +204,8 @@ minimum for every 2-block change. A big cut needs a new structure.
   blocks it saved; (2) one torch per dial (W fed "15 when low" so W > 0 iff match): the low
   signal must reach W's far side without touching D1, and every torch face of D1's support has
   its upper cell next to D1; (3) forcing T to 0 when high (T's other side from W's inverter)
-  loops through W's side and oscillates. the bus (4 per dial) and the 3 comparator supports. Ideas: the high
+  loops through W's side and oscillates.
+- Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
   torch on the front block's south face, over the next (lower) dial, with the bus under it;
   supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
   upper dial's comparators.
