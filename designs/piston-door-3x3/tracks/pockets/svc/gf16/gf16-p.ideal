@@ -1,0 +1,149 @@
+# door prune-plan gf16.ideal: 77 pulses dropped (greedy, latest first); open 156 / close 154 (was 156 / 154)
+design designs/piston-door-3x3/tracks/pockets/svc/gf16/gf16.txt
+phase between
+open 1 clear 1 5 0
+open 1 clear 1 4 1
+open 11 set -2 2 1 minecraft:redstone_block
+open 11 set -2 1 -1 minecraft:glass
+open 12 clear -2 1 -1
+open 15 clear -2 2 1
+open 21 set 2 -2 1 minecraft:redstone_block
+open 25 clear 2 -2 1
+open 31 set 0 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 31 use 0 -1 1
+open 31 set -1 -2 -1 minecraft:glass
+open 31 set 3 0 1 minecraft:redstone_block
+open 31 set 3 -1 -1 minecraft:glass
+open 32 clear -1 -2 -1
+open 32 clear 3 -1 -1
+open 33 clear 3 0 1
+open 33 set 3 -1 -1 minecraft:glass
+open 34 clear 3 -1 -1
+open 35 use 0 -1 1
+open 36 clear 0 -1 1
+open 41 set 0 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 41 use 0 -1 1
+open 41 set -1 -2 -1 minecraft:glass
+open 41 set 2 -2 1 minecraft:redstone_block
+open 42 clear -1 -2 -1
+open 43 use 0 -1 1
+open 43 set -1 -2 -1 minecraft:glass
+open 44 clear 0 -1 1
+open 44 clear -1 -2 -1
+open 45 set -1 3 -1 minecraft:glass
+open 46 clear -1 3 -1
+open 51 set -2 0 1 minecraft:redstone_block
+open 55 clear -2 0 1
+open 61 clear 2 -2 1
+open 71 set 3 0 1 minecraft:redstone_block
+open 71 set 3 -1 -1 minecraft:glass
+open 71 set -2 0 1 minecraft:redstone_block
+open 72 clear 3 -1 -1
+open 75 clear 3 0 1
+open 75 set 3 -1 -1 minecraft:glass
+open 75 clear -2 0 1
+open 76 clear 3 -1 -1
+open 101 set -1 -2 1 minecraft:redstone_block
+open 111 set -2 0 1 minecraft:redstone_block
+open 111 set -1 2 1 minecraft:redstone_block
+open 111 set 4 1 1 minecraft:redstone_block
+open 113 clear -2 0 1
+open 115 clear -1 2 1
+open 115 set -1 1 -1 minecraft:glass
+open 116 clear -1 1 -1
+open 121 set 2 -2 1 minecraft:redstone_block
+open 121 set -1 4 1 minecraft:redstone_block
+open 121 set -1 3 -1 minecraft:glass
+open 122 clear -1 3 -1
+open 125 clear 2 -2 1
+open 125 clear -1 4 1
+open 125 set -1 3 -1 minecraft:glass
+open 126 clear -1 3 -1
+open 131 set 3 0 1 minecraft:redstone_block
+open 131 set 3 -1 -1 minecraft:glass
+open 131 set -1 2 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 131 use -1 2 1
+open 131 set -2 1 -1 minecraft:glass
+open 132 clear 3 -1 -1
+open 132 clear -2 1 -1
+open 133 clear 3 0 1
+open 133 set 3 -1 -1 minecraft:glass
+open 134 clear 3 -1 -1
+open 135 use -1 2 1
+open 136 clear -1 2 1
+open 141 clear -1 -2 1
+open 141 set 1 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 141 use 1 -1 1
+open 141 set 2 -2 -1 minecraft:glass
+open 142 clear 2 -2 -1
+open 151 use 1 -1 1
+open 151 set -2 0 1 minecraft:redstone_block
+open 151 set -2 2 1 minecraft:redstone_block
+open 151 clear 4 1 1
+open 152 clear 1 -1 1
+open 155 clear -2 0 1
+open 155 clear -2 2 1
+close 1 set 1 5 0 minecraft:redstone_block
+close 1 set 1 4 1 minecraft:redstone_block
+close 11 set -2 2 1 minecraft:redstone_block
+close 11 set -2 1 -1 minecraft:glass
+close 12 clear -2 1 -1
+close 13 clear -2 2 1
+close 13 set -2 1 -1 minecraft:glass
+close 14 clear -2 1 -1
+close 35 set -2 1 -1 minecraft:glass
+close 36 clear -2 1 -1
+close 41 set 2 -2 1 minecraft:redstone_block
+close 45 clear 2 -2 1
+close 45 set -1 3 -1 minecraft:glass
+close 46 clear -1 3 -1
+close 51 set 0 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+close 51 use 0 -1 1
+close 51 set -1 -2 -1 minecraft:glass
+close 51 set 1 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+close 51 use 1 -1 1
+close 52 clear -1 -2 -1
+close 53 use 0 -1 1
+close 53 set -1 -2 -1 minecraft:glass
+close 54 clear 0 -1 1
+close 54 clear -1 -2 -1
+close 61 set -1 2 1 minecraft:lever[face=wall,facing=south,powered=false]
+close 61 use -1 2 1
+close 71 use 1 -1 1
+close 72 clear 1 -1 1
+close 81 set 2 -2 1 minecraft:redstone_block
+close 81 use -1 2 1
+close 82 clear -1 2 1
+close 83 clear 2 -2 1
+close 91 set 3 -1 1 minecraft:redstone_block
+close 91 set -2 0 1 minecraft:redstone_block
+close 95 clear 3 -1 1
+close 101 set 0 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+close 101 use 0 -1 1
+close 105 use 0 -1 1
+close 106 clear 0 -1 1
+close 121 clear -2 0 1
+close 125 set -2 1 -1 minecraft:glass
+close 126 clear -2 1 -1
+close 131 set 2 -2 1 minecraft:redstone_block
+close 131 set 4 1 1 minecraft:redstone_block
+close 131 set -1 4 1 minecraft:redstone_block
+close 131 set -1 3 -1 minecraft:glass
+close 132 clear -1 3 -1
+close 133 clear 2 -2 1
+close 133 clear -1 4 1
+close 133 set -1 3 -1 minecraft:glass
+close 134 clear -1 3 -1
+close 135 clear 4 1 1
+close 141 set -2 0 1 minecraft:redstone_block
+close 141 set -2 2 1 minecraft:redstone_block
+close 143 clear -2 0 1
+close 143 clear -2 2 1
+close 151 set -1 -2 1 minecraft:redstone_block
+close 151 set 4 2 1 minecraft:redstone_block
+close 151 set 4 1 -1 minecraft:glass
+close 152 clear 4 1 -1
+close 153 clear -1 -2 1
+close 153 clear 4 2 1
+close 153 set 4 1 -1 minecraft:glass
+close 154 clear 4 1 -1
