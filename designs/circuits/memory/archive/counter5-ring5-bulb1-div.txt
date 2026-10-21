@@ -1,34 +1,40 @@
-# archived 2026-10-20T02:27Z from designs/circuits/memory/tracks/memory/counter5-ring5-bulb1-div.txt by mctas circuit archive
-# CIRCUIT: counter5-ring5-bulb1-div counter 5 N 5, output toggles every 5 pulses, 14 blocks, 5x2x3, robust
-# Counter 5 as a divider, dropper ring + 1 copper bulb, 14 blocks (track memory, `mctas circuit memory ring --n 5 --bulbs 1 --divider`): the input cell fires 5 droppers (5 next to it), and 5 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 5, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (the last comparator changes state once every 5 pulses: toggles style).
+# archived 2026-10-20T21:18Z from designs/circuits/memory/tracks/memory/r7/counter5-ring5-bulb1-div.txt by mctas circuit archive
+# CIRCUIT: counter5-ring5-bulb1-div counter 5 N 5, output toggles every 5 pulses, 17 blocks, 4x3x4, robust
+# Counter 5 as a divider, dropper ring + 1 copper bulb, 17 blocks (track memory, `mctas circuit memory ring --n 5 --bulbs 1 --divider`): the input cell fires 5 droppers (3 next to it, 2 through 1 dust), and 5 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 5, and toggles a chain of 1 bulb T flip-flop (bulb + comparator), each halving the rate (the last comparator changes state once every 5 pulses: toggles style). The input sits on the build's edge (nothing south of it), where a real input line reaches it.
 name: counter5-ring5-bulb1-div
 circuit: counter 5
 group: ring-divider
 group title: Dropper ring + one bulb as a divider (output toggles every N)
 group note: the ring's comparator lights once per lap and toggles a copper bulb T flip-flop; the bulb's comparator changes state once every N pulses (`mctas circuit memory ring --n N --bulbs 1 --divider`)
 port input: 0 0 0
-port output: -4 1 0
+port output: 0 1 -4
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
-origin: -3 0 -1
+origin: -1 0 -3
 palette:
-  A minecraft:dropper[facing=south,triggered=false]
-  B minecraft:dropper[facing=up,triggered=false]
-  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  A minecraft:dropper[facing=up,triggered=false]
+  B minecraft:dropper[facing=west,triggered=false]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
   D minecraft:dropper[facing=east,triggered=false]
-  E minecraft:dropper[facing=west,triggered=false]
-  F minecraft:hopper[enabled=true,facing=north]
-  G minecraft:hopper[enabled=true,facing=south]
+  E minecraft:hopper[enabled=true,facing=south]
+  F minecraft:hopper[enabled=true,facing=west]
   H minecraft:hopper[enabled=true,facing=down]
-  I minecraft:hopper[enabled=true,facing=west]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   S minecraft:stone
   W minecraft:waxed_copper_bulb[lit=false,powered=false]
   d minecraft:dropper[facing=north,triggered=false]
   h minecraft:hopper[enabled=true,facing=east]
-layer 0:
-  ..hB
-  S.d.A
-  ..FEI
-layer 1:
-  ...G
-  CWCDH
+layer -1:
   .
+  .
+  .
+  ..S
+layer 0:
+  .S
+  .
+  hDhA
+  d.RS
+layer 1:
+  .C
+  .W
+  .C.E
+  HBFB

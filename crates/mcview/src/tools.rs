@@ -23,11 +23,14 @@ pub struct ShotOptions {
     pub picture: bool,
     /// The ground's reach around the build (default: the viewer's).
     pub floor_margin: Option<f32>,
+    /// As a live viewer of this size frames it (its default camera, with its outlines), not a
+    /// thumbnail.
+    pub live: bool,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false }
     }
 }
 
@@ -55,16 +58,24 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     }
     let aspect = o.width as f32 / o.height as f32;
     let mut look = if o.picture { scene::default_look(&s) } else { scene::viewer_look(&s) };
-    if o.picture {
+    // a picture (`web compare`) and the viewer's thumbnail (the browser's: nothing to press) draw
+    // no outlines, and frame what they draw; a live view keeps its outlines
+    if !o.live {
         look.outlines.clear();
         look.input_spans.clear();
         look.port_outlines.clear();
+    }
+    if o.picture {
+        look.ghost.clear();
     }
     // as the real-game pictures show it (`web compare`): their camera and their grass reach;
     // else the viewer's (a door: the side its lever is seen from)
     look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
     let mut cam = if o.picture {
         scene::picture_camera(&s, &look, aspect)
+    } else if o.live {
+        // a live viewer's (its window clear of the bar and badges at this height)
+        scene::camera_showing_inputs(atlas, &s, &look, aspect, scene::live_window(o.height as f32))
     } else {
         // the viewer's thumbnail camera (a door: the side its lever is seen from)
         scene::thumb_camera(atlas, &s, &look, aspect)
@@ -81,6 +92,8 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     }
     let mesh = scene::build(atlas, &s, 0.0, &look);
     let (solid, translucent) = scene::triangles(&mesh, &cam);
+    // the viewer's sky under the horizon (no ground there), the pictures' own for `web compare`
+    off.r.void_below = !o.picture;
     let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: o.width, height: o.height })?;
     let note = match &s.unsimulated {
         Some(why) => format!("{what} (not simulated: {why})"),

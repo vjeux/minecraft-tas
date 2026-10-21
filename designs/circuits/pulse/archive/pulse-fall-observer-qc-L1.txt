@@ -1,4 +1,4 @@
-# archived 2026-10-20T18:44Z from designs/circuits/tracks/pulse/wr/pulse-fall-observer-qc-L1.txt by mctas circuit archive
+# archived 2026-10-20T18:56Z from designs/circuits/tracks/pulse/wr/pulse-fall-observer-qc-L1.txt by mctas circuit archive
 # CIRCUIT: pulse-fall-observer-qc-L1 falling-edge L 1 gt, delay 2 gt, min-pulse 2 gt (the shortest a real input makes), tileable every 1 (1 0 0), 4 blocks, 1x3x3, robust
 name: pulse-fall-observer-qc-L1
 circuit: falling-edge
@@ -15,18 +15,22 @@ circuit: falling-edge
 tile: 1 0 0
 port output: 0 1 2
 port input: 0 2 0
-origin: 0 0 0
+origin: 0 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=north]
+  A minecraft:sticky_piston[extended=true,facing=north]
+  H minecraft:piston_head[facing=north,short=false,type=sticky]
   B minecraft:observer[facing=down,powered=false]
   C minecraft:redstone_block
   D minecraft:sticky_piston[extended=false,facing=down]
 layer 0:
+  H
   A
   C
 layer 1:
+  .
   B
   .
 layer 2:
+  .
   .
   D

@@ -121,6 +121,9 @@ pub fn shade(n: [f32; 3]) -> f32 {
 /// AO brightness by the number of opaque neighbors around a corner (side, side, corner).
 const AO: [f32; 4] = [1.0, 0.8, 0.65, 0.5];
 
+/// How opaque a ghosted cell's faces are ([`Builder::ghost`]: the judge's test rig).
+pub const GHOST_ALPHA: u8 = 80;
+
 pub struct Builder<'a> {
     pub atlas: &'a Atlas,
     /// Cells holding an opaque full block (not moving).
@@ -129,6 +132,12 @@ pub struct Builder<'a> {
     names: HashMap<Pos, String>,
     /// The ground: every cell below this y counts as an opaque block (culling, AO).
     pub ground: Option<i32>,
+    /// More cells holding an opaque full block, drawn some other way (a TNT duper's intact
+    /// ground around the ground cells drawn as blocks: [`floor`]): they cull and shade like blocks.
+    pub extra_occ: HashSet<Pos>,
+    /// Cells drawn see-through ([`crate::scene::Look::ghost`]): their faces go to the translucent
+    /// pass at [`GHOST_ALPHA`], and they hide nothing (their neighbours keep their faces).
+    pub ghost: HashSet<Pos>,
     cache: HashMap<String, Option<Model>>,
     pub mesh: Mesh,
     /// A transform for the block model being drawn as part of an entity (a minecart's hopper, a
@@ -141,11 +150,11 @@ pub struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
+        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, extra_occ: HashSet::new(), ghost: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
     }
 
     fn occupied(&self, c: Pos) -> bool {
-        self.occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
+        self.occ.contains(&c) || self.extra_occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
     }
 
     /// The cells holding an opaque full cube so far (they occlude and block the sky's light).
@@ -186,6 +195,7 @@ impl<'a> Builder<'a> {
                 if let Some(m) = self.model_at(it.state, Some(it.cell))
                     && m.full
                     && m.parts.iter().all(|p| p.layer == Layer::Opaque)
+                    && !self.ghost.contains(&it.cell)
                 {
                     self.occ.insert(it.cell);
                 }
@@ -640,8 +650,16 @@ impl<'a> Builder<'a> {
                 (tile as u32, uv)
             }
         };
-        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha)
-        let alpha = if self.white && p.layer != Layer::Translucent { 64u8 } else { 255u8 };
+        // solid faces: 255, or the white flash's 25% (fs_solid mixes toward white by 1 - alpha);
+        // a ghosted cell's faces: see-through, in the translucent pass
+        let ghost = cell.is_some_and(|c| self.ghost.contains(&c));
+        let alpha = if ghost {
+            GHOST_ALPHA
+        } else if self.white && p.layer != Layer::Translucent {
+            64u8
+        } else {
+            255u8
+        };
         for q in pts.iter_mut() {
             *q = [q[0] + base[0], q[1] + base[1], q[2] + base[2]];
             for k in 0..3 {
@@ -655,6 +673,10 @@ impl<'a> Builder<'a> {
             Vertex { pos: pts[k], uv: uv[k], layer, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
         });
         match p.layer {
+            _ if ghost => {
+                let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
+                self.mesh.translucent.push(Quad { v, center });
+            }
             Layer::Translucent => {
                 let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
                 self.mesh.translucent.push(Quad { v, center });
@@ -854,5 +876,154 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &H
         Vertex { pos: [x1, yb, z1], uv: [z1, 1.0], layer: side, color: cx },
         Vertex { pos: [x1, yb, z0], uv: [z0, 1.0], layer: side, color: cx },
     ]);
+    out
+}
+
+/// A TNT duper's ground as it stands (`Session::floor`: real blocks of the world, `lo..=hi`, its
+/// top layer at `hi[1]`), every cell but those in `skip` (drawn as blocks: around a crater): the
+/// grass tops (one quad per block near the build `near`, with the game's turned variants and
+/// smooth sky light like [`ground`]; farther, runs of blocks with the texture repeated), each
+/// layer's side at the ground's edge (`sides`: tile names, top layer first) and the bedrock's
+/// underside. `occ`: the build's opaque cells (the light over the grass).
+pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos>, near: (Pos, Pos), occ: &HashSet<Pos>) -> Vec<Vertex> {
+    let top = atlas.tile("grass_top") as u32;
+    let bottom = atlas.tile("bedrock") as u32;
+    let lum = |s: f32| {
+        let c = (255.0 * s).round() as u8;
+        [c, c, c, 255]
+    };
+    let mut out = Vec::new();
+    let mut quad = |v: [Vertex; 4]| out.extend_from_slice(&[v[0], v[1], v[2], v[0], v[2], v[3]]);
+    let gy = hi[1];
+    let y = gy as f32 + 1.0;
+    let r = 24;
+    let (nx0, nx1, nz0, nz1) = ((near.0[0] - r).max(lo[0]), (near.1[0] + r).min(hi[0]), (near.0[2] - r).max(lo[2]), (near.1[2] + r).min(hi[2]));
+    let is_near = |x: i32, z: i32| x >= nx0 && x <= nx1 && z >= nz0 && z <= nz1;
+    let light = layer_sky_light(occ, gy + 1);
+    let corner = |cx: i32, cz: i32| -> [u8; 4] {
+        let mut sum = 0.0;
+        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
+            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
+        }
+        lum(light_brightness(sum / 4.0))
+    };
+    let c = lum(1.0);
+    for bz in lo[2]..=hi[2] {
+        let mut run: Option<i32> = None;
+        for bx in lo[0]..=hi[0] + 1 {
+            let far_top = bx <= hi[0] && !is_near(bx, bz) && !skip.contains(&[bx, gy, bz]);
+            if far_top {
+                run.get_or_insert(bx);
+            } else if let Some(a) = run.take() {
+                // a run of far grass tops: the texture repeated (world coordinates)
+                let (a, b, fz) = (a as f32, bx as f32, bz as f32);
+                quad([
+                    Vertex { pos: [a, y, fz], uv: [a, fz], layer: top, color: c },
+                    Vertex { pos: [a, y, fz + 1.0], uv: [a, fz + 1.0], layer: top, color: c },
+                    Vertex { pos: [b, y, fz + 1.0], uv: [b, fz + 1.0], layer: top, color: c },
+                    Vertex { pos: [b, y, fz], uv: [b, fz], layer: top, color: c },
+                ]);
+            }
+            if bx > hi[0] || !is_near(bx, bz) || skip.contains(&[bx, gy, bz]) {
+                continue;
+            }
+            // a near grass top: the block's turned variant, its corners' sky light
+            let k = variant_of_4(bx, gy, bz);
+            let uv = |dx: f32, dz: f32| -> [f32; 2] {
+                let (mut px, mut pz) = (dx - 0.5, dz - 0.5);
+                for _ in 0..k {
+                    (px, pz) = (pz, -px);
+                }
+                [px + 0.5, pz + 0.5]
+            };
+            let (fx, fz) = (bx as f32, bz as f32);
+            quad([
+                Vertex { pos: [fx, y, fz], uv: uv(0.0, 0.0), layer: top, color: corner(bx, bz) },
+                Vertex { pos: [fx, y, fz + 1.0], uv: uv(0.0, 1.0), layer: top, color: corner(bx, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz + 1.0], uv: uv(1.0, 1.0), layer: top, color: corner(bx + 1, bz + 1) },
+                Vertex { pos: [fx + 1.0, y, fz], uv: uv(1.0, 0.0), layer: top, color: corner(bx + 1, bz) },
+            ]);
+        }
+    }
+    // the sides at the edge, layer by layer, in runs of cells not drawn as blocks
+    let (cz, cx) = (lum(0.8), lum(0.6));
+    for gyl in lo[1]..=hi[1] {
+        let tile = atlas.tile(sides.get((hi[1] - gyl) as usize).copied().unwrap_or("dirt")) as u32;
+        let (yt, yb) = (gyl as f32 + 1.0, gyl as f32);
+        // along x: the north (z = lo) and south (z = hi) faces
+        for (zc, north) in [(lo[2], true), (hi[2], false)] {
+            let mut run: Option<i32> = None;
+            for x in lo[0]..=hi[0] + 1 {
+                if x <= hi[0] && !skip.contains(&[x, gyl, zc]) {
+                    run.get_or_insert(x);
+                } else if let Some(a) = run.take() {
+                    let (x0, x1) = (a as f32, x as f32);
+                    if north {
+                        let z = zc as f32;
+                        quad([
+                            Vertex { pos: [x0, yt, z], uv: [x0, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yt, z], uv: [x1, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yb, z], uv: [x1, 1.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yb, z], uv: [x0, 1.0], layer: tile, color: cz },
+                        ]);
+                    } else {
+                        let z = zc as f32 + 1.0;
+                        quad([
+                            Vertex { pos: [x1, yt, z], uv: [x1, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yt, z], uv: [x0, 0.0], layer: tile, color: cz },
+                            Vertex { pos: [x0, yb, z], uv: [x0, 1.0], layer: tile, color: cz },
+                            Vertex { pos: [x1, yb, z], uv: [x1, 1.0], layer: tile, color: cz },
+                        ]);
+                    }
+                }
+            }
+        }
+        // along z: the west (x = lo) and east (x = hi) faces
+        for (xc, west) in [(lo[0], true), (hi[0], false)] {
+            let mut run: Option<i32> = None;
+            for z in lo[2]..=hi[2] + 1 {
+                if z <= hi[2] && !skip.contains(&[xc, gyl, z]) {
+                    run.get_or_insert(z);
+                } else if let Some(a) = run.take() {
+                    let (z0, z1) = (a as f32, z as f32);
+                    if west {
+                        let x = xc as f32;
+                        quad([
+                            Vertex { pos: [x, yt, z1], uv: [z1, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yt, z0], uv: [z0, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z0], uv: [z0, 1.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z1], uv: [z1, 1.0], layer: tile, color: cx },
+                        ]);
+                    } else {
+                        let x = xc as f32 + 1.0;
+                        quad([
+                            Vertex { pos: [x, yt, z0], uv: [z0, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yt, z1], uv: [z1, 0.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z1], uv: [z1, 1.0], layer: tile, color: cx },
+                            Vertex { pos: [x, yb, z0], uv: [z0, 1.0], layer: tile, color: cx },
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+    // the bedrock's underside, in runs
+    let (yb, c) = (lo[1] as f32, lum(0.5));
+    for bz in lo[2]..=hi[2] {
+        let mut run: Option<i32> = None;
+        for bx in lo[0]..=hi[0] + 1 {
+            if bx <= hi[0] && !skip.contains(&[bx, lo[1], bz]) {
+                run.get_or_insert(bx);
+            } else if let Some(a) = run.take() {
+                let (x0, x1, z0, z1) = (a as f32, bx as f32, bz as f32, bz as f32 + 1.0);
+                quad([
+                    Vertex { pos: [x0, yb, z0], uv: [x0, z0], layer: bottom, color: c },
+                    Vertex { pos: [x1, yb, z0], uv: [x1, z0], layer: bottom, color: c },
+                    Vertex { pos: [x1, yb, z1], uv: [x1, z1], layer: bottom, color: c },
+                    Vertex { pos: [x0, yb, z1], uv: [x0, z1], layer: bottom, color: c },
+                ]);
+            }
+        }
+    }
     out
 }

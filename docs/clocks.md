@@ -57,20 +57,26 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   UNEVEN output: `clock archive` refuses it, `clock catalog` and the site leave such rows out (they
   stay in the repository). `clock gaps [--write]` backfills the column from redsim; `clock sim
   --irregular` lists the uneven ones. On 2026-10-20: 2544 of 4051 archived clocks were uneven.
-* **A survival clock, indefinitely** (coordinator's rulings on the critique, 2026-10-20):
-  verdicts-v1.tsv's 18th column `hidden` gives why a clock stays off the catalog and the site
-  (empty: shown; `Row::shown()`): `command-only` (entity data a player cannot make: an item with
-  Age -32768 or PickupDelay 32767, a minecart started with a Motion, NoGravity, Invulnerable),
-  `daytime only` (a daylight detector), `tripwire` (any passing mob, player or item fires it),
-  `no output` (no exterior cell that pulses evenly), `not robust` (it must work in any direction,
-  anywhere), `does not survive a chunk reload` (`clock verify --reload`: the bridge saves, unloads
-  and loads the sandbox's chunks after the warmup and 2 periods; the clock must run at the same
-  state period afterwards, a glitch of at most 2 periods + 40 gt right after the reload allowed
-  (lost block events, a phase shift); the 2-observer P6 clock comes back at P4 in 2 of 8 builds). Item clocks run
-  past their items' 6000 gt lifetime (12000 gt, redsim and the game). `clock retap [--shard i/n]
-  --results FILE` gives each archived clock its best exterior output (redsim ranks, the game
-  confirms) or a reason to hide it; `--apply FILE...` rewrites designs and rows; `--reload-pass`
-  judges the shown ones with a chunk reload.
+* **A survival clock, indefinitely** (2026-10-20): verdicts-v1.tsv's 18th column `hidden` gives
+  why a clock stays off the catalog and the site (empty: shown; `Row::shown()`); only judge
+  failures in normal running hide: `no output` (no exterior cell that pulses evenly) and
+  `command-only` (entity data a player cannot make: an item with Age -32768 or PickupDelay 32767,
+  a minecart started with a Motion, NoGravity, Invulnerable). The 19th column `reload` states what
+  a chunk reload mid-run does (`clock verify --reload`: the bridge saves, unloads and loads the
+  sandbox's chunks after the warmup and 2 periods, without a tick): `ok`, `glitch then resumes`
+  (at most 2 periods + 40 gt, then the same state period), `stops`, `changes period to P gt`, or
+  `fails: why`, with `in K of N builds` when only some builds do it; a property the page states,
+  never a reason to hide. Vanilla's own cause of most `stops`: PistonMovingBlockEntity saves its
+  progressO as "progress", so a piston caught mid-move lands a tick late after loading (traced with
+  `clock misc trace-export --reload-at T`). Other properties a page states instead of hiding (vjeux:
+  no invented rules): the rotations and positions a clock works in (`robustness`), tripwire (any
+  passing entity fires it), a daylight detector. Item clocks run past their items' 6000 gt
+  lifetime (12000 gt, redsim and the game). The game horizon scales with the period (warmup + 4
+  state periods, at most 100 000 gt: a P6926 jukebox carousel is still for 6920 gt during each
+  song). `clock retap [--shard i/n] --results FILE` gives each archived clock its best exterior
+  output (redsim ranks, the game confirms) or a reason to hide it; `--apply FILE...` rewrites
+  designs and rows; `--reload-pass` writes the `reload` property of the shown ones; `clock hidden
+  [--write] [--unhide REASON...]` counts and lists the hidden ones.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
   strength, a container's contents), plus a redstone block that moves (a moving power source),

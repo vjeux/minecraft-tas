@@ -4,7 +4,7 @@ use crate::pages::{self, Scripts};
 use crate::{BuildArgs, circuits, clocks, doors, web};
 use anyhow::{Context, Result, bail};
 use site_model::{Build, DATA_VERSION, Member, Site};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub const STYLE: &str = include_str!("../assets/style.css");
@@ -352,6 +352,33 @@ pub fn build(a: &BuildArgs) -> Result<()> {
                 }
             }
         }
+        // a card of several families (the repeater line: one family per first repeater's delay)
+        // is shown by its first base alone, so that card says the whole card's range, not its
+        // base's own value (critique: four "2/4/6/8-tick delay · 2 blocks" cards, then one card
+        // still reading "2-tick delay" for every repeater line); the span a tunable group's card
+        // carries, from the union of the families' values and sizes
+        if card.families.len() > 1
+            && let Some(b) = circuit_builds.iter_mut().find(|b| b.id == card.families[0].build)
+            && let Some(c) = b.circuit.as_mut()
+            && c.span.is_empty()
+        {
+            let values: BTreeSet<i64> = card.families.iter().flat_map(|f| (f.n_lo..=f.n_hi).map(|n| f.period.eval(n))).collect();
+            let sizes: BTreeSet<i64> = card.families.iter().flat_map(|f| (f.n_lo..=f.n_hi).map(|n| f.blocks.eval(n))).collect();
+            if let (Some(lo), Some(hi)) = (values.first(), values.last())
+                && values.len() > 1
+            {
+                let (letter, unit) = match c.axis.split_once(" = ") {
+                    Some((l, v)) => (l.trim().to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
+                    None => ("N".to_string(), ""),
+                };
+                c.span = format!("{letter} {lo}-{hi}{unit}, {} values", values.len());
+                if let (Some(lb), Some(hb)) = (sizes.first(), sizes.last())
+                    && hb > lb
+                {
+                    c.span_blocks = format!("{lb} to {hb} blocks");
+                }
+            }
+        }
     }
     let mut builds = door_builds;
     builds.extend(ce.builds);
@@ -360,14 +387,19 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // whose cards would read the same fold under one
     let (fd, fc) = fold_twins(&mut builds);
     eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
-    // no simulator attribution in the captions (vjeux 02:01Z)
-    for b in &mut builds {
-        b.caption = crate::explain::scrub_attribution(&b.caption);
-    }
     let mut cards = ce.cards;
     cards.extend(ccards);
     let mut members = ce.members;
     members.extend(cmembers);
+    // one world-best design per kind (vjeux 21:47Z): one door card with every board's record,
+    // one clock card with the best clock of every period
+    for n in crate::kinds::select_doors(&mut builds).into_iter().chain(crate::kinds::select_clocks(&mut builds, &mut cards, &mut members)) {
+        eprintln!("  note: {n}");
+    }
+    // no simulator attribution in the captions (vjeux 02:01Z)
+    for b in &mut builds {
+        b.caption = crate::explain::scrub_attribution(&b.caption);
+    }
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
     let mut slim = site.clone();

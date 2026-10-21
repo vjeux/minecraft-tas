@@ -444,7 +444,7 @@ pub fn hidden_exceptions() -> Vec<(String, String, String)> {
 fn hidden_lines() -> Vec<(bool, String, String, String)> {
     include_str!("../hidden.tsv")
         .lines()
-        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+        .filter(|l| !l.trim().is_empty() && !l.starts_with('#') && !l.starts_with('~'))
         .filter_map(|l| {
             let (pat, why) = l.split_once('\t')?;
             let (exception, pat) = match pat.strip_prefix('!') {
@@ -455,6 +455,44 @@ fn hidden_lines() -> Vec<(bool, String, String, String)> {
             Some((exception, study.to_string(), file.to_string(), why.to_string()))
         })
         .collect()
+}
+
+/// The `~` lines of crates/site/hidden.tsv: designs published only as a variant of another
+/// (`~<study>/<file> TAB under <host>: <why>`): (study, file, host).
+pub fn fold_lines() -> Vec<(String, String, String)> {
+    include_str!("../hidden.tsv")
+        .lines()
+        .filter_map(|l| {
+            let (pat, why) = l.strip_prefix('~')?.split_once('\t')?;
+            let (study, file) = pat.split_once('/')?;
+            let host = why.strip_prefix("under ")?.split(':').next()?.trim();
+            Some((study.to_string(), file.to_string(), host.to_string()))
+        })
+        .collect()
+}
+
+/// A port (`port input: 0 1 0`) above or below the design's own layers (`layer 0:`...): its input
+/// or output stacks over it, so the design is no flat build in use (critique: "lies flat (1
+/// block high)" on a design wired from above and below).
+fn ports_off_layers(text: &str) -> bool {
+    let layers: Vec<i64> = text.lines().filter_map(|l| l.trim().strip_prefix("layer ")?.trim_end_matches(':').trim().parse().ok()).collect();
+    let (Some(lo), Some(hi)) = (layers.iter().min(), layers.iter().max()) else { return false };
+    text.lines().filter_map(|l| l.trim().strip_prefix("port ")).filter_map(|rest| rest.split_once(':')).filter_map(|(_, xyz)| xyz.split_whitespace().nth(1)?.parse::<i64>().ok()).any(|y| y < *lo || y > *hi)
+}
+
+/// An extendable family's values from its base design's headers: `extend axis: a + bn` and
+/// `extend n: lo..hi` -> (a + b·lo, a + b·hi, b); None without them or for another formula.
+fn extend_range(text: &str) -> Option<(i64, i64, i64)> {
+    let header = |k: &str| text.lines().find_map(|l| l.trim_start().strip_prefix(&format!("extend {k}:")).map(|v| v.trim().to_string()));
+    let axis = header("axis")?;
+    let (a, b) = match axis.split_once('+') {
+        Some((a, b)) => (a.trim().parse::<i64>().ok()?, b.trim().strip_suffix('n')?.trim().parse::<i64>().ok()?),
+        None => return None,
+    };
+    let n = header("n")?;
+    let (lo, hi) = n.split_once("..")?;
+    let (lo, hi) = (lo.trim().parse::<i64>().ok()?, hi.trim().parse::<i64>().ok()?);
+    Some((a + b * lo, a + b * hi, b))
 }
 
 /// `*` matches any text (several allowed); the rest literally.
@@ -613,6 +651,11 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     flags.push("lever".into());
                 }
             }
+            // a piston extender with no slime or honey: its own distinction (vjeux's list view
+            // named "slimeless" as a property he cares about; the coordinator 19:05Z)
+            if r.kind.starts_with("piston-extender") && !r.kinds.split('+').any(|k| k == "slime_block" || k == "honey_block") {
+                flags.push("slime-free".into());
+            }
             // what sets such a flying machine apart from the 6-block one (critique C13: fly cards
             // of 6, 7, 15 and 24 blocks said the same); an extender's pushed block is a payload too
             let flying = r.kind.starts_with("flying-machine");
@@ -668,6 +711,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
+                    extend_range: extend_range(&text),
+                    ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker
@@ -712,7 +757,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
 /// (`designs/circuits/calibration/`, `selftest/`) stay in the repository for the judge and are
 /// not published (vjeux: "They are not useful to people").
 pub fn export(repo: &Path) -> Result<(Vec<Build>, Vec<String>)> {
-    export_with(repo, false)
+    let (mut builds, mut notes) = export_with(repo, false)?;
+    // one world-best design per kind (vjeux 21:47Z); the rest stay in the repository
+    notes.extend(crate::kinds::select_circuits(&mut builds));
+    Ok((builds, notes))
 }
 
 /// [`export`], with the designs crates/site/hidden.tsv keeps off the site too (`keep_hidden`:
@@ -759,6 +807,15 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             }
         }
         let fastest = list.iter().copied().min_by(|&a, &b| better(a, b));
+        let smallest = list.iter().copied().min_by_key(|&j| (builds[j].blocks, builds[j].name.clone()));
+        // how many cards carry each badge: the rarest say the most about a card (critique: the
+        // smallest loader led with "always on + 16-stack items", not "tiles every 3 blocks")
+        let mut count: BTreeMap<String, usize> = BTreeMap::new();
+        for &j in &list {
+            for bd in badges_of(j) {
+                *count.entry(bd).or_default() += 1;
+            }
+        }
         // what each card adds over the smaller ones at least as fast (critique: cards of 31, 37
         // and 65 blocks all led with the same rate): its new badges, else the variation it is the
         // best design for
@@ -766,13 +823,22 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             let smaller: Vec<usize> = list.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name) && rate(&builds[j]) >= rate(&builds[i])).collect();
             let covered: BTreeSet<String> = smaller.iter().flat_map(|&j| badges_of(j)).collect();
             let mine = badges_of(i);
-            let new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
-            // (no new badge alone: a pair no smaller card has together, "restarts + flushes")
+            let mut new: Vec<String> = mine.iter().filter(|bd| !covered.contains(*bd)).cloned().collect();
+            new.sort_by_key(|bd| (count.get(bd).copied().unwrap_or(0), bd.clone()));
+            // (no new badge alone: a pair no smaller card has together, "sends out a part-full box,
+            // and restarts by itself too"; the rarer first, one most cards share said with "too" so
+            // it does not contradict the shared line: critique)
+            let common = |bd: &String| count.get(bd).copied().unwrap_or(0) * 3 >= list.len() * 2;
             let pair = || -> Option<String> {
                 for (x, a) in mine.iter().enumerate() {
                     for b in &mine[x + 1..] {
                         if !smaller.iter().any(|&j| { let o = badges_of(j); o.contains(a) && o.contains(b) }) {
-                            return Some(format!("{} + {}", site_model::html::badge_words(a), site_model::html::badge_words(b)));
+                            let (rare, other) = if count.get(a).copied().unwrap_or(0) <= count.get(b).copied().unwrap_or(0) { (a, b) } else { (b, a) };
+                            return Some(if common(other) {
+                                format!("{}, and {} too", site_model::html::badge_words(rare), site_model::html::badge_words(other))
+                            } else {
+                                format!("{} + {}", site_model::html::badge_words(rare), site_model::html::badge_words(other))
+                            });
                         }
                     }
                 }
@@ -786,15 +852,186 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
                 Some("fastest".to_string())
             } else if speedup >= 1.5 {
                 Some(format!("{}× faster than any smaller one", if speedup >= 2.0 { format!("{:.0}", speedup.round()) } else { format!("{speedup:.1}") }))
+            } else if Some(i) == smallest {
+                // the smallest says so, with the rarest thing it does
+                Some(match new.first() {
+                    Some(bd) => format!("smallest · {}", site_model::html::badge_words(bd)),
+                    None => "smallest".to_string(),
+                })
             } else if !new.is_empty() {
                 Some(new.iter().take(2).map(|bd| site_model::html::badge_words(bd)).collect::<Vec<_>>().join(" + "))
             } else if let Some(p) = pair() {
                 Some(p)
+            } else if builds[i].flags.iter().any(|f| f == "lever") && !mine.iter().any(|bd| bd == "always-on") {
+                // (what a reference machine adds over the smaller always-on ones: critique)
+                Some("has its own lever (can be switched off)".to_string())
+            } else if let Some((me, them)) = {
+                // fewer awake hoppers than every smaller one at least as fast that does everything
+                // it does: less lag (the coordinator 20:26Z: clk-rt keeps shulker-auto-loader for
+                // its 3 hoppers against pitch3's 4)
+                let awake = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "hoppers awake")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+                let does_all: Vec<usize> = smaller.iter().copied().filter(|&j| { let o = badges_of(j); mine.iter().all(|bd| o.contains(bd)) }).collect();
+                let theirs = does_all.iter().filter_map(|&j| awake(&builds[j])).min();
+                match (awake(&builds[i]), theirs) {
+                    (Some(a), Some(b)) if a < b && does_all.iter().all(|&j| awake(&builds[j]).is_some_and(|w| w > a)) => Some((a, b)),
+                    _ => None,
+                }
+            } {
+                Some(format!("less lag: {me} active hoppers instead of {them}"))
+            } else if let Some(gain) = {
+                // its first box sooner than every smaller one at least as fast: what it adds
+                let first = |b: &Build| b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "first box")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+                let mine_first = first(&builds[i]);
+                let theirs = smaller.iter().filter_map(|&j| first(&builds[j])).min();
+                match (mine_first, theirs) {
+                    (Some(a), Some(b)) if a < b => Some(b - a),
+                    _ => None,
+                }
+            } {
+                Some(format!("first box {} sooner", site_model::real_time(gain)))
             } else {
                 mine.iter().find(|bd| best.get(*bd) == Some(&i)).map(|bd| site_model::html::badge_words(bd))
             };
             if let Some(l) = lead {
                 leads.push((i, l));
+            }
+        }
+    }
+    // piston extenders of one reach: each card leads with what sets it apart from the others of
+    // its reach (critique: the 7- and 8-block slime-free cards read the same): a property some of
+    // the others lack (no slime, 1 block wide, its own button...) and the speed it wins
+    let mut by_reach: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        if shown(b) && b.group != "Sand elevator" && b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")) {
+            let c = b.circuit.as_ref().unwrap();
+            by_reach.entry((c.kind.clone(), c.axis.clone())).or_default().push(i);
+        }
+    }
+    const SETS_APART: [&str; 6] = ["no slime", "1 block wide", "lies flat (1 block high)", "has its own button", "has its own lever", "comes in every size"];
+    for list in by_reach.values().filter(|l| l.len() > 1) {
+        // (an extendable family's base is marked later: its `extends`)
+        let chips: Vec<Vec<String>> = list
+            .iter()
+            .map(|&i| {
+                let mut v = site_model::html::props(&builds[i]).chips;
+                if builds[i].circuit.as_ref().is_some_and(|c| c.extends) {
+                    v.push("comes in every size".into());
+                }
+                v
+            })
+            .collect();
+        let metric = |i: usize, k: &str| -> Option<f64> { builds[i].circuit.as_ref()?.metrics.iter().find(|(n, _)| n == k)?.1.split_whitespace().next()?.parse().ok() };
+        for (x, &i) in list.iter().enumerate() {
+            let mut parts: Vec<String> = Vec::new();
+            // the strictly smallest of its reach says so
+            if list.iter().all(|&j| j == i || builds[j].blocks > builds[i].blocks) {
+                parts.push("smallest".into());
+            }
+            parts.extend(SETS_APART.iter().filter(|p| chips[x].iter().any(|c| c == *p) && chips.iter().enumerate().any(|(y, o)| y != x && !o.iter().any(|c| c == *p))).map(|p| p.to_string()));
+            for (k, words) in [("extend", "fastest out"), ("retract", "fastest back")] {
+                if let Some(v) = metric(i, k) {
+                    if list.iter().all(|&j| j == i || metric(j, k).is_some_and(|w| v < w)) {
+                        parts.push(words.to_string());
+                    }
+                }
+            }
+            if !parts.is_empty() {
+                leads.push((i, parts.into_iter().take(3).collect::<Vec<_>>().join(", ")));
+            }
+        }
+    }
+    // toggle switches: each card leads with what sets it apart from the smaller ones (a material
+    // it avoids, the edge it reacts on); the smallest says so (critique: a 7-block toggle lost
+    // every number to the 3-block one, with nothing saying what it adds)
+    {
+        let toggles: Vec<usize> = builds.iter().enumerate().filter(|(_, b)| shown(b) && b.circuit.as_ref().is_some_and(|c| c.kind == "tff")).map(|(i, _)| i).collect();
+        const AVOIDS: [(&str, &[&str]); 5] = [
+            ("copper", &["copper_bulb", "waxed_copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb", "waxed_exposed_copper_bulb", "waxed_weathered_copper_bulb", "waxed_oxidized_copper_bulb"]),
+            ("pistons", &["piston", "sticky_piston"]),
+            ("slime", &["slime_block"]),
+            ("hoppers", &["hopper"]),
+            ("dispensers", &["dispenser"]),
+        ];
+        let uses = |i: usize, blocks: &[&str]| builds[i].kinds.iter().any(|k| blocks.contains(&k.as_str()));
+        let edge = |i: usize| builds[i].circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "edge")).map(|(_, v)| v.clone()).unwrap_or_default();
+        let smallest = toggles.iter().copied().min_by_key(|&i| (builds[i].blocks, builds[i].name.clone()));
+        for &i in &toggles {
+            let smaller: Vec<usize> = toggles.iter().copied().filter(|&j| j != i && (builds[j].blocks, &builds[j].name) < (builds[i].blocks, &builds[i].name)).collect();
+            let mut parts: Vec<String> = Vec::new();
+            if Some(i) == smallest {
+                parts.push("smallest".into());
+            }
+            // the materials it avoids that every smaller one needs one of (critique: the crafter
+            // toggle lost every number to the copper one, nothing said it needs no copper,
+            // pistons or dispenser)
+            let mine_avoids: Vec<(&str, &[&str])> = AVOIDS.iter().copied().filter(|(_, blocks)| !uses(i, blocks)).collect();
+            if !smaller.is_empty() && smaller.iter().all(|&j| mine_avoids.iter().any(|(_, blocks)| uses(j, blocks))) {
+                let named: Vec<&str> = mine_avoids.iter().filter(|(_, blocks)| smaller.iter().any(|&j| uses(j, blocks))).map(|(w, _)| *w).collect();
+                let words = match named.len() {
+                    1 => named[0].to_string(),
+                    n => format!("{} or {}", named[..n - 1].join(", "), named[n - 1]),
+                };
+                parts.push(format!("no {words}"));
+            }
+            if edge(i) == "falling" {
+                parts.push("flips on release".into());
+            }
+            if !parts.is_empty() {
+                leads.push((i, parts.into_iter().take(2).collect::<Vec<_>>().join(", ")));
+            }
+        }
+    }
+    // a group or an extendable family whose lengths a smaller one of its kind already covers in
+    // part says which it adds (critique: "18- to 34-tick pulse · 24 to 28 blocks" and "30-tick
+    // pulse · 33 blocks" after "16- to 40-tick pulse · 13 blocks", with no reason)
+    {
+        let values_of = |i: usize| -> BTreeSet<i64> {
+            let b = &builds[i];
+            let Some(c) = &b.circuit else { return BTreeSet::new() };
+            if let Some((lo, hi, step)) = c.extend_range.filter(|r| r.2 > 0) {
+                return (0..).map(|k| lo + k * step).take_while(|v| *v <= hi).collect();
+            }
+            if !c.tunable.is_empty() {
+                return builds.iter().filter_map(|o| o.circuit.as_ref().filter(|oc| oc.tunable == c.tunable && oc.host.is_none()).and_then(|oc| oc.value)).collect();
+            }
+            c.value.into_iter().collect()
+        };
+        let mut by_kind: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        for (i, b) in builds.iter().enumerate() {
+            if let Some(c) = b.circuit.as_ref().filter(|_| shown(b)) {
+                if matches!(c.kind.as_str(), "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "delay") || c.kind.starts_with("monostable") || c.kind.starts_with("off-delay") {
+                    by_kind.entry(c.kind.clone()).or_default().push(i);
+                }
+            }
+        }
+        for list in by_kind.values() {
+            for &i in list {
+                let Some(c) = &builds[i].circuit else { continue };
+                if !c.lead.is_empty() || (c.tunable.is_empty() && c.extend_range.is_none()) {
+                    continue;
+                }
+                let covered: BTreeSet<i64> = list.iter().copied().filter(|&j| j != i && builds[j].blocks < builds[i].blocks).flat_map(values_of).collect();
+                if covered.is_empty() {
+                    continue;
+                }
+                let mine = values_of(i);
+                let new: Vec<i64> = mine.iter().copied().filter(|v| !covered.contains(v)).collect();
+                // (nothing new; or everything new and beyond the smaller ones: its range in the
+                // title already says it)
+                let beyond = new.iter().all(|v| *v > covered.iter().copied().max().unwrap_or(0));
+                if new.is_empty() || (new.len() == mine.len() && beyond) {
+                    continue;
+                }
+                let covered_max = covered.iter().copied().max().unwrap_or(0);
+                let list = |v: &[i64]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+                let words = if new.iter().all(|v| *v > covered_max) {
+                    format!("goes past {covered_max} ticks, up to {}", new.last().copied().unwrap_or(0))
+                } else if new.len() <= 3 {
+                    format!("adds {} ticks", list(&new))
+                } else {
+                    format!("adds {}… ticks", list(&new[..3]))
+                };
+                leads.push((i, words));
             }
         }
     }
@@ -881,7 +1118,7 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
         list.sort_by_key(|&i| {
             let c = builds[i].circuit.as_ref();
             // (gates: the most common function first, critique)
-            let value = c.and_then(|c| if c.kind.starts_with("gate ") { Some(site_model::html::gate_rank(c.kind.split_whitespace().nth(1).unwrap_or(""))) } else { c.value }).unwrap_or(i64::MAX);
+            let value = c.and_then(site_model::html::sort_value).unwrap_or(i64::MAX);
             (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
@@ -1013,6 +1250,60 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 b.flags.push("variant".into());
             }
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
+        }
+    }
+    // the site's own layout fold where the catalog names no host (the coordinator 19:15Z: the N = 2
+    // slime-free extenders sf7-1, sf7-2 and sf7-3 read as three identical cards): designs of the
+    // same study, kind and value with the same blocks, block kinds and input device are other
+    // layouts of one card, the first by name kept
+    let mut order: Vec<usize> = (0..builds.len()).filter(|&i| cat.get(&builds[i].name).is_some_and(|(_, of)| of.is_empty())).collect();
+    order.sort_by(|&a, &b| builds[a].name.cmp(&builds[b].name));
+    let mut kept: BTreeMap<(String, String, String, u32, Vec<String>, &'static str), String> = BTreeMap::new();
+    let mut layouts = 0;
+    for i in order {
+        let b = &builds[i];
+        let Some(c) = &b.circuit else { continue };
+        if c.host.is_some() || c.layout_of.is_some() {
+            continue;
+        }
+        let key = (c.study.clone(), c.kind.clone(), c.axis.clone(), b.blocks, b.kinds.clone(), device(b));
+        match kept.get(&key) {
+            Some(id) => {
+                let id = id.clone();
+                let b = &mut builds[i];
+                if let Some(c) = b.circuit.as_mut() {
+                    c.layout_of = Some(id);
+                }
+                b.flags.push("layout".into());
+                layouts += 1;
+            }
+            None => {
+                kept.insert(key, format!("circuits/{}/{}", c.study, b.name));
+            }
+        }
+    }
+    if layouts > 0 {
+        notes.push(format!("circuits: {layouts} designs folded as other layouts of a twin the catalog left unfolded (same kind, value, blocks, block kinds, input device)"));
+    }
+    // the coordinator's folds (hidden.tsv `~` lines): a design published only as a variant of
+    // another (rs-crafter under rs-dropper: bigger and slower, nothing in its favour)
+    for (study, file, host) in fold_lines() {
+        let host_id = format!("circuits/{study}/{host}");
+        if !builds.iter().any(|b| b.id == host_id) {
+            notes.push(format!("hidden.tsv: ~{study}/{file} is folded under {host}, which is not published"));
+            continue;
+        }
+        match builds.iter_mut().find(|b| b.circuit.as_ref().is_some_and(|c| c.study == study) && b.name == file) {
+            Some(b) => {
+                if let Some(c) = b.circuit.as_mut() {
+                    c.host = Some(host_id);
+                    c.layout_of = None;
+                }
+                if !b.flags.iter().any(|f| f == "variant") {
+                    b.flags.push("variant".into());
+                }
+            }
+            None => notes.push(format!("hidden.tsv: ~{study}/{file} matches no archived design (take it out)")),
         }
     }
     // one build with other items preloaded (the item counters: counter17-items ... counter576-
@@ -1496,15 +1787,12 @@ mod tests {
     #[test]
     fn hidden_designs_match_their_patterns() {
         assert!(glob("pext-*-sf*", "pext-n5-sf-sweep136.txt"));
-        assert!(glob("pext-*-sf*", "pext-n2-sf7-1-button.txt"));
         assert!(!glob("pext-*-sf*", "pext-n2-sand6.txt"));
-        assert!(!glob("pext-*-sf*", "pext-n3-flat-cascade19.txt"));
-        assert!(hidden("pext", "pext-n4-sf60.txt").is_some());
-        assert!(hidden("pulse", "pext-n4-sf60.txt").is_none());
-        // the `!` exceptions win over the slime-free rule
-        assert!(hidden("pext", "pext-n2-sf8-flat.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-1-button.txt").is_none());
-        assert!(hidden("pext", "pext-n2-sf7-2.txt").is_some());
+        assert!(hidden("pext", "pext-n1-sticky.txt").is_some());
+        assert!(hidden("pulse", "pext-n1-sticky.txt").is_none());
+        // a line names one design: the others of its kind stay
+        assert!(hidden("pext", "pext-n3-sf43.txt").is_some());
+        assert!(hidden("pext", "pext-n3-sf38.txt").is_none());
         assert!(glob("a*b*c", "aXbYc") && !glob("a*b*c", "aXbY"));
         // a class rule: every vibration-sensitive sculk design, in any study
         assert!(hidden_design("pulse", "pulse-rise-sculk-L30.txt", "L = 30 gt, vibration-sensitive").is_some());

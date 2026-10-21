@@ -36,12 +36,17 @@ impl Default for Options {
 /// longer when an event of the kind's own stimulus (run spaced by 1000 gt) takes longer to settle
 /// (then that settling + 10 gt); `None` when redsim does not model it or it never rests.
 pub fn sizing(c: &Circuit, margin: i32) -> Option<u32> {
+    // a slow circuit (a long item timer: its items move one per 8 gt each way) needs a longer
+    // hold to come to rest: 1000 gt, then 4000, then 16000
+    [1000u32, 4000, 16000].into_iter().find_map(|hold| sizing_with(c, margin, hold))
+}
+
+fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     if c.inputs.is_empty() {
         return None;
     }
     let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    let hold = 1000u32;
     let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
     // every input on and held: the time to rest
     let mut s = Schedule::new(n);
@@ -138,6 +143,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("redsim does not judge shulker loaders (study 8: judged in the game, `mctas circuit verify`; `mctas circuit shulker compare` replays their real-game traces in redsim)".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -451,6 +461,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if c.kind.as_ref().is_some_and(|k| k.is_shulker()) && o.stimulus.is_none() {
         return crate::shulker::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
+        return crate::sorter::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;

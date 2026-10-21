@@ -52,6 +52,10 @@ pub enum WebCmd {
         /// downloaded once into ~/.cache/mctas, local only).
         #[arg(long)]
         procedural: bool,
+        /// As a live viewer of this size frames it (its default camera and outlines), not a
+        /// thumbnail.
+        #[arg(long)]
+        live: bool,
     },
     /// Check the viewer against the repo's tools: its design parser against `mctas::design` on
     /// every block and port, and its clock period detector (the code the browser runs) against
@@ -159,6 +163,25 @@ pub enum WebCmd {
         hold: bool,
         #[arg(long, default_value_t = 8)]
         wait: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
+    /// Press a live viewer's Record button in headless Chromium and keep the video it downloads
+    /// (`<design>.mp4` or `.webm`) in `--out`.
+    Record {
+        url: String,
+        #[arg(long, short)]
+        out: PathBuf,
+        /// Which live viewer of the page (0: the first).
+        #[arg(long, default_value_t = 0)]
+        index: usize,
+        #[arg(long, default_value = "1280,720")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// Seconds to wait for the file.
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
@@ -342,7 +365,7 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
@@ -496,6 +519,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
                 crate::cdp::cmd_click(&url, &window, scale, touch, wait, &browser)
             }
         }
+        WebCmd::Record { url, out, index, window, scale, timeout, browser } => crate::cdp::cmd_record(&url, &out, index, &window, scale, timeout, &browser),
         WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {
@@ -643,6 +667,40 @@ fn cmd_bundle(out: &Path) -> Result<()> {
         let p = out.join(f);
         println!("{} ({} KB)", p.display(), std::fs::metadata(&p)?.len() / 1024);
     }
+    // the bundle is flat (the site copies the files of web/viewer/, not its folders): wasm-bindgen's
+    // snippets move next to mcview.js and its imports follow
+    let snippets = out.join("snippets");
+    if snippets.is_dir() {
+        let mut js = std::fs::read_to_string(out.join("mcview.js"))?;
+        let mut stack = vec![snippets.clone()];
+        while let Some(dir) = stack.pop() {
+            for e in std::fs::read_dir(&dir)?.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p);
+                    continue;
+                }
+                let rel = p.strip_prefix(out).unwrap_or(&p).to_string_lossy().replace('\\', "/");
+                let flat = format!("mcview-{}", p.file_name().unwrap_or_default().to_string_lossy());
+                std::fs::rename(&p, out.join(&flat))?;
+                // the module's import statement follows the file; the wasm's import object keeps
+                // the snippet's own name as its key (the name the wasm imports it by)
+                for q in ['"', '\''] {
+                    js = js.replace(&format!("from {q}./{rel}{q}"), &format!("from {q}./{flat}{q}"));
+                }
+                println!("{} (from {rel})", out.join(&flat).display());
+            }
+        }
+        std::fs::write(out.join("mcview.js"), js)?;
+        std::fs::remove_dir_all(&snippets)?;
+    }
+    // the video recorder's encoder (vendored mediabunny, MPL-2.0: its license beside it), imported
+    // by the viewer only when a recording starts; `.js` (every static server sends it as
+    // JavaScript, which a module import requires; some send `.mjs` as bytes)
+    let vendor = Path::new("crates/mcview-web/vendor/mediabunny");
+    std::fs::copy(vendor.join("mediabunny.min.mjs"), out.join("mediabunny.min.js")).context("copying the vendored mediabunny")?;
+    std::fs::copy(vendor.join("LICENSE"), out.join("mediabunny.LICENSE.txt"))?;
+    println!("{} ({} KB, MPL-2.0: mediabunny.LICENSE.txt)", out.join("mediabunny.min.js").display(), std::fs::metadata(out.join("mediabunny.min.js"))?.len() / 1024);
     Ok(())
 }
 
@@ -829,8 +887,14 @@ fn viewer_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(
 fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autoplay: bool) -> Result<()> {
     std::fs::create_dir_all(out.join("designs"))?;
     std::fs::create_dir_all(out.join("viewer"))?;
-    for f in ["mcview.js", "mcview_bg.wasm"] {
-        std::fs::copy(viewer.join(f), out.join("viewer").join(f)).with_context(|| format!("copying {} (run `mctas web bundle` first)", viewer.join(f).display()))?;
+    // the whole (flat) bundle: mcview.js, its wasm, its snippets, the recorder's encoder
+    if !viewer.join("mcview.js").is_file() {
+        bail!("no {} (run `mctas web bundle` first)", viewer.join("mcview.js").display());
+    }
+    for e in std::fs::read_dir(viewer).with_context(|| format!("reading {}", viewer.display()))?.flatten() {
+        if e.path().is_file() {
+            std::fs::copy(e.path(), out.join("viewer").join(e.file_name()))?;
+        }
     }
     let mut lives = String::new();
     let mut thumbs = String::new();
@@ -1167,6 +1231,11 @@ const DRAWN_TICKS: u32 = 120;
 /// `ticks` as placed (a circuit's run under the judge's stimulus: in `circuit_pair`).
 fn drawn_pass(text: &str, ticks: u32) -> Result<(), String> {
     let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // no ground but real blocks (vjeux 17:53Z): the viewer's look draws no decorative ground, and
+    // a TNT duper's ground is checked cell by cell below (`Floor::now` against the world)
+    if mcview::scene::viewer_look(&s).ground.is_some() {
+        return Err("the viewer draws a ground that is not redsim blocks".into());
+    }
     for _ in 0..=ticks {
         s.drawn_matches_simulation().map_err(|e| format!("tick {}: drawn differs from redsim: {e}", s.tick))?;
         if s.halted.is_some() {
@@ -1206,13 +1275,21 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     let (lo, size) = (s.world.min, s.world.size);
     let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
     let chunks = redsim::redstone::shulker::chunk_range(from, to);
+    // a TNT duper stands on its judge's ground (`Circuit::ground_blocks`, laid raw once the design
+    // stands, like `clock::sim::drive_tnt`), in the judge's box around it
+    let ground: Vec<(redsim::BlockPos, redsim::Block)> = s.floor.as_ref().map(|f| f.blocks()).unwrap_or_default();
     let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
     let mut blasts = 0usize;
     let mut destroyed = 0usize;
     // the viewer stops at redsim's first error (something it does not model: vjeux, only what
     // redsim simulates exactly is shown): the frames before it are compared
     let mut stop: Option<(u32, String)> = None;
-    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| redsim::explosion::explode_on(w, 0, chunks), |t, w| {
+    clock::sim::drive_custom(&c, from, to, TNT_TICKS, |w| {
+        if !ground.is_empty() {
+            w.place_raw(&ground);
+        }
+        redsim::explosion::explode_on(w, 0, chunks)
+    }, |t, w| {
         if stop.is_none()
             && let Some(e) = w.errors.first()
         {

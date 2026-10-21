@@ -24,6 +24,7 @@ pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;
+pub mod sorter;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -204,6 +205,9 @@ pub enum Kind {
     /// Study 12 ([`compute`]): an adder, subtractor, incrementer, comparator, multiplexer,
     /// demultiplexer, decoder, encoder (exhaustive truth table) or binary counter, N bits.
     Compute(compute::Spec),
+    /// Study 13 ([`sorter`]): an item sorter slice: every item of its kind (the full id) from a
+    /// line into its chest, every other item on along the line.
+    Sorter(String),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -299,6 +303,10 @@ impl Kind {
             "off-delay" => Kind::OffDelay,
             "on-delay" => Kind::OnDelay,
             "pulse-train" => Kind::PulseTrain,
+            "sorter" => match w.get(1) {
+                Some(item) => Kind::Sorter(sorter::full_id(item)),
+                None => bail!("circuit: sorter: name the item kind it sorts (`circuit: sorter iron_ingot`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -345,6 +353,7 @@ impl Kind {
             Kind::OnDelay => "on-delay".into(),
             Kind::PulseTrain => "pulse-train".into(),
             Kind::Compute(spec) => spec.kind_name(),
+            Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
         }
     }
 
@@ -363,6 +372,7 @@ impl Kind {
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
             Kind::Compute(..) => "compute",
+            Kind::Sorter(_) => "sorter",
         }
     }
 
@@ -553,13 +563,13 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" => {
+                "items" | "boxes" | "reject" | "pass" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
@@ -780,7 +790,8 @@ impl Circuit {
     /// away, and no builder's wire can follow an output that leaves its cell. Kinds whose machines
     /// move as a whole (flying machines, extenders, TNT) are not output-cell kinds and are skipped.
     pub fn output_entered(&self, t: &trace::Trace) -> Option<String> {
-        if !self.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. })) {
+        let driven = self.inputs.iter().any(|i| matches!(i.how, InputHow::Driven { .. }));
+        if !driven && self.kind != Some(Kind::Bud) {
             return None;
         }
         let id = |s: &str| s.split(['[', '{']).next().unwrap_or(s).to_string();
@@ -832,6 +843,11 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
+                Kind::Sorter(_) => {
+                    if !names.is_empty() {
+                        bail!("sorter: runs by itself (no input port), has {names:?}");
+                    }
+                }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
                     // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
                     // combo's mode lever (badge `combo`)
@@ -880,6 +896,17 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Sorter(_) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("pass") || self.outputs.is_empty() {
+                    bail!("sorter: needs judge chests `port items:` (the line's source), `port pass:` (the end of the line) and `port output:` (the slice's chest)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+            }
             // read through the primed TNT they spawn (no output cell)
             Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
@@ -888,7 +915,7 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") {
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter") {
             bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {

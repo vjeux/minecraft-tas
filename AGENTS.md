@@ -40,7 +40,10 @@ the track notebooks ([tracks/README.md](designs/piston-door-3x3/tracks/README.md
   push to main or to another agent's branch. Push:
   `git -c http.extraHeader="Authorization: Basic $(printf 'vjeux:%s' "$(gh auth token)" | base64 -w0)" push origin HEAD:refs/heads/explore/<track>`
 - Gate every push on the build (`cargo build --release` ends with `Finished`), on no merge
-  markers left in `crates/` or `docs/`, and on `mctas door selftest --quick` (every line PASS,
+  markers ANYWHERE the merge touched — `git grep -n '^<<<<<<< ' -- crates docs designs` (the selftest's own marker fixture aside), since a
+  marker in a design file broke the site build on 2026-10-20 and `crates/`+`docs/` alone missed
+  it (the judge now refuses such a file: `designs/circuits/selftest/merge-markers.txt`) — and on
+  `mctas door selftest --quick` (every line PASS,
   ~40 s, run from the repository root). A change to a search, judge, model or wiring tool also
   runs the full `mctas door selftest` (~2 min) before its push; a known answer that changes on
   purpose is updated in `crates/piston-door/src/selftest.rs` in the same commit, with the reason.

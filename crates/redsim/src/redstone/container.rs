@@ -1425,6 +1425,22 @@ pub fn same_payload(w: &World, a: u16, b: u16) -> bool {
 /// (the clock judge in the game decides those designs).
 pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bool, String> {
     let Snbt::Compound(fields) = parse_snbt(snbt)? else { return Err(format!("nbt at {pos}: not a compound")) };
+    // a comparator's block entity holds only its output signal (`ComparatorBlockEntity`'s
+    // "OutputSignal"); `setChanged` notifies nobody, since a comparator has no analog output
+    // (clk-rt: a design whose comparator starts at a container's level as placed)
+    if matches!(w.get(pos), Block::Comparator { .. }) {
+        let mut changed = false;
+        for (k, v) in &fields {
+            match (k.as_str(), v) {
+                ("OutputSignal", Snbt::Int(n)) => {
+                    let n = (*n).clamp(0, 15) as u8;
+                    changed |= w.comparator_out.insert(pos, n) != Some(n);
+                }
+                _ => return Err(format!("nbt at {pos}: comparator key `{k}` is not modeled")),
+            }
+        }
+        return Ok(changed);
+    }
     let Some(c) = w.containers.map.get(&pos) else { return Err(format!("nbt at {pos}: {} has no modeled block entity", w.get(pos))) };
     let mut slots = c.slots.clone();
     let mut cooldown = c.cooldown;

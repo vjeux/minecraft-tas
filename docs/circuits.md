@@ -21,6 +21,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 | 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
 | 12 computational redstone | clk-obs (compute), pext | adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N | the kind and N | latency (worst transition), glitches, per bit, slice law ([variations](../designs/circuits/compute/VARIATIONS.md)) |
+| 13 item sorters | clk-obs (sorter) | sorter ITEM | the item stack size it sorts | items/s, first item, hoppers awake, badges tileable / overflow ([targets](../designs/circuits/tracks/sorter/WR.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -288,7 +289,16 @@ kick) before the first input.
   = 100 gt apart: one TNT's fuse) waits 100 gt after its last pulse and must be back in its rest
   state; a switchable one's running windows end with the same frames as its first period, its
   stopped windows the same; no entity at the end but the craters' items and burning TNT. The line
-  then carries `(survives its own explosions: N exploded, design intact)`. On redsim (clk-misc's
+  then carries `(survives its own explosions: N exploded, design intact)`. **Useful TNT** (vjeux
+  2026-10-20: "a tnt duper that explodes in water is useless"; `tnt::useful`): every TNT must go off
+  where it destroys blocks: never with a fluid in its center's cell (water, lava, a waterlogged
+  block: every ray loses 30 power there), and with something to destroy around it on open ground
+  (`redsim::explosion::open_ground`: stone under the blast's own cell layer, the fluids where they
+  are, the weakest rolls; 0 blocks fails). The game runner takes each blast's center from the TNT's
+  last sighting (fuse 1) plus its last move and the fluids from that frame; redsim records it per
+  explosion (`Blast::in_fluid`, `open_ground`). A passing duper's line adds `useful: every blast
+  clear of fluids, each destroys blocks on open ground`; the table lists where every blast went off.
+  No drop height cures a useless TNT (`robust::safe_drop` reports it at once). On redsim (clk-misc's
   exact explosion port, `clock::sim::drive_tnt`) every primed TNT is kicked by one `d` and every
   ray is at its largest roll (`Rolls::Max`: surviving it is surviving every roll). **All randoms**
   (vjeux 2026-10-20: "pass every possible random number"): the kick's `nextDouble()` swept over
@@ -300,7 +310,10 @@ kick) before the first input.
   grows with the rolls and knockback ignores them; a destroyed machine block fails the run, the
   ground's craters do not (clockinfra's check). The evidence: `mctas circuit tnt blasts` lists
   every explosion's distance to the machine and the blocks destroyed, in the void and on both
-  grounds at the safe drop (`--ticks` for a long run). `explode: off` is for analysis only (the
+  grounds at the safe drop (`--ticks` for a long run). A clock-held engine (the study's one duper,
+  tnt-clocked-22b): `mctas circuit tnt hold-scan <engine> --piston x,y,z` tries every archived
+  clock and turn for a cell where a piston is powered on all but one short window of the period,
+  puts the engine's piston there and judges each machine on redsim. `explode: off` is for analysis only (the
   measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
@@ -553,6 +566,31 @@ kick) before the first input.
   change updates the comparators reading it), and the design reads it with its own comparator.
   The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
   comparisons stay on/off lines. The state walks treat a value as N bits.
+* **sorter ITEM** (study 13, [crate::sorter](../crates/circuit/src/sorter.rs); targets and the
+  mechanics: [designs/circuits/tracks/sorter/WR.md](../designs/circuits/tracks/sorter/WR.md)): an
+  item sorter slice: every item of ITEM (`circuit: sorter iron_ingot`) from a line into its chest,
+  every other item on along the line. No input; judge chests (air cells, not counted) on
+  `port items:` (the source, above the first line hopper), `port pass:` (where the line ends) and
+  `port output:` (the slice's chest). Judged in the game by its own runner (like the shulker kinds):
+  the judge keeps the source topped up from a stream, counts and empties `pass` and the outputs
+  every 20 gt, then waits for rest. The stream: ITEM mixed with 64-stack, 16-stack and
+  non-stackable items (full and partial stacks, runs of ITEM back to back; kinds the design itself
+  holds are left out). PASS: every ITEM at `output`, every other item at `pass`, nothing lost or
+  duplicated, the design's containers as they started (its filter recipe intact), no entity, rest.
+  Metrics: items/s (the 10%..90% delivery rate; a hopper line carries 2.5), first item, hoppers
+  awake at rest (lag). Badges (a `tile:` header): `tileable(p)` (3 copies chained along the line,
+  each sorting its own kind: the judge rewrites the recipe's item id in copy k's containers; ports:
+  copy 0's `items`, the last copy's `pass`, every copy's output) and `overflow` (in that tiled run
+  the middle copy's chest starts full but one slot and gets 8 stacks of its kind: its overflow may
+  go on to `pass`, nothing may reach a wrong chest; once the source is empty and the line quiet the
+  judge empties that chest, supplies a tail, and every copy must end with its recipe). The stream's
+  kinds are all in redsim's item registry: `mctas circuit sorter-run <design> [--badge tileable|
+  overflow] [--sim]` runs one scenario at rotation 0 on redsim (milliseconds) or in the game and
+  prints what reached each chest (a design aid; `circuit sim` points there). Calibration (redsim
+  and game): the classic 18 + 4 recipe with a 2-step threshold passes the base run and the tiled
+  run but fails `overflow` (the full slice's signal 3 reaches its neighbour's lock, which drains its
+  recipe, then sorts junk); an empty drain hopper under a down-facing filter drains the recipe; a
+  recipe the threshold does not match keeps items (designs/circuits/tracks/sorter/calibration/).
 
 ## Archive and catalog
 
