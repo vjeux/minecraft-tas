@@ -391,7 +391,8 @@ pub enum CircuitCmd {
         /// The copies side by side (`tile:`) instead of one.
         #[arg(long)]
         tiled: bool,
-        /// 20-tick batches, every crop item seen off its way noted (where items get lost).
+        /// One tick per batch (a different run): the last 40 moves of every crop item that goes off
+        /// its way or comes to rest on a crop.
         #[arg(long)]
         trace: bool,
         /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).

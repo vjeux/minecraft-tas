@@ -119,6 +119,8 @@ pub struct RunLog {
     pub restless: String,
     /// Crop items seen loose at two batch ends in a row (where items get stranded).
     pub stranded: Vec<String>,
+    /// (`--trace`) the tick-by-tick path of the first crop items seen off their way.
+    pub trails: Vec<String>,
     /// Entities seen leaving the build's box (the first per batch).
     pub escaped: Vec<String>,
     pub dims: [i32; 3],
@@ -222,7 +224,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // the run, then the rest (growth stopped) while the last harvests come in
     let rest_ticks = 2 * REST;
     let trace = TRACE.load(std::sync::atomic::Ordering::Relaxed);
-    let batch = if trace { 20 } else { BATCH };
+    // (trace) one tick per batch, a wider record box: every crop item's path, tick by tick
+    let batch = if trace { 1 } else { BATCH };
+    let (qf, qt) = if trace { ([rf[0] - 2, rf[1] - 2, rf[2] - 2], [rt[0] + 2, rt[1] + 1, rt[2] + 2]) } else { (rf, rt) };
+    let mut trails: BTreeMap<String, Vec<TrailPoint>> = BTreeMap::new();
+    let mut reported: Vec<String> = Vec::new();
     // item intrusion: one of the drops at a quarter, half and three quarters of the run, on every
     // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
     let intakes = crate::intrusion::intakes(c);
@@ -246,7 +252,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
             }
         }
         let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
-        let r = w.step_record_watch(sb, n, false, rf, rt, &watch)?;
+        let r = w.step_record_watch(sb, n, false, qf, qt, &watch)?;
         if let Some(e) = &r.entity_escape
             && log.escaped.len() < 4
         {
@@ -274,16 +280,86 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
                 let what = w.get_region(sb, under, under).ok().and_then(|r| r.get(under).map(|s| clock::short(s).to_string())).unwrap_or_default();
                 log.stranded.push(format!("tick {t}: an item at {:.2?} on {what} at {under:?} (motion {:.2?})", e.pos, e.motion));
             }
-            if trace && !on_way(e.pos) && log.stranded.len() < 40 {
-                log.stranded.push(format!("tick {t}: a stray item at {:.2?} (motion {:.2?})", e.pos, e.motion));
+            if trace {
+                let frame = r.frames.last();
+                let cell = |p: [f64; 3]| -> String {
+                    let q = [p[0].floor() as i32, p[1].floor() as i32, p[2].floor() as i32];
+                    frame.and_then(|f| f.get(q)).map(|s| clock::short(s).to_string()).unwrap_or_else(|| "?".into())
+                };
+                let pt = TrailPoint { t0: t, t1: t, pos: e.pos, motion: e.motion, inside: cell(e.pos), on: cell([e.pos[0], e.pos[1] - 0.01, e.pos[2]]), column: column_letters(frame, &crops, e.pos, full) };
+                let tr = trails.entry(e.uuid.clone()).or_default();
+                match tr.last_mut() {
+                    Some(last) if last.pos == pt.pos && last.inside == pt.inside && last.on == pt.on && last.column == pt.column => last.t1 = t,
+                    _ => {
+                        tr.push(pt);
+                        if tr.len() > TRAIL {
+                            tr.remove(0);
+                        }
+                    }
+                }
+                // an item resting on a crop (above its soil) for 5 ticks: only the next growth clears it
+                let on_crop = crops.iter().any(|q| e.pos[0] >= q[0] as f64 && e.pos[0] < q[0] as f64 + 1.0 && e.pos[2] >= q[2] as f64 && e.pos[2] < q[2] as f64 + 1.0 && e.pos[1] >= q[1] as f64 + 0.99)
+                    && tr.last().is_some_and(|p| p.t1 >= p.t0 + 4 && p.motion.iter().all(|m| m.abs() < 1e-9));
+                if (!on_way(e.pos) || on_crop) && !reported.contains(&e.uuid) && reported.len() < 4 {
+                    reported.push(e.uuid.clone());
+                    let what = if on_crop { "resting on a crop" } else { "off its way" };
+                    log.trails.push(format!("a crop item {what} at tick {t}; its last {} moves (column: the nearest crop, from under its soil up):", tr.len()));
+                    log.trails.extend(tr.iter().map(TrailPoint::line));
+                }
             }
             now_items.push(e.uuid.clone());
+        }
+        if trace {
+            trails.retain(|k, _| now_items.contains(k));
         }
         seen_items = now_items;
     }
     w.exec(sb, "gamerule random_tick_speed 0")?;
     finish(w, sb, c, crop, from, to, &judge, &mut log)?;
     Ok(Ok(log))
+}
+
+/// (`--trace`) points kept per crop item path (a resting item's ticks fold into one point).
+const TRAIL: usize = 40;
+
+/// (`--trace`) one point of a crop item's path: from tick t0 to t1 at `pos` with `motion`, the
+/// block its center is in and the block under it.
+struct TrailPoint {
+    t0: u32,
+    t1: u32,
+    pos: [f64; 3],
+    motion: [f64; 3],
+    inside: String,
+    on: String,
+    /// The nearest crop's column from its soil up, one letter a cell.
+    column: String,
+}
+
+/// (`--trace`) the column of the crop nearest to `p`, from its soil up to `full` + 1 blocks: `b`
+/// the crop, `m` a moving piston, `h` a piston head, `.` air, `#` anything else.
+fn column_letters(frame: Option<&mctas::sim::Region>, crops: &[Pos], p: [f64; 3], full: u32) -> String {
+    let d = |q: &Pos| (q[0] as f64 + 0.5 - p[0]).powi(2) + (q[2] as f64 + 0.5 - p[2]).powi(2);
+    let Some(q) = crops.iter().min_by(|a, b| d(a).total_cmp(&d(b))) else { return String::new() };
+    let top = (full + 1).min(5) as i32;
+    (-1..=top)
+        .map(|k| match frame.and_then(|f| f.get([q[0], q[1] + k, q[2]])) {
+            None => '?',
+            Some(s) if s.contains("moving_piston") => 'm',
+            Some(s) if s.contains("piston_head") => 'h',
+            Some(s) if mctas::blockstate::is_air(s) => '.',
+            Some(s) if s.contains("bamboo") || s.contains("sugar_cane") => 'b',
+            Some(_) => '#',
+        })
+        .collect()
+}
+
+impl TrailPoint {
+    fn line(&self) -> String {
+        let ticks = if self.t1 > self.t0 { format!("{}-{}", self.t0, self.t1) } else { self.t0.to_string() };
+        let [x, y, z] = self.pos;
+        let [u, v, s] = self.motion;
+        format!("  tick {ticks}: at [{x:.3}, {y:.3}, {z:.3}] motion [{u:.3}, {v:.3}, {s:.3}] in {} on {}, column {}", self.inside, self.on, self.column)
+    }
 }
 
 /// Why a crop broke or never grew: each column and its neighbours as they are now (a note).
@@ -430,6 +506,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     for n in &log.stranded {
         table.push(format!("  stranded: {n}"));
+    }
+    for n in &log.trails {
+        table.push(format!("  trail: {n}"));
     }
     for n in &log.escaped {
         table.push(format!("  escaped: {n}"));
