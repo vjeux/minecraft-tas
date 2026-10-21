@@ -478,7 +478,14 @@ kick) before the first input.
   every phase of a pace on redsim (a design aid).
   `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
   `--only one-box-burst` (`-17`, `-23`) are their redsim screens (and `--only burst` the drop
-  stress's burst run).
+  stress's burst run). Last, ITEM INTRUSION (`shulker::intrusion`, 2026-10-21, the real-use
+  audit, docs "Real use"): the intakes are the open hopper tops a stray item can reach
+  (`circuit::intrusion::intakes` with a chest in every port cell, `shulker::intakes`); the
+  unstackable run again with the audit's stray stacks (1 cobblestone, 64 iron ingots, 1 iron
+  shovel) dropped on each at gt 150, 350 and 550 must deliver every box as without them (as many,
+  each holding as much: the strays may end in a chest and the timing may shift), rotation 0
+  (`loses a box to stray items`). `circuit shulker intakes <designs>` lists the intakes, whether a
+  comparator reads the hopper under each (the timing path), and the redsim run with strays.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch

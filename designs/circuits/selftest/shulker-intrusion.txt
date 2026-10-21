@@ -1,0 +1,85 @@
+name: cal-shulker-intrusion
+circuit: shulker-loader
+# Track shulker's shulker-loader-pitch3-flush (archived 2026-10-20, removed by the item-intrusion
+# rejudge of 2026-10-21): the hopper that feeds boxes into its box dispenser has only a comparator
+# over it, and the empty box cell next to that comparator is open to the outside, so a stray item
+# (the real-use audit drops 1 cobblestone, 64 iron ingots and 1 iron shovel on every open hopper
+# top) reaches the dispenser with the boxes; the dispenser throws it out in place of a box and the
+# loader breaks the next box empty. The judge's item-intrusion check must refuse it (selftest).
+tile: 3 0 0
+port boxes: 1 1 1
+port items: 0 3 0
+port output: 0 0 2
+origin: 0 0 -3
+nbt: 2 4 0 {Items:[{Slot:0b,id:"minecraft:stone",count:64},{Slot:1b,id:"minecraft:stone",count:64},{Slot:2b,id:"minecraft:stone",count:64},{Slot:3b,id:"minecraft:stone",count:64},{Slot:4b,id:"minecraft:stone",count:64},{Slot:5b,id:"minecraft:stone",count:64},{Slot:6b,id:"minecraft:stone",count:36}]}
+nbt: 2 4 1 {OutputSignal:4}
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  D minecraft:dispenser[facing=up,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  G minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=south]
+  c minecraft:comparator[facing=west,mode=compare,powered=false]
+  h minecraft:hopper[enabled=true,facing=north]
+  o minecraft:observer[facing=north,powered=false]
+  w minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=side]
+  s minecraft:stone
+  b minecraft:chest[facing=north,type=single,waterlogged=false]
+  g minecraft:comparator[facing=north,mode=compare,powered=true]
+  t minecraft:redstone_wall_torch[facing=south,lit=false]
+  d minecraft:redstone_wire[east=none,north=side,power=0,south=up,west=none]
+  e minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+layer -1:
+  ...
+  E..
+  o..
+  s..
+  ...
+  ...
+  ...
+layer 0:
+  .s.
+  C.s
+  sOE
+  DBs
+  Ahs
+  ...
+  ...
+layer 1:
+  sFs
+  S.G
+  sRG
+  .cw
+  ..G
+  ..s
+  ...
+layer 2:
+  ...
+  ...
+  ...
+  Hs.
+  ...
+  ..d
+  ..s
+layer 3:
+  ...
+  ...
+  ..b
+  .ch
+  ..s
+  ...
+  ..e
+layer 4:
+  ...
+  ...
+  ...
+  ..b
+  ..g
+  ..s
+  ..t

@@ -83,6 +83,10 @@ enum Cmd {
         #[arg(long)]
         id: Option<u64>,
     },
+    /// The item intakes of shulker designs (circuit::intrusion::intakes with the judge's chests
+    /// at the ports): every open hopper top a stray item can reach, and whether a comparator
+    /// reads that hopper (the timing path) or not (the item line).
+    Intakes { designs: Vec<PathBuf> },
     /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
     /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
     /// the frame, the judge's visit; drops from the trace's seed): redsim's shulker gate. One line
@@ -243,6 +247,12 @@ enum Cmd {
     },
 }
 
+/// The item intakes of a shulker design ([`circuit::shulker::intakes`]): each open hopper top a
+/// stray item can reach, and whether a comparator reads the hopper under it (the timing path).
+pub fn intakes(c: &circuit::Circuit) -> Vec<([i32; 3], bool)> {
+    circuit::shulker::intakes(c)
+}
+
 fn parse_pos(s: &str) -> Result<[i32; 3]> {
     let v: Vec<i32> = s.split(',').map(|w| w.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
     if v.len() != 3 {
@@ -264,6 +274,29 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
         Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin, stress_run } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin, stress_run),
         Cmd::TraceEntities { trace, id } => trace::entities(&trace, id),
+        Cmd::Intakes { designs } => {
+            for d in &designs {
+                let c = circuit::Circuit::load(d)?;
+                let at = intakes(&c);
+                if at.is_empty() {
+                    println!("{}: no intake", c.name());
+                }
+                for (top, timing) in &at {
+                    println!("{}: intake {},{},{} (the hopper under it {})", c.name(), top[0], top[1], top[2], if *timing { "is READ BY A COMPARATOR: the timing path" } else { "feeds the item line" });
+                }
+                if !at.is_empty() {
+                    let Some(kind) = c.kind.as_ref() else { continue };
+                    let Some(base) = circuit::shulker::Scenario::base(kind) else { continue };
+                    let sc = circuit::shulker::Scenario::with_stack(base.loader, 1);
+                    match rs::intrusion_check(&c, &sc) {
+                        Ok(Some(v)) => println!("  stray items (redsim, 3 boxes of unstackables): {v}"),
+                        Ok(None) => {}
+                        Err(e) => println!("  stray items (redsim): does not run ({e})"),
+                    }
+                }
+            }
+            Ok(())
+        }
         Cmd::Lns { design, remove, add, local, palette, threads, r#box, keep, tol, out_dir } => {
             let bbox = match r#box {
                 Some(s) => {
