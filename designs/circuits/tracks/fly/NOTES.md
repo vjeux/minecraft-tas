@@ -208,8 +208,12 @@ it or strand a block, the lever where a player reaches it (on the station, off t
   know trailers), so train is not a real-use record.
 - **Docking loophole**: compact's first 4x2x8 "docking" machine made one trip per switch-on and
   parked with the lever on; flying_switch now wants a repeating round trip and motion in the last
-  round trip before the off edge (cal-fly-docking-parks). Under it compact gives
-  fly-docking-15b-78gt (stations 4 cells apart, a 3-block far station).
+  round trip before the off edge (cal-fly-docking-parks). Under it compact gave
+  fly-docking-15b-78gt (stations 4 cells apart, a 3-block far station), withdrawn once the
+  docking judge also flipped the lever back too soon (on k gt then off; off k gt mid-run then on,
+  k = 4..20): a 16 gt reflip pushes the station observer back just as the machine arrives, it fires
+  into the empty dock and misses the arrival, and the machine stays docked with the lever on
+  (cal-fly-docking-reflip). fly-docking-15b passes every flip: the docking record stays 5x2x9.
 - **Ground clearance** (robust::fly_clearance, grass on dirt): slime or honey in the bottom layer
   drags the grass (fe361f, e75c5f, payload-n1, train-n1, fly-d1: 1 block of air); a down-facing
   observer in the bottom layer sees the grass under it turn to dirt on a random tick (redsim has no

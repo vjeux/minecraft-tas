@@ -34,7 +34,7 @@ Every kind with a real switch, at minimum volume (box), game-robust (4 positions
 | up | fly-up-start-9b-9gt: 9 blocks, 9 gt/block | 4x3x1 (12) | start: flip the lever |
 | down | fly-down-start-9b-10gt: 9 blocks, 10 gt/block | 2x2x3 (12) | start: flip the lever |
 | payload | fly-payload-start-7b (base fly-payload-start-n1): carries n = 1..18 blocks, 7 + n blocks, 10 gt/block, flies along the ground; every member game-robust | 3 x (4 + n) x 1 up to 9 (n1: 15), then 3 x (4 + ceil(n/2)) x 2 (n18: 78) | start: flip the lever |
-| docking stations | fly-docking-15b-78gt: 15 blocks, round trip 78 gt, needs 1 block of air | 4x2x8 (64; fly-docking-15b is 5x2x9 = 90) | on/off lever: off docks it at the lever's station |
+| docking stations | fly-docking-15b: 15 blocks, round trip 98 gt, needs 1 block of air (stone stations since clk-rt's materials pass) | 5x2x9 (90) | on/off lever: off docks it at the lever's station; passes the audit's flips (on k gt then off, off k gt mid-run then on, k = 4..20) |
 
 - The start judge (check.rs `flying_start`; a lever on a machine without a kick, or a button): parked at rest, the first flip launches it, it flies its distance intact, and the station (lever + its stone, `port station`) ends as built. It is run once per flip gap of the audit (START_FLIPS 4, 5, 6, 8, 10, 12, 16, 20 gt: off k gt after the launch, on again, off again, then twice long after it left). A watcher left on the parked part fails it (selftest cal-fly-start-watcher-stays); every record's trigger observer rides the part the first push moves, so later flips reach nothing.
 - The docking judge now also wants the shuttling to go on until the switch turns off (an annealed machine made one trip and parked with the lever on: selftest cal-fly-docking-parks).
