@@ -1,8 +1,9 @@
 # clk-obs8: the analog decoders (study 15, 2026-10-21)
 
-`mctas circuit display analog-stack [--down] --y0 N --out F` (crates/circuit-display/src/agen.rs,
-astack.rs, analog.rs), then `mctas circuit display settle` (it now keeps comparator outputs as
-`OutputSignal` nbt, so the stack is at rest the moment it is placed).
+`mctas circuit display analog-stack [--down [--w 8,2,4,1] [--slack N]] --y0 N --out F`
+(crates/circuit-display/src/agen.rs, astack.rs, analog.rs), then `mctas circuit display settle`
+(it now keeps comparator outputs as `OutputSignal` nbt, so the stack is at rest the moment it is
+placed). analog-v5 = `analog-stack --down --y0 1` then `settle`.
 
 | design | blocks | box | latency | glitches | game |
 |---|---|---|---|---|---|

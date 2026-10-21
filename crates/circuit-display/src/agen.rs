@@ -168,7 +168,42 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
     let mut top_feed: Vec<((i32, i32, i32), u8)> = Vec::new();
     let mut riser: Vec<(i32, P, &str)> = Vec::new();
     let radius = if down.is_some() { 3 } else { 4 };
-    if let Some(path) = &down
+    let flat = FLAT.with(|f| f.get());
+    if down.is_some() && flat {
+        // the chain one level lower: its comparators stand on the top ring's level and its output
+        // block powers the top-ring arc cell under it (distance 0)
+        let f = (xo[0] - cx, 0, xo[2] - cz);
+        if !(f.0.abs() <= 3 && f.2.abs() <= 3 && (f.0.abs() == 3 || f.2.abs() == 3) && f.0 != 0 && f.2 != 0) || xo[1] != top + 1 {
+            bail!("chain output not over a top-ring arc cell");
+        }
+        top_feed.push((f, 0));
+        let mut under: Vec<(i32, i32, i32)> = Vec::new();
+        for (p, s) in &cb.blocks {
+            let q = tf.p(*p);
+            if q[1] != top + 1 {
+                continue;
+            }
+            let rel = (q[0] - cx, 0, q[2] - cz);
+            if rel == f {
+                continue;
+            }
+            let needs = s.contains("comparator") || s.contains("repeater") || s.contains("redstone_wire");
+            // the chain's powered stones (its turning block) must not sit over ring dust either
+            let powered = s == "minecraft:stone";
+            if needs || powered {
+                under.push(rel);
+            }
+            if s.contains("redstone_wire") {
+                for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    under.push((rel.0 + dx, 0, rel.2 + dz));
+                }
+            }
+        }
+        if under.iter().any(|c| c.0 == 0 && c.2 == 0) {
+            bail!("chain over the lamp");
+        }
+        TOP_FORBID.with(|fb| *fb.borrow_mut() = under);
+    } else if let Some(path) = &down
         && path.is_empty()
     {
         // the chain's output block over a dust on a rear hopper (axis cell of radius 3): the dust
@@ -534,9 +569,8 @@ thread_local! {
 }
 
 /// The riser-free stack: chain on top, s flowing down through the rings' bridges.
-pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
-    let slack: i32 = std::env::var("MCTAS_DISPLAY_SLACK").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
-    let w: Vec<u8> = std::env::var("MCTAS_DISPLAY_W").ok().map(|s| s.split(',').filter_map(|x| x.parse().ok()).collect()).unwrap_or(vec![8, 1, 4, 2]);
+pub fn search_down(out: &std::path::Path, y0: i32, w: &[u8], slack: i32, flat: bool) -> Result<()> {
+    FLAT.with(|f| f.set(flat));
     let code = Code { w: [w[0], w[1], w[2], w[3]], neg: 1 };
     let levels: Vec<i32> = (0..7).map(|k| y0 + 2 * k).collect();
     let top = *levels.last().unwrap();
@@ -577,7 +611,8 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
                     if !ok_dd && slack < 0 {
                         continue;
                     }
-                    let t = [xx - xo.0, top + 1, xz - xo.1];
+                    let flat = FLAT.with(|f| f.get());
+                    let t = [xx - xo.0, if flat { top } else { top + 1 }, xz - xo.1];
                     let tf = Tf { mirror, rot, t };
                     if cb.blocks.keys().any(|p| {
                         let q = tf.p(*p);
@@ -600,7 +635,10 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
                         }
                         let axis = (px.abs() == 3 && pz == 0) || (pz.abs() == 3 && px == 0);
                         let over_arc = px.abs() <= 3 && pz.abs() <= 3 && (px.abs() == 3 || pz.abs() == 3) && px != 0 && pz != 0;
-                        if !inside || (path.is_empty() && !axis) || (!path.is_empty() && !over_arc) {
+                        if flat && !path.is_empty() {
+                            continue;
+                        }
+                        if !flat && (!inside || (path.is_empty() && !axis) || (!path.is_empty() && !over_arc)) {
                             continue;
                         }
                         let mut plan = match build_mode(&code, &tf, (0, 0), 1, &levels, Some(path.clone())) {
@@ -657,4 +695,7 @@ fn write_plan(out: &std::path::Path, score: usize, mut plan: Plan, label: &str) 
 }
 thread_local! {
     static DEEPEST: std::cell::Cell<usize> = const { std::cell::Cell::new(99) };
+}
+thread_local! {
+    static FLAT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
