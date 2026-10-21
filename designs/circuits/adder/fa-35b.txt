@@ -1,8 +1,7 @@
 name: fa-35b
-# w86 2026-10-21: full adder from two copies of the synthesized half adder ha-17b, packed side by side. The first
-# half adder (east) adds a and b; its sum lands on a stone P at (0,1,-1). The second (west, turned a quarter)
-# reads P with its b dust and cin with its torch; it gives the sum. Both carry stones touch the cout lamp at
-# (-1,1,2), so it lights when either carry is on.
+# Full adder, 35 blocks, flat (7x2x5): two half adders side by side. The first adds a and b; the second adds that
+# sum and the carry-in and gives the sum. Both half adders' carry blocks touch the carry-out lamp, so it lights
+# when either carry does. (w86, 2026-10-21.)
 circuit: adder 1
 port input.a0: 3 1 -1
 port input.b0: 2 1 3

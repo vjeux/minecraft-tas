@@ -1,7 +1,7 @@
 name: fa-slice-54b
-# w86 2026-10-21: full adder bit slice from fa-35b. The two carry stones each feed a repeater (south); their dust
-# lines meet and run west to a repeater that powers the chain lamp at (-4,1,5), which is the next bit's carry in
-# (its torch hangs on it). Bits stack every 7 cells to the south.
+# Full adder bit slice, 54 blocks per bit: copies stacked every 7 blocks make a ripple-carry adder of any
+# width (judged at 1 to 4 and 8 bits). Each bit is two half adders side by side; each half adder's carry feeds a
+# repeater, the two lines join, and a last repeater lights a lamp that is the next bit's carry-in. (w86, 2026-10-21.)
 circuit: adder 1
 slice: 0 0 7
 port input.a0: 3 1 -1

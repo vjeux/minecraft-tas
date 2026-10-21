@@ -1,8 +1,8 @@
 name: fa3d-36b
-# w86 2026-10-21: full adder, two half adders stacked. The lower one (y 0-1) adds a and b; its sum lands on the
-# stone P (0,1,-1), and a dust on P climbs onto the upper half adder's b dust (0,3,0). The upper one (y 2-3)
-# adds that and cin (its torch hangs on cin) and gives the sum. The cout lamp (0,2,2) sits between the two carry
-# stones (0,1,2) and (0,3,2). The block above the lower carry torch is glass, so that torch cannot power it.
+# Full adder in a 4x4x4 cube, 36 blocks: two half adders stacked. The bottom one adds a and b, and its sum
+# climbs a redstone dust onto the top one, which adds the carry-in and gives the sum. Each half adder lights its
+# own carry block, and the carry-out lamp sits between the two blocks, so it lights when either carry does.
+# (A glass block above the bottom carry torch keeps that torch from lighting the lamp. w86, 2026-10-21.)
 circuit: adder 1
 port input.a0: 3 1 -1
 port input.b0: 2 1 3
