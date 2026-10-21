@@ -56,6 +56,27 @@ pub fn cost(c: &Code) -> (usize, usize) {
 }
 
 pub fn orders(neg: Option<u8>, top: usize) {
+    // per segment: the fewest runs over all codes, and how many codes reach it
+    let codes = all_codes();
+    for (k, ch) in "abcdefg".chars().enumerate() {
+        let best = codes.iter().map(|c| runs(masks(c)[k]).len()).min().unwrap();
+        let n = codes.iter().filter(|c| runs(masks(c)[k]).len() == best).count();
+        let ex = codes.iter().find(|c| runs(masks(c)[k]).len() == best).unwrap();
+        println!("segment {ch}: best {best} runs ({n} codes, e.g. w {:?} neg {:04b}: {})", ex.w, ex.neg, crate::analog::fmt_runs(masks(ex)[k]));
+    }
+    // the best pairs of codes (each segment takes the better code)
+    let mut best: Vec<(usize, usize, usize)> = Vec::new();
+    for i in 0..codes.len() {
+        for j in i + 1..codes.len() {
+            let (mi, mj) = (masks(&codes[i]), masks(&codes[j]));
+            let tot: usize = (0..7).map(|k| runs(mi[k]).len().min(runs(mj[k]).len())).sum();
+            best.push((tot, i, j));
+        }
+    }
+    best.sort();
+    for (tot, i, j) in best.iter().take(5) {
+        println!("pair: {tot} runs: w {:?} neg {:04b} + w {:?} neg {:04b}", codes[*i].w, codes[*i].neg, codes[*j].w, codes[*j].neg);
+    }
     let mut v: Vec<(Code, (usize, usize))> = all_codes().into_iter().filter(|c| neg.is_none_or(|n| c.neg == n)).map(|c| (c, cost(&c))).collect();
     v.sort_by_key(|(_, k)| *k);
     for (c, (n, low)) in v.iter().take(top) {
