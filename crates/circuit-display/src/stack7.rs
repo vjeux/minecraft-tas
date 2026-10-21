@@ -797,3 +797,133 @@ pub fn describe_c(s: &SolutionC) -> String {
     }
     out
 }
+
+// Model 7d (7x7): per side (north shown) towers U (1,-3) (blocks at the ring levels), X2 (-2,-2)
+// and B (-2,-3). Per ring: the chain torch; the outer dust (0,-3), cross-shaped, powered only by
+// U's block (= U); the diagonal injection (-1,-2) from X2 (repeater: X2, comparator: X2 AND NOT
+// (corner OR Y)) with the side dust Y at (-1,-3) powered by B (not with the outer dust: two dusts
+// side by side join).
+
+pub fn column_d(fs: &[u16], tw: &TowersC, sels: &[u16], corners: &[u16]) -> Option<Vec<StepB>> {
+    let mut layers: Vec<BTreeMap<u16, (u16, StepB)>> = Vec::new();
+    let mut cur: Vec<u16> = vec![0];
+    for (k, &f) in fs.iter().enumerate() {
+        let sel = sels[k];
+        let c = corners[k];
+        let (uv, xv, bv) = (lv(tw.t, k), lv(tw.a, k), lv(tw.b, k));
+        let mut next: BTreeMap<u16, (u16, StepB)> = BTreeMap::new();
+        for &prev in &cur {
+            let mut opts = vec![StepB { rblock: true, value: 0xffff, ..Default::default() }];
+            for torch in [false, true] {
+                for wall in [false, true] {
+                    if wall && tw.t.is_none() {
+                        continue;
+                    }
+                    for diag in 0..3u8 {
+                        if diag > 0 && tw.a.is_none() {
+                            continue;
+                        }
+                        for ydust in [false, true] {
+                            if ydust && (diag != 2 || wall || tw.b.is_none()) {
+                                continue;
+                            }
+                            // `wall` here is the outer dust
+                            let mut r = if torch { !prev } else { 0 } | if wall { uv } else { 0 };
+                            r |= match diag {
+                                1 => xv,
+                                2 => xv & !(c | if ydust { bv } else { 0 }),
+                                _ => 0,
+                            };
+                            opts.push(StepB { torch, wall, diag, ydust, rblock: false, absent: false, value: r });
+                        }
+                    }
+                }
+            }
+            for mut s in opts {
+                if (s.value ^ f) & sel != 0 {
+                    if f & sel != 0 {
+                        continue;
+                    }
+                    s.absent = true;
+                }
+                let e = next.entry(s.value).or_insert((prev, s));
+                if s.cost() < e.1.cost() {
+                    *e = (prev, s);
+                }
+            }
+        }
+        if next.is_empty() {
+            return None;
+        }
+        cur = next.keys().copied().collect();
+        layers.push(next);
+    }
+    let mut v = *layers.last()?.keys().next()?;
+    let mut out = Vec::new();
+    for layer in layers.iter().rev() {
+        let (prev, s) = layer[&v];
+        out.push(s);
+        v = prev;
+    }
+    out.reverse();
+    Some(out)
+}
+
+pub fn solve_d(perm: [u32; 4], assign: u32, order: &[usize], towers: &[TowersC]) -> Option<SolutionC> {
+    let c0 = corners(assign);
+    let fs: Vec<[u16; 4]> = order.iter().enumerate().map(|(k, &s)| rear_fns(seg_roles(NAMES[s], perm), c0, k)).collect();
+    let mut sides = Vec::new();
+    for j in 0..4 {
+        let col: Vec<u16> = fs.iter().map(|f| f[j]).collect();
+        let cs: Vec<[u16; 4]> = (0..order.len()).map(|k| if k % 2 == 1 { c0.map(|x| !x) } else { c0 }).collect();
+        let sels: Vec<u16> = cs.iter().map(|c| !c[j] & !c[(j + 1) % 4]).collect();
+        let cj: Vec<u16> = cs.iter().map(|c| c[j]).collect();
+        let mut best: Option<(usize, TowersC, Vec<StepB>)> = None;
+        for tw in towers {
+            if let Some(st) = column_d(&col, tw, &sels, &cj) {
+                let cost = side_cost_c(tw, &st);
+                if best.as_ref().is_none_or(|b| cost < b.0) {
+                    best = Some((cost, *tw, st));
+                }
+            }
+        }
+        let (_, t, st) = best?;
+        sides.push((t, st));
+    }
+    Some(SolutionC { perm, assign, order: order.to_vec(), sides })
+}
+
+pub fn search_best_d() -> Option<SolutionC> {
+    let towers = all_towers_c();
+    let perms: Vec<[u32; 4]> = permutations(4).into_iter().map(|p| [p[0] as u32, p[1] as u32, p[2] as u32, p[3] as u32]).collect();
+    let orders = permutations(7);
+    let results: Vec<(usize, Option<SolutionC>)> = std::thread::scope(|sc| {
+        let handles: Vec<_> = perms
+            .chunks(3)
+            .map(|chunk| {
+                let (towers, orders) = (&towers, &orders);
+                sc.spawn(move || {
+                    let mut best: Option<SolutionC> = None;
+                    let mut n = 0;
+                    for &perm in chunk {
+                        for assign in 0..8 {
+                            for order in orders {
+                                if let Some(s) = solve_d(perm, assign, order, towers) {
+                                    n += 1;
+                                    if best.as_ref().is_none_or(|b| cost_c(&s) < cost_c(b)) {
+                                        best = Some(s);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    (n, best)
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    let n: usize = results.iter().map(|r| r.0).sum();
+    eprintln!("{n} feasible (roles, corners, order)");
+    results.into_iter().filter_map(|r| r.1).min_by_key(cost_c)
+}
