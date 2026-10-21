@@ -195,9 +195,12 @@ each build's page.
   position. Many of them look really bad right now": `scene::best_camera`): of 20 candidates
   (`scene::candidate_dirs`: the pictures' direction, 29 degrees off the south axis and 28 up, and
   its 7 mirror images, at 28 and at 45 degrees up: each 29 degrees off an axis, three faces seen,
-  never straight along a flat face, never from below; then the 4 face-on directions at 28 up,
-  for a one-block-thick wall seen from its face, `FACE_ON_BONUS`, any other build only at a cost,
-  `FACE_ON_COST`: critique, a flat extender "reads as loose floating pieces" at 45 degrees),
+  never straight along a flat face, never from below; then the 4 face-on directions, low
+  (`FACE_ON_PITCH`, 12 degrees up: critique, "at ~25° rather than face-on"), for a wall (one block
+  thick, at least 3 by 3 and 12 cells across its face, of every block drawn as it stands: the
+  judge's chests too, not its see-through rig) seen from its face, `FACE_ON_BONUS`, any other build
+  only at a cost, `FACE_ON_COST`: critique, a flat extender "reads as loose floating pieces" at 45
+  degrees; a small thin build, a NOT gate or a BUD switch, reads better from three sides),
   each framing the build as below, the one
   scoring best on 3 x the ports seen (inputs and outputs 3, the other ports 1.5, a door's opening
   0.5 a cell, a TNT duper's TNT 2 in all) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
@@ -208,8 +211,15 @@ each build's page.
   far the inputs are on the camera's side - 0.2 from 45 degrees up (the pictures' elevation
   unless the higher one shows more) + 0.5 x how far a build without inputs has its output's end
   toward the camera when that output lies over 2 blocks from its middle (critique: a long ring
-  of droppers seen with its working end far away); a thumbnail does not count its empty port
-  cells (not drawn); a cell is "seen" by the share of 4 points (its main
+  of droppers seen with its working end far away) - 0.5 for each pair of a live view's tags that
+  would hang on one spot (`scene::tag_anchors`, closer than 0.16 by 0.08 of half the view's
+  height: critique, a gate's OUT tag sat on its A tag; 1.5 at most) - 0.5 for each pair of a
+  thumbnail's drawn port cells one right behind the other (closer than 0.6 of a block there: a
+  BUD switch's TARGET box over its observer; 1 at most); a port cell counts when it is drawn (a
+  block, or an outlined cell); the containers a design's labels are about (its own containers
+  holding items, but on a shulker design: a sorter's filter hopper, a ring's droppers) count like
+  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest); a cell is
+  "seen" by the share of 4 points (its main
   model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
   the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
   every input can be tapped from at its centre comes first, then one each can be tapped from
@@ -230,10 +240,12 @@ each build's page.
   only when the build would come out under it: `live_camera`, `PILL`), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
   only: no extender travel or entity look-ahead, no TNT duper's ground under it, no judge's
   see-through test rig (critique: gate tiles small and washed out), and only what
-  it draws: a thumbnail has no outlines, so its empty input and port cells are not framed: the
-  inputs and ports count where the look outlines them); a build smaller than 3 blocks across and 2
-  high in every direction is framed a block bigger than it is, up to that (a lone block as 2
-  across; the camera as far as that box needs,
+  it draws: a thumbnail has no outlines but a BUD switch's TARGET box (`scene::thumbnail_look`:
+  critique, the BUD tile was a lone observer "with no TARGET"), so its other empty input and port
+  cells are not framed: the inputs and ports count where the look outlines them; a thumbnail fits
+  the build itself however small, its margins are enough); in a live view a build smaller than 3
+  blocks across and 2 high in every direction is framed a block bigger than it is, up to that (a
+  lone block as 2 across; the camera as far as that box needs,
   the build itself centred: `scene::fit_view`; a 2-block clock stands in a
   little sky around). A long thin build's 3/4 view along its length comes from the default
   camera's frame-fill score (the 45-degree rule it replaces: `scene::view_dir`, kept for
@@ -257,8 +269,9 @@ each build's page.
   to 27 stacks from the judge's base stream (`circuit::sorter_stream`: its kind mixed with
   64-stack, 16-stack and unstackable kinds, the kinds the design holds left out; 8 times over)
   and the sinks emptied every 20 gt (`circuit::SORTER_SEG`), by redsim's chest driver
-  (`redstone::shulker::Chests`, as a loader's). Tags: ITEMS `kept full`, PASS (blue) and OUT
-  `emptied`, their contents in stacks; no auto slow motion (a hopper's 8-gt cycle is no
+  (`redstone::shulker::Chests`, as a loader's). Tags: ITEMS `kept full` (in stacks), PASS (blue)
+  and OUT `received` with the run's tally (below; the judge's stream starts with a full stack of
+  its kind, so PASS gets its first items after about 26 s at 1x); no auto slow motion (a hopper's 8-gt cycle is no
   flicker). `web check` compares its frames with a reference built from the circuit crate (the
   judge's own stream and chests) and the items its sinks get, visit by visit, with the judge's
   redsim screen (`sorter_pair`); the site autoplays sorter pages.
@@ -266,8 +279,10 @@ each build's page.
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)
   shows its label when tapped (a tap again hides it). On every other design all containers are
-  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
-  gold while all are labelled) labels them all or only the story's. A label is ONE compact
+  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon and
+  the word "Labels", gold while all are labelled; critique: "a four-squares button with no
+  label") labels them all or only the story's; the flip and contents buttons say their word while
+  the bar has room for it (the flip button's goes first). A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
   and total count with its unit (`1,344 items`; a judge's port chest in stacks, `27 stacks`: how
   full the judge keeps it, critique); shulker boxes first, as `12/27 slots` filled for one box or `3 boxes`
@@ -276,14 +291,18 @@ each build's page.
   a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
   `OUT B`; a judge chest's tag says what the judge does to it (`kept full`: a loader's sources
   and every box chest, so their counts never go down; `emptied`: the outputs, the rejects, an
-  unloader's item chests). Tags and labels are laid
+  unloader's item chests, a sorter's PASS and OUT: their tag shows the run's tally, everything
+  that reached the chest so far, and says `received` (`Session::received`: what the judge's visits
+  took out, summed by kind, as the judge counts it; critique: a sorter's PASS and OUT never showed
+  a count, the judge empties them as they fill; boxes counted as boxes, `1 box`)). Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
   (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). Tags stay 4 px
-  inside the view, and a tag never covers the block right above its cell (a clock's observer over
-  its OUT lamp: critique, "OUT" read as the observer's).
-* Outlines (live viewers; thumbnails have none): the inputs lime (when the design runs: something
+  inside the view, and an output's tag never covers the block right above its cell (a clock's
+  observer over its OUT lamp: critique, "OUT" read as the observer's): it goes under the cell; an
+  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
+* Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
   REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the

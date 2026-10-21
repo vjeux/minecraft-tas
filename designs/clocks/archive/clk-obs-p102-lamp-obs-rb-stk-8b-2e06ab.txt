@@ -1,10 +1,12 @@
 # archived 2026-10-19T22:48Z from designs/clocks/tracks/clk-obs/families9/p102-lamp-obs-rb-stk-8b-2e06ab.txt by mctas clock archive
-# CLOCK: clk-obs-p102-lamp-obs-rb-stk-8b-2e06ab period 102 gt (5.1 s), on 34/102, edges 17, warmup 8, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x5x3, robust
+# CLOCK: clk-obs-p102-lamp-obs-rb-stk-8b-2e06ab period 102 gt (5.1 s), on 66/102, edges 6, warmup 8, family observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 1x5x3, robust
 name: clk-obs-p102-lamp-obs-rb-stk-8b-2e06ab
 # clk-obs grow: P=102 (redsim), family observer+redstone_block+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 15.
 origin: 0 0 -1
-port output: 0 -2 1
+# port output 0 -2 1 removed 2026-10-21 (clk-obs): a piston pushed the judge's lamp out and an observer moved through that cell
 port start: 0 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: -1 0 1
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=south,powered=false]

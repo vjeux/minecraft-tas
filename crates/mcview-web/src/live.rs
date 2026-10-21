@@ -742,12 +742,17 @@ pub fn load(app: &mut App, id: u32) {
             let has = mcview::labels::has_containers(&p.session);
             let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
             let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
-            // the flip button says what it is (the pages' "Try it" names it), unless a phone's bar
-            // also holds the contents button (no room for the word)
-            if l.narrow && has {
+            // the flip and contents buttons say what they are (the pages' "Try it" names them;
+            // critique: a four-squares button with no label), as long as the bar has room: a word
+            // the bar cannot hold goes, the flip button's first
+            let word = |w: &str| format!("<span style=\"margin-left:4px;font-size:14px\">{w}</span>");
+            l.flip.set_inner_html(&format!("{}{}", icon(ICON_LEVER), word("Flip")));
+            l.containers.set_inner_html(&format!("{}{}", icon(ICON_BOXES), word("Labels")));
+            if l.bar.scroll_width() > l.bar.client_width() {
                 l.flip.set_inner_html(&icon(ICON_LEVER));
-            } else {
-                l.flip.set_inner_html(&format!("{}<span style=\"margin-left:4px;font-size:14px\">Flip</span>", icon(ICON_LEVER)));
+            }
+            if l.bar.scroll_width() > l.bar.client_width() {
+                l.containers.set_inner_html(&icon(ICON_BOXES));
             }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
