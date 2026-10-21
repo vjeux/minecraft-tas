@@ -196,7 +196,7 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
     }
     // caps over the riser dust: no dust link to the ring cells one level up or down
     for &(h, p, kind) in &riser {
-        if kind == "D" {
+        if kind == "D" && h < top {
             let q = [p[0], h + 1, p[2]];
             if !b.blocks.contains_key(&q) {
                 b.stone(q);
@@ -222,17 +222,51 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
         feed
     };
     type Sol = (usize, [Slot; 4], u8, Vec<((i32, i32, i32), u8)>);
-    fn rec(t: usize, levels: &[i32], segs: &[Vec<crate::analog::Run>], used: &mut [bool], above: Vec<((i32, i32, i32), u8)>, riser_feed: &dyn Fn(i32) -> Vec<((i32, i32, i32), u8)>, out: &mut Vec<Sol>) -> bool {
+    // per level: the copies allowed and the bridges forced off (their support two levels down
+    // is a chain or riser block a comparator cannot stand on)
+    let sturdy_or_free = |p: P| b.blocks.get(&p).is_none_or(|s| s.contains("stone") || s.contains("hopper"));
+    let limits: Vec<(u8, u8)> = levels
+        .iter()
+        .map(|&y| {
+            let mut forced = 0u8;
+            for (bi, &(p, q)) in astack::BRIDGES.iter().enumerate() {
+                let m = [cx + (p.0 + q.0) / 2, y - 2, cz + (p.2 + q.2) / 2];
+                if !sturdy_or_free(m) {
+                    forced |= 1 << bi;
+                }
+            }
+            let mut allowed = 0u8;
+            for u in 0..4 {
+                let (kx, kz) = astack::rot_pub(u, 2, -2);
+                if sturdy_or_free([cx + kx, y - 2, cz + kz]) {
+                    allowed |= 1 << u;
+                }
+            }
+            (allowed, forced)
+        })
+        .collect();
+    #[allow(clippy::too_many_arguments)]
+    fn rec(t: usize, levels: &[i32], segs: &[Vec<crate::analog::Run>], used: &mut [bool], above: Vec<((i32, i32, i32), u8)>, riser_feed: &dyn Fn(i32) -> Vec<((i32, i32, i32), u8)>, limits: &[(u8, u8)], out: &mut Vec<Sol>) -> bool {
         let mut feed = riser_feed(levels[t]);
         feed.extend(above);
         for s in 0..segs.len() {
             if used[s] {
                 continue;
             }
-            let Some((slots, copies)) = astack::solve_ring_c(&segs[s], &feed, 15) else { continue };
+            let key = (s, feed.clone(), limits[t]);
+            let hit = MEMO.with(|m| m.borrow().get(&key).cloned());
+            let r = match hit {
+                Some(r) => r,
+                None => {
+                    let r = astack::solve_ring_f(&segs[s], &feed, limits[t].0, limits[t].1);
+                    MEMO.with(|m| m.borrow_mut().insert(key, r));
+                    r
+                }
+            };
+            let Some((slots, copies)) = r else { continue };
             used[s] = true;
             out.push((s, slots, copies, feed.clone()));
-            if t == 0 || rec(t - 1, levels, segs, used, astack::coupling(&slots, &feed, copies), riser_feed, out) {
+            if t == 0 || rec(t - 1, levels, segs, used, astack::coupling(&slots, &feed, copies), riser_feed, limits, out) {
                 return true;
             }
             out.pop();
@@ -242,7 +276,7 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
     }
     let mut sols = Vec::new();
     let mut used = vec![false; segs.len()];
-    if !rec(levels.len() - 1, levels, &segs, &mut used, Vec::new(), &riser_feed, &mut sols) {
+    if !rec(levels.len() - 1, levels, &segs, &mut used, Vec::new(), &riser_feed, &limits, &mut sols) {
         bail!("no assignment of segments to levels");
     }
     for (k, (s, slots, copies, feed)) in sols.iter().enumerate() {
@@ -372,4 +406,9 @@ pub fn search_and_write(out: &std::path::Path, y0: i32, place: Option<&str>) -> 
         println!("ring {lamp:?}: {} dust cells off: {}", bad.len(), bad.join("; "));
     }
     Ok(())
+}
+
+type MemoKey = (usize, Vec<((i32, i32, i32), u8)>, (u8, u8));
+thread_local! {
+    static MEMO: std::cell::RefCell<std::collections::HashMap<MemoKey, Option<([Slot; 4], u8)>>> = std::cell::RefCell::new(std::collections::HashMap::new());
 }

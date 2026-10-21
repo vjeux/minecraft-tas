@@ -130,9 +130,14 @@ pub const COPIES: [((i32, i32, i32), (i32, i32, i32)); 4] = [((2, 0, -3), (2, 0,
 
 /// solve_ring with any subset of the `allowed` copies; returns the slots and the copies used.
 pub fn solve_ring_c(rs: &[Run], feed: &Feed, allowed: u8) -> Option<([Slot; 4], u8)> {
+    solve_ring_f(rs, feed, allowed, 0)
+}
+
+/// solve_ring_c with the bridges in `forced_off` (bit i: bridge i) left out.
+pub fn solve_ring_f(rs: &[Run], feed: &Feed, allowed: u8, forced_off: u8) -> Option<([Slot; 4], u8)> {
     // low 4 bits: copies used; high 4 bits: bridges left out
     for m in 0..=255u8 {
-        if m & 15 & !allowed != 0 {
+        if m & 15 & !allowed != 0 || (m >> 4) & forced_off != forced_off {
             continue;
         }
         COPY_MASK.with(|c| c.set(m));
@@ -539,4 +544,8 @@ pub fn coupling(slots: &[Slot; 4], feed: &Feed, copies: u8) -> Vec<((i32, i32, i
 /// Whether a ring-relative cell is dust in a ring with these slots.
 pub fn is_dust(slots: &[Slot; 4], c: (i32, i32, i32)) -> bool {
     ring_dust(slots).contains(&c)
+}
+
+pub fn rot_pub(u: usize, x: i32, z: i32) -> (i32, i32) {
+    rot(u, x, z)
 }
