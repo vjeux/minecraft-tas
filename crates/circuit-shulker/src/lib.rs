@@ -69,6 +69,19 @@ enum Cmd {
         version: String,
         #[arg(long, default_value_t = 3)]
         margin: i32,
+        /// The judge's drop stress run K instead (its drop seed, a burst every other run for a
+        /// loader, rotation K % 4), written even when it fails: where did the drop go.
+        #[arg(long)]
+        stress_run: Option<u32>,
+    },
+    /// Every entity of a trace (`circuit shulker trace`): its type, first and last gt, where it
+    /// appeared and where it was last seen (a drop alive at the end is a lost box).
+    TraceEntities {
+        trace: PathBuf,
+        /// Print this entity's position at every gt it lives (and the cells that changed around
+        /// it that gt) instead of the summary.
+        #[arg(long)]
+        id: Option<u64>,
     },
     /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
     /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
@@ -249,7 +262,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             });
             shrink::shrink(&design, &out, &keep, min_rate, workers, &version, margin)
         }
-        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
+        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin, stress_run } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin, stress_run),
+        Cmd::TraceEntities { trace, id } => trace::entities(&trace, id),
         Cmd::Lns { design, remove, add, local, palette, threads, r#box, keep, tol, out_dir } => {
             let bbox = match r#box {
                 Some(s) => {
