@@ -828,9 +828,12 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "sorter" => {
             let rate = cm(c, "items/s");
             let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item sorted within {}", crate::real_time(g)));
+            // (the rate goes in the second line: critique b0fb9ae4e, a 4-line title pushed the 3D
+            // view off a phone's first screen)
+            let rate = rate.trim_end_matches('0').trim_end_matches('.').to_string();
             (
-                if rate.is_empty() { "takes one item kind out of a mixed line".to_string() } else { format!("takes one item kind out of a mixed line · {rate} items a second") },
-                first.into_iter().collect(),
+                "takes one item kind out of a mixed line".to_string(),
+                (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).collect(),
             )
         }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
