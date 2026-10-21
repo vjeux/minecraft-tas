@@ -1,5 +1,4 @@
-# archived 2026-10-21T09:57Z from designs/circuits/tracks/display/stack-v5.txt by mctas circuit archive
-# CIRCUIT: seven-segment-stack-v5 seven-segment 4 latency 56 gt (a3 falls from a=1110), glitches 62, 655 blocks, 9x18x9, robust
+# rejudged 2026-10-21: refused by the display-face rule (the seven lamps must form the 3x5 figure-8 on one exterior face, vjeux 11:43Z); its lamps sit inside the stack
 name: seven-segment-stack-v5
 circuit: seven-segment 4
 port input.a0: -3 -2 -3
