@@ -123,6 +123,10 @@ pub enum CircuitCmd {
         /// and shulker).
         #[arg(long, value_delimiter = ',')]
         studies: Vec<String>,
+        /// With --all: only these kinds (a kind name, or its first word: `counter` covers every
+        /// `counter N`).
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
         /// The region `x0,y0,z0,x1,y1,z1` (default: the seed's box).
@@ -571,7 +575,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Material { designs, out, judge } => circuit::material::cli(&designs, &out, judge, version)?,
-        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, from_failing, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, kinds, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, from_failing, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -590,7 +594,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis, any_badges, from_failing };
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
-                circuit::compact::compact_all(&root, &studies, &o, &out)?;
+                circuit::compact::compact_all(&root, &studies, &kinds, &o, &out)?;
             } else if seeds.len() > 1 {
                 circuit::compact::compact_list(&seeds, &o, &out)?;
             } else {
