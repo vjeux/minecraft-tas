@@ -50,3 +50,15 @@ Escaped entities (leaving the build's box) and items loose for a whole 500-gt ba
   the first cane's next age step (cane2-10b: 5 blocks per cane with one water grate for both soils,
   but an item can land on the other piston's top; cane2-11b: 5.5, separate waters). Both lose an item
   in some tiled runs (intruder races, ledges); not archived yet.
+
+## Bamboo (2026-10-21)
+
+| design | blocks | result |
+|---|---|---|
+| [bamboo-hc-12b](bamboo/bamboo-hc-12b.txt) | 12 | robust x3, archived: a cart on the mud inside the stalk + a cart half over the third cell (takes the third block's item as it appears) |
+| [bamboo-cc-12b](bamboo/bamboo-cc-12b.txt) | 12 | 1 of 16: the third item lands on a regrown second block and the run ends first |
+| [bamboo-lp6-15b](bamboo/bamboo-lp6-15b.txt) | 15 | repeater pulse extender: the head does not stay long enough |
+| [bamboo-shaft-13b](bamboo/bamboo-shaft-13b.txt) | 13 | open north side over a cart: 1 of 16 (an item on the stump at the end) |
+| bamboo-shaft-14b/20b/22b, bamboo-8b, bamboo-down-9b, bamboo-mud-10b | | items pushed up through the cap (walled cell), a clock, items flung |
+
+Found with `farm-run --trace` (see WR.md mechanics).

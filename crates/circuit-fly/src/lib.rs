@@ -299,6 +299,12 @@ enum Cmd {
         height: i32,
         #[arg(long)]
         out: PathBuf,
+        /// Leave these cells out (`x,y,z;x,y,z`): judge fixtures (a part removed must fail)
+        #[arg(long)]
+        omit: Option<String>,
+        /// The design's name (default fly-elevator-<height>)
+        #[arg(long)]
+        name: Option<String>,
     },
     StartScan {
         designs: Vec<PathBuf>,
@@ -497,8 +503,19 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             std::fs::write(&out, m.to_text())?;
         }
-        Cmd::Elevator { height, out } => {
-            elevgen::design(height).save(&out)?;
+        Cmd::Elevator { height, out, omit, name } => {
+            let mut d = elevgen::design(height);
+            for c in omit.iter().flat_map(|s| s.split(';')).filter(|c| !c.trim().is_empty()) {
+                let v: Vec<i32> = c.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>().map_err(|e| anyhow::anyhow!("--omit {c}: {e}"))?;
+                anyhow::ensure!(v.len() == 3, "--omit {c}: want x,y,z");
+                let p = [v[0], v[1], v[2]];
+                anyhow::ensure!(d.blocks.remove(&p).is_some(), "--omit {c}: no block there");
+                d.ports.retain(|_, q| *q != p);
+            }
+            if let Some(n) = name {
+                d.name = n;
+            }
+            d.save(&out)?;
             println!("wrote {}", out.display());
         }
         Cmd::StartScan { designs, out, button, list, watcher, glue, threads } => {

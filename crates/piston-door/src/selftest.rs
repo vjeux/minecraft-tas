@@ -647,6 +647,8 @@ fn checks() -> Vec<Check> {
         // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
         // the audit's flip gaps (check::LEVER_FLIPS: off 4..20 gt after the launch, on again ...)
         ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
+        // the elevator judge (track fly 2026-10-21): rule B, a rider, the press sweep
+        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 85 gt, down 96 gt, rider carries a rider, calls and sends from each floor, 183 blocks, 10x11x13"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
@@ -733,6 +735,9 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/fly-docking-parks.txt".into());
     // and one that a 16 gt reflip leaves docked with the switch on
     s.push("designs/circuits/selftest/fly-docking-reflip.txt".into());
+    // the elevator judge: the generator's elevator without the top floor's send path (a press at
+    // the top while it stands there must send it down)
+    s.push("designs/circuits/selftest/elevator-no-top-send.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -804,7 +809,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
             has(&o[0], "FAIL: cal-fly-docking-reflip flying-machine: run with a 16 gt reflip: stops shuttling before the switch turns off")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused"))
+            has(&o[0], "FAIL: cal-elevator-no-top-send elevator 5: send down [frames 600..1080]: rests 5 blocks up, want the bottom floor")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused; an elevator that cannot be sent down from the top refused"))
         }),
     });
     v.push(Check {
@@ -981,9 +987,9 @@ fn checks() -> Vec<Check> {
         timeout: 400,
         pred: Box::new(|o| {
             has(&o[0], "IDENTICAL: smelter-1, 3661 frames")?;
-            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 14041 frames")?;
+            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 17241 frames")?;
             has(&o[2], "IDENTICAL: smelter-clock-2, 4061 frames")?;
-            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (14041 frames) and smelter-clock-2's base run (4061 frames) tick-identical in redsim".into())
+            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (17241 frames, 4 copies) and smelter-clock-2's base run (4061 frames) tick-identical in redsim".into())
         }),
     });
     // the auto-smelter's real-use judge and a calibration design for each check that must fail
@@ -1002,7 +1008,7 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| {
             has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
             has(&o[0], "SMELTER: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, 31 blocks, 3x5x6, redsim")?;
-            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
@@ -1021,7 +1027,7 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
             has(&o[0], "CIRCUIT: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, bill 60 iron, 1 quartz, 12 redstone, 31 blocks, 3x5x6, robust")?;
-            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): rotation 0: 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): rotation 0: 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;

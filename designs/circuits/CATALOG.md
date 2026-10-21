@@ -10,7 +10,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Logic gates](gates/CATALOG.md) | 11 | 7 | 0 |
 | [Memory](memory/CATALOG.md) | 69 | 6 | 1 |
 | [Piston extenders](pext/CATALOG.md) | 64 | 27 | 18 |
-| [Flying machines](fly/CATALOG.md) | 19 | 10 | 2 |
+| [Flying machines](fly/CATALOG.md) | 21 | 12 | 2 |
 | [Shulker loaders and unloaders](shulker/CATALOG.md) | 14 | 13 | 1 |
 | [TNT dupers](tnt/CATALOG.md) | 9 | 8 | 1 |
 | [BUD switches](bud/CATALOG.md) | 12 | 10 | 0 |
@@ -19,7 +19,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | Computational redstone | 0 | 0 | 0 |
 | [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
 | [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |
-| [Seven-segment display decoders](display/CATALOG.md) | 2 | 2 | 0 |
-| [Randomizers](random/CATALOG.md) | 1 | 1 | 0 |
+| [Seven-segment display decoders](display/CATALOG.md) | 3 | 1 | 2 |
+| [Randomizers](random/CATALOG.md) | 4 | 2 | 2 |
 | [Auto-smelters](smelter/CATALOG.md) | 4 | 4 | 0 |
-| [Crop farms](farm/CATALOG.md) | 3 | 3 | 0 |
+| [Crop farms](farm/CATALOG.md) | 4 | 4 | 0 |

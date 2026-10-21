@@ -395,7 +395,8 @@ pub enum CircuitCmd {
         /// The copies side by side (`tile:`) instead of one.
         #[arg(long)]
         tiled: bool,
-        /// 20-tick batches, every crop item seen off its way noted (where items get lost).
+        /// One tick per batch (a different run): the last 40 moves of every crop item that goes off
+        /// its way or comes to rest on a crop.
         #[arg(long)]
         trace: bool,
         /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
@@ -409,6 +410,14 @@ pub enum CircuitCmd {
         ticks: u32,
         #[arg(long, default_value_t = 3)]
         margin: i32,
+        /// The judge's redsim twin (`circuit::farm::sim_run`) instead of the game (rotation 0;
+        /// an offset is fine).
+        #[arg(long)]
+        sim: bool,
+        /// The run in the game AND on redsim: their records side by side (the twin follows the
+        /// game run of the same build and seed draw for draw, so they must agree).
+        #[arg(long, conflicts_with = "sim")]
+        compare: bool,
     },
     /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
     /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
@@ -980,11 +989,44 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin } => {
+        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare } => {
             let c = Circuit::load(&design)?;
             circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
-            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
             let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            if sim || compare {
+                anyhow::ensure!(turns == 0, "--sim / --compare: rotation 0 only (a turned build's entities are turned by the game)");
+                let base = if tiled { circuit::tiled(&c)? } else { c.clone() };
+                let rc = base.translated(off)?;
+                let twin = circuit::farm::sim_run(&rc, rts, ticks, margin);
+                if compare {
+                    let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                    let game = pool.map(vec![0u8], |w, _, _| circuit::farm::game_run(w, &rc, rts, ticks, margin)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                    let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
+                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless),
+                        Err(e) => format!("does not run: {e}"),
+                    };
+                    let (g, s) = (show(&game), show(&twin));
+                    println!("game:   {g}");
+                    println!("redsim: {s}");
+                    println!("{}: {}", rc.name(), if g == s { "SAME" } else { "DIFFERENT" });
+                    return Ok(());
+                }
+                let out = match twin {
+                    Ok(log) => circuit::farm::judge(&rc, &log),
+                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim: {why}"), metrics: Vec::new(), table: Vec::new() },
+                };
+                for l in &out.table {
+                    println!("{l}");
+                }
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                if out.pass {
+                    println!("FARM: {} {}{} (redsim): {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), if tiled { " (tiled run)" } else { "" }, m.join(", "));
+                } else {
+                    println!("FAIL: {} (redsim): {} ({})", c.name(), out.why, m.join(", "));
+                }
+                return Ok(());
+            }
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
             let out = circuit::farm::run_one(&pool, &c, tiled, turns, off, rts, ticks, margin)?;
             for l in &out.table {
                 println!("{l}");
