@@ -785,7 +785,14 @@ final class Sandbox {
         List<Entity> found = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos),
                 e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame);
         if (found.size() != 1) {
-            throw new IllegalArgumentException("use_entity: " + found.size() + " item frames in " + pos.toShortString() + ", expected 1");
+            List<Entity> near = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos).inflate(64),
+                    e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame || e instanceof ItemEntity);
+            StringBuilder where = new StringBuilder();
+            for (Entity n : near) {
+                where.append(" ").append(n.getType().toShortString()).append("@").append(n.blockPosition().toShortString())
+                        .append(" facing ").append(n.getDirection());
+            }
+            throw new IllegalArgumentException("use_entity: " + found.size() + " item frames in " + pos.toShortString() + ", expected 1 (frames and items within 64:" + where + ")");
         }
         Entity e = found.get(0);
         InteractionResult result = e.interact(mockPlayer(), net.minecraft.world.InteractionHand.MAIN_HAND, e.position());

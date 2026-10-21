@@ -1,0 +1,66 @@
+# archived 2026-10-21T03:16Z from designs/circuits/lock/tracks/lock/lock3-lines.txt by mctas circuit archive
+# CIRCUIT: lock3-lines lock 3 dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 8 gt, closes within 8 gt, 102 blocks, 6x5x10, robust
+name: lock3-lines
+circuit: lock 3
+port input.d0: -3 0 0 frame
+port input.k0: 4 0 1 frame
+port input.d1: -3 0 3 frame
+port input.k1: 4 0 4 frame
+port input.d2: -3 0 6 frame
+port input.k2: 4 0 7 frame
+port output: 0 3 -2
+entity: minecraft:item_frame -2.5 0.5 0.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame 4.5 0.5 1.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:3b}
+entity: minecraft:item_frame -2.5 0.5 3.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame 4.5 0.5 4.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:5b}
+entity: minecraft:item_frame -2.5 0.5 6.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame 4.5 0.5 7.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:1b}
+origin: -2 0 -2
+palette:
+  S minecraft:stone
+  w minecraft:redstone_wire
+  f minecraft:comparator[facing=west,mode=compare,powered=false]
+  k minecraft:comparator[facing=east,mode=compare,powered=false]
+  W minecraft:comparator[facing=west,mode=subtract,powered=false]
+  E minecraft:comparator[facing=east,mode=subtract,powered=false]
+  r minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  T minecraft:redstone_torch[lit=true]
+  L minecraft:redstone_lamp[lit=false]
+layer -1:
+  ......
+  ......
+  .S....
+  ....S.
+  ......
+  .S....
+  ....S.
+  ......
+  .S....
+  ....S.
+layer 0:
+  SS.SSS
+  S....S
+  SfSSSS
+  SSSSkS
+  S....S
+  SfSSSS
+  SSSSkS
+  S....S
+  SfSSSS
+  SSSSkS
+layer 1:
+  wwSwww
+  w....w
+  w.wWrw
+  wREw.w
+  w....w
+  w.wWrw
+  wREw.w
+  w....w
+  w.wWrw
+  wREw..
+layer 2:
+  ..T...
+layer 3:
+  ..L...

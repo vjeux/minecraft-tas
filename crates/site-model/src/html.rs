@@ -228,6 +228,7 @@ pub fn kind_words(kind: &str) -> String {
         "on-delay" => "Hold-to-activate",
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
+        "lock" => "Combination lock",
         _ => "",
     };
     if !words.is_empty() {
@@ -424,6 +425,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "bud" => "bud switch block update detector",
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
+            "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
